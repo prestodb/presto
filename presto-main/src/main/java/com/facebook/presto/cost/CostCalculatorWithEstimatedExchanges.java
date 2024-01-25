@@ -17,6 +17,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -128,7 +129,7 @@ public class CostCalculatorWithEstimatedExchanges
                     node.getLeft(),
                     node.getRight(),
                     stats,
-                    Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)),
+                    Objects.equals(node.getDistributionType(), Optional.of(JoinDistributionType.REPLICATED)),
                     taskCountEstimator.estimateSourceDistributedTaskCount());
         }
 

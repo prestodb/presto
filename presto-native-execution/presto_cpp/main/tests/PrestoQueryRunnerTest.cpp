@@ -87,7 +87,8 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
 
   auto veloxResults =
       velox::exec::test::AssertQueryBuilder(plan).copyResults(pool());
-  velox::exec::test::assertEqualResults(prestoResults, {veloxResults});
+  velox::exec::test::assertEqualResults(
+      prestoResults, plan->outputType(), {veloxResults});
 }
 
 } // namespace facebook::presto::test

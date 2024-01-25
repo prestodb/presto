@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.delete;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 
@@ -24,9 +25,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
-public class DeleteFile
+public final class DeleteFile
 {
     private final FileContent content;
     private final String path;
@@ -34,11 +38,16 @@ public class DeleteFile
     private final long recordCount;
     private final long fileSizeInBytes;
     private final List<Integer> equalityFieldIds;
-    private final Map<Integer, ByteBuffer> lowerBounds;
-    private final Map<Integer, ByteBuffer> upperBounds;
+    private final Map<Integer, byte[]> lowerBounds;
+    private final Map<Integer, byte[]> upperBounds;
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
+        Map<Integer, byte[]> lowerBounds = firstNonNull(deleteFile.lowerBounds(), ImmutableMap.<Integer, ByteBuffer>of())
+                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
+        Map<Integer, byte[]> upperBounds = firstNonNull(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of())
+                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
+
         return new DeleteFile(
                 deleteFile.content(),
                 deleteFile.path().toString(),
@@ -46,20 +55,20 @@ public class DeleteFile
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
-                deleteFile.lowerBounds(),
-                deleteFile.upperBounds());
+                lowerBounds,
+                upperBounds);
     }
 
     @JsonCreator
     public DeleteFile(
-            FileContent content,
-            String path,
-            FileFormat format,
-            long recordCount,
-            long fileSizeInBytes,
-            List<Integer> equalityFieldIds,
-            Map<Integer, ByteBuffer> lowerBounds,
-            Map<Integer, ByteBuffer> upperBounds)
+            @JsonProperty("content") FileContent content,
+            @JsonProperty("path") String path,
+            @JsonProperty("format") FileFormat format,
+            @JsonProperty("recordCount") long recordCount,
+            @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
+            @JsonProperty("equalityFieldIds") List<Integer> equalityFieldIds,
+            @JsonProperty("lowerBounds") Map<Integer, byte[]> lowerBounds,
+            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds)
     {
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
@@ -67,8 +76,8 @@ public class DeleteFile
         this.recordCount = recordCount;
         this.fileSizeInBytes = fileSizeInBytes;
         this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
-        this.lowerBounds = requireNonNull(lowerBounds, "lowerBounds is null");
-        this.upperBounds = requireNonNull(upperBounds, "upperBounds is null");
+        this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
+        this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
     }
 
     @JsonProperty
@@ -108,14 +117,23 @@ public class DeleteFile
     }
 
     @JsonProperty
-    public Map<Integer, ByteBuffer> getLowerBounds()
+    public Map<Integer, byte[]> getLowerBounds()
     {
         return lowerBounds;
     }
 
     @JsonProperty
-    public Map<Integer, ByteBuffer> getUpperBounds()
+    public Map<Integer, byte[]> getUpperBounds()
     {
         return upperBounds;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .addValue(path)
+                .add("records", recordCount)
+                .toString();
     }
 }

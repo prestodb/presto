@@ -96,21 +96,21 @@ import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getReadNullMaskedParquetEncryptedValue;
-import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
@@ -509,7 +509,7 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
-        if (useParquetColumnNames && isPushedDownSubfield(column)) {
+        if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }

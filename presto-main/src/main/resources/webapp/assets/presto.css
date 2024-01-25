@@ -170,11 +170,25 @@ pre {
 }
 
 .navbar-brand {
-    color: #fff;
+    color: #ffffff;
     text-transform: uppercase;
     font-size: 24px;
     padding-left: 30px;
     padding-top: 25px;
+}
+
+.navbar-brand a {
+    color: #ffffffa5;
+}
+
+.navbar-brand a:hover {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.navbar-brand a:visited {
+    color: #ffffffa5;
+    text-decoration: none;
 }
 
 .navbar img {
@@ -523,6 +537,29 @@ pre {
     height: 50px;
 }
 
+.breadcrumb-title {
+    text-align: right;
+    padding-right: 0px;
+}
+
+.breadcrumb {
+    background-color: transparent;
+    font-size: 18px;
+    padding-left: 0px;
+}
+
+.breadcrumb > .active {
+    color: #dadada;
+}
+
+.breadcrumb > li + li::before {
+    content: ".";
+    padding: 0 1px;
+}
+
+.grouplink::before {
+    content: ".";
+}
 /** ================== **/
 /** Query Details Page **/
 /** ================== **/
@@ -539,6 +576,10 @@ pre {
 #query-detail pre {
     margin-top: 5px;
     border: 1px #3a3a3a solid;
+}
+
+.nowrap {
+    white-space: nowrap;
 }
 
 /** Summary Section **/

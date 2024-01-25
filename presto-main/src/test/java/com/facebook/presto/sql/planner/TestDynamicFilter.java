@@ -28,6 +28,9 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -41,9 +44,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 
 public class TestDynamicFilter
         extends BasePlanTest
@@ -439,6 +439,7 @@ public class TestDynamicFilter
                 "SELECT 1 FROM part t0, part t1, part t2 " +
                         "WHERE t0.partkey = t1.partkey AND t0.partkey = t2.partkey " +
                         "AND t0.size + t1.size = t2.size",
+                noJoinReordering(),
                 anyTree(
                         join(
                                 INNER,

@@ -29,7 +29,11 @@ RUN dnf install -y java-11-openjdk less procps python3 \
         # Download jmx prometheus exporter \
         && curl -o /usr/lib/presto/utils/jmx_prometheus_javaagent-0.20.0.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar
 
-COPY etc $PRESTO_HOME/etc
+COPY etc/config.properties.example $PRESTO_HOME/etc/config.properties
+COPY etc/jvm.config.example $PRESTO_HOME/etc/jvm.config
+COPY etc/node.properties $PRESTO_HOME/etc/node.properties
 COPY entrypoint.sh /opt
+
+EXPOSE 8080
 
 ENTRYPOINT ["/opt/entrypoint.sh"]

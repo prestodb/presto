@@ -17,7 +17,6 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
@@ -40,7 +39,6 @@ public class DetachedNativeExecutionProcessFactory
     private final HttpClient httpClient;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     @Inject
@@ -49,14 +47,12 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
@@ -82,7 +78,6 @@ public class DetachedNativeExecutionProcessFactory
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    taskManagerConfig,
                     workerProperty);
         }
         catch (IOException e) {

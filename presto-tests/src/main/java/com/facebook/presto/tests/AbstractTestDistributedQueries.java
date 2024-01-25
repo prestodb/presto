@@ -33,6 +33,8 @@ import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -43,6 +45,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATE
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -63,6 +66,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
@@ -462,8 +466,9 @@ public abstract class AbstractTestDistributedQueries
                 "SHOW CREATE TABLE test_not_null_with_insert",
                 "VALUES '" + createTableStatement + "'");
 
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a) VALUES (date '2012-12-31')", "(?s).*column_b.*null.*");
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a, column_b) VALUES (date '2012-12-31', null)", "(?s).*column_b.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_b");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
+        assertQueryFails("INSERT INTO test_not_null_with_insert VALUES (date '2011-11-30', date '2011-10-01'), (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_not_null_with_insert ADD COLUMN column_c BIGINT NOT NULL");
         assertQuery(
@@ -474,8 +479,9 @@ public abstract class AbstractTestDistributedQueries
                         "   \"column_c\" bigint NOT NULL\n" +
                         ")'");
 
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "(?s).*column_c.*null.*");
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', null)", "(?s).*column_c.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_c");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2011-11-30', 123), (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
 
         assertUpdate("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
         assertUpdate("INSERT INTO test_not_null_with_insert (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
@@ -809,6 +815,17 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied("DELETE FROM test_delete where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*.test_delete.*", privilege("orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM test_delete where orderkey < 12", privilege("orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM test_delete", privilege("orders", SELECT_COLUMN));
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assertUpdate("CREATE TABLE test_update AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("UPDATE test_update SET orderstatus = 'O_UPDATED' WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM test_update", "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
+        assertUpdate("DROP TABLE test_update");
     }
 
     @Test
@@ -1223,40 +1240,22 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    public void testPayloadJoins()
+    public void testPayloadJoinApplicability()
     {
         Session sessionNoOpt = Session.builder(getSession())
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
                 .build();
 
         Session session = Session.builder(getSession())
                 .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
                 .build();
 
         assertUpdate("create table lineitem_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
         assertUpdate("create table part_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m3, map(ARRAY[1,3], ARRAY[2,4]) as m4 from part", 2000);
 
-        String[] queries = {
-                "SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)",
-                "SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-                "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[1,2], array[11,22]) as m3 from part) p on (l.partkey=p.partkey)",
-                "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[partkey], array[size]) as m3 from part) p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select * from lineitem_map where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select * from lineitem_map where orderkey <= 60000) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-                "SELECT cast (l.orderkey as int) as orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from lineitem_map) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-
-                "SELECT l.orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from lineitem_map where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-
-                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
-                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (l.orderkey+1= o.orderkey+1) left join part_map p on (l.partkey=p.partkey)",
-                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (cast(l.orderkey as int) = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1) left join part p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
-                "with lm as (select quantity + 1 as q1, * from lineitem_map) SELECT l.* FROM (select * from lm) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
-
-                "SELECT l.* FROM lineitem_map l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)"
-        };
+        final List<String> queries = getPayloadQueries("lineitem_map");
 
         for (String query : queries) {
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
@@ -1269,13 +1268,23 @@ public abstract class AbstractTestDistributedQueries
             assertEquals(materializedRows.getRowCount(), 60175);
         }
 
-        // Queries that we don't handle because of projections or lack of payload columns
+        // Queries that we don't handle because of unsupported operators or because intermediate queries use columns that will be hidden by the rewrite
         String[] nonOptimizableQueries = {
+                "SELECT l.* FROM (select * from lineitem inner join part using (partkey) where orderkey <= 60000) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
                 "with lm as (select if (quantity > 1, quantity, 1) as q1, * from lineitem_map), lm2 as (select if (q1 > 2, q1, 1) as q2, quantity,partkey,suppkey,linenumber,m1,m2 from lm left join orders o on (lm.orderkey=o.orderkey)) SELECT l.* FROM (select q2+3 as q3,partkey,suppkey,linenumber,m1,m2 from lm2) l left join part p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
-                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
-                "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem_map where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
-                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)"
+                "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
+                "SELECT l.*, p.m3, p.m4 FROM (select * from lineitem where false) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select distinct orderkey, partkey, quantity from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey, partkey, sum(tax) as ss from lineitem group by orderkey, partkey) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey, partkey, sum(1) as ss from lineitem group by orderkey, partkey, suppkey) l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select distinct orderkey, partkey from lineitem) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey, partkey, sum(1) as ss from lineitem group by orderkey, partkey) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)",
+                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) inner join part p on (l.partkey+1=p.partkey+1)",
+                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l inner join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)",
+                "SELECT l.* FROM (select m1, orderkey,partkey from lineitem_map where false) l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1) union select m1, orderkey,partkey from lineitem_map",
+                "SELECT l.* FROM (SELECT partkey,orderkey FROM UNNEST(ARRAY[1, 2], ARRAY[3, 4]) t(orderkey, partkey)) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey, partkey, count(*) from (select l.* from lineitem_map l left join orders o on (l.orderkey = o.orderkey)) group by orderkey, partkey) l left join part p on (l.partkey=p.partkey)",
         };
 
         for (String query : nonOptimizableQueries) {
@@ -1288,6 +1297,76 @@ public abstract class AbstractTestDistributedQueries
 
         MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
         assertEquals((Long) countStarQuery.getOnlyValue(), Long.valueOf(60175L));
+    }
+
+    @Test
+    public void testPayloadJoinCorrectness()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        assertUpdate("create table lineitem_small as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem order by partkey, orderkey limit 1000", 1000);
+
+        final List<String> queries = getPayloadQueries("lineitem_small");
+
+        for (String query : queries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
+    private static List<String> getPayloadQueries(String tableName)
+    {
+        String[] queries = {
+                "SELECT l.* FROM LINEITEM_TABLE l left join orders o on (l.orderkey+1 = o.orderkey+1) left join part p on (l.partkey+1=p.partkey+1)",
+                "SELECT l.* FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3 FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[1,2], array[11,22]) as m3 from part) p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3 FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[partkey], array[size]) as m3 from part) p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select * from LINEITEM_TABLE where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select * from LINEITEM_TABLE where orderkey <= 60000) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT cast (l.orderkey as int) as orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from LINEITEM_TABLE) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+
+                "SELECT l.orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from LINEITEM_TABLE where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+
+                "SELECT l.*, p.m3, p.m4 FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(ARRAY[1,3], ARRAY[2,4]) as m3, map(ARRAY[1,3], ARRAY[2,4]) as m4 from part) p on (l.partkey=p.partkey) union all SELECT l.*,map(ARRAY[1,3], ARRAY[2,4]),map(ARRAY[1,3], ARRAY[2,4]) FROM LINEITEM_TABLE l where false",
+                "SELECT l.*, p.brand, p.size FROM LINEITEM_TABLE l left join orders o on (l.orderkey+1= o.orderkey+1) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.brand, p.size FROM LINEITEM_TABLE l left join orders o on (cast(l.orderkey as int) = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey+1 as ok1, * from LINEITEM_TABLE) l left join orders o on (l.ok1 = o.orderkey+1) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from LINEITEM_TABLE) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
+                "with lm as (select quantity + 1 as q1, * from LINEITEM_TABLE) SELECT l.* FROM (select * from lm) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from LINEITEM_TABLE) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
+                "SELECT l.* FROM LINEITEM_TABLE l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from LINEITEM_TABLE) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
+                "SELECT l.* FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey) left join (select 1 as m) mm on p.partkey=mm.m",
+                "SELECT l.* FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey) left join (select 1 as m) mm on p.partkey+1=mm.m",
+                "select * from (SELECT l.* FROM LINEITEM_TABLE l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t, (select * from nation where name='JAPAN')",
+        };
+        return Arrays.stream(queries).map(q -> q.replace("LINEITEM_TABLE", tableName)).collect(toImmutableList());
+    }
+
+    @Test
+    public void testRemoveRedundantCastToVarcharInJoinClause()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "true")
+                .build();
+
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+        assertUpdate("create table lineitem_map_cast as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
+        assertQueryWithSameQueryRunner(session, "SELECT l.* FROM lineitem_map_cast l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)", disabled);
     }
 
     @Test
@@ -1434,6 +1513,11 @@ public abstract class AbstractTestDistributedQueries
 
     private String sanitizePlan(String explain)
     {
-        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX").replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "").replaceAll("Values => .*\n", "\n");
+        return explain
+                .replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX")
+                .replaceAll("hashvalue_[0-9][0-9]", "hashvalueXXX")
+                .replaceAll("sum_[0-9][0-9]", "sumXXX")
+                .replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "")
+                .replaceAll("Values => .*\n", "\n");
     }
 }

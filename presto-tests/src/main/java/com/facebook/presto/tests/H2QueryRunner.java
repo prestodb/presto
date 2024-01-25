@@ -96,6 +96,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.PART;
 import static io.airlift.tpch.TpchTable.PART_SUPPLIER;
 import static io.airlift.tpch.TpchTable.REGION;
+import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -193,6 +194,17 @@ public class H2QueryRunner
                 "    comment VARCHAR(117) NOT NULL    \n" +
                 " ) ");
         insertRows(tpchMetadata, CUSTOMER);
+
+        handle.execute(" CREATE TABLE supplier ( \n" +
+                "    suppkey bigint NOT NULL,         \n" +
+                "    name varchar(25) NOT NULL,       \n" +
+                "    address varchar(40) NOT NULL,    \n" +
+                "    nationkey bigint NOT NULL,       \n" +
+                "    phone varchar(15) NOT NULL,      \n" +
+                "    acctbal double NOT NULL,         \n" +
+                "    comment varchar(101) NOT NULL    \n" +
+                " ) ");
+        insertRows(tpchMetadata, SUPPLIER);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)

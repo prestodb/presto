@@ -352,6 +352,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitTableVersion(TableVersionExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitNotExpression(NotExpression node, C context)
     {
         return visitExpression(node, context);
@@ -650,6 +655,16 @@ public abstract class AstVisitor<R, C>
     protected R visitDelete(Delete node, C context)
     {
         return visitStatement(node, context);
+    }
+
+    protected R visitUpdate(Update node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitUpdateAssignment(UpdateAssignment node, C context)
+    {
+        return visitNode(node, context);
     }
 
     protected R visitTruncateTable(TruncateTable node, C context)

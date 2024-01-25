@@ -53,6 +53,9 @@ public class ArbitraryAggregationFunction
     public static final ArbitraryAggregationFunction ARBITRARY_AGGREGATION = new ArbitraryAggregationFunction();
     private static final String NAME = "arbitrary";
 
+    private static final String ANY_VALUE_NAME = "any_value";
+    public static final ArbitraryAggregationFunction ANY_VALUE_AGGREGATION = new ArbitraryAggregationFunction(ANY_VALUE_NAME);
+
     private static final MethodHandle LONG_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle DOUBLE_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableDoubleState.class, Block.class, int.class);
     private static final MethodHandle BOOLEAN_INPUT_FUNCTION = methodHandle(ArbitraryAggregationFunction.class, "input", Type.class, NullableBooleanState.class, Block.class, int.class);
@@ -70,11 +73,21 @@ public class ArbitraryAggregationFunction
 
     protected ArbitraryAggregationFunction()
     {
-        super(NAME,
+        this(NAME);
+    }
+
+    protected ArbitraryAggregationFunction(String name)
+    {
+        super(name,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("T"),
                 ImmutableList.of(parseTypeSignature("T")));
+    }
+
+    protected static String getAnyValueName()
+    {
+        return ANY_VALUE_NAME;
     }
 
     @Override

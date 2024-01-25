@@ -22,9 +22,9 @@ public class PrestoSparkFailure
 {
     private final String type;
     private final String errorCode;
-    private final List<RetryExecutionStrategy> retryExecutionStrategies;
+    private final List<ExecutionStrategy> retryExecutionStrategies;
 
-    public PrestoSparkFailure(String message, Throwable cause, String type, String errorCode, List<RetryExecutionStrategy> retryExecutionStrategies)
+    public PrestoSparkFailure(String message, Throwable cause, String type, String errorCode, List<ExecutionStrategy> retryExecutionStrategies)
     {
         super(message, cause);
         this.type = requireNonNull(type, "type is null");
@@ -42,7 +42,7 @@ public class PrestoSparkFailure
         return errorCode;
     }
 
-    public List<RetryExecutionStrategy> getRetryExecutionStrategies()
+    public List<ExecutionStrategy> getRetryExecutionStrategies()
     {
         return retryExecutionStrategies;
     }

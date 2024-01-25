@@ -37,7 +37,11 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -48,6 +52,7 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -111,6 +116,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -385,7 +391,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)%n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s), %s tasks%n",
                             stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageExecutionStats.getProcessedInputPositions()),
@@ -393,7 +399,8 @@ public class PlanPrinter
                             formatDouble(avgPositionsPerTask),
                             formatDouble(sdAmongTasks),
                             formatPositions(stageExecutionStats.getOutputPositions()),
-                            stageExecutionStats.getOutputDataSize()));
+                            stageExecutionStats.getOutputDataSize(),
+                            tasks.size()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
@@ -496,7 +503,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
@@ -596,7 +603,7 @@ public class PlanPrinter
         public Void visitMergeJoin(MergeJoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
@@ -826,6 +833,41 @@ public class PlanPrinter
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             printTableScanInfo(nodeOutput, node, nodeStats);
             return null;
+        }
+
+        @Override
+        public Void visitSequence(SequenceNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "Sequence");
+            nodeOutput.appendDetails(getCteExecutionOrder(node));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteConsumer(CteConsumerNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "CteConsumer");
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteProducer(CteProducerNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "CteProducer");
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteReference(CteReferenceNode node, Void context)
+        {
+            addNode(node, "CteReference");
+            return processChildren(node, context);
         }
 
         @Override
@@ -1351,6 +1393,22 @@ public class PlanPrinter
             representation.addNode(nodeOutput);
             return nodeOutput;
         }
+    }
+
+    public static String getCteExecutionOrder(SequenceNode node)
+    {
+        List<CteProducerNode> cteProducers = node.getCteProducers().stream()
+                .filter(c -> (c instanceof CteProducerNode))
+                .map(CteProducerNode.class::cast)
+                .collect(Collectors.toList());
+        if (cteProducers.isEmpty()) {
+            return "";
+        }
+        Collections.reverse(cteProducers);
+        return format("executionOrder = %s",
+                cteProducers.stream()
+                        .map(CteProducerNode::getCteName)
+                        .collect(Collectors.joining(" -> ", "{", "}")));
     }
 
     public static String getDynamicFilterAssignments(AbstractJoinNode node)

@@ -20,7 +20,7 @@ namespace facebook::presto {
 
 // Sets up all the counters in the presto cpp, but specifying their types.
 // See velox/common/base/StatsReporter.h for the interface.
-void registerPrestoCppCounters();
+void registerPrestoMetrics();
 
 constexpr folly::StringPiece kCounterDriverCPUExecutorQueueSize{
     "presto_cpp.driver_cpu_executor_queue_size"};
@@ -66,17 +66,19 @@ constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
     "presto_cpp.num_zombie_velox_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
+constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
+    "presto_cpp.num_tasks_with_stuck_operator"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
     "presto_cpp.num_blocked_drivers"};
 
-/// Number of total PartitionedOutputBuffer managed by all
-/// PartitionedOutputBufferManager
+/// Number of total OutputBuffer managed by all
+/// OutputBufferManager
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
 /// Latency in millisecond of the get data call of a
-/// PartitionedOutputBufferManager.
+/// OutputBufferManager.
 constexpr folly::StringPiece kCounterPartitionedOutputBufferGetDataLatencyMs{
     "presto_cpp.partitioned_output_buffer_get_data_latency_ms"};
 
@@ -162,6 +164,9 @@ constexpr folly::StringPiece kCounterArbitratorNumReclaimedBytes{
 /// The free memory capacity in bytes.
 constexpr folly::StringPiece kCounterArbitratorFreeCapacityBytes{
     "presto_cpp.arbitrator_free_capacity_bytes"};
+/// The number of non-reclaimable operator reclaim attempts.
+constexpr folly::StringPiece kCounterArbitratorNonReclaimableAttempts{
+    "presto_cpp.arbitrator_non_reclaimable_attempts"};
 
 /// ================== Disk Spilling Counters =================
 
@@ -196,6 +201,10 @@ constexpr folly::StringPiece kCounterSpillFlushTimeUs{
 /// The time spent on writing spilled rows to disk.
 constexpr folly::StringPiece kCounterSpillWriteTimeUs{
     "presto_cpp.spill_write_time_us"};
+/// The number of times that a spillable operator exceeds the max spill level
+/// limit that can't spill.
+constexpr folly::StringPiece kCounterSpillMaxLevelExceeded{
+    "presto_cpp.spill_exceeded_max_level_count"};
 /// The current spilling memory usage in bytes.
 constexpr folly::StringPiece kCounterSpillMemoryBytes{
     "presto_cpp.spill_memory_bytes"};
@@ -203,7 +212,12 @@ constexpr folly::StringPiece kCounterSpillMemoryBytes{
 constexpr folly::StringPiece kCounterSpillPeakMemoryBytes{
     "presto_cpp.spill_peak_memory_bytes"};
 
-/// ================== Cache Counters ==================
+/// ================== AsyncDataCache Counters ==================
+
+/// Max possible age of AsyncDataCache and SsdCache entries since the raw file
+/// was opened to load the cache.
+constexpr folly::StringPiece kCounterCacheMaxAgeSecs{
+    "presto_cpp.cache_max_age_secs"};
 
 /// Total number of cache entries.
 constexpr folly::StringPiece kCounterMemoryCacheNumEntries{
@@ -242,7 +256,7 @@ constexpr folly::StringPiece kCounterMemoryCacheTotalPrefetchBytes{
 /// for entries in cache.
 constexpr folly::StringPiece kCounterMemoryCacheSumEvictScore{
     "presto_cpp.memory_cache_sum_evict_score"};
-/// Cumulated number of hits (saved IO). The first hit to a prefetched entry
+/// Cumulative number of hits (saved IO). The first hit to a prefetched entry
 /// does not count.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeHit{
     "presto_cpp.memory_cache_num_cumulative_hit"};
@@ -250,7 +264,7 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeHit{
 /// prefetched entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheNumHit{
     "presto_cpp.memory_cache_num_hit"};
-/// Cumulated amount of hit bytes (saved IO). The first hit to a prefetched
+/// Cumulative amount of hit bytes (saved IO). The first hit to a prefetched
 /// entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheCumulativeHitBytes{
     "presto_cpp.memory_cache_cumulative_hit_bytes"};
@@ -258,26 +272,26 @@ constexpr folly::StringPiece kCounterMemoryCacheCumulativeHitBytes{
 /// to a prefetched entry does not count.
 constexpr folly::StringPiece kCounterMemoryCacheHitBytes{
     "presto_cpp.memory_cache_hit_bytes"};
-/// Cumulated number of new entries created.
+/// Cumulative number of new entries created.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeNew{
     "presto_cpp.memory_cache_num_cumulative_new"};
 /// Number of new entries created since last counter retrieval.
 constexpr folly::StringPiece kCounterMemoryCacheNumNew{
     "presto_cpp.memory_cache_num_new"};
-/// Cumulated number of times a valid entry was removed in order to make space.
+/// Cumulative number of times a valid entry was removed in order to make space.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeEvict{
     "presto_cpp.memory_cache_num_cumulative_evict"};
 /// Number of times a valid entry was removed in order to make space, since last
 /// counter retrieval.
 constexpr folly::StringPiece kCounterMemoryCacheNumEvict{
     "presto_cpp.memory_cache_num_evict"};
-/// Cumulated number of entries considered for evicting.
+/// Cumulative number of entries considered for evicting.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeEvictChecks{
     "presto_cpp.memory_cache_num_cumulative_evict_checks"};
 /// Number of entries considered for evicting, since last counter retrieval.
 constexpr folly::StringPiece kCounterMemoryCacheNumEvictChecks{
     "presto_cpp.memory_cache_num_evict_checks"};
-/// Cumulated number of times a user waited for an entry to transit from
+/// Cumulative number of times a user waited for an entry to transit from
 /// exclusive to shared mode.
 constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeWaitExclusive{
     "presto_cpp.memory_cache_num_cumulative_wait_exclusive"};
@@ -293,6 +307,26 @@ constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAllocClocks{
 /// since last counter retrieval
 constexpr folly::StringPiece kCounterMemoryCacheNumAllocClocks{
     "presto_cpp.memory_cache_num_alloc_clocks"};
+/// Cumulative number of AsyncDataCache entries that are aged out and evicted
+/// given configured TTL.
+constexpr folly::StringPiece kCounterMemoryCacheNumCumulativeAgedOutEntries{
+    "presto_cpp.memory_cache_num_cumulative_aged_out_entries"};
+/// Number of AsyncDataCache entries that are aged out and evicted
+/// given configured TTL.
+constexpr folly::StringPiece kCounterMemoryCacheNumAgedOutEntries{
+    "presto_cpp.memory_cache_num_aged_out_entries"};
+
+/// ================== SsdCache Counters ==================
+
+/// Number of regions currently cached by SSD.
+constexpr folly::StringPiece kCounterSsdCacheCachedRegions{
+    "presto_cpp.ssd_cache_cached_regions"};
+/// Number of entries currently cached by SSD.
+constexpr folly::StringPiece kCounterSsdCacheCachedEntries{
+    "presto_cpp.ssd_cache_cached_entries"};
+/// Total bytes currently cached by SSD.
+constexpr folly::StringPiece kCounterSsdCacheCachedBytes{
+    "presto_cpp.ssd_cache_cached_bytes"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadEntries{
     "presto_cpp.ssd_cache_cumulative_read_entries"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeReadBytes{
@@ -301,10 +335,15 @@ constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenEntries{
     "presto_cpp.ssd_cache_cumulative_written_entries"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeWrittenBytes{
     "presto_cpp.ssd_cache_cumulative_written_bytes"};
-constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedEntries{
-    "presto_cpp.ssd_cache_cumulative_cached_entries"};
-constexpr folly::StringPiece kCounterSsdCacheCumulativeCachedBytes{
-    "presto_cpp.ssd_cache_cumulative_cached_bytes"};
+/// Cumulative number of SsdCache entries that are aged out and evicted given
+/// configured TTL.
+constexpr folly::StringPiece kCounterSsdCacheCumulativeAgedOutEntries{
+    "presto_cpp.ssd_cache_cumulative_aged_out_entries"};
+/// Cumulative number of SsdCache regions that are aged out and evicted given
+/// configured TTL.
+constexpr folly::StringPiece kCounterSsdCacheCumulativeAgedOutRegions{
+    "presto_cpp.ssd_cache_cumulative_aged_out_regions"};
+
 constexpr folly::StringPiece kCounterSsdCacheCumulativeOpenSsdErrors{
     "presto_cpp.ssd_cache_cumulative_open_ssd_errors"};
 constexpr folly::StringPiece kCounterSsdCacheCumulativeOpenCheckpointErrors{

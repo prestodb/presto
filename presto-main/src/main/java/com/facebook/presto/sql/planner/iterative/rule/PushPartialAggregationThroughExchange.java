@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PartialAggregationStatsEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Capture;
@@ -47,7 +48,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
+import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
+import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -55,6 +59,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -126,8 +131,7 @@ public class PushPartialAggregationThroughExchange
         if (!decomposable ||
                 partialAggregationStrategy == NEVER ||
                 partialAggregationStrategy == AUTOMATIC &&
-                        partialAggregationNotUseful(aggregationNode, exchangeNode, context) &&
-                        aggregationNode.getGroupingKeys().size() == 1) {
+                        partialAggregationNotUseful(aggregationNode, exchangeNode, context, aggregationNode.getGroupingKeys().size())) {
             return Result.empty();
         }
 
@@ -156,6 +160,11 @@ public class PushPartialAggregationThroughExchange
 
         // currently, we only support plans that don't use pre-computed hash functions
         if (aggregationNode.getHashVariable().isPresent() || exchangeNode.getPartitioningScheme().getHashColumn().isPresent()) {
+            return Result.empty();
+        }
+
+        // System table scan must be run in Java on coordinator and partial aggregation output may not be compatible with Velox
+        if (isNativeExecutionEnabled(context.getSession()) && containsSystemTableScan(exchangeNode, context.getLookup())) {
             return Result.empty();
         }
 
@@ -289,6 +298,7 @@ public class PushPartialAggregationThroughExchange
             preGroupedSymbols = ImmutableList.copyOf(node.getGroupingSets().getGroupingKeys());
         }
 
+        Integer aggregationId = Integer.parseInt(context.getIdAllocator().getNextId().getId());
         PlanNode partial = new AggregationNode(
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
@@ -300,7 +310,8 @@ public class PushPartialAggregationThroughExchange
                 preGroupedSymbols,
                 PARTIAL,
                 node.getHashVariable(),
-                node.getGroupIdVariable());
+                node.getGroupIdVariable(),
+                Optional.of(aggregationId));
 
         return new AggregationNode(
                 node.getSourceLocation(),
@@ -313,20 +324,31 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 FINAL,
                 node.getHashVariable(),
-                node.getGroupIdVariable());
+                node.getGroupIdVariable(),
+                Optional.of(aggregationId));
     }
 
-    private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context)
+    private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context, int numAggregationKeys)
     {
         StatsProvider stats = context.getStatsProvider();
         PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
-        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode);
-        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode);
+        double inputSize = exchangeStats.getOutputSizeInBytes(exchangeNode);
+        double outputSize = aggregationStats.getOutputSizeInBytes(aggregationNode);
+        PartialAggregationStatsEstimate partialAggregationStatsEstimate = aggregationStats.getPartialAggregationStatsEstimate();
+        boolean isConfident = exchangeStats.isConfident();
+        // keep old behavior of skipping partial aggregation only for single-key aggregations
+        boolean numberOfKeyCheck = usePartialAggregationHistory(context.getSession()) || numAggregationKeys == 1;
+        if (!isUnknown(partialAggregationStatsEstimate) && usePartialAggregationHistory(context.getSession())) {
+            isConfident = aggregationStats.isConfident();
+            // use rows instead of bytes when use_partial_aggregation_history flag is on
+            inputSize = partialAggregationStatsEstimate.getInputRowCount();
+            outputSize = partialAggregationStatsEstimate.getOutputRowCount();
+        }
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
         // calling this function means we are using a cost-based strategy for this optimization
-        return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;
+        return numberOfKeyCheck && isConfident && outputSize > inputSize * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)

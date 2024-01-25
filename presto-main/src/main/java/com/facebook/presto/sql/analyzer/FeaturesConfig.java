@@ -90,6 +90,8 @@ public class FeaturesConfig
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
+
+    private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
@@ -169,6 +171,8 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
+    private boolean adaptivePartialAggregationEnabled;
+    private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
@@ -271,6 +275,7 @@ public class FeaturesConfig
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
+    private LeftJoinArrayContainsToInnerJoinStrategy leftJoinWithArrayContainsToEquiJoinStrategy = LeftJoinArrayContainsToInnerJoinStrategy.DISABLED;
     private boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
@@ -279,8 +284,20 @@ public class FeaturesConfig
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
+    private boolean rewriteExpressionWithConstantVariable = true;
 
     private boolean preProcessMetadataCalls;
+    private boolean handleComplexEquiJoins;
+    private boolean useHBOForScaledWriters;
+
+    private boolean usePartialAggregationHistory;
+
+    private boolean trackPartialAggregationHistory = true;
+
+    private boolean removeRedundantCastToVarcharInJoin = true;
+    private boolean skipHashGenerationForJoinWithTableScanInput;
+    private long kHyperLogLogAggregationGroupNumberLimit;
+    private boolean generateDomainFilters;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -335,6 +352,12 @@ public class FeaturesConfig
         {
             return this == TOP_DOWN;
         }
+    }
+
+    public enum CteMaterializationStrategy
+    {
+        ALL, // Materialize all CTES
+        NONE // Materialize no ctes
     }
 
     public enum TaskSpillingStrategy
@@ -412,6 +435,13 @@ public class FeaturesConfig
          * to check if this function can operate on NULL inputs
          */
         USE_FUNCTION_METADATA
+    }
+
+    // TODO: Implement cost based strategy
+    public enum LeftJoinArrayContainsToInnerJoinStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED
     }
 
     public double getCpuCostWeight()
@@ -551,6 +581,19 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyMapSubscript(boolean value)
     {
         this.legacyMapSubscript = value;
+        return this;
+    }
+
+    public CteMaterializationStrategy getCteMaterializationStrategy()
+    {
+        return cteMaterializationStrategy;
+    }
+
+    @Config("cte-materialization-strategy")
+    @ConfigDescription("Set strategy used to determine whether to materialize CTEs (ALL, NONE)")
+    public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
+    {
+        this.cteMaterializationStrategy = cteMaterializationStrategy;
         return this;
     }
 
@@ -1051,6 +1094,30 @@ public class FeaturesConfig
     public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
     {
         this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isAdaptivePartialAggregationEnabled()
+    {
+        return adaptivePartialAggregationEnabled;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation")
+    public FeaturesConfig setAdaptivePartialAggregationEnabled(boolean adaptivePartialAggregationEnabled)
+    {
+        this.adaptivePartialAggregationEnabled = adaptivePartialAggregationEnabled;
+        return this;
+    }
+
+    public double getAdaptivePartialAggregationRowsReductionRatioThreshold()
+    {
+        return adaptivePartialAggregationRowsReductionRatioThreshold;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation-rows-reduction-ratio-threshold")
+    public FeaturesConfig setAdaptivePartialAggregationRowsReductionRatioThreshold(double adaptivePartialAggregationRowsReductionRatioThreshold)
+    {
+        this.adaptivePartialAggregationRowsReductionRatioThreshold = adaptivePartialAggregationRowsReductionRatioThreshold;
         return this;
     }
 
@@ -2712,6 +2779,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public LeftJoinArrayContainsToInnerJoinStrategy getLeftJoinWithArrayContainsToEquiJoinStrategy()
+    {
+        return leftJoinWithArrayContainsToEquiJoinStrategy;
+    }
+
+    @Config("optimizer.left-join-with-array-contains-to-equi-join-strategy")
+    @ConfigDescription("When to apply rewrite left join with array contains to equi join")
+    public FeaturesConfig setLeftJoinWithArrayContainsToEquiJoinStrategy(LeftJoinArrayContainsToInnerJoinStrategy leftJoinWithArrayContainsToEquiJoinStrategy)
+    {
+        this.leftJoinWithArrayContainsToEquiJoinStrategy = leftJoinWithArrayContainsToEquiJoinStrategy;
+        return this;
+    }
+
     public boolean isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin()
     {
         return this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
@@ -2800,6 +2880,123 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
     {
         this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
+        return this;
+    }
+
+    public boolean isUseHBOForScaledWriters()
+    {
+        return this.useHBOForScaledWriters;
+    }
+
+    @Config("optimizer.use-hbo-for-scaled-writers")
+    @ConfigDescription("Enable HBO for setting initial number of tasks for scaled writers")
+    public FeaturesConfig setUseHBOForScaledWriters(boolean useHBOForScaledWriters)
+    {
+        this.useHBOForScaledWriters = useHBOForScaledWriters;
+        return this;
+    }
+
+    public boolean isUsePartialAggregationHistory()
+    {
+        return this.usePartialAggregationHistory;
+    }
+
+    @Config("optimizer.use-partial-aggregation-history")
+    @ConfigDescription("Use partial aggregation histories for splitting aggregations")
+    public FeaturesConfig setUsePartialAggregationHistory(boolean usePartialAggregationHistory)
+    {
+        this.usePartialAggregationHistory = usePartialAggregationHistory;
+        return this;
+    }
+
+    public boolean isTrackPartialAggregationHistory()
+    {
+        return this.trackPartialAggregationHistory;
+    }
+
+    @Config("optimizer.track-partial-aggregation-history")
+    @ConfigDescription("Track partial aggregation histories")
+    public FeaturesConfig setTrackPartialAggregationHistory(boolean trackPartialAggregationHistory)
+    {
+        this.trackPartialAggregationHistory = trackPartialAggregationHistory;
+        return this;
+    }
+
+    public boolean isRemoveRedundantCastToVarcharInJoin()
+    {
+        return removeRedundantCastToVarcharInJoin;
+    }
+
+    @Config("optimizer.remove-redundant-cast-to-varchar-in-join")
+    @ConfigDescription("If both left and right side of join clause are varchar cast from int/bigint, remove the cast")
+    public FeaturesConfig setRemoveRedundantCastToVarcharInJoin(boolean removeRedundantCastToVarcharInJoin)
+    {
+        this.removeRedundantCastToVarcharInJoin = removeRedundantCastToVarcharInJoin;
+        return this;
+    }
+
+    public boolean getHandleComplexEquiJoins()
+    {
+        return handleComplexEquiJoins;
+    }
+
+    @Config("optimizer.handle-complex-equi-joins")
+    @ConfigDescription("Handle complex equi-join conditions to open up join space for join reordering")
+    public FeaturesConfig setHandleComplexEquiJoins(boolean handleComplexEquiJoins)
+    {
+        this.handleComplexEquiJoins = handleComplexEquiJoins;
+        return this;
+    }
+
+    public boolean isSkipHashGenerationForJoinWithTableScanInput()
+    {
+        return skipHashGenerationForJoinWithTableScanInput;
+    }
+
+    @Config("optimizer.skip-hash-generation-for-join-with-table-scan-input")
+    @ConfigDescription("Skip hash generation for join, when input is table scan node")
+    public FeaturesConfig setSkipHashGenerationForJoinWithTableScanInput(boolean skipHashGenerationForJoinWithTableScanInput)
+    {
+        this.skipHashGenerationForJoinWithTableScanInput = skipHashGenerationForJoinWithTableScanInput;
+        return this;
+    }
+
+    public long getKHyperLogLogAggregationGroupNumberLimit()
+    {
+        return kHyperLogLogAggregationGroupNumberLimit;
+    }
+
+    @Config("khyperloglog-agg-group-limit")
+    @ConfigDescription("Maximum number of groups for khyperloglog_agg per task")
+    public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
+    {
+        this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
+        return this;
+    }
+
+    public boolean getGenerateDomainFilters()
+    {
+        return generateDomainFilters;
+    }
+
+    @Config("optimizer.generate-domain-filters")
+    @ConfigDescription("Infer predicates from column domains during predicate pushdown")
+    public FeaturesConfig setGenerateDomainFilters(boolean generateDomainFilters)
+    {
+        this.generateDomainFilters = generateDomainFilters;
+        return this;
+    }
+
+    public boolean isRewriteExpressionWithConstantVariable()
+    {
+        return this.rewriteExpressionWithConstantVariable;
+    }
+
+    @Config("optimizer.rewrite-expression-with-constant-variable")
+    @ConfigDescription("Rewrite expression with constant variables")
+    public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
+    {
+        this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
         return this;
     }
 }

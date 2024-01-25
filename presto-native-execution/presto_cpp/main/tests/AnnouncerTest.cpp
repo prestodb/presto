@@ -15,6 +15,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 
 DECLARE_bool(velox_memory_leak_check_enabled);
@@ -55,16 +56,21 @@ struct PromiseHolder {
   folly::Promise<T> promise_;
 };
 
-static std::unique_ptr<http::HttpServer> createHttpServer(bool useHttps) {
+static std::unique_ptr<http::HttpServer> createHttpServer(
+    bool useHttps,
+    std::shared_ptr<folly::IOThreadPoolExecutor> ioPool =
+        std::make_shared<folly::IOThreadPoolExecutor>(8)) {
   if (useHttps) {
     std::string certPath = getCertsPath("test_cert1.pem");
     std::string keyPath = getCertsPath("test_key1.pem");
     std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     auto httpsConfig = std::make_unique<http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
-    return std::make_unique<http::HttpServer>(nullptr, std::move(httpsConfig));
+    return std::make_unique<http::HttpServer>(
+        ioPool, nullptr, std::move(httpsConfig));
   } else {
     return std::make_unique<http::HttpServer>(
+        ioPool,
         std::make_unique<http::HttpConfig>(
             folly::SocketAddress("127.0.0.1", 0)));
   }
@@ -95,7 +101,16 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
 class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
+
+    std::string keyPath = getCertsPath("client_ca.pem");
+    std::string ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384";
+    sslContext_ = std::make_shared<folly::SSLContext>();
+    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+    sslContext_->setCiphersOrThrow(ciphers);
   }
+
+ protected:
+  folly::SSLContextPtr sslContext_;
 };
 
 class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
@@ -151,10 +166,6 @@ TEST_P(AnnouncerTestSuite, basic) {
   auto coordinatorDiscoverer =
       std::make_shared<TestCoordinatorDiscoverer>(std::move(promise), useHttps);
 
-  std::string keyPath = useHttps ? getCertsPath("client_ca.pem") : "";
-  std::string ciphers =
-      useHttps ? "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384" : "";
-
   Announcer announcer(
       "127.0.0.1",
       useHttps,
@@ -166,8 +177,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       "test-node-location",
       {"hive", "tpch"},
       500 /*milliseconds*/,
-      keyPath,
-      ciphers);
+      useHttps ? sslContext_ : nullptr);
 
   announcer.start();
   ASSERT_TRUE(std::move(future).getTry().hasValue());

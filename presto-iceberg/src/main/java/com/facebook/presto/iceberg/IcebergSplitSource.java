@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -23,40 +22,29 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionField;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
-import org.apache.iceberg.types.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getNodeSelectionStrategy;
-import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.iceberg.types.Type.TypeID.BINARY;
-import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
 
     private final TableScan tableScan;
@@ -72,10 +60,8 @@ public class IcebergSplitSource
     {
         this.session = requireNonNull(session, "session is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.fileScanTaskIterable = requireNonNull(fileScanTaskIterable, "combinedScanIterable is null");
         this.fileScanTaskIterator = fileScanTaskIterable.iterator();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
-        closer.register(fileScanTaskIterable);
         closer.register(fileScanTaskIterator);
     }
 
@@ -103,6 +89,9 @@ public class IcebergSplitSource
     {
         try {
             closer.close();
+            // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+            //  correct release resources holds by iterator.
+            fileScanTaskIterator = CloseableIterator.empty();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -125,39 +114,8 @@ public class IcebergSplitSource
                 getPartitionKeys(task),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
-                task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()));
-    }
-
-    private static Map<Integer, HivePartitionKey> getPartitionKeys(FileScanTask scanTask)
-    {
-        StructLike partition = scanTask.file().partition();
-        PartitionSpec spec = scanTask.spec();
-        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, HivePartitionKey> partitionKeys = new HashMap<>();
-
-        fieldToIndex.forEach((field, index) -> {
-            int id = field.sourceId();
-            String colName = field.name();
-            Type type = spec.schema().findType(id);
-            Class<?> javaClass = type.typeId().javaClass();
-            Object value = partition.get(index, javaClass);
-
-            if (value == null) {
-                partitionKeys.put(id, new HivePartitionKey(colName, Optional.empty()));
-            }
-            else {
-                HivePartitionKey partitionValue;
-                if (type.typeId() == FIXED || type.typeId() == BINARY) {
-                    // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new HivePartitionKey(colName, Optional.of(new String(((ByteBuffer) value).array(), UTF_8)));
-                }
-                else {
-                    partitionValue = new HivePartitionKey(colName, Optional.of(value.toString()));
-                }
-                partitionKeys.put(id, partitionValue);
-            }
-        });
-
-        return Collections.unmodifiableMap(partitionKeys);
+                task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
+                Optional.empty(),
+                getDataSequenceNumber(task.file()));
     }
 }

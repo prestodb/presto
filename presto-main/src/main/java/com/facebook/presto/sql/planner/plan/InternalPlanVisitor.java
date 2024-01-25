@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.spi.plan.PlanVisitor;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode;
 import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
@@ -102,6 +103,11 @@ public abstract class InternalPlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitUpdate(UpdateNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitTableFinish(TableFinishNode node, C context)
     {
         return visitPlan(node, context);
@@ -173,6 +179,10 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitStatsEquivalentPlanNodeWithLimit(StatsEquivalentPlanNodeWithLimit node, C context)
+    {
+        return visitPlan(node, context);
+    }
+    public R visitSequence(SequenceNode node, C context)
     {
         return visitPlan(node, context);
     }

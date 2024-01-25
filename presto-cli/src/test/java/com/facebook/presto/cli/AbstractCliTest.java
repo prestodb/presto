@@ -84,7 +84,8 @@ public abstract class AbstractCliTest
                 new Duration(2, MINUTES),
                 true,
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
     }
 
     protected QueryResults createMockQueryResults()
@@ -139,7 +140,8 @@ public abstract class AbstractCliTest
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false);
+                false,
+                true);
     }
 
     protected static void assertHeaders(String headerName, Headers headers, Set<String> expectedSessionHeaderValues)

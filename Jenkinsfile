@@ -7,6 +7,7 @@ pipeline {
         AWS_DEFAULT_REGION = 'us-east-1'
         AWS_ECR            = 'public.ecr.aws/oss-presto'
         AWS_S3_PREFIX      = 's3://oss-prestodb/presto'
+        IMG_NAME           = 'presto'
     }
 
     options {
@@ -92,7 +93,7 @@ pipeline {
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
                                 env.PRESTO_COMMIT_SHA.substring(0, 7)
-                            env.DOCKER_IMAGE = env.AWS_ECR + "/presto:${PRESTO_BUILD_VERSION}"
+                            env.DOCKER_IMAGE = env.AWS_ECR + "/${IMG_NAME}:${PRESTO_BUILD_VERSION}"
                         }
                         sh 'printenv | sort'
 
@@ -139,8 +140,9 @@ pipeline {
                         sh '''
                             docker run --privileged --rm tonistiigi/binfmt --install all
                             docker context ls
+                            docker buildx create --name="container" --driver=docker-container --bootstrap
                             docker buildx ls
-                            docker buildx inspect
+                            docker buildx inspect container
                         '''
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
@@ -158,11 +160,7 @@ pipeline {
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
 
                                 echo "Building ${DOCKER_IMAGE}"
-                                docker buildx build --load --platform "linux/amd64" -t "${DOCKER_IMAGE}-amd64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
-                                docker buildx build --load --platform "linux/arm64" -t "${DOCKER_IMAGE}-arm64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
-                                docker image ls
+                                REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
                             '''
                         }
                     }
@@ -185,15 +183,10 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
+                                cd docker/
                                 aws s3 ls ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/
-                                docker image ls
                                 aws ecr-public get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
-                                docker push "${DOCKER_IMAGE}-amd64"
-                                docker push "${DOCKER_IMAGE}-arm64"
-                                docker manifest create "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-amd64" "${DOCKER_IMAGE}-arm64"
-                                docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-amd64" --os linux --arch amd64
-                                docker manifest annotate "${DOCKER_IMAGE}" "${DOCKER_IMAGE}-arm64" --os linux --arch arm64
-                                docker manifest push "${DOCKER_IMAGE}"
+                                PUBLISH=true REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
                             '''
                         }
                     }

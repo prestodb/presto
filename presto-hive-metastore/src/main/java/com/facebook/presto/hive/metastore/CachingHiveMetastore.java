@@ -571,6 +571,17 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void dropTableFromMetastore(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        try {
+            delegate.dropTableFromMetastore(metastoreContext, databaseName, tableName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public MetastoreOperationResult replaceTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
@@ -1006,7 +1017,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         tableCache.invalidate(getCachingKey(metastoreContext, new HiveTableHandle(databaseName, tableName)));
         return delegate.lock(metastoreContext, databaseName, tableName);
@@ -1085,7 +1096,7 @@ public class CachingHiveMetastore
 
     private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
     {
-        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? new MetastoreContext(context.getUsername(), context.getQueryId(), context.getClientInfo(), context.getSource(), true, context.getMetastoreHeaders(), context.isUserDefinedTypeEncodingEnabled(), context.getColumnConverterProvider()) : context;
+        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? new MetastoreContext(context.getUsername(), context.getQueryId(), context.getClientInfo(), context.getSource(), true, context.getMetastoreHeaders(), context.isUserDefinedTypeEncodingEnabled(), context.getColumnConverterProvider(), context.getWarningCollector()) : context;
         return new KeyAndContext<>(metastoreContext, key);
     }
 

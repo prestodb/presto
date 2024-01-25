@@ -164,12 +164,19 @@ public final class Page
         return wrapBlocksWithoutCopy(1, singleValueBlocks);
     }
 
+    // getRegion() is used to get a sub-page or region of a page based on the given positionOffset and length
     public Page getRegion(int positionOffset, int length)
     {
         if (positionOffset < 0 || length < 0 || positionOffset + length > positionCount) {
             throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
         }
 
+        // Avoid creating new objects when region is same as original page
+        if (positionOffset == 0 && length == positionCount) {
+            return this;
+        }
+
+        // Create a new page view with the specified region
         int channelCount = getChannelCount();
         Block[] slicedBlocks = new Block[channelCount];
         for (int i = 0; i < channelCount; i++) {

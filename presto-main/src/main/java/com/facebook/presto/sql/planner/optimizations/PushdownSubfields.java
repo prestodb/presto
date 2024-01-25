@@ -34,7 +34,9 @@ import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
 import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -128,17 +130,19 @@ public class PushdownSubfields
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
 
         if (!isEnabled(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata), plan, new Rewriter.Context());
+        Rewriter rewriter = new Rewriter(session, metadata);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -150,6 +154,7 @@ public class PushdownSubfields
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
         private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
+        private boolean planChanged;
 
         public Rewriter(Session session, Metadata metadata)
         {
@@ -163,6 +168,11 @@ public class PushdownSubfields
                     session.toConnectorSession(),
                     metadata.getFunctionAndTypeManager(),
                     isPushdownSubfieldsFromArrayLambdasEnabled(session));
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -250,10 +260,10 @@ public class PushdownSubfields
         public PlanNode visitJoin(JoinNode node, RewriteContext<Context> context)
         {
             node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .map(EquiJoinClause::getLeft)
                     .forEach(context.get().variables::add);
             node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(EquiJoinClause::getRight)
                     .forEach(context.get().variables::add);
 
             node.getFilter()
@@ -273,6 +283,13 @@ public class PushdownSubfields
         public PlanNode visitOutput(OutputNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getOutputVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getSource().getOutputVariables());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -369,6 +386,7 @@ public class PushdownSubfields
                         .map(path -> new Subfield(columnName, path))
                         .collect(toList()));
 
+                planChanged = true;
                 newAssignments.put(variable, entry.getValue().withRequiredSubfields(ImmutableList.copyOf(columnSubfields)));
             }
 

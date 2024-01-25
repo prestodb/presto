@@ -37,8 +37,8 @@ public class TestRemoteSourceStatsRule
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
         StatsCalculatorTester tester = new StatsCalculatorTester(localQueryRunner);
         FragmentStatsProvider fragmentStatsProvider = localQueryRunner.getFragmentStatsProvider();
-        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of()));
-        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of()));
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
         tester.assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
                 .check(check -> check.totalSize(2000)
                         .outputRowsCountUnknown());

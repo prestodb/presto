@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectC
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
 public interface SystemAccessControl
 {
@@ -264,6 +265,16 @@ public interface SystemAccessControl
     default void checkCanTruncateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to update the supplied columns in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        denyUpdateTableColumns(table.toString(), updatedColumnNames);
     }
 
     /**

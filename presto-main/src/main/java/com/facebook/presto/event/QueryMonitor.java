@@ -211,6 +211,8 @@ public class QueryMonitor
                         0,
                         0,
                         0,
+                        0,
+                        0,
                         true,
                         new RuntimeStats()),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
@@ -232,7 +234,8 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableSet.of()));
+                ImmutableSet.of(),
+                Optional.empty()));
 
         logQueryTimeline(queryInfo);
     }
@@ -270,7 +273,8 @@ public class QueryMonitor
                         queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
-                        queryInfo.getWindowsFunctions()));
+                        queryInfo.getWindowsFunctions(),
+                        queryInfo.getPrestoSparkExecutionContext()));
 
         logQueryTimeline(queryInfo);
     }
@@ -395,6 +399,8 @@ public class QueryMonitor
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
                 queryStats.getPeakNodeTotalMemory().toBytes(),
+                queryStats.getShuffledDataSize().toBytes(),
+                queryStats.getShuffledPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getOutputDataSize().toBytes(),

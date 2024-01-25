@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.285-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -141,6 +141,7 @@
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
             </plugin>

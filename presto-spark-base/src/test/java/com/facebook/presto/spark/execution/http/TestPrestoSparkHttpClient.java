@@ -234,7 +234,7 @@ public class TestPrestoSparkHttpClient
         PrestoSparkHttpTaskClient workerClient = createWorkerClient(taskId);
 
         List<TaskSource> sources = new ArrayList<>();
-        ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.updateTask(
+        BaseResponse<TaskInfo> response = workerClient.updateTask(
                 sources,
                 createPlanFragment(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
@@ -244,7 +244,7 @@ public class TestPrestoSparkHttpClient
                 createInitialEmptyOutputBuffers(PARTITIONED));
 
         try {
-            TaskInfo taskInfo = future.get().getValue();
+            TaskInfo taskInfo = response.getValue();
             assertEquals(taskInfo.getTaskId().toString(), taskId.toString());
         }
         catch (Exception e) {
@@ -282,8 +282,7 @@ public class TestPrestoSparkHttpClient
         Duration maxTimeout = new Duration(1, TimeUnit.MINUTES);
         NativeExecutionProcess process = createNativeExecutionProcess(
                 maxTimeout,
-                new TestingResponseManager(taskId.toString(), new FailureRetryResponseManager(5)),
-                new TaskManagerConfig());
+                new TestingResponseManager(taskId.toString(), new FailureRetryResponseManager(5)));
 
         SettableFuture<ServerInfo> future = process.getServerInfoWithRetry();
         try {
@@ -303,8 +302,7 @@ public class TestPrestoSparkHttpClient
         Duration maxTimeout = new Duration(0, TimeUnit.MILLISECONDS);
         NativeExecutionProcess process = createNativeExecutionProcess(
                 maxTimeout,
-                new TestingResponseManager(taskId.toString(), new FailureRetryResponseManager(5)),
-                new TaskManagerConfig());
+                new TestingResponseManager(taskId.toString(), new FailureRetryResponseManager(5)));
 
         SettableFuture<ServerInfo> future = process.getServerInfoWithRetry();
         Exception exception = expectThrows(ExecutionException.class, future::get);
@@ -772,8 +770,7 @@ public class TestPrestoSparkHttpClient
 
     private NativeExecutionProcess createNativeExecutionProcess(
             Duration maxErrorDuration,
-            TestingResponseManager responseManager,
-            TaskManagerConfig config)
+            TestingResponseManager responseManager)
     {
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
         PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
@@ -786,7 +783,6 @@ public class TestPrestoSparkHttpClient
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
-                config,
                 workerProperty);
         return factory.createNativeExecutionProcess(
                 testSessionBuilder().build(),

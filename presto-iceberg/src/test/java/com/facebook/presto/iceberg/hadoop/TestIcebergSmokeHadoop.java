@@ -13,35 +13,27 @@
  */
 package com.facebook.presto.iceberg.hadoop;
 
-import com.facebook.presto.Session;
+import com.facebook.presto.hive.gcs.HiveGcsConfig;
+import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
-import com.facebook.presto.iceberg.IcebergPlugin;
 import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static java.lang.String.format;
 
 @Test
@@ -61,37 +53,6 @@ public class TestIcebergSmokeHadoop
     }
 
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog(ICEBERG_CATALOG)
-                .setSchema("tpch")
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data");
-
-        queryRunner.installPlugin(new IcebergPlugin());
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .putAll(ImmutableMap.of("iceberg.catalog.type", HADOOP.name()))
-                .put("iceberg.file-format", new IcebergConfig().getFileFormat().name())
-                .put("iceberg.catalog.warehouse", dataDirectory.getParent().toFile().toURI().toString())
-                .build();
-
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
-
-        queryRunner.execute("CREATE SCHEMA tpch");
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
-
-        return queryRunner;
-    }
-
-    @Override
     protected Path getCatalogDirectory()
     {
         return getDistributedQueryRunner().getCoordinator().getDataDirectory();
@@ -107,7 +68,8 @@ public class TestIcebergSmokeHadoop
         IcebergResourceFactory resourceFactory = new IcebergResourceFactory(icebergConfig,
                 new IcebergCatalogName(ICEBERG_CATALOG),
                 new NessieConfig(),
-                new PrestoS3ConfigurationUpdater(new HiveS3Config()));
+                new PrestoS3ConfigurationUpdater(new HiveS3Config()),
+                new HiveGcsConfigurationInitializer(new HiveGcsConfig()));
 
         return IcebergUtil.getNativeIcebergTable(resourceFactory,
                 session,

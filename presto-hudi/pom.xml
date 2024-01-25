@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.285-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
     <artifactId>presto-hudi</artifactId>
     <description>Presto - Hudi Connector</description>
@@ -228,4 +228,21 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredClassPatterns>
+                            <ignoredClassPattern>module-info</ignoredClassPattern>
+                            <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        </ignoredClassPatterns>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

@@ -14,8 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
@@ -25,7 +23,9 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -58,12 +58,15 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
 import static com.facebook.presto.sql.planner.PlannerUtils.equalityPredicate;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
+import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,14 +135,15 @@ public class PayloadJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         if (isEnabled(session)) {
-            PlanNode result = SimplePlanRewriter.rewriteWith(new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator), plan, new JoinContext());
-            return result;
+            Rewriter rewriter = new PayloadJoinOptimizer.Rewriter(session, this.metadata, types, functionAndTypeManager, idAllocator, variableAllocator);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new JoinContext());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     @Override
@@ -163,6 +167,7 @@ public class PayloadJoinOptimizer
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator variableAllocator;
+        private boolean planChanged;
 
         private Rewriter(Session session, Metadata metadata, TypeProvider types, FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator variableAllocator)
         {
@@ -174,41 +179,50 @@ public class PayloadJoinOptimizer
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
-        private Set<VariableReferenceExpression> extractPayloadColumns(ImmutableSet<VariableReferenceExpression> columns)
+        public boolean isPlanChanged()
         {
-            return columns.stream().filter(var -> var.getType() instanceof MapType || var.getType() instanceof ArrayType).collect(toImmutableSet());
+            return planChanged;
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, RewriteContext<JoinContext> context)
+        public PlanNode visitPlan(PlanNode planNode, RewriteContext<JoinContext> context)
         {
-            return context.defaultRewrite(node, context.get());
+            // do a default rewrite with a new context for each child to avoid lateral propagation of context information
+            List<PlanNode> newChildren = planNode.getSources().stream().map(childNode -> context.rewrite(childNode, new JoinContext())).collect(Collectors.toList());
+            return replaceChildren(planNode, newChildren);
         }
 
         @Override
         public PlanNode visitJoin(JoinNode joinNode, RewriteContext<JoinContext> context)
         {
             final JoinContext joinContext = context.get();
-            int numJoinKeys = joinContext.getJoinKeys().size();
+            Set<VariableReferenceExpression> inputJoinKeys = joinContext.getJoinKeys();
             PlanNode leftNode = joinNode.getLeft();
             PlanNode rightNode = joinNode.getRight();
-            boolean isTopJoin = numJoinKeys == 0;
+
+            boolean isTopJoin = joinContext.getJoinKeys().size() == 0;
 
             ImmutableSet<VariableReferenceExpression> leftColumns = leftNode.getOutputVariables().stream().collect(toImmutableSet());
+
+            // abort rewrite if some of the collected join keys are in the RHS of the current join
+            ImmutableSet<VariableReferenceExpression> rightJoinKeys = inputJoinKeys.stream().filter(key -> rightNode.getOutputVariables().contains(key)).collect(toImmutableSet());
             Set<VariableReferenceExpression> joinKeys = extractJoinKeys(joinNode.getFilter(), joinNode.getCriteria());
 
             ImmutableSet<VariableReferenceExpression> leftJoinKeys = intersection(joinKeys, leftColumns).immutableCopy();
-            if (!needsRewrite(joinNode.getType(), leftColumns, leftJoinKeys)) {
-                return context.defaultRewrite(joinNode, joinContext);
+            if (!rightJoinKeys.isEmpty() || !needsRewrite(joinNode.getType(), leftColumns, leftJoinKeys)) {
+                List<PlanNode> newChildren = joinNode.getSources().stream()
+                        .map(child -> defaultRewriteJoinChild(child, context, joinNode.isCrossJoin()))
+                        .collect(toImmutableList());
+                return replaceChildren(joinNode, newChildren);
             }
 
             joinContext.addKeys(leftJoinKeys);
             joinContext.incrementNumJoins();
 
             PlanNode newLeftNode = context.rewrite(leftNode, joinContext);
-            if (leftNode == newLeftNode) {
+            if (leftNode.equals(newLeftNode)) {
                 newLeftNode = context.rewrite(leftNode, new JoinContext());
-                return joinNode.replaceChildren(ImmutableList.of(newLeftNode, rightNode));
+                return replaceChildren(joinNode, ImmutableList.of(newLeftNode, rightNode));
             }
 
             List<VariableReferenceExpression> leftCols = newLeftNode.getOutputVariables();
@@ -231,25 +245,33 @@ public class PayloadJoinOptimizer
 
             if (isTopJoin && context.get().needsPayloadRejoin()) {
                 PlanNode payloadJoin = transformJoin(newJoinNode, joinContext);
+                // reset payload node as it has been reattached to the plan node
+                context.get().setPayloadNode(null);
+
                 // do a final check that the rewrite didn't lose any columns (can happen if there are intermediate projections on non-join keys that get hidden because of the DISTINCT keys computation)
-                if (!payloadJoin.getOutputVariables().containsAll(joinNode.getOutputVariables())) {
+                List<VariableReferenceExpression> outputVariables = joinNode.getOutputVariables();
+                if (!payloadJoin.getOutputVariables().containsAll(outputVariables)) {
                     return joinNode;
                 }
-                return payloadJoin;
+                return restrictOutput(payloadJoin, planNodeIdAllocator, outputVariables);
             }
 
+            planChanged = true;
             return newJoinNode;
         }
 
-        private boolean needsRewrite(JoinNode.Type joinType, ImmutableSet<VariableReferenceExpression> leftColumns, Set<VariableReferenceExpression> joinKeys)
+        private PlanNode defaultRewriteJoinChild(PlanNode child, RewriteContext<JoinContext> context, boolean isCrossJoin)
         {
-            if (joinType == JoinNode.Type.LEFT && supportedJoinKeyTypes(joinKeys)) {
-                Set<VariableReferenceExpression> leftPayloadColumns = extractPayloadColumns(leftColumns);
-
-                return !leftPayloadColumns.isEmpty() && !leftPayloadColumns.containsAll(joinKeys);
+            PlanNode newChild = context.rewrite(child, new JoinContext());
+            if (isCrossJoin && child.getOutputVariables() != newChild.getOutputVariables()) {
+                return restrictOutput(newChild, planNodeIdAllocator, child.getOutputVariables());
             }
+            return newChild;
+        }
 
-            return false;
+        private boolean needsRewrite(JoinType joinType, ImmutableSet<VariableReferenceExpression> leftColumns, Set<VariableReferenceExpression> joinKeys)
+        {
+            return joinType == LEFT && supportedJoinKeyTypes(joinKeys) && leftColumns.stream().anyMatch(var -> !joinKeys.contains(var));
         }
 
         @Override
@@ -261,24 +283,17 @@ public class PayloadJoinOptimizer
 
             PlanNode child = projectNode.getSource();
 
-            Set<VariableReferenceExpression> joinKeys = context.get().getJoinKeys();
-            Assignments newAssignments = projectNode.getAssignments();
-            if (!child.getOutputVariables().containsAll(joinKeys)) {
-                Assignments.Builder assignments = Assignments.builder();
+            Set<VariableReferenceExpression> inputJoinKeys = context.get().getJoinKeys();
+            if (!child.getOutputVariables().containsAll(inputJoinKeys)) {
                 Map<VariableReferenceExpression, RowExpression> pushableExpressions = new HashMap<>();
 
                 projectNode.getAssignments().forEach((var, expr) -> {
-                    if (joinKeys.contains(var) && !var.equals(expr)) {
+                    if (inputJoinKeys.contains(var) && !var.equals(expr)) {
                         // join key computed in this projection: need to push down
-                        assignments.put(var, var);
                         pushableExpressions.put(var, expr);
-                    }
-                    else {
-                        assignments.put(var, expr);
                     }
                 });
 
-                newAssignments = assignments.build();
                 context.get().addProjectionsToPush(pushableExpressions);
             }
 
@@ -286,6 +301,26 @@ public class PayloadJoinOptimizer
 
             if (child.equals(newChild)) {
                 return projectNode;
+            }
+
+            // remove assignments that were pushed down
+            Set<VariableReferenceExpression> joinKeys = context.get().getJoinKeys();
+
+            Assignments newAssignments = projectNode.getAssignments();
+            if (context.get().needsPayloadRejoin() && !child.getOutputVariables().containsAll(joinKeys)) {
+                Assignments.Builder assignments = Assignments.builder();
+
+                projectNode.getAssignments().forEach((var, expr) -> {
+                    if (joinKeys.contains(var) && !var.equals(expr)) {
+                        // join key computed in this projection: need to push down
+                        assignments.put(var, var);
+                    }
+                    else {
+                        assignments.put(var, expr);
+                    }
+                });
+
+                newAssignments = assignments.build();
             }
 
             Set<VariableReferenceExpression> newChildOutputVarSet = newChild.getOutputVariables().stream().collect(toImmutableSet());
@@ -300,18 +335,11 @@ public class PayloadJoinOptimizer
         @Override
         public PlanNode visitFilter(FilterNode filterNode, RewriteContext<JoinContext> context)
         {
-            Set<VariableReferenceExpression> joinKeys = context.get().getJoinKeys();
-            List<VariableReferenceExpression> predicateVars = VariablesExtractor.extractAll(filterNode.getPredicate());
-
             if (isScanFilterProject(filterNode)) {
                 return rewriteScanFilterProject(filterNode, context);
             }
 
-            if (joinKeys.isEmpty() || joinKeys.containsAll(predicateVars)) {
-                return context.defaultRewrite(filterNode, context.get());
-            }
-
-            return filterNode;
+            return context.defaultRewrite(filterNode, new JoinContext());
         }
 
         @Override
@@ -355,6 +383,7 @@ public class PayloadJoinOptimizer
                     singleGroupingSet(groupingKeys),
                     ImmutableList.of(),
                     SINGLE,
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
 
@@ -416,7 +445,7 @@ public class PayloadJoinOptimizer
             return new JoinNode(
                     keysNode.getSourceLocation(),
                     planNodeIdAllocator.getNextId(),
-                    JoinNode.Type.LEFT,
+                    JoinType.LEFT,
                     payloadPlanNode,
                     projectNode,
                     ImmutableList.of(),
@@ -461,7 +490,7 @@ public class PayloadJoinOptimizer
             return coalesce(ImmutableList.of(var, zero));
         }
 
-        private Set<VariableReferenceExpression> extractJoinKeys(Optional<RowExpression> filter, List<JoinNode.EquiJoinClause> criteria)
+        private Set<VariableReferenceExpression> extractJoinKeys(Optional<RowExpression> filter, List<EquiJoinClause> criteria)
         {
             ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
 
@@ -495,7 +524,7 @@ public class PayloadJoinOptimizer
 
     private static class JoinContext
     {
-        private final Set<VariableReferenceExpression> joinKeys = new HashSet<>();
+        private Set<VariableReferenceExpression> joinKeys = new HashSet<>();
         private Map<VariableReferenceExpression, VariableReferenceExpression> joinKeyMap;
         private Map<VariableReferenceExpression, RowExpression> projectionsToPush = new HashMap<>();
 
@@ -544,6 +573,14 @@ public class PayloadJoinOptimizer
             this.payloadNode = payloadNode;
         }
 
+        public void reset()
+        {
+            joinKeys = new HashSet<>();
+            projectionsToPush = new HashMap<>();
+            joinKeyMap = null;
+            numJoins = 0;
+            payloadNode = null;
+        }
         public int getNumJoins()
         {
             return numJoins;

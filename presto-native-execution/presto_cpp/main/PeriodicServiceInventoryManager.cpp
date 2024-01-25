@@ -20,25 +20,24 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
     std::string address,
     int port,
     std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer,
-    std::string clientCertAndKeyPath,
-    std::string ciphers,
+    folly::SSLContextPtr sslContext,
     std::string id,
     uint64_t frequencyMs)
     : address_(std::move(address)),
       port_(port),
       coordinatorDiscoverer_(std::move(coordinatorDiscoverer)),
-      clientCertAndKeyPath_(std::move(clientCertAndKeyPath)),
-      ciphers_(std::move(ciphers)),
+      sslContext_(std::move(sslContext)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
-      pool_(velox::memory::addDefaultLeafMemoryPool(id_)),
+      pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
       eventBaseThread_(false /*autostart*/) {}
 
 void PeriodicServiceInventoryManager::start() {
   eventBaseThread_.start(id_);
+  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
   stopped_ = false;
   auto* eventBase = eventBaseThread_.getEventBase();
-  eventBase->runOnDestruction([this] { client_.reset(); });
+  eventBase->runOnDestruction([this] { sessionPool_.reset(); });
   eventBase->schedule([this]() { return sendRequest(); });
 }
 
@@ -66,11 +65,12 @@ void PeriodicServiceInventoryManager::sendRequest() {
       std::swap(serviceAddress_, newAddress);
       client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
+          sessionPool_.get(),
           serviceAddress_,
           std::chrono::milliseconds(10'000),
+          std::chrono::milliseconds(0),
           pool_,
-          clientCertAndKeyPath_,
-          ciphers_);
+          sslContext_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "

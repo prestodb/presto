@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -36,13 +37,13 @@ import static java.util.Objects.requireNonNull;
 public class MergeJoinMatcher
         implements Matcher
 {
-    private final JoinNode.Type joinType;
-    private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
+    private final JoinType joinType;
+    private final List<ExpectedValueProvider<EquiJoinClause>> equiCriteria;
     private final Optional<Expression> filter;
 
     MergeJoinMatcher(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria,
+            JoinType joinType,
+            List<ExpectedValueProvider<EquiJoinClause>> equiCriteria,
             Optional<Expression> filter)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");

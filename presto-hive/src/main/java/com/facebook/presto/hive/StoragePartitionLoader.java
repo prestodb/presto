@@ -57,13 +57,13 @@ import java.util.function.IntPredicate;
 
 import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isFileSplittable;
 import static com.facebook.presto.hive.HiveSessionProperties.isOrderBasedExecutionEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
@@ -354,7 +354,12 @@ public class StoragePartitionLoader
         return lastResult;
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<Partition> partition)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(
+            Path path,
+            ExtendedFileSystem fileSystem,
+            InternalHiveSplitFactory splitFactory,
+            boolean splittable,
+            Optional<Partition> partition)
     {
         boolean cacheable = isUseListDirectoryCache(session);
         if (partition.isPresent()) {
@@ -368,7 +373,7 @@ public class StoragePartitionLoader
                 hdfsContext.getIdentity(),
                 buildDirectoryContextProperties(session));
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
-                .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
+                .map(hiveFileInfo -> splitFactory.createInternalHiveSplit(hiveFileInfo, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .iterator();

@@ -61,12 +61,12 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
@@ -199,7 +199,7 @@ public class HivePageSourceProvider
                 hiveStorageTimeZone,
                 typeManager,
                 hiveLayout.getSchemaTableName(),
-                hiveLayout.getPartitionColumns(),
+                hiveLayout.getPartitionColumns().stream().map(HiveColumnHandle.class::cast).collect(toList()),
                 hiveLayout.getDataColumns(),
                 hiveLayout.getTableParameters(),
                 hiveSplit.getPartitionDataColumnCount(),
@@ -616,7 +616,9 @@ public class HivePageSourceProvider
 
     private static boolean shouldSkipPartition(TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
     {
-        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns();
+        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns().stream()
+                .map(HiveColumnHandle.class::cast)
+                .collect(toList());
         List<Type> partitionTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toList());

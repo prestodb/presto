@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
+import com.facebook.presto.memory.HighMemoryTaskKillerStrategy;
 import com.facebook.presto.util.PowerOfTwo;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -91,6 +92,13 @@ public class TaskManagerConfig
     private Duration interruptRunawaySplitsTimeout = new Duration(600, SECONDS);
 
     private double memoryBasedSlowDownThreshold = 1.0;
+
+    private HighMemoryTaskKillerStrategy highMemoryTaskKillerStrategy = HighMemoryTaskKillerStrategy.FREE_MEMORY_ON_FULL_GC;
+
+    private boolean highMemoryTaskKillerEnabled;
+    private double highMemoryTaskKillerGCReclaimMemoryThreshold = 0.01;
+    private Duration highMemoryTaskKillerFrequentFullGCDurationThreshold = new Duration(1, SECONDS);
+    private double highMemoryTaskKillerHeapMemoryThreshold = 0.9;
 
     @MinDuration("1ms")
     @MaxDuration("10s")
@@ -588,11 +596,74 @@ public class TaskManagerConfig
         return memoryBasedSlowDownThreshold;
     }
 
-    @Config("task.memory-based-slowdown-threshold")
-    @ConfigDescription("Pause processing new leaf split if heap memory usage crosses the threshold")
+    @Config("experimental.task.memory-based-slowdown-threshold")
+    @ConfigDescription("Pause processing new leaf split if heap memory usage crosses the threshold. This feature is experimental and use it with caution as could lead to deadlock.")
     public TaskManagerConfig setMemoryBasedSlowDownThreshold(double memoryBasedSlowDownThreshold)
     {
         this.memoryBasedSlowDownThreshold = memoryBasedSlowDownThreshold;
+        return this;
+    }
+
+    public boolean isHighMemoryTaskKillerEnabled()
+    {
+        return highMemoryTaskKillerEnabled;
+    }
+
+    @Config("experimental.task.high-memory-task-killer-enabled")
+    public TaskManagerConfig setHighMemoryTaskKillerEnabled(boolean highMemoryTaskKillerEnabled)
+    {
+        this.highMemoryTaskKillerEnabled = highMemoryTaskKillerEnabled;
+        return this;
+    }
+
+    public Double getHighMemoryTaskKillerHeapMemoryThreshold()
+    {
+        return highMemoryTaskKillerHeapMemoryThreshold;
+    }
+
+    @Config("experimental.task.high-memory-task-killer-heap-memory-threshold")
+    @ConfigDescription("Heap memory threshold to help high task memory killer to identify if workers is running with high heap usage")
+    public TaskManagerConfig setHighMemoryTaskKillerHeapMemoryThreshold(Double highMemoryTaskKillerHeapMemoryThreshold)
+    {
+        this.highMemoryTaskKillerHeapMemoryThreshold = highMemoryTaskKillerHeapMemoryThreshold;
+        return this;
+    }
+
+    public Double getHighMemoryTaskKillerGCReclaimMemoryThreshold()
+    {
+        return highMemoryTaskKillerGCReclaimMemoryThreshold;
+    }
+
+    @Config("experimental.task.high-memory-task-killer-reclaim-memory-threshold")
+    @ConfigDescription("Full GC Reclaim memory threshold (based on -Xmx) to help high task memory killer to identify if enough memory is reclaimed or not.")
+    public TaskManagerConfig setHighMemoryTaskKillerGCReclaimMemoryThreshold(Double highMemoryTaskKillerGCReclaimMemoryThreshold)
+    {
+        this.highMemoryTaskKillerGCReclaimMemoryThreshold = highMemoryTaskKillerGCReclaimMemoryThreshold;
+        return this;
+    }
+
+    public Duration getHighMemoryTaskKillerFrequentFullGCDurationThreshold()
+    {
+        return highMemoryTaskKillerFrequentFullGCDurationThreshold;
+    }
+
+    @Config("experimental.task.high-memory-task-killer-frequent-full-gc-duration-threshold")
+    @ConfigDescription("Threshold to identify if full GCs happening frequently and considered for the task killer to trigger")
+    public TaskManagerConfig setHighMemoryTaskKillerFrequentFullGCDurationThreshold(Duration highMemoryTaskKillerFrequentFullGCDurationThreshold)
+    {
+        this.highMemoryTaskKillerFrequentFullGCDurationThreshold = highMemoryTaskKillerFrequentFullGCDurationThreshold;
+        return this;
+    }
+
+    public HighMemoryTaskKillerStrategy getHighMemoryTaskKillerStrategy()
+    {
+        return highMemoryTaskKillerStrategy;
+    }
+
+    @Config("experimental.task.high-memory-task-killer-strategy")
+    public TaskManagerConfig setHighMemoryTaskKillerStrategy(HighMemoryTaskKillerStrategy highMemoryTaskKillerStrategy)
+    {
+        this.highMemoryTaskKillerStrategy = highMemoryTaskKillerStrategy;
         return this;
     }
 }

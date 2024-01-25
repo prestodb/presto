@@ -42,6 +42,12 @@ public final class NoOpResourceGroupManager
     }
 
     @Override
+    public List<ResourceGroupInfo> getRootResourceGroups()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<ResourceGroupInfo> getPathToRoot(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();

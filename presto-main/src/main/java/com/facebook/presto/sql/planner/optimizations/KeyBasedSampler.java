@@ -25,6 +25,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -88,7 +89,7 @@ public class KeyBasedSampler
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
             List<String> sampledFields = new ArrayList<>(2);
@@ -103,10 +104,10 @@ public class KeyBasedSampler
                 }
             }
 
-            return rewritten;
+            return PlanOptimizerResult.optimizerResult(rewritten, true);
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -227,7 +228,7 @@ public class KeyBasedSampler
 
                 // Find the best equijoin clause so we sample both sides the same way optimally
                 // First see if there is a int/bigint key
-                Optional<JoinNode.EquiJoinClause> equiJoinClause = node.getCriteria().stream()
+                Optional<EquiJoinClause> equiJoinClause = node.getCriteria().stream()
                         .filter(x -> TypeUtils.isIntegralType(x.getLeft().getType().getTypeSignature(), functionAndTypeManager))
                         .findFirst();
                 if (!equiJoinClause.isPresent()) {

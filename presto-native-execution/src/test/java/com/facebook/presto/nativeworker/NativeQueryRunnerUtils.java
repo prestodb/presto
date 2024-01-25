@@ -33,6 +33,7 @@ public class NativeQueryRunnerUtils
     public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("native-execution-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("regex-library", "RE2J")

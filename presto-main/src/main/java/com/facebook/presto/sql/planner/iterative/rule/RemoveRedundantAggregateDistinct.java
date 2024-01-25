@@ -88,6 +88,7 @@ public class RemoveRedundantAggregateDistinct
                 node.getPreGroupedVariables(),
                 node.getStep(),
                 node.getHashVariable(),
-                node.getGroupIdVariable()));
+                node.getGroupIdVariable(),
+                node.getAggregationId()));
     }
 }

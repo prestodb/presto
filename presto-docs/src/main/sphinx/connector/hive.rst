@@ -281,7 +281,9 @@ S3 Configuration Properties
 Property Name                                Description
 ============================================ =================================================================
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials
-                                             (defaults to ``true``). This works with IAM roles in EC2.
+                                             (defaults to ``false``). This works with IAM roles in EC2.
+
+                                              **Note:** This property is deprecated.
 
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
@@ -348,15 +350,18 @@ S3 Credentials
 ^^^^^^^^^^^^^^
 
 If you are running Presto on Amazon EC2 using EMR or another facility,
-it is highly recommended that you set ``hive.s3.use-instance-credentials``
-to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
-the case, your EC2 instances will need to be assigned an IAM Role which
-grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use. It's also possible to configure an IAM role with ``hive.s3.iam-role``
-that will be assumed for accessing any S3 bucket. This is much cleaner than
-setting AWS access and secret keys in the ``hive.s3.aws-access-key``
-and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
-rotate credentials on a regular basis without any additional work on your part.
+it is recommended that you use IAM Roles for EC2 to govern access to S3. To enable this,
+your EC2 instances will need to be assigned an IAM Role which grants appropriate
+access to the data stored in the S3 bucket(s) you wish to use. It's also possible
+to configure an IAM role with ``hive.s3.iam-role`` that will be assumed for accessing
+any S3 bucket. This is much cleaner than setting AWS access and secret keys in the
+``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also allows
+EC2 to automatically rotate credentials on a regular basis without any additional
+work on your part.
+
+After the introduction of DefaultAWSCredentialsProviderChain, if neither IAM role nor
+IAM credentials are configured, instance credentials will be used as they are the last item
+in the DefaultAWSCredentialsProviderChain.
 
 Custom S3 Credentials Provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -729,6 +734,13 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * ``CREATE TABLE AS`` is not supported.
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
+
+Parquet Writer Version
+----------------------
+
+Presto now supports Parquet writer versions V1 and V2 for the Hive catalog.
+It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
 
 Procedures
 ----------

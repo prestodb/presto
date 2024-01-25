@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -41,12 +42,12 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getJoinShardCount;
 import static com.facebook.presto.SystemSessionProperties.getShardedJoinStrategy;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.COST_BASED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy.DISABLED;
 import static com.facebook.presto.sql.planner.PlannerUtils.isBroadcastJoin;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,13 +104,15 @@ public class ShardJoins
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, functionAndTypeManager, idAllocator, variableAllocator), plan, new HashSet<>());
+            Rewriter rewriter = new Rewriter(session, metadata, functionAndTypeManager, idAllocator, variableAllocator);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new HashSet<>());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -120,6 +123,8 @@ public class ShardJoins
         private final FunctionAndTypeManager functionAndTypeManager;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final VariableAllocator planVariableAllocator;
+        private boolean planChanged;
+
         private Rewriter(Session session, Metadata metadata,
                 FunctionAndTypeManager functionAndTypeManager, PlanNodeIdAllocator planNodeIdAllocator, VariableAllocator planVariableAllocator)
         {
@@ -128,6 +133,11 @@ public class ShardJoins
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.planNodeIdAllocator = requireNonNull(planNodeIdAllocator, "planNodeIdAllocator is null");
             this.planVariableAllocator = requireNonNull(planVariableAllocator, "planVariableAllocator is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -146,8 +156,8 @@ public class ShardJoins
                 PlanNode newLeftChild = PlannerUtils.addProjections(joinNode.getLeft(), planNodeIdAllocator, planVariableAllocator, ImmutableList.of(randomNumber), ImmutableList.of(leftShardVariable));
 
                 PlanNode newRightChild = shardInput(numShards, joinNode.getRight(), rightShardVariable);
-                JoinNode.EquiJoinClause shardEquality = new JoinNode.EquiJoinClause(leftShardVariable, rightShardVariable);
-                List<JoinNode.EquiJoinClause> joinCriteria = new ArrayList<>();
+                EquiJoinClause shardEquality = new EquiJoinClause(leftShardVariable, rightShardVariable);
+                List<EquiJoinClause> joinCriteria = new ArrayList<>();
                 joinCriteria.addAll(joinNode.getCriteria());
                 joinCriteria.add(shardEquality);
                 PlanNode result = new JoinNode(
@@ -165,6 +175,7 @@ public class ShardJoins
                         joinNode.getDistributionType(),
                         joinNode.getDynamicFilters());
 
+                planChanged = true;
                 return context.defaultRewrite(result);
             }
 

@@ -84,6 +84,114 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+Type mapping
+------------
+
+PrestoDB and PostgreSQL each support types that the other does not. When reading from or writing to PostgreSQL, Presto converts
+the data types from PostgreSQL to equivalent Presto data types, and from Presto to equivalent PostgreSQL data types.
+
+PostgreSQL to PrestoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PostgreSQL types to the corresponding PrestoDB types:
+
+.. list-table:: PostgreSQL to PrestoDB type mapping
+  :widths: 70, 70
+  :header-rows: 1
+
+  * - PostgreSQL type
+    - PrestoDB type
+  * - ``BIT``
+    - ``BOOLEAN``
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+  * - ``REAL``
+    - ``REAL``
+  * - ``NUMERIC(p, s)``
+    - ``DECIMAL(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``ENUM``
+    - ``VARCHAR``
+  * - ``BYTEA``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``TIMESTAMPTZ``
+    - ``TIMESTAMP``
+  * - ``MONEY``
+    - ``DOUBLE``
+  * - ``UUID``
+    - ``UUID``
+  * - ``JSON``
+    - ``JSON``
+  * - ``JSONB``
+    - ``JSON``
+
+No other types are supported.
+
+PrestoDB to PostgreSQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PrestoDB types to the corresponding PostgreSQL types:
+
+.. list-table:: PrestoDB to PostgreSQL type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - PostgreSQL type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+  * - ``DECIMAL(p, s)``
+    - ``NUMERIC(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``VARBINARY``
+    - ``BYTEA``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``UUID``
+    - ``UUID``
+
+No other types are supported.
+
+Tables with Unsupported Columns
+-------------------------------
+
+If you query a PostgreSQL table with the Presto connector, and the table either has no supported columns or contains
+only unsupported data types, Presto returns an error similar to the following example:
+
+``Query 20231120_102910_00004_35dqb failed: Table 'public.unsupported_type_table' has no supported columns (all 1 columns are not supported).``
+
 PostgreSQL Connector Limitations
 --------------------------------
 

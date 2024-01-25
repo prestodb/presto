@@ -33,6 +33,6 @@ public interface IPrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            List<RetryExecutionStrategy> retryExecutionStrategies,
+            List<ExecutionStrategy> executionStrategies,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector);
 }

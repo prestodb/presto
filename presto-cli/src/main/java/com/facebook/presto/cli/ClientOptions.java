@@ -143,6 +143,12 @@ public class ClientOptions
     @Option(name = "--disable-compression", title = "disable response compression", description = "Disable compression of query results")
     public boolean disableCompression;
 
+    @Option(name = "--validate-nexturi-source", title = "validate nextUri source", description = "Validate nextUri server host and port does not change during query execution")
+    public boolean validateNextUriSource;
+
+    @Option(name = "--disable-redirects", title = "disable redirects", description = "Disable client following redirects from server")
+    public boolean disableRedirects;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -176,7 +182,8 @@ public class ClientOptions
                 clientRequestTimeout,
                 disableCompression,
                 emptyMap(),
-                emptyMap());
+                emptyMap(),
+                validateNextUriSource);
     }
 
     public static URI parseServer(String server)

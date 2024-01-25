@@ -27,9 +27,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -40,7 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
-        implements ColumnHandle
+        extends BaseHiveColumnHandle
 {
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
@@ -67,21 +67,9 @@ public class HiveColumnHandle
     // Ids <= this can be used for distinguishing between different prefilled columns.
     public static final int MAX_PARTITION_KEY_COLUMN_INDEX = -13;
 
-    public enum ColumnType
-    {
-        PARTITION_KEY,
-        REGULAR,
-        SYNTHESIZED,
-        AGGREGATED,
-    }
-
-    private final String name;
     private final HiveType hiveType;
     private final TypeSignature typeName;
     private final int hiveColumnIndex;
-    private final ColumnType columnType;
-    private final Optional<String> comment;
-    private final List<Subfield> requiredSubfields;
     private final Optional<Aggregation> partialAggregation;
 
     @JsonCreator
@@ -95,14 +83,12 @@ public class HiveColumnHandle
             @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
             @JsonProperty("partialAggregation") Optional<Aggregation> partialAggregation)
     {
-        this.name = requireNonNull(name, "name is null");
+        super(name, comment, columnType, requiredSubfields);
+
         checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED || columnType == AGGREGATED, format("hiveColumnIndex:%d is negative, columnType:%s", hiveColumnIndex, columnType.toString()));
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.typeName = requireNonNull(typeSignature, "type is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.comment = requireNonNull(comment, "comment is null");
-        this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
         this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
         checkArgument(columnType != AGGREGATED || partialAggregation.isPresent(), "Aggregated column does not have aggregate function");
     }
@@ -120,12 +106,6 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
     public HiveType getHiveType()
     {
         return hiveType;
@@ -139,23 +119,17 @@ public class HiveColumnHandle
 
     public boolean isPartitionKey()
     {
-        return columnType == PARTITION_KEY;
+        return getColumnType() == PARTITION_KEY;
     }
 
     public boolean isHidden()
     {
-        return columnType == SYNTHESIZED;
+        return getColumnType() == SYNTHESIZED;
     }
 
     public ColumnMetadata getColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(name, typeManager.getType(typeName), null, isHidden());
-    }
-
-    @JsonProperty
-    public Optional<String> getComment()
-    {
-        return comment;
+        return new ColumnMetadata(getName(), typeManager.getType(typeName), null, isHidden());
     }
 
     @JsonProperty
@@ -170,18 +144,6 @@ public class HiveColumnHandle
         return typeName;
     }
 
-    @JsonProperty
-    public ColumnType getColumnType()
-    {
-        return columnType;
-    }
-
-    @JsonProperty
-    public List<Subfield> getRequiredSubfields()
-    {
-        return requiredSubfields;
-    }
-
     @Override
     public ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
@@ -190,13 +152,13 @@ public class HiveColumnHandle
             return this;
         }
 
-        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, subfields, partialAggregation);
+        return new HiveColumnHandle(getName(), hiveType, typeName, hiveColumnIndex, getColumnType(), getComment(), subfields, partialAggregation);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(getName(), hiveColumnIndex, hiveType, getColumnType(), getComment());
     }
 
     @Override
@@ -209,22 +171,22 @@ public class HiveColumnHandle
             return false;
         }
         HiveColumnHandle other = (HiveColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.getName(), other.getName()) &&
                 Objects.equals(this.hiveColumnIndex, other.hiveColumnIndex) &&
                 Objects.equals(this.hiveType, other.hiveType) &&
-                Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.comment, other.comment) &&
-                Objects.equals(this.requiredSubfields, other.requiredSubfields);
+                Objects.equals(this.getColumnType(), other.getColumnType()) &&
+                Objects.equals(this.getComment(), other.getComment()) &&
+                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields());
     }
 
     @Override
     public String toString()
     {
-        if (requiredSubfields.isEmpty()) {
-            return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType;
+        if (getRequiredSubfields().isEmpty()) {
+            return getName() + ":" + hiveType + ":" + hiveColumnIndex + ":" + getColumnType();
         }
 
-        return name + ":" + hiveType + ":" + hiveColumnIndex + ":" + columnType + ":" + requiredSubfields;
+        return getName() + ":" + hiveType + ":" + hiveColumnIndex + ":" + getColumnType() + ":" + getRequiredSubfields();
     }
 
     public static HiveColumnHandle updateRowIdHandle()

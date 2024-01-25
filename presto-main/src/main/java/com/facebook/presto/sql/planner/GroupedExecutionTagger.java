@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -85,7 +86,7 @@ class GroupedExecutionTagger
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
 
-        if ((node.getType() == JoinNode.Type.RIGHT || node.getType() == JoinNode.Type.FULL) && !right.currentNodeCapable) {
+        if ((node.getType() == JoinType.RIGHT || node.getType() == JoinType.FULL) && !right.currentNodeCapable) {
             // For a plan like this, if the fragment participates in grouped execution,
             // the LookupOuterOperator corresponding to the RJoin will not work execute properly.
             //

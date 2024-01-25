@@ -18,6 +18,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -34,14 +35,16 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class OrcBatchPageSource
@@ -66,6 +69,8 @@ public class OrcBatchPageSource
 
     private final RuntimeStats runtimeStats;
 
+    private final List<Boolean> isRowPositionList;
+
     public OrcBatchPageSource(
             OrcBatchRecordReader recordReader,
             OrcDataSource orcDataSource,
@@ -75,6 +80,19 @@ public class OrcBatchPageSource
             FileFormatDataSourceStats stats,
             RuntimeStats runtimeStats)
     {
+        this(recordReader, orcDataSource, columns, typeManager, systemMemoryContext, stats, runtimeStats, nCopies(columns.size(), false));
+    }
+
+    public OrcBatchPageSource(
+            OrcBatchRecordReader recordReader,
+            OrcDataSource orcDataSource,
+            List<HiveColumnHandle> columns,
+            TypeManager typeManager,
+            OrcAggregatedMemoryContext systemMemoryContext,
+            FileFormatDataSourceStats stats,
+            RuntimeStats runtimeStats,
+            List<Boolean> isRowPositionList)
+    {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
@@ -82,6 +100,7 @@ public class OrcBatchPageSource
 
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.isRowPositionList = requireNonNull(isRowPositionList, "rowPosIndices is null");
 
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
@@ -155,11 +174,16 @@ public class OrcBatchPageSource
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                if (isRowPositionColumn(fieldId)) {
+                    blocks[fieldId] = getRowPosColumnBlock(recordReader.getFilePosition(), batchSize);
                 }
                 else {
-                    blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
+                    if (constantBlocks[fieldId] != null) {
+                        blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
+                    }
+                    else {
+                        blocks[fieldId] = new LazyBlock(batchSize, new OrcBlockLoader(hiveColumnIndexes[fieldId]));
+                    }
                 }
             }
             return new Page(batchSize, blocks);
@@ -223,6 +247,20 @@ public class OrcBatchPageSource
                 throwable.addSuppressed(e);
             }
         }
+    }
+
+    private boolean isRowPositionColumn(int column)
+    {
+        return isRowPositionList.get(column);
+    }
+
+    private static Block getRowPosColumnBlock(long baseIndex, int size)
+    {
+        long[] rowPositions = new long[size];
+        for (int position = 0; position < size; position++) {
+            rowPositions[position] = baseIndex + position;
+        }
+        return new LongArrayBlock(size, Optional.empty(), rowPositions);
     }
 
     private final class OrcBlockLoader

@@ -22,6 +22,10 @@ an :ref:`order-by-clause` within the aggregate function::
 General Aggregate Functions
 ---------------------------
 
+.. function:: any_value(x) -> [same as input]
+
+    This is an alias for :func:`arbitrary`.
+
 .. function:: arbitrary(x) -> [same as input]
 
     Returns an arbitrary non-null value of ``x``, if one exists.
@@ -67,9 +71,11 @@ General Aggregate Functions
 
     This is an alias for :func:`bool_and`.
 
-.. function:: geometric_mean(x) -> double
+.. function:: geometric_mean(bigint) -> double
+              geometric_mean(double) -> double
+              geometric_mean(real) -> real
 
-    Returns the geometric mean of all input values.
+    Returns the `geometric mean <https://en.wikipedia.org/wiki/Geometric_mean>`_ of all input values.
 
 .. function:: max_by(x, y) -> [same as x]
 
@@ -111,7 +117,29 @@ General Aggregate Functions
     for each input value. In addition to taking the input value, ``inputFunction``
     takes the current state, initially ``initialState``, and returns the new state.
     ``combineFunction`` will be invoked to combine two states into a new state.
-    The final state is returned::
+    The final state is returned. Throws an error if ``initialState`` is NULL.
+    The behavior is undefined if ``inputFunction`` or ``combineFunction`` return a NULL.
+
+    Take care when designing ``initialState``, ``inputFunction`` and ``combineFunction``.
+    These must support evaluating aggregation in a distributed manner using partial
+    aggregation on many nodes, followed by shuffle over group-by keys, followed by
+    final aggregation. Consider all possible values of state to ensure that
+    ``combineFunction`` is `commutative <https://en.wikipedia.org/wiki/Commutative_property>`_
+    and `associative <https://en.wikipedia.org/wiki/Associative_property>`_
+    operation with ``initialState`` as the
+    `identity <https://en.wikipedia.org/wiki/Identity_element>`_ value.
+
+     combineFunction(s, initialState) = s for any s
+
+     combineFunction(s1, s2) = combineFunction(s2, s1) for any s1 and s2
+
+     combineFunction(s1, combineFunction(s2, s3)) = combineFunction(combineFunction(s1, s2), s3) for any s1, s2, s3
+
+    In addition, make sure that the following holds for the inputFunction:
+
+     inputFunction(inputFunction(initialState, x), y) = combineFunction(inputFunction(initialState, x), inputFunction(initialState, y)) for any x and y
+
+    ::
 
         SELECT id, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b)
         FROM (
@@ -548,9 +576,9 @@ Statistical Aggregate Functions
 
     .. math::
 
-        \mathrm{kurtosis}(x) = {n(n+1) \over (n-1)(n-2)(n-3)} { \sum[(x_i-\mu)^4] \over \sigma^4} -3{ (n-1)^2 \over (n-2)(n-3) },
+        \mathrm{kurtosis}(x) = {n(n+1) \over (n-1)(n-2)(n-3)} { \sum[(x_i-\mu)^4] \over \sigma^4} -3{ (n-1)^2 \over (n-2)(n-3) }
 
-   where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
+    where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
 
 .. function:: regr_intercept(y, x) -> double
 
@@ -560,6 +588,41 @@ Statistical Aggregate Functions
 .. function:: regr_slope(y, x) -> double
 
     Returns linear regression slope of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_avgx(y, x) -> double
+
+    Returns the average of the independent value in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_avgy(y, x) -> double
+
+    Returns the average of the dependent value in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_count(y, x) -> double
+
+    Returns the number of non-null pairs of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_r2(y, x) -> double
+
+    Returns the coefficient of determination of the linear regression. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_sxy(y, x) -> double
+
+    Returns the sum of the product of the dependent and independent values in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_syy(y, x) -> double
+
+    Returns the sum of the squares of the dependent values in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_sxx(y, x) -> double
+
+    Returns the sum of the squares of the independent values in a group. ``y`` is the dependent
     value. ``x`` is the independent value.
 
 .. function:: skewness(x) -> double
@@ -935,6 +998,117 @@ where :math:`f(x)` is the partial density function of :math:`x`.
     The function uses the stream summary data structure proposed in the paper
     `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwally, D.Agrawal and A.Abbadi.
 
+Reservoir Sample Functions
+-------------------------------
+
+Reservoir sample functions use a fixed sample size, as opposed to
+:ref:`TABLESAMPLE <sql-tablesample>`. Fixed sample sizes always result in a
+fixed total size while still guaranteeing that each record in dataset has an
+equal probability of being chosen. See [Vitter1985]_.
+
+.. function:: reservoir_sample(initial_sample: array(T), initial_processed_count: bigint, values_to_sample: T, desired_sample_size: int) -> row(processed_count: bigint, sample: array(T))
+
+    Computes a new reservoir sample given:
+    
+    - ``initial_sample``: an initial sample array, or ``NULL`` if creating a new
+      sample.
+    - ``initial_processed_count``: the number of records processed to generate
+      the initial sample array. This should be 0 or ``NULL`` if
+      ``initital_sample`` is ``NULL``.
+    - ``values_to_sample``: the column to sample from.
+    - ``desired_sample_size``: the size of reservoir sample.
+
+    The function outputs a single row type with two columns:
+
+    #. Processed count: The total number of rows the function sampled
+       from. It includes the total from the ``initial_processed_count``,
+       if provided.
+
+    #. Reservoir sample: An array with length equivalent to the minimum of
+       ``desired_sample_size`` and the number of values in the
+       ``values_to_sample`` argument.
+    
+
+    .. code-block:: sql
+
+        WITH result as (
+            SELECT
+                reservoir_sample(NULL, 0, col, 5) as reservoir
+            FROM (
+                VALUES
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 0
+            ) as t(col)
+        )
+        SELECT 
+            reservoir.processed_count, reservoir.sample
+        FROM result;
+
+    .. code-block:: none
+
+         processed_count |     sample
+        -----------------+-----------------
+                      10 | [1, 2, 8, 4, 5]
+
+    To merge older samples with new data, supply valid arguments to the
+    ``initial_sample`` argument and ``initial_processed_count`` arguments.
+
+    .. code-block:: sql
+
+        WITH initial_sample as (
+            SELECT
+                reservoir_sample(NULL, 0, col, 3) as reservoir
+            FROM (
+                VALUES
+                0, 1, 2, 3, 4
+            ) as t(col)
+        ),
+        new_sample as (
+            SELECT
+                reservoir_sample(
+                    (SELECT reservoir.sample FROM initial_sample), 
+                    (SELECT reservoir.processed_count FROM initial_sample), 
+                    col, 
+                    3
+                ) as result
+            FROM (
+                VALUES
+                5, 6, 7, 8, 9
+            ) as t(col)
+        )
+        SELECT 
+            result.processed_count, result.sample
+        FROM new_sample;
+
+    .. code-block:: none
+
+         processed_count |  sample
+        -----------------+-----------
+                      10 | [8, 3, 2]
+
+    To sample an entire row of a table, use a ``ROW`` type input with 
+    each subfield corresponding to the columns of the source table.
+
+    .. code-block:: sql
+
+        WITH result as (
+            SELECT
+                reservoir_sample(NULL, 0, CAST(row(idx, val) AS row(idx int, val varchar)), 2) as reservoir
+            FROM (
+                VALUES
+                (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e')
+            ) as t(idx, val)
+        )
+        SELECT 
+            reservoir.processed_count, reservoir.sample
+        FROM result;
+
+    .. code-block:: none
+
+         processed_count |              sample
+        -----------------+----------------------------------
+                       5 | [{idx=1, val=a}, {idx=5, val=e}]
+
+    
 
 ---------------------------
 
@@ -950,3 +1124,5 @@ where :math:`f(x)` is the partial density function of :math:`x`.
 
 .. [Efraimidis2006] Efraimidis, Pavlos S.; Spirakis, Paul G. (2006-03-16). "Weighted random sampling with a reservoir".
     Information Processing Letters. 97 (5): 181–185.
+
+.. [Vitter1985] Vitter, Jeffrey S. "Random sampling with a reservoir." ACM Transactions on Mathematical Software (TOMS) 11.1 (1985): 37-57.

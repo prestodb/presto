@@ -121,7 +121,7 @@ TEST_F(JsonSignatureParserTest, complexTypes) {
             "map(varchar, double)",
             "row(varbinary, double, tinyint)",
             "array(array(bigint))",
-            "map(array(map(bigint, array(boolean))))"
+            "map(array(map(bigint, array(boolean))), row(integer, real))"
           ]
         }
       ]

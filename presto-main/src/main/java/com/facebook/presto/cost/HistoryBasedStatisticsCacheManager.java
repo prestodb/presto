@@ -46,8 +46,8 @@ public class HistoryBasedStatisticsCacheManager
 
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
 
-    // Whether the history is loaded successfully
-    private final Set<QueryId> invalidQueryId = ConcurrentHashMap.newKeySet();
+    // Stores query IDs which timeout during history optimizer registration
+    private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
 
     public HistoryBasedStatisticsCacheManager() {}
 
@@ -59,24 +59,13 @@ public class HistoryBasedStatisticsCacheManager
                     @Override
                     public HistoricalPlanStatistics load(PlanNodeWithHash key)
                     {
-                        if (invalidQueryId.contains(queryId)) {
-                            return empty();
-                        }
                         return loadAll(Collections.singleton(key)).values().stream().findAny().orElseGet(HistoricalPlanStatistics::empty);
                     }
 
                     @Override
                     public Map<PlanNodeWithHash, HistoricalPlanStatistics> loadAll(Iterable<? extends PlanNodeWithHash> keys)
                     {
-                        if (invalidQueryId.contains(queryId)) {
-                            Map<PlanNodeWithHash, HistoricalPlanStatistics> emptyResult = new HashMap<>();
-                            keys.forEach(x -> emptyResult.put(x, empty()));
-                            return emptyResult;
-                        }
                         Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys), timeoutInMilliSeconds));
-                        if (statistics.isEmpty()) {
-                            invalidQueryId.add(queryId);
-                        }
                         // loadAll excepts all keys to be written
                         for (PlanNodeWithHash key : keys) {
                             statistics.putIfAbsent(key, empty());
@@ -101,7 +90,7 @@ public class HistoryBasedStatisticsCacheManager
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
         inputTableStatistics.remove(queryId);
-        invalidQueryId.remove(queryId);
+        queryIdsRegistrationTimeOut.remove(queryId);
     }
 
     @VisibleForTesting
@@ -110,8 +99,13 @@ public class HistoryBasedStatisticsCacheManager
         return canonicalInfoCache;
     }
 
-    public boolean loadHistoryFailed(QueryId queryId)
+    public boolean historyBasedQueryRegistrationTimeout(QueryId queryId)
     {
-        return invalidQueryId.contains(queryId);
+        return queryIdsRegistrationTimeOut.contains(queryId);
+    }
+
+    public void setHistoryBasedQueryRegistrationTimeout(QueryId queryId)
+    {
+        queryIdsRegistrationTimeOut.add(queryId);
     }
 }

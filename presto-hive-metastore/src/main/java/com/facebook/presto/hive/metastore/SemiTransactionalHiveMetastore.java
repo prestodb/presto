@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
@@ -63,7 +62,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -75,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_USER_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveStatisticsUtil.updatePartitionStatistics;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.HiveCommitHandle.EMPTY_HIVE_COMMIT_HANDLE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -98,6 +97,7 @@ import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -398,26 +398,6 @@ public class SemiTransactionalHiveMetastore
         });
     }
 
-    // For HiveBasicStatistics, we only overwrite the original statistics if the new one is not empty.
-    // For HiveColumnStatistics, we always overwrite every statistics.
-    // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
-    private PartitionStatistics updatePartitionStatistics(PartitionStatistics oldPartitionStats, PartitionStatistics newPartitionStats)
-    {
-        HiveBasicStatistics oldBasicStatistics = oldPartitionStats.getBasicStatistics();
-        HiveBasicStatistics newBasicStatistics = newPartitionStats.getBasicStatistics();
-        HiveBasicStatistics updatedBasicStatistics = new HiveBasicStatistics(
-                firstPresent(newBasicStatistics.getFileCount(), oldBasicStatistics.getFileCount()),
-                firstPresent(newBasicStatistics.getRowCount(), oldBasicStatistics.getRowCount()),
-                firstPresent(newBasicStatistics.getInMemoryDataSizeInBytes(), oldBasicStatistics.getInMemoryDataSizeInBytes()),
-                firstPresent(newBasicStatistics.getOnDiskDataSizeInBytes(), oldBasicStatistics.getOnDiskDataSizeInBytes()));
-        return new PartitionStatistics(updatedBasicStatistics, newPartitionStats.getColumnStatistics());
-    }
-
-    private static OptionalLong firstPresent(OptionalLong first, OptionalLong second)
-    {
-        return first.isPresent() ? first : second;
-    }
-
     /**
      * {@code currentLocation} needs to be supplied if a writePath exists for the table.
      */
@@ -533,7 +513,7 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector());
         if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
             Table table = getTable(metastoreContext, databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -579,7 +559,8 @@ public class SemiTransactionalHiveMetastore
                         session.getSource(),
                         getMetastoreHeaders(session),
                         isUserDefinedTypeEncodingEnabled(session),
-                        columnConverterProvider),
+                        columnConverterProvider,
+                        session.getWarningCollector()),
                 databaseName,
                 tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
@@ -837,7 +818,7 @@ public class SemiTransactionalHiveMetastore
      * @param partition The new partition object to be added
      * @param currentLocation The path for which the partition is added in the table
      * @param statistics The basic statistics and column statistics for the added partition
-     * @param noNeedToValidatePath check metastore file path. True for no check which is enabled by the sync partition code path only
+     * @param isPathValidationNeeded check metastore file path. True for no check which is enabled by the sync partition code path only
      */
     public synchronized void addPartition(
             ConnectorSession session,
@@ -923,7 +904,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector());
 
         if (oldPartitionAction == null) {
             Partition partition = delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues)
@@ -1150,7 +1131,8 @@ public class SemiTransactionalHiveMetastore
                         hdfsContext.getSource(),
                         hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                         hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                        columnConverterProvider);
+                        columnConverterProvider,
+                        hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1181,7 +1163,8 @@ public class SemiTransactionalHiveMetastore
                             hdfsContext.getSource(),
                             hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                             hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                            columnConverterProvider);
+                            columnConverterProvider,
+                            hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);

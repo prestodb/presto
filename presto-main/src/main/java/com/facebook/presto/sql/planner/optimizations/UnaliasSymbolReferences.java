@@ -20,7 +20,11 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -32,6 +36,7 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -85,10 +90,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -118,15 +124,15 @@ public class UnaliasSymbolReferences
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-
-        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), plan);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), plan);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, !rewrittenPlan.equals(plan));
     }
 
     private static class Rewriter
@@ -135,11 +141,14 @@ public class UnaliasSymbolReferences
         private final Map<String, String> mapping = new HashMap<>();
         private final TypeProvider types;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
+
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final WarningCollector warningCollector;
 
         private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager, WarningCollector warningCollector)
         {
             this.types = types;
+            this.functionAndTypeManager = functionAndTypeManager;
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.warningCollector = warningCollector;
         }
@@ -151,6 +160,35 @@ public class UnaliasSymbolReferences
             //TODO: use mapper in other methods
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitCteReference(CteReferenceNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            return new CteReferenceNode(node.getSourceLocation(), node.getId(), source, node.getCteName());
+        }
+
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            List<VariableReferenceExpression> canonical = Lists.transform(node.getOutputVariables(), this::canonicalize);
+            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteName(), node.getRowCountVariable(), canonical);
+        }
+
+        public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Void> context)
+        {
+            // No rewrite on source by cte consumer
+            return node;
+        }
+
+        public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> cteProducers = node.getCteProducers().stream().map(c ->
+                            SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), c))
+                    .collect(Collectors.toList());
+            PlanNode primarySource = context.rewrite(node.getPrimarySource());
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
         }
 
         @Override
@@ -531,7 +569,7 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
+            List<EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
             Optional<RowExpression> canonicalFilter = node.getFilter().map(this::canonicalize);
             Optional<VariableReferenceExpression> canonicalLeftHashVariable = canonicalize(node.getLeftHashVariable());
             Optional<VariableReferenceExpression> canonicalRightHashVariable = canonicalize(node.getRightHashVariable());
@@ -772,11 +810,11 @@ public class UnaliasSymbolReferences
                     .collect(toImmutableSet());
         }
 
-        private List<JoinNode.EquiJoinClause> canonicalizeJoinCriteria(List<JoinNode.EquiJoinClause> criteria)
+        private List<EquiJoinClause> canonicalizeJoinCriteria(List<EquiJoinClause> criteria)
         {
-            ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
-            for (JoinNode.EquiJoinClause clause : criteria) {
-                builder.add(new JoinNode.EquiJoinClause(canonicalize(clause.getLeft()), canonicalize(clause.getRight())));
+            ImmutableList.Builder<EquiJoinClause> builder = ImmutableList.builder();
+            for (EquiJoinClause clause : criteria) {
+                builder.add(new EquiJoinClause(canonicalize(clause.getLeft()), canonicalize(clause.getRight())));
             }
 
             return builder.build();

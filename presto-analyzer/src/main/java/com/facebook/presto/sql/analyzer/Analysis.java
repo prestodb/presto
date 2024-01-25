@@ -18,6 +18,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
@@ -167,6 +168,8 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedViewAnalysis = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
+
+    private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -682,6 +685,16 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
+    }
+
+    public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
+    {
+        this.updatedColumns = Optional.of(updatedColumns);
+    }
+
+    public Optional<List<ColumnMetadata>> getUpdatedColumns()
+    {
+        return updatedColumns;
     }
 
     public void setRefreshMaterializedViewAnalysis(RefreshMaterializedViewAnalysis refreshMaterializedViewAnalysis)

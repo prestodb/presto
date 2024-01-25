@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
@@ -37,6 +36,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -97,6 +97,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
@@ -127,8 +128,8 @@ public class TestHiveFileFormats
 {
     private static final FileFormatDataSourceStats STATS = new FileFormatDataSourceStats();
     private static final MetadataReader METADATA_READER = new MetadataReader();
-    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(false), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
-    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+    private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), createParquetHiveCommonClientConfig(false)));
+    private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), createParquetHiveCommonClientConfig(true)));
 
     private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -255,8 +256,8 @@ public class TestHiveFileFormats
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toImmutableList());
 
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(createRcFileHiveClientConfig(true), new HiveCommonClientConfig());
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
 
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
@@ -309,8 +310,8 @@ public class TestHiveFileFormats
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(createRcFileHiveClientConfig(true), new HiveCommonClientConfig());
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
@@ -335,14 +336,10 @@ public class TestHiveFileFormats
     public void testOrcOptimizedWriter(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig()
-                                .setOrcOptimizedWriterEnabled(true)
-                                .setOrcWriterValidationPercentage(100.0),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(
+                new HiveClientConfig(),
+                createOrcHiveCommonClientConfig(true, 100.0));
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -362,14 +359,11 @@ public class TestHiveFileFormats
     public void testOptimizedParquetWriter(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig()
-                                .setOrcOptimizedWriterEnabled(true)
-                                .setOrcWriterValidationPercentage(100.0),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true),
-                        new CacheConfig()).getSessionProperties());
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(
+                new HiveClientConfig(),
+                new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true),
+                createOrcHiveCommonClientConfig(true, 100.0));
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
@@ -388,11 +382,9 @@ public class TestHiveFileFormats
     public void testOrcUseColumnNames(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+        TestingConnectorSession session = new TestingConnectorSession(getAllSessionProperties(
                 new HiveClientConfig(),
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig(),
-                new CacheConfig()).getSessionProperties());
+                new HiveCommonClientConfig()));
 
         assertThatFileFormat(ORC)
                 .withWriteColumns(TEST_COLUMNS)
@@ -510,14 +502,10 @@ public class TestHiveFileFormats
     public void testDwrfOptimizedWriter(int rowCount)
             throws Exception
     {
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig()
-                                .setOrcOptimizedWriterEnabled(true)
-                                .setOrcWriterValidationPercentage(100.0),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(
+                new HiveClientConfig(),
+                createOrcHiveCommonClientConfig(true, 100.0));
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
 
         // DWRF does not support modern Hive types
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
@@ -1075,10 +1063,25 @@ public class TestHiveFileFormats
                 .withStorageFormat(hiveStorageFormat);
     }
 
-    private static HiveClientConfig createParquetHiveClientConfig(boolean useParquetColumnNames)
+    private static HiveClientConfig createRcFileHiveClientConfig(boolean rcfileOptimizedWriterEnabled)
     {
         HiveClientConfig config = new HiveClientConfig();
+        config.setRcfileOptimizedWriterEnabled(rcfileOptimizedWriterEnabled);
+        return config;
+    }
+
+    private static HiveCommonClientConfig createParquetHiveCommonClientConfig(boolean useParquetColumnNames)
+    {
+        HiveCommonClientConfig config = new HiveCommonClientConfig();
         config.setUseParquetColumnNames(useParquetColumnNames);
+        return config;
+    }
+
+    private static HiveCommonClientConfig createOrcHiveCommonClientConfig(boolean orcOptimizedWriterEnabled, double orcWriterValidationPercentage)
+    {
+        HiveCommonClientConfig config = new HiveCommonClientConfig();
+        config.setOrcOptimizedWriterEnabled(orcOptimizedWriterEnabled);
+        config.setOrcWriterValidationPercentage(orcWriterValidationPercentage);
         return config;
     }
 

@@ -42,7 +42,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(true)
                 .setAggregationSpillEnabled(true)
                 .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true));
+                .setOrderBySpillEnabled(true)
+                .setMaxSpillBytes(500L << 30));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
@@ -50,7 +51,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(false)
                 .setAggregationSpillEnabled(false)
                 .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false);
+                .setOrderBySpillEnabled(false)
+                .setMaxSpillBytes(1L);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -65,13 +67,16 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxTaskLogging(true)
                 .setHttpServerReusePort(true)
                 .setHttpServerPort(7777)
-                .setHttpExecThreads(32)
+                .setHttpServerNumIoThreadsHwMultiplier(1.0)
                 .setHttpsServerPort(7778)
                 .setEnableHttpsCommunication(false)
                 .setHttpsCiphers("AES128-SHA,AES128-SHA256,AES256-GCM-SHA384")
                 .setHttpsCertPath("")
                 .setHttpsKeyPath("")
-                .setNumIoThreads(30)
+                .setExchangeHttpClientNumIoThreadsHwMultiplier(1.0)
+                .setAsyncDataCacheEnabled(false)
+                .setAsyncCacheSsdGb(0)
+                .setConnectorNumIoThreadsHwMultiplier(0.0)
                 .setShutdownOnsetSec(10)
                 .setSystemMemoryGb(10)
                 .setQueryMemoryGb(new DataSize(8, DataSize.Unit.GIGABYTE))
@@ -80,13 +85,16 @@ public class TestNativeExecutionSystemConfig
                 .setMemoryArbitratorCapacityGb(8)
                 .setMemoryPoolInitCapacity(8L << 30)
                 .setMemoryPoolTransferCapacity(2L << 30)
+                .setMemoryReclaimWaitMs(300_000)
                 .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
+                .setOldTaskCleanupMs(false)
                 .setPrestoVersion("dummy.presto.version")
                 .setShuffleName("local")
                 .setRegisterTestFunctions(false)
-                .setEnableHttpServerAccessLog(true));
+                .setEnableHttpServerAccessLog(true)
+                .setCoreOnAllocationFailureEnabled(false));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
@@ -96,13 +104,16 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxTaskLogging(false)
                 .setHttpServerReusePort(false)
                 .setHttpServerPort(8080)
-                .setHttpExecThreads(256)
+                .setHttpServerNumIoThreadsHwMultiplier(3.0)
                 .setHttpsServerPort(8081)
                 .setEnableHttpsCommunication(true)
                 .setHttpsCiphers("AES128-SHA")
                 .setHttpsCertPath("/tmp/non_existent.cert")
                 .setHttpsKeyPath("/tmp/non_existent.key")
-                .setNumIoThreads(50)
+                .setExchangeHttpClientNumIoThreadsHwMultiplier(0.5)
+                .setAsyncDataCacheEnabled(true)
+                .setAsyncCacheSsdGb(1000)
+                .setConnectorNumIoThreadsHwMultiplier(1.0)
                 .setPrestoVersion("presto-version")
                 .setShutdownOnsetSec(30)
                 .setSystemMemoryGb(40)
@@ -112,11 +123,14 @@ public class TestNativeExecutionSystemConfig
                 .setMemoryArbitratorCapacityGb(10)
                 .setMemoryPoolInitCapacity(7L << 30)
                 .setMemoryPoolTransferCapacity(1L << 30)
+                .setMemoryReclaimWaitMs(123123123)
                 .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
+                .setOldTaskCleanupMs(true)
                 .setShuffleName("custom")
                 .setRegisterTestFunctions(true)
-                .setEnableHttpServerAccessLog(false);
+                .setEnableHttpServerAccessLog(false)
+                .setCoreOnAllocationFailureEnabled(true);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }

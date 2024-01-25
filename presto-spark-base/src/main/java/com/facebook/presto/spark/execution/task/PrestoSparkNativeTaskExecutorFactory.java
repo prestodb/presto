@@ -57,9 +57,9 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.sun.management.OperatingSystemMXBean;
+import io.airlift.units.Duration;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
@@ -95,6 +96,8 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory.DEFAULT_URI;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
@@ -287,36 +290,50 @@ public class PrestoSparkNativeTaskExecutorFactory
 
         boolean isFixedBroadcastDistribution = fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION);
         // 2.b Populate Shuffle Write info
-        Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor().isPresent()
-                && !findTableWriteNode(fragment.getRoot()).isPresent()
-                && !(fragment.getRoot() instanceof OutputNode)
-                && !isFixedBroadcastDistribution ?
-                Optional.of(shuffleInfoTranslator.createShuffleWriteInfo(session, nativeInputs.getShuffleWriteDescriptor().get())) : Optional.empty();
+        Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo = nativeInputs.getShuffleWriteDescriptor()
+                .map(descriptor -> shuffleInfoTranslator.createShuffleWriteInfo(session, descriptor));
         Optional<String> serializedShuffleWriteInfo = shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo);
 
         // 2.c populate broadcast path
         Optional<String> broadcastDirectory =
                 isFixedBroadcastDistribution ? Optional.of(getBroadcastDirectoryPath(session)) : Optional.empty();
 
-        // 3. Submit the task to cpp process for execution
-        log.info("Submitting native execution task ");
-        NativeExecutionTask task = nativeExecutionTaskFactory.createNativeExecutionTask(
-                session,
-                nativeExecutionProcess.getLocation(),
-                taskId,
-                fragment,
-                ImmutableList.copyOf(taskSources),
-                taskDescriptor.getTableWriteInfo(),
-                serializedShuffleWriteInfo,
-                broadcastDirectory);
+        boolean terminateWithCoreWhenUnresponsive = isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
+        Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
+        try {
+            // 3. Submit the task to cpp process for execution
+            log.info("Submitting native execution task ");
+            NativeExecutionTask task = nativeExecutionTaskFactory.createNativeExecutionTask(
+                    session,
+                    nativeExecutionProcess.getLocation(),
+                    taskId,
+                    fragment,
+                    ImmutableList.copyOf(taskSources),
+                    taskDescriptor.getTableWriteInfo(),
+                    serializedShuffleWriteInfo,
+                    broadcastDirectory);
 
-        log.info("Creating task and will wait for remote task completion");
-        TaskInfo taskInfo = task.start();
+            log.info("Creating task and will wait for remote task completion");
+            TaskInfo taskInfo = task.start();
 
-        // task creation might have failed
-        processTaskInfoForErrorsOrCompletion(taskInfo);
-        // 4. return output to spark RDD layer
-        return new PrestoSparkNativeTaskOutputIterator<>(partitionId, task, outputType, taskInfoCollector, taskInfoCodec, executionExceptionFactory, cpuTracker);
+            // task creation might have failed
+            processTaskInfoForErrorsOrCompletion(taskInfo);
+            // 4. return output to spark RDD layer
+            return new PrestoSparkNativeTaskOutputIterator<>(
+                    partitionId,
+                    task,
+                    outputType,
+                    taskInfoCollector,
+                    taskInfoCodec,
+                    executionExceptionFactory,
+                    cpuTracker,
+                    nativeExecutionProcess,
+                    terminateWithCoreWhenUnresponsive,
+                    terminateWithCoreTimeout);
+        }
+        catch (RuntimeException e) {
+            throw processFailure(e, nativeExecutionProcess, terminateWithCoreWhenUnresponsive, terminateWithCoreTimeout);
+        }
     }
 
     private String getBroadcastDirectoryPath(Session session)
@@ -340,7 +357,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         OptionalLong processCpuTime = cpuTracker.get();
 
         // collect statistics (if available)
-        Optional<TaskInfo> taskInfoOptional = task.getTaskInfo();
+        Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
         if (!taskInfoOptional.isPresent()) {
             log.error("Missing taskInfo. Statistics might be inaccurate");
             return;
@@ -356,6 +373,17 @@ public class PrestoSparkNativeTaskExecutorFactory
 
         // Update Spark Accumulators for spark internal metrics
         PrestoSparkStatsCollectionUtils.collectMetrics(taskInfoOptional.get());
+    }
+
+    private static Optional<TaskInfo> tryGetTaskInfo(NativeExecutionTask task)
+    {
+        try {
+            return task.getTaskInfo();
+        }
+        catch (RuntimeException e) {
+            log.debug(e, "TaskInfo is not available");
+            return Optional.empty();
+        }
     }
 
     private static void processTaskInfoForErrorsOrCompletion(TaskInfo taskInfo)
@@ -498,7 +526,10 @@ public class PrestoSparkNativeTaskExecutorFactory
         private final Codec<TaskInfo> taskInfoCodec;
         private final Class<T> outputType;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
-        private CpuTracker cpuTracker;
+        private final CpuTracker cpuTracker;
+        private final NativeExecutionProcess nativeExecutionProcess;
+        private final boolean terminateWithCoreWhenUnresponsive;
+        private final Duration terminateWithCoreTimeout;
 
         public PrestoSparkNativeTaskOutputIterator(
                 int partitionId,
@@ -507,7 +538,10 @@ public class PrestoSparkNativeTaskExecutorFactory
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator,
                 Codec<TaskInfo> taskInfoCodec,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
-                CpuTracker cpuTracker)
+                CpuTracker cpuTracker,
+                NativeExecutionProcess nativeExecutionProcess,
+                boolean terminateWithCoreWhenUnresponsive,
+                Duration terminateWithCoreTimeout)
         {
             this.partitionId = partitionId;
             this.nativeExecutionTask = nativeExecutionTask;
@@ -516,6 +550,9 @@ public class PrestoSparkNativeTaskExecutorFactory
             this.outputType = outputType;
             this.executionExceptionFactory = executionExceptionFactory;
             this.cpuTracker = cpuTracker;
+            this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "nativeExecutionProcess is null");
+            this.terminateWithCoreWhenUnresponsive = terminateWithCoreWhenUnresponsive;
+            this.terminateWithCoreTimeout = requireNonNull(terminateWithCoreTimeout, "terminateWithCoreTimeout is null");
         }
 
         /**
@@ -594,10 +631,14 @@ public class PrestoSparkNativeTaskExecutorFactory
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
                 completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
-                throw executionExceptionFactory.toPrestoSparkExecutionException(ex);
+                throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
+                        ex,
+                        nativeExecutionProcess,
+                        terminateWithCoreWhenUnresponsive,
+                        terminateWithCoreTimeout));
             }
             catch (InterruptedException e) {
-                log.error(e);
+                Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
 
@@ -619,5 +660,39 @@ public class PrestoSparkNativeTaskExecutorFactory
             mutablePartitionId.setPartition(partitionId);
             return new Tuple2<>(mutablePartitionId, (T) toPrestoSparkSerializedPage(next.get()));
         }
+    }
+
+    private static RuntimeException processFailure(
+            RuntimeException failure,
+            NativeExecutionProcess process,
+            boolean terminateWithCoreWhenUnresponsive,
+            Duration terminateWithCoreTimeout)
+    {
+        if (failure instanceof PrestoTransportException) {
+            PrestoTransportException transportException = (PrestoTransportException) failure;
+            String message;
+            // lost communication with the native execution process
+            if (process.isAlive()) {
+                // process is unresponsive
+                if (terminateWithCoreWhenUnresponsive) {
+                    process.terminateWithCore(terminateWithCoreTimeout);
+                }
+                message = "Native execution process is alive but unresponsive";
+            }
+            else {
+                message = "Native execution process is dead";
+                String crashReport = process.getCrashReport();
+                if (!crashReport.isEmpty()) {
+                    message += ":\n" + crashReport;
+                }
+            }
+
+            return new PrestoTransportException(
+                    transportException::getErrorCode,
+                    transportException.getRemoteHost(),
+                    message,
+                    failure);
+        }
+        return failure;
     }
 }

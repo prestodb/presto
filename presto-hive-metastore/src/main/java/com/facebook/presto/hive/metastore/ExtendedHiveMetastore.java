@@ -73,6 +73,15 @@ public interface ExtendedHiveMetastore
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
     /**
+     * Drop table from the metastore, but preserve the data. If no override
+     * is available, default to dropTable with deleteData set to false.
+     */
+    default void dropTableFromMetastore(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        dropTable(metastoreContext, databaseName, tableName, false);
+    }
+
+    /**
      * This should only be used if the semantic here is drop and add. Trying to
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
@@ -131,7 +140,7 @@ public interface ExtendedHiveMetastore
 
     void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration);
 
-    default long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    default Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         throw new NotSupportedException("Lock is not supported by default");
     }

@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl
@@ -115,6 +116,12 @@ public class ReadOnlyAccessControl
     public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
+    }
+
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        denyUpdateTableColumns(tableName.toString(), updatedColumns);
     }
 
     @Override

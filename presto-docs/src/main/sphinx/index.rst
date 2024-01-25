@@ -17,6 +17,7 @@ Presto Documentation
     language
     sql
     migration
+    rest
     router
     develop
     release

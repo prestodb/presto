@@ -13,16 +13,20 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.cost.PartialAggregationStatsEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.USE_PARTIAL_AGGREGATION_HISTORY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -108,6 +112,71 @@ public class TestPushPartialAggregationThroughExchange
     }
 
     @Test
+    public void testNoPartialAggregationWhenReductionBelowThresholdUsingPartialAggregationStats()
+    {
+        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager()))
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
+                .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
+                .on(p -> constructAggregation(p))
+                .overrideStats("aggregation", PlanNodeStatsEstimate.builder()
+                        .addVariableStatistics(variable("b", DOUBLE), new VariableStatsEstimate(0, 100, 0, 8, 800))
+                        .setConfident(true)
+                        .setPartialAggregationStatsEstimate(new PartialAggregationStatsEstimate(1000, 800, 10, 10))
+                        .build())
+                .doesNotFire();
+    }
+
+    @Test
+    public void testNoPartialAggregationWhenReductionAboveThresholdUsingPartialAggregationStats()
+    {
+        // when use_partial_aggregation_history=true, we use row count reduction (instead of bytes) to decide if partial aggregation is useful
+        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager()))
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
+                .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
+                .on(p -> constructAggregation(p))
+                .overrideStats("aggregation", PlanNodeStatsEstimate.builder()
+                        .addVariableStatistics(variable("b", DOUBLE), new VariableStatsEstimate(0, 100, 0, 8, 800))
+                        .setConfident(true)
+                        .setPartialAggregationStatsEstimate(new PartialAggregationStatsEstimate(1000, 300, 10, 10))
+                        .build())
+                .doesNotFire();
+    }
+
+    @Test
+    public void testNoPartialAggregationWhenRowReductionBelowThreshold()
+    {
+        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager()))
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
+                .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
+                .on(p -> constructAggregation(p))
+                .overrideStats("aggregation", PlanNodeStatsEstimate.builder()
+                        .addVariableStatistics(variable("b", DOUBLE), new VariableStatsEstimate(0, 100, 0, 8, 800))
+                        .setConfident(true)
+                        .setPartialAggregationStatsEstimate(new PartialAggregationStatsEstimate(0, 300, 10, 8))
+                        .build())
+                .doesNotFire();
+    }
+
+    @Test
+    public void testPartialAggregationWhenRowReductionAboveThreshold()
+    {
+        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager()))
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
+                .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
+                .on(p -> constructAggregation(p))
+                .overrideStats("aggregation", PlanNodeStatsEstimate.builder()
+                        .addVariableStatistics(variable("b", DOUBLE), new VariableStatsEstimate(0, 100, 0, 8, 800))
+                        .setConfident(true)
+                        .setPartialAggregationStatsEstimate(new PartialAggregationStatsEstimate(0, 300, 10, 1))
+                        .build())
+                .matches(aggregation(ImmutableMap.of("sum", functionCall("sum", ImmutableList.of("sum0"))),
+                        aggregation(
+                                ImmutableMap.of("sum0", functionCall("sum", ImmutableList.of("a"))),
+                                exchange(
+                                        values("a", "b")))));
+    }
+
+    @Test
     public void testPartialAggregationEnabledWhenNotConfident()
     {
         tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager()))
@@ -136,5 +205,21 @@ public class TestPushPartialAggregationThroughExchange
                                         ImmutableMap.of("SUM", functionCall("sum", ImmutableList.of("a"))),
                                         PARTIAL,
                                         values("a", "b")))));
+    }
+
+    private static AggregationNode constructAggregation(PlanBuilder p)
+    {
+        VariableReferenceExpression a = p.variable("a", DOUBLE);
+        VariableReferenceExpression b = p.variable("b", DOUBLE);
+        return p.aggregation(ab -> ab
+                .source(
+                        p.exchange(e -> e
+                                .addSource(p.values(new PlanNodeId("values"), a, b))
+                                .addInputsSet(a, b)
+                                .singleDistributionPartitioningScheme(
+                                        ImmutableList.of(a, b))))
+                .addAggregation(p.variable("sum", DOUBLE), p.rowExpression("sum(a)"))
+                .singleGroupingSet(b)
+                .setPlanNodeId(new PlanNodeId("aggregation")));
     }
 }

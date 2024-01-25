@@ -58,6 +58,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
@@ -184,7 +185,8 @@ public class SymbolMapper
                 mapAndDistinctVariable(node.getPreGroupedVariables()),
                 node.getStep(),
                 node.getHashVariable().map(this::map),
-                node.getGroupIdVariable().map(this::map));
+                node.getGroupIdVariable().map(this::map),
+                node.getAggregationId());
     }
 
     private Aggregation map(Aggregation aggregation)
@@ -238,6 +240,9 @@ public class SymbolMapper
                 .map(this::map)
                 .collect(toImmutableList());
 
+        Set<VariableReferenceExpression> notNullColumnVariables = node.getNotNullColumnVariables().stream()
+                .map(this::map)
+                .collect(toImmutableSet());
         return new TableWriterNode(
                 source.getSourceLocation(),
                 newNodeId,
@@ -249,10 +254,11 @@ public class SymbolMapper
                 map(node.getTableCommitContextVariable()),
                 columns,
                 node.getColumnNames(),
-                node.getNotNullColumnVariables(),
+                notNullColumnVariables,
                 node.getTablePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getPreferredShufflePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
-                node.getStatisticsAggregation().map(this::map));
+                node.getStatisticsAggregation().map(this::map),
+                node.getTaskCountIfScaledWriter());
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)

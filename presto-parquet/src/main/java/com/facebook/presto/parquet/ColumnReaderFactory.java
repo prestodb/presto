@@ -35,6 +35,7 @@ import com.facebook.presto.parquet.reader.FloatColumnReader;
 import com.facebook.presto.parquet.reader.IntColumnReader;
 import com.facebook.presto.parquet.reader.LongColumnReader;
 import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
+import com.facebook.presto.parquet.reader.LongTimeMicrosColumnReader;
 import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
@@ -47,6 +48,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 
 public class ColumnReaderFactory
 {
@@ -86,6 +88,9 @@ public class ColumnReaderFactory
             case INT64:
                 if (TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType())) {
                     return new LongTimestampMicrosColumnReader(descriptor);
+                }
+                if (TIME_MICROS.equals(descriptor.getPrimitiveType().getOriginalType())) {
+                    return new LongTimeMicrosColumnReader(descriptor);
                 }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:

@@ -189,6 +189,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        delegate().checkCanUpdateTableColumns(identity, context, table, updatedColumnNames);
+    }
+
+    @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanCreateView(identity, context, view);

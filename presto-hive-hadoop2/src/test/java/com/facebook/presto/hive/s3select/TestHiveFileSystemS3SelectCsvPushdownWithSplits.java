@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.newSession;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.s3select.S3SelectTestHelper.expectedResult;

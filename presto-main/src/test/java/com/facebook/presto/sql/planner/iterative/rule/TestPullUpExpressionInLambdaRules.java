@@ -206,7 +206,49 @@ public class TestPullUpExpressionInLambdaRules
                             Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
                                     "transform(arr, x -> concat(case when arr2 is null then '*' when contains(arr2, x) then '+' else ' ' end, x))")).build(),
                             p.values(p.variable("arr", new ArrayType(VARCHAR)), p.variable("arr2", new ArrayType(VARCHAR))));
+                }).matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr, x -> concat(case when expr_0 then '*' when contains(arr2, x) then '+' else ' ' end, x))")),
+                                project(ImmutableMap.of("expr_0", expression("arr2 is null")),
+                                        values("arr", "arr2"))));
+    }
+
+    // Candidate expression for extract is the second when expression, hence skip
+    @Test
+    public void testInvalidSwitchWhenExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("arr", new ArrayType(VARCHAR));
+                    p.variable("arr2", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(arr, x -> concat(case when contains(arr2, x) then '*' when arr2 is null then '+' else ' ' end, x))")).build(),
+                            p.values(p.variable("arr", new ArrayType(VARCHAR)), p.variable("arr2", new ArrayType(VARCHAR))));
                 }).doesNotFire();
+    }
+
+    @Test
+    public void testCaseWhenExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("arr", new ArrayType(VARCHAR));
+                    p.variable("arr2", new ArrayType(VARCHAR));
+                    p.variable("col1");
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(arr, x -> concat(case (col1 > 2) when arr2 is null then '*' when contains(arr2, x) then '+' else ' ' end, x))")).build(),
+                            p.values(p.variable("arr", new ArrayType(VARCHAR)), p.variable("arr2", new ArrayType(VARCHAR)), p.variable("col1")));
+                }).matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr, x -> concat(case expr_1 when expr_0 then '*' when contains(arr2, x) then '+' else ' ' end, x))")),
+                                project(ImmutableMap.of("expr_0", expression("arr2 is null"), "expr_1", expression("col1>2")),
+                                        values("arr", "arr2", "col1"))));
     }
 
     @Test
@@ -223,5 +265,106 @@ public class TestPullUpExpressionInLambdaRules
                                     "transform(col1, x -> if(x, col2[2], 0))")).build(),
                             p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT))));
                 }).doesNotFire();
+    }
+
+    @Test
+    public void testIfExpressionOnCondition()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("col1", new ArrayType(BOOLEAN));
+                    p.variable("col2", new ArrayType(BIGINT));
+                    p.variable("col3");
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(col1, x -> if(col3 > 2, col2[2], 0))")).build(),
+                            p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT)), p.variable("col3")));
+                }).matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(col1, x -> if(greater_than, col2[2], 0))")),
+                                project(ImmutableMap.of("greater_than", expression("col3>2")),
+                                        values("col1", "col2", "col3"))));
+    }
+
+    @Test
+    public void testIfExpressionOnValue()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("col1", new ArrayType(BOOLEAN));
+                    p.variable("col2", new ArrayType(BIGINT));
+                    p.variable("col3");
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(col1, x -> if(x, col3 - 2, 0))")).build(),
+                            p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT)), p.variable("col3")));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testSubscriptExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("col1", new ArrayType(BOOLEAN));
+                    p.variable("col2", new ArrayType(BIGINT));
+                    p.variable("col3");
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", VARCHAR), p.rowExpression(
+                                    "transform(col1, x -> col2[2])")).build(),
+                            p.values(p.variable("col1", new ArrayType(BOOLEAN)), p.variable("col2", new ArrayType(BIGINT)), p.variable("col3")));
+                }).doesNotFire();
+    }
+
+    @Test
+    public void testLikeExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("expr", new ArrayType(BOOLEAN));
+                    p.variable("col", VARCHAR);
+                    p.variable("arr1", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", new ArrayType(BOOLEAN)), p.rowExpression("transform(arr1, x-> x like concat(col, 'a'))")).build(),
+                            p.values(p.variable("arr1", new ArrayType(VARCHAR)), p.variable("col", VARCHAR)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr1, x -> x like concat_1)")),
+                                project(
+
+                                        ImmutableMap.of("concat_1", expression("concat(col, 'a')")),
+                                        values("arr1", "col"))));
+    }
+
+    @Test
+    public void testRegexpLikeExpression()
+    {
+        tester().assertThat(new PullUpExpressionInLambdaRules(getFunctionManager()).projectNodeRule())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .on(p ->
+                {
+                    p.variable("expr", new ArrayType(BOOLEAN));
+                    p.variable("col", VARCHAR);
+                    p.variable("arr1", new ArrayType(VARCHAR));
+                    return p.project(
+                            Assignments.builder().put(p.variable("expr", new ArrayType(BOOLEAN)), p.rowExpression("transform(arr1, x-> regexp_like(x, concat(col, 'a')))")).build(),
+                            p.values(p.variable("arr1", new ArrayType(VARCHAR)), p.variable("col", VARCHAR)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("expr", expression("transform(arr1, x -> regexp_like(x, concat_1))")),
+                                project(
+
+                                        ImmutableMap.of("concat_1", expression("concat(col, 'a')")),
+                                        values("arr1", "col"))));
     }
 }

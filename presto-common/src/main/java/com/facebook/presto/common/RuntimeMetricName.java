@@ -55,4 +55,7 @@ public class RuntimeMetricName
     public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
     // Size of the data retrieved by read call to storage
     public static final String STORAGE_READ_DATA_BYTES = "storageReadDataBytes";
+    public static final String WRITTEN_FILES_COUNT = "writtenFilesCount";
+    public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES = "historyOptimizerQueryRegistrationGetPlanNodeHashes";
+    public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
 }

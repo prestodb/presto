@@ -114,5 +114,11 @@ public class TestMySqlDistributedQueries
         // Delete is currently unsupported
     }
 
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest
 }

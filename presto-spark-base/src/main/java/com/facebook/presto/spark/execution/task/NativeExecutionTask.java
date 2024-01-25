@@ -22,6 +22,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
@@ -30,18 +31,19 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.CANCELED;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -69,6 +71,9 @@ public class NativeExecutionTask
     private final Optional<String> broadcastBasePath;
     private final List<TaskSource> sources;
     private final Executor executor;
+
+    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Duration remoteTaskMaxErrorDuration;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
@@ -96,18 +101,20 @@ public class NativeExecutionTask
         this.broadcastBasePath = requireNonNull(broadcastBasePath, "broadcastBasePath is null");
         this.sources = requireNonNull(sources, "sources is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.remoteTaskMaxErrorDuration = queryManagerConfig.getRemoteTaskMaxErrorDuration();
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 updateScheduledExecutor,
                 errorRetryScheduledExecutor,
                 this.workerClient,
                 this.executor,
                 taskManagerConfig.getInfoUpdateInterval(),
-                queryManagerConfig.getRemoteTaskMaxErrorDuration(),
+                remoteTaskMaxErrorDuration,
                 taskFinishedOrHasResult);
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
@@ -115,7 +122,7 @@ public class NativeExecutionTask
                     errorRetryScheduledExecutor,
                     this.workerClient,
                     this.executor,
-                    queryManagerConfig.getRemoteTaskMaxErrorDuration(),
+                    remoteTaskMaxErrorDuration,
                     taskFinishedOrHasResult));
         }
         else {
@@ -196,28 +203,46 @@ public class NativeExecutionTask
 
     private TaskInfo sendUpdateRequest()
     {
-        try {
-            ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.updateTask(
-                    sources,
-                    planFragment,
-                    tableWriteInfo,
-                    shuffleWriteInfo,
-                    broadcastBasePath,
-                    session,
-                    outputBuffers);
-            BaseResponse<TaskInfo> response = future.get();
-            if (response.hasValue()) {
-                return response.getValue();
+        RequestErrorTracker errorTracker = new RequestErrorTracker(
+                "NativeExecution",
+                workerClient.getLocation(),
+                NATIVE_EXECUTION_TASK_ERROR,
+                "sendUpdateRequest encountered too many errors talking to native process",
+                remoteTaskMaxErrorDuration,
+                errorRetryScheduledExecutor,
+                "sending update request to native process");
+
+        while (true) {
+            getFutureValue(errorTracker.acquireRequestPermit());
+            try {
+                errorTracker.startRequest();
+                BaseResponse<TaskInfo> response = doSendUpdateRequest();
+                if (response.hasValue()) {
+                    errorTracker.requestSucceeded();
+                    return response.getValue();
+                }
+                else {
+                    String message = String.format("Create-or-update task request didn't return a result. %s: %s",
+                            HttpStatus.fromStatusCode(response.getStatusCode()),
+                            response.getStatusMessage());
+                    throw new IllegalStateException(message);
+                }
             }
-            else {
-                String message = String.format("Create-or-update task request didn't return a result. %s: %s",
-                        HttpStatus.fromStatusCode(response.getStatusCode()),
-                        response.getStatusMessage());
-                throw new IllegalStateException(message);
+            catch (RuntimeException e) {
+                errorTracker.requestFailed(e);
             }
         }
-        catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+    }
+
+    private BaseResponse<TaskInfo> doSendUpdateRequest()
+    {
+        return workerClient.updateTask(
+                sources,
+                planFragment,
+                tableWriteInfo,
+                shuffleWriteInfo,
+                broadcastBasePath,
+                session,
+                outputBuffers);
     }
 }

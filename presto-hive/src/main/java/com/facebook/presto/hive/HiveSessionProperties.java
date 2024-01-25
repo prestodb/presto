@@ -14,10 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -29,7 +27,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -42,7 +39,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -51,21 +47,8 @@ public final class HiveSessionProperties
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
     private static final String MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING = "min_bucket_count_to_not_ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
-    private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     public static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
-    private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
-    private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
-    private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
-    private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
-    private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
-    private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
-    private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
-    private static final String ORC_ZSTD_JNI_DECOMPRESSION_ENABLED = "orc_zstd_jni_decompression_enabled";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
-    private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
-    private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
-    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
-    private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
     private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
@@ -81,8 +64,6 @@ public final class HiveSessionProperties
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
     public static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
-    private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
-    private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
@@ -112,15 +93,12 @@ public final class HiveSessionProperties
     private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
-    public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
-    private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
-    private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
@@ -146,7 +124,6 @@ public final class HiveSessionProperties
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
-    public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -170,15 +147,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isBucketExecutionEnabled(),
                         false),
                 new PropertyMetadata<>(
-                        NODE_SELECTION_STRATEGY,
-                        "Node affinity selection strategy",
-                        VARCHAR,
-                        NodeSelectionStrategy.class,
-                        hiveClientConfig.getNodeSelectionStrategy(),
-                        false,
-                        value -> NodeSelectionStrategy.valueOf((String) value),
-                        NodeSelectionStrategy::toString),
-                new PropertyMetadata<>(
                         INSERT_EXISTING_PARTITIONS_BEHAVIOR,
                         "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
                         VARCHAR,
@@ -187,77 +155,10 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveClientConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
-                booleanProperty(
-                        ORC_BLOOM_FILTERS_ENABLED,
-                        "ORC: Enable bloom filters for predicate pushdown",
-                        hiveClientConfig.isOrcBloomFiltersEnabled(),
-                        false),
-                dataSizeSessionProperty(
-                        ORC_MAX_MERGE_DISTANCE,
-                        "ORC: Maximum size of gap between two reads to merge into a single read",
-                        hiveClientConfig.getOrcMaxMergeDistance(),
-                        false),
-                dataSizeSessionProperty(
-                        ORC_MAX_BUFFER_SIZE,
-                        "ORC: Maximum size of a single read",
-                        hiveClientConfig.getOrcMaxBufferSize(),
-                        false),
-                dataSizeSessionProperty(
-                        ORC_STREAM_BUFFER_SIZE,
-                        "ORC: Size of buffer for streaming reads",
-                        hiveClientConfig.getOrcStreamBufferSize(),
-                        false),
-                dataSizeSessionProperty(
-                        ORC_TINY_STRIPE_THRESHOLD,
-                        "ORC: Threshold below which an ORC stripe or file will read in its entirety",
-                        hiveClientConfig.getOrcTinyStripeThreshold(),
-                        false),
-                dataSizeSessionProperty(
-                        ORC_MAX_READ_BLOCK_SIZE,
-                        "ORC: Soft max size of Presto blocks produced by ORC reader",
-                        hiveClientConfig.getOrcMaxReadBlockSize(),
-                        false),
-                booleanProperty(
-                        ORC_LAZY_READ_SMALL_RANGES,
-                        "Experimental: ORC: Read small file segments lazily",
-                        hiveClientConfig.isOrcLazyReadSmallRanges(),
-                        false),
                 dataSizeSessionProperty(
                         ORC_STRING_STATISTICS_LIMIT,
                         "ORC: Maximum size of string statistics; drop if exceeding",
                         orcFileWriterConfig.getStringStatisticsLimit(),
-                        false),
-                booleanProperty(
-                        ORC_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: ORC: Enable optimized writer",
-                        hiveClientConfig.isOrcOptimizedWriterEnabled(),
-                        false),
-                booleanProperty(
-                        ORC_OPTIMIZED_WRITER_VALIDATE,
-                        "Experimental: ORC: Force all validation for files",
-                        hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
-                        false),
-                new PropertyMetadata<>(
-                        ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE,
-                        "Experimental: ORC: sample percentage for validation for files",
-                        DOUBLE,
-                        Double.class,
-                        hiveClientConfig.getOrcWriterValidationPercentage(),
-                        false,
-                        value -> {
-                            double doubleValue = ((Number) value).doubleValue();
-                            if (doubleValue < 0.0 || doubleValue > 100.0) {
-                                throw new PrestoException(
-                                        INVALID_SESSION_PROPERTY,
-                                        format("%s must be between 0.0 and 100.0 inclusive: %s", ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, doubleValue));
-                            }
-                            return doubleValue;
-                        },
-                        value -> value),
-                stringProperty(
-                        ORC_OPTIMIZED_WRITER_VALIDATE_MODE,
-                        "Experimental: ORC: Level of detail in ORC validation",
-                        hiveClientConfig.getOrcWriterValidationMode().toString(),
                         false),
                 dataSizeSessionProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
@@ -341,16 +242,6 @@ public final class HiveSessionProperties
                         CREATE_EMPTY_BUCKET_FILES,
                         "Create empty files for buckets that have no data",
                         hiveClientConfig.isCreateEmptyBucketFiles(),
-                        false),
-                booleanProperty(
-                        PARQUET_USE_COLUMN_NAME,
-                        "Experimental: Parquet: Access Parquet columns using names from the file",
-                        hiveClientConfig.isUseParquetColumnNames(),
-                        false),
-                dataSizeSessionProperty(
-                        PARQUET_MAX_READ_BLOCK_SIZE,
-                        "Parquet: Maximum size of a block to read",
-                        hiveClientConfig.getParquetMaxReadBlockSize(),
                         false),
                 dataSizeSessionProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -492,11 +383,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isParquetPushdownFilterEnabled(),
                         false),
                 booleanProperty(
-                        RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED,
-                        "Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers",
-                        hiveClientConfig.isRangeFiltersOnSubscriptsEnabled(),
-                        false),
-                booleanProperty(
                         ADAPTIVE_FILTER_REORDERING_ENABLED,
                         "Experimental: enable adaptive filter reordering",
                         hiveClientConfig.isAdaptiveFilterReorderingEnabled(),
@@ -515,11 +401,6 @@ public final class HiveSessionProperties
                         OFFLINE_DATA_DEBUG_MODE_ENABLED,
                         "allow reading from tables or partitions that are marked as offline or not readable",
                         false,
-                        true),
-                booleanProperty(
-                        ORC_ZSTD_JNI_DECOMPRESSION_ENABLED,
-                        "use JNI based zstd decompression for reading ORC files",
-                        hiveClientConfig.isZstdJniDecompressionEnabled(),
                         true),
                 booleanProperty(
                         SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE,
@@ -550,16 +431,6 @@ public final class HiveSessionProperties
                         false,
                         value -> ParquetProperties.WriterVersion.valueOf(((String) value).toUpperCase()),
                         ParquetProperties.WriterVersion::name),
-                booleanProperty(
-                        PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
-                        "Is Parquet batch read optimization enabled",
-                        hiveClientConfig.isParquetBatchReadOptimizationEnabled(),
-                        false),
-                booleanProperty(
-                        PARQUET_BATCH_READER_VERIFICATION_ENABLED,
-                        "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
-                        hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
-                        false),
                 booleanProperty(
                         IGNORE_UNREADABLE_PARTITION,
                         "Ignore unreadable partitions and report as warnings instead of failing the query",
@@ -709,11 +580,6 @@ public final class HiveSessionProperties
                         hiveClientConfig.isHudiMetadataEnabled(),
                         false),
                 booleanProperty(
-                        READ_MASKED_VALUE_ENABLED,
-                        "Return null when access is denied for an encrypted parquet column",
-                        hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
-                        false),
-                booleanProperty(
                         PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
                         "Enables parallel parsing of partition values from partition names using thread pool",
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
@@ -745,86 +611,14 @@ public final class HiveSessionProperties
         return session.getProperty(MAX_BUCKETS_FOR_GROUPED_EXECUTION, Integer.class);
     }
 
-    public static NodeSelectionStrategy getNodeSelectionStrategy(ConnectorSession session)
-    {
-        return session.getProperty(NODE_SELECTION_STRATEGY, NodeSelectionStrategy.class);
-    }
-
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 
-    public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)
-    {
-        return session.getProperty(ORC_BLOOM_FILTERS_ENABLED, Boolean.class);
-    }
-
-    public static DataSize getOrcMaxMergeDistance(ConnectorSession session)
-    {
-        return session.getProperty(ORC_MAX_MERGE_DISTANCE, DataSize.class);
-    }
-
-    public static DataSize getOrcMaxBufferSize(ConnectorSession session)
-    {
-        return session.getProperty(ORC_MAX_BUFFER_SIZE, DataSize.class);
-    }
-
-    public static DataSize getOrcStreamBufferSize(ConnectorSession session)
-    {
-        return session.getProperty(ORC_STREAM_BUFFER_SIZE, DataSize.class);
-    }
-
-    public static DataSize getOrcTinyStripeThreshold(ConnectorSession session)
-    {
-        return session.getProperty(ORC_TINY_STRIPE_THRESHOLD, DataSize.class);
-    }
-
-    public static DataSize getOrcMaxReadBlockSize(ConnectorSession session)
-    {
-        return session.getProperty(ORC_MAX_READ_BLOCK_SIZE, DataSize.class);
-    }
-
-    public static boolean getOrcLazyReadSmallRanges(ConnectorSession session)
-    {
-        return session.getProperty(ORC_LAZY_READ_SMALL_RANGES, Boolean.class);
-    }
-
-    public static boolean isOrcZstdJniDecompressionEnabled(ConnectorSession session)
-    {
-        return session.getProperty(ORC_ZSTD_JNI_DECOMPRESSION_ENABLED, Boolean.class);
-    }
-
     public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)
     {
         return session.getProperty(ORC_STRING_STATISTICS_LIMIT, DataSize.class);
-    }
-
-    public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
-    {
-        boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
-        double percentage = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, Double.class);
-
-        checkArgument(percentage >= 0.0 && percentage <= 100.0);
-
-        // session property can disabled validation
-        if (!validate) {
-            return false;
-        }
-
-        // session property can not force validation when sampling is enabled
-        // todo change this if session properties support null
-        return ThreadLocalRandom.current().nextDouble(100) < percentage;
-    }
-
-    public static OrcWriteValidationMode getOrcOptimizedWriterValidateMode(ConnectorSession session)
-    {
-        return OrcWriteValidationMode.valueOf(session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE_MODE, String.class).toUpperCase(ENGLISH));
     }
 
     public static DataSize getOrcOptimizedWriterMinStripeSize(ConnectorSession session)
@@ -904,16 +698,6 @@ public final class HiveSessionProperties
     public static boolean isCreateEmptyBucketFiles(ConnectorSession session)
     {
         return session.getProperty(CREATE_EMPTY_BUCKET_FILES, Boolean.class);
-    }
-
-    public static boolean isUseParquetColumnNames(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
-    }
-
-    public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)
@@ -1051,11 +835,6 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_PUSHDOWN_FILTER_ENABLED, Boolean.class);
     }
 
-    public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
-    {
-        return session.getProperty(RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, Boolean.class);
-    }
-
     public static boolean isAdaptiveFilterReorderingEnabled(ConnectorSession session)
     {
         return session.getProperty(ADAPTIVE_FILTER_REORDERING_ENABLED, Boolean.class);
@@ -1083,16 +862,6 @@ public final class HiveSessionProperties
     public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
     {
         return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
-    }
-
-    public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
@@ -1246,11 +1015,6 @@ public final class HiveSessionProperties
     public static boolean isReadTableConstraints(ConnectorSession session)
     {
         return session.getProperty(READ_TABLE_CONSTRAINTS, Boolean.class);
-    }
-
-    public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
-    {
-        return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
     }
 
     public static boolean isParallelParsingOfPartitionValuesEnabled(ConnectorSession session)

@@ -195,7 +195,19 @@ public class TestSingleStoreDistributedQueries
     }
 
     @Override
-    public void testPayloadJoins()
+    public void testPayloadJoinApplicability()
+    {
+        // no op -- test not supported due to lack of support for array types.
+    }
+
+    @Override
+    public void testPayloadJoinCorrectness()
+    {
+        // no op -- test not supported due to lack of support for array types.
+    }
+
+    @Test
+    public void testRemoveRedundantCastToVarcharInJoinClause()
     {
         // no op -- test not supported due to lack of support for array types.
     }
@@ -204,5 +216,11 @@ public class TestSingleStoreDistributedQueries
     public void testDelete()
     {
         // Delete is currently unsupported
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 }

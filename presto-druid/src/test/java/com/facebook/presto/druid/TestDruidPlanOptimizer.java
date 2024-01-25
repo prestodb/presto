@@ -173,6 +173,7 @@ public class TestDruidPlanOptimizer
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

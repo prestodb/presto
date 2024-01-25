@@ -180,13 +180,20 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                 // We need to disable optimize_constant_grouping_keys so Optimizer does NOT optimize
                 // [Aggregate() -> Project(add constant) -> TableScan()] ==> [Project(add constant) -> Aggregate() -> TableScan()]
                 // which will lead to type changes in materialized tables
-                .setSystemProperty("optimize_constant_grouping_keys", "false");
+                .setSystemProperty("optimize_constant_grouping_keys", "false")
+                .setSystemProperty("rewrite_expression_with_constant_expression", "false");
     }
 
     @Override
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     @Override

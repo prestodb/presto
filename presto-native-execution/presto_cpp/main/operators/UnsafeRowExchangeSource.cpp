@@ -32,44 +32,45 @@ folly::SemiFuture<UnsafeRowExchangeSource::Response>
 UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
     uint32_t /*maxWaitSeconds*/) {
-  std::vector<velox::ContinuePromise> promises;
-  int64_t totalBytes = 0;
-  {
-    std::lock_guard<std::mutex> l(queue_->mutex());
-    if (atEnd_) {
-      return folly::makeFuture(Response{0, true});
-    }
+  auto nextBatch = [this]() {
+    return std::move(shuffle_->next())
+        .deferValue([this](velox::BufferPtr buffer) {
+          std::vector<velox::ContinuePromise> promises;
+          int64_t totalBytes = 0;
 
-    bool hasNext;
-    CALL_SHUFFLE(hasNext = shuffle_->hasNext(), "hasNext");
+          {
+            std::lock_guard<std::mutex> l(queue_->mutex());
+            if (buffer == nullptr) {
+              atEnd_ = true;
+              queue_->enqueueLocked(nullptr, promises);
+            } else {
+              totalBytes = buffer->size();
 
-    if (!hasNext) {
-      atEnd_ = true;
-      queue_->enqueueLocked(nullptr, promises);
-    } else {
-      velox::BufferPtr buffer;
-      CALL_SHUFFLE(buffer = shuffle_->next(), "next");
-      totalBytes = buffer->size();
+              ++numBatches_;
 
-      ++numBatches_;
+              auto ioBuf =
+                  folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+              queue_->enqueueLocked(
+                  std::make_unique<velox::exec::SerializedPage>(
+                      std::move(ioBuf), [buffer](auto& /*unused*/) {}),
+                  promises);
+            }
+          }
 
-      auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-      // NOTE: SerializedPage's onDestructionCb_ captures one reference on
-      // 'buffer' to keep its alive until SerializedPage destruction. Also note
-      // that 'buffer' should have been allocated from memory pool. Hence, we
-      // don't need to update the memory usage counting for the associated
-      // 'ioBuf' attached to SerializedPage on destruction.
-      queue_->enqueueLocked(
-          std::make_unique<velox::exec::SerializedPage>(
-              std::move(ioBuf), [buffer](auto& /*unused*/) {}),
-          promises);
-    }
-  }
-  for (auto& promise : promises) {
-    promise.setValue();
-  }
+          for (auto& promise : promises) {
+            promise.setValue();
+          }
 
-  return folly::makeFuture(Response{totalBytes, atEnd_});
+          return folly::makeFuture(Response{totalBytes, atEnd_});
+        })
+        .deferError(
+            [](folly::exception_wrapper e) mutable
+            -> UnsafeRowExchangeSource::Response {
+              VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
+            });
+  };
+
+  CALL_SHUFFLE(return nextBatch(), "next");
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
@@ -90,11 +91,11 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 } // namespace
 
 // static
-std::unique_ptr<velox::exec::ExchangeSource>
+std::shared_ptr<velox::exec::ExchangeSource>
 UnsafeRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
-    std::shared_ptr<velox::exec::ExchangeQueue> queue,
+    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
     velox::memory::MemoryPool* FOLLY_NONNULL pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
@@ -113,10 +114,10 @@ UnsafeRowExchangeSource::createExchangeSource(
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
   auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-  return std::make_unique<UnsafeRowExchangeSource>(
+  return std::make_shared<UnsafeRowExchangeSource>(
       uri.host(),
       destination,
-      std::move(queue),
+      queue,
       shuffleFactory->createReader(
           serializedShuffleInfo.value(), destination, pool),
       pool);

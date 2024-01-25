@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.285-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive-hadoop2</artifactId>
@@ -20,6 +20,11 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-common</artifactId>
         </dependency>
 
         <dependency>
@@ -192,6 +197,7 @@
                             <ignoredClassPatterns>
                                 <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                                 <ignoredClassPattern>module-info</ignoredClassPattern>
+                                <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                             </ignoredClassPatterns>
                         </configuration>
                     </plugin>
@@ -220,6 +226,10 @@
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
                                 <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                             </ignoredResourcePatterns>
+                            <ignoredClassPatterns>
+                                <ignoredClassPattern>module-info</ignoredClassPattern>
+                                <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            </ignoredClassPatterns>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -249,6 +259,10 @@
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
                                 <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                             </ignoredResourcePatterns>
+                            <ignoredClassPatterns>
+                                <ignoredClassPattern>module-info</ignoredClassPattern>
+                                <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            </ignoredClassPatterns>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -277,6 +291,10 @@
                                 <ignoredResourcePattern>about.html</ignoredResourcePattern>
                                 <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                             </ignoredResourcePatterns>
+                            <ignoredClassPatterns>
+                                <ignoredClassPattern>module-info</ignoredClassPattern>
+                                <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            </ignoredClassPatterns>
                         </configuration>
                     </plugin>
                 </plugins>

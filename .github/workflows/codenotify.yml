@@ -9,7 +9,7 @@ on:
 jobs:
   codenotify:
     runs-on: ubuntu-latest
-    name: codenotify
+    name: "Label and notify"
     steps:
       - uses: actions/checkout@v3
         with:
@@ -17,3 +17,6 @@ jobs:
       - uses: sourcegraph/codenotify@v0.6.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/labeler@v4.3.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}

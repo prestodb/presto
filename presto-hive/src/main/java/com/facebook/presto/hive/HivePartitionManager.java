@@ -57,7 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -137,7 +137,7 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
         ExecutorService threadPoolExecutor = new ThreadPoolExecutor(0, maxParallelParsingConcurrency,
-                60L, TimeUnit.SECONDS, new SynchronousQueue<>(), daemonThreadsNamed("partition-value-parser-%s"));
+                60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), daemonThreadsNamed("partition-value-parser-%s"));
         this.executorService = listeningDecorator(threadPoolExecutor);
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) threadPoolExecutor);
     }
@@ -219,7 +219,7 @@ public class HivePartitionManager
         if (domains.isPresent()) {
             Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
             ImmutableMap.Builder<Column, Domain> partitionPredicateBuilder = ImmutableMap.builder();
-            MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+            MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
             for (HiveColumnHandle partitionColumn : partitionColumns) {
                 Column key = new Column(
                         partitionColumn.getName(),
@@ -277,7 +277,7 @@ public class HivePartitionManager
 
         if (effectivePredicate.isNone()) {
             return new HivePartitionResult(
-                    partitionColumns,
+                    ImmutableList.copyOf(partitionColumns),
                     table.getDataColumns(),
                     table.getParameters(),
                     partitions,
@@ -292,7 +292,7 @@ public class HivePartitionManager
 
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
-                    partitionColumns,
+                    ImmutableList.copyOf(partitionColumns),
                     table.getDataColumns(),
                     table.getParameters(),
                     partitions,
@@ -307,7 +307,7 @@ public class HivePartitionManager
         TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
         TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
         return new HivePartitionResult(
-                partitionColumns,
+                ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
                 table.getParameters(),
                 partitions,
@@ -398,7 +398,7 @@ public class HivePartitionManager
 
         Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
         return new HivePartitionResult(
-                partitionColumns,
+                ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
                 table.getParameters(),
                 partitionList,
@@ -436,7 +436,7 @@ public class HivePartitionManager
 
     private Table getTable(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HiveTableHandle hiveTableHandle, boolean offlineDataDebugModeEnabled)
     {
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         Optional<Table> target = metastore.getTable(context, hiveTableHandle);
         if (!target.isPresent()) {
             throw new TableNotFoundException(hiveTableHandle.getSchemaTableName());
@@ -456,7 +456,7 @@ public class HivePartitionManager
             return ImmutableList.of();
         }
 
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         // fetch the partition names
         return metastore.getPartitionNamesByFilter(context, hiveTableHandle, partitionPredicates)
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
@@ -468,7 +468,7 @@ public class HivePartitionManager
             return ImmutableList.of();
         }
         // fetch the partition names
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         return metastore.getPartitionNames(context, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
     }

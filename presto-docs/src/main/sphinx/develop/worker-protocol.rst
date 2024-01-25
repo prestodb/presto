@@ -83,6 +83,11 @@ along with the results. Then, the client uses that sequence number to request
 the next chunk of results. The client keeps fetching results until it receives
 ``X-Presto-Buffer-Complete`` HTTP header with the value of "true".
 
+If the worker times out populating a response, or the task has already failed
+or been aborted, the worker will return empty results. The client can attempt
+to retry the request. In the case where the task is in a terminal state, it
+is assumed that the Control Plane will eventually handle the state change.
+
 If the client missed a response it can repeat the request and the worker will
 send the results again. Upon receiving an ack for a sequence number, the worker
 deletes all results with the sequence number less than that and the client can

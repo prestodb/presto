@@ -21,6 +21,7 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -132,12 +133,12 @@ public class AddNotNullFiltersToJoinNode
                         joinNode.getDynamicFilters()));
     }
 
-    private Collection<VariableReferenceExpression> extractNotNullVariables(List<JoinNode.EquiJoinClause> joinCriteria, Optional<RowExpression> joinFilter,
+    private Collection<VariableReferenceExpression> extractNotNullVariables(List<EquiJoinClause> joinCriteria, Optional<RowExpression> joinFilter,
             List<VariableReferenceExpression> candidates, JoinNotNullInferenceStrategy notNullInferenceStrategy)
     {
         RowExpression combinedFilter = TRUE_CONSTANT;
 
-        for (JoinNode.EquiJoinClause criteria : joinCriteria) {
+        for (EquiJoinClause criteria : joinCriteria) {
             combinedFilter = and(combinedFilter, criteria.getLeft());
             combinedFilter = and(combinedFilter, criteria.getRight());
         }

@@ -403,9 +403,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return delegate.lock(metastoreContext, databaseName, tableName);
+        return Optional.of(delegate.lock(metastoreContext, databaseName, tableName));
     }
 
     @Override

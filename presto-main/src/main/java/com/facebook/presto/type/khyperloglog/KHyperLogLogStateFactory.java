@@ -15,15 +15,26 @@
 package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.presto.common.array.ObjectBigArray;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 
 public class KHyperLogLogStateFactory
         implements AccumulatorStateFactory<KHyperLogLogState>
 {
     private static final int SIZE_OF_SINGLE = ClassLayout.parseClass(SingleKHyperLogLogState.class).instanceSize();
     private static final int SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedKHyperLogLogState.class).instanceSize();
+
+    private final long groupLimit;
+
+    public KHyperLogLogStateFactory(long groupLimit)
+    {
+        this.groupLimit = groupLimit;
+    }
 
     @Override
     public KHyperLogLogState createSingleState()
@@ -40,7 +51,7 @@ public class KHyperLogLogStateFactory
     @Override
     public KHyperLogLogState createGroupedState()
     {
-        return new GroupedKHyperLogLogState();
+        return new GroupedKHyperLogLogState(groupLimit);
     }
 
     @Override
@@ -55,6 +66,12 @@ public class KHyperLogLogStateFactory
         private final ObjectBigArray<KHyperLogLog> khlls = new ObjectBigArray<>();
         private long groupId;
         private long size;
+        private final long groupLimit;
+
+        public GroupedKHyperLogLogState(long groupLimit)
+        {
+            this.groupLimit = groupLimit;
+        }
 
         @Override
         public void setGroupId(long groupId)
@@ -65,6 +82,9 @@ public class KHyperLogLogStateFactory
         @Override
         public void ensureCapacity(long size)
         {
+            if (groupLimit > 0 && size > groupLimit) {
+                throw new PrestoException(NOT_SUPPORTED, format("GroupedKHyperLogLogState number of groups exceed limit %d set by khyperloglog-agg-group-limit", groupLimit));
+            }
             khlls.ensureCapacity(size);
         }
 

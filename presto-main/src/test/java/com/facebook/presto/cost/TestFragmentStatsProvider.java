@@ -32,8 +32,8 @@ public class TestFragmentStatsProvider
         QueryId queryId2 = new QueryId("queryid2");
         PlanFragmentId planFragmentId1 = new PlanFragmentId(1);
         PlanFragmentId planFragmentId2 = new PlanFragmentId(2);
-        PlanNodeStatsEstimate planNodeStatsEstimate1 = new PlanNodeStatsEstimate(NaN, 10, true, ImmutableMap.of());
-        PlanNodeStatsEstimate planNodeStatsEstimate2 = new PlanNodeStatsEstimate(NaN, 100, true, ImmutableMap.of());
+        PlanNodeStatsEstimate planNodeStatsEstimate1 = new PlanNodeStatsEstimate(NaN, 10, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown());
+        PlanNodeStatsEstimate planNodeStatsEstimate2 = new PlanNodeStatsEstimate(NaN, 100, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown());
 
         assertEquals(fragmentStatsProvider.getStats(queryId1, planFragmentId1), PlanNodeStatsEstimate.unknown());
 

@@ -373,8 +373,7 @@ public class NodeScheduler
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                nodeMap.getAllNodesByHostAndPort().get(host).stream()
-                        .forEach(chosen::add);
+                chosen.addAll(nodeMap.getAllNodesByHostAndPort().get(host));
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
@@ -387,8 +386,7 @@ public class NodeScheduler
                         continue;
                     }
 
-                    nodeMap.getAllNodesByHost().get(address).stream()
-                            .forEach(chosen::add);
+                    chosen.addAll(nodeMap.getAllNodesByHost().get(address));
                 }
             }
         }

@@ -33,10 +33,13 @@ import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
+import static com.facebook.presto.iceberg.TestIcebergRegisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -77,6 +80,24 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testTimestampWithTimeZone()
+    {
+        assertQueryFails("CREATE TABLE test_timestamp_with_timezone (x timestamp with time zone)", "Iceberg column type timestamptz is not supported");
+        assertUpdate("CREATE TABLE test_timestamp_with_timezone (x timestamp)");
+        assertQueryFails("ALTER TABLE test_timestamp_with_timezone ADD COLUMN y timestamp with time zone", "Iceberg column type timestamptz is not supported");
+        dropTable(getSession(), "test_timestamp_with_timezone");
+    }
+
+    @Test
+    public void testTime()
+    {
+        assertUpdate("CREATE TABLE test_time (x time)");
+        assertUpdate("INSERT INTO test_time VALUES (time '10:12:34')", 1);
+        assertQuery("SELECT * FROM test_time", "SELECT CAST('10:12:34' AS TIME)");
+        dropTable(getSession(), "test_time");
+    }
+
+    @Test
     @Override
     public void testDescribeTable()
     {
@@ -111,7 +132,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s'\n" +
                         ")", getLocation("tpch", "orders")));
     }
@@ -360,7 +381,7 @@ public class IcebergDistributedSmokeTestBase
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + fileFormat + "',\n" +
-                        "   format_version = '1',\n" +
+                        "   format_version = '2',\n" +
                         "   location = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
@@ -406,7 +427,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1'\n" +
+                "   format_version = '2'\n" +
                 ")";
 
         assertUpdate(format(createTable, "test table comment"));
@@ -418,7 +439,7 @@ public class IcebergDistributedSmokeTestBase
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", getLocation("tpch", "test_table_comments"));
@@ -505,7 +526,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", getLocation("tpch", "test_create_table_like_original")));
@@ -518,7 +539,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
@@ -526,7 +547,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s'\n" +
                 ")", getLocation("tpch", "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
@@ -534,7 +555,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
                 "   format = 'PARQUET',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
@@ -545,7 +566,7 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
                 "   format = 'ORC',\n" +
-                "   format_version = '1',\n" +
+                "   format_version = '2',\n" +
                 "   location = '%s',\n" +
                 "   partitioning = ARRAY['adate']\n" +
                 ")", catalogType.equals(CatalogType.HIVE) ?
@@ -717,6 +738,12 @@ public class IcebergDistributedSmokeTestBase
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
     }
+
+    protected void unregisterTable(String schemaName, String newTableName)
+    {
+        assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + newTableName + "')");
+    }
+
     @Test
     public void testCreateNestedPartitionedTable()
     {
@@ -872,6 +899,23 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, tableName);
     }
 
+    @Test
+    public void testFilterBySubfieldOfRowType()
+    {
+        Session session = getSession();
+        String tableName = "test_filter_by_subfieldofrow";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, r row(a integer, b varchar))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, (1, '1001'))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, (2, '1002'))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, (3, '1003'))", 1);
+
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.a = 1", "VALUES (1, (1, '1001'))");
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.b = '1003'", "VALUES (3, (3, '1003'))");
+        assertQuery("SELECT * FROM " + tableName + " WHERE r.a > 1 and r.b < '1003'", "VALUES (2, (2, '1002'))");
+        dropTable(session, tableName);
+    }
+
     protected String getLocation(String schema, String table)
     {
         return null;
@@ -904,9 +948,7 @@ public class IcebergDistributedSmokeTestBase
 
     protected void cleanupTableWithMergeOnRead(String tableName)
     {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
-                .build();
+        Session session = getSession();
         dropTable(session, tableName);
     }
 
@@ -915,9 +957,7 @@ public class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_merge_on_read_enabled";
         try {
-            Session session = Session.builder(getSession())
-                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "true")
-                    .build();
+            Session session = getSession();
 
             createTableWithMergeOnRead(session, "tpch", tableName);
             assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 1)", 1);
@@ -935,15 +975,262 @@ public class IcebergDistributedSmokeTestBase
         String tableName = "test_merge_on_read_disabled";
         @Language("RegExp") String errorMessage = "merge-on-read table mode not supported yet";
         try {
-            Session session = getSession();
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(ICEBERG_CATALOG, "merge_on_read_enabled", "false")
+                    .build();
 
             createTableWithMergeOnRead(session, "tpch", tableName);
-            assertQueryFails("INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
-            assertQueryFails("INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
-            assertQueryFails("SELECT * FROM " + tableName, errorMessage);
+            assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (1, 1)", errorMessage);
+            assertQueryFails(session, "INSERT INTO " + tableName + " VALUES (2, 2)", errorMessage);
+            assertQueryFails(session, "SELECT * FROM " + tableName, errorMessage);
         }
         finally {
             cleanupTableWithMergeOnRead(tableName);
         }
+    }
+
+    @Test
+    public void testTableStatisticsTimestamp()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_table_statistics_timestamp";
+        assertUpdate(session, format("CREATE TABLE %s (col TIMESTAMP)", tableName));
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', null, null, null, NULL, NULL, NULL), " +
+                        "  (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES TIMESTAMP '2021-01-02 09:04:05.321'", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES TIMESTAMP '2022-12-22 10:07:08.456'", 1);
+
+        assertQuery(session, "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "  ('col', 113.0, NULL, 0.0, NULL, '2021-01-02 09:04:05.321', '2022-12-22 10:07:08.456'), " +
+                        "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDatePartitionedByYear()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_year";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['year(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-10-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1980-01-01'), (4, date '1990-02-02')", 2);
+
+        assertQuery("SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
+                "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDatePartitionedByMonth()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_month";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['month(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1970-02-02'), (4, date '1971-01-02')", 2);
+
+        assertQuery("SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
+                "VALUES (1, 1, 1), (12, 1, 1), (624, 1, 1), (646, 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDatePartitionedByDay()
+    {
+        Session session = getSession();
+        String tableName = "test_date_partitioned_by_day";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 date) WITH(partitioning = ARRAY['day(c2)'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, date '2022-10-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, date '2023-11-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, date '1970-10-01'), (4, date '1971-11-05')", 2);
+
+        assertQuery("SELECT c2_day, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
+                "VALUES ('1970-10-01', 1, 1), ('1971-11-05', 1, 1), ('2022-10-01', 1, 1), ('2023-11-02', 1, 1)");
+        assertQuery("SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByYear()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_year";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['year(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1980-01-01 12:10:31.315'), (4, timestamp '1990-01-01 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
+                "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByMonth()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_month";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['month(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-02-02 12:10:31.315'), (4, timestamp '1971-01-02 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
+                "VALUES (1, 1, 1), (12, 1, 1), (633, 1, 1), (646, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByDay()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_day";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['day(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-05 00:00:00.000'), (4, timestamp '1971-01-10 12:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_day, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
+                "VALUES ('1970-01-05', 1, 1), ('1971-01-10', 1, 1), ('2022-10-01', 1, 1), ('2023-11-02', 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testTimestampPartitionedByHour()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String tableName = "test_timestamp_partitioned_by_hour";
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['hour(c2)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 10:00:00.000')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-01 10:10:31.315'), (4, timestamp '1970-01-02 10:10:31.315')", 2);
+
+        assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_hour",
+                "VALUES (10, 1, 1), (34, 1, 1), (462394, 1, 1), (471924, 1, 1)");
+        assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testRegisterTable()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "')");
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
+
+        unregisterTable(schemaName, newTableName);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableAndInsert()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_insert";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "')");
+        assertUpdate("INSERT INTO " + newTableName + " VALUES(2, 2)", 1);
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1), (2, 2)");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+
+        unregisterTable(schemaName, newTableName);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithFileName()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_filename";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName);
+        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), schemaName, tableName, metadataLocation);
+
+        // Register new table with procedure
+        String newTableName = tableName + "_new";
+        assertUpdate("CALL system.register_table('" + schemaName + "', '" + newTableName + "', '" + metadataLocation + "', '" + metadataFileName + "')");
+        assertQuery("SELECT * FROM " + newTableName, "VALUES (1, 1)");
+
+        unregisterTable(schemaName, newTableName);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithInvalidLocation()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "register_invalid";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
+
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+
+        @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
+        assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
+
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        String schemaName = getSession().getSchema().get();
+        String tableName = "unregister";
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
+
+        // Unregister table with procedure
+        assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + tableName + "')");
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 }

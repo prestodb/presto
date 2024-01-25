@@ -26,10 +26,10 @@ import com.google.common.collect.Range;
 
 import static com.facebook.presto.SystemSessionProperties.isPushLimitThroughOuterJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.Patterns.Join.type;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.limit;

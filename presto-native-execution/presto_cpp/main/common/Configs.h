@@ -31,6 +31,11 @@ class ConfigBase {
   /// @param filePath Path to configuration file.
   void initialize(const std::string& filePath);
 
+  /// Allows individual config to manipulate just-loaded-from-file key-value map
+  /// before it is used to initialize the config.
+  virtual void updateLoadedValues(
+      std::unordered_map<std::string, std::string>& values) const {}
+
   /// Uses a config object already materialized.
   void initialize(std::unique_ptr<velox::Config>&& config) {
     config_ = std::move(config);
@@ -125,10 +130,16 @@ class ConfigBase {
     return optionalProperty(std::string{propertyName});
   }
 
+  /// Returns "N<capacity_unit>" as string containing capacity in bytes.
+  std::string capacityPropertyAsBytesString(
+      std::string_view propertyName) const;
+
   /// Returns copy of the config values map.
   std::unordered_map<std::string, std::string> values() const {
     return config_->valuesCopy();
   }
+
+  virtual ~ConfigBase() = default;
 
  protected:
   ConfigBase();
@@ -162,27 +173,62 @@ class SystemConfig : public ConfigBase {
       "task.max-drivers-per-task"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
-  static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.
+  static constexpr std::string_view kHttpServerNumIoThreadsHwMultiplier{
+      "http-server.num-io-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for HTTP CPU executor: hw_concurrency x multiplier. 1.0 is default.
+  static constexpr std::string_view kHttpServerNumCpuThreadsHwMultiplier{
+      "http-server.num-cpu-threads-hw-multiplier"};
+
   static constexpr std::string_view kHttpServerHttpsPort{
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  // List of comma separated ciphers the client can use.
+  ///
+  /// NOTE: the client needs to have at least one cipher shared with server
+  // to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  // Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
-  /// Number of threads for async io. Disabled if zero.
-  static constexpr std::string_view kNumIoThreads{"num-io-threads"};
-  static constexpr std::string_view kNumConnectorIoThreads{
-      "num-connector-io-threads"};
-  static constexpr std::string_view kNumQueryThreads{"num-query-threads"};
-  static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
+  /// Floating point number used in calculating how many threads we would use
+  /// for IO executor for connectors mainly to do preload/prefetch:
+  /// hw_concurrency x multiplier.
+  /// If 0.0 then connector preload/prefetch is disabled.
+  /// 0.0 is default.
+  static constexpr std::string_view kConnectorNumIoThreadsHwMultiplier{
+      "connector.num-io-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.
+  static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
+      "driver.num-cpu-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for Spiller CPU executor: hw_concurrency x multiplier.
+  /// If 0.0 then spilling is disabled.
+  /// 1.0 is default.
+  static constexpr std::string_view kSpillerNumCpuThreadsHwMultiplier{
+      "spiller.num-cpu-threads-hw-multiplier"};
+  /// Config used to create spill files. This config is provided to underlying
+  /// file system and the config is free form. The form should be defined by the
+  /// underlying file system.
+  static constexpr std::string_view kSpillerFileCreateConfig{
+      "spiller.file-create-config"};
+
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
+  /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   /// Specifies the total memory capacity that can be used by query execution in
   /// GB. The query memory capacity should be configured less than the system
@@ -193,6 +239,40 @@ class SystemConfig : public ConfigBase {
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
+
+  /// If true, enable memory pushback when the server is under low memory
+  /// condition. This only applies if 'system-mem-limit-gb' is set.
+  static constexpr std::string_view kSystemMemPushbackEnabled{
+      "system-mem-pushback-enabled"};
+  /// Specifies the system memory limit. Used to trigger memory pushback or heap
+  /// dump. A value of zero means no limit is set.
+  static constexpr std::string_view kSystemMemLimitGb{"system-mem-limit-gb"};
+  /// Specifies the memory to shrink when memory pushback is triggered to help
+  /// get the server out of low memory condition. This only applies if
+  /// 'system-mem-pushback-enabled' is true.
+  static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+
+  /// If true, memory allocated via malloc is periodically checked and a heap
+  /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
+  static constexpr std::string_view kMallocMemHeapDumpEnabled{
+      "malloc-mem-heap-dump-enabled"};
+
+  /// Specifies the threshold in GigaBytes of memory allocated via malloc, above
+  /// which a heap dump will be triggered. This only applies if
+  /// 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocHeapDumpThresholdGb{
+      "malloc-heap-dump-threshold-gb"};
+
+  /// Specifies the min interval in seconds between consecutive heap dumps. This
+  /// only applies if 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocMemMinHeapDumpInterval{
+      "malloc-mem-min-heap-dump-interval"};
+
+  /// Specifies the max number of latest heap profiles to keep. This only
+  /// applies if 'malloc-mem-heap-dump-enabled' is true.
+  static constexpr std::string_view kMallocMemMaxHeapDumpFiles{
+      "malloc-mem-max-heap-dump-files"};
+
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -207,10 +287,21 @@ class SystemConfig : public ConfigBase {
       "async-cache-ssd-disable-file-cow"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
-  static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
-  static constexpr std::string_view kMmapArenaCapacityRatio{
-      "mmap-arena-capacity-ratio"};
+
+  /// Enable TTL for AsyncDataCache and SSD cache.
+  static constexpr std::string_view kCacheVeloxTtlEnabled{
+      "cache.velox.ttl-enabled"};
+  /// TTL duration for AsyncDataCache and SSD cache entries.
+  static constexpr std::string_view kCacheVeloxTtlThreshold{
+      "cache.velox.ttl-threshold"};
+  /// The periodic duration to apply cache TTL and evict AsyncDataCache and SSD
+  /// cache entries.
+  static constexpr std::string_view kCacheVeloxTtlCheckInterval{
+      "cache.velox.ttl-check-interval"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
+
+  static constexpr std::string_view kEnableRuntimeMetricsCollection{
+      "runtime-metrics-collection-enabled"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
@@ -229,6 +320,15 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolTransferCapacity{
       "memory-pool-transfer-capacity"};
+
+  /// Specifies the max time to wait for memory reclaim by arbitration. The
+  /// memory reclaim might fail if the max wait time has exceeded. If it is
+  /// zero, then there is no timeout.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryReclaimWaitMs{
+      "memory-reclaim-wait-ms"};
+
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
@@ -261,6 +361,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kEnableMemoryLeakCheck{
       "enable-memory-leak-check"};
 
+  /// Terminates the process and generates a core file on an allocation failure
+  static constexpr std::string_view kCoreOnAllocationFailureEnabled{
+      "core-on-allocation-failure-enabled"};
+
   /// Do not include runtime stats in the returned task info if the task is
   /// in running state.
   static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
@@ -273,6 +377,11 @@ class SystemConfig : public ConfigBase {
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
 
+  /// Enable periodic old task clean up. Typically enabled for presto (default)
+  /// and disabled for presto-on-spark.
+  static constexpr std::string_view kEnableOldTaskCleanUp{
+      "enable-old-task-cleanup"};
+
   static constexpr std::string_view kAnnouncementMaxFrequencyMs{
       "announcement-max-frequency-ms"};
 
@@ -284,8 +393,31 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
+  /// Enable to make immediate buffer memory transfer in the handling IO threads
+  /// as soon as exchange gets its response back. Otherwise the memory transfer
+  /// will happen later in driver thread pool.
+  static constexpr std::string_view kExchangeImmediateBufferTransfer{
+      "exchange.immediate-buffer-transfer"};
+
+  /// Specifies the timeout duration from exchange client's http connect
+  /// success to response reception.
   static constexpr std::string_view kExchangeRequestTimeout{
       "exchange.http-client.request-timeout"};
+
+  /// Specifies the timeout duration from exchange client's http connect
+  /// initiation to connect success. Set to 0 to have no timeout.
+  static constexpr std::string_view kExchangeConnectTimeout{
+      "exchange.http-client.connect-timeout"};
+
+  /// Whether connection pool should be enabled for exchange HTTP client.
+  static constexpr std::string_view kExchangeEnableConnectionPool{
+      "exchange.http-client.enable-connection-pool"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for Exchange HTTP client IO executor: hw_concurrency x multiplier.
+  /// 1.0 is default.
+  static constexpr std::string_view kExchangeHttpClientNumIoThreadsHwMultiplier{
+      "exchange.http-client.num-io-threads-hw-multiplier"};
 
   /// The maximum timeslice for a task on thread if there are threads queued.
   static constexpr std::string_view kTaskRunTimeSliceMicros{
@@ -316,9 +448,15 @@ class SystemConfig : public ConfigBase {
           "remote-function-server.signature.files.directory.path"};
 
   /// Optional catalog name to be added as a prefix to the function names
-  /// registered. The patter registered is `catalog.schema.function_name`.
+  /// registered. The pattern registered is `catalog.schema.function_name`.
   static constexpr std::string_view kRemoteFunctionServerCatalogName{
       "remote-function-server.catalog-name"};
+
+  /// Optional string containing the serialization/deserialization format to be
+  /// used when communicating with the remote server. Supported types are
+  /// "spark_unsafe_row" or "presto_page" ("presto_page" by default).
+  static constexpr std::string_view kRemoteFunctionServerSerde{
+      "remote-function-server.serde"};
 
   /// Options to configure the internal (in-cluster) JWT authentication.
   static constexpr std::string_view kInternalCommunicationJwtEnabled{
@@ -328,7 +466,20 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
       "internal-communication.jwt.expiration-seconds"};
 
+  /// Below are the Presto properties from config.properties that get converted
+  /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
+  /// BaseVeloxQueryConfig.
+
+  /// Uses legacy version of array_agg which ignores nulls.
+  static constexpr std::string_view kUseLegacyArrayAgg{
+      "deprecated.legacy-array-agg"};
+  static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
+  static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
+      "driver.max-page-partitioning-buffer-size"};
+
   SystemConfig();
+
+  virtual ~SystemConfig() = default;
 
   static SystemConfig* instance();
 
@@ -376,27 +527,45 @@ class SystemConfig : public ConfigBase {
 
   std::string remoteFunctionServerCatalogName() const;
 
+  std::string remoteFunctionServerSerde() const;
+
   int32_t maxDriversPerTask() const;
 
   int32_t concurrentLifespansPerTask() const;
 
-  int32_t httpExecThreads() const;
+  double httpServerNumIoThreadsHwMultiplier() const;
 
-  /// Size of global IO executor.
-  int32_t numIoThreads() const;
+  double httpServerNumCpuThreadsHwMultiplier() const;
 
-  /// Size of IO executor for connectors to do preload/prefetch
-  int32_t numConnectorIoThreads() const;
+  double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
-  int32_t numQueryThreads() const;
+  double connectorNumIoThreadsHwMultiplier() const;
 
-  int32_t numSpillThreads() const;
+  double driverNumCpuThreadsHwMultiplier() const;
+
+  double spillerNumCpuThreadsHwMultiplier() const;
+
+  std::string spillerFileCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 
   int32_t shutdownOnsetSec() const;
 
-  int32_t systemMemoryGb() const;
+  uint32_t systemMemoryGb() const;
+
+  bool systemMemPushbackEnabled() const;
+
+  uint32_t systemMemLimitGb() const;
+
+  uint32_t systemMemShrinkGb() const;
+
+  bool mallocMemHeapDumpEnabled() const;
+
+  uint32_t mallocHeapDumpThresholdGb() const;
+
+  uint32_t mallocMemMinHeapDumpInterval() const;
+
+  uint32_t mallocMemMaxHeapDumpFiles() const;
 
   bool asyncDataCacheEnabled() const;
 
@@ -418,10 +587,6 @@ class SystemConfig : public ConfigBase {
 
   bool enableVeloxExprSetLogging() const;
 
-  bool useMmapArena() const;
-
-  int32_t mmapArenaCapacityRatio() const;
-
   bool useMmapAllocator() const;
 
   std::string memoryArbitratorKind() const;
@@ -431,6 +596,8 @@ class SystemConfig : public ConfigBase {
   uint64_t memoryPoolInitCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
+
+  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 
@@ -448,6 +615,8 @@ class SystemConfig : public ConfigBase {
 
   bool enableMemoryLeakCheck() const;
 
+  bool coreOnAllocationFailureEnabled() const;
+
   bool skipRuntimeStatsInRunningTaskInfo() const;
 
   bool logZombieTaskInfo() const;
@@ -460,7 +629,13 @@ class SystemConfig : public ConfigBase {
 
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
-  std::chrono::duration<double> exchangeRequestTimeout() const;
+  std::chrono::duration<double> exchangeRequestTimeoutMs() const;
+
+  std::chrono::duration<double> exchangeConnectTimeoutMs() const;
+
+  bool exchangeEnableConnectionPool() const;
+
+  bool exchangeImmediateBufferTransfer() const;
 
   int32_t taskRunTimeSliceMicros() const;
 
@@ -468,11 +643,23 @@ class SystemConfig : public ConfigBase {
 
   int32_t oldTaskCleanUpMs() const;
 
+  bool enableOldTaskCleanUp() const;
+
   bool internalCommunicationJwtEnabled() const;
 
   std::string internalCommunicationSharedSecret() const;
 
   int32_t internalCommunicationJwtExpirationSeconds() const;
+
+  bool useLegacyArrayAgg() const;
+
+  bool cacheVeloxTtlEnabled() const;
+
+  std::chrono::duration<double> cacheVeloxTtlThreshold() const;
+
+  std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+
+  bool enableRuntimeMetricsCollection() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -485,9 +672,10 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
 
   NodeConfig();
+
+  virtual ~NodeConfig() = default;
 
   static NodeConfig* instance();
 
@@ -499,9 +687,6 @@ class NodeConfig : public ConfigBase {
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;
-
-  uint64_t nodeMemoryGb(
-      const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
 };
 
 /// Used only in the single instance as the source of the initial properties for
@@ -510,6 +695,11 @@ class NodeConfig : public ConfigBase {
 class BaseVeloxQueryConfig : public ConfigBase {
  public:
   BaseVeloxQueryConfig();
+
+  virtual ~BaseVeloxQueryConfig() = default;
+
+  void updateLoadedValues(
+      std::unordered_map<std::string, std::string>& values) const override;
 
   static BaseVeloxQueryConfig* instance();
 };

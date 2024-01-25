@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -76,6 +77,11 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
@@ -119,11 +125,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -441,11 +442,13 @@ public class TestLogicalPlanner
                 anyTree(
                         markDistinct(
                                 "is_distinct",
-                                ImmutableList.of("orderstatus"),
+                                ImmutableList.of("orderstatus_35"),
                                 "hash",
                                 anyTree(
-                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus), 0))")),
-                                                tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus_35), 0))")),
+                                                project(
+                                                        ImmutableMap.of("orderstatus_35", expression("'F'")),
+                                                tableScan("orders", ImmutableMap.of())))))));
     }
 
     @Test
@@ -584,8 +587,9 @@ public class TestLogicalPlanner
                 "SELECT * FROM orders WHERE orderkey = (SELECT 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(),
-                                filter("orderkey = BIGINT '1'",
-                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
+                                project(
+                                        filter("orderkey = BIGINT '1'",
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))),
                                 anyTree(
                                         project(ImmutableMap.of("orderkey", expression("1")), any())))));
     }
@@ -701,9 +705,79 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 OPTIMIZED,
                 any(
-                        filter(
-                                "X = BIGINT '3'",
-                                tableScan("orders", ImmutableMap.of("X", "orderkey")))));
+                        project(
+                                ImmutableMap.of("X", expression("3")),
+                                filter(
+                                        "X = BIGINT '3'",
+                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))))));
+    }
+
+    @Test
+    public void testCorrelatedJoinWithLimit()
+    {
+        // rewrite Limit to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nation_regionkey", "region_regionkey")),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))),
+                                any(project(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))))));
+
+        // rewrite Limit to decorrelated Limit
+        assertPlan("SELECT regionkey, n.nationkey FROM region CROSS JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n",
+                any(
+                        project(
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        //Optional.of("region_regionkey = BIGINT '3'"),
+                                        any(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))),
+                                        limit(
+                                                2,
+                                                any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey"))))))));
+    }
+
+    @Test
+    public void testCorrelatedJoinWithTopN()
+    {
+        // rewrite TopN to TopNRowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY name LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
+                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
+                                any(topNRowNumber(
+                                        pattern -> pattern
+                                                .specification(
+                                                        ImmutableList.of("nation_regionkey"),
+                                                        ImmutableList.of("nation_name"),
+                                                        ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
+                                                .maxRowCountPerPartition(2)
+                                                .partial(false),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
+
+        // rewrite TopN to RowNumberNode
+        assertPlan(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY regionkey LIMIT 2) n",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nation_regionkey", "region_regionkey")),
+                                any(rowNumber(
+                                        pattern -> pattern
+                                                .partitionBy(ImmutableList.of("nation_regionkey"))
+                                                .maxRowCountPerPartition(Optional.of(2)),
+                                        anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))),
+                                any(project(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))))));
     }
 
     @Test
@@ -926,11 +1000,13 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderkey=5",
                 output(
+                        project(
+                                ImmutableMap.of("expr_2", expression("5")),
                         filter("orderkey = BIGINT '5'",
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of(),
-                                        ImmutableMap.of("orderkey", "orderkey")))));
+                                        ImmutableMap.of("orderkey", "orderkey"))))));
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderstatus='F'",
                 output(
@@ -1108,15 +1184,15 @@ public class TestLogicalPlanner
                         "AND l.comment = p.comment " +
                         "WHERE l.comment = '42'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
-                                anyTree(
-                                        filter(
-                                                "l_comment = '42'",
-                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
+                        join(INNER, ImmutableList.of(equiJoinClause("p_suppkey", "l_suppkey")),
                                 anyTree(
                                         filter(
                                                 "p_comment = '42' ",
-                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "l_comment = '42'",
+                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))))));
     }
 
     @Test
@@ -1255,7 +1331,7 @@ public class TestLogicalPlanner
         assertPlanWithSession(
                 "SELECT C, orderkey FROM (select orderkey as C from orders where 1=0) join orders on 1=1",
                 disableEmptyJoinOptimization, true,
-                output(node(JoinNode.class, values("orderkey_0"), values("orderkey_3"))));
+                output(node(JoinNode.class, values("orders"), anyTree(tableScan("orders")))));
     }
 
     @Test

@@ -17,6 +17,7 @@ from different data sources.
     connector/druid
     connector/elasticsearch
     connector/googlesheets
+    connector/hana
     connector/hive
     connector/hive-security
     connector/hudi

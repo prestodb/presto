@@ -16,8 +16,11 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Types;
@@ -26,24 +29,29 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
 import static com.facebook.presto.iceberg.ColumnIdentity.primitiveColumnIdentity;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
-        implements ColumnHandle
+        extends BaseHiveColumnHandle
 {
+    public static final IcebergColumnHandle PATH_COLUMN_HANDLE = getIcebergColumnHandle(FILE_PATH);
+    public static final ColumnMetadata PATH_COLUMN_METADATA = getColumnMetadata(FILE_PATH);
+    public static final IcebergColumnHandle DATA_SEQUENCE_NUMBER_COLUMN_HANDLE = getIcebergColumnHandle(DATA_SEQUENCE_NUMBER);
+    public static final ColumnMetadata DATA_SEQUENCE_NUMBER_COLUMN_METADATA = getColumnMetadata(DATA_SEQUENCE_NUMBER);
+
     private final ColumnIdentity columnIdentity;
     private final Type type;
-    private final Optional<String> comment;
-    private final ColumnType columnType;
-    private final List<Subfield> requiredSubfields;
 
     @JsonCreator
     public IcebergColumnHandle(
@@ -53,16 +61,15 @@ public class IcebergColumnHandle
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
     {
+        super(columnIdentity.getName(), comment, columnType, requiredSubfields);
+
         this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         this.type = requireNonNull(type, "type is null");
-        this.comment = requireNonNull(comment, "comment is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
     }
 
-    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment)
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, REGULAR, ImmutableList.of());
+        this(columnIdentity, type, comment, columnType, ImmutableList.of());
     }
 
     @JsonProperty
@@ -78,33 +85,15 @@ public class IcebergColumnHandle
     }
 
     @JsonProperty
-    public String getName()
-    {
-        return columnIdentity.getName();
-    }
-
-    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty
-    public Optional<String> getComment()
+    @JsonIgnore
+    public boolean isRowPositionColumn()
     {
-        return comment;
-    }
-
-    @JsonProperty
-    public ColumnType getColumnType()
-    {
-        return columnType;
-    }
-
-    @JsonProperty
-    public List<Subfield> getRequiredSubfields()
-    {
-        return requiredSubfields;
+        return columnIdentity.getId() == ROW_POSITION.fieldId();
     }
 
     @Override
@@ -115,13 +104,13 @@ public class IcebergColumnHandle
             return this;
         }
 
-        return new IcebergColumnHandle(columnIdentity, type, comment, columnType, subfields);
+        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnIdentity, type, comment, columnType, requiredSubfields);
+        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields());
     }
 
     @Override
@@ -136,38 +125,66 @@ public class IcebergColumnHandle
         IcebergColumnHandle other = (IcebergColumnHandle) obj;
         return Objects.equals(this.columnIdentity, other.columnIdentity) &&
                 Objects.equals(this.type, other.type) &&
-                Objects.equals(this.comment, other.comment) &&
-                Objects.equals(this.columnType, other.columnType) &&
-                Objects.equals(this.requiredSubfields, other.requiredSubfields);
+                Objects.equals(this.getComment(), other.getComment()) &&
+                Objects.equals(this.getColumnType(), other.getColumnType()) &&
+                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields());
     }
 
     @Override
     public String toString()
     {
-        if (requiredSubfields.isEmpty()) {
+        if (getRequiredSubfields().isEmpty()) {
             return getId() + ":" + getName() + ":" + type.getDisplayName();
         }
 
-        return getId() + ":" + getName() + ":" + type.getDisplayName() + ":" + columnType + ":" + requiredSubfields;
+        return getId() + ":" + getName() + ":" + type.getDisplayName() + ":" + getColumnType() + ":" + getRequiredSubfields();
+    }
+
+    private static IcebergColumnHandle getIcebergColumnHandle(IcebergMetadataColumn metadataColumn)
+    {
+        return new IcebergColumnHandle(
+                columIdentity(metadataColumn),
+                metadataColumn.getType(),
+                Optional.empty(),
+                SYNTHESIZED);
+    }
+
+    private static ColumnMetadata getColumnMetadata(IcebergMetadataColumn metadataColumn)
+    {
+        return ColumnMetadata.builder()
+                .setName(metadataColumn.getColumnName())
+                .setType(metadataColumn.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    private static ColumnIdentity columIdentity(IcebergMetadataColumn metadata)
+    {
+        return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
+    }
+
+    public boolean isPathColumn()
+    {
+        return getColumnIdentity().getId() == FILE_PATH.getId();
+    }
+
+    public boolean isDataSequenceNumberColumn()
+    {
+        return getColumnIdentity().getId() == DATA_SEQUENCE_NUMBER.getId();
     }
 
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
     {
-        return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment);
+        return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment, REGULAR);
     }
 
-    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager)
+    public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
-                Optional.ofNullable(column.doc()));
-    }
-
-    public enum ColumnType
-    {
-        REGULAR,
-        SYNTHESIZED
+                Optional.ofNullable(column.doc()),
+                columnType);
     }
 
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)

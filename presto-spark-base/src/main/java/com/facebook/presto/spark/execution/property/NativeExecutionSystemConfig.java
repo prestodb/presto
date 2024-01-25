@@ -57,8 +57,11 @@ public class NativeExecutionSystemConfig
     private static final String HTTPS_KEY_PATH = "https-key-path";
 
     // TODO: others use "-" separator and this property use _ separator. Fix them.
-    private static final String HTTP_EXEC_THREADS = "http_exec_threads";
-    private static final String NUM_IO_THREADS = "num-io-threads";
+    private static final String HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER = "http-server.num-io-threads-hw-multiplier";
+    private static final String EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER = "exchange.http-client.num-io-threads-hw-multiplier";
+    private static final String ASYNC_DATA_CACHE_ENABLED = "async-data-cache-enabled";
+    private static final String ASYNC_CACHE_SSD_GB = "async-cache-ssd-gb";
+    private static final String CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER = "connector.num-io-threads-hw-multiplier";
     private static final String PRESTO_VERSION = "presto.version";
     private static final String SHUTDOWN_ONSET_SEC = "shutdown-onset-sec";
     // Memory related configurations.
@@ -85,25 +88,36 @@ public class NativeExecutionSystemConfig
     // so this specified how much memory to reclaim from a query when it runs
     // out of memory.
     private static final String MEMORY_POOL_TRANSFER_CAPACITY = "memory-pool-transfer-capacity";
+    private static final String MEMORY_RECLAIM_WAIT_MS = "memory-reclaim-wait-ms";
     // Spilling related configs.
     private static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
     private static final String TASK_MAX_DRIVERS_PER_TASK = "task.max-drivers-per-task";
+    // Tasks are considered old, when they are in not-running state and it ended more than
+    // OLD_TASK_CLEANUP_MS ago or last heartbeat was more than OLD_TASK_CLEANUP_MS ago.
+    // For Presto-On-Spark, this is not relevant as it runs tasks serially, and spark's speculative
+    // execution takes care of zombie tasks.
+    private static final String ENABLE_OLD_TASK_CLEANUP = "enable-old-task-cleanup";
     // Name of exchange client to use
     private static final String SHUFFLE_NAME = "shuffle.name";
     // Feature flag for access log on presto-native http server
     private static final String HTTP_SERVER_ACCESS_LOGS = "http-server.enable-access-log";
+    // Terminates the native process and generates a core file on an allocation failure
+    private static final String CORE_ON_ALLOCATION_FAILURE_ENABLED = "core-on-allocation-failure-enabled";
     private boolean enableSerializedPageChecksum = true;
     private boolean enableVeloxExpressionLogging;
     private boolean enableVeloxTaskLogging = true;
     private boolean httpServerReusePort = true;
     private int httpServerPort = 7777;
-    private int httpExecThreads = 32;
+    private double httpServerNumIoThreadsHwMultiplier = 1.0;
     private int httpsServerPort = 7778;
     private boolean enableHttpsCommunication;
     private String httpsCiphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     private String httpsCertPath = "";
     private String httpsKeyPath = "";
-    private int numIoThreads = 30;
+    private double exchangeHttpClientNumIoThreadsHwMultiplier = 1.0;
+    private boolean asyncDataCacheEnabled; // false
+    private int asyncCacheSsdGb; // 0
+    private double connectorNumIoThreadsHwMultiplier; // 0.0
     private int shutdownOnsetSec = 10;
     private int systemMemoryGb = 10;
     // Reserve 2GB from system memory for system operations such as disk
@@ -114,13 +128,17 @@ public class NativeExecutionSystemConfig
     private int memoryArbitratorCapacityGb = 8;
     private long memoryPoolInitCapacity = 8L << 30;
     private long memoryPoolTransferCapacity = 2L << 30;
+
+    private long memoryReclaimWaitMs = 300_000;
     private String spillerSpillPath = "";
     private int concurrentLifespansPerTask = 5;
     private int maxDriversPerTask = 15;
+    private boolean enableOldTaskCleanUp; // false;
     private String prestoVersion = "dummy.presto.version";
     private String shuffleName = "local";
     private boolean registerTestFunctions;
     private boolean enableHttpServerAccessLog = true;
+    private boolean coreOnAllocationFailureEnabled;
 
     public Map<String, String> getAllProperties()
     {
@@ -137,8 +155,11 @@ public class NativeExecutionSystemConfig
                 .put(HTTPS_CIPHERS, String.valueOf(getHttpsCiphers()))
                 .put(HTTPS_CERT_PATH, String.valueOf(getHttpsCertPath()))
                 .put(HTTPS_KEY_PATH, String.valueOf(getHttpsKeyPath()))
-                .put(HTTP_EXEC_THREADS, String.valueOf(getHttpExecThreads()))
-                .put(NUM_IO_THREADS, String.valueOf(getNumIoThreads()))
+                .put(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getHttpServerNumIoThreadsHwMultiplier()))
+                .put(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getExchangeHttpClientNumIoThreadsHwMultiplier()))
+                .put(ASYNC_DATA_CACHE_ENABLED, String.valueOf(getAsyncDataCacheEnabled()))
+                .put(ASYNC_CACHE_SSD_GB, String.valueOf(getAsyncCacheSsdGb()))
+                .put(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER, String.valueOf(getConnectorNumIoThreadsHwMultiplier()))
                 .put(PRESTO_VERSION, getPrestoVersion())
                 .put(SHUTDOWN_ONSET_SEC, String.valueOf(getShutdownOnsetSec()))
                 .put(SYSTEM_MEMORY_GB, String.valueOf(getSystemMemoryGb()))
@@ -148,10 +169,13 @@ public class NativeExecutionSystemConfig
                 .put(MEMORY_ARBITRATOR_CAPACITY_GB, String.valueOf(getMemoryArbitratorCapacityGb()))
                 .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
+                .put(MEMORY_RECLAIM_WAIT_MS, String.valueOf(getMemoryReclaimWaitMs()))
                 .put(SPILLER_SPILL_PATH, String.valueOf(getSpillerSpillPath()))
                 .put(TASK_MAX_DRIVERS_PER_TASK, String.valueOf(getMaxDriversPerTask()))
+                .put(ENABLE_OLD_TASK_CLEANUP, String.valueOf(getOldTaskCleanupMs()))
                 .put(SHUFFLE_NAME, getShuffleName())
                 .put(HTTP_SERVER_ACCESS_LOGS, String.valueOf(isEnableHttpServerAccessLog()))
+                .put(CORE_ON_ALLOCATION_FAILURE_ENABLED, String.valueOf(isCoreOnAllocationFailureEnabled()))
                 .build();
     }
 
@@ -239,16 +263,16 @@ public class NativeExecutionSystemConfig
         return registerTestFunctions;
     }
 
-    @Config(HTTP_EXEC_THREADS)
-    public NativeExecutionSystemConfig setHttpExecThreads(int httpExecThreads)
+    @Config(HTTP_SERVER_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setHttpServerNumIoThreadsHwMultiplier(double httpServerNumIoThreadsHwMultiplier)
     {
-        this.httpExecThreads = httpExecThreads;
+        this.httpServerNumIoThreadsHwMultiplier = httpServerNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getHttpExecThreads()
+    public double getHttpServerNumIoThreadsHwMultiplier()
     {
-        return httpExecThreads;
+        return httpServerNumIoThreadsHwMultiplier;
     }
 
     public int getHttpsServerPort()
@@ -311,16 +335,52 @@ public class NativeExecutionSystemConfig
         return this;
     }
 
-    @Config(NUM_IO_THREADS)
-    public NativeExecutionSystemConfig setNumIoThreads(int numIoThreads)
+    @Config(EXCHANGE_HTTP_CLIENT_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setExchangeHttpClientNumIoThreadsHwMultiplier(double exchangeHttpClientNumIoThreadsHwMultiplier)
     {
-        this.numIoThreads = numIoThreads;
+        this.exchangeHttpClientNumIoThreadsHwMultiplier = exchangeHttpClientNumIoThreadsHwMultiplier;
         return this;
     }
 
-    public int getNumIoThreads()
+    public double getExchangeHttpClientNumIoThreadsHwMultiplier()
     {
-        return numIoThreads;
+        return exchangeHttpClientNumIoThreadsHwMultiplier;
+    }
+
+    @Config(ASYNC_DATA_CACHE_ENABLED)
+    public NativeExecutionSystemConfig setAsyncDataCacheEnabled(boolean asyncDataCacheEnabled)
+    {
+        this.asyncDataCacheEnabled = asyncDataCacheEnabled;
+        return this;
+    }
+
+    public boolean getAsyncDataCacheEnabled()
+    {
+        return asyncDataCacheEnabled;
+    }
+
+    @Config(ASYNC_CACHE_SSD_GB)
+    public NativeExecutionSystemConfig setAsyncCacheSsdGb(int asyncCacheSsdGb)
+    {
+        this.asyncCacheSsdGb = asyncCacheSsdGb;
+        return this;
+    }
+
+    public int getAsyncCacheSsdGb()
+    {
+        return asyncCacheSsdGb;
+    }
+
+    @Config(CONNECTOR_NUM_IO_THREADS_HW_MULTIPLIER)
+    public NativeExecutionSystemConfig setConnectorNumIoThreadsHwMultiplier(double connectorNumIoThreadsHwMultiplier)
+    {
+        this.connectorNumIoThreadsHwMultiplier = connectorNumIoThreadsHwMultiplier;
+        return this;
+    }
+
+    public double getConnectorNumIoThreadsHwMultiplier()
+    {
+        return connectorNumIoThreadsHwMultiplier;
     }
 
     @Config(SHUTDOWN_ONSET_SEC)
@@ -419,6 +479,18 @@ public class NativeExecutionSystemConfig
         return memoryPoolTransferCapacity;
     }
 
+    @Config(MEMORY_RECLAIM_WAIT_MS)
+    public NativeExecutionSystemConfig setMemoryReclaimWaitMs(long memoryReclaimWaitMs)
+    {
+        this.memoryReclaimWaitMs = memoryReclaimWaitMs;
+        return this;
+    }
+
+    public long getMemoryReclaimWaitMs()
+    {
+        return memoryReclaimWaitMs;
+    }
+
     @Config(SPILLER_SPILL_PATH)
     public NativeExecutionSystemConfig setSpillerSpillPath(String spillerSpillPath)
     {
@@ -455,6 +527,18 @@ public class NativeExecutionSystemConfig
         return maxDriversPerTask;
     }
 
+    public boolean getOldTaskCleanupMs()
+    {
+        return enableOldTaskCleanUp;
+    }
+
+    @Config(ENABLE_OLD_TASK_CLEANUP)
+    public NativeExecutionSystemConfig setOldTaskCleanupMs(boolean enableOldTaskCleanUp)
+    {
+        this.enableOldTaskCleanUp = enableOldTaskCleanUp;
+        return this;
+    }
+
     @Config(PRESTO_VERSION)
     public NativeExecutionSystemConfig setPrestoVersion(String prestoVersion)
     {
@@ -477,5 +561,17 @@ public class NativeExecutionSystemConfig
     public boolean isEnableHttpServerAccessLog()
     {
         return enableHttpServerAccessLog;
+    }
+
+    public boolean isCoreOnAllocationFailureEnabled()
+    {
+        return coreOnAllocationFailureEnabled;
+    }
+
+    @Config(CORE_ON_ALLOCATION_FAILURE_ENABLED)
+    public NativeExecutionSystemConfig setCoreOnAllocationFailureEnabled(boolean coreOnAllocationFailureEnabled)
+    {
+        this.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled;
+        return this;
     }
 }

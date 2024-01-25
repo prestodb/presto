@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
@@ -59,7 +58,6 @@ public class IcebergHiveModule
 
         binder.bind(IcebergMetadataFactory.class).to(IcebergHiveMetadataFactory.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(HiveClientConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
     }
 }

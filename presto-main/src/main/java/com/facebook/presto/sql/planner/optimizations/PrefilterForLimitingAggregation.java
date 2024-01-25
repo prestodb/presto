@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -62,14 +63,13 @@ import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.isAllLowCardinalityGroupByKeys;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.typeConvert;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static java.lang.Boolean.TRUE;
 
 /**
- * An optimization for quicker execution of simple group by + limit queres. In SQL terms, it will be:
+ * An optimization for quicker execution of simple group by + limit queries. In SQL terms, it will be:
  *
  * Original:
  *
@@ -110,7 +110,7 @@ public class PrefilterForLimitingAggregation
     }
 
     @Override
-    public PlanNode optimize(
+    public PlanOptimizerResult optimize(
             PlanNode plan,
             Session session,
             TypeProvider types,
@@ -119,10 +119,12 @@ public class PrefilterForLimitingAggregation
             WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator), plan);
+            Rewriter rewriter = new Rewriter(session, metadata, types, statsCalculator, idAllocator, variableAllocator);
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -134,6 +136,7 @@ public class PrefilterForLimitingAggregation
         private final StatsCalculator statsCalculator;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
+        private boolean planChanged;
 
         private Rewriter(
                 Session session,
@@ -149,6 +152,11 @@ public class PrefilterForLimitingAggregation
             this.statsCalculator = statsCalculator;
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -179,6 +187,7 @@ public class PrefilterForLimitingAggregation
                         !isAllLowCardinalityGroupByKeys(aggregationNode, scanNode.get(), session, statsCalculator, types, limitNode.getCount())) {
                     PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount());
                     if (rewrittenAggregation != aggregationNode) {
+                        planChanged = true;
                         if (source == aggregationNode) {
                             return replaceChildren(limitNode, ImmutableList.of(rewrittenAggregation));
                         }

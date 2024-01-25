@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -45,7 +45,7 @@ public class ConsistentHashingNodeProvider
         NavigableMap<Integer, InternalNode> activeNodesByConsistentHashing = new TreeMap<>();
         for (InternalNode node : nodes) {
             for (int i = 0; i < weight; i++) {
-                activeNodesByConsistentHashing.put(murmur3_32().hashString(format("%s%d", node.getNodeIdentifier(), i), UTF_8).asInt(), node);
+                activeNodesByConsistentHashing.put(HASH_FUNCTION.hashString(format("%s%d", node.getNodeIdentifier(), i), UTF_8).asInt(), node);
             }
         }
         return new ConsistentHashingNodeProvider(activeNodesByConsistentHashing, nodes.size());
@@ -63,35 +63,30 @@ public class ConsistentHashingNodeProvider
         if (count > nodeCount) {
             count = nodeCount;
         }
-        ImmutableList.Builder<HostAddress> nodes = ImmutableList.builder();
-        Set<HostAddress> unique = new HashSet<>();
-        int hashKey = HASH_FUNCTION.hashString(format("%s", key), UTF_8).asInt();
-        Map.Entry<Integer, InternalNode> entry = candidates.ceilingEntry(hashKey);
-        HostAddress candidate;
-        SortedMap<Integer, InternalNode> nextEntries;
-        if (entry != null) {
-            candidate = entry.getValue().getHostAndPort();
-            nextEntries = candidates.tailMap(entry.getKey(), false);
+
+        Set<HostAddress> uniqueNodes = new LinkedHashSet<>();
+        int hashKey = HASH_FUNCTION.hashString(key, UTF_8).asInt();
+
+        SortedMap<Integer, InternalNode> tailMap = candidates.tailMap(hashKey);
+        //Start reading from tail
+        for (Map.Entry<Integer, InternalNode> entry : tailMap.entrySet()) {
+            uniqueNodes.add(entry.getValue().getHostAndPort());
+            if (uniqueNodes.size() == count) {
+                break;
+            }
         }
-        else {
-            candidate = candidates.firstEntry().getValue().getHostAndPort();
-            nextEntries = candidates.tailMap(candidates.firstKey(), false);
-        }
-        unique.add(candidate);
-        nodes.add(candidate);
-        while (unique.size() < count) {
-            for (Map.Entry<Integer, InternalNode> next : nextEntries.entrySet()) {
-                candidate = next.getValue().getHostAndPort();
-                if (!unique.contains(candidate)) {
-                    unique.add(candidate);
-                    nodes.add(candidate);
-                    if (unique.size() == count) {
-                        break;
-                    }
+
+        if (uniqueNodes.size() < count) {
+            //Start reading from the head as we have exhausted tail
+            SortedMap<Integer, InternalNode> headMap = candidates.headMap(hashKey);
+            for (Map.Entry<Integer, InternalNode> entry : headMap.entrySet()) {
+                uniqueNodes.add(entry.getValue().getHostAndPort());
+                if (uniqueNodes.size() == count) {
+                    break;
                 }
             }
-            nextEntries = candidates;
         }
-        return nodes.build();
+
+        return ImmutableList.copyOf(uniqueNodes);
     }
 }

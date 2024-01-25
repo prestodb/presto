@@ -101,6 +101,9 @@ final class FixJsonDataUtils
         if (signature.isDistinctType()) {
             return fixValue(signature.getDistinctTypeInfo().getBaseType(), value);
         }
+        if (signature.getTypeSignatureBase().hasTypeName() && signature.getTypeSignatureBase().hasStandardType()) {
+            return fixValue(signature.getStandardTypeSignature(), value);
+        }
         if (signature.getBase().equals(ARRAY)) {
             if (List.class.isAssignableFrom(value.getClass())) {
                 List<Object> fixedValue = new ArrayList<>();
