@@ -198,7 +198,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterSpillSortTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(
       kCounterSpillSerializationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillDiskWrites, facebook::velox::StatType::SUM);
+  DEFINE_METRIC(kCounterSpillWrites, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
