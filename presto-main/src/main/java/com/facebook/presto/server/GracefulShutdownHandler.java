@@ -24,6 +24,9 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -86,7 +89,15 @@ public class GracefulShutdownHandler
     {
         log.debug("Loading node status notification");
         checkState(!isLoadNodeStatusNotification, "Node status notification can be registered only once");
-        this.nodeStatusNotificationManager.getNotificationProvider().registerGracefulShutdownEventListener(this::initiateShutdown);
+
+        try {
+            InetAddress address = Inet6Address.getLocalHost();
+            this.nodeStatusNotificationManager.getNotificationProvider().registerRemoteHostShutdownEventListener(address, this::initiateShutdown);
+        }
+        catch (UnknownHostException exception) {
+            log.error("Unable to get local host address, skip the registration of GracefulShutdownEventListener");
+        }
+
         isLoadNodeStatusNotification = true;
     }
 
@@ -227,6 +238,12 @@ public class GracefulShutdownHandler
     @PreDestroy
     public synchronized void destroy()
     {
-        this.nodeStatusNotificationManager.getNotificationProvider().removeGracefulShutdownEventListener(this::initiateShutdown);
+        try {
+            InetAddress address = Inet6Address.getLocalHost();
+            this.nodeStatusNotificationManager.getNotificationProvider().removeRemoteHostShutdownEventListener(address, this::initiateShutdown);
+        }
+        catch (UnknownHostException exception) {
+            log.error("Unable to get local host address, skip the removal of GracefulShutdownEventListener");
+        }
     }
 }

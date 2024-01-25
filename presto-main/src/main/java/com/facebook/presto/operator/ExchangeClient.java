@@ -20,6 +20,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.PageBufferClient.ClientCallback;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
+import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -38,6 +39,7 @@ import java.io.Closeable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -83,6 +85,7 @@ public class ExchangeClient
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0, 0);
     private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
+    private DataSize sinkMaxBufferSize;
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -106,6 +109,8 @@ public class ExchangeClient
     private final Set<PageBufferClient> completedClients = newConcurrentHashSet();
     private final Set<PageBufferClient> removedClients = newConcurrentHashSet();
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
+    private final Deque<PageBufferClient> shuttingdownClients = new LinkedList<>();
+    private final Set<PageBufferClient> pendingShuttingdownClients = new HashSet<>();
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
@@ -124,10 +129,17 @@ public class ExchangeClient
 
     private final LocalMemoryContext systemMemoryContext;
     private final Executor pageBufferClientCallbackExecutor;
+    private final NodeStatusNotificationManager nodeStatusNotifier;
+
+    private long fastDrainingStart;
+    private ExchangeClientStats exchangeClientStats;
+
+    private boolean lastAnyPendingShuttingDownClient;
 
     // ExchangeClientStatus.mergeWith assumes all clients have the same bufferCapacity.
     // Please change that method accordingly when this assumption becomes not true.
     public ExchangeClient(
+            DataSize sinkMaxBufferSize,
             DataSize bufferCapacity,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -139,9 +151,12 @@ public class ExchangeClient
             DriftClient<ThriftTaskClient> driftClient,
             ScheduledExecutorService scheduler,
             LocalMemoryContext systemMemoryContext,
-            Executor pageBufferClientCallbackExecutor)
+            Executor pageBufferClientCallbackExecutor,
+            NodeStatusNotificationManager nodeStatusNotifier,
+            ExchangeClientStats exchangeClientStats)
     {
         checkArgument(responseSizeExponentialMovingAverageDecayingAlpha >= 0.0 && responseSizeExponentialMovingAverageDecayingAlpha <= 1.0, "responseSizeExponentialMovingAverageDecayingAlpha must be between 0 and 1: %s", responseSizeExponentialMovingAverageDecayingAlpha);
+        this.sinkMaxBufferSize = sinkMaxBufferSize;
         this.bufferCapacity = bufferCapacity.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -155,6 +170,8 @@ public class ExchangeClient
         this.maxBufferRetainedSizeInBytes = Long.MIN_VALUE;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.responseSizeExponentialMovingAverage = new ExponentialMovingAverage(responseSizeExponentialMovingAverageDecayingAlpha, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        this.nodeStatusNotifier = nodeStatusNotifier;
+        this.exchangeClientStats = exchangeClientStats;
     }
 
     public ExchangeClientStatus getStatus()
@@ -220,7 +237,8 @@ public class ExchangeClient
                 asyncPageTransportLocation,
                 new ExchangeClientCallback(),
                 scheduler,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                nodeStatusNotifier);
         allClients.put(location, client);
         checkState(taskIdToLocationMap.put(remoteSourceTaskId, location) == null, "Duplicate remoteSourceTaskId: " + remoteSourceTaskId);
         queuedClients.add(client);
@@ -349,6 +367,41 @@ public class ExchangeClient
         notifyBlockedCallers();
     }
 
+    private synchronized void clientNodeShutdown(PageBufferClient client)
+    {
+        if (completedClients.contains(client) || removedClients.contains(client)) {
+            return;
+        }
+
+        shuttingdownClients.add(client);
+        scheduleRequestIfNecessary();
+    }
+
+    private synchronized boolean handleWorkerShuttingDown()
+    {
+        exchangeClientStats.setShuttingDownClientCount(shuttingdownClients.size());
+        exchangeClientStats.setPendingShuttingDownClientCount(pendingShuttingdownClients.size());
+        for (int i = 0; i < shuttingdownClients.size(); ) {
+            PageBufferClient client = shuttingdownClients.poll();
+            if (client == null) {
+                // no more clients available
+                return !pendingShuttingdownClients.isEmpty();
+            }
+
+            if (completedClients.contains(client) || removedClients.contains(client)) {
+                continue;
+            }
+
+            // This would run a little risk of OOMing the pulling end, but if we don't pull then this query would fail due to the upstream worker shutdown either.
+            // As long as we don't have a spike of the upstream workers shutting down together at any moment. It should be fine in general.
+            pendingShuttingdownClients.add(client);
+            client.scheduleRequest(sinkMaxBufferSize);
+            i++;
+        }
+
+        return !pendingShuttingdownClients.isEmpty();
+    }
+
     public synchronized void scheduleRequestIfNecessary()
     {
         if (isFinished() || isFailed()) {
@@ -365,6 +418,26 @@ public class ExchangeClient
             }
             notifyBlockedCallers();
             return;
+        }
+
+        boolean anyPendingShuttingDownClient = handleWorkerShuttingDown();
+        if (anyPendingShuttingDownClient) {
+            if (!lastAnyPendingShuttingDownClient) {
+                // book keep the fast draining start time.
+                fastDrainingStart = System.nanoTime();
+            }
+
+            lastAnyPendingShuttingDownClient = true;
+
+            // prioritize the fastDraining clients before issuing requests for the other clients.
+            return;
+        }
+        else {
+            if (lastAnyPendingShuttingDownClient) {
+                exchangeClientStats.getFastDrainingTime().add(Duration.nanosSince(fastDrainingStart));
+            }
+
+            lastAnyPendingShuttingDownClient = false;
         }
 
         long neededBytes = bufferCapacity - bufferRetainedSizeInBytes;
@@ -385,7 +458,7 @@ public class ExchangeClient
                 return;
             }
 
-            if (removedClients.contains(client)) {
+            if (removedClients.contains(client) || completedClients.contains(client)) {
                 continue;
             }
 
@@ -469,6 +542,11 @@ public class ExchangeClient
 
     private synchronized void requestComplete(PageBufferClient client)
     {
+        if (client.isFastDraining()) {
+            shuttingdownClients.add(client);
+            pendingShuttingdownClients.remove(client);
+        }
+
         if (!queuedClients.contains(client)) {
             queuedClients.add(client);
         }
@@ -479,6 +557,7 @@ public class ExchangeClient
     {
         requireNonNull(client, "client is null");
         completedClients.add(client);
+        pendingShuttingdownClients.remove(client);
         scheduleRequestIfNecessary();
     }
 
@@ -542,6 +621,13 @@ public class ExchangeClient
             requireNonNull(cause, "cause is null");
 
             ExchangeClient.this.clientFailed(client, cause);
+        }
+
+        @Override
+        public void clientNodeShutdown(PageBufferClient client)
+        {
+            requireNonNull(client, "client is null");
+            ExchangeClient.this.clientNodeShutdown(client);
         }
     }
 

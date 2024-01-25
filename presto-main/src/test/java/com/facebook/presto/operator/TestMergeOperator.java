@@ -21,10 +21,12 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -75,7 +77,8 @@ public class TestMergeOperator
     private OrderingCompiler orderingCompiler;
 
     private LoadingCache<String, TestingTaskBuffer> taskBuffers;
-
+    private NodeStatusNotificationManager statusNotificationManager = new NodeStatusNotificationManager();
+    private ExchangeClientStats exchangeClientStats = new ExchangeClientStats();
     @BeforeMethod
     public void setUp()
     {
@@ -84,7 +87,7 @@ public class TestMergeOperator
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), httpClient, new TestingDriftClient<>(), executor);
+        exchangeClientFactory = new ExchangeClientFactory(new ExchangeClientConfig(), new TaskManagerConfig(), httpClient, new TestingDriftClient<>(), executor, statusNotificationManager, exchangeClientStats);
         orderingCompiler = new OrderingCompiler();
     }
 

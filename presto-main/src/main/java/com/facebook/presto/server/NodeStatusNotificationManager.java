@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.spi.nodestatus.NoOpNodeStatusNotificationProvider;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProvider;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
@@ -61,5 +62,11 @@ public class NodeStatusNotificationManager
     public NodeStatusNotificationProvider getNotificationProvider()
     {
         return this.notificationProvider;
+    }
+
+    @VisibleForTesting
+    public void injectNotificationProviderForTest(NodeStatusNotificationProvider provider)
+    {
+        this.notificationProvider = provider;
     }
 }

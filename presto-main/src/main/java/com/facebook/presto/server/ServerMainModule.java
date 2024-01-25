@@ -107,6 +107,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
+import com.facebook.presto.operator.ExchangeClientStats;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FileFragmentResultCacheConfig;
 import com.facebook.presto.operator.FileFragmentResultCacheManager;
@@ -521,6 +522,7 @@ public class ServerMainModule
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
+        binder.bind(ExchangeClientStats.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
@@ -551,6 +553,7 @@ public class ServerMainModule
         driftClientBinder(binder).bindDriftClient(ThriftTaskClient.class, ForExchange.class)
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
+        newExporter(binder).export(ExchangeClientStats.class).withGeneratedName();
 
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
         binder.bind(ExchangeExecutionMBean.class).in(Scopes.SINGLETON);

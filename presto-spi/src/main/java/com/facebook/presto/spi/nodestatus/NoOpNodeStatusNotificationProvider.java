@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.nodestatus;
 
+import java.net.InetAddress;
+
 public class NoOpNodeStatusNotificationProvider
         implements NodeStatusNotificationProvider
 {
@@ -23,6 +25,16 @@ public class NoOpNodeStatusNotificationProvider
 
     @Override
     public void removeGracefulShutdownEventListener(GracefulShutdownEventListener listener)
+    {
+    }
+
+    @Override
+    public void registerRemoteHostShutdownEventListener(InetAddress inetAddress, GracefulShutdownEventListener listener)
+    {
+    }
+
+    @Override
+    public void removeRemoteHostShutdownEventListener(InetAddress inetAddress, GracefulShutdownEventListener listener)
     {
     }
 }
