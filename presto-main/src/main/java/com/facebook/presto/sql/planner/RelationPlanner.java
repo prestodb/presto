@@ -123,7 +123,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterialization
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
-import static com.facebook.presto.sql.planner.optimizations.CteUtils.isCteMaterializable;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.sql.tree.Join.Type.LEFT;
 import static com.facebook.presto.sql.tree.Join.Type.RIGHT;
@@ -186,7 +185,7 @@ class RelationPlanner
                 cteName = createQualifiedObjectName(session, node, node.getName()).toString();
             }
             RelationPlan subPlan = process(namedQuery.getQuery(), context);
-            boolean shouldBeMaterialized = getCteMaterializationStrategy(session).equals(ALL) && isCteMaterializable(subPlan.getRoot().getOutputVariables());
+            boolean shouldBeMaterialized = getCteMaterializationStrategy(session).equals(ALL);
             session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView(), shouldBeMaterialized);
             if (shouldBeMaterialized) {
                 subPlan = new RelationPlan(
