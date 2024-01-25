@@ -23,6 +23,31 @@ namespace facebook::velox {
 
 namespace {
 
+template <typename T>
+void assertRescaleDouble(double value, const TypePtr& type, T expectedValue) {
+  const auto [precision, scale] = getDecimalPrecisionScale(*type);
+  T actualValue;
+  const auto status =
+      DecimalUtil::rescaleDouble<T>(value, precision, scale, actualValue);
+  ASSERT_TRUE(status.ok());
+  ASSERT_EQ(actualValue, expectedValue);
+}
+
+template <typename T>
+void assertRescaleDoubleFail(
+    double value,
+    const TypePtr& type,
+    const std::string& expectedErrorMessage) {
+  const auto [precision, scale] = getDecimalPrecisionScale(*type);
+  T actualValue;
+  const auto status =
+      DecimalUtil::rescaleDouble<T>(value, precision, scale, actualValue);
+  ASSERT_TRUE(!status.ok());
+  ASSERT_TRUE(status.message().find(expectedErrorMessage) != std::string::npos)
+      << "Expected error message to contain '" << expectedErrorMessage
+      << "', but received '" << status.message() << "'.";
+}
+
 void testToByteArray(int128_t value, int8_t* expected, int32_t size) {
   char out[size];
   int32_t length = DecimalUtil::toByteArray(value, out);
@@ -261,6 +286,82 @@ TEST(DecimalAggregateTest, adjustSumForOverflow) {
   accumulator.add(DecimalUtil::kLongDecimalMin);
   accumulator.add(DecimalUtil::kLongDecimalMin);
   EXPECT_FALSE(accumulator.adjustedSum().has_value());
+}
+
+TEST(DecimalTest, rescaleDouble) {
+  assertRescaleDouble<int64_t>(-3333.03, DECIMAL(10, 4), -33'330'300);
+  assertRescaleDouble<int128_t>(-3333.03, DECIMAL(20, 1), -33'330);
+  assertRescaleDouble<int128_t>(-3333.03, DECIMAL(20, 10), -33'330'300'000'000);
+
+  assertRescaleDouble<int64_t>(-2222.02, DECIMAL(10, 4), -22'220'200);
+  assertRescaleDouble<int128_t>(-2222.02, DECIMAL(20, 1), -22'220);
+  assertRescaleDouble<int128_t>(-2222.02, DECIMAL(20, 10), -22'220'200'000'000);
+
+  assertRescaleDouble<int64_t>(-1.0, DECIMAL(10, 4), -10'000);
+  assertRescaleDouble<int128_t>(-1.0, DECIMAL(20, 1), -10);
+  assertRescaleDouble<int128_t>(-1.0, DECIMAL(20, 10), -10'000'000'000);
+
+  assertRescaleDouble<int64_t>(0.00, DECIMAL(10, 4), 0);
+  assertRescaleDouble<int128_t>(0.00, DECIMAL(20, 1), 0);
+  assertRescaleDouble<int128_t>(0.00, DECIMAL(20, 10), 0);
+
+  assertRescaleDouble<int64_t>(100, DECIMAL(10, 4), 1'000'000);
+  assertRescaleDouble<int128_t>(100, DECIMAL(20, 1), 1'000);
+  assertRescaleDouble<int128_t>(100, DECIMAL(20, 10), 1'000'000'000'000);
+
+  assertRescaleDouble<int64_t>(99999.99, DECIMAL(10, 4), 999'999'900);
+  assertRescaleDouble<int128_t>(99999.99, DECIMAL(20, 1), 1'000'000);
+  assertRescaleDouble<int128_t>(99999.99, DECIMAL(20, 10), 999'999'900'000'000);
+
+  assertRescaleDouble<int128_t>(
+      0.034567890, DECIMAL(38, 18), 34'567'890'000'000'000);
+  assertRescaleDouble<int128_t>(
+      0.999999999999999, DECIMAL(38, 18), 999'999'999'999'999'000);
+  assertRescaleDouble<int128_t>(
+      0.123456789123123, DECIMAL(38, 18), 123'456'789'123'123'000);
+  assertRescaleDouble<int64_t>(21.54551, DECIMAL(12, 3), 21546);
+
+  assertRescaleDoubleFail<int128_t>(
+      std::numeric_limits<double>::max(), DECIMAL(38, 38), "Result overflows.");
+  assertRescaleDouble<int128_t>(
+      std::numeric_limits<double>::min(), DECIMAL(38, 2), 0);
+
+  assertRescaleDoubleFail<int64_t>(
+      NAN, DECIMAL(10, 2), "The input value should be finite.");
+  assertRescaleDoubleFail<int64_t>(
+      INFINITY, DECIMAL(10, 2), "The input value should be finite.");
+
+  assertRescaleDoubleFail<int64_t>(
+      9999999999999999999999.99, DECIMAL(10, 2), "Result overflows.");
+  assertRescaleDoubleFail<int64_t>(
+      static_cast<double>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::max()) + 1),
+      DECIMAL(10, 2),
+      "Result overflows.");
+  assertRescaleDoubleFail<int64_t>(
+      static_cast<double>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::min()) - 1),
+      DECIMAL(10, 2),
+      "Result overflows.");
+  assertRescaleDoubleFail<int64_t>(
+      static_cast<double>(DecimalUtil::kShortDecimalMax),
+      DECIMAL(10, 2),
+      "Result overflows.");
+  assertRescaleDoubleFail<int64_t>(
+      static_cast<double>(DecimalUtil::kShortDecimalMin),
+      DECIMAL(10, 2),
+      "Result overflows.");
+  assertRescaleDoubleFail<int128_t>(
+      static_cast<double>(DecimalUtil::kLongDecimalMax),
+      DECIMAL(20, 2),
+      "Result overflows.");
+  assertRescaleDoubleFail<int128_t>(
+      static_cast<double>(DecimalUtil::kLongDecimalMin),
+      DECIMAL(20, 2),
+      "Result overflows.");
+
+  assertRescaleDoubleFail<int64_t>(
+      99999.99, DECIMAL(6, 4), "Result cannot fit in the given precision 6.");
 }
 
 } // namespace
