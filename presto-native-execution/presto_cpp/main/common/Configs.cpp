@@ -12,8 +12,6 @@
  * limitations under the License.
  */
 
-#include <re2/re2.h>
-
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
