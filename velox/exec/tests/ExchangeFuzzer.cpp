@@ -432,5 +432,6 @@ int main(int argc, char** argv) {
     fuzzer.seed(seed);
   }
   fuzzer.run();
+  exec::test::testingShutdownLocalExchangeSource();
   return 0;
 }
