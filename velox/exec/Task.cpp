@@ -2152,7 +2152,7 @@ folly::dynamic Task::toJson() const {
   obj["numDriversUngrouped"] = numDriversUngrouped_;
   obj["partitionedOutputConsumed"] = partitionedOutputConsumed_;
   obj["noMoreOutputBuffers"] = noMoreOutputBuffers_;
-  obj["onThreadSince"] = onThreadSince_;
+  obj["onThreadSince"] = std::to_string(onThreadSince_);
 
   if (exception_) {
     obj["exception"] = errorMessageLocked();
