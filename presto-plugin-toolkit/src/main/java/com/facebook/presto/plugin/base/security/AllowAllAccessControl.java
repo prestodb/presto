@@ -123,6 +123,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
     {
     }
