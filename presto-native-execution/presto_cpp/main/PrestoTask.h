@@ -14,6 +14,7 @@
 #pragma once
 
 #include <memory>
+#include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/Task.h"
@@ -59,10 +60,25 @@ struct Result {
 
 struct ResultRequest {
   PromiseHolderWeakPtr<std::unique_ptr<Result>> promise;
+  std::weak_ptr<http::CallbackRequestHandlerState> state;
   protocol::TaskId taskId;
   int64_t bufferId;
   int64_t token;
   protocol::DataSize maxSize;
+
+  ResultRequest(
+      PromiseHolderWeakPtr<std::unique_ptr<Result>> _promise,
+      std::weak_ptr<http::CallbackRequestHandlerState> _state,
+      protocol::TaskId _taskId,
+      int64_t _bufferId,
+      int64_t _token,
+      protocol::DataSize _maxSize)
+      : promise(std::move(_promise)),
+        state(std::move(_state)),
+        taskId(_taskId),
+        bufferId(_bufferId),
+        token(_token),
+        maxSize(_maxSize) {}
 };
 
 struct PrestoTask {

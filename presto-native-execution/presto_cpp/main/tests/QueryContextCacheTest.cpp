@@ -35,6 +35,11 @@ void verifyQueryCtxCache(
 } // namespace
 
 class QueryContextCacheTest : public testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
   }
