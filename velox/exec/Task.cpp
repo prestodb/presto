@@ -2610,6 +2610,22 @@ uint64_t Task::MemoryReclaimer::reclaim(
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
 
+  uint64_t reclaimWaitTimeUs{0};
+  uint64_t reclaimedBytes{0};
+  {
+    MicrosecondTimer timer{&reclaimWaitTimeUs};
+    reclaimedBytes = reclaimTask(task, targetBytes, maxWaitMs, stats);
+  }
+  ++task->taskStats_.memoryReclaimCount;
+  task->taskStats_.memoryReclaimMs += reclaimWaitTimeUs / 1'000;
+  return reclaimedBytes;
+}
+
+uint64_t Task::MemoryReclaimer::reclaimTask(
+    const std::shared_ptr<Task>& task,
+    uint64_t targetBytes,
+    uint64_t maxWaitMs,
+    memory::MemoryReclaimer::Stats& stats) {
   auto resumeGuard = folly::makeGuard([&]() {
     try {
       Task::resume(task);
@@ -2618,6 +2634,7 @@ uint64_t Task::MemoryReclaimer::reclaim(
                    << " after memory reclamation: " << exception.message();
     }
   });
+
   uint64_t reclaimWaitTimeUs{0};
   bool paused{true};
   {
@@ -2648,13 +2665,13 @@ uint64_t Task::MemoryReclaimer::reclaim(
   }
   // Before reclaiming from its operators, first to check if there is any free
   // capacity in the root after stopping this task.
-  const uint64_t shrunkBytes = pool->shrink(targetBytes);
+  const uint64_t shrunkBytes = task->pool()->shrink(targetBytes);
   if (shrunkBytes >= targetBytes) {
     return shrunkBytes;
   }
   return shrunkBytes +
       memory::MemoryReclaimer::reclaim(
-             pool, targetBytes - shrunkBytes, maxWaitMs, stats);
+             task->pool(), targetBytes - shrunkBytes, maxWaitMs, stats);
 }
 
 void Task::MemoryReclaimer::abort(

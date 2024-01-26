@@ -1489,6 +1489,52 @@ DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {
   waitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(50, folly::identity),
+      makeFlatVector<int64_t>(50, folly::identity),
+  });
+  const auto plan =
+      PlanBuilder()
+          .values({data})
+          .partitionedOutput({}, 1, std::vector<std::string>{"c0"})
+          .planFragment();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>(([&](Task* /*unused*/) {
+        // Inject some delay for task memory reclaim stats verification.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // NOLINT
+      })));
+
+  auto queryPool = memory::memoryManager()->addRootPool(
+      "taskReclaimStats", 1UL << 30, exec::MemoryReclaimer::create());
+  auto queryCtx = std::make_shared<core::QueryCtx>(
+      driverExecutor_.get(),
+      core::QueryConfig{{}},
+      std::unordered_map<std::string, std::shared_ptr<Config>>{},
+      nullptr,
+      std::move(queryPool),
+      nullptr);
+  auto task = Task::create("task", std::move(plan), 0, std::move(queryCtx));
+  task->start(4, 1);
+
+  const int numReclaims{10};
+  for (int i = 0; i < numReclaims; ++i) {
+    MemoryReclaimer::Stats stats;
+    task->pool()->reclaim(1000, 1UL << 30, stats);
+  }
+  const auto taskStats = task->taskStats();
+  ASSERT_EQ(taskStats.memoryReclaimCount, numReclaims);
+  ASSERT_GT(taskStats.memoryReclaimMs, 0);
+
+  // Fail the task to finish test.
+  task->requestAbort();
+  ASSERT_TRUE(waitForTaskAborted(task.get()));
+  task.reset();
+  waitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(TaskTest, driverEnqueAfterFailedAndPausedTask) {
   const auto data = makeRowVector({
       makeFlatVector<int64_t>(50, [](auto row) { return row; }),

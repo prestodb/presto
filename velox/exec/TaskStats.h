@@ -105,6 +105,11 @@ struct TaskStats {
   std::string longestRunningOpCall;
   /// The longest still running operator call's duration in ms.
   size_t longestRunningOpCallMs{0};
+
+  /// The total memory reclamation count.
+  uint32_t memoryReclaimCount{0};
+  /// The total memory reclamation time.
+  uint64_t memoryReclaimMs{0};
 };
 
 } // namespace facebook::velox::exec

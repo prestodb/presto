@@ -736,6 +736,12 @@ class Task : public std::enable_shared_from_this<Task> {
       return task_.lock();
     }
 
+    uint64_t reclaimTask(
+        const std::shared_ptr<Task>& task,
+        uint64_t targetBytes,
+        uint64_t maxWaitMs,
+        memory::MemoryReclaimer::Stats& stats);
+
     std::weak_ptr<Task> task_;
   };
 
