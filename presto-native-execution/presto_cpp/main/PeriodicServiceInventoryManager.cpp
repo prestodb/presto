@@ -47,8 +47,9 @@ void PeriodicServiceInventoryManager::stop() {
 }
 
 void PeriodicServiceInventoryManager::enableRequest(bool enable) {
-  LOG(INFO) << (enable ? "Enabling " : "Disabling ") << id_;
-  requestEnabled_ = enable;
+  if (requestEnabled_.exchange(enable) != enable) {
+    LOG(INFO) << id_ << " has been " << (enable ? "enabled" : "disabled");
+  }
 }
 
 void PeriodicServiceInventoryManager::sendRequest() {
