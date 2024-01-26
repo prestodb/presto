@@ -275,7 +275,7 @@ std::string PrestoServerOperations::serverOperationSetState(
     } else if (stateStr == "shutting_down") {
       newNodeState = NodeState::kShuttingDown;
     } else {
-      return fmt::format(
+      VELOX_USER_FAIL(
           "Invalid state '{}'. "
           "Supported states are: 'active', 'inactive', 'shutting_down'. "
           "Example: server/setState?state=shutting_down",
@@ -304,9 +304,8 @@ std::string PrestoServerOperations::serverOperationAnnouncer(
       server_->enableAnnouncer(false);
       return "Announcer disabled";
     }
-    return fmt::format(
-        "Invalid action '{}'. "
-        "Supported actions are: 'enable', 'disable'. "
+    VELOX_USER_FAIL(
+        "Invalid action '{}'. Supported actions are: 'enable', 'disable'. "
         "Example: server/announcer?action=disable",
         actionStr);
   }
