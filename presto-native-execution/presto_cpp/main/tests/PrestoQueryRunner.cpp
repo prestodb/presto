@@ -100,7 +100,9 @@ class ServerResponse {
     const auto& error = response_["error"];
 
     VELOX_FAIL(
-        "Presto query failed: {} {}", error["errorCode"], error["message"]);
+        "Presto query failed: {} {}",
+        error["errorCode"].asString(),
+        error["message"].asString());
   }
 
   std::string queryId() const {

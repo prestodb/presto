@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/PeriodicTaskManager.h"
+#include <fmt/core.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
@@ -644,3 +645,23 @@ void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
       "http_endpoint_counters");
 }
 } // namespace facebook::presto
+
+template <>
+struct fmt::formatter<facebook::velox::memory::MemoryArbitrator::Stats>
+    : fmt::formatter<std::string> {
+  auto format(
+      const facebook::velox::memory::MemoryArbitrator::Stats& s,
+      format_context& ctx) {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
+
+template <>
+struct fmt::formatter<facebook::velox::common::SpillStats>
+    : fmt::formatter<std::string> {
+  auto format(
+      const facebook::velox::common::SpillStats& s,
+      format_context& ctx) {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
