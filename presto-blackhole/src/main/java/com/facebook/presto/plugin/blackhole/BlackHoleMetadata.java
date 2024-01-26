@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -285,5 +286,24 @@ public class BlackHoleMetadata
         if (!schemas.contains(schemaName)) {
             throw new SchemaNotFoundException(schemaName);
         }
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+        List<BlackHoleColumnHandle> columns = new ArrayList<>(table.getColumnHandles());
+        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.getName(), type));
+
+        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
+                table.getSchemaName(),
+                table.getTableName(),
+                ImmutableList.copyOf(columns),
+                table.getSplitCount(),
+                table.getPagesPerSplit(),
+                table.getRowsPerPage(),
+                table.getFieldsLength(),
+                table.getPageProcessingDelay()));
     }
 }
