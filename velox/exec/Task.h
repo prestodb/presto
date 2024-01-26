@@ -79,10 +79,6 @@ class Task : public std::enable_shared_from_this<Task> {
 
   std::string toString() const;
 
-  std::string toJsonString() const;
-
-  std::string toShortJsonString() const;
-
   folly::dynamic toJson() const;
 
   folly::dynamic toShortJson() const;

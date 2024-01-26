@@ -2112,16 +2112,6 @@ std::string Task::toString() const {
   return out.str();
 }
 
-// TODO(jtan6): remove after toJson() is landed on presto native side
-std::string Task::toShortJsonString() const {
-  return folly::toPrettyJson(toShortJson());
-}
-
-// TODO(jtan6): remove after toJson() is landed on presto native side
-std::string Task::toJsonString() const {
-  return folly::toPrettyJson(toJson());
-}
-
 folly::dynamic Task::toShortJsonLocked() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["shortId"] = shortId(taskId_);
