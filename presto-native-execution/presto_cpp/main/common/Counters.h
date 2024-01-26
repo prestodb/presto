@@ -68,10 +68,14 @@ constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
 constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
+constexpr folly::StringPiece kCounterNumTasksDeadlock{
+    "presto_cpp.num_tasks_deadlock"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
     "presto_cpp.num_blocked_drivers"};
+constexpr folly::StringPiece kCounterNumStuckDrivers{
+    "presto_cpp.num_stuck_drivers"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager

@@ -16,6 +16,7 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
+#include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -70,14 +71,18 @@ PeriodicTaskManager::PeriodicTaskManager(
     const velox::cache::AsyncDataCache* const asyncDataCache,
     const std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::Connector>>& connectors)
+        std::shared_ptr<velox::connector::Connector>>& connectors,
+    PrestoServer* server,
+    size_t stuckDriverThresholdMs)
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
       arbitrator_(velox::memory::memoryManager()->arbitrator()),
-      connectors_(connectors) {}
+      connectors_(connectors),
+      server_(server),
+      stuckDriverThresholdMs_(stuckDriverThresholdMs) {}
 
 void PeriodicTaskManager::start() {
   // If executors are null, don't bother starting this task.
@@ -117,13 +122,15 @@ void PeriodicTaskManager::start() {
     addArbitratorStatsTask();
   }
 
-  // This should be the last call in this method.
-  scheduler_.start();
+  addWatchdogTask();
+
+  onceRunner_.start();
 }
 
 void PeriodicTaskManager::stop() {
-  scheduler_.cancelAllFunctionsAndWait();
-  scheduler_.shutdown();
+  onceRunner_.cancelAllFunctionsAndWait();
+  onceRunner_.shutdown();
+  repeatedRunner_.stop();
 }
 
 void PeriodicTaskManager::updateExecutorStats() {
@@ -412,79 +419,89 @@ void PeriodicTaskManager::addCacheStatsUpdateTask() {
       "cache_counters");
 }
 
+namespace {
+
+class HiveConnectorStatsReporter {
+ public:
+  explicit HiveConnectorStatsReporter(
+      std::shared_ptr<velox::connector::hive::HiveConnector> connector)
+      : connector_(std::move(connector)),
+        numElementsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumElementsFormat,
+            connector_->connectorId())),
+        pinnedSizeMetricName_(fmt::format(
+            kCounterHiveFileHandleCachePinnedSizeFormat,
+            connector_->connectorId())),
+        curSizeMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheCurSizeFormat,
+            connector_->connectorId())),
+        numAccumulativeHitsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
+            connector_->connectorId())),
+        numAccumulativeLookupsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat,
+            connector_->connectorId())),
+        numHitsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumHitsFormat,
+            connector_->connectorId())),
+        numLookupsMetricName_(fmt::format(
+            kCounterHiveFileHandleCacheNumLookupsFormat,
+            connector_->connectorId())) {
+    DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(curSizeMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeHitsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeLookupsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numHitsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numLookupsMetricName_, velox::StatType::AVG);
+  }
+
+  void report() {
+    auto stats = connector_->fileHandleCacheStats();
+    RECORD_METRIC_VALUE(numElementsMetricName_, stats.numElements);
+    RECORD_METRIC_VALUE(pinnedSizeMetricName_, stats.pinnedSize);
+    RECORD_METRIC_VALUE(curSizeMetricName_, stats.curSize);
+    RECORD_METRIC_VALUE(numAccumulativeHitsMetricName_, stats.numHits);
+    RECORD_METRIC_VALUE(numAccumulativeLookupsMetricName_, stats.numLookups);
+    RECORD_METRIC_VALUE(numHitsMetricName_, stats.numHits - oldNumHits_);
+    oldNumHits_ = stats.numHits;
+    RECORD_METRIC_VALUE(
+        numLookupsMetricName_, stats.numLookups - oldNumLookups_);
+    oldNumLookups_ = stats.numLookups;
+  }
+
+ private:
+  const std::shared_ptr<velox::connector::hive::HiveConnector> connector_;
+  const std::string numElementsMetricName_;
+  const std::string pinnedSizeMetricName_;
+  const std::string curSizeMetricName_;
+  const std::string numAccumulativeHitsMetricName_;
+  const std::string numAccumulativeLookupsMetricName_;
+  const std::string numHitsMetricName_;
+  const std::string numLookupsMetricName_;
+  size_t oldNumHits_{0};
+  size_t oldNumLookups_{0};
+};
+
+} // namespace
+
 void PeriodicTaskManager::addConnectorStatsTask() {
+  std::vector<HiveConnectorStatsReporter> reporters;
   for (const auto& itr : connectors_) {
-    static std::unordered_map<std::string, int64_t> oldValues;
-    // Export HiveConnector stats
     if (auto hiveConnector =
             std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
                 itr.second)) {
-      auto connectorId = hiveConnector->connectorId();
-      const auto kNumElementsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumElementsFormat, connectorId);
-      const auto kPinnedSizeMetricName =
-          fmt::format(kCounterHiveFileHandleCachePinnedSizeFormat, connectorId);
-      const auto kCurSizeMetricName =
-          fmt::format(kCounterHiveFileHandleCacheCurSizeFormat, connectorId);
-      const auto kNumAccumulativeHitsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumAccumulativeHitsFormat, connectorId);
-      const auto kNumAccumulativeLookupsMetricName = fmt::format(
-          kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat, connectorId);
-
-      const auto kNumHitsMetricName =
-          fmt::format(kCounterHiveFileHandleCacheNumHitsFormat, connectorId);
-      oldValues[kNumHitsMetricName] = 0;
-      const auto kNumLookupsMetricName =
-          fmt::format(kCounterHiveFileHandleCacheNumLookupsFormat, connectorId);
-      oldValues[kNumLookupsMetricName] = 0;
-
-      // Exporting metrics types here since the metrics key is dynamic
-      DEFINE_METRIC(kNumElementsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kPinnedSizeMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kCurSizeMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(
-          kNumAccumulativeHitsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(
-          kNumAccumulativeLookupsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kNumHitsMetricName, facebook::velox::StatType::AVG);
-      DEFINE_METRIC(kNumLookupsMetricName, facebook::velox::StatType::AVG);
-
-      addTask(
-          [hiveConnector,
-           connectorId,
-           kNumElementsMetricName,
-           kPinnedSizeMetricName,
-           kCurSizeMetricName,
-           kNumAccumulativeHitsMetricName,
-           kNumAccumulativeLookupsMetricName,
-           kNumHitsMetricName,
-           kNumLookupsMetricName]() {
-            auto fileHandleCacheStats = hiveConnector->fileHandleCacheStats();
-            RECORD_METRIC_VALUE(
-                kNumElementsMetricName, fileHandleCacheStats.numElements);
-            RECORD_METRIC_VALUE(
-                kPinnedSizeMetricName, fileHandleCacheStats.pinnedSize);
-            RECORD_METRIC_VALUE(
-                kCurSizeMetricName, fileHandleCacheStats.curSize);
-            RECORD_METRIC_VALUE(
-                kNumAccumulativeHitsMetricName, fileHandleCacheStats.numHits);
-            RECORD_METRIC_VALUE(
-                kNumAccumulativeLookupsMetricName,
-                fileHandleCacheStats.numLookups);
-            RECORD_METRIC_VALUE(
-                kNumHitsMetricName,
-                fileHandleCacheStats.numHits - oldValues[kNumHitsMetricName]);
-            oldValues[kNumHitsMetricName] = fileHandleCacheStats.numHits;
-            RECORD_METRIC_VALUE(
-                kNumLookupsMetricName,
-                fileHandleCacheStats.numLookups -
-                    oldValues[kNumLookupsMetricName]);
-            oldValues[kNumLookupsMetricName] = fileHandleCacheStats.numLookups;
-          },
-          kConnectorPeriodGlobalCounters,
-          fmt::format("{}.hive_connector_counters", connectorId));
+      reporters.emplace_back(std::move(hiveConnector));
     }
   }
+  addTask(
+      [reporters = std::move(reporters)]() mutable {
+        for (auto& reporter : reporters) {
+          reporter.report();
+        }
+      },
+      kConnectorPeriodGlobalCounters,
+      "ConnectorStats");
 }
 
 void PeriodicTaskManager::updateOperatingSystemStats() {
@@ -643,4 +660,48 @@ void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
       kHttpEndpointLatencyPeriodGlobalCounters,
       "http_endpoint_counters");
 }
+
+void PeriodicTaskManager::addWatchdogTask() {
+  addTask(
+      [this,
+       deadlockedTasks = std::vector<std::string>(),
+       opCalls = std::vector<velox::exec::Task::OpCallInfo>()]() mutable {
+        deadlockedTasks.clear();
+        opCalls.clear();
+        if (!taskManager_->getLongRunningOpCalls(
+                stuckDriverThresholdMs_, deadlockedTasks, opCalls)) {
+          LOG(ERROR)
+              << "Cannot take lock on task manager, likely starving or deadlocked";
+          RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, 1);
+          detachWorker();
+          return;
+        }
+        for (auto& taskId : deadlockedTasks) {
+          LOG(ERROR) << "Starving or deadlocked task: " << taskId;
+        }
+        RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockedTasks.size());
+        for (auto& call : opCalls) {
+          LOG(ERROR) << "Stuck operator: tid=" << call.tid
+                     << " taskId=" << call.taskId << " opId=" << call.opId;
+        }
+        RECORD_METRIC_VALUE(kCounterNumStuckDrivers, opCalls.size());
+        if (!deadlockedTasks.empty() || !opCalls.empty()) {
+          detachWorker();
+        }
+      },
+      60'000'000, // 60 seconds
+      "Watchdog");
+}
+
+void PeriodicTaskManager::detachWorker() {
+  LOG(ERROR) << velox::process::TraceContext::statusLine();
+  if (server_ && server_->nodeState() == NodeState::kActive) {
+    // Benefit of shutting down is that the queries that aren't stuck yet will
+    // be finished.  While stopping announcement would kill them.
+    LOG(ERROR)
+        << "Changing node status to SHUTTING_DOWN due to detected stuck drivers";
+    server_->setNodeState(NodeState::kShuttingDown);
+  }
+}
+
 } // namespace facebook::presto
