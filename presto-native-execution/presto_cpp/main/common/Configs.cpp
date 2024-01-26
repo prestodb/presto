@@ -735,8 +735,7 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
-          NUM_PROP(
-              QueryConfig::kMaxArbitraryBufferSize, c.maxArbitraryBufferSize()),
+          NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
       };
 }
 
@@ -755,7 +754,7 @@ void BaseVeloxQueryConfig::updateLoadedValues(
   const std::unordered_map<std::string, std::string> updatedValues{
       {QueryConfig::kPrestoArrayAggIgnoreNulls,
        bool2String(systemConfig->useLegacyArrayAgg())},
-      {QueryConfig::kMaxArbitraryBufferSize,
+      {QueryConfig::kMaxOutputBufferSize,
        systemConfig->capacityPropertyAsBytesString(
            SystemConfig::kSinkMaxBufferSize)},
       {QueryConfig::kMaxPartitionedOutputBufferSize,
