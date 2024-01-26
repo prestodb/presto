@@ -1817,6 +1817,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMinMaxByN()
+    {
+        assertQuery("SELECT MIN_BY(c0, c0, c1) OVER ( PARTITION BY c2 ORDER BY c3 ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) FROM " +
+                "( VALUES (1, 10, FALSE, 0), (2, 10, FALSE, 1) ) AS t(c0, c1, c2, c3)", "values array[1], array[1, 2]");
+        assertQuery("SELECT MIN_BY(c0, c3, c1) OVER ( PARTITION BY c2 ORDER BY c3 ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) FROM " +
+                "( VALUES (1, 10, FALSE, 2), (2, 10, FALSE, 1) ) AS t(c0, c1, c2, c3)", "values array[2], array[2, 1]");
+        assertQuery("select max_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0)) " +
+                "t(k1, k2, k3, k4)", "values array[8], array[5, 8], array[2], array[2, 1]");
+        assertQuery("select max_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0), (7, 'e', 1, 8), " +
+                "(9, 'f', 2, 10), (0, 'g', 1, 9)) t(k1, k2, k3, k4)", "values array[8], array[5, 8], array[9, 5], array[2], array[2, 1], array[7, 2], array[0, 7]");
+        assertQuery("select min_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0), (7, 'e', 1, 8), " +
+                "(9, 'f', 2, 10), (0, 'g', 1, 9)) t(k1, k2, k3, k4)", "values array[2], array[1, 2], array[1, 2], array[1, 2], array[8], array[8, 5], array[8, 5]");
+    }
+
+    @Test
     public void testRowNumberFilterAndLimit()
     {
         MaterializedResult actual = computeActual("" +
