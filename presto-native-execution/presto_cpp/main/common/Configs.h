@@ -219,6 +219,13 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
       "driver.num-cpu-threads-hw-multiplier"};
 
+  /// Time duration threshold used to detect if an operator call in driver is
+  /// stuck or not.  If any of the driver thread is detected as stuck by this
+  /// standard, we take the worker offline and further investigation on the
+  /// worker is required.
+  static constexpr std::string_view kDriverStuckOperatorThresholdMs{
+      "driver.stuck-operator-threshold-ms"};
+
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
   /// If 0.0 then spilling is disabled.
@@ -550,6 +557,8 @@ class SystemConfig : public ConfigBase {
   double connectorNumIoThreadsHwMultiplier() const;
 
   double driverNumCpuThreadsHwMultiplier() const;
+
+  size_t driverStuckOperatorThresholdMs() const;
 
   double spillerNumCpuThreadsHwMultiplier() const;
 
