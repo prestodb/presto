@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
@@ -1210,6 +1211,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
         assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
         assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
+        assertAccessDenied("ALTER TABLE orders ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*.orders.*", privilege("orders", ALTER_COLUMN));
         assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
         // todo add DROP VIEW test... not all connectors have view support
 

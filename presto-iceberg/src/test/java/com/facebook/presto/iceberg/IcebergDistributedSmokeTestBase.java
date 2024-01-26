@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
@@ -1092,6 +1093,95 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
 
         dropTable(session, "test_bucket_transform");
+    }
+    @Test
+    public void testAlterColumnType()
+    {
+        // Note: This test only validates conversions that work with existing data files.
+        // Some conversions (e.g., REAL→DOUBLE, ShortDecimal↔LongDecimal) have known
+        // limitations with Parquet/ORC files.
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                // Create table with various column types
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                        "int_col INTEGER, " +
+                        "float_col REAL, " +
+                        "decimal_short DECIMAL(10, 2), " +
+                        "decimal_long DECIMAL(20, 2)" +
+                        ") WITH (format = '%s')",
+                        tableName, fileFormat));
+                // Insert test data
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                        "(100, 1.5, DECIMAL '123.45', DECIMAL '9876543210.12'), " +
+                        "(200, 2.5, DECIMAL '234.56', DECIMAL '8765432109.23')",
+                        tableName), 2);
+                // Verify initial data
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                        "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(10,2)), CAST(9876543210.12 AS DECIMAL(20,2))), " +
+                        "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(10,2)), CAST(8765432109.23 AS DECIMAL(20,2)))");
+                // Test 1: ALTER INTEGER to BIGINT
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                // Verify data after int->bigint conversion
+                assertQuery(session, format("SELECT int_col FROM %s ORDER BY int_col", tableName),
+                        "VALUES (100), (200)");
+                // Verify SHOW CREATE TABLE reflects the change
+                validateShowCreateTable(tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_short", "decimal(10,2)"),
+                                columnDefinition("decimal_long", "decimal(20,2)")),
+                        getCustomizedTableProperties(ImmutableMap.of(
+                                "write.format.default", "'" + fileFormat + "'",
+                                "location", "'" + getLocation(schemaName, tableName) + "'")));
+                // Test 2: ALTER DECIMAL(10,2) to DECIMAL(15,2) - short to short decimal
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_short SET DATA TYPE DECIMAL(15, 2)", tableName));
+
+                // Verify data after decimal precision increase (short->short)
+                assertQuery(session, format("SELECT decimal_short FROM %s ORDER BY int_col", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(15,2))), (CAST(234.56 AS DECIMAL(15,2)))");
+
+                // Verify SHOW CREATE TABLE reflects the change
+                validateShowCreateTable(tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_short", "decimal(15,2)"),
+                                columnDefinition("decimal_long", "decimal(20,2)")),
+                        getCustomizedTableProperties(ImmutableMap.of(
+                                "write.format.default", "'" + fileFormat + "'",
+                                "location", "'" + getLocation(schemaName, tableName) + "'")));
+
+                // Test 3: ALTER DECIMAL(20,2) to DECIMAL(30,2) - long to long decimal
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_long SET DATA TYPE DECIMAL(30, 2)", tableName));
+                // Verify data after decimal precision increase (long->long)
+                assertQuery(session, format("SELECT decimal_long FROM %s ORDER BY int_col", tableName),
+                        "VALUES (CAST(9876543210.12 AS DECIMAL(30,2))), (CAST(8765432109.23 AS DECIMAL(30,2)))");
+                // Verify final SHOW CREATE TABLE
+                validateShowCreateTable(tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_short", "decimal(15,2)"),
+                                columnDefinition("decimal_long", "decimal(30,2)")),
+                        getCustomizedTableProperties(ImmutableMap.of(
+                                "write.format.default", "'" + fileFormat + "'",
+                                "location", "'" + getLocation(schemaName, tableName) + "'")));
+                // Verify all data is still correct after all conversions
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                        "(CAST(100 AS BIGINT), CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(15,2)), CAST(9876543210.12 AS DECIMAL(30,2))), " +
+                        "(CAST(200 AS BIGINT), CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(15,2)), CAST(8765432109.23 AS DECIMAL(30,2)))");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
@@ -2500,7 +2590,17 @@ public abstract class IcebergDistributedSmokeTestBase
 
                 ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
                 node.getProperties().forEach(property -> {
-                    propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
+                    // Extract the actual value from the Expression
+                    String propertyValue;
+                    if (property.getValue() instanceof StringLiteral) {
+                        // For StringLiteral, get the actual string value without quotes
+                        propertyValue = ((StringLiteral) property.getValue()).getValue();
+                    }
+                    else {
+                        // For other types (numbers, booleans, etc.), use toString()
+                        propertyValue = property.getValue().toString();
+                    }
+                    propertiesBuilder.put(property.getName().getValue(), propertyValue);
                 });
                 assertEquals(propertyDescriptions, propertiesBuilder.build());
                 return null;
