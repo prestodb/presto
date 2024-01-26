@@ -156,6 +156,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
+          NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
@@ -344,6 +345,10 @@ double SystemConfig::connectorNumIoThreadsHwMultiplier() const {
 
 double SystemConfig::driverNumCpuThreadsHwMultiplier() const {
   return optionalProperty<double>(kDriverNumCpuThreadsHwMultiplier).value();
+}
+
+size_t SystemConfig::driverStuckOperatorThresholdMs() const {
+  return optionalProperty<size_t>(kDriverStuckOperatorThresholdMs).value();
 }
 
 double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {

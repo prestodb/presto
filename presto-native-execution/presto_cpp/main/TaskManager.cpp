@@ -1041,6 +1041,25 @@ DriverCountStats TaskManager::getDriverCountStats() const {
   return driverCountStats;
 }
 
+bool TaskManager::getLongRunningOpCalls(
+    size_t thresholdDurationMs,
+    std::vector<std::string>& deadlockedTasks,
+    std::vector<velox::exec::Task::OpCallInfo>& opCalls) const {
+  std::chrono::milliseconds lockTimeout(thresholdDurationMs);
+  auto taskMap = taskMap_.rlock(lockTimeout);
+  if (!taskMap) {
+    return false;
+  }
+  for (const auto& [_, prestoTask] : *taskMap) {
+    if (prestoTask->task != nullptr &&
+        !prestoTask->task->getLongRunningOpCalls(
+            lockTimeout, thresholdDurationMs, opCalls)) {
+      deadlockedTasks.push_back(prestoTask->task->taskId());
+    }
+  }
+  return true;
+}
+
 int32_t TaskManager::yieldTasks(
     int32_t numTargetThreadsToYield,
     int32_t timeSliceMicros) {
