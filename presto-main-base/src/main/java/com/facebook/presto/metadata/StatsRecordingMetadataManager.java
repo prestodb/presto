@@ -1147,6 +1147,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnType(session, tableHandle, column, type);
+        }
+        finally {
+            stats.recordSetColumnTypeCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         long startTime = System.nanoTime();

@@ -180,6 +180,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADA
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_COLUMN_TYPE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -262,6 +263,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -2444,6 +2446,23 @@ public abstract class IcebergAbstractMetadata
     private boolean viewExists(ConnectorSession session, ConnectorTableMetadata viewMetadata)
     {
         return getViewMetadata(session, viewMetadata.getTable()).isPresent();
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, com.facebook.presto.common.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
