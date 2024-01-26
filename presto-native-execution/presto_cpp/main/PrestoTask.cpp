@@ -440,9 +440,22 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
 
+  if (taskStats.memoryReclaimCount > 0) {
+    taskRuntimeStats["memoryReclaimCount"].addValue(
+        taskStats.memoryReclaimCount);
+    taskRuntimeStats.insert(
+        {"memoryReclaimWallNanos",
+         RuntimeMetric(
+             taskStats.memoryReclaimMs * 1'000'000,
+             RuntimeCounter::Unit::kNanos)});
+  }
+
   if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
-    taskRuntimeStats["outputConsumedDelayInNanos"].addValue(
-        (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000);
+    taskRuntimeStats.insert(
+        {"outputConsumedDelayInNanos",
+         RuntimeMetric(
+             (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000,
+             RuntimeCounter::Unit::kNanos)});
     taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
