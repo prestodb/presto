@@ -646,7 +646,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   } // task's pipelines loop
 
   processOperatorStats(prestoTaskStats, taskStatus.state);
-  processTaskStats(prestoTaskStats, taskRuntimeStats, taskStatus.state);
+  processTaskStats(
+      prestoTaskStats,
+      taskRuntimeStats,
+      taskStatus.state,
+      /*tryToSkipIfRunning=*/false);
 
   // Task runtime metrics we want while the Task is not finalized.
   hasStuckOperator = false;
