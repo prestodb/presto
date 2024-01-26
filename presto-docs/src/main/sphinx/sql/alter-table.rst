@@ -17,6 +17,7 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name SET PROPERTIES (property_name=value, [, ...])
     ALTER TABLE [ IF EXISTS ] name DROP BRANCH [ IF EXISTS ] branch_name
     ALTER TABLE [ IF EXISTS ] name DROP TAG [ IF EXISTS ] tag_name
+    ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name FOR SYSTEM_VERSION AS OF version
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name FOR SYSTEM_TIME AS OF timestamp

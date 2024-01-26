@@ -455,6 +455,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified column type
+     */
+
+    default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
      * Describes statistics that must be collected during a write.
      */
     default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
