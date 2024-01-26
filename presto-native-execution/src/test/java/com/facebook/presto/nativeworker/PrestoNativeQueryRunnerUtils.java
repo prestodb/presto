@@ -173,7 +173,9 @@ public class PrestoNativeQueryRunnerUtils
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
-                        Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
+                        Path dir = Paths.get("/tmp", PrestoNativeQueryRunnerUtils.class.getSimpleName());
+                        Files.createDirectories(dir);
+                        Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
                         log.info("Temp directory for Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
                         int port = 1234 + workerIndex;
 
