@@ -57,7 +57,7 @@ TEST_F(TimestampWithTimeZoneCastTest, fromTimestamp) {
       makeFlatVector<int16_t>({0, 0, 0}));
   expected->setNull(1, true);
 
-  testCast(TIMESTAMP(), TIMESTAMP_WITH_TIME_ZONE(), tsVector, expected);
+  testCast(tsVector, expected);
 }
 
 TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
@@ -71,7 +71,7 @@ TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
     setQueryTimeZone(timezone);
     auto expected = makeNullableFlatVector<Timestamp>(
         {Timestamp(1996, 0), std::nullopt, Timestamp(19920, 0)});
-    testCast(TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP(), tsWithTZVector, expected);
+    testCast(tsWithTZVector, expected);
 
     // Cast('1969-12-31 16:00:00 -08:00' as timestamp).
     auto result = evaluateOnce<Timestamp>(
@@ -84,7 +84,7 @@ TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {
   disableAdjustTimestampToTimezone();
   auto expected = makeNullableFlatVector<Timestamp>(
       {Timestamp(1996, 0), std::nullopt, Timestamp(19920 - 8 * 3600, 0)});
-  testCast(TIMESTAMP_WITH_TIME_ZONE(), TIMESTAMP(), tsWithTZVector, expected);
+  testCast(tsWithTZVector, expected);
 
   // Cast('1969-12-31 16:00:00 -08:00' as timestamp).
   auto result = evaluateOnce<Timestamp>(

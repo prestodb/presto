@@ -46,8 +46,7 @@ class SparkCastExprTest : public functions::test::CastBaseTest {
          7200,
          std::nullopt},
         DECIMAL(6, 2));
-    testComplexCast(
-        "c0",
+    testCast(
         shortFlat,
         makeNullableFlatVector<T>(
             {-3,
@@ -76,8 +75,7 @@ class SparkCastExprTest : public functions::test::CastBaseTest {
          720'000'000'000,
          std::nullopt},
         DECIMAL(20, 10));
-    testComplexCast(
-        "c0",
+    testCast(
         longFlat,
         makeNullableFlatVector<T>(
             {-3,
@@ -442,21 +440,17 @@ TEST_F(SparkCastExprTest, overflow) {
        7200,
        std::nullopt},
       DECIMAL(5, 1));
-  testComplexCast(
-      "c0",
+  testCast(
       shortFlat,
       makeNullableFlatVector<int8_t>(
           {-44, -4, 26, 56, -100, 0, 124, 117, 63, -78, -48, std::nullopt}));
-  testComplexCast(
-      "c0",
+  testCast(
       makeNullableFlatVector<int64_t>({214748364890}, DECIMAL(12, 2)),
       makeNullableFlatVector<int8_t>({0}));
-  testComplexCast(
-      "c0",
+  testCast(
       makeNullableFlatVector<int64_t>({214748364890}, DECIMAL(12, 2)),
       makeNullableFlatVector<int32_t>({-2147483648}));
-  testComplexCast(
-      "c0",
+  testCast(
       makeNullableFlatVector<int64_t>({214748364890}, DECIMAL(12, 2)),
       makeNullableFlatVector<int64_t>({2147483648}));
 }
@@ -525,8 +519,7 @@ TEST_F(SparkCastExprTest, fromString) {
       "timestamp",
       {"\n\f\r\t\n\u001F 2000-01-01 12:21:56\u000B\u001C\u001D\u001E"},
       {Timestamp(946729316, 0)});
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {" 9999999999.99",
            "9999999999.99 ",

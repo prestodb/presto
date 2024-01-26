@@ -83,6 +83,10 @@ class CastBaseTest : public FunctionBaseTest {
       bool isTryCast) {
     core::TypedExprPtr inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
+
+    // It is not sufficient to wrap input in a dictionary as it will be peeled
+    // off before calling "cast". Apply testing_dictionary function to input to
+    // ensure that "cast" receives dictionary input.
     core::TypedExprPtr callExpr = std::make_shared<const core::CallTypedExpr>(
         fromType,
         std::vector<core::TypedExprPtr>{inputField},
@@ -188,39 +192,74 @@ class CastBaseTest : public FunctionBaseTest {
   }
 
   void testCast(
-      const TypePtr& fromType,
-      const TypePtr& toType,
       const VectorPtr& input,
-      const VectorPtr& expected) {
+      const VectorPtr& expected,
+      std::optional<bool> isTryCast = std::nullopt) {
+    const auto& fromType = input->type();
+    const auto& toType = expected->type();
     SCOPED_TRACE(fmt::format(
         "Cast from {} to {}", fromType->toString(), toType->toString()));
+    const auto copy = createCopy(input);
     // Test with flat encoding.
     {
       SCOPED_TRACE("Flat encoding");
-      evaluateAndVerify(fromType, toType, makeRowVector({input}), expected);
-      evaluateAndVerify(
-          fromType, toType, makeRowVector({input}), expected, true);
+      if (isTryCast.has_value()) {
+        evaluateAndVerify(
+            fromType,
+            toType,
+            makeRowVector({input}),
+            expected,
+            isTryCast.value());
+      } else {
+        evaluateAndVerify(fromType, toType, makeRowVector({input}), expected);
+        evaluateAndVerify(
+            fromType, toType, makeRowVector({input}), expected, true);
+      }
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(input, copy);
     }
 
     // Test with constant encoding that repeats the first element five times.
     {
       SCOPED_TRACE("Constant encoding");
-      auto constInput = BaseVector::wrapInConstant(5, 0, input);
-      auto constExpected = BaseVector::wrapInConstant(5, 0, expected);
+      const auto constantRow =
+          makeRowVector({BaseVector::wrapInConstant(5, 0, input)});
+      const auto localCopy = createCopy(constantRow);
+      const auto constExpected = BaseVector::wrapInConstant(5, 0, expected);
 
-      evaluateAndVerify(
-          fromType, toType, makeRowVector({constInput}), constExpected);
-      evaluateAndVerify(
-          fromType, toType, makeRowVector({constInput}), constExpected, true);
+      if (isTryCast.has_value()) {
+        evaluateAndVerify(
+            fromType, toType, constantRow, constExpected, isTryCast.value());
+      } else {
+        evaluateAndVerify(fromType, toType, constantRow, constExpected);
+        evaluateAndVerify(fromType, toType, constantRow, constExpected, true);
+      }
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(constantRow, localCopy);
+      assertEqualVectors(input, copy);
     }
 
     // Test with dictionary encoding that reverses the indices.
     {
       SCOPED_TRACE("Dictionary encoding");
-      evaluateAndVerifyDictEncoding(
-          fromType, toType, makeRowVector({input}), expected);
-      evaluateAndVerifyDictEncoding(
-          fromType, toType, makeRowVector({input}), expected, true);
+      if (isTryCast.has_value()) {
+        evaluateAndVerifyDictEncoding(
+            fromType,
+            toType,
+            makeRowVector({input}),
+            expected,
+            isTryCast.value());
+      } else {
+        evaluateAndVerifyDictEncoding(
+            fromType, toType, makeRowVector({input}), expected);
+        evaluateAndVerifyDictEncoding(
+            fromType, toType, makeRowVector({input}), expected, true);
+      }
+
+      // Make sure the input vector does not change.
+      assertEqualVectors(input, copy);
     }
   }
 
@@ -233,7 +272,7 @@ class CastBaseTest : public FunctionBaseTest {
     auto inputVector = makeNullableFlatVector<TFrom>(input, fromType);
     auto expectedVector = makeNullableFlatVector<TTo>(expected, toType);
 
-    testCast(fromType, toType, inputVector, expectedVector);
+    testCast(inputVector, expectedVector);
   }
 
   template <typename TFrom>
@@ -248,72 +287,6 @@ class CastBaseTest : public FunctionBaseTest {
             toType,
             makeRowVector({makeNullableFlatVector<TFrom>(input, fromType)})),
         expectedErrorMessage);
-  }
-
-  void testComplexCast(
-      const std::string& fromExpression,
-      const VectorPtr& data,
-      const VectorPtr& expected,
-      bool nullOnFailure = false) {
-    auto rowVector = makeRowVector({data});
-    auto rowType = asRowType(rowVector->type());
-    auto castExpr = makeCastExpr(
-        makeTypedExpr(fromExpression, rowType),
-        expected->type(),
-        nullOnFailure);
-    exec::ExprSet exprSet({castExpr}, &execCtx_);
-    auto copy = createCopy(data);
-    const auto size = data->size();
-    SelectivityVector rows(size);
-    std::vector<VectorPtr> result(1);
-    {
-      exec::EvalCtx evalCtx(&execCtx_, &exprSet, rowVector.get());
-      exprSet.eval(rows, evalCtx, result);
-
-      assertEqualVectors(expected, result[0]);
-
-      // Make sure the input vector does not change.
-      assertEqualVectors(data, copy);
-    }
-
-    // Test constant input.
-    {
-      // Use last element for constant.
-      const auto index = size - 1;
-      auto constantData = BaseVector::wrapInConstant(size, index, data);
-      auto constantRow = makeRowVector({constantData});
-      auto localCopy = createCopy(constantRow);
-      exec::EvalCtx evalCtx(&execCtx_, &exprSet, constantRow.get());
-      exprSet.eval(rows, evalCtx, result);
-
-      // Make sure the input vector does not change.
-      assertEqualVectors(constantRow, localCopy);
-      assertEqualVectors(data, copy);
-
-      assertEqualVectors(
-          BaseVector::wrapInConstant(size, index, expected), result[0]);
-    }
-
-    // Test dictionary input. It is not sufficient to wrap input in a dictionary
-    // as it will be peeled off before calling "cast". Apply
-    // testing_dictionary function to input to ensure that "cast" receives
-    // dictionary input.
-    {
-      auto dictionaryCastExpr = makeCastExpr(
-          makeTypedExpr(
-              fmt::format("testing_dictionary({})", fromExpression), rowType),
-          expected->type(),
-          nullOnFailure);
-      exec::ExprSet dictionaryExprSet({dictionaryCastExpr}, &execCtx_);
-      exec::EvalCtx evalCtx(&execCtx_, &dictionaryExprSet, rowVector.get());
-      dictionaryExprSet.eval(rows, evalCtx, result);
-
-      // Make sure the input vector does not change.
-      assertEqualVectors(data, copy);
-
-      auto indices = functions::test::makeIndicesInReverse(size, pool());
-      assertEqualVectors(wrapInDictionary(indices, size, expected), result[0]);
-    }
   }
 
   VectorPtr createCopy(const VectorPtr& input) {

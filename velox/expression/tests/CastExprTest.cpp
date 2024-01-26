@@ -75,8 +75,7 @@ class CastExprTest : public functions::test::CastBaseTest {
          DecimalUtil::kShortDecimalMax,
          std::nullopt},
         DECIMAL(18, 18));
-    testComplexCast(
-        "c0",
+    testCast(
         shortFlat,
         makeNullableFlatVector<T>(
             {-1,
@@ -99,8 +98,7 @@ class CastExprTest : public functions::test::CastBaseTest {
          HugeInt::build(0xffff, 0xffffffffffffffff),
          std::nullopt},
         DECIMAL(38, 5));
-    testComplexCast(
-        "c0",
+    testCast(
         longFlat,
         makeNullableFlatVector<T>(
             {-1e33, 0, 1e33, 1.2089258196146293E19, std::nullopt}));
@@ -116,8 +114,7 @@ class CastExprTest : public functions::test::CastBaseTest {
         static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<int64_t>({0, tooSmall}, DECIMAL(10, 0)),
             makeFlatVector<NativeType>(0, 0)),
         fmt::format(
@@ -125,8 +122,7 @@ class CastExprTest : public functions::test::CastBaseTest {
             TypeTraits<KIND>::name));
 
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<int128_t>({0, tooSmall}, DECIMAL(19, 0)),
             makeFlatVector<NativeType>(0, 0)),
         fmt::format(
@@ -134,8 +130,7 @@ class CastExprTest : public functions::test::CastBaseTest {
             TypeTraits<KIND>::name));
 
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<int64_t>({0, tooBig}, DECIMAL(10, 0)),
             makeFlatVector<NativeType>(0, 0)),
         fmt::format(
@@ -143,8 +138,7 @@ class CastExprTest : public functions::test::CastBaseTest {
             TypeTraits<KIND>::name));
 
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<int128_t>({0, tooBig}, DECIMAL(19, 0)),
             makeFlatVector<NativeType>(0, 0)),
         fmt::format(
@@ -161,16 +155,14 @@ class CastExprTest : public functions::test::CastBaseTest {
     const auto tooBig =
         static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
 
-    testComplexCast(
-        "c0",
+    testCast(
         makeNullableFlatVector<int64_t>(
             {0, tooSmall, 0, tooBig, 0, std::nullopt, 0}, DECIMAL(10, 0)),
         makeNullableFlatVector<NativeType>(
             {0, std::nullopt, 0, std::nullopt, 0, std::nullopt, 0}),
         true);
 
-    testComplexCast(
-        "c0",
+    testCast(
         makeNullableFlatVector<int128_t>(
             {0, tooSmall, 0, tooBig, 0, std::nullopt, 0}, DECIMAL(19, 0)),
         makeNullableFlatVector<NativeType>(
@@ -194,8 +186,7 @@ class CastExprTest : public functions::test::CastBaseTest {
          7200,
          std::nullopt},
         DECIMAL(6, 2));
-    testComplexCast(
-        "c0",
+    testCast(
         shortFlat,
         makeNullableFlatVector<T>(
             {-3,
@@ -224,8 +215,7 @@ class CastExprTest : public functions::test::CastBaseTest {
          720'000'000'000,
          std::nullopt},
         DECIMAL(20, 10));
-    testComplexCast(
-        "c0",
+    testCast(
         longFlat,
         makeNullableFlatVector<T>(
             {-3,
@@ -246,15 +236,13 @@ class CastExprTest : public functions::test::CastBaseTest {
   void testIntToDecimalCasts() {
     // integer to short decimal
     auto input = makeFlatVector<T>({-3, -2, -1, 0, 55, 69, 72});
-    testComplexCast(
-        "c0",
+    testCast(
         input,
         makeFlatVector<int64_t>(
             {-300, -200, -100, 0, 5'500, 6'900, 7'200}, DECIMAL(6, 2)));
 
     // integer to long decimal
-    testComplexCast(
-        "c0",
+    testCast(
         input,
         makeFlatVector<int128_t>(
             {-30'000'000'000,
@@ -269,8 +257,7 @@ class CastExprTest : public functions::test::CastBaseTest {
     // Expected failures: allowed # of integers (precision - scale) in the
     // target
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<T>(std::vector<T>{std::numeric_limits<T>::min()}),
             makeFlatVector(std::vector<int64_t>{0}, DECIMAL(3, 1))),
         fmt::format(
@@ -278,15 +265,13 @@ class CastExprTest : public functions::test::CastBaseTest {
             CppToType<T>::name,
             std::to_string(std::numeric_limits<T>::min())));
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<T>(std::vector<T>{-100}),
             makeFlatVector(std::vector<int64_t>{0}, DECIMAL(17, 16))),
         fmt::format(
             "Cannot cast {} '-100' to DECIMAL(17, 16)", CppToType<T>::name));
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             makeFlatVector<T>(std::vector<T>{100}),
             makeFlatVector(std::vector<int64_t>{0}, DECIMAL(17, 16))),
         fmt::format(
@@ -1083,7 +1068,7 @@ TEST_F(CastExprTest, mapCast) {
     auto expectedMap = makeMapVector<int32_t, double>(
         kVectorSize, sizeAt, keyAt, valueAt, nullEvery(3));
 
-    testComplexCast("c0", inputMap, expectedMap);
+    testCast(inputMap, expectedMap);
   }
 
   // Cast map<bigint, bigint> -> map<bigint, varchar>.
@@ -1095,7 +1080,7 @@ TEST_F(CastExprTest, mapCast) {
     auto expectedMap = makeMapVector<int64_t, StringView>(
         kVectorSize, sizeAt, keyAt, valueAtString, nullEvery(3));
 
-    testComplexCast("c0", inputMap, expectedMap);
+    testCast(inputMap, expectedMap);
   }
 
   // Cast map<bigint, bigint> -> map<varchar, bigint>.
@@ -1107,7 +1092,7 @@ TEST_F(CastExprTest, mapCast) {
     auto expectedMap = makeMapVector<StringView, int64_t>(
         kVectorSize, sizeAt, keyAtString, valueAt, nullEvery(3));
 
-    testComplexCast("c0", inputMap, expectedMap);
+    testCast(inputMap, expectedMap);
   }
 
   // null values
@@ -1118,14 +1103,13 @@ TEST_F(CastExprTest, mapCast) {
     auto expectedMap = makeMapVector<int32_t, double>(
         kVectorSize, sizeAt, keyAt, valueAt, nullEvery(3), nullEvery(7));
 
-    testComplexCast("c0", inputWithNullValues, expectedMap);
+    testCast(inputWithNullValues, expectedMap);
   }
 
   // Nulls in result keys are not allowed.
   {
     VELOX_ASSERT_THROW(
-        testComplexCast(
-            "c0",
+        testCast(
             inputMap,
             makeMapVector<Timestamp, int64_t>(
                 kVectorSize,
@@ -1137,8 +1121,7 @@ TEST_F(CastExprTest, mapCast) {
             false),
         "Cannot cast BIGINT '0' to TIMESTAMP. Conversion to Timestamp is not supported");
 
-    testComplexCast(
-        "c0",
+    testCast(
         inputMap,
         makeMapVector<Timestamp, int64_t>(
             kVectorSize,
@@ -1227,7 +1210,7 @@ TEST_F(CastExprTest, arrayCast) {
   {
     auto expected =
         makeArrayVector<int64_t>(kVectorSize, sizeAt, valueAt, nullEvery(3));
-    testComplexCast("c0", arrayVector, expected);
+    testCast(arrayVector, expected);
   }
 
   // Cast array<double> -> array<varchar>.
@@ -1239,7 +1222,7 @@ TEST_F(CastExprTest, arrayCast) {
     };
     auto expected = makeArrayVector<StringView>(
         kVectorSize, sizeAt, valueAtString, nullEvery(3));
-    testComplexCast("c0", arrayVector, expected);
+    testCast(arrayVector, expected);
   }
 
   // Make sure that the output of array cast has valid(copyable) data even for
@@ -1303,7 +1286,7 @@ TEST_F(CastExprTest, arrayCast) {
         {{{{std::nullopt, 4}}}}, // row1
 
     });
-    testComplexCast("c0", data, expected, true);
+    testCast(data, expected, true);
   }
 }
 
@@ -1327,7 +1310,7 @@ TEST_F(CastExprTest, rowCast) {
   {
     auto expectedRowVector = makeRowVector(
         {doubleVectorNullEvery11, intVectorNullEvery3}, nullEvery(5));
-    testComplexCast("c0", rowVector, expectedRowVector);
+    testCast(rowVector, expectedRowVector);
   }
   // Position-based cast: ROW(c0: bigint, c1: double) -> ROW(a: double, b:
   // bigint)
@@ -1336,13 +1319,13 @@ TEST_F(CastExprTest, rowCast) {
         {"a", "b"},
         {doubleVectorNullEvery11, intVectorNullEvery3},
         nullEvery(5));
-    testComplexCast("c0", rowVector, expectedRowVector);
+    testCast(rowVector, expectedRowVector);
   }
   // Position-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double)
   {
     auto expectedRowVector =
         makeRowVector({doubleVectorNullEvery11}, nullEvery(5));
-    testComplexCast("c0", rowVector, expectedRowVector);
+    testCast(rowVector, expectedRowVector);
   }
 
   // Name-based cast: ROW(c0: bigint, c1: double) -> ROW(c0: double) dropping
@@ -1353,7 +1336,7 @@ TEST_F(CastExprTest, rowCast) {
         kVectorSize, valueAtInt, [](vector_size_t /* row */) { return true; });
     auto expectedRowVector = makeRowVector(
         {"c0", "b"}, {doubleVectorNullEvery11, intVectorNullAll}, nullEvery(5));
-    testComplexCast("c0", rowVector, expectedRowVector);
+    testCast(rowVector, expectedRowVector);
   }
 
   // Error handling.
@@ -1366,7 +1349,7 @@ TEST_F(CastExprTest, rowCast) {
         {makeFlatVector<int32_t>({1, 2}), makeFlatVector<int32_t>({2, 3})});
     expected->setNull(1, true);
 
-    testComplexCast("c0", data, expected, true);
+    testCast(data, expected, true);
   }
 
   {
@@ -1393,9 +1376,9 @@ TEST_F(CastExprTest, rowCast) {
     expected3->setNull(0, true);
     expected3->setNull(1, true);
 
-    testComplexCast("c0", data, expected1, true);
-    testComplexCast("c0", data, expected2, true);
-    testComplexCast("c0", data, expected3, true);
+    testCast(data, expected1, true);
+    testCast(data, expected2, true);
+    testCast(data, expected3, true);
   }
 
   // Null handling for nested structs.
@@ -1405,7 +1388,7 @@ TEST_F(CastExprTest, rowCast) {
     auto expected =
         makeRowVector({makeRowVector({makeFlatVector<int32_t>({1, 0})})});
     expected->setNull(1, true);
-    testComplexCast("c0", data, expected, true);
+    testCast(data, expected, true);
   }
 }
 
@@ -1431,10 +1414,10 @@ TEST_F(CastExprTest, testNullOnFailure) {
       {1, 2, std::nullopt, std::nullopt, std::nullopt});
 
   // nullOnFailure is true, so we should return null instead of throwing.
-  testComplexCast("c0", input, expected, true);
+  testCast(input, expected, true);
 
   // nullOnFailure is false, so we should throw.
-  EXPECT_THROW(testComplexCast("c0", input, expected, false), VeloxUserError);
+  EXPECT_THROW(testCast(input, expected, false), VeloxUserError);
 }
 
 TEST_F(CastExprTest, toString) {
@@ -1474,20 +1457,17 @@ TEST_F(CastExprTest, decimalToFloat) {
 TEST_F(CastExprTest, decimalToBool) {
   auto shortFlat = makeNullableFlatVector<int64_t>(
       {DecimalUtil::kShortDecimalMin, 0, std::nullopt}, DECIMAL(18, 18));
-  testComplexCast(
-      "c0", shortFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
+  testCast(shortFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
 
   auto longFlat = makeNullableFlatVector<int128_t>(
       {DecimalUtil::kLongDecimalMin, 0, std::nullopt}, DECIMAL(38, 5));
-  testComplexCast(
-      "c0", longFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
+  testCast(longFlat, makeNullableFlatVector<bool>({1, 0, std::nullopt}));
 }
 
 TEST_F(CastExprTest, decimalToVarchar) {
   auto flatForInline = makeNullableFlatVector<int64_t>(
       {123456789, -333333333, 0, 5, -9, std::nullopt}, DECIMAL(9, 2));
-  testComplexCast(
-      "c0",
+  testCast(
       flatForInline,
       makeNullableFlatVector<StringView>(
           {"1234567.89",
@@ -1498,8 +1478,7 @@ TEST_F(CastExprTest, decimalToVarchar) {
            std::nullopt}));
 
   auto shortFlatForZero = makeNullableFlatVector<int64_t>({0}, DECIMAL(6, 0));
-  testComplexCast(
-      "c0", shortFlatForZero, makeNullableFlatVector<StringView>({"0"}));
+  testCast(shortFlatForZero, makeNullableFlatVector<StringView>({"0"}));
 
   auto shortFlat = makeNullableFlatVector<int64_t>(
       {DecimalUtil::kShortDecimalMin,
@@ -1509,8 +1488,7 @@ TEST_F(CastExprTest, decimalToVarchar) {
        DecimalUtil::kShortDecimalMax,
        std::nullopt},
       DECIMAL(18, 18));
-  testComplexCast(
-      "c0",
+  testCast(
       shortFlat,
       makeNullableFlatVector<StringView>(
           {"-0.999999999999999999",
@@ -1528,8 +1506,7 @@ TEST_F(CastExprTest, decimalToVarchar) {
        HugeInt::build(0xffff, 0xffffffffffffffff),
        std::nullopt},
       DECIMAL(38, 5));
-  testComplexCast(
-      "c0",
+  testCast(
       longFlat,
       makeNullableFlatVector<StringView>(
           {"-999999999999999999999999999999999.99999",
@@ -1540,58 +1517,48 @@ TEST_F(CastExprTest, decimalToVarchar) {
            std::nullopt}));
 
   auto longFlatForZero = makeNullableFlatVector<int128_t>({0}, DECIMAL(25, 0));
-  testComplexCast(
-      "c0", longFlatForZero, makeNullableFlatVector<StringView>({"0"}));
+  testCast(longFlatForZero, makeNullableFlatVector<StringView>({"0"}));
 }
 
 TEST_F(CastExprTest, decimalToDecimal) {
   // short to short, scale up.
   auto shortFlat =
       makeFlatVector<int64_t>({-3, -2, -1, 0, 55, 69, 72}, DECIMAL(2, 2));
-  testComplexCast(
-      "c0",
+  testCast(
       shortFlat,
       makeFlatVector<int64_t>(
           {-300, -200, -100, 0, 5'500, 6'900, 7'200}, DECIMAL(4, 4)));
 
   // short to short, scale down.
-  testComplexCast(
-      "c0",
-      shortFlat,
-      makeFlatVector<int64_t>({0, 0, 0, 0, 6, 7, 7}, DECIMAL(4, 1)));
+  testCast(
+      shortFlat, makeFlatVector<int64_t>({0, 0, 0, 0, 6, 7, 7}, DECIMAL(4, 1)));
 
   // long to short, scale up.
   auto longFlat =
       makeFlatVector<int128_t>({-201, -109, 0, 105, 208}, DECIMAL(20, 2));
-  testComplexCast(
-      "c0",
+  testCast(
       longFlat,
       makeFlatVector<int64_t>(
           {-201'000, -109'000, 0, 105'000, 208'000}, DECIMAL(10, 5)));
 
   // long to short, scale down.
-  testComplexCast(
-      "c0",
-      longFlat,
-      makeFlatVector<int64_t>({-20, -11, 0, 11, 21}, DECIMAL(10, 1)));
+  testCast(
+      longFlat, makeFlatVector<int64_t>({-20, -11, 0, 11, 21}, DECIMAL(10, 1)));
 
   // long to long, scale up.
-  testComplexCast(
-      "c0",
+  testCast(
       longFlat,
       makeFlatVector<int128_t>(
           {-20'100'000'000, -10'900'000'000, 0, 10'500'000'000, 20'800'000'000},
           DECIMAL(20, 10)));
 
   // long to long, scale down.
-  testComplexCast(
-      "c0",
+  testCast(
       longFlat,
       makeFlatVector<int128_t>({-20, -11, 0, 11, 21}, DECIMAL(20, 1)));
 
   // short to long, scale up.
-  testComplexCast(
-      "c0",
+  testCast(
       shortFlat,
       makeFlatVector<int128_t>(
           {-3'000'000'000,
@@ -1604,8 +1571,7 @@ TEST_F(CastExprTest, decimalToDecimal) {
           DECIMAL(20, 11)));
 
   // short to long, scale down.
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<int64_t>({-20'500, -190, 12'345, 19'999}, DECIMAL(6, 4)),
       makeFlatVector<int128_t>({-21, 0, 12, 20}, DECIMAL(20, 1)));
 
@@ -1617,15 +1583,14 @@ TEST_F(CastExprTest, decimalToDecimal) {
 
   // Throws exception if CAST fails.
   VELOX_ASSERT_THROW(
-      testComplexCast("c0", longFlat, expectedShort),
+      testCast(longFlat, expectedShort),
       "Cannot cast DECIMAL '-1000.000' to DECIMAL(6, 4)");
 
   // nullOnFailure is true.
-  testComplexCast("c0", longFlat, expectedShort, true);
+  testCast(longFlat, expectedShort, true);
 
   // long to short, big numbers.
-  testComplexCast(
-      "c0",
+  testCast(
       makeNullableFlatVector<int128_t>(
           {HugeInt::build(-2, 200),
            HugeInt::build(-1, 300),
@@ -1646,15 +1611,13 @@ TEST_F(CastExprTest, decimalToDecimal) {
 
   // Overflow case.
   VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
+      testCast(
           makeNullableFlatVector<int128_t>(
               {DecimalUtil::kLongDecimalMax}, DECIMAL(38, 0)),
           makeNullableFlatVector<int128_t>({0}, DECIMAL(38, 1))),
       "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
   VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
+      testCast(
           makeNullableFlatVector<int128_t>(
               {DecimalUtil::kLongDecimalMin}, DECIMAL(38, 0)),
           makeNullableFlatVector<int128_t>({0}, DECIMAL(38, 1))),
@@ -1672,14 +1635,12 @@ TEST_F(CastExprTest, boolToDecimal) {
   // Bool to short decimal.
   auto input =
       makeFlatVector<bool>({true, false, false, true, true, true, false});
-  testComplexCast(
-      "c0",
+  testCast(
       input,
       makeFlatVector<int64_t>({100, 0, 0, 100, 100, 100, 0}, DECIMAL(6, 2)));
 
   // Bool to long decimal.
-  testComplexCast(
-      "c0",
+  testCast(
       input,
       makeFlatVector<int128_t>(
           {10'000'000'000,
@@ -1693,8 +1654,7 @@ TEST_F(CastExprTest, boolToDecimal) {
 }
 
 TEST_F(CastExprTest, varcharToDecimal) {
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {"9999999999.99",
            "15",
@@ -1756,8 +1716,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
           DECIMAL(12, 2)));
 
   // Truncates the fractional digits with exponent.
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {"112345612.23e-6",
            "112345662.23e-6",
@@ -1782,8 +1741,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
 
   const auto minDecimalStr = '-' + std::string(36, '9') + '.' + "99";
   const auto maxDecimalStr = std::string(36, '9') + '.' + "99";
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {StringView(minDecimalStr),
            StringView(maxDecimalStr),
@@ -1801,8 +1759,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
   const std::string fractionLargeExp = "1.9" + std::string(67, '9') + "e2";
   const std::string fractionLargeNegExp =
       "1000.9" + std::string(67, '9') + "e-2";
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {StringView(('-' + std::string(38, '9')).data()),
            StringView(std::string(38, '9').data()),
@@ -1820,8 +1777,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
   const std::string fractionRoundDown = "0." + std::string(38, '9') + "2";
   const std::string fractionRoundDownExp =
       "99." + std::string(36, '9') + "2e-2";
-  testComplexCast(
-      "c0",
+  testCast(
       makeFlatVector<StringView>(
           {StringView(fractionRoundDown), StringView(fractionRoundDownExp)}),
       makeConstant<int128_t>(DecimalUtil::kLongDecimalMax, 2, DECIMAL(38, 38)));
@@ -1996,16 +1952,14 @@ TEST_F(CastExprTest, doubleToDecimal) {
   // Double to short decimal.
   const auto input =
       makeFlatVector<double>({-3333.03, -2222.02, -1.0, 0.00, 100, 99999.99});
-  testComplexCast(
-      "c0",
+  testCast(
       input,
       makeFlatVector<int64_t>(
           {-33'330'300, -22'220'200, -10'000, 0, 1'000'000, 999'999'900},
           DECIMAL(10, 4)));
 
   // Double to long decimal.
-  testComplexCast(
-      "c0",
+  testCast(
       input,
       makeFlatVector<int128_t>(
           {-33'330'300'000'000,
@@ -2015,13 +1969,11 @@ TEST_F(CastExprTest, doubleToDecimal) {
            1'000'000'000'000,
            999'999'900'000'000},
           DECIMAL(20, 10)));
-  testComplexCast(
-      "c0",
+  testCast(
       input,
       makeFlatVector<int128_t>(
           {-33'330, -22'220, -10, 0, 1'000, 1'000'000}, DECIMAL(20, 1)));
-  testComplexCast(
-      "c0",
+  testCast(
       makeNullableFlatVector<double>(
           {0.13456789,
            0.00000015,
@@ -2075,8 +2027,7 @@ TEST_F(CastExprTest, doubleToDecimal) {
       DECIMAL(38, 2),
       {std::numeric_limits<double>::lowest()},
       "Cannot cast DOUBLE '-1.7976931348623157E308' to DECIMAL(38, 2). Result overflows.");
-  testComplexCast(
-      "c0",
+  testCast(
       makeConstant<double>(std::numeric_limits<double>::min(), 1),
       makeConstant<int128_t>(0, 1, DECIMAL(38, 2)));
 
