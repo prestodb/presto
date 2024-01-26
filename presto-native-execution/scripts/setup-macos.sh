@@ -17,7 +17,8 @@ set -eufx -o pipefail
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
 MACOS_DEPS="${MACOS_DEPS} bison gperf libsodium"
-export FB_OS_VERSION=v2022.11.14.00
+export FB_OS_VERSION=v2023.12.04.00
+
 
 function install_six {
   pip3 install six
@@ -25,43 +26,15 @@ function install_six {
 
 export PATH=$(brew --prefix bison)/bin:$PATH
 
-function install_folly {
-  github_checkout facebook/folly "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-   cmake_install -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
-}
-
-function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF -S fizz
-}
-
-function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF -S wangle
-}
-
-function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
-}
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
+  cmake_install -DBUILD_TESTS=OFF
 }
 
 function install_presto_deps {
   install_velox_deps
-  run_and_time install_folly
   run_and_time install_six
-  run_and_time install_fizz
-  run_and_time install_wangle
-  run_and_time install_fbthrift
   run_and_time install_proxygen
 }
 

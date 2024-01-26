@@ -41,7 +41,6 @@ target_link_libraries(
   velox_aggregates
   velox_hive_partition_function
   ${RE2}
-  Folly::folly
   gmock
   gtest
   gtest_main)

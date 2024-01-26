@@ -25,21 +25,6 @@ function install_six {
   pip3 install six
 }
 
-function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S fizz
-}
-
-function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S wangle
-}
-
-function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
-}
-
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
@@ -48,9 +33,6 @@ function install_proxygen {
 function install_presto_deps {
   install_velox_deps
   run_and_time install_six
-  run_and_time install_fizz
-  run_and_time install_wangle
-  run_and_time install_fbthrift
   run_and_time install_proxygen
 }
 

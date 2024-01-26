@@ -1177,6 +1177,6 @@ TEST_F(UnsafeRowShuffleTest, shuffleInterfaceRegistration) {
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv};
   return RUN_ALL_TESTS();
 }

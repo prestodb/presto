@@ -1035,7 +1035,8 @@ core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
     case protocol::SortOrder::DESC_NULLS_LAST:
       return core::SortOrder(false, false);
     default:
-      VELOX_UNSUPPORTED("Unsupported sort order: {}.", sortOrder);
+      VELOX_UNSUPPORTED(
+          "Unsupported sort order: {}.", fmt::underlying(sortOrder));
   }
 }
 
@@ -1144,7 +1145,8 @@ core::WindowNode::WindowType toVeloxWindowType(
     case protocol::WindowType::ROWS:
       return core::WindowNode::WindowType::kRows;
     default:
-      VELOX_UNSUPPORTED("Unsupported window type: {}", windowType);
+      VELOX_UNSUPPORTED(
+          "Unsupported window type: {}", fmt::underlying(windowType));
   }
 }
 
@@ -1161,7 +1163,8 @@ core::WindowNode::BoundType toVeloxBoundType(protocol::BoundType boundType) {
     case protocol::BoundType::UNBOUNDED_FOLLOWING:
       return core::WindowNode::BoundType::kUnboundedFollowing;
     default:
-      VELOX_UNSUPPORTED("Unsupported window bound type: {}", boundType);
+      VELOX_UNSUPPORTED(
+          "Unsupported window bound type: {}", fmt::underlying(boundType));
   }
 }
 
