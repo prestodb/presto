@@ -74,6 +74,11 @@ public class TypedKeyValueHeap
         return positionCount == 0;
     }
 
+    public Type getKeyType()
+    {
+        return keyType;
+    }
+
     public void serialize(BlockBuilder out)
     {
         BlockBuilder blockBuilder = out.beginBlockEntry();
@@ -111,9 +116,23 @@ public class TypedKeyValueHeap
         }
     }
 
+    public void popAll(BlockBuilder valueResultBlockBuilder, BlockBuilder keyResultBlockBuilder)
+    {
+        while (positionCount > 0) {
+            pop(valueResultBlockBuilder, keyResultBlockBuilder);
+        }
+    }
+
     public void pop(BlockBuilder resultBlockBuilder)
     {
         valueType.appendTo(valueBlockBuilder, heapIndex[0], resultBlockBuilder);
+        remove();
+    }
+
+    public void pop(BlockBuilder valueResultBlockBuilder, BlockBuilder keyResultBlockBuilder)
+    {
+        valueType.appendTo(valueBlockBuilder, heapIndex[0], valueResultBlockBuilder);
+        keyType.appendTo(keyBlockBuilder, heapIndex[0], keyResultBlockBuilder);
         remove();
     }
 
