@@ -42,7 +42,7 @@ using namespace testing;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, true);
+  folly::Init init{&argc, &argv};
   FLAGS_velox_memory_leak_check_enabled = true;
   return RUN_ALL_TESTS();
 }
