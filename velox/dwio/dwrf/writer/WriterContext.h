@@ -490,37 +490,37 @@ class WriterContext : public CompressionBufferPool {
         break;
       }
       case TypeKind::BOOLEAN:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::TINYINT:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::SMALLINT:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::INTEGER:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::BIGINT:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::HUGEINT:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::REAL:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::DOUBLE:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::VARCHAR:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::VARBINARY:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::TIMESTAMP:
         physicalSizeAggregators_.emplace(
             type.id(), std::make_unique<PhysicalSizeAggregator>(parent));
         break;
       case TypeKind::UNKNOWN:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::FUNCTION:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::OPAQUE:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       case TypeKind::INVALID:
-        FOLLY_FALLTHROUGH;
+        [[fallthrough]];
       default:
         VELOX_FAIL(
             "Unexpected type kind {} encountered when building "
