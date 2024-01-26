@@ -194,6 +194,8 @@ jobs:
                       -Duser.timezone=America/Bahia_Banderas \
                       -T1C
                   fi
+            - store_artifacts:
+                path: '/tmp/PrestoNativeQueryRunnerUtils'
 
   linux-spark-e2e-tests:
     executor: build
