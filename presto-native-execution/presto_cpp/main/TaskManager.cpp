@@ -98,6 +98,7 @@ std::unique_ptr<Result> createCompleteResult(long token) {
 
 void getData(
     PromiseHolderPtr<std::unique_ptr<Result>> promiseHolder,
+    std::weak_ptr<http::CallbackRequestHandlerState> stateHolder,
     const TaskId& taskId,
     long destination,
     long token,
@@ -154,6 +155,13 @@ void getData(
         RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
             getCurrentTimeMs() - startMs);
+      },
+      [stateHolder]() {
+        auto state = stateHolder.lock();
+        if (state == nullptr) {
+          return false;
+        }
+        return !state->requestExpired();
       });
 
   if (!bufferFound) {
@@ -382,6 +390,7 @@ void TaskManager::getDataForResultRequests(
             << ", sequence " << resultRequest->token;
     getData(
         resultRequest->promise.lock(),
+        resultRequest->state,
         resultRequest->taskId,
         resultRequest->bufferId,
         resultRequest->token,
@@ -831,6 +840,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         if (prestoTask->task->state() == exec::kRunning) {
           getData(
               promiseHolder,
+              folly::to_weak_ptr(state),
               taskId,
               destination,
               token,
@@ -852,12 +862,13 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
       keepPromiseAlive(promiseHolder, state);
 
-      auto request = std::make_unique<ResultRequest>();
-      request->promise = folly::to_weak_ptr(promiseHolder);
-      request->taskId = taskId;
-      request->bufferId = destination;
-      request->token = token;
-      request->maxSize = maxSize;
+      auto request = std::make_unique<ResultRequest>(
+          folly::to_weak_ptr(promiseHolder),
+          folly::to_weak_ptr(state),
+          taskId,
+          destination,
+          token,
+          maxSize);
       prestoTask->resultRequests.insert({destination, std::move(request)});
       return std::move(future)
           .via(httpSrvCpuExecutor_)
