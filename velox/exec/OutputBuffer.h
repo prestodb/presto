@@ -27,6 +27,16 @@ namespace facebook::velox::exec {
 using DataAvailableCallback = std::function<
     void(std::vector<std::unique_ptr<folly::IOBuf>> pages, int64_t sequence)>;
 
+/// Callback provided to indicate if the consumer of a destination buffer is
+/// currently active or not. It is used by arbitrary output buffer to optimize
+/// the http based streaming shuffle in Prestissimo. For instance, the arbitrary
+/// output buffer shall skip sending data to inactive destination buffer and
+/// only send to the currently active ones to reduce the time that a buffer
+/// stays in a destination buffer. Note that once a data is sent to a
+/// destination buffer, it can't be sent to the other destination buffers no
+/// matter the current destination buffer is active or not.
+using DataConsumerActiveCheckCallback = std::function<bool()>;
+
 struct DataAvailable {
   DataAvailableCallback callback;
   int64_t sequence;
@@ -115,43 +125,50 @@ class DestinationBuffer {
   /// arbitrary buffer on demand.
   void loadData(ArbitraryBuffer* buffer, uint64_t maxBytes);
 
-  // Returns a shallow copy (folly::IOBuf::clone) of the data starting at
-  // 'sequence', stopping after exceeding 'maxBytes'. If there is no data,
-  // 'notify' is installed so that this gets called when data is added.
+  /// Returns a shallow copy (folly::IOBuf::clone) of the data starting at
+  /// 'sequence', stopping after exceeding 'maxBytes'. If there is no data,
+  /// 'notify' is installed so that this gets called when data is added. If not
+  /// null, 'activeCheck' is used to check if the consumer of a destination
+  /// buffer with 'notify' installed is currently active or not. This only
+  /// applies for arbitrary output buffer for now.
   std::vector<std::unique_ptr<folly::IOBuf>> getData(
       uint64_t maxBytes,
       int64_t sequence,
       DataAvailableCallback notify,
+      DataConsumerActiveCheckCallback activeCheck,
       ArbitraryBuffer* arbitraryBuffer = nullptr);
 
-  // Removes data from the queue and returns removed data. If 'fromGetData' we
-  // do not give a warning for the case where no data is removed, otherwise we
-  // expect that data does get freed. We cannot assert that data gets
-  // deleted because acknowledge messages can arrive out of order.
+  /// Removes data from the queue and returns removed data. If 'fromGetData' we
+  /// do not give a warning for the case where no data is removed, otherwise we
+  /// expect that data does get freed. We cannot assert that data gets deleted
+  /// because acknowledge messages can arrive out of order.
   std::vector<std::shared_ptr<SerializedPage>> acknowledge(
       int64_t sequence,
       bool fromGetData);
 
-  // Removes all remaining data from the queue and returns the removed data.
+  /// Removes all remaining data from the queue and returns the removed data.
   std::vector<std::shared_ptr<SerializedPage>> deleteResults();
 
-  // Returns and clears the notify callback, if any, along with arguments for
-  // the callback.
+  /// Returns and clears the notify callback, if any, along with arguments for
+  /// the callback.
   DataAvailable getAndClearNotify();
 
-  // Finishes this destination buffer, set finished stats.
+  /// Finishes this destination buffer, set finished stats.
   void finish();
 
-  // Returns the stats of this buffer.
+  /// Returns the stats of this buffer.
   Stats stats() const;
 
   std::string toString();
 
  private:
+  void clearNotify();
+
   std::vector<std::shared_ptr<SerializedPage>> data_;
   // The sequence number of the first in 'data_'.
   int64_t sequence_ = 0;
-  DataAvailableCallback notify_ = nullptr;
+  DataAvailableCallback notify_{nullptr};
+  DataConsumerActiveCheckCallback aliveCheck_{nullptr};
   // The sequence number of the first item to pass to 'notify'.
   int64_t notifySequence_{0};
   uint64_t notifyMaxBytes_{0};
@@ -208,6 +225,8 @@ class OutputBuffer {
 
     /// Stats of the OutputBuffer's destinations.
     std::vector<DestinationBuffer::Stats> buffersStats;
+
+    std::string toString() const;
   };
 
   OutputBuffer(
@@ -255,7 +274,8 @@ class OutputBuffer {
       int destination,
       uint64_t maxSize,
       int64_t sequence,
-      DataAvailableCallback notify);
+      DataAvailableCallback notify,
+      DataConsumerActiveCheckCallback activeCheck);
 
   // Continues any possibly waiting producers. Called when the
   // producer task has an error or cancellation.

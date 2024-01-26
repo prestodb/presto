@@ -61,25 +61,26 @@ class OutputBufferManager {
 
   void deleteResults(const std::string& taskId, int destination);
 
-  // Adds up to 'maxBytes' bytes worth of data for 'destination' from
-  // 'taskId'. The sequence number of the data must be >= 'sequence'.
-  // If there is no buffer associated with the given taskId, returns false.
-  // If there is no data, 'notify' will be registered and
-  // called when there is data or the source is at end, the function returns
-  // true.
-  // Existing data with a sequence number < sequence is deleted. The caller is
-  // expected to increment the sequence number between calls by the
-  // number of items received. In this way the next call implicitly
-  // acknowledges receipt of the results from the previous. The
-  // acknowledge method is offered for an early ack, so that the
-  // producer can continue before the consumer is done processing the
-  // received data.
+  /// Adds up to 'maxBytes' bytes worth of data for 'destination' from 'taskId'.
+  /// The sequence number of the data must be >= 'sequence'. If there is no
+  /// buffer associated with the given taskId, returns false. If there is no
+  /// data, 'notify' will be registered and called when there is data or the
+  /// source is at end, the function returns true. Existing data with a sequence
+  /// number < sequence is deleted. The caller is expected to increment the
+  /// sequence number between calls by the number of items received. In this way
+  /// the next call implicitly acknowledges receipt of the results from the
+  /// previous. The acknowledge method is offered for an early ack, so that the
+  /// producer can continue before the consumer is done processing the received
+  /// data. If not null, 'activeCheck' is used to check if data consumer is
+  /// currently active or not. This only applies for arbitrary output buffer for
+  /// now.
   bool getData(
       const std::string& taskId,
       int destination,
       uint64_t maxBytes,
       int64_t sequence,
-      DataAvailableCallback notify);
+      DataAvailableCallback notify,
+      DataConsumerActiveCheckCallback activeCheck = nullptr);
 
   void removeTask(const std::string& taskId);
 

@@ -94,6 +94,7 @@ std::vector<std::unique_ptr<folly::IOBuf>> DestinationBuffer::getData(
     uint64_t maxBytes,
     int64_t sequence,
     DataAvailableCallback notify,
+    DataConsumerActiveCheckCallback activeCheck,
     ArbitraryBuffer* arbitraryBuffer) {
   VELOX_CHECK_GE(
       sequence, sequence_, "Get received for an already acknowledged item");
@@ -106,12 +107,15 @@ std::vector<std::unique_ptr<folly::IOBuf>> DestinationBuffer::getData(
             << sequence_ << " Setting second notify " << notifySequence_
             << " / " << sequence;
     notify_ = std::move(notify);
+    aliveCheck_ = std::move(activeCheck);
     notifySequence_ = std::min(notifySequence_, sequence);
     notifyMaxBytes_ = maxBytes;
     return {};
   }
+
   if (sequence - sequence_ == data_.size()) {
     notify_ = std::move(notify);
+    aliveCheck_ = std::move(activeCheck);
     notifySequence_ = sequence;
     notifyMaxBytes_ = maxBytes;
     return {};
@@ -149,16 +153,22 @@ void DestinationBuffer::enqueue(std::shared_ptr<SerializedPage> data) {
 
 DataAvailable DestinationBuffer::getAndClearNotify() {
   if (notify_ == nullptr) {
+    VELOX_CHECK_NULL(aliveCheck_);
     return DataAvailable();
   }
   DataAvailable result;
   result.callback = notify_;
   result.sequence = notifySequence_;
-  result.data = getData(notifyMaxBytes_, notifySequence_, nullptr);
+  result.data = getData(notifyMaxBytes_, notifySequence_, nullptr, nullptr);
+  clearNotify();
+  return result;
+}
+
+void DestinationBuffer::clearNotify() {
   notify_ = nullptr;
+  aliveCheck_ = nullptr;
   notifySequence_ = 0;
   notifyMaxBytes_ = 0;
-  return result;
 }
 
 void DestinationBuffer::finish() {
@@ -170,6 +180,11 @@ void DestinationBuffer::finish() {
 void DestinationBuffer::maybeLoadData(ArbitraryBuffer* buffer) {
   VELOX_CHECK(!buffer->empty() || buffer->hasNoMoreData());
   if (notify_ == nullptr) {
+    return;
+  }
+  if (aliveCheck_ != nullptr && !aliveCheck_()) {
+    // Skip load data to an inactive destination buffer.
+    clearNotify();
     return;
   }
   VELOX_CHECK_GT(notifyMaxBytes_, 0);
@@ -649,7 +664,8 @@ void OutputBuffer::getData(
     int destination,
     uint64_t maxBytes,
     int64_t sequence,
-    DataAvailableCallback notify) {
+    DataAvailableCallback notify,
+    DataConsumerActiveCheckCallback activeCheck) {
   std::vector<std::unique_ptr<folly::IOBuf>> data;
   std::vector<std::shared_ptr<SerializedPage>> freed;
   std::vector<ContinuePromise> promises;
@@ -669,7 +685,8 @@ void OutputBuffer::getData(
         sequence);
     freed = buffer->acknowledge(sequence, true);
     updateAfterAcknowledgeLocked(freed, promises);
-    data = buffer->getData(maxBytes, sequence, notify, arbitraryBuffer_.get());
+    data = buffer->getData(
+        maxBytes, sequence, notify, activeCheck, arbitraryBuffer_.get());
   }
   releaseAfterAcknowledge(freed, promises);
   if (!data.empty()) {
