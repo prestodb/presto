@@ -99,6 +99,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -1957,6 +1958,21 @@ public final class SqlFormatter
             else {
                 process(relation, indent);
             }
+        }
+
+        @Override
+        protected Void visitSetColumnType(SetColumnType node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" ALTER COLUMN ")
+                    .append(formatName(node.getColumnName()))
+                    .append(" SET DATA TYPE ")
+                    .append(node.getType().toString());
+            return null;
         }
 
         private StringBuilder append(int indent, String value)

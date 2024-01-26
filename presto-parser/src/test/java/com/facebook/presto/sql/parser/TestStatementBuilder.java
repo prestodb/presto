@@ -236,6 +236,9 @@ public class TestStatementBuilder
 
         printStatement("drop view foo");
 
+        printStatement("alter table foo alter column x set data type bigint");
+        printStatement("alter table a.b.c alter column x set data type bigint");
+
         printStatement("insert into t select * from t");
         printStatement("insert into t (c1, c2) select * from t");
 

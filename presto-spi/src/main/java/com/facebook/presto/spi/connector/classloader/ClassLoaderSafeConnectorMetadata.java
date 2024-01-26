@@ -922,4 +922,11 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.applyTableFunction(session, handle);
         }
     }
+
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnType(session, tableHandle, columnHandle, type);
+        }
+    }
 }

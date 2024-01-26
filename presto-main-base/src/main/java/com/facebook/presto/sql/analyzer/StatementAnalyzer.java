@@ -182,6 +182,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetSession;
@@ -1256,6 +1257,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitRollback(Rollback node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetColumnType(SetColumnType node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

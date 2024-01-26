@@ -824,6 +824,14 @@ public class MetadataManager
     }
 
     @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setColumnType(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, type);
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

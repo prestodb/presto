@@ -105,6 +105,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanAlterColumn(identity, context, table);
+    }
+
+    @Override
     public void checkCanRenameSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema, String newSchemaName)
     {
         delegate().checkCanRenameSchema(identity, context, schema, newSchemaName);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -294,6 +295,8 @@ public class MockConnectorFactory
             this.getViews = requireNonNull(getViews, "getViews is null");
             return this;
         }
+
+        public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type) {}
 
         public Builder withGetColumnHandles(BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, TpchColumnHandle>> getColumnHandles)
         {

@@ -130,6 +130,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -1765,6 +1766,24 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
                         new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, true));
+    }
+
+    @Test
+    public void testAlterColumnSetDataType()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                new Identifier("c"),
+                "BIGINT",
+                false));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DATA TYPE DOUBLE", new SetColumnType(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                new Identifier("b"),
+                "DOUBLE",
+                true));
     }
 
     @Test
