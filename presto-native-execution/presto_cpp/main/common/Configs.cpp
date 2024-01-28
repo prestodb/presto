@@ -139,6 +139,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kPrestoVersion),
           NONE_PROP(kHttpServerHttpPort),
           STR_PROP(kHttpServerReusePort, "false"),
+          BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, "false"),
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
