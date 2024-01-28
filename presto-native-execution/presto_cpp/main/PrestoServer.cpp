@@ -291,9 +291,9 @@ void PrestoServer::run() {
   if (httpsPort.has_value()) {
     folly::SocketAddress httpsSocketAddress;
     if (bindToNodeInternalAddressOnly) {
-      httpSocketAddress.setFromHostPort(address_, httpsPort.value());
+      httpsSocketAddress.setFromHostPort(address_, httpsPort.value());
     } else {
-      httpSocketAddress.setFromLocalPort(httpsPort.value());
+      httpsSocketAddress.setFromLocalPort(httpsPort.value());
     }
 
     httpsConfig = std::make_unique<http::HttpsConfig>(
