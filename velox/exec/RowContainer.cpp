@@ -79,8 +79,8 @@ Accumulator::Accumulator(
       usesExternalMemory_{usesExternalMemory},
       alignment_{alignment},
       spillType_{std::move(spillType)},
-      spillExtractFunction_{spillExtractFunction},
-      destroyFunction_{destroyFunction} {}
+      spillExtractFunction_{std::move(spillExtractFunction)},
+      destroyFunction_{std::move(destroyFunction)} {}
 
 bool Accumulator::isFixedSize() const {
   return isFixedSize_;

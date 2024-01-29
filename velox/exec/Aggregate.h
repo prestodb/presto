@@ -42,12 +42,12 @@ bool isPartialOutput(core::AggregationNode::Step step);
 
 class Aggregate {
  protected:
-  explicit Aggregate(TypePtr resultType) : resultType_(resultType) {}
+  explicit Aggregate(TypePtr resultType) : resultType_(std::move(resultType)) {}
 
  public:
   virtual ~Aggregate() {}
 
-  TypePtr resultType() const {
+  const TypePtr& resultType() const {
     return resultType_;
   }
 

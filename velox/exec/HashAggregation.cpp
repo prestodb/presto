@@ -53,7 +53,7 @@ void HashAggregation::initialize() {
 
   VELOX_CHECK(pool()->trackUsage());
 
-  auto inputType = aggregationNode_->sources()[0]->outputType();
+  const auto& inputType = aggregationNode_->sources()[0]->outputType();
   auto hashers =
       createVectorHashers(inputType, aggregationNode_->groupingKeys());
   auto numHashers = hashers.size();

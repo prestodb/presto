@@ -41,7 +41,8 @@ using optional_arg_type = OptionalAccessor<T>;
 template <typename FUNC>
 class SimpleAggregateAdapter : public Aggregate {
  public:
-  explicit SimpleAggregateAdapter(TypePtr resultType) : Aggregate(resultType) {}
+  explicit SimpleAggregateAdapter(TypePtr resultType)
+      : Aggregate(std::move(resultType)) {}
 
   // Assume most aggregate functions have fixed-size accumulators. Functions
   // that
