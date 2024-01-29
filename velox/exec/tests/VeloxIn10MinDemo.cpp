@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <folly/init/Init.h>
+#include "velox/common/memory/Memory.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/core/Expressions.h"
@@ -292,6 +293,9 @@ void VeloxIn10MinDemo::run() {
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, false);
+
+  // Initializes the process-wide memory-manager with the default options.
+  memory::initializeMemoryManager({});
 
   VeloxIn10MinDemo demo;
   demo.run();
