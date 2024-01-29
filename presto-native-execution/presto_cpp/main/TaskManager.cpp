@@ -168,7 +168,7 @@ void getData(
     // Buffer was erased for current TaskId.
     VLOG(1) << "Task " << taskId << ", buffer " << destination << ", sequence "
             << token << ", buffer not found.";
-    promiseHolder->promise.setValue(std::move(createEmptyResult(token)));
+    promiseHolder->promise.setValue(createEmptyResult(token));
   }
 }
 
