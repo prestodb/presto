@@ -70,6 +70,8 @@ constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
 constexpr folly::StringPiece kCounterNumTasksDeadlock{
     "presto_cpp.num_tasks_deadlock"};
+constexpr folly::StringPiece kCounterNumTaskManagerLockTimeOut{
+    "presto_cpp.num_tasks_manager_lock_timeout"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{

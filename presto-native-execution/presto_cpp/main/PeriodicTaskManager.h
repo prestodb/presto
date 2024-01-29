@@ -17,6 +17,7 @@
 #include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/Spill.h"
+#include "velox/exec/Task.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
@@ -50,8 +51,7 @@ class PeriodicTaskManager {
       const std::unordered_map<
           std::string,
           std::shared_ptr<velox::connector::Connector>>& connectors,
-      PrestoServer* server,
-      size_t stuckDriverThresholdMs);
+      PrestoServer* server);
 
   ~PeriodicTaskManager() {
     stop();
@@ -88,8 +88,8 @@ class PeriodicTaskManager {
   template <typename TFunc>
   void
   addTaskOnce(TFunc&& func, size_t periodMicros, const std::string& taskName) {
-    onceRunner_.cancelFunction(taskName);
-    onceRunner_.addFunctionOnce(
+    oneTimeRunner_.cancelFunction(taskName);
+    oneTimeRunner_.addFunctionOnce(
         std::forward<TFunc>(func),
         taskName,
         std::chrono::microseconds{periodMicros});
@@ -146,7 +146,6 @@ class PeriodicTaskManager {
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
   PrestoServer* const server_;
-  const size_t stuckDriverThresholdMs_;
 
   // Cache related stats
   int64_t lastMemoryCacheHits_{0};
@@ -169,8 +168,8 @@ class PeriodicTaskManager {
   velox::common::SpillStats lastSpillStats_;
   velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 
-  // CAUTION: Declare last since the threads access other members of `this`.
-  folly::FunctionScheduler onceRunner_;
+  // NOTE: declare last since the threads access other members of `this`.
+  folly::FunctionScheduler oneTimeRunner_;
   folly::ThreadedRepeatingFunctionRunner repeatedRunner_;
 };
 
