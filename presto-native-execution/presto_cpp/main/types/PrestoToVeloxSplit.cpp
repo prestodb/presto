@@ -44,6 +44,16 @@ dwio::common::FileFormat toVeloxFileFormat(
       "Unsupported file format: {} {}", format.inputFormat, format.serDe);
 }
 
+dwio::common::FileFormat toVeloxFileFormat(
+    const presto::protocol::FileFormat format) {
+  if (format == protocol::FileFormat::ORC) {
+    return dwio::common::FileFormat::DWRF;
+  } else if (format == protocol::FileFormat::PARQUET) {
+    return dwio::common::FileFormat::PARQUET;
+  }
+  VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+}
+
 } // anonymous namespace
 
 velox::exec::Split toVeloxSplit(
@@ -91,6 +101,30 @@ velox::exec::Split toVeloxSplit(
             serdeParameters),
         splitGroupId);
   }
+
+  if (auto icebergSplit =
+          std::dynamic_pointer_cast<const protocol::IcebergSplit>(
+              connectorSplit)) {
+    std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
+    for (const auto& entry : icebergSplit->partitionKeys) {
+      partitionKeys.emplace(
+          entry.second.name,
+          entry.second.value == nullptr
+              ? std::nullopt
+              : std::optional<std::string>{*entry.second.value});
+    }
+
+    return velox::exec::Split(
+        std::make_shared<connector::hive::HiveConnectorSplit>(
+            scheduledSplit.split.connectorId,
+            icebergSplit->path,
+            toVeloxFileFormat(icebergSplit->fileFormat),
+            icebergSplit->start,
+            icebergSplit->length,
+            partitionKeys),
+        splitGroupId);
+  }
+
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(
           connectorSplit)) {
     return velox::exec::Split(
