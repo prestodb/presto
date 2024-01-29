@@ -400,6 +400,20 @@ struct ToIEEE754Bits64 {
 };
 
 template <typename T>
+struct FromIEEE754Bits64 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<double>& result,
+      const arg_type<Varbinary>& input) {
+    static constexpr auto kTypeLength = sizeof(int64_t);
+    VELOX_USER_CHECK_EQ(input.size(), kTypeLength, "Expected 8-byte input");
+    memcpy(&result, input.data(), kTypeLength);
+    result = folly::Endian::big(result);
+  }
+};
+
+template <typename T>
 struct ToIEEE754Bits32 {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

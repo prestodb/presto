@@ -62,6 +62,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "to_big_endian_64"});
   registerFunction<ToIEEE754Bits64, Varbinary, double>(
       {prefix + "to_ieee754_64"});
+  registerFunction<FromIEEE754Bits64, double, Varbinary>(
+      {prefix + "from_ieee754_64"});
   registerFunction<ToIEEE754Bits32, Varbinary, float>(
       {prefix + "to_ieee754_32"});
 }
