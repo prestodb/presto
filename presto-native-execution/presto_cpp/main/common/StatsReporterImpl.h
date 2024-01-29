@@ -17,8 +17,8 @@
 #include <iostream>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/StatsReporter.h"
-#include "velox/velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
 
@@ -123,13 +123,12 @@ class StatsReporterImpl : public facebook::velox::BaseStatsReporter {
 
   void addMetricValue(folly::StringPiece key, size_t value = 1) const override;
 
-  virtual void addHistogramMetricValue(const std::string& key, size_t value)
+  void addHistogramMetricValue(const std::string& key, size_t value)
       const override {}
 
-  virtual void addHistogramMetricValue(const char* key, size_t value)
-      const override {}
+  void addHistogramMetricValue(const char* key, size_t value) const override {}
 
-  virtual void addHistogramMetricValue(folly::StringPiece key, size_t value)
+  void addHistogramMetricValue(folly::StringPiece key, size_t value)
       const override {}
 
   const facebook::velox::StatType getRegisteredStatType(

@@ -61,9 +61,4 @@ const std::string StatsReporterImpl::getMetrics(
   std::lock_guard<std::mutex> lock(mutex_);
   return serializer.serialize(registeredStats_, metricsMap_);
 }
-
-// Initialize singleton for the reporter
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new StatsReporterImpl();
-});
 } // namespace facebook::presto

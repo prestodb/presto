@@ -14,7 +14,6 @@
 
 #include "presto_cpp/main/common/StatsReporterImpl.h"
 #include <gtest/gtest.h>
-#include <cstring>
 
 namespace facebook::presto {
 
