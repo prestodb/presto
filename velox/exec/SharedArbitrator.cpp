@@ -65,7 +65,7 @@ std::string memoryPoolAbortMessage(
 
 SharedArbitrator::SharedArbitrator(const MemoryArbitrator::Config& config)
     : MemoryArbitrator(config), freeCapacity_(capacity_) {
-  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, capacity_);
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, freeCapacity_);
   VELOX_CHECK_EQ(kind_, config.kind);
 }
 
@@ -170,6 +170,8 @@ uint64_t SharedArbitrator::growCapacity(
     uint64_t targetBytes) {
   const int64_t bytesToReserve =
       std::min<int64_t>(maxGrowBytes(*pool), targetBytes);
+  uint64_t reserveBytes;
+  uint64_t freeCapacity;
   {
     std::lock_guard<std::mutex> l(mutex_);
     ++numReserves_;
@@ -179,19 +181,27 @@ uint64_t SharedArbitrator::growCapacity(
       // grow its capacity on-demand later through the memory arbitration.
       return 0;
     }
-    const uint64_t reserveBytes = decrementFreeCapacityLocked(bytesToReserve);
+    reserveBytes = decrementFreeCapacityLocked(bytesToReserve);
     pool->grow(reserveBytes);
-    return reserveBytes;
+    freeCapacity = freeCapacity_;
   }
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, freeCapacity);
+  return reserveBytes;
 }
 
 uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t targetBytes) {
-  std::lock_guard<std::mutex> l(mutex_);
-  ++numReleases_;
-  const uint64_t freedBytes = pool->shrink(targetBytes);
-  incrementFreeCapacityLocked(freedBytes);
+  uint64_t freedBytes;
+  uint64_t freeCapacity;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    ++numReleases_;
+    freedBytes = pool->shrink(targetBytes);
+    incrementFreeCapacityLocked(freedBytes);
+    freeCapacity = freeCapacity_;
+  }
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, freeCapacity);
   return freedBytes;
 }
 
@@ -492,25 +502,35 @@ void SharedArbitrator::abort(
 }
 
 uint64_t SharedArbitrator::decrementFreeCapacity(uint64_t bytes) {
-  std::lock_guard<std::mutex> l(mutex_);
-  return decrementFreeCapacityLocked(bytes);
+  uint64_t reserveBytes;
+  uint64_t freeCapacity;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    reserveBytes = decrementFreeCapacityLocked(bytes);
+    freeCapacity = freeCapacity_;
+  }
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, freeCapacity);
+  return reserveBytes;
 }
 
 uint64_t SharedArbitrator::decrementFreeCapacityLocked(uint64_t bytes) {
   const uint64_t targetBytes = std::min(freeCapacity_, bytes);
   VELOX_CHECK_LE(targetBytes, freeCapacity_);
-  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, -1 * targetBytes);
   freeCapacity_ -= targetBytes;
   return targetBytes;
 }
 
 void SharedArbitrator::incrementFreeCapacity(uint64_t bytes) {
-  std::lock_guard<std::mutex> l(mutex_);
-  incrementFreeCapacityLocked(bytes);
+  uint64_t freeCapacity;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    incrementFreeCapacityLocked(bytes);
+    freeCapacity = freeCapacity_;
+  }
+  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, freeCapacity);
 }
 
 void SharedArbitrator::incrementFreeCapacityLocked(uint64_t bytes) {
-  RECORD_METRIC_VALUE(kMetricArbitratorFreeCapacityBytes, bytes);
   freeCapacity_ += bytes;
   if (FOLLY_UNLIKELY(freeCapacity_ > capacity_)) {
     VELOX_FAIL(
