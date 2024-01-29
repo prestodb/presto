@@ -2502,7 +2502,7 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
   // timestamp1: 1970-01-01 00:00:00.000 +00:00 (0)
   // timestamp2: 2020-08-25 16:30:10.123 -08:00 (1'598'373'010'123)
   EXPECT_EQ(
-      1598347810123,
+      1598373010123,
       dateDiff(
           "millisecond",
           0,
@@ -2510,15 +2510,15 @@ TEST_F(DateTimeFunctionsTest, dateDiffTimestampWithTimezone) {
           1'598'373'010'123,
           "America/Los_Angeles"));
   EXPECT_EQ(
-      1598347810,
+      1598373010,
       dateDiff(
           "second", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
   EXPECT_EQ(
-      26639130,
+      26639550,
       dateDiff(
           "minute", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
   EXPECT_EQ(
-      443985,
+      443992,
       dateDiff("hour", 0, "+00:00", 1'598'373'010'123, "America/Los_Angeles"));
   EXPECT_EQ(
       18499,

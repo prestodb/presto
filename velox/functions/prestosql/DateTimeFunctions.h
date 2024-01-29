@@ -69,13 +69,18 @@ struct TimestampWithTimezoneSupport {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // Convert timestampWithTimezone to a timestamp representing the moment at the
-  // zone in timestampWithTimezone.
+  // zone in timestampWithTimezone. If `asGMT` is set to true, return the GMT
+  // time at the same moment.
   FOLLY_ALWAYS_INLINE
   Timestamp toTimestamp(
-      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone,
+      bool asGMT = false) {
     const auto milliseconds = *timestampWithTimezone.template at<0>();
+    auto tz = *timestampWithTimezone.template at<1>();
     Timestamp timestamp = Timestamp::fromMillis(milliseconds);
-    timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+    if (!asGMT) {
+      timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+    }
 
     return timestamp;
   }
@@ -1119,8 +1124,8 @@ struct DateDiffFunction : public TimestampWithTimezoneSupport<T> {
     call(
         result,
         unitString,
-        this->toTimestamp(timestamp1),
-        this->toTimestamp(timestamp2));
+        this->toTimestamp(timestamp1, true),
+        this->toTimestamp(timestamp2, true));
   }
 };
 
