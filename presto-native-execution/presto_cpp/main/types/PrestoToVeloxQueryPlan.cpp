@@ -2768,6 +2768,18 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
   }
   VELOX_UNSUPPORTED("Unknown Stage Execution Strategy type {}", (int)strategy);
 }
+
+// Presto doesn't have PartitionedOutputNode and assigns its source node's plan
+// node id to PartitionedOutputOperator.
+// However, Velox has PartitionedOutputNode and doesn't allow duplicate node
+// ids. Hence, we use "root." + source node's plan id as
+// PartitionedOutputNode's.
+// For example, if source node plan id is "10", then the associated
+// partitioned output node id is "root.10".
+protocol::PlanNodeId toPartitionedOutputNodeId(const protocol::PlanNodeId& id) {
+  return "root." + id;
+}
+
 } // namespace
 
 core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -2824,6 +2836,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     }
   }
   auto outputType = toRowType(partitioningScheme.outputLayout, typeParser_);
+  const auto partitionedOutputNodeId =
+      toPartitionedOutputNodeId(fragment.root->id);
 
   if (auto systemPartitioningHandle =
           std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
@@ -2835,8 +2849,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                 protocol::SystemPartitionFunction::SINGLE,
             "Unsupported partitioning function: {}",
             toJsonString(systemPartitioningHandle->function));
-        planFragment.planNode =
-            core::PartitionedOutputNode::single("root", outputType, sourceNode);
+        planFragment.planNode = core::PartitionedOutputNode::single(
+            partitionedOutputNodeId, outputType, sourceNode);
         return planFragment;
       case protocol::SystemPartitioning::FIXED: {
         switch (systemPartitioningHandle->function) {
@@ -2845,12 +2859,12 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
-                  "root", outputType, sourceNode);
+                  partitionedOutputNodeId, outputType, sourceNode);
               return planFragment;
             }
             planFragment.planNode =
                 std::make_shared<core::PartitionedOutputNode>(
-                    "root",
+                    partitionedOutputNodeId,
                     core::PartitionedOutputNode::Kind::kPartitioned,
                     partitioningKeys,
                     numPartitions,
@@ -2865,12 +2879,12 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
-                  "root", outputType, sourceNode);
+                  partitionedOutputNodeId, outputType, sourceNode);
               return planFragment;
             }
             planFragment.planNode =
                 std::make_shared<core::PartitionedOutputNode>(
-                    "root",
+                    partitionedOutputNodeId,
                     core::PartitionedOutputNode::Kind::kPartitioned,
                     partitioningKeys,
                     numPartitions,
@@ -2883,7 +2897,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           }
           case protocol::SystemPartitionFunction::BROADCAST: {
             planFragment.planNode = core::PartitionedOutputNode::broadcast(
-                "root", 1, outputType, sourceNode);
+                partitionedOutputNodeId, 1, outputType, sourceNode);
             return planFragment;
           }
           default:
@@ -2899,7 +2913,9 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             "Unsupported partitioning function: {}",
             toJsonString(systemPartitioningHandle->function));
         planFragment.planNode = core::PartitionedOutputNode::arbitrary(
-            "root", std::move(outputType), std::move(sourceNode));
+            partitionedOutputNodeId,
+            std::move(outputType),
+            std::move(sourceNode));
         return planFragment;
       }
       default:
@@ -2918,8 +2934,8 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         1;
 
     if (numPartitions == 1) {
-      planFragment.planNode =
-          core::PartitionedOutputNode::single("root", outputType, sourceNode);
+      planFragment.planNode = core::PartitionedOutputNode::single(
+          partitionedOutputNodeId, outputType, sourceNode);
       return planFragment;
     }
 
@@ -2930,7 +2946,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         toJsonString(hivePartitioningHandle->bucketFunctionType))
 
     planFragment.planNode = std::make_shared<core::PartitionedOutputNode>(
-        "root",
+        partitionedOutputNodeId,
         core::PartitionedOutputNode::Kind::kPartitioned,
         partitioningKeys,
         numPartitions,

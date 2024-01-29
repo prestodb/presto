@@ -77,6 +77,16 @@ protocol::RuntimeUnit toPrestoRuntimeUnit(RuntimeCounter::Unit unit) {
   }
 }
 
+// Presto operator's node id sometimes is not equivalent to velox's.
+// So when reporting task stats, we need to parse node id back to presto's.
+// For example, velox's partitionedOutput operator would have "root." prefix.
+std::string toPrestoPlanNodeId(const protocol::PlanNodeId& id) {
+  if (FOLLY_LIKELY(id.find("root.") == std::string::npos)) {
+    return id;
+  }
+  return id.substr(5);
+}
+
 // Presto has certain query stats logic depending on the operator names.
 // To leverage this logic we need to supply Presto's operator names.
 std::string toPrestoOperatorType(const std::string& operatorType) {
@@ -520,6 +530,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.stageExecutionId = id.stageExecutionId();
       opOut.pipelineId = i;
       opOut.planNodeId = op.planNodeId;
+      opOut.planNodeId = toPrestoPlanNodeId(opOut.planNodeId);
       opOut.operatorId = op.operatorId;
       opOut.operatorType = toPrestoOperatorType(op.operatorType);
 
