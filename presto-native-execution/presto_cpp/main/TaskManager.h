@@ -146,13 +146,14 @@ class TaskManager {
   // in exec/Task.h).
   std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
 
-  /// Populate the blocked tasks (failing to take lock on the mutex), and long
-  /// running operator calls across all drivers in all tasks.  Returns false if
-  /// a lock on the taskMap cannot be taken, otherwise returns true.
-  bool getLongRunningOpCalls(
-      size_t thresholdDurationMs,
-      std::vector<std::string>& deadlockedTasks,
-      std::vector<velox::exec::Task::OpCallInfo>& opCalls) const;
+  /// Invoked to check the stuck operation calls in the system.  If the function
+  /// fails to get the stuck call information from a task due to the lock
+  /// timeout, it adds the task to 'blockedTasks'.  Otherwise, it adds all stuck
+  /// call information to 'stuckOpCalls'.  The function returns false if a lock
+  /// on the taskMap cannot be taken, otherwise returns true.
+  bool getStuckOpCalls(
+      std::vector<std::string>& deadlockTasks,
+      std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
   /// Build directory path for spilling for the given task.
   /// Always returns non-empty string.
