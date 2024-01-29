@@ -37,7 +37,7 @@ set(BUILD_TESTING OFF)
 FetchContent_MakeAvailable(glog)
 unset(BUILD_TESTING)
 unset(BUILD_SHARED_LIBS)
-add_dependencies(glog gflags)
+add_dependencies(glog gflags_static)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/glog)
 set(glog_INCLUDE_DIR ${glog_BINARY_DIR})

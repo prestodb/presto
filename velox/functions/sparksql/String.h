@@ -15,10 +15,7 @@
  */
 #pragma once
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include "folly/ssl/OpenSSLHash.h"
-#pragma GCC diagnostic pop
 
 #include <boost/locale.hpp>
 #include <codecvt>

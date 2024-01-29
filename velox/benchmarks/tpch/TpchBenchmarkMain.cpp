@@ -23,6 +23,6 @@ int main(int argc, char** argv) {
   std::string kUsage(
       "This program benchmarks TPC-H queries. Run 'velox_tpch_benchmark -helpon=TpchBenchmark' for available options.\n");
   gflags::SetUsageMessage(kUsage);
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
   tpchBenchmarkMain();
 }

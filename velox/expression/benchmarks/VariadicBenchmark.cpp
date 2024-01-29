@@ -194,7 +194,7 @@ BENCHMARK_MULTI(simpleVariadicLotsOfArgs) {
 } // namespace facebook::velox::functions
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   facebook::velox::functions::VariadicBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();

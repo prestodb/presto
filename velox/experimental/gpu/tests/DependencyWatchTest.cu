@@ -97,7 +97,7 @@ void schedule(Node* nodes, int size, States* states) {
 
 int main(int argc, char** argv) {
   using namespace facebook::velox::gpu;
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   Node* nodes;
   CUDA_CHECK_FATAL(cudaMallocManaged(&nodes, FLAGS_node_count * sizeof(Node)));
   for (int i = 0; i < FLAGS_node_count; ++i) {

@@ -299,7 +299,7 @@ SERDE_BENCHMARKS(
 } // namespace facebook::velox::row
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   facebook::velox::memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;

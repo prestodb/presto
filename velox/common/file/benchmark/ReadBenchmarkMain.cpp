@@ -24,7 +24,7 @@ using namespace facebook::velox;
 // and the IO throughput is 100 MBps, then it takes 10 seconds to just read the
 // data.
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
   ReadBenchmark bm;
   bm.initialize();
   bm.run();

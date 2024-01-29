@@ -745,7 +745,7 @@ void runPartitioned() {
 
 int main(int argc, char** argv) {
   using namespace facebook::velox::gpu;
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   assert(__builtin_popcount(FLAGS_table_size) == 1);
   assert(FLAGS_table_size % kBlockSize == 0);
   CUDA_CHECK_FATAL(cudaSetDevice(FLAGS_device));

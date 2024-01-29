@@ -31,7 +31,7 @@ using namespace facebook::velox::dwrf;
 // Used to compare the ORC data read by DWRFReader against apache-orc repo.
 // Usage: velox_example_scan_orc {orc_file_path}
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   if (argc < 2) {
     return 1;

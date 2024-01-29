@@ -312,7 +312,7 @@ BENCHMARK_MULTI(simpleMinIntegerNullFreeFastPath) {
 } // namespace facebook::velox::functions
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   facebook::velox::functions::CallNullFreeBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();

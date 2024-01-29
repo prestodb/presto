@@ -117,7 +117,7 @@ BENCHMARK_RELATIVE_PARAM(BM_setNthBit_shift_false_unsigned, 1000000);
 BENCHMARK_DRAW_LINE();
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   folly::runBenchmarks();
   return 0;
 }

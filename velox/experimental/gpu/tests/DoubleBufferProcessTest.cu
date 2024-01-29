@@ -197,7 +197,7 @@ void testCudaEvent(int deviceId) {
 
 int main(int argc, char** argv) {
   using namespace facebook::velox::gpu;
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   int deviceCount;
   CUDA_CHECK_FATAL(cudaGetDeviceCount(&deviceCount));
   printf("Device count: %d\n", deviceCount);

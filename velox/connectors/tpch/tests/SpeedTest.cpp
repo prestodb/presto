@@ -180,7 +180,7 @@ class TpchSpeedTest {
 } // namespace
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
 
   TpchSpeedTest speedTest;
   speedTest.run(

@@ -24,6 +24,6 @@ int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   // Signal handler required for ThreadDebugInfoTest
   facebook::velox::process::addDefaultFatalSignalHandler();
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
   return RUN_ALL_TESTS();
 }

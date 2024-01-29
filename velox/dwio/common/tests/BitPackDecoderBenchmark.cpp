@@ -593,7 +593,7 @@ void naiveDecodeBitsLE(
 }
 
 int32_t main(int32_t argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   // Populate uint32 buffer
 

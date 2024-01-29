@@ -242,7 +242,7 @@ BENCHMARK(tpchQuery20) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv, true);
+  folly::Init init{&argc, &argv, true};
   memory::MemoryManager::initialize({});
   benchmark = std::make_unique<LikeFunctionsBenchmark>();
   folly::runBenchmarks();

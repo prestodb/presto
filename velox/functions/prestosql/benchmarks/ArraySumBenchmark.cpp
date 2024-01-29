@@ -27,7 +27,7 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox::functions;
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   functions::prestosql::registerArrayFunctions();
   registerFunction<ArraySumFunction, int64_t, Array<int32_t>>(

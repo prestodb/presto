@@ -150,7 +150,7 @@ class SerializerBenchmark : public VectorTestBase {
 };
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   SerializerBenchmark bm;
   bm.setup();

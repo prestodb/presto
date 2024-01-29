@@ -43,7 +43,7 @@ using namespace ::facebook::velox;
 using ::apache::thrift::ThriftServer;
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
   FLAGS_logtostderr = true;
 
   // Always registers all Presto functions and make them available under a

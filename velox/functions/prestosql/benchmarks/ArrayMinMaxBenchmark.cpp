@@ -46,7 +46,7 @@ void registerTestSimpleFunctions() {
 using namespace facebook::velox;
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   functions::prestosql::registerArrayFunctions();
 
   functions::registerTestVectorFunctionBasic();

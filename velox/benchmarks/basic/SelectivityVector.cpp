@@ -164,7 +164,7 @@ BENCHMARK(sumSelectivity1PerCent) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   memory::MemoryManager::initialize({});
   benchmark = std::make_unique<SelectivityVectorBenchmark>(10'000);

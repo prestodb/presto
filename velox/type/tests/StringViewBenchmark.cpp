@@ -53,7 +53,7 @@ BENCHMARK_PARAM(runStringViewCreate, NON_INLINE_SIZE);
 } // namespace facebook::velox
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   folly::runBenchmarks();
   return 0;
 }

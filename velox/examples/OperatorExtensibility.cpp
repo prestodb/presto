@@ -160,7 +160,7 @@ class DuplicateRowTranslator : public exec::Operator::PlanNodeTranslator {
 };
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   // Fourth, we register the custom plan translator. We're now ready to use our
   // operator in a query plan.

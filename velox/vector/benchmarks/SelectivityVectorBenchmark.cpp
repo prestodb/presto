@@ -308,7 +308,7 @@ BENCHMARK_DRAW_LINE();
 // buck run @mode/opt-clang-thinlto \
 //   velox/vector/benchmarks:selectivity_vector_benchmark
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   folly::runBenchmarks();
   return 0;
 }

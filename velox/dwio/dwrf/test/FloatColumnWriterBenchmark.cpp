@@ -129,7 +129,7 @@ BENCHMARK(FloatColumnWriterBenchmark10000) {
 }
 
 int32_t main(int32_t argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;

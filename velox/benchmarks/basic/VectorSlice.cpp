@@ -110,7 +110,7 @@ DEFINE_BENCHMARKS(row)
 } // namespace facebook::velox
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   using namespace facebook::velox;
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   VELOX_CHECK_LE(FLAGS_slice_size, kVectorSize);

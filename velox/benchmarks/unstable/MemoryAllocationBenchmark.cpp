@@ -435,7 +435,7 @@ BENCHMARK_RELATIVE_MULTI(MmapReallocateMix64) {
 } // namespace
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   // TODO: add to run benchmark as a standalone program with multithreading as
   // well as actual memory access to trigger minor page faults in OS which traps
   // into kernel context to setup physical pages for the lazy-mapped virtual

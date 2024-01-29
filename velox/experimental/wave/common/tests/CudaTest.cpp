@@ -898,7 +898,7 @@ TEST_F(CudaTest, reduceMatrix) {
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   if (int device; cudaGetDevice(&device) != cudaSuccess) {
     LOG(WARNING) << "No CUDA detected, skipping all tests";
     return 0;

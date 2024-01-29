@@ -118,9 +118,6 @@ cmake_install glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
 cmake_install fmt -DFMT_TEST=OFF
 cmake_install folly -DFOLLY_HAVE_INT128_T=ON
-# remove in #7700
-sed -i 's/\[\[deprecated.*\]\]//g' /usr/local/include/folly/init/Init.h
-
 
 cmake_install fizz/fizz -DBUILD_TESTS=OFF
 cmake_install wangle/wangle -DBUILD_TESTS=OFF

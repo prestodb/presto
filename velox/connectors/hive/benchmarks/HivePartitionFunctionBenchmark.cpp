@@ -329,7 +329,7 @@ BENCHMARK_DRAW_LINE();
 } // namespace
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   memory::MemoryManager::initialize({});
   benchmarkFew = std::make_unique<HivePartitionFunctionBenchmark>(1'000);

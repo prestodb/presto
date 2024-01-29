@@ -23,7 +23,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 CPU_TARGET="${CPU_TARGET:-avx}"
 COMPILER_FLAGS=$(get_cxx_flags "$CPU_TARGET")
 export COMPILER_FLAGS
-FB_OS_VERSION=v2022.11.14.00
+FB_OS_VERSION=v2023.12.04.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 export CMAKE_BUILD_TYPE=Release
@@ -102,6 +102,11 @@ function install_wangle {
   cmake_install -DBUILD_TESTS=OFF -S wangle
 }
 
+function install_mvfst {
+  github_checkout facebook/mvfst "${FB_OS_VERSION}"
+  cmake_install -DBUILD_TESTS=OFF
+}
+
 function install_fbthrift {
   github_checkout facebook/fbthrift "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
@@ -118,6 +123,7 @@ function install_velox_deps {
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
+  run_and_time install_mvfst
   run_and_time install_fbthrift
   run_and_time install_conda
 }

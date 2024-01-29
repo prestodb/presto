@@ -124,7 +124,7 @@ void registerInFunctions() {
 } // namespace facebook::velox::functions::sparksql
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   facebook::velox::functions::registerPrestoIn();
   facebook::velox::functions::sparksql::registerInFunctions();
   facebook::velox::functions::registerArrayConstructor();

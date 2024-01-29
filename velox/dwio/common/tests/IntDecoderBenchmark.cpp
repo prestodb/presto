@@ -939,7 +939,7 @@ BENCHMARK_RELATIVE(decodeNew_64) {
 }
 
 int32_t main(int32_t argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   // Populate uint16 buffer
   buffer_u16.resize(kNumElements);

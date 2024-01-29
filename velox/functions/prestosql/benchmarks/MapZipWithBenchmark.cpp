@@ -123,7 +123,7 @@ BENCHMARK_MULTI(dictionaryKeys, n) {
 } // namespace
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   LOG(ERROR) << "Seed: " << seed;
   {

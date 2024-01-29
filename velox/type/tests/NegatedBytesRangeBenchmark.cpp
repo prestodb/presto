@@ -129,7 +129,7 @@ DEFINE_BENCHMARKS(100, 94)
 DEFINE_BENCHMARKS(100, 98)
 
 int32_t main(int32_t argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   constexpr int32_t kNumValues = 1000000;
   constexpr int32_t kStringPoolSize = 20000;
   const std::vector<int32_t> stringLengths = {2, 3, 5, 10, 100};

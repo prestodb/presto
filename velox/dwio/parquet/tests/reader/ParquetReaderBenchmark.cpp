@@ -404,7 +404,7 @@ PARQUET_BENCHMARKS_NO_FILTER(ARRAY(BIGINT()), List);
 // TODO: Add all data types
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   memory::MemoryManager::initialize({});
   folly::runBenchmarks();
   return 0;

@@ -180,6 +180,10 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(VELOX_ENABLE_BENCHMARKS OFF)
 endif()
 
+# We look for OpenSSL here to cache the result enforce the version across our
+# dependencies.
+find_package(OpenSSL REQUIRED)
+
 if(VELOX_ENABLE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER)

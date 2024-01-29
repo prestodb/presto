@@ -53,7 +53,7 @@ BENCHMARK(ChainedBufferOps, iters) {
 }
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   folly::runBenchmarks();
   facebook::velox::memory::MemoryManager::initialize({});
   return 0;

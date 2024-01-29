@@ -352,7 +352,7 @@ BENCHMARK(ArraySubscript_ArrayRowIntInt) {
 }
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   benchmark = std::make_unique<SimpleSubscriptBenchmark>();
   benchmark->test();
   folly::runBenchmarks();

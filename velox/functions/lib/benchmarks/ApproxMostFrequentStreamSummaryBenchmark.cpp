@@ -115,7 +115,7 @@ BENCHMARK_NAMED_PARAM(merge, capacity2048, 1e6, 2048)
 } // namespace facebook::velox::functions
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   folly::runBenchmarks();
   return 0;

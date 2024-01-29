@@ -106,6 +106,6 @@ TEST_F(ThriftTransportTest, bufferedOutOfBoundry) {
 // Define main so that gflags get processed.
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv, false};
   return RUN_ALL_TESTS();
 }

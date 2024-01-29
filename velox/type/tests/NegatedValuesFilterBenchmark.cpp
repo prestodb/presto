@@ -125,7 +125,7 @@ int32_t main(int32_t argc, char* argv[]) {
       1000, 1000, 10000, 10, 1000, 1000, 1000};
   std::vector<std::vector<int64_t>> rejectedValues;
 
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   rejectedValues.reserve(kFilterSizes.size());
   for (auto i = 0; i < kFilterSizes.size(); ++i) {

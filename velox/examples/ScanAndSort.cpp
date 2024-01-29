@@ -42,7 +42,7 @@ using exec::test::HiveConnectorTestBase;
 int main(int argc, char** argv) {
   // Velox Tasks/Operators are based on folly's async framework, so we need to
   // make sure we initialize it first.
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   // Default memory allocator used throughout this example.
   memory::MemoryManager::initialize({});

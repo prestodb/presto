@@ -612,7 +612,7 @@ void combineResults(
 } // namespace
 
 int main(int argc, char** argv) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
   memory::MemoryManagerOptions options;
   options.useMmapAllocator = true;
   options.allocatorCapacity = 10UL << 30;
