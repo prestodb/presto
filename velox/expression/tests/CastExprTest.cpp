@@ -20,6 +20,8 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/tests/CastBaseTest.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
@@ -29,6 +31,20 @@
 using namespace facebook::velox;
 namespace facebook::velox::test {
 namespace {
+template <typename TExecParams>
+struct ErrorOnOddFunctionElseUnknown {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<UnknownValue> /*out*/,
+      const int32_t input) {
+    // Function will always throw an error on odd input.
+    if (input % 2 != 0) {
+      VELOX_USER_FAIL("ErrorOnOddElseUnknown Function: {}", input);
+    }
+  }
+};
+
 class CastExprTest : public functions::test::CastBaseTest {
  protected:
   CastExprTest() {
@@ -36,6 +52,9 @@ class CastExprTest : public functions::test::CastBaseTest {
         "testing_dictionary",
         TestingDictionaryFunction::signatures(),
         std::make_unique<TestingDictionaryFunction>());
+
+    registerFunction<ErrorOnOddFunctionElseUnknown, UnknownValue, int32_t>(
+        {"error_on_odd_else_unknown"});
   }
 
   void setLegacyCast(bool value) {
@@ -2344,5 +2363,43 @@ TEST_F(CastExprTest, identicalTypes) {
   ASSERT_EQ(result.get(), data->childAt(0).get());
 }
 
+TEST_F(CastExprTest, skipCastEvaluation) {
+  // Inputs to error_on_odd_else_unknown are even, odd.
+  // Input to cast is an UNKNOWN vector which is not supported.
+  // Verify that input rows marked as errors are skipped.
+  {
+    auto data = makeRowVector({
+        makeFlatVector<int>(10, [&](auto row) { return row; }),
+    });
+
+    VELOX_ASSERT_THROW(
+        evaluate("try(cast(error_on_odd_else_unknown(c0) as INTEGER))", data),
+        "not a scalar type! kind: UNKNOWN");
+  }
+
+  // All inputs to error_on_odd_else_unknown are odd.
+  // All inputs to cast are errors, we skip evaluation.
+  {
+    auto data = makeRowVector({
+        makeFlatVector<int>(10, [&](auto row) { return row * 2 + 1; }),
+    });
+
+    auto result =
+        evaluate("try(cast(error_on_odd_else_unknown(c0) as INTEGER))", data);
+    ASSERT_EQ(BaseVector::countNulls(result->nulls(), result->size()), 10);
+  }
+
+  // Ensure trailing rows that are marked as error are handled correctly as they
+  // can result in intermediate result vectors of smaller size.
+  {
+    auto data = makeRowVector({
+        makeFlatVector<int64_t>({1, 2, 3, 0}),
+    });
+    auto result = evaluate("try(cast((c0 / c0) as VARCHAR))", data);
+    auto expected =
+        makeNullableFlatVector<StringView>({"1", "1", "1", std::nullopt});
+    assertEqualVectors(result, expected);
+  }
+}
 } // namespace
 } // namespace facebook::velox::test
