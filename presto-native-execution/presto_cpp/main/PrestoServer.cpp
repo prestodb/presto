@@ -482,8 +482,7 @@ void PrestoServer::run() {
       memoryAllocator,
       asyncDataCache,
       velox::connector::getAllConnectors(),
-      this,
-      systemConfig->driverStuckOperatorThresholdMs());
+      this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();

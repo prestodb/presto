@@ -72,8 +72,7 @@ PeriodicTaskManager::PeriodicTaskManager(
     const std::unordered_map<
         std::string,
         std::shared_ptr<velox::connector::Connector>>& connectors,
-    PrestoServer* server,
-    size_t stuckDriverThresholdMs)
+    PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
@@ -81,8 +80,7 @@ PeriodicTaskManager::PeriodicTaskManager(
       asyncDataCache_(asyncDataCache),
       arbitrator_(velox::memory::memoryManager()->arbitrator()),
       connectors_(connectors),
-      server_(server),
-      stuckDriverThresholdMs_(stuckDriverThresholdMs) {}
+      server_(server) {}
 
 void PeriodicTaskManager::start() {
   // If executors are null, don't bother starting this task.
@@ -124,12 +122,12 @@ void PeriodicTaskManager::start() {
 
   addWatchdogTask();
 
-  onceRunner_.start();
+  oneTimeRunner_.start();
 }
 
 void PeriodicTaskManager::stop() {
-  onceRunner_.cancelAllFunctionsAndWait();
-  onceRunner_.shutdown();
+  oneTimeRunner_.cancelAllFunctionsAndWait();
+  oneTimeRunner_.shutdown();
   repeatedRunner_.stop();
 }
 
@@ -463,11 +461,11 @@ class HiveConnectorStatsReporter {
     RECORD_METRIC_VALUE(curSizeMetricName_, stats.curSize);
     RECORD_METRIC_VALUE(numAccumulativeHitsMetricName_, stats.numHits);
     RECORD_METRIC_VALUE(numAccumulativeLookupsMetricName_, stats.numLookups);
-    RECORD_METRIC_VALUE(numHitsMetricName_, stats.numHits - oldNumHits_);
-    oldNumHits_ = stats.numHits;
+    RECORD_METRIC_VALUE(numHitsMetricName_, stats.numHits - lastNumHits_);
+    lastNumHits_ = stats.numHits;
     RECORD_METRIC_VALUE(
-        numLookupsMetricName_, stats.numLookups - oldNumLookups_);
-    oldNumLookups_ = stats.numLookups;
+        numLookupsMetricName_, stats.numLookups - lastNumLookups_);
+    lastNumLookups_ = stats.numLookups;
   }
 
  private:
@@ -479,8 +477,8 @@ class HiveConnectorStatsReporter {
   const std::string numAccumulativeLookupsMetricName_;
   const std::string numHitsMetricName_;
   const std::string numLookupsMetricName_;
-  size_t oldNumHits_{0};
-  size_t oldNumLookups_{0};
+  size_t lastNumHits_{0};
+  size_t lastNumLookups_{0};
 };
 
 } // namespace
@@ -663,29 +661,27 @@ void PeriodicTaskManager::addHttpEndpointLatencyStatsTask() {
 
 void PeriodicTaskManager::addWatchdogTask() {
   addTask(
-      [this,
-       deadlockedTasks = std::vector<std::string>(),
-       opCalls = std::vector<velox::exec::Task::OpCallInfo>()]() mutable {
-        deadlockedTasks.clear();
-        opCalls.clear();
-        if (!taskManager_->getLongRunningOpCalls(
-                stuckDriverThresholdMs_, deadlockedTasks, opCalls)) {
+      [this] {
+        std::vector<std::string> deadlockTasks;
+        std::vector<velox::exec::Task::OpCallInfo> stuckOpCalls;
+        if (!taskManager_->getStuckOpCalls(deadlockTasks, stuckOpCalls)) {
           LOG(ERROR)
               << "Cannot take lock on task manager, likely starving or deadlocked";
-          RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, 1);
+          RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 1);
           detachWorker();
           return;
         }
-        for (auto& taskId : deadlockedTasks) {
+        RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 0);
+        for (const auto& taskId : deadlockTasks) {
           LOG(ERROR) << "Starving or deadlocked task: " << taskId;
         }
-        RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockedTasks.size());
-        for (auto& call : opCalls) {
+        RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockTasks.size());
+        for (const auto& call : stuckOpCalls) {
           LOG(ERROR) << "Stuck operator: tid=" << call.tid
                      << " taskId=" << call.taskId << " opId=" << call.opId;
         }
-        RECORD_METRIC_VALUE(kCounterNumStuckDrivers, opCalls.size());
-        if (!deadlockedTasks.empty() || !opCalls.empty()) {
+        RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
+        if (!deadlockTasks.empty() || !stuckOpCalls.empty()) {
           detachWorker();
         }
       },
