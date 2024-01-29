@@ -68,6 +68,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
@@ -351,6 +353,35 @@ public abstract class AbstractTestQueryFramework
         if (!nullToEmpty(exception.getMessage()).matches(regex)) {
             fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
         }
+    }
+
+    protected void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = (String) computeActual(query).getOnlyValue();
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+
+        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+    }
+
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
+    }
+
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
