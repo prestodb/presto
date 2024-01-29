@@ -280,7 +280,7 @@ class GroupingSet {
 
   const bool ignoreNullKeys_;
 
-  vector_size_t numInputRows_ = 0;
+  uint64_t numInputRows_ = 0;
 
   // The maximum memory usage that a final aggregation can hold before spilling.
   // If it is zero, then there is no such limit.
