@@ -39,7 +39,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/byte_stream_split.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
@@ -49,6 +48,7 @@
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Schema.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
+#include "velox/dwio/parquet/writer/arrow/util/ByteStreamSplitInternal.h"
 #include "velox/dwio/parquet/writer/arrow/util/Hashing.h"
 #include "velox/dwio/parquet/writer/arrow/util/OverflowUtilInternal.h"
 
@@ -964,7 +964,7 @@ std::shared_ptr<::arrow::Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const uint8_t* raw_values = sink_.data();
-  ::arrow::util::internal::ByteStreamSplitEncode<T>(
+  ByteStreamSplitEncode<T>(
       raw_values, num_values_in_buffer_, output_buffer_raw);
   sink_.Reset();
   num_values_in_buffer_ = 0;
@@ -4047,7 +4047,7 @@ int ByteStreamSplitDecoder<DType>::Decode(T* buffer, int max_values) {
   const int num_decoded_previously = num_values_in_buffer_ - num_values_;
   const uint8_t* data = data_ + num_decoded_previously;
 
-  ::arrow::util::internal::ByteStreamSplitDecode<T>(
+  ByteStreamSplitDecode<T>(
       data, values_to_decode, num_values_in_buffer_, buffer);
   num_values_ -= values_to_decode;
   len_ -= sizeof(T) * values_to_decode;
