@@ -302,7 +302,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           // For backward-compatibility, a group annotated with MAP_KEY_VALUE
           // that is not contained by a MAP-annotated group should be handled as
           // a MAP-annotated group.
-          FOLLY_FALLTHROUGH;
+          [[fallthrough]];
 
         case thrift::ConvertedType::LIST:
         case thrift::ConvertedType::MAP: {
