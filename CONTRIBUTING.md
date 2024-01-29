@@ -11,7 +11,7 @@ Thanks for your interest in Presto.  Our goal is to build a fast, scalable and r
 
 ## Getting Started
 
-Presto's [open issues are here](https://github.com/prestodb/presto/issues). Issues that would make a good first pull request for new contributors with the `beginner-task` tag. An easy way to get started helping the project is to *file an issue*. Issues can include bugs, new features, or documentation that looks outdated. For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
+Presto's [open issues are here](https://github.com/prestodb/presto/issues). Tag issues that would make a good first pull request for new contributors with the [good first issue](https://github.com/prestodb/presto/labels/good%20first%20issue) tag. An easy way to get started helping the project is to *file an issue*. Issues can include bugs, new features, or documentation that looks outdated. For community support, [ask for help in Slack](https://join.slack.com/t/prestodb/shared_invite/enQtNTQ3NjU2MTYyNDA2LTYyOTg3MzUyMWE1YTI3Njc5YjgxZjNiYTgxODAzYjI5YWMwYWE0MTZjYWFhNGMwNjczYjI3N2JhM2ExMGJlMWM).
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->
   <summary><h2>Building Presto</h2></summary>
@@ -75,7 +75,7 @@ In the sample configuration, the Hive connector is mounted in the `hive` catalog
 
 ### Building the Documentation
 
-To learn how to build the docs, see the [docs README](presto-docs/README.md).
+To learn how to build the docs, see the [presto-docs README](presto-docs/README.md).
 
 ### Building the Web UI
 
@@ -129,7 +129,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
 * Avoid using the ternary operator except for trivial expressions.
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
-* When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+* To write a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
 ## Committers
 
@@ -148,9 +148,9 @@ New committers are approved by majority vote of the TSC ([see TSC charter](https
 
 - Tests are expected for all bug fixes and new features.
 
-- Make sure your code follows the [code style guidelines](https://github.com/prestodb/presto#code-style), [development guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#development) & [formatting guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#formatting)
+- Make sure your code follows the [code style guidelines](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#code-style), [development guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#development) and [formatting guidelines](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#formatting)
 
-- Make sure you follow the [review and commit guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines), in particular:
+- Follow the [review and commit guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines), in particular:
 
     - Ensure that each commit is correct independently. Each commit should compile and pass tests.
     - When possible, reduce the size of the commit for ease of review.
@@ -186,7 +186,7 @@ Please refer to our [Code of Conduct](https://github.com/prestodb/tsc/blob/maste
 
 ## Contributor License Agreement ("CLA")
 
-In order to accept your pull request, we need you to submit a CLA. You only need to do this once, so if you've done this for one repository in the [prestodb](https://github.com/prestodb) organization, you're good to go. If you are submitting a pull request for the first time, the communitybridge-easycla bot will notify you if you haven't signed, and will provide you with a link.  If you are contributing on behalf of a company, you might want to let the person who manages your corporate CLA whitelist know they will be receiving a request from you.
+To accept your pull request, you must submit a CLA. You only need to do this once, so if you've done this for one repository in the [prestodb](https://github.com/prestodb) organization, you're good to go. If you are submitting a pull request for the first time, the communitybridge-easycla bot will notify you if you haven't signed, and will provide you with a link.  If you are contributing on behalf of a company, you might want to let the person who manages your corporate CLA whitelist know they will be receiving a request from you.
 
 ## License
 
