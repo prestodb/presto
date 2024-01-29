@@ -34,14 +34,7 @@ bool prepareFlatResultsVector(
     const TypePtr& resultType = VARCHAR());
 
 /// Return the string encoding of a vector, if not set UTF8 is returned
-static bool isAscii(BaseVector* vector, const SelectivityVector& rows) {
-  if (auto simpleVector = vector->template as<SimpleVector<StringView>>()) {
-    auto ascii = simpleVector->isAscii(rows);
-    return ascii.has_value() && ascii.value();
-  }
-  VELOX_UNREACHABLE();
-  return false;
-};
+bool isAscii(BaseVector* vector, const SelectivityVector& rows);
 
 /// Wrap an input function with the appropriate ascii instantiation.
 /// Func is a struct templated on boolean with a static function

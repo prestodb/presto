@@ -57,4 +57,14 @@ bool prepareFlatResultsVector(
   return false;
 }
 
+/// Return the string encoding of a vector, if not set UTF8 is returned
+bool isAscii(BaseVector* vector, const SelectivityVector& rows) {
+  if (auto simpleVector = vector->template as<SimpleVector<StringView>>()) {
+    auto ascii = simpleVector->isAscii(rows);
+    return ascii.has_value() && ascii.value();
+  }
+  VELOX_UNREACHABLE();
+  return false;
+};
+
 } // namespace facebook::velox::functions
