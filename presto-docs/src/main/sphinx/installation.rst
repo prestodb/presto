@@ -13,3 +13,4 @@ Installation
     installation/spark
     installation/deploy-docker
     installation/deploy-brew
+    installation/deploy-helm
