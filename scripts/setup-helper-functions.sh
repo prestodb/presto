@@ -119,6 +119,16 @@ function get_cxx_flags {
 
 }
 
+function wget_and_untar {
+  local URL=$1
+  local DIR=$2
+  mkdir -p "${DIR}"
+  pushd "${DIR}"
+  curl -L "${URL}" > $2.tar.gz
+  tar -xz --strip-components=1 -f $2.tar.gz
+  popd
+}
+
 function cmake_install {
   local NAME=$(basename "$(pwd)")
   local BINARY_DIR=_build
