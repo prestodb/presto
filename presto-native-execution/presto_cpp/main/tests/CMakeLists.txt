@@ -67,18 +67,3 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
     gtest
     gtest_main)
 endif()
-
-add_executable(presto_query_runner_test PrestoQueryRunnerTest.cpp
-                                        PrestoQueryRunner.cpp)
-
-add_test(
-  NAME presto_query_runner_test
-  COMMAND presto_query_runner_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-target_link_libraries(
-  presto_query_runner_test presto_http velox_presto_serializer
-  presto_type_converter velox_dwio_dwrf_writer velox_exec_test_lib)
-
-set_property(TARGET presto_query_runner_test PROPERTY JOB_POOL_LINK
-                                                      presto_link_job_pool)
