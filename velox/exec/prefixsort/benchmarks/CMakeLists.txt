@@ -13,5 +13,6 @@
 # limitations under the License.
 add_executable(velox_prefix_sort_algorithm_benchmark
                PrefixSortAlgorithmBenchmark.cpp)
-target_link_libraries(velox_prefix_sort_algorithm_benchmark
-                      velox_vector_test_lib ${FOLLY_BENCHMARK})
+target_link_libraries(
+  velox_prefix_sort_algorithm_benchmark velox_exec_prefixsort_test_lib
+  velox_vector_test_lib ${FOLLY_BENCHMARK})

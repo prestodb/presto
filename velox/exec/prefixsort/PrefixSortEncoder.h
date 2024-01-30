@@ -32,8 +32,6 @@ class PrefixSortEncoder {
   /// 2. Encoding is compatible with sorting ascending with no nulls.
   template <typename T>
   static FOLLY_ALWAYS_INLINE void encode(T value, char* row);
-  template <typename T>
-  static FOLLY_ALWAYS_INLINE void decode(char* row);
 
  private:
   FOLLY_ALWAYS_INLINE static uint8_t flipSignBit(uint8_t byte) {
@@ -53,27 +51,4 @@ FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encode(int64_t value, char* row) {
   row[0] = flipSignBit(row[0]);
 }
 
-template <>
-FOLLY_ALWAYS_INLINE void PrefixSortEncoder::decode<int64_t>(char* row) {
-  row[0] = flipSignBit(row[0]);
-  const auto v = __builtin_bswap64(*reinterpret_cast<uint64_t*>(row));
-  simd::memcpy(row, &v, sizeof(int64_t));
-}
-
-/// For testing only.
-namespace {
-template <typename T>
-FOLLY_ALWAYS_INLINE void testingEncodeInPlace(const std::vector<T>& data) {
-  for (auto i = 0; i < data.size(); i++) {
-    PrefixSortEncoder::encode(data[i], (char*)data.data() + i * sizeof(T));
-  }
-}
-
-template <typename T>
-FOLLY_ALWAYS_INLINE void testingDecodeInPlace(const std::vector<T>& data) {
-  for (auto i = 0; i < data.size(); i++) {
-    PrefixSortEncoder::decode<T>((char*)data.data() + i * sizeof(T));
-  }
-}
-} // namespace
 } // namespace facebook::velox::exec::prefixsort

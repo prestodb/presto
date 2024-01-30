@@ -17,7 +17,7 @@
 #include <folly/init/Init.h>
 #include "velox/buffer/Buffer.h"
 #include "velox/exec/prefixsort/PrefixSortAlgorithm.h"
-#include "velox/exec/prefixsort/PrefixSortEncoder.h"
+#include "velox/exec/prefixsort/tests/utils/EncoderTestUtils.h"
 
 DEFINE_int32(sort_data_seed, 1, "random test data generate seed.");
 
@@ -49,7 +49,7 @@ class PrefixSortAlgorithmBenchmark {
     std::generate(randomTestVec.begin(), randomTestVec.end(), [&]() {
       return folly::Random::rand64(rng_);
     });
-    prefixsort::testingEncodeInPlace(randomTestVec);
+    prefixsort::test::encodeInPlace(randomTestVec);
     return randomTestVec;
   }
 

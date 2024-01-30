@@ -20,6 +20,7 @@
 
 #include "velox/exec/prefixsort/PrefixSortAlgorithm.h"
 #include "velox/exec/prefixsort/PrefixSortEncoder.h"
+#include "velox/exec/prefixsort/tests/utils/EncoderTestUtils.h"
 #include "velox/vector/tests/VectorTestUtils.h"
 
 namespace facebook::velox::exec::prefixsort::test {
@@ -43,14 +44,14 @@ class PrefixSortAlgorithmTest : public testing::Test,
       uint32_t entrySize = sizeof(int64_t);
       auto swapBuffer = AlignedBuffer::allocate<char>(entrySize, pool());
       PrefixSortRunner sortRunner(entrySize, swapBuffer->asMutable<char>());
-      testingEncodeInPlace(data1);
+      encodeInPlace(data1);
       sortRunner.quickSort(
           start, end, [&](char* a, char* b) { return memcmp(a, b, 8); });
     }
 
     // Sort data2 with std::sort.
     std::sort(data2.begin(), data2.end());
-    testingDecodeInPlace(data1);
+    decodeInPlace(data1);
     ASSERT_EQ(data1, data2);
   }
 
@@ -75,7 +76,7 @@ TEST_F(PrefixSortAlgorithmTest, testingMedian3) {
   std::generate(
       data1.begin(), data1.end(), [&]() { return folly::Random::rand64(); });
   std::vector<int64_t> data2(data1);
-  testingEncodeInPlace(data1);
+  encodeInPlace(data1);
 
   size_t entrySize = sizeof(int64_t);
   auto ptr1 = (char*)data1.data();
@@ -85,7 +86,7 @@ TEST_F(PrefixSortAlgorithmTest, testingMedian3) {
       ptr1, ptr2, ptr3, entrySize, [&](char* a, char* b) {
         return memcmp(a, b, entrySize);
       });
-  testingDecodeInPlace(data1);
+  decodeInPlace(data1);
   auto median = *(reinterpret_cast<int64_t*>(medianPtr));
   // Sort the input vector data, the middle element must be equal to the
   // median we calculated.
