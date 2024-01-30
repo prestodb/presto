@@ -133,6 +133,11 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
   }
   properties =
       properties->compression(getArrowParquetCompression(options.compression));
+  for (const auto& columnCompressionValues : options.columnCompressionsMap) {
+    properties->compression(
+        columnCompressionValues.first,
+        getArrowParquetCompression(columnCompressionValues.second));
+  }
   properties = properties->encoding(options.encoding);
   properties = properties->data_pagesize(options.dataPageSize);
   properties = properties->max_row_group_length(

@@ -100,6 +100,8 @@ struct WriterOptions {
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
   std::shared_ptr<CodecOptions> codecOptions;
+  std::unordered_map<std::string, common::CompressionKind>
+      columnCompressionsMap;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
