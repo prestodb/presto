@@ -13,21 +13,45 @@
  */
 package com.facebook.presto.sessionpropertyproviders;
 
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestNativeSessionPropertyProvider
 {
     @Test
-    public void testGetSessionProperties()
+    public void testDeserializeSessionProperties()
             throws URISyntaxException
     {
         URI uri = new URI("http://localhost:7777");
-        // Validate size of session properties for now.
-        assertEquals(new NativeSystemSessionPropertyProvider(uri).getSessionProperties().size(), 3);
+        String responseBody =
+                "[" +
+                        "{\"name\":\"sample1\",\"description\":\"Sample description 1\",\"sqlType\":\"integer\",\"defaultValue\":\"100\",\"hidden\":true}," +
+                        "{\"name\":\"sample2\",\"description\":\"Sample description 2\",\"sqlType\":\"boolean\",\"defaultValue\":\"true\",\"hidden\":false}," +
+                        "{\"name\":\"sample3\",\"description\":\"Sample description 3\",\"sqlType\":\"text\",\"defaultValue\":\"N/A\",\"hidden\":true}," +
+                        "{\"name\":\"sample4\",\"description\":\"Sample description 4\",\"sqlType\":\"double\",\"defaultValue\":\"3.14\",\"hidden\":false}" +
+                        "]";
+
+        // Correct object creation to match responseBody
+        SessionPropertyMetadata s1 = new SessionPropertyMetadata("sample1", "Sample description 1", INTEGER, "100", true);
+        SessionPropertyMetadata s2 = new SessionPropertyMetadata("sample2", "Sample description 2", BOOLEAN, "true", false);
+        SessionPropertyMetadata s3 = new SessionPropertyMetadata("sample3", "Sample description 3", VARCHAR, "N/A", true);
+        SessionPropertyMetadata s4 = new SessionPropertyMetadata("sample4", "Sample description 4", DOUBLE, "3.14", false);
+
+        List<SessionPropertyMetadata> expected = ImmutableList.of(s1, s2, s3, s4);
+        new NativeSystemSessionPropertyProvider(uri);
+        List<SessionPropertyMetadata> decoded = NativeSystemSessionPropertyProvider.deserializeSessionProperties(responseBody);
+
+        assertEquals(decoded.toArray(), expected.toArray());
     }
 }

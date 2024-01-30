@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import okhttp3.OkHttpClient;
@@ -27,6 +28,8 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.List;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 
 public class NativeSystemSessionPropertyProvider
         implements SystemSessionPropertyProvider
@@ -44,6 +47,19 @@ public class NativeSystemSessionPropertyProvider
         this.sessionPropertiesUrl = getSessionPropertiesUrl(nodeUri);
     }
 
+    public static List<SessionPropertyMetadata> deserializeSessionProperties(String responseBody)
+    {
+        JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
+        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
+        JsonCodec<List<SessionPropertyMetadata>> sessionPropertiesJsonCodec = codecFactory.listJsonCodec(SessionPropertyMetadata.class);
+        try {
+            return sessionPropertiesJsonCodec.fromJson(responseBody);
+        }
+        catch (Exception e) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Failed to deserialize the RPC response body.");
+        }
+    }
+
     private URL getSessionPropertiesUrl(URI nodeUri)
     {
         try {
@@ -54,6 +70,7 @@ public class NativeSystemSessionPropertyProvider
             throw new RuntimeException(e);
         }
     }
+
     @Override
     public List<SessionPropertyMetadata> getSessionProperties()
     {
@@ -68,11 +85,7 @@ public class NativeSystemSessionPropertyProvider
             if (responseBody.contains("sessionProperties")) {
                 log.info("Native session properties from HTTP call: %s", responseBody);
             }
-
-            JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
-            JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
-            JsonCodec<List<SessionPropertyMetadata>> sessionPropertiesJsonCodec = codecFactory.listJsonCodec(SessionPropertyMetadata.class);
-            return sessionPropertiesJsonCodec.fromJson(responseBody);
+            return deserializeSessionProperties(responseBody);
         }
         catch (Exception e) {
             throw new IllegalStateException("Failed to get function definition for NativeSystemSessionPropertyProvider." + e.getMessage());

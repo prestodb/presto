@@ -33,11 +33,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"boolean\",\n  \"defaultValue\" : \"false\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BOOLEAN, "false", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 
@@ -47,11 +43,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"integer\",\n  \"defaultValue\" : \"0\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", INTEGER, "0", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 
@@ -61,11 +53,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"bigint\",\n  \"defaultValue\" : \"987654321012345678\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BIGINT, "987654321012345678", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 
@@ -75,11 +63,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"double\",\n  \"defaultValue\" : \"0.0\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", DOUBLE, "0.0", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 
@@ -89,11 +73,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"varchar\",\n  \"defaultValue\" : \"defaultValue\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR, "defaultValue", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 
@@ -103,11 +83,7 @@ public class TestSessionPropertyMetadata
         String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"varchar\",\n  \"defaultValue\" : \"1MB\",\n  \"hidden\" : false\n}";
         SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR, "1MB", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
-        assertEquals(expected.getName(), actual.getName());
-        assertEquals(expected.getDescription(), actual.getDescription());
-        assertEquals(expected.getSqlType(), actual.getSqlType());
-        assertEquals(expected.getDefaultValue(), actual.getDefaultValue());
-        assertEquals(expected.isHidden(), actual.isHidden());
+        assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
     }
 }

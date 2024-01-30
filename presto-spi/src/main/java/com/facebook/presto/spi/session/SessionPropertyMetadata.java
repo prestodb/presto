@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
+import java.util.Objects;
+
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -105,5 +107,24 @@ public class SessionPropertyMetadata
     public boolean isHidden()
     {
         return hidden;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof SessionPropertyMetadata)) {
+            return false;
+        }
+        SessionPropertyMetadata that = (SessionPropertyMetadata) o;
+        return hidden == that.hidden && Objects.equals(name, that.name) && Objects.equals(description, that.description) && Objects.equals(sqlType, that.sqlType) && Objects.equals(defaultValue, that.defaultValue);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, description, sqlType, defaultValue, hidden);
     }
 }
