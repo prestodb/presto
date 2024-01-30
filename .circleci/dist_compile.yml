@@ -105,7 +105,7 @@ commands:
       - run:
           name: "Build Benchmarks - << parameters.benchmark_class >>"
           command: |
-            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make benchmarks-basic-build NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4
             ccache -s
             mkdir -p << parameters.binary_output >>
             cp -r --verbose _build/release/velox/benchmarks/basic/* << parameters.binary_output >>
@@ -127,7 +127,7 @@ commands:
       - run:
           name: Build
           command: |
-            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4
+            make debug NUM_THREADS=8 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4
             ccache -s
           no_output_timeout: 1h
       - run:
@@ -385,7 +385,7 @@ jobs:
       - run:
           name: "Build Velox With Benchmarks and Without Testing"
           command: |
-            make benchmarks-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
+            make benchmarks-build NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4
           no_output_timeout: 1h
       - post-steps
 
