@@ -30,11 +30,11 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import org.apache.iceberg.FileFormat;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isParquetDereferencePushdownEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
@@ -73,7 +73,7 @@ public class IcebergParquetDereferencePushDown
         ConnectorMetadata metadata = transactionManager.get(tableHandle.getTransaction());
         checkState(metadata instanceof IcebergAbstractMetadata, "metadata must be IcebergAbstractMetadata");
 
-        return FileFormat.PARQUET == getFileFormat(metadata.getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
+        return PARQUET == getFileFormat(metadata.getTableMetadata(session, tableHandle.getConnectorHandle()).getProperties());
     }
 
     @Override

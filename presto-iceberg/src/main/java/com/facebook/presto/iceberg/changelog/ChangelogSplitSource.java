@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.changelog;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplit;
 import com.facebook.presto.spi.ConnectorSession;
@@ -120,7 +121,7 @@ public class ChangelogSplitSource
                 task.file().path().toString(),
                 task.start(),
                 task.length(),
-                task.file().format(),
+                FileFormat.fromIcebergFileFormat(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task),
                 getNodeSelectionStrategy(session),
