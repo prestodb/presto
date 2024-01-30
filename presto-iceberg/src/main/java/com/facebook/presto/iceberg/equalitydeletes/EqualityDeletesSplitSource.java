@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.google.common.collect.Iterators.limit;
@@ -104,7 +105,7 @@ public class EqualityDeletesSplitSource
                 deleteFile.path().toString(),
                 0,
                 deleteFile.fileSizeInBytes(),
-                deleteFile.format(),
+                fromIcebergFileFormat(deleteFile.format()),
                 ImmutableList.of(),
                 getPartitionKeys(specById.get(deleteFile.specId()), deleteFile.partition()),
                 getNodeSelectionStrategy(session),
