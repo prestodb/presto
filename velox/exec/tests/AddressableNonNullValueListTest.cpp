@@ -29,7 +29,7 @@ class AddressableNonNullValueListTest : public testing::Test,
   }
 
   void test(const VectorPtr& data, const VectorPtr& uniqueData) {
-    using T = HashStringAllocator::Position;
+    using T = AddressableNonNullValueList::Entry;
     using Set = folly::F14FastSet<
         T,
         AddressableNonNullValueList::Hash,
@@ -44,32 +44,32 @@ class AddressableNonNullValueListTest : public testing::Test,
 
     AddressableNonNullValueList values;
 
-    std::vector<HashStringAllocator::Position> positions;
+    std::vector<T> entries;
 
     DecodedVector decodedVector(*data);
     for (auto i = 0; i < data->size(); ++i) {
-      auto position = values.append(decodedVector, i, allocator());
+      auto entry = values.append(decodedVector, i, allocator());
 
-      if (uniqueValues.contains(position)) {
-        values.removeLast(position);
+      if (uniqueValues.contains(entry)) {
+        values.removeLast(entry);
         continue;
       }
 
-      positions.push_back(position);
+      entries.push_back(entry);
 
-      ASSERT_TRUE(uniqueValues.insert(position).second);
-      ASSERT_TRUE(uniqueValues.contains(position));
-      ASSERT_FALSE(uniqueValues.insert(position).second);
+      ASSERT_TRUE(uniqueValues.insert(entry).second);
+      ASSERT_TRUE(uniqueValues.contains(entry));
+      ASSERT_FALSE(uniqueValues.insert(entry).second);
     }
 
     ASSERT_EQ(uniqueData->size(), values.size());
     ASSERT_EQ(uniqueData->size(), uniqueValues.size());
 
     auto copy = BaseVector::create(data->type(), uniqueData->size(), pool());
-    for (auto i = 0; i < positions.size(); ++i) {
-      auto position = positions[i];
-      ASSERT_TRUE(uniqueValues.contains(position));
-      AddressableNonNullValueList::read(position, *copy, i);
+    for (auto i = 0; i < entries.size(); ++i) {
+      auto entry = entries[i];
+      ASSERT_TRUE(uniqueValues.contains(entry));
+      AddressableNonNullValueList::read(entry, *copy, i);
     }
 
     test::assertEqualVectors(uniqueData, copy);

@@ -123,15 +123,26 @@ void HashStringAllocator::freeToPool(void* ptr, size_t size) {
 }
 
 // static
-ByteInputStream HashStringAllocator::prepareRead(const Header* begin) {
+ByteInputStream HashStringAllocator::prepareRead(
+    const Header* begin,
+    size_t maxBytes) {
   std::vector<ByteRange> ranges;
   auto header = const_cast<Header*>(begin);
+
+  size_t totalBytes = 0;
+
   for (;;) {
     ranges.push_back(ByteRange{
         reinterpret_cast<uint8_t*>(header->begin()), header->usableSize(), 0});
+    totalBytes += ranges.back().size;
     if (!header->isContinued()) {
       break;
     }
+
+    if (totalBytes >= maxBytes) {
+      break;
+    }
+
     header = header->nextContinued();
   }
   return ByteInputStream(std::move(ranges));

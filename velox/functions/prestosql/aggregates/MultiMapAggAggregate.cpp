@@ -138,7 +138,7 @@ struct MultiMapAccumulator {
 
 struct ComplexTypeMultiMapAccumulator {
   MultiMapAccumulator<
-      HashStringAllocator::Position,
+      AddressableNonNullValueList::Entry,
       AddressableNonNullValueList::Hash,
       AddressableNonNullValueList::EqualTo>
       base;
@@ -168,9 +168,9 @@ struct ComplexTypeMultiMapAccumulator {
       const DecodedVector& decodedValues,
       vector_size_t index,
       HashStringAllocator& allocator) {
-    const auto position = serializedKeys.append(decodedKeys, index, &allocator);
+    const auto entry = serializedKeys.append(decodedKeys, index, &allocator);
 
-    auto& values = insertKey(position);
+    auto& values = insertKey(entry);
     values.appendValue(decodedValues, index, &allocator);
   }
 
@@ -182,19 +182,18 @@ struct ComplexTypeMultiMapAccumulator {
       vector_size_t valueIndex,
       vector_size_t numValues,
       HashStringAllocator& allocator) {
-    const auto position =
-        serializedKeys.append(decodedKeys, keyIndex, &allocator);
+    const auto entry = serializedKeys.append(decodedKeys, keyIndex, &allocator);
 
-    auto& values = insertKey(position);
+    auto& values = insertKey(entry);
     for (auto i = 0; i < numValues; ++i) {
       values.appendValue(decodedValues, valueIndex + i, &allocator);
     }
   }
 
-  ValueList& insertKey(HashStringAllocator::Position position) {
-    auto result = base.keys.insert({position, ValueList()});
+  ValueList& insertKey(const AddressableNonNullValueList::Entry& key) {
+    auto result = base.keys.insert({key, ValueList()});
     if (!result.second) {
-      serializedKeys.removeLast(position);
+      serializedKeys.removeLast(key);
     }
 
     return result.first->second;

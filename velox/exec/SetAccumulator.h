@@ -179,7 +179,7 @@ struct StringViewSetAccumulator {
 struct ComplexTypeSetAccumulator {
   /// A set of pointers to values stored in AddressableNonNullValueList.
   SetAccumulator<
-      HashStringAllocator::Position,
+      AddressableNonNullValueList::Entry,
       AddressableNonNullValueList::Hash,
       AddressableNonNullValueList::EqualTo>
       base;
@@ -203,12 +203,12 @@ struct ComplexTypeSetAccumulator {
         base.nullIndex = cnt;
       }
     } else {
-      auto position = values.append(decoded, index, allocator);
+      auto entry = values.append(decoded, index, allocator);
 
       if (!base.uniqueValues
-               .insert({position, base.nullIndex.has_value() ? cnt + 1 : cnt})
+               .insert({entry, base.nullIndex.has_value() ? cnt + 1 : cnt})
                .second) {
-        values.removeLast(position);
+        values.removeLast(entry);
       }
     }
   }

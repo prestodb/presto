@@ -161,7 +161,7 @@ struct StringViewMapAccumulator {
 struct ComplexTypeMapAccumulator {
   /// A set of pointers to values stored in AddressableNonNullValueList.
   MapAccumulator<
-      HashStringAllocator::Position,
+      AddressableNonNullValueList::Entry,
       AddressableNonNullValueList::Hash,
       AddressableNonNullValueList::EqualTo>
       base;
@@ -180,11 +180,11 @@ struct ComplexTypeMapAccumulator {
       const DecodedVector& decodedValues,
       vector_size_t index,
       HashStringAllocator& allocator) {
-    auto position = serializedKeys.append(decodedKeys, index, &allocator);
+    auto entry = serializedKeys.append(decodedKeys, index, &allocator);
 
     auto cnt = base.keys.size();
-    if (!base.keys.insert({position, cnt}).second) {
-      serializedKeys.removeLast(position);
+    if (!base.keys.insert({entry, cnt}).second) {
+      serializedKeys.removeLast(entry);
       return;
     }
 

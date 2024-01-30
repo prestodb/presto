@@ -30,33 +30,37 @@ namespace facebook::velox::aggregate::prestosql {
 /// set_union.
 class AddressableNonNullValueList {
  public:
+  struct Entry {
+    HashStringAllocator::Position offset;
+    size_t size;
+    uint64_t hash;
+  };
+
   struct Hash {
-    size_t operator()(HashStringAllocator::Position position) const {
-      return AddressableNonNullValueList::readHash(position);
+    size_t operator()(const Entry& key) const {
+      return key.hash;
     }
   };
 
   struct EqualTo {
     const TypePtr& type;
 
-    bool operator()(
-        HashStringAllocator::Position left,
-        HashStringAllocator::Position right) const {
+    bool operator()(const Entry& left, const Entry& right) const {
       return AddressableNonNullValueList::equalTo(left, right, type);
     }
   };
 
   /// Append a non-null value to the end of the list. Returns 'index' that can
   /// be used to access the value later.
-  HashStringAllocator::Position append(
+  Entry append(
       const DecodedVector& decoded,
       vector_size_t index,
       HashStringAllocator* allocator);
 
   /// Removes last element. 'position' must be a value returned from the latest
   /// call to 'append'.
-  void removeLast(HashStringAllocator::Position position) {
-    currentPosition_ = position;
+  void removeLast(const Entry& entry) {
+    currentPosition_ = entry.offset;
     --size_;
   }
 
@@ -66,19 +70,12 @@ class AddressableNonNullValueList {
   }
 
   /// Returns true if elements at 'left' and 'right' are equal.
-  static bool equalTo(
-      HashStringAllocator::Position left,
-      HashStringAllocator::Position right,
-      const TypePtr& type);
-
-  /// Returns the hash of the specified element.
-  static uint64_t readHash(HashStringAllocator::Position position);
+  static bool
+  equalTo(const Entry& left, const Entry& right, const TypePtr& type);
 
   /// Copies the specified element to 'result[index]'.
-  static void read(
-      HashStringAllocator::Position position,
-      BaseVector& result,
-      vector_size_t index);
+  static void
+  read(const Entry& position, BaseVector& result, vector_size_t index);
 
   void free(HashStringAllocator& allocator) {
     if (size_ > 0) {

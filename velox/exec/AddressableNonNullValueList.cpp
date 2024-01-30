@@ -18,7 +18,7 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-HashStringAllocator::Position AddressableNonNullValueList::append(
+AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
     const DecodedVector& decoded,
     vector_size_t index,
     HashStringAllocator* allocator) {
@@ -37,8 +37,10 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
     allocator->extendWrite(currentPosition_, stream);
   }
 
-  // Write hash.
-  stream.appendOne(decoded.base()->hashValueAt(decoded.index(index)));
+  const auto hash = decoded.base()->hashValueAt(decoded.index(index));
+
+  const auto originalSize = stream.size();
+
   // Write value.
   exec::ContainerRowSerde::serialize(
       *decoded.base(), decoded.index(index), stream);
@@ -47,33 +49,35 @@ HashStringAllocator::Position AddressableNonNullValueList::append(
 
   auto startAndFinish = allocator->finishWrite(stream, 1024);
   currentPosition_ = startAndFinish.second;
-  return startAndFinish.first;
+
+  const auto writtenSize = stream.size() - originalSize;
+
+  return {startAndFinish.first, writtenSize, hash};
 }
 
 namespace {
 
-ByteInputStream prepareRead(
-    HashStringAllocator::Position position,
-    bool skipHash) {
-  auto header = position.header;
-  auto seek = static_cast<int32_t>(position.position - header->begin());
+ByteInputStream prepareRead(const AddressableNonNullValueList::Entry& entry) {
+  auto header = entry.offset.header;
+  auto seek = entry.offset.position - header->begin();
 
-  auto stream = HashStringAllocator::prepareRead(header);
+  auto stream = HashStringAllocator::prepareRead(header, entry.size + seek);
   stream.seekp(seek);
-  if (skipHash) {
-    stream.skip(sizeof(uint64_t));
-  }
   return stream;
 }
 } // namespace
 
 // static
 bool AddressableNonNullValueList::equalTo(
-    HashStringAllocator::Position left,
-    HashStringAllocator::Position right,
+    const Entry& left,
+    const Entry& right,
     const TypePtr& type) {
-  auto leftStream = prepareRead(left, true /*skipHash*/);
-  auto rightStream = prepareRead(right, true /*skipHash*/);
+  if (left.hash != right.hash) {
+    return false;
+  }
+
+  auto leftStream = prepareRead(left);
+  auto rightStream = prepareRead(right);
 
   CompareFlags compareFlags =
       CompareFlags::equality(CompareFlags::NullHandlingMode::kNullAsValue);
@@ -82,18 +86,11 @@ bool AddressableNonNullValueList::equalTo(
 }
 
 // static
-uint64_t AddressableNonNullValueList::readHash(
-    HashStringAllocator::Position position) {
-  auto stream = prepareRead(position, false /*skipHash*/);
-  return stream.read<uint64_t>();
-}
-
-// static
 void AddressableNonNullValueList::read(
-    HashStringAllocator::Position position,
+    const Entry& position,
     BaseVector& result,
     vector_size_t index) {
-  auto stream = prepareRead(position, true /*skipHash*/);
+  auto stream = prepareRead(position);
   exec::ContainerRowSerde::deserialize(stream, index, &result);
 }
 
