@@ -3905,6 +3905,7 @@ DEBUG_ONLY_TEST_F(
   ASSERT_EQ(arbitrator->stats().numReserves, 1);
   const auto updatedSpillStats = common::globalSpillStats();
   ASSERT_EQ(updatedSpillStats, spillStats);
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
