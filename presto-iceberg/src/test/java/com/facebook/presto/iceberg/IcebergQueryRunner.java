@@ -23,8 +23,10 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.airlift.log.Level.WARN;
@@ -44,16 +46,16 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of());
+        return createIcebergQueryRunner(extraProperties, ImmutableMap.of(), dataDirectory);
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()));
+        return createIcebergQueryRunner(extraProperties, ImmutableMap.of("iceberg.catalog.type", catalogType.name()), Optional.empty());
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, CatalogType catalogType, Map<String, String> extraConnectorProperties)
@@ -64,30 +66,38 @@ public final class IcebergQueryRunner
                 ImmutableMap.<String, String>builder()
                         .putAll(extraConnectorProperties)
                         .put("iceberg.catalog.type", catalogType.name())
-                        .build());
+                        .build(),
+                Optional.empty());
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, Optional.empty());
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties, Optional<Path> dataDirectory)
+            throws Exception
+    {
         FileFormat defaultFormat = new IcebergConfig().getFileFormat();
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, defaultFormat, true);
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, defaultFormat, true, dataDirectory);
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, Map<String, String> extraConnectorProperties, FileFormat format)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, true);
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, true, Optional.empty());
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> extraConnectorProperties,
             FileFormat format,
-            boolean createTpchTables)
+            boolean createTpchTables,
+            Optional<Path> dataDirectory)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, false, OptionalInt.empty());
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, false, OptionalInt.empty(), dataDirectory);
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(
@@ -96,7 +106,8 @@ public final class IcebergQueryRunner
             FileFormat format,
             boolean createTpchTables,
             boolean addJmxPlugin,
-            OptionalInt nodeCount)
+            OptionalInt nodeCount,
+            Optional<Path> dataDirectory)
             throws Exception
     {
         Logging logger = Logging.initialize();
@@ -107,7 +118,8 @@ public final class IcebergQueryRunner
                 .build();
 
         DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties);
+                .setExtraProperties(extraProperties)
+                .setDataDirectory(dataDirectory);
 
         nodeCount.ifPresent(queryRunnerBuilder::setNodeCount);
 
@@ -116,14 +128,14 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
+        Path icebergDataDirectory = queryRunner.getCoordinator().getDataDirectory();
 
         queryRunner.installPlugin(new IcebergPlugin());
 
         String catalogType = extraConnectorProperties.getOrDefault("iceberg.catalog.type", HIVE.name());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("iceberg.file-format", format.name())
-                .putAll(getConnectorProperties(CatalogType.valueOf(catalogType), dataDirectory))
+                .putAll(getConnectorProperties(CatalogType.valueOf(catalogType), icebergDataDirectory))
                 .putAll(extraConnectorProperties)
                 .build();
 
@@ -163,10 +175,44 @@ public final class IcebergQueryRunner
             throws Exception
     {
         Logging.initialize();
+        Optional<Path> dataDirectory = Optional.empty();
+        if (args.length > 0) {
+            if (args.length != 1) {
+                log.error("usage: IcebergQueryRunner [dataDirectory]\n");
+                log.error("       [dataDirectory] is a local directory under which you want the iceberg_data directory to be created.]\n");
+                System.exit(1);
+            }
+
+            File dataDirectoryFile = new File(args[0]);
+            if (dataDirectoryFile.exists()) {
+                if (!dataDirectoryFile.isDirectory()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
+                    System.exit(1);
+                }
+                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+            else {
+                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                while (!dataDirectoryFile.exists()) {
+                    dataDirectoryFile = dataDirectoryFile.getParentFile();
+                }
+                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+
+            dataDirectory = Optional.of(dataDirectoryFile.toPath());
+        }
+
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = createIcebergQueryRunner(properties);
+            queryRunner = createIcebergQueryRunner(properties, dataDirectory);
         }
         catch (Throwable t) {
             log.error(t);

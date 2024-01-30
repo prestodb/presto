@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -52,7 +53,7 @@ public class TestIcebergSplitManager
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of());
+        return createIcebergQueryRunner(ImmutableMap.of(), Optional.empty());
     }
 
     @Test
