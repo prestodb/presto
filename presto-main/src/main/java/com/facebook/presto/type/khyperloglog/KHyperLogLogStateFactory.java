@@ -31,6 +31,10 @@ public class KHyperLogLogStateFactory
 
     private final long groupLimit;
 
+    public KHyperLogLogStateFactory()
+    {
+        this.groupLimit = 0;
+    }
     public KHyperLogLogStateFactory(long groupLimit)
     {
         this.groupLimit = groupLimit;

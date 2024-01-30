@@ -297,6 +297,7 @@ public class FeaturesConfig
     private boolean removeRedundantCastToVarcharInJoin = true;
     private boolean skipHashGenerationForJoinWithTableScanInput;
     private long kHyperLogLogAggregationGroupNumberLimit;
+    private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
 
     public enum PartitioningPrecisionStrategy
@@ -2971,6 +2972,19 @@ public class FeaturesConfig
     public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
     {
         this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
+        return this;
+    }
+
+    public boolean getLimitNumberOfGroupsForKHyperLogLogAggregations()
+    {
+        return limitNumberOfGroupsForKHyperLogLogAggregations;
+    }
+
+    @Config("limit-khyperloglog-agg-group-number-enabled")
+    @ConfigDescription("Enable limiting number of groups for khyperloglog_agg and merge of KHyperLogLog states")
+    public FeaturesConfig setLimitNumberOfGroupsForKHyperLogLogAggregations(boolean limitNumberOfGroupsForKHyperLogLogAggregations)
+    {
+        this.limitNumberOfGroupsForKHyperLogLogAggregations = limitNumberOfGroupsForKHyperLogLogAggregations;
         return this;
     }
 
