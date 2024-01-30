@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;

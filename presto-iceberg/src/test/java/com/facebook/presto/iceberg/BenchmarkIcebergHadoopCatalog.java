@@ -30,9 +30,9 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Benchmark;
 

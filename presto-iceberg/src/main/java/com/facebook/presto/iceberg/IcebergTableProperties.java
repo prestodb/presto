@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.FileFormat;
 
 import javax.inject.Inject;
 
