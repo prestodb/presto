@@ -29,7 +29,9 @@ extern void registerArrayAggAggregate(
 extern void registerAverageAggregate(
     const std::string& prefix,
     bool withCompanionFunctions);
-extern void registerBitwiseXorAggregate(const std::string& prefix);
+extern void registerBitwiseXorAggregate(
+    const std::string& prefix,
+    bool onlyPrestoSignatures);
 extern void registerChecksumAggregate(const std::string& prefix);
 extern void registerCountAggregate(const std::string& prefix);
 extern void registerCountIfAggregate(const std::string& prefix);
@@ -49,7 +51,9 @@ extern void registerSetUnionAggregate(const std::string& prefix);
 extern void registerApproxDistinctAggregates(
     const std::string& prefix,
     bool withCompanionFunctions);
-extern void registerBitwiseAggregates(const std::string& prefix);
+extern void registerBitwiseAggregates(
+    const std::string& prefix,
+    bool onlyPrestoSignatures);
 extern void registerBoolAggregates(const std::string& prefix);
 extern void registerCentralMomentsAggregates(const std::string& prefix);
 extern void registerCovarianceAggregates(const std::string& prefix);
@@ -60,15 +64,16 @@ extern void registerVarianceAggregates(const std::string& prefix);
 
 void registerAllAggregateFunctions(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool onlyPrestoSignatures) {
   registerApproxDistinctAggregates(prefix, withCompanionFunctions);
   registerApproxMostFrequentAggregate(prefix);
   registerApproxPercentileAggregate(prefix, withCompanionFunctions);
   registerArbitraryAggregate(prefix);
   registerArrayAggAggregate(prefix, withCompanionFunctions);
   registerAverageAggregate(prefix, withCompanionFunctions);
-  registerBitwiseAggregates(prefix);
-  registerBitwiseXorAggregate(prefix);
+  registerBitwiseAggregates(prefix, onlyPrestoSignatures);
+  registerBitwiseXorAggregate(prefix, onlyPrestoSignatures);
   registerBoolAggregates(prefix);
   registerCentralMomentsAggregates(prefix);
   registerChecksumAggregate(prefix);

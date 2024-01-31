@@ -19,8 +19,14 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
+/// Entery point to register aggregate functions.
+/// \param prefix : Prefix for the aggregate functions.
+/// \param withCompanionFunctions : Also register companion functions, defaults
+/// to true. \param onlyPrestoSignatures  : Register only function signatures
+/// that are compatible with Presto.
 void registerAllAggregateFunctions(
     const std::string& prefix = "",
-    bool withCompanionFunctions = true);
+    bool withCompanionFunctions = true,
+    bool onlyPrestoSignatures = false);
 
 } // namespace facebook::velox::aggregate::prestosql

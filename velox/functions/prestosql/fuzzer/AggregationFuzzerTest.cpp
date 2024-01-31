@@ -90,8 +90,16 @@ std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner() {
 } // namespace facebook::velox::exec::test
 
 int main(int argc, char** argv) {
-  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
-      "", false);
+  // Register only presto supported signatures if we are verifying against
+  // Presto.
+  if (FLAGS_presto_url.empty()) {
+    facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "", false);
+  } else {
+    facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
+        "", false, true);
+  }
+
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
   facebook::velox::window::prestosql::registerAllWindowFunctions();
   facebook::velox::functions::prestosql::registerInternalFunctions();

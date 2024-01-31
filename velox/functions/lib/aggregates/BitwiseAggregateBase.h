@@ -70,9 +70,15 @@ class BitwiseAggregateBase : public SimpleNumericAggregate<T, T, T> {
 };
 
 template <template <typename U> class T>
-exec::AggregateRegistrationResult registerBitwise(const std::string& name) {
+exec::AggregateRegistrationResult registerBitwise(
+    const std::string& name,
+    bool onlyPrestoSignatures) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
-  for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
+  std::vector<std::string> typeList{"tinyint", "smallint", "integer", "bigint"};
+  if (onlyPrestoSignatures) {
+    typeList = {"bigint"};
+  }
+  for (const auto& inputType : typeList) {
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .returnType(inputType)
                              .intermediateType(inputType)
