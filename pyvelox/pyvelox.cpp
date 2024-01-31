@@ -15,6 +15,7 @@
  */
 
 #include "pyvelox.h"
+#include "complex.h"
 #include "conversion.h"
 #include "serde.h"
 #include "signatures.h"
@@ -143,6 +144,8 @@ static VectorPtr pyListToVector(
   if (first_kind == velox::TypeKind::INVALID) {
     throw py::value_error(
         "Can't create a Velox vector consisting of only None");
+  } else if (first_kind == velox::TypeKind::ARRAY) {
+    return variantsToVector(variants, pool);
   }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
@@ -164,7 +167,7 @@ static VectorPtr pyListToVector(
 }
 
 template <typename NativeType>
-static py::object getItemFromSimpleVector(
+inline py::object getItemFromSimpleVector(
     SimpleVectorPtr<NativeType>& vector,
     vector_size_t idx) {
   checkBounds(vector, idx);

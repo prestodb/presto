@@ -34,6 +34,7 @@
 #include <velox/vector/DictionaryVector.h>
 #include <velox/vector/FlatVector.h>
 #include "folly/json.h"
+#include "velox/vector/VariantToVector.h"
 
 #include "context.h"
 
@@ -68,6 +69,13 @@ inline velox::variant pyToVariant(const py::handle& obj) {
     return pyToVariant<velox::TypeKind::DOUBLE>(obj);
   } else if (py::isinstance<py::str>(obj)) {
     return pyToVariant<velox::TypeKind::VARCHAR>(obj);
+  } else if (py::isinstance<py::list>(obj)) {
+    py::list objAsList = py::cast<py::list>(obj);
+    std::vector<velox::variant> result;
+    for (auto& item : objAsList) {
+      result.push_back(pyToVariant(item));
+    }
+    return velox::variant::array(std::move(result));
   } else {
     throw py::type_error("Invalid type of object");
   }
@@ -175,13 +183,13 @@ static VectorPtr createDictionaryVector(
 }
 
 template <typename NativeType>
-static py::object getItemFromSimpleVector(
-    SimpleVectorPtr<NativeType>& vector,
+inline py::object getItemFromSimpleVector(
+    SimpleVectorPtr<NativeType>& v,
     vector_size_t idx);
 
 template <typename NativeType>
 inline void setItemInFlatVector(
-    FlatVectorPtr<NativeType>& vector,
+    FlatVectorPtr<NativeType>& v,
     vector_size_t idx,
     py::handle& obj);
 
@@ -463,6 +471,12 @@ static void addVectorBindings(
           py::arg("start"),
           py::arg("stop"),
           py::arg("step") = 1);
+
+  py::class_<ArrayVector, ArrayVectorPtr, BaseVector>(
+      m, "ArrayVector", py::module_local(asModuleLocalDefinitions))
+      .def("elements", [](ArrayVectorPtr vec) -> VectorPtr {
+        return vec->elements();
+      });
 
   constexpr TypeKind supportedTypes[] = {
       TypeKind::BOOLEAN,

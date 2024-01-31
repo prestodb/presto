@@ -17,8 +17,14 @@ if(VELOX_BUILD_PYTHON_PACKAGE)
   include_directories(SYSTEM ${CMAKE_SOURCE_DIR})
   add_definitions(-DCREATE_PYVELOX_MODULE -DVELOX_DISABLE_GOOGLETEST)
   # Define our Python module:
-  pybind11_add_module(pyvelox MODULE pyvelox.cpp serde.cpp signatures.cpp
-                      conversion.cpp)
+  pybind11_add_module(
+    pyvelox
+    MODULE
+    pyvelox.cpp
+    serde.cpp
+    signatures.cpp
+    complex.cpp
+    conversion.cpp)
   # Link with Velox:
   target_link_libraries(
     pyvelox

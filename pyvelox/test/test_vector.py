@@ -156,6 +156,46 @@ class TestVeloxVector(unittest.TestCase):
             pv.dictionary_vector(pv.from_list([1, 2, 3]), [1, 2, 1000000])
             pv.dictionary_vector(pv.from_list([1, 2, 3]), [0, -1, -2])
 
+    def test_array_vector(self):
+        v1 = pv.from_list([[1, 2, 3], [1, 2, 3]])
+        self.assertTrue(isinstance(v1, pv.ArrayVector))
+        self.assertTrue(isinstance(v1.elements(), pv.FlatVector_BIGINT))
+        self.assertEqual(len(v1), 2)
+        expected_flat = [1, 2, 3, 1, 2, 3]
+        self.assertEqual(len(expected_flat), len(v1.elements()))
+        for i in range(len(expected_flat)):
+            self.assertEqual(expected_flat[i], v1.elements()[i])
+
+        v2 = pv.from_list([[1], [1, 2, None]])
+        self.assertTrue(isinstance(v2, pv.ArrayVector))
+        self.assertTrue(isinstance(v2.elements(), pv.FlatVector_BIGINT))
+        self.assertEqual(len(v2), 2)
+        expected_flat = [1, 1, 2, None]
+        self.assertEqual(len(v2.elements()), len(expected_flat))
+        for i in range(len(expected_flat)):
+            self.assertEqual(expected_flat[i], v2.elements()[i])
+
+        doubleNested = pv.from_list([[[1, 2], [3, None]], [[1], [2]]])
+        self.assertTrue(isinstance(doubleNested, pv.ArrayVector))
+        self.assertTrue(isinstance(doubleNested.elements(), pv.ArrayVector))
+        self.assertEqual(len(doubleNested), 2)
+        elements = doubleNested.elements().elements()
+        self.assertTrue(isinstance(elements, pv.FlatVector_BIGINT))
+        self.assertEqual(len(elements), 6)
+        expected_firstElements = [1, 2, 3, None, 1, 2]
+        self.assertEqual(len(elements), len(expected_firstElements))
+        for i in range(len(expected_firstElements)):
+            self.assertEqual(expected_firstElements[i], elements[i])
+
+        with self.assertRaises(TypeError):
+            a = pv.from_list([[[1, 2], [3, 4]], [[1.1], [2.3]]])
+
+        with self.assertRaises(ValueError):
+            v = pv.from_list([[None], [None, None, None]])
+
+        with self.assertRaises(TypeError):
+            a = pv.from_list([[[1, 2], [3, 4]], [["hello"], ["world"]]])
+
     def test_to_string(self):
         self.assertEqual(
             str(pv.from_list([1, 2, 3])),
