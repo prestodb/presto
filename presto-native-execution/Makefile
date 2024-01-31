@@ -20,6 +20,7 @@ NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 CMAKE_PREFIX_PATH ?= "/usr/local"
 PRESTOCPP_ROOT_DIR="$(shell pwd)"
+DEPENDENCY_IMAGE="centos8-prestissimo-dependency:latest"
 
 PRESTO_ENABLE_PARQUET ?= "OFF"
 PRESTO_ENABLE_S3 ?= "OFF"
@@ -116,6 +117,21 @@ linux-container:
 	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/setup-helper-functions.sh /tmp/docker && \
 	cd /tmp/docker && \
 	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
+
+dev-dependency-image: submodules
+	rm -rf /tmp/deps-docker && \
+	mkdir -p /tmp/deps-docker && \
+	cp scripts/setup-centos.sh scripts/dev-dockerfiles/dependency.dockerfile velox/scripts/setup-helper-functions.sh /tmp/deps-docker && \
+	cp velox/scripts/setup-centos8.sh /tmp/deps-docker/velox-setup-centos.sh && \
+	cp velox/scripts/setup-adapters.sh /tmp/deps-docker/ && \
+	cd /tmp/deps-docker && \
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --tag $(DEPENDENCY_IMAGE) -f dependency.dockerfile .
+
+dev-runtime-image:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) \
+	             --build-arg DEPENDENCY_IMAGE="localhost/$(DEPENDENCY_IMAGE)" \
+	             --build-arg EXTRA_CMAKE_FLAGS=$(EXTRA_CMAKE_FLAGS) \
+	             --tag "centos8-prestissimo-runtime:latest" -f scripts/dev-dockerfiles/prestissimo.dockerfile .
 
 runtime-container:
 	rm -rf /tmp/release-centos-dockerfile && \
