@@ -37,6 +37,8 @@ be JSON. Behaviors of the casts are shown with the examples below:
     SELECT CAST('abc' AS JSON); -- JSON '"abc"'
     SELECT CAST(true AS JSON); -- JSON 'true'
     SELECT CAST(1.234 AS JSON); -- JSON '1.234'
+    SELECT CAST(-0.00012 AS JSON); -- JSON '-1.2E-4'
+    SELECT CAST(10000000.0 AS JSON); -- JSON '1.0E7'
     SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
     SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
     SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
@@ -51,6 +53,12 @@ have nulls in it.
 Another thing to be aware of is that when casting from ROW to JSON, the
 result is a JSON array rather than a JSON object. This is because positions
 are more important than names for rows in SQL.
+
+Also note that casting from REAL or DOUBLE returns the JSON text represented
+in standard notation if the magnitude of input value is greater than or equal
+to 10 :superscript:`-3` but less than 10 :superscript:`7`, and returns the JSON
+text in scientific notation otherwise. The standard and scientific notation
+always has the fractional part, such as ``10.0``.
 
 Finally, keep in mind that casting a VARCHAR string to JSON does not directly
 turn the original string into JSON type. Instead, it creates a JSON text

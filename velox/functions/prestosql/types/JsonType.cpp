@@ -31,13 +31,14 @@
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
+#include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
 
 namespace {
 
-template <typename T, bool isMapKey = false>
+template <typename T, bool legacyCast>
 void generateJsonTyped(
     const SimpleVector<T>& input,
     int row,
@@ -57,12 +58,15 @@ void generateJsonTyped(
     VELOX_FAIL(
         "Casting UNKNOWN to JSON: Vectors of UNKNOWN type should not contain non-null rows");
   } else {
-    if constexpr (isMapKey) {
-      result.append("\"");
-    }
-
     if constexpr (std::is_same_v<T, bool>) {
       result.append(value ? "true" : "false");
+    } else if constexpr (
+        std::is_same_v<T, double> || std::is_same_v<T, float>) {
+      if constexpr (!legacyCast) {
+        result.append(util::Converter<TypeKind::VARCHAR>::cast(value));
+      } else {
+        folly::toAppend<std::string, T>(value, &result);
+      }
     } else if constexpr (std::is_same_v<T, Timestamp>) {
       result.append(std::to_string(value));
     } else if (type->isDate()) {
@@ -70,11 +74,56 @@ void generateJsonTyped(
     } else {
       folly::toAppend<std::string, T>(value, &result);
     }
-
-    if constexpr (isMapKey) {
-      result.append("\"");
-    }
   }
+}
+
+template <typename T, bool legacyCast>
+void generateJsonNonKeyTyped(
+    const SimpleVector<T>& inputVector,
+    exec::EvalCtx& context,
+    const SelectivityVector& rows,
+    FlatVector<StringView>& flatResult) {
+  std::string result;
+  context.applyToSelectedNoThrow(rows, [&](auto row) {
+    if (inputVector.isNullAt(row)) {
+      flatResult.set(row, "null");
+    } else {
+      result.clear();
+      generateJsonTyped<T, legacyCast>(
+          inputVector, row, result, inputVector.type());
+
+      flatResult.set(row, StringView{result});
+    }
+  });
+}
+
+template <typename T, bool legacyCast>
+void generateJsonKeyTyped(
+    const SimpleVector<T>& inputVector,
+    exec::EvalCtx& context,
+    const SelectivityVector& rows,
+    FlatVector<StringView>& flatResult) {
+  std::string result;
+  context.applyToSelectedNoThrow(rows, [&](auto row) {
+    if (inputVector.isNullAt(row)) {
+      VELOX_USER_FAIL("Map keys cannot be null.");
+    } else {
+      result.clear();
+
+      if constexpr (!std::is_same_v<T, StringView>) {
+        result.append("\"");
+      }
+
+      generateJsonTyped<T, legacyCast>(
+          inputVector, row, result, inputVector.type());
+
+      if constexpr (!std::is_same_v<T, StringView>) {
+        result.append("\"");
+      }
+
+      flatResult.set(row, StringView{result});
+    }
+  });
 }
 
 // Casts primitive-type input vectors to Json type.
@@ -92,29 +141,21 @@ void castToJson(
   // input is guaranteed to be in flat or constant encodings when passed in.
   auto inputVector = input.as<SimpleVector<T>>();
 
-  std::string result;
-  if (!isMapKey) {
-    context.applyToSelectedNoThrow(rows, [&](auto row) {
-      if (inputVector->isNullAt(row)) {
-        flatResult.set(row, "null");
-      } else {
-        result.clear();
-        generateJsonTyped(*inputVector, row, result, input.type());
+  bool legacyCast = context.execCtx()->queryCtx()->queryConfig().isLegacyCast();
 
-        flatResult.set(row, StringView{result});
-      }
-    });
+  if (FOLLY_LIKELY(!legacyCast)) {
+    if (!isMapKey) {
+      generateJsonNonKeyTyped<T, false>(
+          *inputVector, context, rows, flatResult);
+    } else {
+      generateJsonKeyTyped<T, false>(*inputVector, context, rows, flatResult);
+    }
   } else {
-    context.applyToSelectedNoThrow(rows, [&](auto row) {
-      if (inputVector->isNullAt(row)) {
-        VELOX_USER_FAIL("Map keys cannot be null.");
-      } else {
-        result.clear();
-        generateJsonTyped<T, true>(*inputVector, row, result, input.type());
-
-        flatResult.set(row, StringView{result});
-      }
-    });
+    if (!isMapKey) {
+      generateJsonNonKeyTyped<T, true>(*inputVector, context, rows, flatResult);
+    } else {
+      generateJsonKeyTyped<T, true>(*inputVector, context, rows, flatResult);
+    }
   }
 }
 

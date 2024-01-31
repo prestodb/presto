@@ -464,6 +464,9 @@ struct Converter<TypeKind::VARCHAR, void, TPolicy> {
         return str;
       }
 
+      // Implementation below is close to String.of(double) of Java. For
+      // example, for some rare cases the result differs in precision by
+      // the least significant bit.
       if (FOLLY_UNLIKELY(std::isinf(val) || std::isnan(val))) {
         return folly::to<std::string>(val);
       }

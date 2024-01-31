@@ -268,18 +268,72 @@ TEST_F(JsonCastTest, fromBoolean) {
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
-TEST_F(JsonCastTest, fromDouble) {
+TEST_F(JsonCastTest, fromDoubleAndReal) {
   testCastToJson<double>(
       DOUBLE(),
-      {1.1, 2.0001, 10.0, 3.14e0, kNan, kInf, -kInf, std::nullopt},
+      {1.1,
+       2.0001,
+       10.0,
+       3.14e0,
+       -0.0,
+       0.00012,
+       -0.001,
+       12345.0,
+       10'000'000.0,
+       123456789.01234567,
+       kNan,
+       -kNan,
+       kInf,
+       -kInf,
+       std::nullopt},
       {"1.1"_sv,
        "2.0001"_sv,
-       "10"_sv,
+       "10.0"_sv,
        "3.14"_sv,
+       "-0.0"_sv,
+       "1.2E-4"_sv,
+       "-0.001"_sv,
+       "12345.0"_sv,
+       "1.0E7"_sv,
+       "1.2345678901234567E8"_sv,
+       "NaN"_sv,
        "NaN"_sv,
        "Infinity"_sv,
        "-Infinity"_sv,
        std::nullopt});
+  testCastToJson<float>(
+      REAL(),
+      {1.1,
+       2.0001,
+       10.0,
+       3.14e0,
+       -0.0,
+       0.00012,
+       -0.001,
+       12345.0,
+       10'000'000.0,
+       123456780.0,
+       kNan,
+       -kNan,
+       kInf,
+       -kInf,
+       std::nullopt},
+      {"1.1"_sv,
+       "2.0001"_sv,
+       "10.0"_sv,
+       "3.14"_sv,
+       "-0.0"_sv,
+       "1.2E-4"_sv,
+       "-0.001"_sv,
+       "12345.0"_sv,
+       "1.0E7"_sv,
+       "1.2345678E8"_sv,
+       "NaN"_sv,
+       "NaN"_sv,
+       "Infinity"_sv,
+       "-Infinity"_sv,
+       std::nullopt});
+
   testCastToJson<double>(
       DOUBLE(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
@@ -428,9 +482,9 @@ TEST_F(JsonCastTest, fromMap) {
 
   // Tests map with floating-point keys.
   std::vector<std::vector<Pair<double, int64_t>>> mapDoubleKey{
-      {{4.4, std::nullopt}, {3.3, 2}}, {}};
+      {{4.4, std::nullopt}, {3.3, 2}, {10.0, 9}, {-100000000.5, 99}}, {}};
   std::vector<std::optional<JsonNativeType>> expectedDoubleKey{
-      R"({"3.3":2,"4.4":null})", "{}"};
+      R"({"-1.000000005E8":99,"10.0":9,"3.3":2,"4.4":null})", "{}"};
   testCastFromMap(MAP(DOUBLE(), BIGINT()), mapDoubleKey, expectedDoubleKey);
 
   // Tests map with boolean keys.
@@ -466,14 +520,14 @@ TEST_F(JsonCastTest, fromMap) {
 
   // Tests map whose elements are wrapped in a dictionary.
   std::vector<std::optional<double>> values{
-      1.1e3, 2.2, 3.14e0, -4.4, std::nullopt, -6e-10, -7.7};
+      1.1e3, 2.2, 3.14e0, -4.4, std::nullopt, -0.0000000006, -7.7};
   auto mapOfDictElements = makeMapWithDictionaryElements(keys, values, 2);
 
   auto mapOfDictElementsExpected = makeNullableFlatVector<JsonNativeType>(
-      {R"({"f":-6E-10,"g":null})",
+      {R"({"f":-6.0E-10,"g":null})",
        R"({"d":-4.4,"e":null})",
        R"({"b":2.2,"c":3.14})",
-       R"({"a":1100})"},
+       R"({"a":1100.0})"},
       JSON());
   testCast(mapOfDictElements, mapOfDictElementsExpected);
 
@@ -481,7 +535,10 @@ TEST_F(JsonCastTest, fromMap) {
   auto jsonMapOfDictElements =
       makeMapWithDictionaryElements(keys, values, 2, MAP(JSON(), DOUBLE()));
   auto jsonMapOfDictElementsExpected = makeNullableFlatVector<JsonNativeType>(
-      {"{f:-6E-10,g:null}", "{d:-4.4,e:null}", "{b:2.2,c:3.14}", "{a:1100}"},
+      {"{f:-6.0E-10,g:null}",
+       "{d:-4.4,e:null}",
+       "{b:2.2,c:3.14}",
+       "{a:1100.0}"},
       JSON());
   testCast(jsonMapOfDictElements, jsonMapOfDictElementsExpected);
 
