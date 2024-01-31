@@ -15,6 +15,7 @@
  */
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <atomic>
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OutputBufferManager.h"
 
@@ -253,7 +254,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
       std::pair<ResultCallback, size_t>>
       timeouts_;
   static std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
-  static bool stop_;
+  static std::atomic_bool stop_;
   static bool exitInitialized_;
 };
 
@@ -263,7 +264,7 @@ folly::F14FastMap<
     std::pair<LocalExchangeSource::ResultCallback, size_t>>
     LocalExchangeSource::timeouts_;
 std::unique_ptr<folly::CPUThreadPoolExecutor> LocalExchangeSource::executor_;
-bool LocalExchangeSource::stop_ = false;
+std::atomic_bool LocalExchangeSource::stop_ = false;
 bool LocalExchangeSource::exitInitialized_ = false;
 
 } // namespace
