@@ -31,28 +31,6 @@ commands:
             git submodule sync --recursive
             git submodule update --init --recursive
 
-  install-duckdb:
-    steps:
-      - run:
-          name: "Install DuckDB 0.8.1"
-          command: |
-            source /opt/rh/gcc-toolset-9/enable
-            set -xu
-            mkdir ~/duckdb-install && cd ~/duckdb-install
-            wget https://github.com/duckdb/duckdb/archive/refs/tags/v0.8.1.tar.gz
-            tar -xf v0.8.1.tar.gz
-            cd duckdb-0.8.1
-            mkdir build && cd build
-            CMAKE_FLAGS=(
-              "-DBUILD_UNITTESTS=OFF"
-              "-DENABLE_SANITIZER=OFF"
-              "-DENABLE_UBSAN=OFF"
-              "-DBUILD_SHELL=OFF"
-              "-DEXPORT_DLL_SYMBOLS=OFF"
-            )
-            cmake ${CMAKE_FLAGS[*]}  ..
-            make install -j 16
-
   setup-environment:
     steps:
       - run:
@@ -150,7 +128,7 @@ commands:
 executors:
   build:
     docker:
-      - image : ghcr.io/facebookincubator/velox-dev:new-cci
+      - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
     resource_class: 2xlarge
     environment:
       CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
@@ -245,7 +223,6 @@ jobs:
       DuckDB_SOURCE: SYSTEM
     steps:
       - pre-steps
-      - install-duckdb
       - run:
           name: "Build"
           command: |
@@ -398,26 +375,14 @@ jobs:
       DuckDB_SOURCE: SYSTEM
     steps:
       - pre-steps
-      - install-duckdb
       - run:
           name: "Install Adapter Dependencies"
           command: |
-            mkdir -p ~/adapter-deps/install/bin
             source /opt/rh/gcc-toolset-9/enable
             set -xu
-            DEPENDENCY_DIR=~/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh
+            PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh abfs
       - run:
-          name: "Install Minio Server"
-          command: |
-            if ! rpm -q --quiet minio ; then 
-              set -xu
-              cd ~/adapter-deps/install/bin/
-              wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio-20220526054841.0.0.x86_64.rpm
-              rpm -i minio-20220526054841.0.0.x86_64.rpm
-              rm minio-20220526054841.0.0.x86_64.rpm
-            fi
-      - run:
-          name: "Install Hadoop Dependency"
+          name: "Install Java for Hadoop"
           command: |
             set -xu
             yum -y install java-1.8.0-openjdk
@@ -435,7 +400,7 @@ jobs:
               "-DVELOX_ENABLE_SUBSTRAIT=ON"
               "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             )
-            make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}" AWSSDK_ROOT_DIR=~/adapter-deps/install GCSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
       - run:
@@ -451,7 +416,7 @@ jobs:
             export HADOOP_ROOT_LOGGER="WARN,DRFA"
             export LIBHDFS3_CONF=$(pwd)/.circleci/hdfs-client.xml
             export HADOOP_HOME='/usr/local/hadoop'
-            export PATH=~/adapter-deps/install/bin:/usr/local/hadoop/bin:${PATH}
+            export PATH=/usr/local/hadoop/bin:${PATH}
             # The following is used to install Azurite in the CI for running Abfs Hive Connector unit tests.
             # Azurite is an emulator for local Azure Storage development, and it is a required component for running Abfs Hive Connector unit tests.
             # It can be installed using npm. The following is used to install Node.js and npm for Azurite installation.
