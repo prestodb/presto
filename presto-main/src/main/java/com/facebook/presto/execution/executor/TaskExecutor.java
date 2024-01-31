@@ -285,7 +285,7 @@ public class TaskExecutor
                     () -> {
                         TaskId taskId = taskHandle.getTaskId();
                         log.info("Before trackPreemptionLifeCycle test");
-                        eventListenerManager.trackPreemptionLifeCycle(taskId, QueryRecoveryState.INIT_GRACEFUL_PREEMPTION);
+                        eventListenerManager.trackPreemptionLifeCycle(taskId, QueryRecoveryDebugInfo.builder().state(QueryRecoveryState.INIT_GRACEFUL_PREEMPTION).build());
                         log.info("After trackPreemptionLifeCycle test");
                         if (!taskHandle.getOutputBuffer().isPresent()) {
                             log.info("No output buffer for task %s", taskId);
@@ -304,10 +304,10 @@ public class TaskExecutor
                             while (!taskHandle.isTotalRunningSplitEmpty()) {
                                 checkState(!taskHandle.isTaskDone(), "Task is done while waiting for total running split empty");
                                 if (blockedSplits.size() > 0) {
-                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_BLOCKED_SPLITS);
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryDebugInfo.builder().state(QueryRecoveryState.WAITING_FOR_BLOCKED_SPLITS).build());
                                 }
                                 else {
-                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS);
+                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryDebugInfo.builder().state(QueryRecoveryState.WAITING_FOR_RUNNING_SPLITS).build());
                                 }
                                 try {
                                     long currentTime = System.currentTimeMillis();
@@ -338,7 +338,15 @@ public class TaskExecutor
                             startTime = System.nanoTime();
                             while (!taskHandle.isOutputBufferEmpty()) {
                                 try {
-                                    eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.WAITING_FOR_OUTPUT_BUFFER);
+                                    outputBuffer.getInfo().getBuffers().forEach(
+                                            bufferInfo -> eventListenerManager.trackPreemptionLifeCycle(
+                                                    taskHandle.getTaskId(),
+                                                    QueryRecoveryDebugInfo.builder()
+                                                            .state(QueryRecoveryState.WAITING_FOR_OUTPUT_BUFFER)
+                                                            .outputBufferID(String.valueOf(bufferInfo.getBufferId().getId()))
+                                                            .outputBufferSize(bufferInfo.getPageBufferInfo().getBufferedBytes())
+                                                            .build()));
+
                                     log.warn("GracefulShutdown:: Waiting for output buffer to be empty for task- %s, outputbuffer info = %s", taskId, outputBuffer.getInfo());
                                     Thread.sleep(waitTimeMillis);
                                 }
@@ -348,7 +356,7 @@ public class TaskExecutor
                             }
                             outputBufferEmptyWaitTime.add(Duration.nanosSince(startTime));
                             log.warn("GracefulShutdown:: calling handleShutDown for task- %s, buffer info : %s", taskId, outputBuffer.getInfo());
-                            eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryState.INITIATE_HANDLE_SHUTDOWN);
+                            eventListenerManager.trackPreemptionLifeCycle(taskHandle.getTaskId(), QueryRecoveryDebugInfo.builder().state(QueryRecoveryState.INITIATE_HANDLE_SHUTDOWN).build());
                             taskHandle.handleShutDown();
                         }
                         catch (Throwable ex) {

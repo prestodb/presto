@@ -573,6 +573,7 @@ public class ExchangeClient
 
     private static Optional<URI> getAsyncPageTransportLocation(URI location, boolean asyncPageTransportEnabled)
     {
+        // if location is preempted, should we build a redirect url here?
         if (asyncPageTransportEnabled) {
             // rewrite location for http request to get task results in async mode
             // new URL cannot replace v1/task completely, v1/task/async is only used to get task results

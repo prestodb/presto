@@ -17,5 +17,6 @@ public enum NodePoolType
 {
     INTERMEDIATE,
     LEAF,
+    DATA,
     DEFAULT;
 }

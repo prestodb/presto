@@ -287,7 +287,7 @@ public class TaskHandle
 
     public boolean isOutputBufferEmpty()
     {
-        return outputBuffer.isPresent() && outputBuffer.get().isAllPagesConsumed() && outputBuffer.get().getInfo().getState().isTerminal();
+        return outputBuffer.isPresent() && outputBuffer.get().getInfo().getState().isTerminal();
     }
 
     public Optional<OutputBuffer> getOutputBuffer()
