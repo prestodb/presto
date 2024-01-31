@@ -2102,15 +2102,15 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 }
 
 namespace {
-core::JoinType toJoinType(protocol::JoinNodeType type) {
+core::JoinType toJoinType(protocol::JoinType type) {
   switch (type) {
-    case protocol::JoinNodeType::INNER:
+    case protocol::JoinType::INNER:
       return core::JoinType::kInner;
-    case protocol::JoinNodeType::LEFT:
+    case protocol::JoinType::LEFT:
       return core::JoinType::kLeft;
-    case protocol::JoinNodeType::RIGHT:
+    case protocol::JoinType::RIGHT:
       return core::JoinType::kRight;
-    case protocol::JoinNodeType::FULL:
+    case protocol::JoinType::FULL:
       return core::JoinType::kFull;
   }
 
