@@ -549,25 +549,30 @@ jobs:
       - run:
           name: "Build docs and update gh-pages"
           command: |
-            git config --global user.email "velox@users.noreply.github.com"
-            git config --global user.name "velox"
-            git checkout main
-            conda init bash
-            source ~/.bashrc
-            conda create -y --name docgenenv python=3.7
-            conda activate docgenenv
-            pip install sphinx sphinx-tabs breathe sphinx_rtd_theme chardet
-            source /opt/rh/gcc-toolset-9/enable
-            ./scripts/gen-docs.sh docgenenv
-            git checkout gh-pages
-            cp -R velox/docs/_build/html/* docs
-            git add docs
-            if [ -n "$(git status --porcelain --untracked-files=no)" ]
-            then
-              git commit -m "Update documentation"
-              git push
-            fi
-
+            for i in {1..3}; do
+              make clean
+              git config --global user.email "velox@users.noreply.github.com"
+              git config --global user.name "velox"
+              git checkout main
+              conda init bash
+              source ~/.bashrc
+              conda create -y --name docgenenv python=3.7
+              conda activate docgenenv
+              pip install sphinx sphinx-tabs breathe sphinx_rtd_theme chardet
+              source /opt/rh/gcc-toolset-9/enable
+              ./scripts/gen-docs.sh docgenenv
+              git checkout gh-pages
+              cp -R velox/docs/_build/html/* docs
+              git add docs
+              if [ -n "$(git status --porcelain --untracked-files=no)" ]
+              then
+                git commit -m "Update documentation"
+                git push
+                if [ $? -eq 0 ]; then
+                  break;
+                fi
+              fi
+            done
 
 
   linux-pr-fuzzer-run:
