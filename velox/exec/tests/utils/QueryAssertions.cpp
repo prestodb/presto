@@ -891,9 +891,9 @@ void DuckDbQueryRunner::createTable(
   auto res = con.Query(sql);
   verifyDuckDBResult(res, sql);
 
+  ::duckdb::Appender appender(con, name);
   for (auto& vector : data) {
     for (int32_t row = 0; row < vector->size(); row++) {
-      ::duckdb::Appender appender(con, name);
       appender.BeginRow();
       for (int32_t column = 0; column < rowType.size(); column++) {
         auto columnVector = vector->childAt(column);
