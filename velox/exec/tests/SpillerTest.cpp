@@ -1013,63 +1013,73 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   std::unique_ptr<Spiller> spiller_;
 };
 
-class AllTypes : public SpillerTest,
-                 public testing::WithParamInterface<TestParam> {
- public:
-  AllTypes() : SpillerTest(GetParam()) {}
+struct AllTypesTestParam {
+  TestParam param;
+  uint64_t maxSpillRunRows;
+};
 
-  static std::vector<TestParam> getTestParams() {
-    return TestParamsBuilder().getTestParams();
+class AllTypes : public SpillerTest,
+                 public testing::WithParamInterface<AllTypesTestParam> {
+ public:
+  AllTypes()
+      : SpillerTest(GetParam().param),
+        maxSpillRunRows_(GetParam().maxSpillRunRows) {}
+
+  static std::vector<AllTypesTestParam> getTestParams() {
+    auto testParams = TestParamsBuilder().getTestParams();
+
+    std::vector<AllTypesTestParam> allTypesTestParams;
+    for (const auto& testParam : testParams) {
+      for (const auto& maxSpillRunRows :
+           std::vector<uint64_t>{0, 101, 1'000'000}) {
+        allTypesTestParams.push_back({testParam, maxSpillRunRows});
+      }
+    }
+
+    return allTypesTestParams;
   }
+
+ protected:
+  uint64_t maxSpillRunRows_;
 };
 
 TEST_P(AllTypes, nonSortedSpillFunctions) {
-  struct {
-    uint64_t maxSpillRunRows;
-
-    std::string debugString() const {
-      return fmt::format("maxSpillRunRows {}", maxSpillRunRows);
+  if (type_ == Spiller::Type::kOrderByInput ||
+      type_ == Spiller::Type::kOrderByOutput ||
+      type_ == Spiller::Type::kAggregateInput ||
+      type_ == Spiller::Type::kAggregateOutput) {
+    setupSpillData(rowType_, numKeys_, 5'000, 1, nullptr, {});
+    sortSpillData();
+    setupSpiller(100'000, 0, false, maxSpillRunRows_);
+    {
+      RowVectorPtr dummyVector;
+      VELOX_ASSERT_THROW(
+          spiller_->spill(0, dummyVector), "Unexpected spiller type");
     }
-  } testSettings[] = {{0}, {101}, {1'000'000}};
 
-  for (const auto& testData : testSettings) {
-    if (type_ == Spiller::Type::kOrderByInput ||
-        type_ == Spiller::Type::kOrderByOutput ||
-        type_ == Spiller::Type::kAggregateInput ||
-        type_ == Spiller::Type::kAggregateOutput) {
-      setupSpillData(rowType_, numKeys_, 5'000, 1, nullptr, {});
-      sortSpillData();
-      setupSpiller(100'000, 0, false, testData.maxSpillRunRows);
-      {
-        RowVectorPtr dummyVector;
-        VELOX_ASSERT_THROW(
-            spiller_->spill(0, dummyVector), "Unexpected spiller type");
-      }
-
-      if (type_ == Spiller::Type::kOrderByOutput) {
-        RowContainerIterator rowIter;
-        std::vector<char*> rows(5'000);
-        int numListedRows{0};
-        numListedRows = rowContainer_->listRows(&rowIter, 5000, rows.data());
-        ASSERT_EQ(numListedRows, 5000);
-        spiller_->spill(rows);
-      } else {
-        spiller_->spill();
-      }
-
-      ASSERT_FALSE(spiller_->finalized());
-      SpillPartitionSet spillPartitionSet;
-      spiller_->finishSpill(spillPartitionSet);
-      ASSERT_TRUE(spiller_->finalized());
-      ASSERT_EQ(spillPartitionSet.size(), 1);
-      verifySortedSpillData(spillPartitionSet.begin()->second.get());
-      continue;
+    if (type_ == Spiller::Type::kOrderByOutput) {
+      RowContainerIterator rowIter;
+      std::vector<char*> rows(5'000);
+      int numListedRows{0};
+      numListedRows = rowContainer_->listRows(&rowIter, 5000, rows.data());
+      ASSERT_EQ(numListedRows, 5000);
+      spiller_->spill(rows);
+    } else {
+      spiller_->spill();
     }
-    testNonSortedSpill(2, 5'000, 3, 1, testData.maxSpillRunRows);
-    testNonSortedSpill(2, 5'000, 3, 1'000'000'000, testData.maxSpillRunRows);
-    // Empty case.
-    testNonSortedSpill(1, 5'000, 0, 1, testData.maxSpillRunRows);
+
+    ASSERT_FALSE(spiller_->finalized());
+    SpillPartitionSet spillPartitionSet;
+    spiller_->finishSpill(spillPartitionSet);
+    ASSERT_TRUE(spiller_->finalized());
+    ASSERT_EQ(spillPartitionSet.size(), 1);
+    verifySortedSpillData(spillPartitionSet.begin()->second.get());
+    return;
   }
+  testNonSortedSpill(2, 5'000, 3, 1, maxSpillRunRows_);
+  testNonSortedSpill(2, 5'000, 3, 1'000'000'000, maxSpillRunRows_);
+  // Empty case.
+  testNonSortedSpill(1, 5'000, 0, 1, maxSpillRunRows_);
 }
 
 class NoHashJoin : public SpillerTest,
