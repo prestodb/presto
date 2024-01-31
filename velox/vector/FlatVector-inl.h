@@ -15,11 +15,12 @@
  */
 #include <folly/hash/Hash.h>
 
-#include <velox/vector/BaseVector.h>
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/vector/BuilderTypeUtils.h"
 #include "velox/vector/ConstantVector.h"
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook {
@@ -175,9 +176,16 @@ void FlatVector<T>::copyValuesAndNulls(
           bits::setBit(rawValues, row, bits::isBitSet(sourceValues, sourceRow));
         });
       } else {
-        rows.applyToSelected([&](auto row) {
-          bits::setBit(rawValues, row, bits::isBitSet(sourceValues, row));
-        });
+        const auto numBits = rows.countSelected();
+        if (numBits == rows.end() - rows.begin()) {
+          // Fast path for copying contiguous range of bits.
+          bits::copyBits(
+              sourceValues, rows.begin(), rawValues, rows.begin(), numBits);
+        } else {
+          rows.applyToSelected([&](auto row) {
+            bits::setBit(rawValues, row, bits::isBitSet(sourceValues, row));
+          });
+        }
       }
     } else {
       auto* sourceValues = flatSource->rawValues();
@@ -234,16 +242,16 @@ void FlatVector<T>::copyValuesAndNulls(
 
     rows.clearNulls(rawNulls);
   } else {
-    auto sourceVector = source->asUnchecked<SimpleVector<T>>();
+    DecodedVector decoded(*source);
     rows.applyToSelected([&](auto row) {
       auto sourceRow = toSourceRow ? toSourceRow[row] : row;
       VELOX_DCHECK_GT(source->size(), sourceRow);
-      if (!source->isNullAt(sourceRow)) {
+      if (!decoded.isNullAt(sourceRow)) {
         if constexpr (std::is_same_v<T, bool>) {
           auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
-          bits::setBit(rawValues, row, sourceVector->valueAt(sourceRow));
+          bits::setBit(rawValues, row, decoded.valueAt<T>(sourceRow));
         } else {
-          rawValues_[row] = sourceVector->valueAt(sourceRow);
+          rawValues_[row] = decoded.valueAt<T>(sourceRow);
         }
 
         if (rawNulls) {
