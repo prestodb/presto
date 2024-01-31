@@ -24,9 +24,6 @@ EnumMap:
     SelectedRole:
         Type: SelectedRoleType
 
-    JoinNode:
-        Type: JoinNodeType
-
     SampleNode:
         Type: SampleNodeType
 
@@ -322,3 +319,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
   - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinDistributionType.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/EquiJoinClause.java
+  - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
