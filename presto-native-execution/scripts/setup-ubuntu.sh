@@ -19,7 +19,7 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
 export FB_OS_VERSION=v2023.12.04.00
-sudo apt install -y gperf uuid-dev libsodium-dev
+sudo apt install -y gperf uuid-dev
 
 function install_six {
   pip3 install six
