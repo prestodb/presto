@@ -14,7 +14,7 @@
 set -e
 set -x
 
-export FB_OS_VERSION=v2022.11.14.00
+export FB_OS_VERSION=v2023.12.04.00
 export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
 
