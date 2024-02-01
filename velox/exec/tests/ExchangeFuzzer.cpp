@@ -404,6 +404,7 @@ class ExchangeFuzzer : public VectorTestBase {
 int32_t ExchangeFuzzer::iteration_;
 
 int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
   memory::MemoryManagerOptions options;
   options.useMmapAllocator = true;
