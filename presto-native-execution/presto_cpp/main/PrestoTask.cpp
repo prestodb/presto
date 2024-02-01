@@ -450,6 +450,16 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
 
+  if (taskStats.outputBufferStats.has_value()) {
+    const auto& outputBufferStats = taskStats.outputBufferStats.value();
+
+    const auto averageBufferTimeNanos =
+        outputBufferStats.averageBufferTimeMs * 1'000'000;
+    taskRuntimeStats.insert(
+        {"averageOutputBufferWallNanos",
+         RuntimeMetric(averageBufferTimeNanos, RuntimeCounter::Unit::kNanos)});
+  }
+
   if (taskStats.memoryReclaimCount > 0) {
     taskRuntimeStats["memoryReclaimCount"].addValue(
         taskStats.memoryReclaimCount);
