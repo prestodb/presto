@@ -1,7 +1,48 @@
+# Dependency List
+Following is the list of libraries and their minimum version
+that Velox requires. Some of these libraries can be installed
+via a platform's package manager (eg. `brew` on MacOS).
+The versions of certain libraries is the default provided by 
+the platform's package manager. Some libraries can be bundled
+by Velox. See details on bundling below.
+
+| Library Name      | Minimum Version | Bundled? | 
+|-------------------|-----------------|----------|
+| ninja             | default         | No       |
+| ccache            | default         | No       |
+| icu4c             | default         | Yes      |
+| gflags            | default         | Yes      |
+| glog              | default         | Yes      |
+| gtest (testing)   | default         | Yes      |
+| libevent          | default         | No       |
+| libsodium         | default         | No       |
+| lz4               | default         | No       | 
+| snappy            | default         | No       |
+| lzo               | default         | No       |
+| xz                | default         | No       |
+| zstd              | default         | No       |
+| openssl           | default         | No       |
+| protobuf          | 21 (exact)      | Yes      |
+| boost             | 1.66.0          | Yes      |
+| flex              | 2.5.13          | No       |
+| bison             | 3.0.4           | No       |
+| cmake             | 3.14            | No       |
+| double-conversion | 3.1.5           | No       |
+| xsimd             | 10.0.0          | Yes      |
+| re2               | 2021-04-01      | Yes      |
+| fmt               | 10.1.1          | Yes      |
+| folly             | v2023.12.04.00  | Yes      |
+| fizz              | v2023.12.04.00  | No       |
+| wangle            | v2023.12.04.00  | No       |
+| mvfst             | v2023.12.04.00  | No       |
+| fbthrift          | v2023.12.04.00  | No       |
+| DuckDB (testing)  | 0.8.1           | Yes      |
+| cpr (testing)     | 1.10.15         | Yes      |
+
 # Bundled Dependency Management
 This module provides a dependency management system that allows us to automatically fetch and build dependencies from source if needed.
 
-By default the system will use dependencies installed on the host and fallback to building from source. This behaviour can be changed by setting environment variables:
+By default, the system will use dependencies installed on the host and fallback to building from source. This behaviour can be changed by setting environment variables:
 
 - `VELOX_DEPENDENCY_SOURCE=AUTO|BUNDLED|SYSTEM` for all dependencies or
 - `<package>_SOURCE=AUTO|BUNDLED|SYSTEM`  for each dependency individually "package" has to use the same spelling as used in `CMakelists.txt`.
@@ -33,3 +74,4 @@ Ideally all patches should be upstream when possible and removed once merged.
 ## Specify a custom url/file path for an offline build
 
 Set environment variables `VELOX_<PACKAGE>_URL` to specify a custom dependency url or local tar file path, an optional sha256 checksum can be provided as `VELOX_<PACKAGE>_SHA256`.
+

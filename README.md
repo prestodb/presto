@@ -70,8 +70,6 @@ Blog posts are available [here](https://velox-lib.io/blog).
 
 ## Getting Started
 
-We provide scripts to help developers setup and install Velox dependencies.
-
 ### Get the Velox Source
 ```
 git clone --recursive https://github.com/facebookincubator/velox.git
@@ -80,10 +78,16 @@ cd velox
 git submodule sync --recursive
 git submodule update --init --recursive
 ```
+Once Velox is checked out, the first step is to install the dependencies.
+Details on the dependencies and how Velox manages some of them for you
+[can be found here](CMake/resolve_dependency_modules/README.md).
+
+Velox also provides the following scripts to help developers setup and install Velox
+dependencies for a given platform.
 
 ### Setting up on macOS
 
-Once you have checked out Velox, on an Intel MacOS machine you can setup and then build like so:
+On an Intel MacOS machine you can setup and then build like so:
 
 ```shell
 $ ./scripts/setup-macos.sh 
