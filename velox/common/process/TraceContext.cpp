@@ -17,6 +17,7 @@
 #include "velox/common/process/TraceContext.h"
 
 #include "velox/common/process/ThreadLocalRegistry.h"
+#include "velox/common/process/TraceHistory.h"
 
 #include <sstream>
 
@@ -36,6 +37,12 @@ TraceContext::TraceContext(std::string label, bool isTemporary)
     : label_(std::move(label)),
       enterTime_(std::chrono::steady_clock::now()),
       isTemporary_(isTemporary) {
+  TraceHistory::push([&](auto& entry) {
+    entry.time = enterTime_;
+    entry.file = __FILE__;
+    entry.line = __LINE__;
+    snprintf(entry.label, entry.kLabelCapacity, "%s", label_.c_str());
+  });
   threadLocalTraceData.withValue([&](auto& counts) {
     auto& data = counts[label_];
     ++data.numThreads;

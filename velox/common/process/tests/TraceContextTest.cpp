@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/process/TraceContext.h"
+#include "velox/common/process/TraceHistory.h"
 
 #include <fmt/format.h>
 #include <folly/synchronization/Baton.h>
@@ -77,6 +78,21 @@ TEST_F(TraceContextTest, basic) {
     batons[1][i].post();
     threads[i].join();
   }
+}
+
+TEST_F(TraceContextTest, traceHistory) {
+  std::thread([] {
+    TraceContext trace("test");
+    TraceContext trace2(
+        std::string(TraceHistory::Entry::kLabelCapacity + 10, 'x'));
+    auto results = TraceHistory::listAll();
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_EQ(results[0].entries.size(), 2);
+    ASSERT_STREQ(results[0].entries[0].label, "test");
+    ASSERT_EQ(
+        results[0].entries[1].label,
+        std::string(TraceHistory::Entry::kLabelCapacity - 1, 'x'));
+  }).join();
 }
 
 } // namespace

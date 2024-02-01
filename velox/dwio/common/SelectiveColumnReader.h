@@ -18,6 +18,7 @@
 #include "velox/common/base/RawVector.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/process/ProcessBase.h"
+#include "velox/common/process/TraceHistory.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/common/FormatData.h"
 #include "velox/dwio/common/IntDecoder.h"
@@ -189,7 +190,8 @@ class SelectiveColumnReader {
   // group. Interpretation of 'index' depends on format. Clears counts
   // of skipped enclosing struct nulls for formats where nulls are
   // recorded at each nesting level, i.e. not rep-def.
-  virtual void seekToRowGroup(uint32_t /*index*/) {
+  virtual void seekToRowGroup(uint32_t index) {
+    VELOX_TRACE_HISTORY_PUSH("seekToRowGroup %u", index);
     numParentNulls_ = 0;
     parentNullsRecordedTo_ = 0;
   }
