@@ -79,7 +79,10 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TruncateTableTask;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
@@ -382,15 +385,17 @@ public class LocalQueryRunner
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
         NodeScheduler nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
+                networkTopology,
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 new NodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(

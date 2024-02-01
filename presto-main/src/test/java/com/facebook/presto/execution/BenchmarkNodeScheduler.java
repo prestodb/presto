@@ -16,9 +16,11 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -180,7 +182,17 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, new NodeSelectionStats(), getNodeSchedulerConfig(), nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+            NetworkTopology networkTopology = new LegacyNetworkTopology();
+            NodeScheduler nodeScheduler = new NodeScheduler(
+                    networkTopology,
+                    nodeManager,
+                    new NodeSelectionStats(),
+                    new NodeSchedulerConfig().setIncludeCoordinator(true),
+                    new NodeTaskMap(finalizerService),
+                    new ThrowingNodeTtlFetcherManager(),
+                    new NoOpQueryManager(),
+                    new SimpleTtlNodeSelectorConfig(),
+                    new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();

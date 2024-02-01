@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -38,7 +39,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
@@ -64,16 +65,11 @@ import static com.facebook.presto.SystemSessionProperties.getResourceAwareSchedu
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy.TTL;
-import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
-import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.addExact;
-import static java.lang.Math.ceil;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -92,12 +88,13 @@ public class NodeScheduler
     private final long maxPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
-    private final Duration nodeMapRefreshInterval;
+    private final Duration nodeSetRefreshInterval;
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final QueryManager queryManager;
     private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
     private final int minVirtualNodeCount;
+    private final NodeSetSupplier nodeSetSupplier;
 
     @Inject
     public NodeScheduler(
@@ -108,7 +105,8 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             NodeTtlFetcherManager nodeTtlFetcherManager,
             QueryManager queryManager,
-            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig,
+            NodeSetSupplier nodeSetSupplier)
     {
         this(new NetworkLocationCache(networkTopology),
                 networkTopology,
@@ -119,7 +117,8 @@ public class NodeScheduler
                 new Duration(5, SECONDS),
                 nodeTtlFetcherManager,
                 queryManager,
-                simpleTtlNodeSelectorConfig);
+                simpleTtlNodeSelectorConfig,
+                nodeSetSupplier);
     }
 
     public NodeScheduler(
@@ -129,10 +128,11 @@ public class NodeScheduler
             NodeSelectionStats nodeSelectionStats,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap,
-            Duration nodeMapRefreshInterval,
+            Duration nodeSetRefreshInterval,
             NodeTtlFetcherManager nodeTtlFetcherManager,
             QueryManager queryManager,
-            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig)
+            SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig,
+            NodeSetSupplier nodeSetSupplier)
     {
         this.networkLocationCache = networkLocationCache;
         this.nodeManager = nodeManager;
@@ -158,12 +158,13 @@ public class NodeScheduler
             networkLocationSegmentNames = ImmutableList.of();
         }
         topologicalSplitCounters = builder.build();
-        this.nodeMapRefreshInterval = requireNonNull(nodeMapRefreshInterval, "nodeMapRefreshInterval is null");
+        this.nodeSetRefreshInterval = requireNonNull(nodeSetRefreshInterval, "nodeSetRefreshInterval is null");
         this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
         this.nodeSelectionHashStrategy = config.getNodeSelectionHashStrategy();
         this.minVirtualNodeCount = config.getMinVirtualNodeCount();
+        this.nodeSetSupplier = nodeSetSupplier;
     }
 
     @PreDestroy
@@ -200,8 +201,17 @@ public class NodeScheduler
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
-        Supplier<NodeSet> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
-                memoizeWithExpiration(createNodeMapSupplier(connectorId, filterNodePredicate), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId, filterNodePredicate);
+        Supplier<NodeSet> nodeSet = nodeSetSupplier.createNodeSetSupplierForQuery(
+                session.getQueryId(),
+                connectorId,
+                filterNodePredicate,
+                nodeSelectionHashStrategy,
+                useNetworkTopology,
+                minVirtualNodeCount,
+                includeCoordinator);
+
+        nodeSet = nodeSetRefreshInterval.toMillis() > 0 ?
+                memoizeWithExpiration(nodeSet, nodeSetRefreshInterval.toMillis(), MILLISECONDS) : nodeSet;
 
         int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
         ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = getResourceAwareSchedulingStrategy(session);
@@ -211,7 +221,7 @@ public class NodeScheduler
                     nodeSelectionStats,
                     nodeTaskMap,
                     includeCoordinator,
-                    nodeMap,
+                    nodeSet,
                     minCandidates,
                     maxSplitsWeightPerNode,
                     maxPendingSplitsWeightPerTask,
@@ -227,7 +237,7 @@ public class NodeScheduler
                 nodeSelectionStats,
                 nodeTaskMap,
                 includeCoordinator,
-                nodeMap,
+                nodeSet,
                 minCandidates,
                 maxSplitsWeightPerNode,
                 maxPendingSplitsWeightPerTask,
@@ -240,7 +250,7 @@ public class NodeScheduler
                     simpleNodeSelector,
                     simpleTtlNodeSelectorConfig,
                     nodeTaskMap,
-                    nodeMap,
+                    nodeSet,
                     minCandidates,
                     includeCoordinator,
                     maxSplitsWeightPerNode,
@@ -254,66 +264,14 @@ public class NodeScheduler
         return simpleNodeSelector;
     }
 
-    private Supplier<NodeSet> createNodeMapSupplier(ConnectorId connectorId, Optional<Predicate<Node>> nodeFilterPredicate)
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count)
     {
-        return () -> {
-            ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
-            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> activeWorkersByNetworkPath = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
-            ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
-            Predicate<Node> resourceManagerFilterPredicate = node -> !node.isResourceManager();
-            Predicate<Node> finalNodeFilterPredicate = resourceManagerFilterPredicate.and(nodeFilterPredicate.orElse(node -> true));
-            List<InternalNode> activeNodes;
-            List<InternalNode> allNodes;
-            if (connectorId != null) {
-                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
-                allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
-            }
-            else {
-                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
-                allNodes = activeNodes;
-            }
+        return nodeSetSupplier.acquireNodes(queryId, count);
+    }
 
-            Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
-                    .map(InternalNode::getNodeIdentifier)
-                    .collect(toImmutableSet());
-
-            Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider = Optional.empty();
-            if (nodeSelectionHashStrategy == CONSISTENT_HASHING) {
-                int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
-                consistentHashingNodeProvider = Optional.of(ConsistentHashingNodeProvider.create(activeNodes, weight));
-            }
-
-            for (InternalNode node : allNodes) {
-                if (node.getNodeStatus() == ALIVE) {
-                    activeNodesByNodeId.put(node.getNodeIdentifier(), node);
-                    if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
-                        NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
-                        for (int i = 0; i <= location.getSegments().size(); i++) {
-                            activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
-                        }
-                    }
-                }
-                try {
-                    allNodesByHostAndPort.put(node.getHostAndPort(), node);
-                    InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                    allNodesByHost.put(host, node);
-                }
-                catch (UnknownHostException e) {
-                    // ignore
-                }
-            }
-
-            return new NodeSet(
-                    activeNodesByNodeId.build(),
-                    activeWorkersByNetworkPath.build(),
-                    coordinatorNodeIds,
-                    activeNodes,
-                    allNodes,
-                    allNodesByHost.build(),
-                    allNodesByHostAndPort.build(),
-                    consistentHashingNodeProvider);
-        };
+    public CompletableFuture<?> releaseNodes(QueryId queryId, int count)
+    {
+        return nodeSetSupplier.releaseNodes(queryId, count);
     }
 
     public static List<InternalNode> selectNodes(int limit, ResettableRandomizedIterator<InternalNode> candidates)
@@ -330,22 +288,22 @@ public class NodeScheduler
         return selectedNodes.build();
     }
 
-    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeSet nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
+    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeSet nodeSet, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        ImmutableList<InternalNode> nodes = nodeMap.getActiveNodes().stream()
-                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
+        ImmutableList<InternalNode> nodes = nodeSet.getActiveNodes().stream()
+                .filter(node -> includeCoordinator || !nodeSet.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
                 .filter(node -> !excludedNodes.contains(node))
                 .collect(toImmutableList());
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    public static List<InternalNode> selectExactNodes(NodeSet nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    public static List<InternalNode> selectExactNodes(NodeSet nodeSet, List<HostAddress> hosts, boolean includeCoordinator)
     {
         Set<InternalNode> chosen = new LinkedHashSet<>();
-        Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
+        Set<String> coordinatorIds = nodeSet.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
-            nodeMap.getAllNodesByHostAndPort().get(host).stream()
+            nodeSet.getAllNodesByHostAndPort().get(host).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
 
@@ -360,7 +318,7 @@ public class NodeScheduler
                     continue;
                 }
 
-                nodeMap.getAllNodesByHost().get(address).stream()
+                nodeSet.getAllNodesByHost().get(address).stream()
                         .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                         .forEach(chosen::add);
             }
@@ -373,7 +331,7 @@ public class NodeScheduler
                 // `coordinatorIds.contains(node.getNodeIdentifier())`. But checking the condition isn't necessary
                 // because every node satisfies it. Otherwise, `chosen` wouldn't have been empty.
 
-                chosen.addAll(nodeMap.getAllNodesByHostAndPort().get(host));
+                chosen.addAll(nodeSet.getAllNodesByHostAndPort().get(host));
 
                 // consider a split with a host without a port as being accessible by all nodes in that host
                 if (!host.hasPort()) {
@@ -386,7 +344,7 @@ public class NodeScheduler
                         continue;
                     }
 
-                    chosen.addAll(nodeMap.getAllNodesByHost().get(address));
+                    chosen.addAll(nodeSet.getAllNodesByHost().get(address));
                 }
             }
         }
@@ -395,7 +353,7 @@ public class NodeScheduler
     }
 
     public static SplitPlacementResult selectDistributionNodes(
-            NodeSet nodeMap,
+            NodeSet nodeSet,
             NodeTaskMap nodeTaskMap,
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,
@@ -406,7 +364,7 @@ public class NodeScheduler
             NodeSelectionStats nodeSelectionStats)
     {
         Multimap<InternalNode, Split> assignments = HashMultimap.create();
-        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
+        NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeSet, existingTasks);
 
         Set<InternalNode> blockedNodes = new HashSet<>();
         for (Split split : splits) {

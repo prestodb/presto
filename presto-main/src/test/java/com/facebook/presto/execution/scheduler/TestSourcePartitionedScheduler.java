@@ -321,15 +321,17 @@ public class TestSourcePartitionedScheduler
         try {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+            NetworkTopology networkTopology = new LegacyNetworkTopology();
             NodeScheduler nodeScheduler = new NodeScheduler(
-                    new LegacyNetworkTopology(),
+                    networkTopology,
                     nodeManager,
                     new NodeSelectionStats(),
                     new NodeSchedulerConfig().setIncludeCoordinator(false),
                     nodeTaskMap,
                     new ThrowingNodeTtlFetcherManager(),
                     new NoOpQueryManager(),
-                    new SimpleTtlNodeSelectorConfig());
+                    new SimpleTtlNodeSelectorConfig(),
+                    new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
 
             SubPlan plan = createPlan();
             SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
@@ -466,15 +468,17 @@ public class TestSourcePartitionedScheduler
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(20)
                 .setMaxPendingSplitsPerTask(0);
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
         NodeScheduler nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
+                networkTopology,
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         SplitSource splitSource = new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), connectorSplitSource);
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(TestingSession.testSessionBuilder().build(), splitSource.getConnectorId()), stage::getAllTasks);
         return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID, splitSource, placementPolicy, splitBatchSize);
