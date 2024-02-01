@@ -200,7 +200,7 @@ public class NodeScheduler
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
-        Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
+        Supplier<NodeSet> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
                 memoizeWithExpiration(createNodeMapSupplier(connectorId, filterNodePredicate), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId, filterNodePredicate);
 
         int maxUnacknowledgedSplitsPerTask = getMaxUnacknowledgedSplitsPerTask(requireNonNull(session, "session is null"));
@@ -254,7 +254,7 @@ public class NodeScheduler
         return simpleNodeSelector;
     }
 
-    private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId, Optional<Predicate<Node>> nodeFilterPredicate)
+    private Supplier<NodeSet> createNodeMapSupplier(ConnectorId connectorId, Optional<Predicate<Node>> nodeFilterPredicate)
     {
         return () -> {
             ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
@@ -304,7 +304,7 @@ public class NodeScheduler
                 }
             }
 
-            return new NodeMap(
+            return new NodeSet(
                     activeNodesByNodeId.build(),
                     activeWorkersByNetworkPath.build(),
                     coordinatorNodeIds,
@@ -330,7 +330,7 @@ public class NodeScheduler
         return selectedNodes.build();
     }
 
-    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
+    public static ResettableRandomizedIterator<InternalNode> randomizedNodes(NodeSet nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
         ImmutableList<InternalNode> nodes = nodeMap.getActiveNodes().stream()
                 .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
@@ -339,7 +339,7 @@ public class NodeScheduler
         return new ResettableRandomizedIterator<>(nodes);
     }
 
-    public static List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
+    public static List<InternalNode> selectExactNodes(NodeSet nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
     {
         Set<InternalNode> chosen = new LinkedHashSet<>();
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
@@ -395,7 +395,7 @@ public class NodeScheduler
     }
 
     public static SplitPlacementResult selectDistributionNodes(
-            NodeMap nodeMap,
+            NodeSet nodeMap,
             NodeTaskMap nodeTaskMap,
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,

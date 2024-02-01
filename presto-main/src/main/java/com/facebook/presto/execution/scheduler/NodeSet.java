@@ -26,7 +26,7 @@ import java.util.Set;
 
 import static java.lang.String.format;
 
-public class NodeMap
+public class NodeSet
 {
     private final Map<String, InternalNode> activeNodesByNodeId;
     private final SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath;
@@ -37,7 +37,7 @@ public class NodeMap
     private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
     private final Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider;
 
-    public NodeMap(
+    public NodeSet(
             Map<String, InternalNode> activeNodesByNodeId,
             SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath,
             Set<String> coordinatorNodeIds,

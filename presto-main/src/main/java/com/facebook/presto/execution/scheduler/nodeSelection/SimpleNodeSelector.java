@@ -20,7 +20,7 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
-import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSet;
 import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
@@ -74,7 +74,7 @@ public class SimpleNodeSelector
     private final NodeSelectionStats nodeSelectionStats;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
-    private final AtomicReference<Supplier<NodeMap>> nodeMap;
+    private final AtomicReference<Supplier<NodeSet>> nodeMap;
     private final int minCandidates;
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
@@ -87,7 +87,7 @@ public class SimpleNodeSelector
             NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
-            Supplier<NodeMap> nodeMap,
+            Supplier<NodeSet> nodeMap,
             int minCandidates,
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,
@@ -144,7 +144,7 @@ public class SimpleNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
-        NodeMap nodeMap = this.nodeMap.get().get();
+        NodeSet nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
@@ -274,7 +274,7 @@ public class SimpleNodeSelector
         return Optional.of(new InternalNodeInfo(chosenNode, false));
     }
 
-    private List<InternalNode> getEligibleNodes(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    private List<InternalNode> getEligibleNodes(int limit, NodeSet nodeMap, List<RemoteTask> existingTasks)
     {
         List<InternalNode> existingNodes = existingTasks.stream()
                 .map(remoteTask -> nodeMap.getActiveNodesByNodeId().get(remoteTask.getNodeId()))

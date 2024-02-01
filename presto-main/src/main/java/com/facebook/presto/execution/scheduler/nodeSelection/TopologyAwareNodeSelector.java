@@ -21,7 +21,7 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
-import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSet;
 import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
@@ -69,7 +69,7 @@ public class TopologyAwareNodeSelector
     private final NodeSelectionStats nodeSelectionStats;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
-    private final AtomicReference<Supplier<NodeMap>> nodeMap;
+    private final AtomicReference<Supplier<NodeSet>> nodeMap;
     private final int minCandidates;
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
@@ -84,7 +84,7 @@ public class TopologyAwareNodeSelector
             NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
-            Supplier<NodeMap> nodeMap,
+            Supplier<NodeSet> nodeMap,
             int minCandidates,
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,
@@ -144,7 +144,7 @@ public class TopologyAwareNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
-        NodeMap nodeMap = this.nodeMap.get().get();
+        NodeSet nodeMap = this.nodeMap.get().get();
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 

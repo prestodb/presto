@@ -21,7 +21,7 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
-import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSet;
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
@@ -73,7 +73,7 @@ public class SimpleTtlNodeSelector
     private static final Logger log = Logger.get(SimpleTtlNodeSelector.class);
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final Session session;
-    private final AtomicReference<Supplier<NodeMap>> nodeMap;
+    private final AtomicReference<Supplier<NodeSet>> nodeMap;
     private final NodeTaskMap nodeTaskMap;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -89,7 +89,7 @@ public class SimpleTtlNodeSelector
             SimpleNodeSelector simpleNodeSelector,
             SimpleTtlNodeSelectorConfig config,
             NodeTaskMap nodeTaskMap,
-            Supplier<NodeMap> nodeMap,
+            Supplier<NodeSet> nodeMap,
             int minCandidates,
             boolean includeCoordinator,
             long maxSplitsWeightPerNode,
@@ -155,7 +155,7 @@ public class SimpleTtlNodeSelector
                                 .stream()
                                 .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
 
-        NodeMap nodeMap = this.nodeMap.get().get();
+        NodeSet nodeMap = this.nodeMap.get().get();
         List<InternalNode> activeNodes = nodeMap.getActiveNodes();
 
         Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
@@ -180,7 +180,7 @@ public class SimpleTtlNodeSelector
         }
 
         ImmutableMultimap.Builder<InternalNode, Split> assignment = ImmutableMultimap.builder();
-        NodeMap nodeMap = this.nodeMap.get().get();
+        NodeSet nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
@@ -266,7 +266,7 @@ public class SimpleTtlNodeSelector
         return new Duration(estimatedExecutionTimeRemaining, TimeUnit.MILLISECONDS);
     }
 
-    private List<InternalNode> getEligibleNodes(int limit, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    private List<InternalNode> getEligibleNodes(int limit, NodeSet nodeMap, List<RemoteTask> existingTasks)
     {
         Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
         Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
