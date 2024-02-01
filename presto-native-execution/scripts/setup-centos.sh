@@ -27,9 +27,6 @@ dnf install -y perl-XML-XPath
 
 python3 -m pip install regex pyyaml chevron black six
 
-# Required for Antlr4
-dnf install -y libuuid-devel
-
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
