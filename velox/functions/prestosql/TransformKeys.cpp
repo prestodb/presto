@@ -80,7 +80,8 @@ class TransformKeysFunction : public exec::VectorFunction {
           elementToTopLevelRows,
           &transformedKeys);
 
-      if (transformedKeys->mayHaveNulls()) {
+      if (transformedKeys->mayHaveNulls() ||
+          transformedKeys->mayHaveNullsRecursive()) {
         static const char* kNullKeyErrorMessage = "map key cannot be null";
         static const char* kIndeterminateKeyErrorMessage =
             "map key cannot be indeterminate";

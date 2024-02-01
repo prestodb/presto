@@ -1122,7 +1122,7 @@ bool Expr::removeSureNulls(
   }
   if (result) {
     result->updateBounds();
-    return true;
+    return result->countSelected() != rows.countSelected();
   }
   return false;
 }
@@ -1441,7 +1441,7 @@ void Expr::evalAllImpl(
 
   // Write non-selected rows in remainingRows as nulls in the result if some
   // rows have been skipped.
-  if (remainingRows.mayHaveChanged()) {
+  if (remainingRows.hasChanged()) {
     addNulls(rows, remainingRows.rows().asRange().bits(), context, result);
   }
   releaseInputValues(context);
