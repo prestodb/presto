@@ -15,33 +15,69 @@
  */
 
 #include "velox/common/process/TraceContext.h"
+
 #include <fmt/format.h>
+#include <folly/synchronization/Baton.h>
+#include <folly/synchronization/Latch.h>
 #include <gtest/gtest.h>
+
 #include <thread>
 
-using namespace facebook::velox::process;
+namespace facebook::velox::process {
+namespace {
 
-TEST(TraceContextTest, basic) {
-  constexpr int32_t kNumThreads = 10;
+class TraceContextTest : public testing::Test {
+ public:
+  void SetUp() override {
+    ASSERT_TRUE(TraceContext::status().empty());
+  }
+
+  void TearDown() override {
+    ASSERT_TRUE(TraceContext::status().empty());
+  }
+};
+
+TEST_F(TraceContextTest, basic) {
+  constexpr int kNumThreads = 3;
   std::vector<std::thread> threads;
+  folly::Baton<> batons[2][kNumThreads];
+  folly::Latch latches[2] = {
+      folly::Latch(kNumThreads),
+      folly::Latch(kNumThreads),
+  };
   threads.reserve(kNumThreads);
-  for (int32_t i = 0; i < kNumThreads; ++i) {
-    threads.push_back(std::thread([i]() {
-      TraceContext trace1("process data");
-      TraceContext trace2(fmt::format("Process chunk {}", i), true);
-      std::this_thread::sleep_for(std::chrono::milliseconds(3));
-    }));
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      {
+        TraceContext trace1("process data");
+        TraceContext trace2(fmt::format("Process chunk {}", i), true);
+        latches[0].count_down();
+        batons[0][i].wait();
+      }
+      latches[1].count_down();
+      batons[1][i].wait();
+    });
   }
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  LOG(INFO) << TraceContext::statusLine();
-  for (auto& thread : threads) {
-    thread.join();
+  latches[0].wait();
+  auto status = TraceContext::status();
+  ASSERT_EQ(1 + kNumThreads, status.size());
+  ASSERT_EQ(kNumThreads, status.at("process data").numThreads);
+  for (int i = 0; i < kNumThreads; ++i) {
+    ASSERT_EQ(1, status.at(fmt::format("Process chunk {}", i)).numThreads);
   }
-  LOG(INFO) << TraceContext::statusLine();
-  // We expect one entry for "process data". The temporary entries
-  // are deleted after the treads complete.
-  auto after = TraceContext::status();
-  EXPECT_EQ(1, after.size());
-  EXPECT_EQ(kNumThreads, after["process data"].numEnters);
-  EXPECT_EQ(0, after["process data"].numThreads);
+  for (int i = 0; i < kNumThreads; ++i) {
+    batons[0][i].post();
+  }
+  latches[1].wait();
+  status = TraceContext::status();
+  ASSERT_EQ(1, status.size());
+  ASSERT_EQ(0, status.at("process data").numThreads);
+  ASSERT_EQ(kNumThreads, status.at("process data").numEnters);
+  for (int i = 0; i < kNumThreads; ++i) {
+    batons[1][i].post();
+    threads[i].join();
+  }
 }
+
+} // namespace
+} // namespace facebook::velox::process

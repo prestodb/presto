@@ -18,6 +18,7 @@
 
 #include <fmt/format.h>
 
+#include "velox/common/process/TraceContext.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook::velox::dwrf {
@@ -100,6 +101,7 @@ ReaderBase::ReaderBase(
       footerEstimatedSize_(footerEstimatedSize),
       filePreloadThreshold_(filePreloadThreshold),
       input_(std::move(input)) {
+  process::TraceContext trace("ReaderBase::ReaderBase");
   // read last bytes into buffer to get PostScript
   // If file is small, load the entire file.
   // TODO: make a config
