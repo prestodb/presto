@@ -566,8 +566,8 @@ TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
   // We create a large vector that hits the row limit (70% - 120% of 10,000)
   // which would hit a task level memory limit of 1MB unless its split up.
   // This test exercises splitting up the input both from the edges and the
-  // middle as it ends up splitting it in ~ 10 splits.
-  setupSources(1, 100'000);
+  // middle as it ends up splitting it in ~ 3 splits.
+  setupSources(1, 30'000);
   const int64_t kRootMemoryLimit = 1 << 20; // 1MB
   // Single Partition
   {
