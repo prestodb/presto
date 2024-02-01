@@ -40,7 +40,7 @@ class PageReader {
       std::unique_ptr<dwio::common::SeekableInputStream> stream,
       memory::MemoryPool& pool,
       ParquetTypeWithIdPtr fileType,
-      thrift::CompressionCodec::type codec,
+      common::CompressionKind codec,
       int64_t chunkSize)
       : pool_(pool),
         inputStream_(std::move(stream)),
@@ -58,7 +58,7 @@ class PageReader {
   PageReader(
       std::unique_ptr<dwio::common::SeekableInputStream> stream,
       memory::MemoryPool& pool,
-      thrift::CompressionCodec::type codec,
+      common::CompressionKind codec,
       int64_t chunkSize)
       : pool_(pool),
         inputStream_(std::move(stream)),
@@ -354,7 +354,7 @@ class PageReader {
   const int32_t maxDefine_;
   const bool isTopLevel_;
 
-  const thrift::CompressionCodec::type codec_;
+  const common::CompressionKind codec_;
   const int64_t chunkSize_;
   const char* FOLLY_NULLABLE bufferStart_{nullptr};
   const char* FOLLY_NULLABLE bufferEnd_{nullptr};

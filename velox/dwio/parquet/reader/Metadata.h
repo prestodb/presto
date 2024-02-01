@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-// Adapted from Apache Arrow.
-
 #pragma once
 
+#include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/compression/Compression.h"
 
 namespace facebook::velox::parquet {
@@ -29,9 +28,42 @@ class ColumnChunkMetaDataPtr {
 
   ~ColumnChunkMetaDataPtr();
 
+  /// Check the presence of ColumnChunk metadata.
+  bool hasMetadata() const;
+
+  /// Check the presence of statistics in the ColumnChunk metadata.
+  bool hasStatistics() const;
+
+  /// Check the presence of the dictionary page offset in ColumnChunk metadata.
+  bool hasDictionaryPageOffset() const;
+
+  /// Return the ColumnChunk statistics.
+  std::unique_ptr<dwio::common::ColumnStatistics> getColumnStatistics(
+      const TypePtr type,
+      int64_t numRows);
+
+  /// Number of values.
   int64_t numValues() const;
 
+  /// The data page offset.
+  int64_t dataPageOffset() const;
+
+  /// The dictionary page offset.
+  /// Must check for its presence using hasDictionaryPageOffset().
+  int64_t dictionaryPageOffset() const;
+
+  /// The compression.
   common::CompressionKind compression() const;
+
+  /// Total byte size of all the compressed (and potentially encrypted)
+  /// column data in this row group.
+  /// This information is optional and may be 0 if omitted.
+  int64_t totalCompressedSize() const;
+
+  /// Total byte size of all the uncompressed (and potentially encrypted)
+  /// column data in this row group.
+  /// This information is optional and may be 0 if omitted.
+  int64_t totalUncompressedSize() const;
 
  private:
   const void* ptr_;
@@ -57,6 +89,16 @@ class RowGroupMetaDataPtr {
   /// Total byte size of all the uncompressed column data in this row
   /// group.
   int64_t totalByteSize() const;
+
+  /// Check the presence of file offset.
+  bool hasFileOffset() const;
+
+  /// Byte offset from beginning of file to first page (data or dictionary)
+  /// in this row group
+  int64_t fileOffset() const;
+
+  /// Check the presence of total compressed size.
+  bool hasTotalCompressedSize() const;
 
   /// Total byte size of all the compressed (and potentially encrypted)
   /// column data in this row group.

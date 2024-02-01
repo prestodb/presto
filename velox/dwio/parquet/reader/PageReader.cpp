@@ -18,7 +18,6 @@
 
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
-#include "velox/dwio/parquet/reader/ParquetReaderUtil.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 #include "velox/vector/FlatVector.h"
 
@@ -130,11 +129,11 @@ const char* FOLLY_NONNULL PageReader::decompressData(
       fmt::format("Page Reader: Stream {}", inputStream_->getName());
   std::unique_ptr<dwio::common::SeekableInputStream> decompressedStream =
       dwio::common::compression::createDecompressor(
-          thriftCodecToCompressionKind(codec_),
+          codec_,
           std::move(inputStream),
           uncompressedSize,
           pool_,
-          getParquetDecompressionOptions(thriftCodecToCompressionKind(codec_)),
+          getParquetDecompressionOptions(codec_),
           streamDebugInfo,
           nullptr,
           true,
@@ -317,7 +316,7 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       dictionaryEncoding_ == Encoding::PLAIN_DICTIONARY ||
       dictionaryEncoding_ == Encoding::PLAIN);
 
-  if (codec_ != thrift::CompressionCodec::UNCOMPRESSED) {
+  if (codec_ != common::CompressionKind::CompressionKind_NONE) {
     pageData_ = readBytes(pageHeader.compressed_page_size, pageBuffer_);
     pageData_ = decompressData(
         pageData_,

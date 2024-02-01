@@ -14,16 +14,42 @@
  * limitations under the License.
  */
 
-// Adapted from Apache Arrow.
-
 #include "velox/dwio/parquet/reader/Metadata.h"
 
-#include <vector>
-
-#include "velox/dwio/parquet/reader/ParquetReaderUtil.h"
-#include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
+#include "velox/dwio/parquet/reader/Statistics.h"
 
 namespace facebook::velox::parquet {
+
+common::CompressionKind thriftCodecToCompressionKind(
+    thrift::CompressionCodec::type codec) {
+  switch (codec) {
+    case thrift::CompressionCodec::UNCOMPRESSED:
+      return common::CompressionKind::CompressionKind_NONE;
+      break;
+    case thrift::CompressionCodec::SNAPPY:
+      return common::CompressionKind::CompressionKind_SNAPPY;
+      break;
+    case thrift::CompressionCodec::GZIP:
+      return common::CompressionKind::CompressionKind_GZIP;
+      break;
+    case thrift::CompressionCodec::LZO:
+      return common::CompressionKind::CompressionKind_LZO;
+      break;
+    case thrift::CompressionCodec::LZ4:
+      return common::CompressionKind::CompressionKind_LZ4;
+      break;
+    case thrift::CompressionCodec::ZSTD:
+      return common::CompressionKind::CompressionKind_ZSTD;
+      break;
+    case thrift::CompressionCodec::LZ4_RAW:
+      return common::CompressionKind::CompressionKind_LZ4;
+    default:
+      VELOX_UNSUPPORTED(
+          "Unsupported compression type: " +
+          facebook::velox::parquet::thrift::to_string(codec));
+      break;
+  }
+}
 
 ColumnChunkMetaDataPtr::ColumnChunkMetaDataPtr(const void* metadata)
     : ptr_(metadata) {}
@@ -39,9 +65,49 @@ int64_t ColumnChunkMetaDataPtr::numValues() const {
   return thriftColumnChunkPtr(ptr_)->meta_data.num_values;
 }
 
+bool ColumnChunkMetaDataPtr::hasMetadata() const {
+  return thriftColumnChunkPtr(ptr_)->__isset.meta_data;
+}
+
+bool ColumnChunkMetaDataPtr::hasStatistics() const {
+  return hasMetadata() &&
+      thriftColumnChunkPtr(ptr_)->meta_data.__isset.statistics;
+}
+
+bool ColumnChunkMetaDataPtr::hasDictionaryPageOffset() const {
+  return hasMetadata() &&
+      thriftColumnChunkPtr(ptr_)->meta_data.__isset.dictionary_page_offset;
+}
+
+std::unique_ptr<dwio::common::ColumnStatistics>
+ColumnChunkMetaDataPtr::getColumnStatistics(
+    const TypePtr type,
+    int64_t numRows) {
+  VELOX_CHECK(hasStatistics());
+  return buildColumnStatisticsFromThrift(
+      thriftColumnChunkPtr(ptr_)->meta_data.statistics, *type, numRows);
+};
+
+int64_t ColumnChunkMetaDataPtr::dataPageOffset() const {
+  return thriftColumnChunkPtr(ptr_)->meta_data.data_page_offset;
+}
+
+int64_t ColumnChunkMetaDataPtr::dictionaryPageOffset() const {
+  VELOX_CHECK(hasDictionaryPageOffset());
+  return thriftColumnChunkPtr(ptr_)->meta_data.dictionary_page_offset;
+}
+
 common::CompressionKind ColumnChunkMetaDataPtr::compression() const {
   return thriftCodecToCompressionKind(
       thriftColumnChunkPtr(ptr_)->meta_data.codec);
+}
+
+int64_t ColumnChunkMetaDataPtr::totalCompressedSize() const {
+  return thriftColumnChunkPtr(ptr_)->meta_data.total_compressed_size;
+}
+
+int64_t ColumnChunkMetaDataPtr::totalUncompressedSize() const {
+  return thriftColumnChunkPtr(ptr_)->meta_data.total_uncompressed_size;
 }
 
 FOLLY_ALWAYS_INLINE const thrift::RowGroup* thriftRowGroupPtr(
@@ -64,6 +130,18 @@ int64_t RowGroupMetaDataPtr::numRows() const {
 
 int64_t RowGroupMetaDataPtr::totalByteSize() const {
   return thriftRowGroupPtr(ptr_)->total_byte_size;
+}
+
+bool RowGroupMetaDataPtr::hasFileOffset() const {
+  return thriftRowGroupPtr(ptr_)->__isset.file_offset;
+}
+
+int64_t RowGroupMetaDataPtr::fileOffset() const {
+  return thriftRowGroupPtr(ptr_)->file_offset;
+}
+
+bool RowGroupMetaDataPtr::hasTotalCompressedSize() const {
+  return thriftRowGroupPtr(ptr_)->__isset.total_compressed_size;
 }
 
 int64_t RowGroupMetaDataPtr::totalCompressedSize() const {

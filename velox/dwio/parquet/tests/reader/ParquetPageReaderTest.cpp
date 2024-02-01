@@ -34,7 +34,7 @@ TEST_F(ParquetPageReaderTest, smallPage) {
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
       *leafPool_,
-      thrift::CompressionCodec::type::GZIP,
+      common::CompressionKind::CompressionKind_GZIP,
       headerSize);
   auto header = pageReader->readPageHeader();
   EXPECT_EQ(header.type, thrift::PageType::type::DATA_PAGE);
@@ -62,7 +62,7 @@ TEST_F(ParquetPageReaderTest, largePage) {
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
       *leafPool_,
-      thrift::CompressionCodec::type::GZIP,
+      common::CompressionKind::CompressionKind_GZIP,
       headerSize);
   auto header = pageReader->readPageHeader();
 
@@ -95,7 +95,7 @@ TEST_F(ParquetPageReaderTest, corruptedPageHeader) {
   auto pageReader = std::make_unique<PageReader>(
       std::move(inputStream),
       *leafPool_,
-      thrift::CompressionCodec::type::GZIP,
+      common::CompressionKind::CompressionKind_GZIP,
       headerSize);
 
   EXPECT_THROW(pageReader->readPageHeader(), VeloxException);

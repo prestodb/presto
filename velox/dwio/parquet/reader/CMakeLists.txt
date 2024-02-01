@@ -21,7 +21,6 @@ add_library(
   PageReader.cpp
   ParquetColumnReader.cpp
   ParquetData.cpp
-  ParquetReaderUtil.cpp
   RepeatedColumnReader.cpp
   RleBpDecoder.cpp
   Statistics.cpp
