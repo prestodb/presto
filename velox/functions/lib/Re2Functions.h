@@ -30,15 +30,24 @@ namespace facebook::velox::functions {
 enum class PatternKind {
   /// Pattern containing wildcard character '_' only, such as _, __, ____.
   kExactlyN,
-  /// Pattern containing wildcard characters ('_' or '%') only with atleast one
+  /// Pattern containing wildcard characters ('_' or '%') only with at least one
   /// '%', such as ___%, _%__.
   kAtLeastN,
   /// Pattern with no wildcard characters, such as 'presto', 'foo'.
   kFixed,
+  /// Pattern with single wildcard chars(_) & normal chars, such as
+  /// '_pr_es_to_'.
+  kRelaxedFixed,
   /// Fixed pattern followed by one or more '%', such as 'hello%', 'foo%%%%'.
   kPrefix,
+  /// kRelaxedFixed pattern followed by one or more '%', such as '_pr_es_to_%',
+  /// '_pr_es_to_%%%%'.
+  kRelaxedPrefix,
   /// Fixed pattern preceded by one or more '%', such as '%foo', '%%%hello'.
   kSuffix,
+  /// kRelaxedFixed preceded by one or more '%', such as '%_pr_es_to_',
+  /// '%%%_pr_es_to_'.
+  kRelaxedSuffix,
   /// Patterns matching '%{c0}%', such as '%foo%%', '%%%hello%'.
   kSubstring,
   /// Patterns which do not fit any of the above types, such as 'hello_world',
@@ -46,17 +55,93 @@ enum class PatternKind {
   kGeneric,
 };
 
-struct PatternMetadata {
-  PatternKind patternKind;
-  // Contains the length of the unescaped fixed pattern for patterns of kind
-  // kFixed, kPrefix, kSuffix and kSubstring. Contains the count of wildcard
-  // character '_' for patterns of kind kExactlyN and kAtLeastN. Contains 0
-  // otherwise.
-  size_t length;
-  // Contains the unescaped fixed pattern in patterns of kind kFixed, kPrefix,
-  // kSuffix and kSubstring.
-  std::string fixedPattern = "";
+// Kind of sub-pattern.
+enum SubPatternKind {
+  /// e.g. '___'.
+  kSingleCharWildcard = 0,
+  // e.g. '%%'.
+  kAnyCharsWildcard = 1,
+  // e.g. 'abc'.
+  kLiteralString = 2
 };
+
+struct SubPatternMetadata {
+  SubPatternKind kind;
+  // The index of current pattern in terms of 'bytes'.
+  size_t start;
+  // Length in terms of bytes.
+  size_t length;
+};
+
+class PatternMetadata {
+ public:
+  static PatternMetadata generic();
+
+  static PatternMetadata atLeastN(size_t length);
+
+  static PatternMetadata exactlyN(size_t length);
+
+  static PatternMetadata fixed(const std::string& fixedPattern);
+
+  static PatternMetadata relaxedFixed(
+      std::string fixedPattern,
+      std::vector<SubPatternMetadata> subPatterns);
+
+  static PatternMetadata prefix(const std::string& fixedPattern);
+
+  static PatternMetadata relaxedPrefix(
+      std::string fixedPattern,
+      std::vector<SubPatternMetadata> subPatterns);
+
+  static PatternMetadata suffix(const std::string& fixedPattern);
+
+  static PatternMetadata relaxedSuffix(
+      std::string fixedPattern,
+      std::vector<SubPatternMetadata> subPatterns);
+
+  static PatternMetadata substring(const std::string& fixedPattern);
+
+  PatternKind patternKind() const {
+    return patternKind_;
+  }
+
+  size_t length() const {
+    return length_;
+  }
+
+  const std::vector<SubPatternMetadata>& subPatterns() const {
+    return subPatterns_;
+  }
+
+  const std::string& fixedPattern() const {
+    return fixedPattern_;
+  }
+
+ private:
+  PatternMetadata(
+      PatternKind patternKind,
+      size_t length,
+      std::string fixedPattern,
+      std::vector<SubPatternMetadata> subPatterns);
+
+  PatternKind patternKind_;
+
+  /// Contains the length of the unescaped fixed pattern for patterns of kind
+  /// k[Relaxed]Fixed, k[Relaxed]Prefix, k[Relaxed]Suffix and
+  /// k[Relaxed]Substring. Contains the count of wildcard character '_' for
+  /// patterns of kind kExactlyN and kAtLeastN. Contains 0 otherwise.
+  size_t length_;
+
+  /// Contains the fixed pattern in patterns of kind k[Relaxed]Fixed,
+  /// k[Relaxed]Prefix, k[Relaxed]Suffix and k[Relaxed]Substring.
+  std::string fixedPattern_;
+
+  /// Contains the literal/single char wildcard sub patterns, it is only
+  /// used for kRelaxedXxx patterns. e.g. If the pattern is: _pr_sto%, we will
+  /// have four sub-patterns here: _, pr, _ and sto.
+  std::vector<SubPatternMetadata> subPatterns_;
+};
+
 inline const int kMaxCompiledRegexes = 20;
 
 /// The functions in this file use RE2 as the regex engine. RE2 is fast, but

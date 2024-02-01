@@ -467,20 +467,30 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
       [&](std::string_view pattern, PatternKind patternKind, size_t length) {
         PatternMetadata patternMetadata =
             determinePatternKind(pattern, std::nullopt);
-        EXPECT_EQ(patternMetadata.patternKind, patternKind);
-        EXPECT_EQ(patternMetadata.length, length);
+
+        SCOPED_TRACE(fmt::format(
+            "pattern: '{}', length: {}, actualLength: {}",
+            pattern,
+            length,
+            patternMetadata.length()));
+        EXPECT_EQ(patternMetadata.patternKind(), patternKind);
+        EXPECT_EQ(patternMetadata.length(), length);
       };
 
   auto testPatternString = [&](std::string_view pattern,
                                PatternKind patternKind,
                                std::string_view fixedPattern) {
+    SCOPED_TRACE(fmt::format(
+        "pattern: '{}', fixedPattern: '{}'", pattern, fixedPattern));
+
     PatternMetadata patternMetadata =
         determinePatternKind(pattern, std::nullopt);
-    EXPECT_EQ(patternMetadata.patternKind, patternKind);
-    EXPECT_EQ(patternMetadata.length, fixedPattern.size());
-    EXPECT_EQ(patternMetadata.fixedPattern, fixedPattern);
+    EXPECT_EQ(patternMetadata.patternKind(), patternKind);
+    EXPECT_EQ(patternMetadata.length(), fixedPattern.size());
+    EXPECT_EQ(patternMetadata.fixedPattern(), fixedPattern);
   };
 
+  testPattern("", PatternKind::kFixed, 0);
   testPattern("_", PatternKind::kExactlyN, 1);
   testPattern("____", PatternKind::kExactlyN, 4);
   testPattern("%", PatternKind::kAtLeastN, 0);
@@ -496,17 +506,38 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
       "helloPrestoWorld", PatternKind::kFixed, "helloPrestoWorld");
   testPatternString("aBcD", PatternKind::kFixed, "aBcD");
 
+  testPatternString("_pr_es_to_", PatternKind::kRelaxedFixed, "_pr_es_to_");
+  testPatternString("_presto", PatternKind::kRelaxedFixed, "_presto");
+  testPatternString("presto_", PatternKind::kRelaxedFixed, "presto_");
+  testPatternString("_a", PatternKind::kRelaxedFixed, "_a");
+  testPatternString("a_", PatternKind::kRelaxedFixed, "a_");
+  testPatternString("_a_", PatternKind::kRelaxedFixed, "_a_");
+
   testPattern("presto%", PatternKind::kPrefix, 6);
   testPattern("hello%%", PatternKind::kPrefix, 5);
   testPattern("a%", PatternKind::kPrefix, 1);
   testPattern("helloPrestoWorld%%%", PatternKind::kPrefix, 16);
   testPattern("aBcD%", PatternKind::kPrefix, 4);
 
+  testPatternString("_pr_es_to_%", PatternKind::kRelaxedPrefix, "_pr_es_to_");
+  testPatternString("_presto%", PatternKind::kRelaxedPrefix, "_presto");
+  testPatternString("presto_%%", PatternKind::kRelaxedPrefix, "presto_");
+  testPatternString("_a%", PatternKind::kRelaxedPrefix, "_a");
+  testPatternString("a_%%", PatternKind::kRelaxedPrefix, "a_");
+  testPatternString("_a_%", PatternKind::kRelaxedPrefix, "_a_");
+
   testPattern("%presto", PatternKind::kSuffix, 6);
   testPattern("%%hello", PatternKind::kSuffix, 5);
   testPattern("%a", PatternKind::kSuffix, 1);
   testPattern("%%%helloPrestoWorld", PatternKind::kSuffix, 16);
   testPattern("%aBcD", PatternKind::kSuffix, 4);
+
+  testPatternString("%_pr_es_to_", PatternKind::kRelaxedSuffix, "_pr_es_to_");
+  testPatternString("%_presto", PatternKind::kRelaxedSuffix, "_presto");
+  testPatternString("%%presto_", PatternKind::kRelaxedSuffix, "presto_");
+  testPatternString("%_a", PatternKind::kRelaxedSuffix, "_a");
+  testPatternString("%%a_", PatternKind::kRelaxedSuffix, "a_");
+  testPatternString("%_a_", PatternKind::kRelaxedSuffix, "_a_");
 
   testPatternString("%presto%%", PatternKind::kSubstring, "presto");
   testPatternString("%%hello%", PatternKind::kSubstring, "hello");
@@ -516,15 +547,34 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKind) {
 
   testPattern("_b%%__", PatternKind::kGeneric, 0);
   testPattern("%_%p", PatternKind::kGeneric, 0);
-  testPattern("aBcD_", PatternKind::kGeneric, 0);
-  testPattern("%aBc_D%", PatternKind::kGeneric, 0);
   testPattern("aBcD%%e%", PatternKind::kGeneric, 0);
-  testPattern("aBc_D%%", PatternKind::kGeneric, 0);
   testPattern("%%_%aBcD", PatternKind::kGeneric, 0);
   testPattern("%%a%%BcD", PatternKind::kGeneric, 0);
   testPattern("%%aBcD%_%", PatternKind::kGeneric, 0);
+  testPattern("aBcD%_%", PatternKind::kGeneric, 0);
   testPattern("foo%bar", PatternKind::kGeneric, 0);
-  testPattern("_aBcD", PatternKind::kGeneric, 0);
+
+  // Test for pattern with unicode.
+  testPattern("_b%%__", PatternKind::kGeneric, 0);
+}
+
+TEST_F(Re2FunctionsTest, likeDeterminePatternKindUnicode) {
+  auto testPattern = [&](std::string_view pattern,
+                         PatternKind patternKind,
+                         std::string_view fixedPattern) {
+    PatternMetadata patternMetadata = determinePatternKind(pattern, '\\');
+    EXPECT_EQ(patternMetadata.patternKind(), patternKind);
+    EXPECT_EQ(patternMetadata.length(), fixedPattern.size());
+    EXPECT_EQ(patternMetadata.fixedPattern(), fixedPattern);
+  };
+
+  // '你好' is 'hello' in Chinese, '世界' is 'world' in Chinese.
+  testPattern("你好%", PatternKind::kPrefix, "你好");
+  testPattern("a你好%", PatternKind::kPrefix, "a你好");
+  testPattern("你好a%", PatternKind::kPrefix, "你好a");
+  testPattern("%%你好", PatternKind::kSuffix, "你好");
+  testPattern("%%你好%", PatternKind::kSubstring, "你好");
+  testPattern("%%你好%世界", PatternKind::kGeneric, "");
 }
 
 TEST_F(Re2FunctionsTest, likeDeterminePatternKindWithEscapeChar) {
@@ -532,25 +582,33 @@ TEST_F(Re2FunctionsTest, likeDeterminePatternKindWithEscapeChar) {
                          PatternKind patternKind,
                          std::string_view fixedPattern) {
     PatternMetadata patternMetadata = determinePatternKind(pattern, '\\');
-    EXPECT_EQ(patternMetadata.patternKind, patternKind);
-    EXPECT_EQ(patternMetadata.length, fixedPattern.size());
-    EXPECT_EQ(patternMetadata.fixedPattern, fixedPattern);
+    EXPECT_EQ(patternMetadata.patternKind(), patternKind);
+    EXPECT_EQ(patternMetadata.length(), fixedPattern.size());
+    EXPECT_EQ(patternMetadata.fixedPattern(), fixedPattern);
   };
 
   testPattern(R"(\_)", PatternKind::kFixed, "_");
   testPattern(R"(\_\_\_\_)", PatternKind::kFixed, "____");
   testPattern(R"(a\_\_b\_\_c)", PatternKind::kFixed, "a__b__c");
 
+  testPattern(R"(_a\_\_b_\_\_c_)", PatternKind::kRelaxedFixed, "_a__b___c_");
+
   testPattern(R"(\%)", PatternKind::kFixed, "%");
   testPattern(R"(\%\%\%)", PatternKind::kFixed, "%%%");
   testPattern(R"(a\%b\%c\%d)", PatternKind::kFixed, "a%b%c%d");
 
+  testPattern(R"(_a\%b\%c_\%d_)", PatternKind::kRelaxedFixed, "_a%b%c_%d_");
+
   testPattern(R"(\_\_%%)", PatternKind::kPrefix, "__");
   testPattern(R"(a\_b\_c%%)", PatternKind::kPrefix, "a_b_c");
+
+  testPattern(R"(_a\__b\_c%%)", PatternKind::kRelaxedPrefix, "_a__b_c");
 
   testPattern(R"(%%\_\_)", PatternKind::kSuffix, "__");
   testPattern(R"(%%a\_b\_c)", PatternKind::kSuffix, "a_b_c");
   testPattern(R"(%\_\%)", PatternKind::kSuffix, "_%");
+
+  testPattern(R"(%%a\_b_\_c_)", PatternKind::kRelaxedSuffix, "a_b__c_");
 
   testPattern(R"(%\_%%)", PatternKind::kSubstring, "_");
   testPattern(R"(%\_\%%%)", PatternKind::kSubstring, "_%");
@@ -640,6 +698,34 @@ TEST_F(Re2FunctionsTest, likePatternFixed) {
   testLike(input, input, true);
 }
 
+TEST_F(Re2FunctionsTest, likePatternRelaxedFixed) {
+  testLike("_ab_cde_", "_ab_cde_", true);
+  testLike("xabxcdex", "_ab_cde_", true);
+  testLike("xacxcdex", "_ab_cde_", false);
+
+  testLike("ABCDEx", "ABCDE_", true);
+  testLike("ABCDEy", "ABCDE_", true);
+  testLike("ABCDCy", "ABCDE_", false);
+  testLike("abcdey", "ABCDE_", false);
+
+  testLike("ABCDE_FGH", "ABCDE_", false);
+  testLike("ABCDE", "ABCDE_", false);
+  testLike("ABCDE_", "ABCDE_", true);
+
+  testLike("你好_世界", "你好_", false);
+  testLike("你好", "你好_", false);
+  testLike("你好_", "你好_", true);
+
+  // Test literal '_' & '%' in pattern.
+  testLike("_x", R"(\__)", '\\', true);
+  testLike("xx", R"(\__)", '\\', false);
+  testLike("abc_dx", R"(abc\_d_)", '\\', true);
+
+  testLike("aa", R"(\%_)", '\\', false);
+  testLike("%a", R"(\%_)", '\\', true);
+  testLike("xabc%d", R"(_abc\%d)", '\\', true);
+}
+
 TEST_F(Re2FunctionsTest, likePatternPrefix) {
   testLike("", "%", true);
   testLike("", "%%", true);
@@ -681,6 +767,35 @@ TEST_F(Re2FunctionsTest, likePatternPrefix) {
   testLike(input, input + generateString(kAnyWildcardCharacter), true);
 }
 
+TEST_F(Re2FunctionsTest, likePatternRelaxedPrefix) {
+  testLike("abcdef", "abcd_%", true);
+  testLike("abcdef", "abcd_%%%", true);
+  testLike("abcdef", "_b_d_%", true);
+  testLike("abcdef", "bb_d_%", false);
+
+  testLike("ABCDE", "ABC_%", true);
+  testLike("ABCDE", "A_C_%", true);
+  testLike("ABCDE", "__C_%", true);
+  testLike("ABCDE", "BBC_%", false);
+  testLike("abcde", "__C_%", false);
+
+  testLike("ABCDE_FGH", "ABCDE_%", true);
+  testLike("ABCDE", "ABCDE_%", false);
+  testLike("ABCDE_", "ABCDE_%", true);
+
+  testLike("你好_世界", "你好_%", true);
+  testLike("你好", "你好_%", false);
+  testLike("你好_", "你好_%", true);
+
+  // Test literal '_' & '%' in pattern.
+  testLike("a_b", R"(_\_%)", '\\', true);
+  testLike("b_b", R"(_\_%)", '\\', true);
+  testLike("bbb", R"(_\_%)", '\\', false);
+
+  testLike("%ab", R"(\%_b%)", '\\', true);
+  testLike("a_c%defg", R"(a_c\%d%)", '\\', true);
+}
+
 TEST_F(Re2FunctionsTest, likePatternSuffix) {
   testLike("", "%", true);
   testLike("abcde", "%bcde", true);
@@ -720,6 +835,44 @@ TEST_F(Re2FunctionsTest, likePatternSuffix) {
 
   std::string input = generateString(kLikePatternCharacterSet, 65);
   testLike(input, generateString(kAnyWildcardCharacter) + input, true);
+}
+
+TEST_F(Re2FunctionsTest, likeRelaxedSuffixPattern) {
+  testLike("abcde", "%_cde", true);
+  testLike("ABCDE", "%_DE", true);
+  testLike("abcde", "%%_d_", true);
+  testLike("ABCDE", "%%D_", true);
+  testLike("abcde", "%%_e", true);
+  testLike("ABCDE", "%%_E", true);
+
+  testLike("abcde", "%cc_e", false);
+  testLike("ABCDE", "%BD_", false);
+  testLike("abcde", "%%cc_e", false);
+  testLike("ABCDE", "%%BD_", false);
+  testLike("abcde", "%be_", false);
+  testLike("ABCDE", "%_de", false);
+  testLike("abcde", "%%_ce", false);
+  testLike("ABCDE", "%%e", false);
+  testLike("\nabc\nde\n", "%_\nde\n", true);
+  testLike("\nabcde\n", "%%_de\n", true);
+  testLike("\nabc\tde\b", "%_\tde\b", true);
+  testLike("\nabcde\t", "%%_de\t", true);
+  testLike("\nabcde\n", "%d_\b", false);
+  testLike("\nabcde\n", "%_d\n", false);
+  testLike("\nabcde\n", "%e_\n", false);
+
+  testLike("FGH_ABCDE", "%_ABCDE", true);
+  testLike("ABCDE", "%_ABCDE", false);
+  testLike("_ABCDE", "%_ABCDE", true);
+
+  testLike("世界_你好", "%_你好", true);
+  testLike("你好", "%_你好", false);
+  testLike("_你好", "%_你好", true);
+
+  // Test literal '_' & '%' in pattern.
+  testLike("a_b", R"(%\__)", '\\', true);
+  testLike("cd_bc", R"(%\_b_)", '\\', true);
+  testLike("efgabc_d", R"(%a_c\_d)", '\\', true);
 }
 
 TEST_F(Re2FunctionsTest, likeSubstringPattern) {
