@@ -35,10 +35,9 @@ namespace facebook::velox::serializer::presto {
 /// efficient for a selective subset, e.g. when splitting a vector to a large
 /// number of output shuffle destinations.
 ///
-/// 2. To serialize a single RowVector, one can use the serializeEncoded()
-/// method. Since it serializes a single RowVector, it tries to preserve the
-/// encodings of the input data. Check the method documentation below to learn
-/// about the cases in which encodings are preserved.
+/// 2. To serialize a single RowVector, one can use the BatchVectorSerializer
+/// returned by createBatchSerializer(). Since it serializes a single RowVector,
+/// it tries to preserve the encodings of the input data.
 class PrestoVectorSerde : public VectorSerde {
  public:
   // Input options that the serializer recognizes.
@@ -83,6 +82,13 @@ class PrestoVectorSerde : public VectorSerde {
       StreamArena* streamArena,
       const Options* options) override;
 
+  /// Note that in addition to the differences highlighted in the VectorSerde
+  /// interface, BatchVectorSerializer returned by this function can maintain
+  /// the encodings of the input vectors recursively.
+  std::unique_ptr<BatchVectorSerializer> createBatchSerializer(
+      memory::MemoryPool* pool,
+      const Options* options) override;
+
   /// Serializes a single RowVector with possibly encoded children, preserving
   /// their encodings. Encodings are preserved recursively for any RowVector
   /// children, but not for children of other nested vectors such as Array, Map,
@@ -93,7 +99,10 @@ class PrestoVectorSerde : public VectorSerde {
   ///
   /// In order to override the encodings of top-level columns in the RowVector,
   /// you can specifiy the encodings using PrestoOptions.encodings
-  void serializeEncoded(
+  ///
+  /// DEPRECATED: Use createBatchSerializer and the BatchVectorSerializer's
+  /// serialize function instead.
+  void deprecatedSerializeEncoded(
       const RowVectorPtr& vector,
       StreamArena* streamArena,
       const Options* options,
