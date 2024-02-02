@@ -30,9 +30,9 @@ void decodeNoNulls(char* encoded, int64_t& value) {
 } // namespace
 
 void encodeInPlace(std::vector<int64_t>& data) {
+  const static auto encoder = PrefixSortEncoder(true, true);
   for (auto i = 0; i < data.size(); i++) {
-    PrefixSortEncoder::encode(
-        data[i], (char*)data.data() + i * sizeof(int64_t));
+    encoder.encodeNoNulls(data[i], (char*)data.data() + i * sizeof(int64_t));
   }
 }
 

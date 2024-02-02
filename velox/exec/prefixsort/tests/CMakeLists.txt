@@ -13,7 +13,8 @@
 # limitations under the License.
 add_subdirectory(utils)
 
-add_executable(velox_exec_prefixsort_test PrefixSortAlgorithmTest.cpp)
+add_executable(velox_exec_prefixsort_test PrefixSortAlgorithmTest.cpp
+                                          PrefixEncoderTest.cpp)
 
 add_test(
   NAME velox_exec_prefixsort_test
