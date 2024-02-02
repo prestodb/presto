@@ -250,13 +250,19 @@ void SplitReader::setNullConstantValue(
 namespace {
 
 template <TypeKind ToKind>
-velox::variant convertFromString(const std::optional<std::string>& value) {
+velox::variant convertFromString(
+    const std::optional<std::string>& value,
+    const TypePtr& toType) {
   if (value.has_value()) {
     if constexpr (ToKind == TypeKind::VARCHAR) {
       return velox::variant(value.value());
     }
     if constexpr (ToKind == TypeKind::VARBINARY) {
       return velox::variant::binary((value.value()));
+    }
+    if (toType->isDate()) {
+      return velox::variant(util::castFromDateString(
+          StringView(value.value()), true /*isIso8601*/));
     }
     auto result = velox::util::Converter<ToKind>::cast(value.value());
     if constexpr (ToKind == TypeKind::TIMESTAMP) {
@@ -279,7 +285,10 @@ void SplitReader::setPartitionValue(
       "ColumnHandle is missing for partition key {}",
       partitionKey);
   auto constValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      convertFromString, it->second->dataType()->kind(), value);
+      convertFromString,
+      it->second->dataType()->kind(),
+      value,
+      it->second->dataType());
   setConstantValue(spec, it->second->dataType(), constValue);
 }
 

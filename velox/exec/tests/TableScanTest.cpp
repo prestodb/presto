@@ -1499,6 +1499,15 @@ TEST_F(TableScanTest, partitionedTableDoubleKey) {
   testPartitionedTable(filePath->path, DOUBLE(), "3.5");
 }
 
+TEST_F(TableScanTest, partitionedTableDateKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  createDuckDbTable(vectors);
+  testPartitionedTable(filePath->path, DATE(), "2023-10-27");
+}
+
 std::vector<StringView> toStringViews(const std::vector<std::string>& values) {
   std::vector<StringView> views;
   views.reserve(values.size());
