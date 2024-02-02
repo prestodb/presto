@@ -178,6 +178,7 @@ TEST_F(AddressableNonNullValueListTest, row) {
       makeNullableFlatVector<int64_t>(
           {std::nullopt, 22, 22, 33, std::nullopt, 55, 33}),
   });
+  test(dataWithDuplicates, data);
 }
 
 } // namespace
