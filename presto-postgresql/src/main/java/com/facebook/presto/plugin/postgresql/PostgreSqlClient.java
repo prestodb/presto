@@ -116,7 +116,9 @@ public class PostgreSqlClient
     @Override
     public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
-        if (typeHandle.getJdbcTypeName().equals("jsonb") || typeHandle.getJdbcTypeName().equals("json")) {
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        if (jdbcTypeName.equals("jsonb") || jdbcTypeName.equals("json")) {
             return Optional.of(jsonColumnMapping());
         }
 

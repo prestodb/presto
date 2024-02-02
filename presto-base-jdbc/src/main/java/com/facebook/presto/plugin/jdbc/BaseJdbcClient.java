@@ -238,7 +238,7 @@ public class BaseJdbcClient
                     allColumns++;
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
-                            resultSet.getString("TYPE_NAME"),
+                            Optional.ofNullable(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"));
                     Optional<ReadMapping> columnMapping = toPrestoType(session, typeHandle);

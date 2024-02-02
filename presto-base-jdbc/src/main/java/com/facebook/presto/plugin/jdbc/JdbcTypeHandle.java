@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -24,14 +25,14 @@ import static java.util.Objects.requireNonNull;
 public final class JdbcTypeHandle
 {
     private final int jdbcType;
-    private final String jdbcTypeName;
+    private final Optional<String> jdbcTypeName;
     private final int columnSize;
     private final int decimalDigits;
 
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
-            @JsonProperty("jdbcTypeName") String jdbcTypeName,
+            @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits)
     {
@@ -48,7 +49,7 @@ public final class JdbcTypeHandle
     }
 
     @JsonProperty
-    public String getJdbcTypeName()
+    public Optional<String> getJdbcTypeName()
     {
         return jdbcTypeName;
     }
@@ -92,7 +93,7 @@ public final class JdbcTypeHandle
     {
         return toStringHelper(this)
                 .add("jdbcType", jdbcType)
-                .add("jdbcTypeName", jdbcTypeName)
+                .add("jdbcTypeName", jdbcTypeName.orElse(null))
                 .add("columnSize", columnSize)
                 .add("decimalDigits", decimalDigits)
                 .toString();
