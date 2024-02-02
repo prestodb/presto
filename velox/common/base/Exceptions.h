@@ -312,6 +312,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
 #define VELOX_DCHECK_LE(e1, e2, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_EQ(e1, e2, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_NE(e1, e2, ...) VELOX_CHECK(true)
+#define VELOX_DCHECK_NULL(e, ...) VELOX_CHECK(true)
 #define VELOX_DCHECK_NOT_NULL(e, ...) VELOX_CHECK(true)
 #endif
 
