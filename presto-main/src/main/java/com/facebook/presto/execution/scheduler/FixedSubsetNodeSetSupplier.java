@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
@@ -83,7 +84,7 @@ public class FixedSubsetNodeSetSupplier
         this.perQueryNodeAssignments = new HashMap<>();
         this.pendingRequests = new PriorityQueue<>();
         // start loop to check pending node requests every second
-        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 1, TimeUnit.SECONDS);
+        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 5, TimeUnit.SECONDS);
     }
 
     private void fulfillPendingRequests()
@@ -228,7 +229,7 @@ public class FixedSubsetNodeSetSupplier
             return new NodeSet(
                     activeNodesByNodeId.build(),
                     activeWorkersByNetworkPath.build(),
-                    coordinatorNodeIds,
+                    nodeManager.getCoordinators(),
                     activeNodes,
                     allNodes,
                     allNodesByHost.build(),

@@ -128,7 +128,7 @@ public class DefaultNodeSetSupplier
             return new NodeSet(
                     activeNodesByNodeId.build(),
                     activeWorkersByNetworkPath.build(),
-                    coordinatorNodeIds,
+                    nodeManager.getCoordinators(),
                     activeNodes,
                     allNodes,
                     allNodesByHost.build(),

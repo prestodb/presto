@@ -58,6 +58,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
@@ -303,25 +304,33 @@ public class NodeScheduler
         Set<String> coordinatorIds = nodeSet.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
-            nodeSet.getAllNodesByHostAndPort().get(host).stream()
+            // check if its is a coordinator split
+            if (nodeSet.getCoordinators().stream().map(InternalNode::getHostAndPort).collect(Collectors.toSet()).contains(host)) {
+                chosen.addAll(nodeSet.getCoordinators());
+                return ImmutableList.copyOf(chosen);
+            }
+
+            // TODO: (shrinidhijoshi) Revisit this logic 
+            // Disable port preference. i.e. As long as host is preferred,
+            // then any worker on the host is allowed to be used
+            // nodeSet.getAllNodesByHostAndPort().get(host).stream()
+            //        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
+            //        .forEach(chosen::add);
+
+            // if () {
+            InetAddress address;
+            try {
+                address = host.toInetAddress();
+            }
+            catch (UnknownHostException e) {
+                // skip hosts that don't resolve
+                continue;
+            }
+
+            nodeSet.getAllNodesByHost().get(address).stream()
                     .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
                     .forEach(chosen::add);
-
-            // consider a split with a host without a port as being accessible by all nodes in that host
-            if (!host.hasPort()) {
-                InetAddress address;
-                try {
-                    address = host.toInetAddress();
-                }
-                catch (UnknownHostException e) {
-                    // skip hosts that don't resolve
-                    continue;
-                }
-
-                nodeSet.getAllNodesByHost().get(address).stream()
-                        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                        .forEach(chosen::add);
-            }
+//          }
         }
 
         // if the chosen set is empty and the host is the coordinator, force pick the coordinator
