@@ -433,6 +433,7 @@ jobs:
     environment:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       simdjson_SOURCE: BUNDLED
+      xsimd_SOURCE: BUNDLED
       DuckDB_SOURCE: BUNDLED
     steps:
       - fuzzer-run:
