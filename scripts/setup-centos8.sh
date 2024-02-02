@@ -58,7 +58,7 @@ function cmake_install {
 
 # Fetch sources.
 wget_and_untar https://github.com/gflags/gflags/archive/v2.2.2.tar.gz gflags
-wget_and_untar https://github.com/google/glog/archive/v0.4.0.tar.gz glog
+wget_and_untar https://github.com/google/glog/archive/v0.6.0.tar.gz glog
 wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz lzo
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost
 wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy
