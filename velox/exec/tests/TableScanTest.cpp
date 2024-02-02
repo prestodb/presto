@@ -1388,12 +1388,19 @@ TEST_F(TableScanTest, splitOffsetAndLength) {
 }
 
 TEST_F(TableScanTest, fileNotFound) {
-  CursorParameters params;
-  params.planNode = tableScanNode();
-
-  auto cursor = TaskCursor::create(params);
-  cursor->task()->addSplit("0", makeHiveSplit("/path/to/nowhere.orc"));
-  EXPECT_THROW(cursor->moveNext(), VeloxRuntimeError);
+  auto split = HiveConnectorSplitBuilder("/path/to/nowhere.orc").build();
+  auto assertMissingFile = [&](bool ignoreMissingFiles) {
+    AssertQueryBuilder(tableScanNode())
+        .connectorSessionProperty(
+            kHiveConnectorId,
+            connector::hive::HiveConfig::kIgnoreMissingFilesSession,
+            std::to_string(ignoreMissingFiles))
+        .split(split)
+        .assertEmptyResults();
+  };
+  assertMissingFile(true);
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      assertMissingFile(false), error_code::kFileNotFound);
 }
 
 // A valid ORC file (containing headers) but no data.

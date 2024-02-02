@@ -139,7 +139,8 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kOrcWriterMaxDictionaryMemorySession, "22MB"},
       {HiveConfig::kSortWriterMaxOutputRowsSession, "20"},
       {HiveConfig::kSortWriterMaxOutputBytesSession, "20MB"},
-      {HiveConfig::kPartitionPathAsLowerCaseSession, "false"}};
+      {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
+      {HiveConfig::kIgnoreMissingFilesSession, "true"}};
   const auto session = std::make_unique<MemConfig>(sessionOverride);
   ASSERT_EQ(
       hiveConfig->insertExistingPartitionsBehavior(session.get()),
@@ -174,4 +175,5 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputRows(session.get()), 20);
   ASSERT_EQ(hiveConfig->sortWriterMaxOutputBytes(session.get()), 20UL << 20);
   ASSERT_EQ(hiveConfig->isPartitionPathAsLowerCase(session.get()), false);
+  ASSERT_EQ(hiveConfig->ignoreMissingFiles(session.get()), true);
 }

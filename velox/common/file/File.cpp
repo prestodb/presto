@@ -103,13 +103,17 @@ uint64_t InMemoryWriteFile::size() const {
 
 LocalReadFile::LocalReadFile(std::string_view path) : path_(path) {
   fd_ = open(path_.c_str(), O_RDONLY);
-  VELOX_CHECK_GE(
-      fd_,
-      0,
-      "open failure in LocalReadFile constructor, {} {} {}.",
-      fd_,
-      path,
-      folly::errnoStr(errno));
+  if (fd_ < 0) {
+    if (errno == ENOENT) {
+      VELOX_FILE_NOT_FOUND_ERROR("No such file or directory: {}", path);
+    } else {
+      VELOX_FAIL(
+          "open failure in LocalReadFile constructor, {} {} {}.",
+          fd_,
+          path,
+          folly::errnoStr(errno));
+    }
+  }
   const off_t rc = lseek(fd_, 0, SEEK_END);
   VELOX_CHECK_GE(
       rc,

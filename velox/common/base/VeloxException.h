@@ -105,6 +105,9 @@ inline constexpr auto kSpillLimitExceeded = "SPILL_LIMIT_EXCEEDED"_fs;
 // Errors indicating file read corruptions.
 inline constexpr auto kFileCorruption = "FILE_CORRUPTION"_fs;
 
+// Errors indicating file not found.
+inline constexpr auto kFileNotFound = "FILE_NOT_FOUND"_fs;
+
 // We do not know how to classify it yet.
 inline constexpr auto kUnknown = "UNKNOWN"_fs;
 } // namespace error_code

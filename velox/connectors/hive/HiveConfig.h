@@ -113,6 +113,9 @@ class HiveConfig {
   static constexpr const char* kPartitionPathAsLowerCaseSession =
       "partition_path_as_lower_case";
 
+  static constexpr const char* kIgnoreMissingFilesSession =
+      "ignore_missing_files";
+
   /// The max coalesce bytes for a request.
   static constexpr const char* kMaxCoalescedBytes = "max-coalesced-bytes";
 
@@ -208,6 +211,8 @@ class HiveConfig {
   bool isFileColumnNamesReadAsLowerCase(const Config* session) const;
 
   bool isPartitionPathAsLowerCase(const Config* session) const;
+
+  bool ignoreMissingFiles(const Config* session) const;
 
   int64_t maxCoalescedBytes() const;
 

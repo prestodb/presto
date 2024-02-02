@@ -152,6 +152,10 @@ bool HiveConfig::isPartitionPathAsLowerCase(const Config* session) const {
   return session->get<bool>(kPartitionPathAsLowerCaseSession, true);
 }
 
+bool HiveConfig::ignoreMissingFiles(const Config* session) const {
+  return session->get<bool>(kIgnoreMissingFilesSession, false);
+}
+
 int64_t HiveConfig::maxCoalescedBytes() const {
   return config_->get<int64_t>(kMaxCoalescedBytes, 128 << 20);
 }

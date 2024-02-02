@@ -16,6 +16,7 @@
 
 #include <fcntl.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -315,4 +316,13 @@ TEST(LocalFile, rmdir) {
   // The function does not throw, but will return zero files and folders
   // deleted, which is not an error.
   EXPECT_NO_THROW(localFs->rmdir(tempFolder->path));
+}
+
+TEST(LocalFile, fileNotFound) {
+  filesystems::registerLocalFileSystem();
+  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+  auto path = fmt::format("{}/file", tempFolder->path);
+  auto localFs = filesystems::getFileSystem(path, nullptr);
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      localFs->openFileForRead(path), error_code::kFileNotFound);
 }

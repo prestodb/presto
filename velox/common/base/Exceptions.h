@@ -286,6 +286,14 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       /* isRetriable */ false,                                   \
       ##__VA_ARGS__)
 
+#define VELOX_FILE_NOT_FOUND_ERROR(...)                             \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kFileNotFound.c_str(),         \
+      /* isRetriable */ false,                                      \
+      ##__VA_ARGS__)
+
 #define VELOX_UNREACHABLE(...)                                      \
   _VELOX_THROW(                                                     \
       ::facebook::velox::VeloxRuntimeError,                         \
