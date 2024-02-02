@@ -1,0 +1,147 @@
+---
+slug: like
+title: "Improve LIKE's performance"
+authors: [xumingming]
+tags: [tech-blog,performance]
+---
+
+## What is LIKE?
+
+<a href="https://prestodb.io/docs/current/functions/comparison.html#like">LIKE</a> is a very useful SQL operator.
+It is used to do string pattern matching. The following examples for LIKE usage are from the Presto doc:
+
+```
+SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+WHERE name LIKE '%b%'
+--returns 'abc' and  'bcd'
+
+SELECT * FROM (VALUES ('abc'), ('bcd'), ('cde')) AS t (name)
+WHERE name LIKE '_b%'
+--returns 'abc'
+
+SELECT * FROM (VALUES ('a_c'), ('_cd'), ('cde')) AS t (name)
+WHERE name LIKE '%#_%' ESCAPE '#'
+--returns 'a_c' and  '_cd'
+```
+
+These examples show the basic usage of LIKE:
+
+- Use `%` to match zero or more characters.
+- Use `_` to match exactly one character.
+- If we need to match `%` and `_` literally, we can specify an escape char to escape them.
+
+When we use Velox as the backend to evaluate Presto's query, LIKE operation is translated
+into Velox's function call, e.g. `name LIKE '%b%'` is translated to
+`like(name, '%b%')`. Internally Velox converts the pattern string into a regular
+expression and then uses regular expression library <a href="https://github.com/google/re2">RE2</a>
+to do the pattern matching. RE2 is a very good regular expression library. It is fast
+and safe, which gives Velox LIKE function a good performance. But some popularly used simple patterns
+can be optimized using direct simple C++ string functions instead of regex.
+e.g. Pattern `hello%` matches inputs that start with `hello`, which can be implemented by direct memory
+comparison of prefix ('hello' in this case) bytes of input:
+
+```
+// Match the first 'length' characters of string 'input' and prefix pattern.
+bool matchPrefixPattern(
+    StringView input,
+    const std::string& pattern,
+    size_t length) {
+  return input.size() >= length &&
+      std::memcmp(input.data(), pattern.data(), length) == 0;
+}
+```
+
+It is much faster than using RE2. Benchmark shows it gives us a 750x speedup. We can do similar
+optimizations for some other patterns:
+
+- `%hello`: matches inputs that end with `hello`. It can be optimized by direct memory comparison of suffix bytes of the inputs.
+- `%hello%`: matches inputs that contain `hello`. It can be optimized by using `std::string_view::find` to check whether inputs contain `hello`.
+
+These simple patterns are straightforward to optimize. There are some more relaxed patterns that
+are not so straightforward:
+
+- `hello_velox%`: matches inputs that start with 'hello', followed by any character, then followed by 'velox'.
+- `%hello_velox`: matches inputs that end with 'hello', followed by any character, then followed by 'velox'.
+- `%hello_velox%`: matches inputs that contain both 'hello' and 'velox', and there is a single character separating them.
+
+Although these patterns look similar to previous ones, but they are not so straightforward
+to optimize, `_` here matches any single character, we can not simply use memory comparison to
+do the matching. And if user's input is not pure ASCII, `_` might match more than one byte which
+makes the implementation even more complex. Also note that the above patterns are just for
+illustrative purpose. Actual patterns can be more complex. e.g. `h_e_l_l_o`, so trivial algorithm
+will not work.
+
+## Optimizing Relaxed Patterns
+
+We optimized these patterns as follows. First, we split the patterns into a list of sub patterns, e.g.
+`hello_velox%` is split into sub-patterns: `hello`, `_`, `velox`, `%`, because there is
+a `%` at the end, we determine it as a `kRelaxedPrefix` pattern, which means we need to do some prefix
+matching, but it is not a trivial prefix matching, we need to match three sub-patterns:
+
+- kLiteralString: hello
+- kSingleCharWildcard: _
+- kLiteralString: velox
+
+For `kLiteralString` we simply do a memory comparison:
+
+```
+if (subPattern.kind == SubPatternKind::kLiteralString &&
+    std::memcmp(
+        input.data() + start + subPattern.start,
+        patternMetadata.fixedPattern().data() + subPattern.start,
+        subPattern.length) != 0) {
+  return false;
+}
+```
+
+Note that since it is a memory comparison, it handles both pure ASCII inputs and inputs that
+contain Unicode characters.
+
+Matching `_` is more complex considering that there are variable length multi-bytes character in
+unicode inputs. Fortunately there are existing libraries which provides unicode related operations: <a href="https://juliastrings.github.io/utf8proc/">utf8proc</a>.
+It provides functions that tells us whether a byte in input is the start of a character or not,
+how many bytes current character consists of etc. So to match a sequence of `_` our algorithm is:
+
+```
+if (subPattern.kind == SubPatternKind::kSingleCharWildcard) {
+  // Match every single char wildcard.
+  for (auto i = 0; i < subPattern.length; i++) {
+    if (cursor >= input.size()) {
+      return false;
+    }
+
+    auto numBytes = unicodeCharLength(input.data() + cursor);
+    cursor += numBytes;
+  }
+}
+```
+
+Here:
+
+- `cursor` is the index in the input we are trying to match.
+- `unicodeCharLength` is a function which wraps utf8proc function to determine how many bytes current character consists of.
+
+So the logic is basically repeatedly calculate size of current character and skip it.
+
+It seems not that complex, but we should note that this logic is not effective for pure ASCII input.
+Every character is one byte in pure ASCII input. So to match a sequence of `_`, we don't need to calculate the size
+of each character and compare in a for-loop. In fact, we don't need to explicitly match `_` for pure ASCII input as well.
+We can use the following logic instead:
+```
+for (const auto& subPattern : patternMetadata.subPatterns()) {
+    if (subPattern.kind == SubPatternKind::kLiteralString &&
+        std::memcmp(
+            input.data() + start + subPattern.start,
+            patternMetadata.fixedPattern().data() + subPattern.start,
+            subPattern.length) != 0) {
+      return false;
+    }
+}
+```
+
+It only matches the kLiteralString pattern at the right position of the inputs, `_` is automatically
+matched(actually skipped). No need to match it explicitly. With this optimization we get 40x speedup
+for kRelaxedPrefix patterns, 100x speedup for kRelaxedSuffix patterns.
+
+Thank you <a href="https://github.com/mbasmanova">Maria Basmanova</a> for spending a lot of time
+reviewing the code.
