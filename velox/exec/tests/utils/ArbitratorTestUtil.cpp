@@ -46,12 +46,14 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
 }
 
 std::unique_ptr<memory::MemoryManager> createMemoryManager(
-    int64_t allocatorCapacity,
+    int64_t arbitratorCapacity,
     uint64_t memoryPoolInitCapacity,
     uint64_t memoryPoolTransferCapacity,
     uint64_t maxReclaimWaitMs) {
   memory::MemoryManagerOptions options;
-  options.allocatorCapacity = allocatorCapacity;
+  options.arbitratorCapacity = arbitratorCapacity;
+  // Avoid allocation failure in unit tests.
+  options.allocatorCapacity = arbitratorCapacity * 2;
   options.arbitratorKind = "SHARED";
   options.memoryPoolInitCapacity = memoryPoolInitCapacity;
   options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;

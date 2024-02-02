@@ -36,7 +36,7 @@ DEFINE_uint32(
     "The type of memory allocator. 0 is malloc allocator, 1 is mmap allocator");
 DEFINE_uint32(
     memory_allocation_type,
-    1,
+    0,
     "The type of memory allocation. 0 is small allocation, 1 non-contiguous allocation");
 DEFINE_uint32(
     num_runs,

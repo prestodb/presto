@@ -20,8 +20,31 @@
 #include <sys/mman.h>
 
 namespace facebook::velox::memory {
-MallocAllocator::MallocAllocator(size_t capacity)
-    : kind_(MemoryAllocator::Kind::kMalloc), capacity_(capacity) {}
+MallocAllocator::MallocAllocator(size_t capacity, uint32_t reservationByteLimit)
+    : kind_(MemoryAllocator::Kind::kMalloc),
+      capacity_(capacity),
+      reservationByteLimit_(reservationByteLimit),
+      reserveFunc_(
+          [this](uint32_t& counter, uint32_t increment, std::mutex& lock) {
+            return incrementUsageWithReservationFunc(counter, increment, lock);
+          }),
+      releaseFunc_(
+          [&](uint32_t& counter, uint32_t decrement, std::mutex& lock) {
+            decrementUsageWithReservationFunc(counter, decrement, lock);
+            return true;
+          }),
+      reservations_(std::thread::hardware_concurrency()) {}
+
+MallocAllocator::~MallocAllocator() {
+  // TODO: Remove the check when memory leak issue is resolved.
+  if (FLAGS_velox_memory_leak_check_enabled) {
+    VELOX_CHECK(
+        ((allocatedBytes_ - reservations_.read()) == 0) &&
+            (numAllocated_ == 0) && (numMapped_ == 0),
+        "{}",
+        toString());
+  }
+}
 
 bool MallocAllocator::allocateNonContiguousWithoutRetry(
     MachinePageCount numPages,

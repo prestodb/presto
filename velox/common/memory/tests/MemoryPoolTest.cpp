@@ -996,7 +996,9 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 }
 
 TEST_P(MemoryPoolTest, allocationFailStats) {
-  setupMemory({.allocatorCapacity = 16 * KB});
+  setupMemory(
+      {.allocatorCapacity = 16 * KB,
+       .allocationSizeThresholdWithReservation = false});
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("allocationFailStats");
   auto allocatorCapacity = manager->capacity();

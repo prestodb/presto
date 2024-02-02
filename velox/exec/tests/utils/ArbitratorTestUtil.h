@@ -94,7 +94,7 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
     std::unique_ptr<MemoryReclaimer>&& reclaimer = nullptr);
 
 std::unique_ptr<memory::MemoryManager> createMemoryManager(
-    int64_t allocatorCapacity = kMemoryCapacity,
+    int64_t arbitratorCapacity = kMemoryCapacity,
     uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity,
     uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
     uint64_t maxReclaimWaitMs = 0);

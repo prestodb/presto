@@ -274,7 +274,9 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
       uint64_t maxReclaimWaitMs = 0) {
     memoryCapacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
     MemoryManagerOptions options;
-    options.allocatorCapacity = memoryCapacity;
+    options.arbitratorCapacity = memoryCapacity;
+    // Avoid allocation failure in unit tests.
+    options.allocatorCapacity = memoryCapacity * 2;
     options.arbitratorKind = "SHARED";
     options.memoryPoolInitCapacity = memoryPoolInitCapacity;
     options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;

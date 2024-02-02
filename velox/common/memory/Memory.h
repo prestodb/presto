@@ -121,6 +121,17 @@ struct MemoryManagerOptions {
   /// NOTE: this only applies for MmapAllocator.
   int32_t maxMallocBytes{3072};
 
+  /// The memory allocations with size smaller than this threshold check the
+  /// capacity with local sharded counter to reduce the lock contention on the
+  /// global allocation counter. The sharded local counters reserve/release
+  /// memory capacity from the global counter in batch. With this optimization,
+  /// we don't have to update the global counter for each individual small
+  /// memory allocation. If it is zero, then this optimization is disabled. The
+  /// default is 1MB.
+  ///
+  /// NOTE: this only applies for MallocAllocator.
+  uint32_t allocationSizeThresholdWithReservation{1 << 20};
+
   /// ================== 'MemoryArbitrator' settings =================
 
   /// Memory capacity available for query/task memory pools. This capacity

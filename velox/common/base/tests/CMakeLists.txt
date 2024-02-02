@@ -18,6 +18,7 @@ add_executable(
   BitUtilTest.cpp
   BloomFilterTest.cpp
   CoalesceIoTest.cpp
+  ConcurrentCounterTest.cpp
   ExceptionTest.cpp
   FsTest.cpp
   RangeTest.cpp
