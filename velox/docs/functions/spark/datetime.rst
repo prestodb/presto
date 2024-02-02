@@ -72,11 +72,11 @@ These functions support TIMESTAMP and DATE input types.
         SELECT dayofweek('2009-07-30'); -- 5
         SELECT dayofweek('2023-08-22 11:23:00.100'); -- 3
 
-.. spark::function:: dow(x) -> integer
+.. spark:function:: dow(x) -> integer
 
-    This is an alias for :func:`day_of_week`.
+    This is an alias for :spark:func:`dayofweek`.
 
-.. spark::function::from_unixtime(unixTime, format) -> string
+.. spark:function:: from_unixtime(unixTime, format) -> string
 
     Adjusts ``unixTime`` (elapsed seconds since UNIX epoch) to configured session timezone, then
     converts it to a formatted time string according to ``format``. Only supports BIGINT type for
@@ -91,7 +91,7 @@ These functions support TIMESTAMP and DATE input types.
         SELECT from_unixtime(3600, 'yyyy'); -- '1970'
         SELECT from_unixtime(9223372036854775807, "yyyy-MM-dd HH:mm:ss");  -- '1969-12-31 23:59:59'
 
-.. function:: get_timestamp(string, dateFormat) -> timestamp
+.. spark:function:: get_timestamp(string, dateFormat) -> timestamp
 
     Returns timestamp by parsing ``string`` according to the specified ``dateFormat``.
     The format follows Spark's

@@ -23,7 +23,7 @@ General Aggregate Functions
 
 .. function:: any_value(x) -> [same as x]
 
-    This is an alias for :func:`arbitrary(x)`.
+    This is an alias for :func:`arbitrary`.
 
 .. function:: array_agg(x) -> array<[same as x]>
 
