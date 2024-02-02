@@ -280,6 +280,7 @@ void PrestoServer::run() {
         environment_,
         nodeId_,
         nodeLocation_,
+        systemConfig->prestoNativeSidecar(),
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
         sslContext_);
