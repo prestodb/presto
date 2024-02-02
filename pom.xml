@@ -190,6 +190,7 @@
         <module>redis-hbo-provider</module>
         <module>presto-singlestore</module>
         <module>presto-hana</module>
+        <module>presto-snowflake</module>
     </modules>
 
     <dependencyManagement>

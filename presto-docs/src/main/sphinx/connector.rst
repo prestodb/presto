@@ -39,6 +39,7 @@ from different data sources.
     connector/redshift
     connector/scylladb
     connector/singlestore
+    connector/snowflake
     connector/sqlserver
     connector/system
     connector/thrift
