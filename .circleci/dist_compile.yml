@@ -372,6 +372,7 @@ jobs:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       ICU_SOURCE: BUNDLED
       simdjson_SOURCE: BUNDLED
+      xsimd_SOURCE: BUNDLED
       DuckDB_SOURCE: SYSTEM
     steps:
       - pre-steps

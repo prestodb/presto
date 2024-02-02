@@ -544,8 +544,8 @@ if(NOT VELOX_DISABLE_GOOGLETEST)
       PARENT_SCOPE)
 endif()
 
-set(xsimd_SOURCE BUNDLED)
-resolve_dependency(xsimd)
+set_source(xsimd)
+resolve_dependency(xsimd 10.0.0)
 
 if(VELOX_BUILD_TESTING)
   set(BUILD_TESTING ON)
