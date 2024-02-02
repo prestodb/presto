@@ -2155,7 +2155,9 @@ folly::dynamic Task::toJson() const {
   folly::dynamic driverObj = folly::dynamic::array;
   int index = 0;
   for (auto& driver : drivers_) {
-    driverObj[std::to_string(index++)] = driver ? driver->toJson() : "null";
+    if (driver) {
+      driverObj[index++] = driver->toJson();
+    }
   }
   obj["drivers"] = driverObj;
 
