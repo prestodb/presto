@@ -20,7 +20,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <folly/container/F14Map.h>
+#include <folly/Synchronized.h>
 
 namespace facebook::velox::process {
 
@@ -63,7 +63,7 @@ class TraceContext {
   static std::string statusLine();
 
   // Returns a copy of the trace status.
-  static folly::F14FastMap<std::string, TraceData> status();
+  static std::unordered_map<std::string, TraceData> status();
 
  private:
   const std::string label_;

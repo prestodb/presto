@@ -66,7 +66,6 @@ const std::vector<SelectiveColumnReader*>& SelectiveColumnReader::children()
 }
 
 void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
-  VELOX_TRACE_HISTORY_PUSH("seekTo %d %d", offset, readsNullsOnly);
   if (offset == readOffset_) {
     return;
   }

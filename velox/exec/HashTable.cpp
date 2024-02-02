@@ -20,7 +20,6 @@
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"
-#include "velox/common/process/TraceContext.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/vector/VectorTypeUtils.h"
@@ -858,7 +857,6 @@ bool HashTable<ignoreNullKeys>::canApplyParallelJoinBuild() const {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::parallelJoinBuild() {
-  process::TraceContext trace("HashTable::parallelJoinBuild");
   TestValue::adjust(
       "facebook::velox::exec::HashTable::parallelJoinBuild", rows_->pool());
   VELOX_CHECK_LE(1 + otherTables_.size(), std::numeric_limits<uint8_t>::max());

@@ -16,7 +16,6 @@
 
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
 
-#include "velox/common/process/TraceContext.h"
 #include "velox/dwio/common/ColumnLoader.h"
 
 namespace facebook::velox::dwio::common {
@@ -57,7 +56,6 @@ void SelectiveStructColumnReaderBase::next(
     uint64_t numValues,
     VectorPtr& result,
     const Mutation* mutation) {
-  process::TraceContext trace("SelectiveStructColumnReaderBase::next");
   if (children_.empty()) {
     if (mutation && mutation->deletedRows) {
       numValues -= bits::countBits(mutation->deletedRows, 0, numValues);
@@ -138,7 +136,6 @@ void SelectiveStructColumnReaderBase::read(
   VELOX_CHECK(!childSpecs.empty());
   for (size_t i = 0; i < childSpecs.size(); ++i) {
     auto& childSpec = childSpecs[i];
-    VELOX_TRACE_HISTORY_PUSH("read %s", childSpec->fieldName().c_str());
     if (isChildConstant(*childSpec)) {
       continue;
     }
@@ -342,7 +339,6 @@ void SelectiveStructColumnReaderBase::getValues(
   }
   bool lazyPrepared = false;
   for (auto& childSpec : scanSpec_->children()) {
-    VELOX_TRACE_HISTORY_PUSH("getValues %s", childSpec->fieldName().c_str());
     if (!childSpec->projectOut()) {
       continue;
     }
