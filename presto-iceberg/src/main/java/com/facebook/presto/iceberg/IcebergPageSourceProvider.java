@@ -136,6 +136,8 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
+import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -171,8 +173,6 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
-import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;

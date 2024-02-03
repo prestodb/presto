@@ -51,7 +51,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.iceberg.DeleteFile;
-import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -77,6 +76,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
@@ -262,7 +263,7 @@ public class IcebergEqualityDeleteAsJoin
             try (CloseableIterator<DeleteFile> files =
                     getDeleteFiles(icebergTable, snapshotId, icebergTableHandle.getPredicate(), Optional.empty(), Optional.empty()).iterator()) {
                 files.forEachRemaining(delete -> {
-                    if (delete.content() == FileContent.EQUALITY_DELETES) {
+                    if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();
                         PartitionSpec partitionSpec = icebergTable.specs().get(delete.specId());
                         Types.StructType partitionType = partitionSpec.partitionType();
