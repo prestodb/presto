@@ -63,7 +63,6 @@ public class FixedSubsetNodeSetSupplier
         implements NodeSetSupplier, Closeable
 {
     private static final Logger log = Logger.get(FixedSubsetNodeSetSupplier.class);
-    private static final int NODES_PER_QUERY = 10;
     private final PriorityQueue<NodeSetAcquireRequest> pendingRequests;
     private final InternalNodeManager nodeManager;
     private final NetworkLocationCache networkLocationCache;
@@ -83,16 +82,16 @@ public class FixedSubsetNodeSetSupplier
         this.perQueryNodeAssignments = new HashMap<>();
         this.pendingRequests = new PriorityQueue<>();
         // start loop to check pending node requests every second
-        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 5, TimeUnit.SECONDS);
+        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 100, TimeUnit.MILLISECONDS);
     }
 
     private void fulfillPendingRequests()
     {
-        log.info("Checking for pending requests.. count=%s", pendingRequests.size());
         if (pendingRequests.size() == 0) {
             return;
         }
 
+        log.info("Trying to fulfill nodeset request for=%s", pendingRequests.peek().queryId);
         List<InternalNode> allocatedNodes = perQueryNodeAssignments.values().stream()
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
@@ -179,18 +178,6 @@ public class FixedSubsetNodeSetSupplier
             if (perQueryNodeAssignments.containsKey(queryId)) {
                 activeNodes = activeNodes.stream().filter(internalNode -> perQueryNodeAssignments.get(queryId)
                         .contains(internalNode)).collect(Collectors.toList());
-            }
-            else {
-                Set<InternalNode> alreadyAssignedNodes = perQueryNodeAssignments.values().stream()
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.toSet());
-                activeNodes = activeNodes.stream().filter(internalNode -> !alreadyAssignedNodes.contains(internalNode))
-                        .collect(Collectors.toList());
-                // Check if nodes are available, then pick a subset
-                if (activeNodes.size() > NODES_PER_QUERY) {
-                    activeNodes = activeNodes.subList(0, NODES_PER_QUERY);
-                }
-                perQueryNodeAssignments.put(queryId, activeNodes);
             }
             // TODO: Remove this after enabling commented allNode computation in L93
             allNodes = activeNodes;

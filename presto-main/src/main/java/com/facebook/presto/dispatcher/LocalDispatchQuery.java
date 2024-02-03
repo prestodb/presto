@@ -47,6 +47,7 @@ import java.util.function.Consumer;
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -196,10 +197,14 @@ public class LocalDispatchQuery
 
     private void waitForMinimumWorkers()
     {
-        CompletableFuture<?> waitForNodesFuture = nodeScheduler.acquireNodes(stateMachine.getQueryId(), 1);
+        int nodesToAcquire = getHashPartitionCount(getSession());
+        CompletableFuture<?> waitForNodesFuture =
+                nodeScheduler.acquireNodes(stateMachine.getQueryId(), nodesToAcquire);
+
+        // Listener to release nodes after query execution completes
         stateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
-                nodeScheduler.releaseNodes(stateMachine.getQueryId(), 10);
+                nodeScheduler.releaseNodes(stateMachine.getQueryId(), nodesToAcquire);
             }
         });
 
