@@ -25,6 +25,7 @@ import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
@@ -65,6 +66,8 @@ public class LocalDispatchQueryFactory
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
 
+    private final NodeScheduler nodeScheduler;
+
     /**
      * Instantiates a new Local dispatch query factory.
      *
@@ -90,7 +93,8 @@ public class LocalDispatchQueryFactory
             ExecutionFactoriesManager executionFactoriesManager,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
-            QueryPrerequisitesManager queryPrerequisitesManager)
+            QueryPrerequisitesManager queryPrerequisitesManager,
+            NodeScheduler nodeScheduler)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -104,6 +108,7 @@ public class LocalDispatchQueryFactory
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
         this.queryPrerequisitesManager = requireNonNull(queryPrerequisitesManager, "queryPrerequisitesManager is null");
+        this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
     }
 
     /**
@@ -176,6 +181,7 @@ public class LocalDispatchQueryFactory
                 queryQueuer,
                 queryManager::createQuery,
                 retryCount > 0,
-                queryPrerequisitesManager);
+                queryPrerequisitesManager,
+                nodeScheduler);
     }
 }

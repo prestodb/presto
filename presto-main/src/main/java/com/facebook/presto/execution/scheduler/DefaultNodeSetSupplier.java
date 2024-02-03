@@ -49,6 +49,13 @@ public class DefaultNodeSetSupplier
     @Inject
     public DefaultNodeSetSupplier(
             InternalNodeManager nodeManager,
+            NetworkTopology networkTopology)
+    {
+        this(nodeManager, new NetworkLocationCache(networkTopology));
+    }
+
+    public DefaultNodeSetSupplier(
+            InternalNodeManager nodeManager,
             NetworkLocationCache networkLocationCache)
     {
         this.nodeManager = nodeManager;

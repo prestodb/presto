@@ -25,6 +25,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.LegacySqlQueryScheduler;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
@@ -135,6 +136,8 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final PlanChecker planChecker;
+
+    private final NodeScheduler nodeScheduler;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final AtomicReference<VariableAllocator> variableAllocator = new AtomicReference<>();
     private final PartialResultQueryManager partialResultQueryManager;
@@ -166,6 +169,7 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             PlanChecker planChecker,
+            NodeScheduler nodeScheduler,
             PartialResultQueryManager partialResultQueryManager,
             PlanCanonicalInfoProvider planCanonicalInfoProvider)
     {
@@ -190,6 +194,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
             this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
 
@@ -872,6 +877,7 @@ public class SqlQueryExecution
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final PlanChecker planChecker;
+        private final NodeScheduler nodeScheduler;
         private final PartialResultQueryManager partialResultQueryManager;
         private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
 
@@ -894,6 +900,7 @@ public class SqlQueryExecution
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
                 PlanChecker planChecker,
+                NodeScheduler nodeScheduler,
                 PartialResultQueryManager partialResultQueryManager,
                 HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
         {
@@ -916,6 +923,7 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
             this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
         }
@@ -957,6 +965,7 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     planChecker,
+                    nodeScheduler,
                     partialResultQueryManager,
                     historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
         }

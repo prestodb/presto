@@ -25,7 +25,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 
 import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -38,6 +41,7 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -56,7 +60,7 @@ import static java.lang.Math.ceil;
  * or can be driven by fairness algorithm depending on query metadata.
  */
 public class FixedSubsetNodeSetSupplier
-        implements NodeSetSupplier
+        implements NodeSetSupplier, Closeable
 {
     private static final Logger log = Logger.get(FixedSubsetNodeSetSupplier.class);
     private static final int NODES_PER_QUERY = 10;
@@ -66,25 +70,25 @@ public class FixedSubsetNodeSetSupplier
     // TODO: Use Set<InternalNode>
     private final Map<QueryId, List<InternalNode>> perQueryNodeAssignments;
 
-    private final ScheduledExecutorService scheduledExecutorService;
+    private final ScheduledFuture<?> scheduledFuture;
 
     @Inject
     public FixedSubsetNodeSetSupplier(
             InternalNodeManager nodeManager,
-            NetworkLocationCache networkLocationCache,
-            ScheduledExecutorService scheduledExecutorService)
+            NetworkTopology networkTopology,
+            @ForNodeScheduler ScheduledExecutorService scheduledExecutorService)
     {
         this.nodeManager = nodeManager;
-        this.networkLocationCache = networkLocationCache;
+        this.networkLocationCache = new NetworkLocationCache(networkTopology);
         this.perQueryNodeAssignments = new HashMap<>();
         this.pendingRequests = new PriorityQueue<>();
-        this.scheduledExecutorService = scheduledExecutorService;
         // start loop to check pending node requests every second
-        scheduledExecutorService.scheduleWithFixedDelay(this::fulfillPendingRequests, 0, 1, TimeUnit.SECONDS);
+        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 1, TimeUnit.SECONDS);
     }
 
     private void fulfillPendingRequests()
     {
+        log.info("Checking for pending requests.. count=%s", pendingRequests.size());
         if (pendingRequests.size() == 0) {
             return;
         }
@@ -233,7 +237,15 @@ public class FixedSubsetNodeSetSupplier
         };
     }
 
+    @Override
+    public void close()
+            throws IOException
+    {
+        scheduledFuture.cancel(true);
+    }
+
     public static class NodeSetAcquireRequest
+            implements Comparable
     {
         private QueryId queryId;
         private int count;
@@ -275,6 +287,16 @@ public class FixedSubsetNodeSetSupplier
         public void setCount(int count)
         {
             this.count = count;
+        }
+
+        @Override
+        public int compareTo(@NotNull Object other)
+        {
+            NodeSetAcquireRequest otherRequest = (NodeSetAcquireRequest) other;
+            if (otherRequest.getCount() == this.getCount()) {
+                return 0;
+            }
+            return this.getCount() < otherRequest.getCount() ? -1 : 1;
         }
     }
 }

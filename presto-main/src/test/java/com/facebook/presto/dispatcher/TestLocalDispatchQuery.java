@@ -105,7 +105,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
@@ -133,7 +134,8 @@ public class TestLocalDispatchQuery
                 },
                 execution -> {},
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         query.startWaitingForPrerequisites();
         queryExecutionFuture.setException(new IllegalStateException("abc"));
@@ -166,7 +168,8 @@ public class TestLocalDispatchQuery
                     CompletableFuture<?> future = new CompletableFuture<>();
                     future.completeExceptionally(new PrestoException(ABANDONED_TASK, "something went wrong"));
                     return future;
-                });
+                },
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -198,7 +201,8 @@ public class TestLocalDispatchQuery
                 false,
                 (queryId, context, warningCollector) -> {
                     throw new PrestoException(ABANDONED_QUERY, "something went wrong");
-                });
+                },
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -245,7 +249,8 @@ public class TestLocalDispatchQuery
                     {
                         queryFinishedCalled.set(true);
                     }
-                });
+                },
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -273,7 +278,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                (queryId, context, warningCollector) -> prerequisitesFuture);
+                (queryId, context, warningCollector) -> prerequisitesFuture,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -303,7 +309,8 @@ public class TestLocalDispatchQuery
                 },
                 execution -> {},
                 false,
-                (queryId, context, warningCollector) -> prerequisitesFuture);
+                (queryId, context, warningCollector) -> prerequisitesFuture,
+                null);
 
         assertEquals(stateMachine.getBasicQueryInfo(Optional.empty()).getState(), WAITING_FOR_PREREQUISITES);
         query.startWaitingForPrerequisites();
@@ -334,7 +341,8 @@ public class TestLocalDispatchQuery
                     throw new AccessDeniedException("sdf");
                 },
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -364,7 +372,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -395,7 +404,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -424,7 +434,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                QUERY_PREREQUISITES);
+                QUERY_PREREQUISITES,
+                null);
 
         assertEquals(query.getBasicQueryInfo().getState(), WAITING_FOR_PREREQUISITES);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());

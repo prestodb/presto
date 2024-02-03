@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -78,6 +79,8 @@ public class LocalDispatchQuery
     private final QueryPrerequisites queryPrerequisites;
     private final WarningCollector warningCollector;
 
+    private final NodeScheduler nodeScheduler;
+
     /**
      * Local dispatch query encapsulates QueryExecution and submit to the ResourceGroupManager waiting for resource to get executed.
      *
@@ -100,7 +103,8 @@ public class LocalDispatchQuery
             Consumer<DispatchQuery> queryQueuer,
             Consumer<QueryExecution> querySubmitter,
             boolean retry,
-            QueryPrerequisites queryPrerequisites)
+            QueryPrerequisites queryPrerequisites,
+            NodeScheduler nodeScheduler)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -112,6 +116,7 @@ public class LocalDispatchQuery
         this.retry = retry;
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
         this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
+        this.nodeScheduler = nodeScheduler;
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
                 queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
@@ -191,15 +196,25 @@ public class LocalDispatchQuery
 
     private void waitForMinimumWorkers()
     {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
+        CompletableFuture<?> waitForNodesFuture = nodeScheduler.acquireNodes(stateMachine.getQueryId(), 1);
+        stateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                nodeScheduler.releaseNodes(stateMachine.getQueryId(), 10);
+            }
+        });
+
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> {
+        waitForNodesFuture.thenApply((Object o) -> {
             // It's the time to end waiting for resources
             boolean isDispatching = stateMachine.transitionToDispatching();
             addSuccessCallback(queryExecutionFuture, queryExecution -> startExecution(queryExecution, isDispatching));
+            return null;
+        }).exceptionally((Throwable throwable) -> {
+            if (throwable != null) {
+                queryExecutor.execute(() -> fail(throwable));
+            }
+            return null;
         });
-
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution, boolean isDispatching)
