@@ -46,6 +46,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_S
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.fromIcebergChangelogOperation;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -127,7 +128,7 @@ public class ChangelogSplitSource
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
-                Optional.of(new ChangelogSplitInfo(changeTask.operation(),
+                Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
                         columnHandles)),
