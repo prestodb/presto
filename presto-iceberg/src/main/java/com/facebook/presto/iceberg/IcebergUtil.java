@@ -49,7 +49,6 @@ import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
-import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
@@ -130,6 +129,8 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMME
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
@@ -868,7 +869,7 @@ public final class IcebergUtil
         {
             boolean matchesPartition = !requestedPartitionSpec.isPresent() ||
                     requestedPartitionSpec.get().equals(partitionSpecsById.get(file.specId()).fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
-            return matchesPartition && (file.content() == FileContent.POSITION_DELETES ||
+            return matchesPartition && (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
                     !requestedSchema.isPresent() || requestedSchema.get().equals(ImmutableSet.copyOf(file.equalityFieldIds())));
         }
 
