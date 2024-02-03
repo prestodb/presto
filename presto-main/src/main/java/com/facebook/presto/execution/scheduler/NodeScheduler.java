@@ -310,7 +310,7 @@ public class NodeScheduler
                 return ImmutableList.copyOf(chosen);
             }
 
-            // TODO: (shrinidhijoshi) Revisit this logic 
+            // TODO: (shrinidhijoshi) Revisit this logic
             // Disable port preference. i.e. As long as host is preferred,
             // then any worker on the host is allowed to be used
             // nodeSet.getAllNodesByHostAndPort().get(host).stream()
