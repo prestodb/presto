@@ -54,23 +54,15 @@ std::string HiveConfig::insertExistingPartitionsBehaviorString(
 
 HiveConfig::InsertExistingPartitionsBehavior
 HiveConfig::insertExistingPartitionsBehavior(const Config* session) const {
-  if (session->isValueExists(kInsertExistingPartitionsBehaviorSession)) {
-    return stringToInsertExistingPartitionsBehavior(
-        session->get<std::string>(kInsertExistingPartitionsBehaviorSession)
-            .value());
-  }
-  const auto behavior =
-      config_->get<std::string>(kInsertExistingPartitionsBehavior);
-  return behavior.has_value()
-      ? stringToInsertExistingPartitionsBehavior(behavior.value())
-      : InsertExistingPartitionsBehavior::kError;
+  return stringToInsertExistingPartitionsBehavior(session->get<std::string>(
+      kInsertExistingPartitionsBehaviorSession,
+      config_->get<std::string>(kInsertExistingPartitionsBehavior, "ERROR")));
 }
 
 uint32_t HiveConfig::maxPartitionsPerWriters(const Config* session) const {
-  if (session->isValueExists(kMaxPartitionsPerWritersSession)) {
-    return session->get<uint32_t>(kMaxPartitionsPerWritersSession).value();
-  }
-  return config_->get<uint32_t>(kMaxPartitionsPerWriters, 100);
+  return session->get<uint32_t>(
+      kMaxPartitionsPerWritersSession,
+      config_->get<uint32_t>(kMaxPartitionsPerWriters, 100));
 }
 
 bool HiveConfig::immutablePartitions() const {
@@ -98,24 +90,15 @@ std::string HiveConfig::s3Endpoint() const {
 }
 
 std::optional<std::string> HiveConfig::s3AccessKey() const {
-  if (config_->isValueExists(kS3AwsAccessKey)) {
-    return config_->get(kS3AwsAccessKey).value();
-  }
-  return {};
+  return static_cast<std::optional<std::string>>(config_->get(kS3AwsAccessKey));
 }
 
 std::optional<std::string> HiveConfig::s3SecretKey() const {
-  if (config_->isValueExists(kS3AwsSecretKey)) {
-    return config_->get(kS3AwsSecretKey).value();
-  }
-  return {};
+  return static_cast<std::optional<std::string>>(config_->get(kS3AwsSecretKey));
 }
 
 std::optional<std::string> HiveConfig::s3IAMRole() const {
-  if (config_->isValueExists(kS3IamRole)) {
-    return config_->get(kS3IamRole).value();
-  }
-  return {};
+  return static_cast<std::optional<std::string>>(config_->get(kS3IamRole));
 }
 
 std::string HiveConfig::s3IAMRoleSessionName() const {
@@ -135,17 +118,14 @@ std::string HiveConfig::gcsCredentials() const {
 }
 
 bool HiveConfig::isOrcUseColumnNames(const Config* session) const {
-  if (session->isValueExists(kOrcUseColumnNamesSession)) {
-    return session->get<bool>(kOrcUseColumnNamesSession).value();
-  }
-  return config_->get<bool>(kOrcUseColumnNames, false);
+  return session->get<bool>(
+      kOrcUseColumnNamesSession, config_->get<bool>(kOrcUseColumnNames, false));
 }
 
 bool HiveConfig::isFileColumnNamesReadAsLowerCase(const Config* session) const {
-  if (session->isValueExists(kFileColumnNamesReadAsLowerCaseSession)) {
-    return session->get<bool>(kFileColumnNamesReadAsLowerCaseSession).value();
-  }
-  return config_->get<bool>(kFileColumnNamesReadAsLowerCase, false);
+  return session->get<bool>(
+      kFileColumnNamesReadAsLowerCaseSession,
+      config_->get<bool>(kFileColumnNamesReadAsLowerCase, false));
 }
 
 bool HiveConfig::isPartitionPathAsLowerCase(const Config* session) const {
@@ -181,31 +161,19 @@ bool HiveConfig::isFileHandleCacheEnabled() const {
 }
 
 uint64_t HiveConfig::orcWriterMaxStripeSize(const Config* session) const {
-  if (session->isValueExists(kOrcWriterMaxStripeSizeSession)) {
-    return toCapacity(
-        session->get<std::string>(kOrcWriterMaxStripeSizeSession).value(),
-        core::CapacityUnit::BYTE);
-  }
-  if (config_->isValueExists(kOrcWriterMaxStripeSize)) {
-    return toCapacity(
-        config_->get<std::string>(kOrcWriterMaxStripeSize).value(),
-        core::CapacityUnit::BYTE);
-  }
-  return 64L * 1024L * 1024L;
+  return toCapacity(
+      session->get<std::string>(
+          kOrcWriterMaxStripeSizeSession,
+          config_->get<std::string>(kOrcWriterMaxStripeSize, "64MB")),
+      core::CapacityUnit::BYTE);
 }
 
 uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
-  if (session->isValueExists(kOrcWriterMaxDictionaryMemorySession)) {
-    return toCapacity(
-        session->get<std::string>(kOrcWriterMaxDictionaryMemorySession).value(),
-        core::CapacityUnit::BYTE);
-  }
-  if (config_->isValueExists(kOrcWriterMaxDictionaryMemory)) {
-    return toCapacity(
-        config_->get<std::string>(kOrcWriterMaxDictionaryMemory).value(),
-        core::CapacityUnit::BYTE);
-  }
-  return 16L * 1024L * 1024L;
+  return toCapacity(
+      session->get<std::string>(
+          kOrcWriterMaxDictionaryMemorySession,
+          config_->get<std::string>(kOrcWriterMaxDictionaryMemory, "16MB")),
+      core::CapacityUnit::BYTE);
 }
 
 std::string HiveConfig::writeFileCreateConfig() const {
@@ -213,24 +181,17 @@ std::string HiveConfig::writeFileCreateConfig() const {
 }
 
 uint32_t HiveConfig::sortWriterMaxOutputRows(const Config* session) const {
-  if (session->isValueExists(kSortWriterMaxOutputRowsSession)) {
-    return session->get<uint32_t>(kSortWriterMaxOutputRowsSession).value();
-  }
-  return config_->get<int32_t>(kSortWriterMaxOutputRows, 1024);
+  return session->get<uint32_t>(
+      kSortWriterMaxOutputRowsSession,
+      config_->get<uint32_t>(kSortWriterMaxOutputRows, 1024));
 }
 
 uint64_t HiveConfig::sortWriterMaxOutputBytes(const Config* session) const {
-  if (session->isValueExists(kSortWriterMaxOutputBytesSession)) {
-    return toCapacity(
-        session->get<std::string>(kSortWriterMaxOutputBytesSession).value(),
-        core::CapacityUnit::BYTE);
-  }
-  if (config_->isValueExists(kSortWriterMaxOutputBytes)) {
-    return toCapacity(
-        config_->get<std::string>(kSortWriterMaxOutputBytes).value(),
-        core::CapacityUnit::BYTE);
-  }
-  return 10UL << 20;
+  return toCapacity(
+      session->get<std::string>(
+          kSortWriterMaxOutputBytesSession,
+          config_->get<std::string>(kSortWriterMaxOutputBytes, "10MB")),
+      core::CapacityUnit::BYTE);
 }
 
 uint64_t HiveConfig::footerEstimatedSize() const {
