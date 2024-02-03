@@ -26,6 +26,13 @@ function install_six {
 
 export PATH=$(brew --prefix bison)/bin:$PATH
 
+function install_prometheus {
+  git clone https://github.com/jupp0r/prometheus-cpp.git
+  cd prometheus-cpp
+  git submodule init
+  git submodule update
+  cmake_install -DBUILD_SHARED_LIBS=ON -DENABLE_PUSH=OFF -DENABLE_COMPRESSION=OFF
+}
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
@@ -36,6 +43,7 @@ function install_presto_deps {
   install_velox_deps
   run_and_time install_six
   run_and_time install_proxygen
+  run_and_time install_prometheus
 }
 
 if [[ $# -ne 0 ]]; then

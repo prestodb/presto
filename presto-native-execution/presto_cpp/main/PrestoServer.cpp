@@ -52,6 +52,25 @@
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/serializers/PrestoSerializer.h"
 
+#ifdef PRESTO_ENABLE_PROMETHEUS_REPORTER
+#include "presto_cpp/main/common/prometheus-metrics/PrometheusReporter.h"
+// Initialize singleton for the reporter
+folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
+  auto nodeConfig = facebook::presto::NodeConfig::instance();
+  std::string cluster = nodeConfig->nodeEnvironment();
+  char* hostName = std::getenv("HOSTNAME");
+  std::string worker = !hostName ? "" : hostName;
+  return new facebook::presto::prometheus::PrometheusReporter(
+      ::prometheus::Labels{{"cluster", cluster}, {"worker", worker}});
+});
+#else
+#include "presto_cpp/main/common/StatsReporterImpl.h"
+// Initialize singleton for the reporter
+folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
+  return new facebook::presto::StatsReporterImpl();
+});
+#endif
+
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
@@ -226,6 +245,10 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
+  if (systemConfig->enableRuntimeMetricsCollection()) {
+    // This flag must be set to register the counters.
+    facebook::velox::BaseStatsReporter::registered = true;
+  }
   registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
@@ -318,6 +341,14 @@ void PrestoServer::run() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
         server->reportServerInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/health/metrics",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportHealthMetrics(downstream);
       });
   httpServer_->registerGet(
       "/v1/info/state",
@@ -1093,6 +1124,24 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
+void PrestoServer::reportHealthMetrics(proxygen::ResponseHandler* downstream) {
+  auto nodeConfig = facebook::presto::NodeConfig::instance();
+  std::string cluster = nodeConfig->nodeEnvironment();
+  char* hostName = std::getenv("HOSTNAME");
+  std::string worker = !hostName ? "" : hostName;
+#ifdef PRESTO_ENABLE_PROMETHEUS_REPORTER
+  auto reporter = std::dynamic_pointer_cast<
+      facebook::presto::prometheus::PrometheusReporter>(
+      folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
+  http::sendOkResponse(downstream, reporter->getSerializedMetrics());
+#else
+  auto reporter = std::dynamic_pointer_cast<StatsReporterImpl>(
+      folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
+  prometheus::PrometheusSerializer serializer(
+      prometheus::Labels{{"cluster", cluster}, {"worker", worker}});
+  http::sendOkResponse(downstream, reporter->getMetrics(serializer));
+#endif
+}
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
 }

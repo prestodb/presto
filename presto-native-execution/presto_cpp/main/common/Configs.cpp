@@ -602,7 +602,8 @@ std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
 }
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
-  return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+  return optionalProperty<bool>(kEnableRuntimeMetricsCollection)
+      .value_or(false);
 }
 
 NodeConfig::NodeConfig() {
