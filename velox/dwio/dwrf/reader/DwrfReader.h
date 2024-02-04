@@ -149,7 +149,7 @@ class DwrfRowReader : public StrideIndexProvider,
   std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
   dwio::common::RowReaderOptions options_;
   std::shared_ptr<folly::Executor> executor_;
-  std::function<void(uint64_t)> decodingTimeMsCallback_;
+  std::function<void(uint64_t)> decodingTimeUsCallback_;
   std::function<void(uint16_t)> stripeCountCallback_;
 
   struct PrefetchedStripeState {
