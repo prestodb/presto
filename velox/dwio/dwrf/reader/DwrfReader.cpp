@@ -35,6 +35,8 @@ DwrfRowReader::DwrfRowReader(
     : StripeReaderBase(reader),
       options_(opts),
       executor_{options_.getDecodingExecutor()},
+      decodingTimeMsCallback_{options_.getDecodingTimeMsCallback()},
+      stripeCountCallback_{options_.getStripeCountCallback()},
       columnSelector_{std::make_shared<ColumnSelector>(
           ColumnSelector::apply(opts.getSelector(), reader->getSchema()))} {
   if (executor_) {
@@ -72,6 +74,9 @@ DwrfRowReader::DwrfRowReader(
   // case, set stripeCeiling_ == firstStripe_ == numberOfStripes
   if (stripeCeiling_ == 0) {
     stripeCeiling_ = firstStripe_;
+  }
+  if (stripeCountCallback_) {
+    stripeCountCallback_(stripeCeiling_ - firstStripe_);
   }
 
   if (currentStripe_ == 0) {
@@ -276,11 +281,10 @@ void DwrfRowReader::readNext(
         mutation == nullptr,
         "Mutation pushdown is only supported in selective reader");
     columnReader_->next(rowsToRead, result);
-    auto reportDecodingTimeMsMetric = options_.getDecodingTimeMsCallback();
-    if (reportDecodingTimeMsMetric) {
+    if (decodingTimeMsCallback_) {
       auto decodingTime = std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::high_resolution_clock::now() - startTime);
-      reportDecodingTimeMsMetric(decodingTime.count());
+      decodingTimeMsCallback_(decodingTime.count());
     }
     return;
   }

@@ -132,6 +132,7 @@ class RowReaderOptions {
   // struct
   std::function<void(uint64_t)> blockedOnIoCallback_;
   std::function<void(uint64_t)> decodingTimeMsCallback_;
+  std::function<void(uint16_t)> stripeCountCallback_;
   bool eagerFirstStripeLoad = true;
   uint64_t skipRows_ = 0;
 
@@ -353,8 +354,17 @@ class RowReaderOptions {
     decodingTimeMsCallback_ = std::move(decodingTimeMs);
   }
 
-  const std::function<void(int64_t)> getDecodingTimeMsCallback() const {
+  std::function<void(int64_t)> getDecodingTimeMsCallback() const {
     return decodingTimeMsCallback_;
+  }
+
+  void setStripeCountCallback(
+      std::function<void(uint16_t)> stripeCountCallback) {
+    stripeCountCallback_ = std::move(stripeCountCallback);
+  }
+
+  std::function<void(uint16_t)> getStripeCountCallback() const {
+    return stripeCountCallback_;
   }
 
   void setSkipRows(uint64_t skipRows) {

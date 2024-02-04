@@ -1819,6 +1819,92 @@ TEST_F(TestReader, fileColumnNamesReadAsLowerCaseComplexStruct) {
   EXPECT_EQ(col0_1_1_0_0->childByName("ccint3"), col0_1_1_0_0_0);
 }
 
+TEST_F(TestReader, TestStripeSizeCallback) {
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setFilePreloadThreshold(0);
+  readerOpts.setFooterEstimatedSize(4);
+  RowReaderOptions rowReaderOpts;
+
+  std::shared_ptr<const RowType> requestedType = std::dynamic_pointer_cast<
+      const RowType>(HiveTypeParser().parse(
+      "struct<int_column:int,string_column:string,string_column_2:string,ds:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.setEagerFirstStripeLoad(false);
+  uint16_t stripeCount = 0;
+  int numCalls = 0;
+  rowReaderOpts.setStripeCountCallback([&](uint16_t count) {
+    stripeCount += count;
+    ++numCalls;
+  });
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("dict_encoded_strings.orc"),
+          readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  EXPECT_EQ(stripeCount, 3);
+  EXPECT_EQ(numCalls, 1);
+}
+
+TEST_F(TestReader, TestStripeSizeCallbackLimitsOneStripe) {
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setFilePreloadThreshold(0);
+  readerOpts.setFooterEstimatedSize(4);
+  RowReaderOptions rowReaderOpts;
+
+  std::shared_ptr<const RowType> requestedType = std::dynamic_pointer_cast<
+      const RowType>(HiveTypeParser().parse(
+      "struct<int_column:int,string_column:string,string_column_2:string,ds:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.setEagerFirstStripeLoad(false);
+  rowReaderOpts.range(600, 600);
+  uint16_t stripeCount = 0;
+  int numCalls = 0;
+  rowReaderOpts.setStripeCountCallback([&](uint16_t count) {
+    stripeCount += count;
+    ++numCalls;
+  });
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("dict_encoded_strings.orc"),
+          readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  EXPECT_EQ(stripeCount, 1);
+  EXPECT_EQ(numCalls, 1);
+}
+
+TEST_F(TestReader, TestStripeSizeCallbackLimitsTwoStripe) {
+  dwio::common::ReaderOptions readerOpts{pool()};
+  readerOpts.setFilePreloadThreshold(0);
+  readerOpts.setFooterEstimatedSize(4);
+  RowReaderOptions rowReaderOpts;
+
+  std::shared_ptr<const RowType> requestedType = std::dynamic_pointer_cast<
+      const RowType>(HiveTypeParser().parse(
+      "struct<int_column:int,string_column:string,string_column_2:string,ds:string>"));
+  rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
+  rowReaderOpts.setEagerFirstStripeLoad(false);
+  rowReaderOpts.range(0, 600);
+  uint16_t stripeCount = 0;
+  int numCalls = 0;
+  rowReaderOpts.setStripeCountCallback([&](uint16_t count) {
+    stripeCount += count;
+    ++numCalls;
+  });
+
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(
+          getExampleFilePath("dict_encoded_strings.orc"),
+          readerOpts.getMemoryPool()),
+      readerOpts);
+  auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
+  EXPECT_EQ(stripeCount, 2);
+  EXPECT_EQ(numCalls, 1);
+}
+
 TEST_P(TestReaderP, testUpcastBoolean) {
   MockStripeStreams streams;
 
