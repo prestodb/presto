@@ -21,10 +21,6 @@ source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
 export FB_OS_VERSION=v2023.12.04.00
 sudo apt install -y gperf
 
-function install_six {
-  pip3 install six
-}
-
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
@@ -32,7 +28,6 @@ function install_proxygen {
 
 function install_presto_deps {
   install_velox_deps
-  run_and_time install_six
   run_and_time install_proxygen
 }
 
