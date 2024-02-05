@@ -83,7 +83,6 @@ class AggregationFuzzer : public AggregationFuzzerBase {
 
     // Number of iterations using aggregations over distinct inputs.
     size_t numDistinctInputs{0};
-
     // Number of iterations using window expressions.
     size_t numWindow{0};
 
@@ -1142,6 +1141,21 @@ bool AggregationFuzzer::verifyDistinctAggregation(
   std::vector<PlanWithSplits> plans;
   plans.push_back({firstPlan, {}});
 
+  if (!groupingKeys.empty()) {
+    plans.push_back(
+        {PlanBuilder()
+             .values(input)
+             .orderBy(groupingKeys, false)
+             .streamingAggregation(
+                 groupingKeys,
+                 aggregates,
+                 masks,
+                 core::AggregationNode::Step::kSingle,
+                 false)
+             .planNode(),
+         {}});
+  }
+
   // Alternate between using Values and TableScan node.
 
   std::shared_ptr<exec::test::TempDirectoryPath> directory;
@@ -1156,6 +1170,21 @@ bool AggregationFuzzer::verifyDistinctAggregation(
              .singleAggregation(groupingKeys, aggregates, masks)
              .planNode(),
          splits});
+
+    if (!groupingKeys.empty()) {
+      plans.push_back(
+          {PlanBuilder()
+               .tableScan(inputRowType)
+               .orderBy(groupingKeys, false)
+               .streamingAggregation(
+                   groupingKeys,
+                   aggregates,
+                   masks,
+                   core::AggregationNode::Step::kSingle,
+                   false)
+               .planNode(),
+           splits});
+    }
   }
 
   if (persistAndRunOnce_) {

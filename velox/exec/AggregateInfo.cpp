@@ -52,13 +52,6 @@ std::vector<AggregateInfo> toAggregateInfo(
 
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode.aggregates()[i];
-
-    // TODO: Add support for StreamingAggregation
-    if (isStreaming && aggregate.distinct) {
-      VELOX_UNSUPPORTED(
-          "Streaming aggregation doesn't support aggregations over distinct inputs yet");
-    }
-
     AggregateInfo info;
     // Populate input.
     auto& channels = info.inputs;

@@ -18,6 +18,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateInfo.h"
 #include "velox/exec/AggregationMasks.h"
+#include "velox/exec/DistinctAggregations.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/SortedAggregations.h"
 
@@ -93,6 +94,7 @@ class StreamingAggregation : public Operator {
   std::vector<column_index_t> groupingKeys_;
   std::vector<AggregateInfo> aggregates_;
   std::unique_ptr<SortedAggregations> sortedAggregations_;
+  std::vector<std::unique_ptr<DistinctAggregations>> distinctAggregations_;
   std::unique_ptr<AggregationMasks> masks_;
   std::vector<DecodedVector> decodedKeys_;
 

@@ -64,6 +64,17 @@ void StreamingAggregation::initialize() {
   // Setup SortedAggregations.
   sortedAggregations_ =
       SortedAggregations::create(aggregates_, inputType, pool());
+
+  distinctAggregations_.reserve(aggregates_.size());
+  for (auto& aggregate : aggregates_) {
+    if (aggregate.distinct) {
+      distinctAggregations_.emplace_back(
+          DistinctAggregations::create({&aggregate}, inputType, pool()));
+    } else {
+      distinctAggregations_.push_back(nullptr);
+    }
+  }
+
   masks_ = std::make_unique<AggregationMasks>(extractMaskChannels(aggregates_));
   rows_ = makeRowContainer(groupingKeyTypes);
 
@@ -138,6 +149,11 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
     if (!aggregate.sortingKeys.empty()) {
       continue;
     }
+
+    if (aggregate.distinct) {
+      continue;
+    }
+
     const auto& function = aggregate.function;
     auto& result = output->childAt(numKeys + i);
     if (isPartialOutput(step_)) {
@@ -150,6 +166,13 @@ RowVectorPtr StreamingAggregation::createOutput(size_t numGroups) {
   if (sortedAggregations_) {
     sortedAggregations_->extractValues(
         folly::Range<char**>(groups_.data(), numGroups), output);
+  }
+
+  for (const auto& aggregation : distinctAggregations_) {
+    if (aggregation != nullptr) {
+      aggregation->extractValues(
+          folly::Range<char**>(groups_.data(), numGroups), output);
+    }
   }
 
   return output;
@@ -209,6 +232,16 @@ void StreamingAggregation::evaluateAggregates() {
       continue;
     }
 
+    const auto& rows = getSelectivityVector(i);
+    if (!rows.hasSelections()) {
+      continue;
+    }
+
+    if (aggregate.distinct) {
+      distinctAggregations_.at(i)->addInput(inputGroups_.data(), input_, rows);
+      continue;
+    }
+
     const auto& function = aggregate.function;
     const auto& inputs = aggregate.inputs;
     const auto& constantInputs = aggregate.constantInputs;
@@ -221,8 +254,6 @@ void StreamingAggregation::evaluateAggregates() {
         args.push_back(input_->childAt(inputs[j]));
       }
     }
-
-    const auto& rows = getSelectivityVector(i);
 
     if (isRawInput(step_)) {
       function->addRawInput(inputGroups_.data(), rows, args, false);
@@ -297,6 +328,12 @@ std::unique_ptr<RowContainer> StreamingAggregation::makeRowContainer(
     accumulators.push_back(sortedAggregations_->accumulator());
   }
 
+  for (const auto& aggregation : distinctAggregations_) {
+    if (aggregation != nullptr) {
+      accumulators.push_back(aggregation->accumulator());
+    }
+  }
+
   return std::make_unique<RowContainer>(
       groupingKeyTypes,
       !aggregationNode_->ignoreNullKeys(),
@@ -318,43 +355,64 @@ void StreamingAggregation::initializeNewGroups(size_t numPrevGroups) {
   newGroups.resize(numGroups_ - numPrevGroups);
   std::iota(newGroups.begin(), newGroups.end(), numPrevGroups);
 
-  for (const auto& aggregate : aggregates_) {
+  for (auto i = 0; i < aggregates_.size(); ++i) {
+    const auto& aggregate = aggregates_.at(i);
     if (!aggregate.sortingKeys.empty()) {
       continue;
     }
 
-    aggregate.function->initializeNewGroups(
-        groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
+    if (aggregate.distinct) {
+      distinctAggregations_.at(i)->initializeNewGroups(
+          groups_.data(), newGroups);
+      continue;
+    }
+
+    aggregate.function->initializeNewGroups(groups_.data(), newGroups);
   }
 
   if (sortedAggregations_) {
-    sortedAggregations_->initializeNewGroups(
-        groups_.data(), folly::Range(newGroups.data(), newGroups.size()));
+    sortedAggregations_->initializeNewGroups(groups_.data(), newGroups);
   }
 }
 
 void StreamingAggregation::initializeAggregates(uint32_t numKeys) {
-  for (auto i = 0; i < aggregates_.size(); ++i) {
-    auto& function = aggregates_[i].function;
+  int32_t columnIndex = numKeys;
+  for (auto& aggregate : aggregates_) {
+    auto& function = aggregate.function;
     function->setAllocator(&rows_->stringAllocator());
 
-    const auto rowColumn = rows_->columnAt(numKeys + i);
+    const auto rowColumn = rows_->columnAt(columnIndex);
     function->setOffsets(
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
         rows_->rowSizeOffset());
+    columnIndex++;
   }
 
   if (sortedAggregations_) {
     sortedAggregations_->setAllocator(&rows_->stringAllocator());
-    const auto rowColumn =
-        rows_->columnAt(rows_->keyTypes().size() + aggregates_.size());
+    const auto& rowColumn = rows_->columnAt(columnIndex);
     sortedAggregations_->setOffsets(
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
         rows_->rowSizeOffset());
+    columnIndex++;
+  }
+
+  for (const auto& aggregation : distinctAggregations_) {
+    if (aggregation != nullptr) {
+      aggregation->setAllocator(&rows_->stringAllocator());
+
+      const auto& rowColumn = rows_->columnAt(columnIndex);
+      aggregation->setOffsets(
+          rowColumn.offset(),
+          rowColumn.nullByte(),
+          rowColumn.nullMask(),
+          rows_->rowSizeOffset());
+      columnIndex++;
+    }
   }
 };
 
