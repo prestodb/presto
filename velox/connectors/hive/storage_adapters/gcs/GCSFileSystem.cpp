@@ -48,14 +48,17 @@ inline void checkGCSStatus(
     const std::string& bucket,
     const std::string& key) {
   if (!outcome.ok()) {
-    auto error = outcome.error_info();
-    VELOX_FAIL(
+    const auto errMsg = fmt::format(
         "{} due to: Path:'{}', SDK Error Type:{}, GCS Status Code:{},  Message:'{}'",
         errorMsgPrefix,
         gcsURI(bucket, key),
-        error.domain(),
+        outcome.error_info().domain(),
         getErrorStringFromGCSError(outcome.code()),
         outcome.message());
+    if (outcome.code() == gc::StatusCode::kNotFound) {
+      VELOX_FILE_NOT_FOUND_ERROR(errMsg);
+    }
+    VELOX_FAIL(errMsg);
   }
 }
 

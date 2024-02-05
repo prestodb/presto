@@ -66,11 +66,15 @@ inline const std::string throwStorageExceptionWithOperationDetails(
     std::string operation,
     std::string path,
     Azure::Storage::StorageException& error) {
-  VELOX_FAIL(
+  const auto errMsg = fmt::format(
       "Operation '{}' to path '{}' encountered azure storage exception, Details: '{}'.",
       operation,
       path,
       error.what());
+  if (error.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+    VELOX_FILE_NOT_FOUND_ERROR(errMsg);
+  }
+  VELOX_FAIL(errMsg);
 }
 
 } // namespace facebook::velox::filesystems::abfs

@@ -285,30 +285,20 @@ TEST_F(GCSFileSystemTest, missingFile) {
   const std::string gcsFile = gcsURI(preexistingBucketName(), file);
   filesystems::GCSFileSystem gcfs(testGcsOptions());
   gcfs.initializeClient();
-  try {
-    gcfs.openFileForRead(gcsFile);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_THAT(
-        err.message(),
-        ::testing::HasSubstr(
-            "\\\"message\\\": \\\"Live version of object test1-gcs/newTest.txt does not exist.\\\""));
-  }
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      gcfs.openFileForRead(gcsFile),
+      error_code::kFileNotFound,
+      "\\\"message\\\": \\\"Live version of object test1-gcs/newTest.txt does not exist.\\\"");
 }
 
 TEST_F(GCSFileSystemTest, missingBucket) {
   filesystems::GCSFileSystem gcfs(testGcsOptions());
   gcfs.initializeClient();
-  try {
-    const char* gcsFile = "gs://dummy/foo.txt";
-    gcfs.openFileForRead(gcsFile);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_THAT(
-        err.message(),
-        ::testing::HasSubstr(
-            "\\\"message\\\": \\\"Bucket dummy does not exist.\\\""));
-  }
+  const char* gcsFile = "gs://dummy/foo.txt";
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      gcfs.openFileForRead(gcsFile),
+      error_code::kFileNotFound,
+      "\\\"message\\\": \\\"Bucket dummy does not exist.\\\"");
 }
 
 TEST_F(GCSFileSystemTest, credentialsConfig) {

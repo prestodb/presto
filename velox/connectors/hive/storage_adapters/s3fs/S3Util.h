@@ -26,6 +26,8 @@
 
 #include "velox/common/base/Exceptions.h"
 
+#include <fmt/format.h>
+
 namespace facebook::velox {
 
 namespace {
@@ -158,7 +160,7 @@ inline std::string getRequestID(
   {                                                                                                                            \
     if (!outcome.IsSuccess()) {                                                                                                \
       auto error = outcome.GetError();                                                                                         \
-      VELOX_FAIL(                                                                                                              \
+      auto errMsg = fmt::format(                                                                                               \
           "{} due to: '{}'. Path:'{}', SDK Error Type:{}, HTTP Status Code:{}, S3 Service:'{}', Message:'{}', RequestID:'{}'", \
           errorMsgPrefix,                                                                                                      \
           getErrorStringFromS3Error(error),                                                                                    \
@@ -167,7 +169,11 @@ inline std::string getRequestID(
           error.GetResponseCode(),                                                                                             \
           getS3BackendService(error.GetResponseHeaders()),                                                                     \
           error.GetMessage(),                                                                                                  \
-          getRequestID(error.GetResponseHeaders()))                                                                            \
+          getRequestID(error.GetResponseHeaders()));                                                                           \
+      if (error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND) {                                                 \
+        VELOX_FILE_NOT_FOUND_ERROR(errMsg);                                                                                    \
+      }                                                                                                                        \
+      VELOX_FAIL(errMsg)                                                                                                       \
     }                                                                                                                          \
   }
 

@@ -171,18 +171,14 @@ TEST_F(AbfsFileSystemTest, multipleThreadsWithReadFile) {
 }
 
 TEST_F(AbfsFileSystemTest, missingFile) {
-  try {
-    auto hiveConfig = AbfsFileSystemTest::hiveConfig(
-        {{"fs.azure.account.key.test.dfs.core.windows.net",
-          azuriteServer->connectionStr()}});
-    const std::string abfsFile =
-        facebook::velox::filesystems::test::AzuriteABFSEndpoint + "test.txt";
-    auto abfs = std::make_shared<filesystems::abfs::AbfsFileSystem>(hiveConfig);
-    auto readFile = abfs->openFileForRead(abfsFile);
-    FAIL() << "Expected VeloxException";
-  } catch (VeloxException const& err) {
-    EXPECT_TRUE(err.message().find("404") != std::string::npos);
-  }
+  auto hiveConfig = AbfsFileSystemTest::hiveConfig(
+      {{"fs.azure.account.key.test.dfs.core.windows.net",
+        azuriteServer->connectionStr()}});
+  const std::string abfsFile =
+      facebook::velox::filesystems::test::AzuriteABFSEndpoint + "test.txt";
+  auto abfs = std::make_shared<filesystems::abfs::AbfsFileSystem>(hiveConfig);
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      abfs->openFileForRead(abfsFile), error_code::kFileNotFound, "404");
 }
 
 TEST_F(AbfsFileSystemTest, openFileForWriteNotImplemented) {

@@ -23,11 +23,17 @@ namespace facebook::velox {
 HdfsReadFile::HdfsReadFile(hdfsFS hdfs, const std::string_view path)
     : hdfsClient_(hdfs), filePath_(path) {
   fileInfo_ = hdfsGetPathInfo(hdfsClient_, filePath_.data());
-  VELOX_CHECK_NOT_NULL(
-      fileInfo_,
-      "Unable to get file path info for file: {}. got error: {}",
-      filePath_,
-      hdfsGetLastError());
+  if (fileInfo_ == nullptr) {
+    auto error = hdfsGetLastError();
+    auto errMsg = fmt::format(
+        "Unable to get file path info for file: {}. got error: {}",
+        filePath_,
+        error);
+    if (std::strstr(error, "FileNotFoundException") != nullptr) {
+      VELOX_FILE_NOT_FOUND_ERROR(errMsg);
+    }
+    VELOX_FAIL(errMsg);
+  }
 }
 
 HdfsReadFile::~HdfsReadFile() {

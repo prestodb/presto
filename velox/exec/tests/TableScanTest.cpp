@@ -1400,7 +1400,9 @@ TEST_F(TableScanTest, fileNotFound) {
   };
   assertMissingFile(true);
   VELOX_ASSERT_RUNTIME_THROW_CODE(
-      assertMissingFile(false), error_code::kFileNotFound);
+      assertMissingFile(false),
+      error_code::kFileNotFound,
+      "No such file or directory");
 }
 
 // A valid ORC file (containing headers) but no data.

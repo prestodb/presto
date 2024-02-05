@@ -82,6 +82,9 @@ Storage Adapters
 Hive Connector allows reading and writing files from a variety of distributed storage systems.
 The supported storage API are S3, HDFS, GCS, Linux FS.
 
+If file is not found when reading, `openFileForRead` API throws `VeloxRuntimeError` with `error_code::kFileNotFound`.
+This behavior is necessary to support the `ignore_missing_files` configuration property.
+
 S3 is supported using the `AWS SDK for C++ <https://github.com/aws/aws-sdk-cpp>`_ library.
 S3 supported schemes are `s3://` (Amazon S3, Minio), `s3a://` (Hadoop 3.x), `s3n://` (Deprecated in Hadoop 3.x),
 `oss://` (Alibaba cloud storage), and `cos://`, `cosn://` (Tencent cloud storage).
