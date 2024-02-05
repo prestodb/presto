@@ -129,6 +129,18 @@ class PrestoVectorSerde : public VectorSerde {
       vector_size_t resultOffset,
       const Options* options) override;
 
+  /// This function is used to deserialize a single column that is serialized in
+  /// PrestoPage format. It is important to note that the PrestoPage format used
+  /// here does not include the Presto page header. Therefore, the 'source'
+  /// should contain uncompressed, serialized binary data, beginning at the
+  /// column header.
+  void deserializeSingleColumn(
+      ByteInputStream* source,
+      velox::memory::MemoryPool* pool,
+      TypePtr type,
+      VectorPtr* result,
+      const Options* options);
+
   static void registerVectorSerde();
 };
 

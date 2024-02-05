@@ -3525,6 +3525,43 @@ void PrestoVectorSerde::deserialize(
       (*result)->size(), 0, nullptr, nullptr, **result, resultOffset);
 }
 
+void PrestoVectorSerde::deserializeSingleColumn(
+    ByteInputStream* source,
+    velox::memory::MemoryPool* pool,
+    TypePtr type,
+    VectorPtr* result,
+    const Options* options) {
+  const auto prestoOptions = toPrestoOptions(options);
+  VELOX_CHECK_EQ(
+      prestoOptions.compressionKind,
+      common::CompressionKind::CompressionKind_NONE);
+  const bool useLosslessTimestamp = prestoOptions.useLosslessTimestamp;
+
+  if (*result && result->unique()) {
+    VELOX_CHECK(
+        *(*result)->type() == *type,
+        "Unexpected type: {} vs. {}",
+        (*result)->type()->toString(),
+        type->toString());
+    (*result)->prepareForReuse();
+  } else {
+    *result = BaseVector::create(type, 0, pool);
+  }
+
+  auto types = {type};
+  std::vector<VectorPtr> resultList = {*result};
+  readColumns(source, pool, types, resultList, 0, useLosslessTimestamp);
+
+  auto rowType = asRowType(ROW(types));
+  RowVectorPtr tempRow = std::make_shared<velox::RowVector>(
+      pool, rowType, nullptr, resultList[0]->size(), resultList);
+  scatterStructNulls(tempRow->size(), 0, nullptr, nullptr, *tempRow, 0);
+  // A copy of the 'result' shared_ptr was passed to scatterStructNulls() via
+  // 'resultList'. Make sure we re-assign 'result' in case the copy was replaced
+  // with a new vector.
+  *result = resultList[0];
+}
+
 void testingScatterStructNulls(
     vector_size_t size,
     vector_size_t scatterSize,
