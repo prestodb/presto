@@ -137,10 +137,6 @@ class QueryConfig {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "max_page_partitioning_buffer_size";
 
-  /// Deprecated. Use kMaxOutputBufferSize instead.
-  static constexpr const char* kMaxArbitraryBufferSize =
-      "max_arbitrary_buffer_size";
-
   static constexpr const char* kMaxOutputBufferSize = "max_output_buffer_size";
 
   /// Preferred size of batches in bytes to be returned by operators from
@@ -434,13 +430,8 @@ class QueryConfig {
   /// this. The Drivers are resumed when the buffered size goes below
   /// OutputBufferManager::kContinuePct % of this.
   uint64_t maxOutputBufferSize() const {
-    return get<uint64_t>(kMaxOutputBufferSize, maxArbitraryBufferSize());
-  }
-
-  /// Deprecated. Use maxBufferSize() instead.
-  uint64_t maxArbitraryBufferSize() const {
     static constexpr uint64_t kDefault = 32UL << 20;
-    return get<uint64_t>(kMaxArbitraryBufferSize, kDefault);
+    return get<uint64_t>(kMaxOutputBufferSize, kDefault);
   }
 
   uint64_t maxLocalExchangeBufferSize() const {
