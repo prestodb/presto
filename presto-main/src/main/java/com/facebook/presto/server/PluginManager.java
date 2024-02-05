@@ -27,7 +27,6 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -40,7 +39,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
@@ -127,7 +125,6 @@ public class PluginManager
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
-    private final SystemSessionPropertyProviderManager systemSessionPropertyProviderManager;
 
     @Inject
     public PluginManager(
@@ -148,8 +145,7 @@ public class PluginManager
             ClusterTtlProviderManager clusterTtlProviderManager,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
-            NodeStatusNotificationManager nodeStatusNotificationManager,
-            SystemSessionPropertyProviderManager systemSessionPropertyProviderManager)
+            NodeStatusNotificationManager nodeStatusNotificationManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -180,7 +176,6 @@ public class PluginManager
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
-        this.systemSessionPropertyProviderManager = requireNonNull(systemSessionPropertyProviderManager, "systemSessionPropertyProviderManager is null");
     }
 
     public void loadPlugins()
@@ -330,11 +325,6 @@ public class PluginManager
         for (NodeStatusNotificationProviderFactory nodeStatusNotificationProviderFactory : plugin.getNodeStatusNotificationProviderFactory()) {
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
-        }
-
-        for (SystemSessionPropertyProviderFactory providerFactory : plugin.getSystemSessionPropertyProviderFactories()) {
-            log.info("Registering system session property provider factory %s", providerFactory.getName());
-            systemSessionPropertyProviderManager.addSessionPropertyProviderFactory(providerFactory);
         }
     }
 
