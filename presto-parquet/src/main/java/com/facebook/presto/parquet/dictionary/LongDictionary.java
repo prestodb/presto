@@ -17,14 +17,18 @@ import com.facebook.presto.parquet.DictionaryPage;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.values.plain.PlainValuesReader.LongPlainValuesReader;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class LongDictionary
         extends Dictionary
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDictionary.class).instanceSize();
+
     private final long[] content;
 
     public LongDictionary(DictionaryPage dictionaryPage)
@@ -52,5 +56,11 @@ public class LongDictionary
         return toStringHelper(this)
                 .add("content", content)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(content);
     }
 }

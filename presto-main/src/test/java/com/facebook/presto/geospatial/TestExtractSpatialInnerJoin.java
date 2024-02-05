@@ -33,11 +33,11 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestExtractSpatialInnerJoin
         extends BaseRuleTest
@@ -103,15 +103,6 @@ public class TestExtractSpatialInnerJoin
                                 p.join(INNER,
                                         p.values(p.variable("a", GEOMETRY)),
                                         p.values(p.variable("b", GEOMETRY)))))
-                .doesNotFire();
-
-        // We do not support spherical ST_Contains yet
-        assertRuleApplication()
-                .on(p ->
-                        p.filter(PlanBuilder.expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)"),
-                                p.join(INNER,
-                                        p.values(p.variable("wkt", VARCHAR)),
-                                        p.values(p.variable("point", SPHERICAL_GEOGRAPHY)))))
                 .doesNotFire();
     }
 

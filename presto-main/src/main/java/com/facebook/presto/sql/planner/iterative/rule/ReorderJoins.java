@@ -24,10 +24,13 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -35,12 +38,9 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.EqualityInference;
-import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.DistributionType;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
@@ -50,9 +50,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -66,21 +68,26 @@ import java.util.stream.StreamSupport;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
-import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.SystemSessionProperties.shouldHandleComplexEquiJoins;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
+import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.toRowExpression;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.getNonIdentityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -106,6 +113,7 @@ public class ReorderJoins
     private final Metadata metadata;
     private final FunctionResolution functionResolution;
     private final DeterminismEvaluator determinismEvaluator;
+    private String statsSource;
 
     public ReorderJoins(CostComparator costComparator, Metadata metadata)
     {
@@ -133,9 +141,22 @@ public class ReorderJoins
     }
 
     @Override
+    public boolean isCostBased(Session session)
+    {
+        // when enabled, join order is always cost-based
+        return isEnabled(session);
+    }
+
+    public String getStatsSource()
+    {
+        return statsSource;
+    }
+
+    @Override
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
-        MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), getMaxReorderedJoins(context.getSession()), functionResolution, determinismEvaluator);
+        MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), getMaxReorderedJoins(context.getSession()), shouldHandleComplexEquiJoins(context.getSession()),
+                functionResolution, determinismEvaluator);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 costComparator,
                 multiJoinNode.getFilter(),
@@ -143,11 +164,26 @@ public class ReorderJoins
                 determinismEvaluator,
                 functionResolution,
                 metadata);
+
         JoinEnumerationResult result = joinEnumerator.chooseJoinOrder(multiJoinNode.getSources(), multiJoinNode.getOutputVariables());
+
         if (!result.getPlanNode().isPresent()) {
             return Result.empty();
         }
-        return Result.ofPlanNode(result.getPlanNode().get());
+
+        statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
+
+        PlanNode transformedPlan = result.getPlanNode().get();
+        if (!multiJoinNode.getAssignments().isEmpty()) {
+            transformedPlan = new ProjectNode(
+                    transformedPlan.getSourceLocation(),
+                    context.getIdAllocator().getNextId(),
+                    transformedPlan,
+                    multiJoinNode.getAssignments(),
+                    LOCAL);
+        }
+
+        return Result.ofPlanNode(transformedPlan);
     }
 
     @VisibleForTesting
@@ -166,6 +202,7 @@ public class ReorderJoins
         private final Context context;
 
         private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
+        private final FunctionResolution functionResolution;
 
         @VisibleForTesting
         JoinEnumerator(CostComparator costComparator, RowExpression filter, Context context, DeterminismEvaluator determinismEvaluator, FunctionResolution functionResolution, Metadata metadata)
@@ -181,6 +218,7 @@ public class ReorderJoins
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.allFilterInference = createEqualityInference(metadata, filter);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionAndTypeManager());
+            this.functionResolution = functionResolution;
         }
 
         private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables)
@@ -255,28 +293,31 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, List<VariableReferenceExpression> outputVariables)
         {
-            Set<VariableReferenceExpression> leftVariables = leftSources.stream()
+            HashSet<VariableReferenceExpression> leftVariables = leftSources.stream()
                     .flatMap(node -> node.getOutputVariables().stream())
-                    .collect(toImmutableSet());
-            Set<VariableReferenceExpression> rightVariables = rightSources.stream()
+                    .collect(toCollection(HashSet::new));
+            HashSet<VariableReferenceExpression> rightVariables = rightSources.stream()
                     .flatMap(node -> node.getOutputVariables().stream())
-                    .collect(toImmutableSet());
+                    .collect(toCollection(HashSet::new));
 
             List<RowExpression> joinPredicates = getJoinPredicates(leftVariables, rightVariables);
-            List<EquiJoinClause> joinConditions = joinPredicates.stream()
-                    .filter(JoinEnumerator::isJoinEqualityCondition)
-                    .map(predicate -> toEquiJoinClause((CallExpression) predicate, leftVariables, context.getVariableAllocator()))
-                    .collect(toImmutableList());
-            if (joinConditions.isEmpty()) {
+
+            VariableAllocator variableAllocator = context.getVariableAllocator();
+            JoinCondition joinConditions = extractJoinConditions(joinPredicates, leftVariables, rightVariables, variableAllocator);
+            List<EquiJoinClause> joinClauses = joinConditions.getJoinClauses();
+            List<RowExpression> joinFilters = joinConditions.getJoinFilters();
+
+            //Update the left & right variable sets with any new variables generated
+            leftVariables.addAll(joinConditions.getNewLeftAssignments().keySet());
+            rightVariables.addAll(joinConditions.getNewRightAssignments().keySet());
+
+            if (joinClauses.isEmpty()) {
                 return INFINITE_COST_RESULT;
             }
-            List<RowExpression> joinFilters = joinPredicates.stream()
-                    .filter(predicate -> !isJoinEqualityCondition(predicate))
-                    .collect(toImmutableList());
 
             Set<VariableReferenceExpression> requiredJoinVariables = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(outputVariables)
-                    .addAll(VariablesExtractor.extractUnique(joinPredicates))
+                    .addAll(extractUnique(joinPredicates))
                     .build();
 
             JoinEnumerationResult leftResult = getJoinSource(
@@ -292,6 +333,13 @@ public class ReorderJoins
             }
 
             PlanNode left = leftResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
+            if (!joinConditions.getNewLeftAssignments().isEmpty()) {
+                ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
+                left.getOutputVariables().forEach(outputVariable -> assignments.put(outputVariable, outputVariable));
+                assignments.putAll(joinConditions.getNewLeftAssignments());
+
+                left = addProjections(left, idAllocator, assignments.build());
+            }
 
             JoinEnumerationResult rightResult = getJoinSource(
                     rightSources,
@@ -306,6 +354,13 @@ public class ReorderJoins
             }
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
+            if (!joinConditions.getNewRightAssignments().isEmpty()) {
+                ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
+                right.getOutputVariables().forEach(outputVariable -> assignments.put(outputVariable, outputVariable));
+                assignments.putAll(joinConditions.getNewRightAssignments());
+
+                right = addProjections(right, idAllocator, assignments.build());
+            }
 
             // sort output variables so that the left input variables are first
             List<VariableReferenceExpression> sortedOutputVariables = Stream.concat(left.getOutputVariables().stream(), right.getOutputVariables().stream())
@@ -318,7 +373,7 @@ public class ReorderJoins
                     INNER,
                     left,
                     right,
-                    joinConditions,
+                    joinClauses,
                     sortedOutputVariables,
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
@@ -374,22 +429,103 @@ public class ReorderJoins
             return chooseJoinOrder(nodes, outputVariables);
         }
 
-        private static boolean isJoinEqualityCondition(RowExpression expression)
+        @VisibleForTesting
+        JoinCondition extractJoinConditions(List<RowExpression> joinPredicates,
+                Set<VariableReferenceExpression> leftVariables,
+                Set<VariableReferenceExpression> rightVariables,
+                VariableAllocator variableAllocator)
         {
-            return expression instanceof CallExpression
-                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
-                    && ((CallExpression) expression).getArguments().size() == 2
-                    && ((CallExpression) expression).getArguments().get(0) instanceof VariableReferenceExpression
-                    && ((CallExpression) expression).getArguments().get(1) instanceof VariableReferenceExpression;
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> newLeftAssignments = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> newRightAssignments = ImmutableMap.builder();
+
+            ImmutableList.Builder<EquiJoinClause> joinClauses = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> joinFilters = ImmutableList.builder();
+
+            for (RowExpression predicate : joinPredicates) {
+                if (predicate instanceof CallExpression
+                        && functionResolution.isEqualFunction(((CallExpression) predicate).getFunctionHandle())
+                        && ((CallExpression) predicate).getArguments().size() == 2) {
+                    RowExpression argument0 = ((CallExpression) predicate).getArguments().get(0);
+                    RowExpression argument1 = ((CallExpression) predicate).getArguments().get(1);
+
+                    // First check if arguments refer to different sides of join
+                    Set<VariableReferenceExpression> argument0Vars = extractUnique(argument0);
+                    Set<VariableReferenceExpression> argument1Vars = extractUnique(argument1);
+                    if (!((leftVariables.containsAll(argument0Vars) && rightVariables.containsAll(argument1Vars))
+                            || (rightVariables.containsAll(argument0Vars) && leftVariables.containsAll(argument1Vars)))) {
+                        // Arguments have a mix of join sides, use this predicate as a filter
+                        joinFilters.add(predicate);
+                        continue;
+                    }
+
+                    // Next, check to see if first argument refers to left side and second argument to the right side
+                    // If not, swap the arguments
+                    if (leftVariables.containsAll(argument1Vars)) {
+                        RowExpression temp = argument1;
+                        argument1 = argument0;
+                        argument0 = temp;
+                    }
+
+                    // Next, check if we need to create new assignments for complex equi-join clauses
+                    // E.g. leftVar = ADD(rightVar1, rightVar2)
+                    if (!(argument0 instanceof VariableReferenceExpression)) {
+                        VariableReferenceExpression newLeft = variableAllocator.newVariable(argument0);
+                        newLeftAssignments.put(newLeft, argument0);
+                        argument0 = newLeft;
+                    }
+
+                    if (!(argument1 instanceof VariableReferenceExpression)) {
+                        VariableReferenceExpression newRight = variableAllocator.newVariable(argument1);
+                        newRightAssignments.put(newRight, argument1);
+                        argument1 = newRight;
+                    }
+
+                    joinClauses.add(new EquiJoinClause((VariableReferenceExpression) argument0, (VariableReferenceExpression) argument1));
+                }
+                else {
+                    joinFilters.add(predicate);
+                }
+            }
+
+            return new JoinCondition(joinClauses.build(), joinFilters.build(), newLeftAssignments.build(), newRightAssignments.build());
         }
 
-        private static EquiJoinClause toEquiJoinClause(CallExpression equality, Set<VariableReferenceExpression> leftVariables, VariableAllocator variableAllocator)
+        @VisibleForTesting
+        static class JoinCondition
         {
-            checkArgument(equality.getArguments().size() == 2, "Unexpected number of arguments in binary operator equals");
-            VariableReferenceExpression leftVariable = (VariableReferenceExpression) equality.getArguments().get(0);
-            VariableReferenceExpression rightVariable = (VariableReferenceExpression) equality.getArguments().get(1);
-            EquiJoinClause equiJoinClause = new EquiJoinClause(leftVariable, rightVariable);
-            return leftVariables.contains(leftVariable) ? equiJoinClause : equiJoinClause.flip();
+            List<EquiJoinClause> joinClauses;
+            List<RowExpression> joinFilters;
+            Map<VariableReferenceExpression, RowExpression> newLeftAssignments;
+            Map<VariableReferenceExpression, RowExpression> newRightAssignments;
+
+            public JoinCondition(List<EquiJoinClause> joinClauses, List<RowExpression> joinFilters,
+                    Map<VariableReferenceExpression, RowExpression> left, Map<VariableReferenceExpression, RowExpression> right)
+            {
+                this.joinClauses = joinClauses;
+                this.joinFilters = joinFilters;
+                this.newLeftAssignments = left;
+                this.newRightAssignments = right;
+            }
+
+            public List<EquiJoinClause> getJoinClauses()
+            {
+                return joinClauses;
+            }
+
+            public List<RowExpression> getJoinFilters()
+            {
+                return joinFilters;
+            }
+
+            public Map<VariableReferenceExpression, RowExpression> getNewLeftAssignments()
+            {
+                return newLeftAssignments;
+            }
+
+            public Map<VariableReferenceExpression, RowExpression> getNewRightAssignments()
+            {
+                return newRightAssignments;
+            }
         }
 
         private JoinEnumerationResult setJoinNodeProperties(JoinNode joinNode)
@@ -432,12 +568,12 @@ public class ReorderJoins
             }
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, com.facebook.presto.spi.plan.JoinDistributionType distributionType)
         {
             return getPossibleJoinNodes(joinNode, distributionType, (node) -> true);
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, com.facebook.presto.spi.plan.JoinDistributionType distributionType, Predicate<JoinNode> isAllowed)
         {
             List<JoinNode> nodes = ImmutableList.of(
                     joinNode.withDistributionType(distributionType),
@@ -459,14 +595,19 @@ public class ReorderJoins
     {
         // Use a linked hash set to ensure optimizer is deterministic
         private final CanonicalJoinNode node;
+        private final Assignments assignments;
 
-        public MultiJoinNode(LinkedHashSet<PlanNode> sources, RowExpression filter, List<VariableReferenceExpression> outputVariables)
+        public MultiJoinNode(LinkedHashSet<PlanNode> sources, RowExpression filter, List<VariableReferenceExpression> outputVariables,
+                Assignments assignments)
         {
             checkArgument(sources.size() > 1, "sources size is <= 1");
 
             requireNonNull(sources, "sources is null");
             requireNonNull(filter, "filter is null");
             requireNonNull(outputVariables, "outputVariables is null");
+            requireNonNull(assignments, "assignments is null");
+
+            this.assignments = assignments;
             // Plan node id doesn't matter here as we don't use this in planner
             this.node = new CanonicalJoinNode(
                     new PlanNodeId(""),
@@ -475,9 +616,6 @@ public class ReorderJoins
                     ImmutableSet.of(),
                     ImmutableSet.of(filter),
                     outputVariables);
-
-            List<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableList());
-            checkArgument(inputVariables.containsAll(outputVariables), "inputs do not contain all output variables");
         }
 
         public RowExpression getFilter()
@@ -493,6 +631,11 @@ public class ReorderJoins
         public List<VariableReferenceExpression> getOutputVariables()
         {
             return node.getOutputVariables();
+        }
+
+        public Assignments getAssignments()
+        {
+            return assignments;
         }
 
         public static Builder builder()
@@ -516,25 +659,38 @@ public class ReorderJoins
             MultiJoinNode other = (MultiJoinNode) obj;
             return getSources().equals(other.getSources())
                     && ImmutableSet.copyOf(extractConjuncts(getFilter())).equals(ImmutableSet.copyOf(extractConjuncts(other.getFilter())))
-                    && getOutputVariables().equals(other.getOutputVariables());
+                    && getOutputVariables().equals(other.getOutputVariables())
+                    && getAssignments().equals(other.getAssignments());
         }
 
-        static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator)
+        @Override
+        public String toString()
+        {
+            return "MultiJoinNode{" +
+                    "node=" + node +
+                    ", assignments=" + assignments +
+                    '}';
+        }
+
+        static MultiJoinNode toMultiJoinNode(JoinNode joinNode, Lookup lookup, int joinLimit, boolean handleComplexEquiJoins, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator)
         {
             // the number of sources is the number of joins + 1
-            return new JoinNodeFlattener(joinNode, lookup, joinLimit + 1, functionResolution, determinismEvaluator).toMultiJoinNode();
+            return new JoinNodeFlattener(joinNode, lookup, joinLimit + 1, handleComplexEquiJoins, functionResolution, determinismEvaluator).toMultiJoinNode();
         }
 
         private static class JoinNodeFlattener
         {
             private final LinkedHashSet<PlanNode> sources = new LinkedHashSet<>();
-            private final List<RowExpression> filters = new ArrayList<>();
+            private final Assignments intermediateAssignments;
+            private final boolean handleComplexEquiJoins;
+            private List<RowExpression> filters = new ArrayList<>();
             private final List<VariableReferenceExpression> outputVariables;
             private final FunctionResolution functionResolution;
             private final DeterminismEvaluator determinismEvaluator;
             private final Lookup lookup;
 
-            JoinNodeFlattener(JoinNode node, Lookup lookup, int sourceLimit, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator)
+            JoinNodeFlattener(JoinNode node, Lookup lookup, int sourceLimit, boolean handleComplexEquiJoins, FunctionResolution functionResolution,
+                    DeterminismEvaluator determinismEvaluator)
             {
                 requireNonNull(node, "node is null");
                 checkState(node.getType() == INNER, "join type must be INNER");
@@ -542,12 +698,68 @@ public class ReorderJoins
                 this.lookup = requireNonNull(lookup, "lookup is null");
                 this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
                 this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
-                flattenNode(node, sourceLimit);
+                this.handleComplexEquiJoins = handleComplexEquiJoins;
+
+                Map<VariableReferenceExpression, RowExpression> intermediateAssignments = new HashMap<>();
+                flattenNode(node, sourceLimit, intermediateAssignments);
+
+                // We resolve the intermediate assignments to only inputs of the flattened join node
+                ImmutableSet<VariableReferenceExpression> inputVariables = sources.stream().flatMap(s -> s.getOutputVariables().stream()).collect(toImmutableSet());
+                this.intermediateAssignments = resolveAssignments(intermediateAssignments, inputVariables);
+                rewriteFilterWithInlinedAssignments(this.intermediateAssignments);
             }
 
-            private void flattenNode(PlanNode node, int limit)
+            private Assignments resolveAssignments(Map<VariableReferenceExpression, RowExpression> assignments, Set<VariableReferenceExpression> availableVariables)
+            {
+                HashSet<VariableReferenceExpression> resolvedVariables = new HashSet<>();
+                ImmutableList.copyOf(assignments.keySet()).forEach(variable -> resolveVariable(variable, resolvedVariables, assignments, availableVariables));
+
+                return Assignments.builder().putAll(assignments).build();
+            }
+
+            private void resolveVariable(VariableReferenceExpression variable, HashSet<VariableReferenceExpression> resolvedVariables, Map<VariableReferenceExpression,
+                    RowExpression> assignments, Set<VariableReferenceExpression> availableVariables)
+            {
+                RowExpression expression = assignments.get(variable);
+                Sets.SetView<VariableReferenceExpression> variablesToResolve = Sets.difference(Sets.difference(extractUnique(expression), availableVariables), resolvedVariables);
+
+                // Recursively resolve any unresolved variables
+                variablesToResolve.forEach(variableToResolve -> resolveVariable(variableToResolve, resolvedVariables, assignments, availableVariables));
+
+                // Modify the assignment for the variable : Replace it with the now resolved constituent variables
+                assignments.put(variable, replaceExpression(expression, assignments));
+                // Mark this variable as resolved
+                resolvedVariables.add(variable);
+            }
+
+            private void rewriteFilterWithInlinedAssignments(Assignments assignments)
+            {
+                ImmutableList.Builder<RowExpression> modifiedFilters = ImmutableList.builder();
+                filters.forEach(filter -> modifiedFilters.add(replaceExpression(filter, assignments.getMap())));
+                filters = modifiedFilters.build();
+            }
+
+            private void flattenNode(PlanNode node, int limit, Map<VariableReferenceExpression, RowExpression> assignmentsBuilder)
             {
                 PlanNode resolved = lookup.resolve(node);
+
+                if (resolved instanceof ProjectNode) {
+                    ProjectNode projectNode = (ProjectNode) resolved;
+                    // A ProjectNode could be 'hiding' a join source by building an assignment of a complex equi-join criteria like `left.key = right1.key1 + right1.key2`
+                    // We open up the join space by tracking the assignments from this Project node; these will be inlined into the overall filters once we finish
+                    // traversing the join graph
+                    // We only do this if the ProjectNode assignments are deterministic
+                    if (handleComplexEquiJoins && lookup.resolve(projectNode.getSource()) instanceof JoinNode &&
+                            projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)) {
+                        //We keep track of only the non-identity assignments since these are the ones that will be inlined into the overall filters
+                        assignmentsBuilder.putAll(getNonIdentityAssignments(projectNode.getAssignments()));
+                        flattenNode(projectNode.getSource(), limit, assignmentsBuilder);
+                    }
+                    else {
+                        sources.add(node);
+                    }
+                    return;
+                }
 
                 // (limit - 2) because you need to account for adding left and right side
                 if (!(resolved instanceof JoinNode) || (sources.size() > (limit - 2))) {
@@ -562,8 +774,8 @@ public class ReorderJoins
                 }
 
                 // we set the left limit to limit - 1 to account for the node on the right
-                flattenNode(joinNode.getLeft(), limit - 1);
-                flattenNode(joinNode.getRight(), limit);
+                flattenNode(joinNode.getLeft(), limit - 1, assignmentsBuilder);
+                flattenNode(joinNode.getRight(), limit, assignmentsBuilder);
                 joinNode.getCriteria().stream()
                         .map(criteria -> toRowExpression(criteria, functionResolution))
                         .forEach(filters::add);
@@ -572,7 +784,35 @@ public class ReorderJoins
 
             MultiJoinNode toMultiJoinNode()
             {
-                return new MultiJoinNode(sources, and(filters), outputVariables);
+                ImmutableSet<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableSet());
+
+                // We could have some output variables that were possibly generated from intermediate assignments
+                // For each of these variables, use the intermediate assignments to replace this variable with the set of input variables it uses
+
+                // Additionally, we build an overall set of assignments for the reordered Join node - this is used to add a wrapper Project over the updated output variables
+                // We do this to satisfy the invariant that the rewritten Join node must produce the same output variables as the input Join node
+                ImmutableSet.Builder<VariableReferenceExpression> updatedOutputVariables = ImmutableSet.builder();
+                Assignments.Builder overallAssignments = Assignments.builder();
+                boolean nonIdentityAssignmentsFound = false;
+
+                for (VariableReferenceExpression outputVariable : outputVariables) {
+                    if (inputVariables.contains(outputVariable)) {
+                        overallAssignments.put(outputVariable, outputVariable);
+                        updatedOutputVariables.add(outputVariable);
+                        continue;
+                    }
+
+                    checkState(intermediateAssignments.getMap().containsKey(outputVariable),
+                            "Output variable [%s] not found in input variables or in intermediate assignments", outputVariable);
+                    nonIdentityAssignmentsFound = true;
+                    overallAssignments.put(outputVariable, intermediateAssignments.get(outputVariable));
+                    updatedOutputVariables.addAll(extractUnique(intermediateAssignments.get(outputVariable)));
+                }
+
+                return new MultiJoinNode(sources,
+                        and(filters),
+                        updatedOutputVariables.build().asList(),
+                        nonIdentityAssignmentsFound ? overallAssignments.build() : Assignments.of());
             }
         }
 
@@ -581,6 +821,7 @@ public class ReorderJoins
             private List<PlanNode> sources;
             private RowExpression filter;
             private List<VariableReferenceExpression> outputVariables;
+            private Assignments assignments = Assignments.of();
 
             public Builder setSources(PlanNode... sources)
             {
@@ -594,6 +835,12 @@ public class ReorderJoins
                 return this;
             }
 
+            public Builder setAssignments(Assignments assignments)
+            {
+                this.assignments = assignments;
+                return this;
+            }
+
             public Builder setOutputVariables(VariableReferenceExpression... outputVariables)
             {
                 this.outputVariables = ImmutableList.copyOf(outputVariables);
@@ -602,7 +849,7 @@ public class ReorderJoins
 
             public MultiJoinNode build()
             {
-                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputVariables);
+                return new MultiJoinNode(new LinkedHashSet<>(sources), filter, outputVariables, assignments);
             }
         }
     }

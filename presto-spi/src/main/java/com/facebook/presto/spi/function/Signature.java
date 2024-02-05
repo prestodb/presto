@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.concat;
 
+@ThriftStruct
 public final class Signature
 {
     private final QualifiedObjectName name;
@@ -39,6 +43,7 @@ public final class Signature
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
 
+    @ThriftConstructor
     @JsonCreator
     public Signature(
             @JsonProperty("name") QualifiedObjectName name,
@@ -72,6 +77,7 @@ public final class Signature
         this(name, kind, emptyList(), emptyList(), returnType, argumentTypes, false);
     }
 
+    @ThriftField(1)
     @JsonProperty
     public QualifiedObjectName getName()
     {
@@ -83,36 +89,42 @@ public final class Signature
         return name.getObjectName();
     }
 
+    @ThriftField(2)
     @JsonProperty
     public FunctionKind getKind()
     {
         return kind;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public TypeSignature getReturnType()
     {
         return returnType;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public boolean isVariableArity()
     {
         return variableArity;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
         return typeVariableConstraints;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public List<LongVariableConstraint> getLongVariableConstraints()
     {

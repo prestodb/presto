@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.util.Objects;
 import java.util.Set;
@@ -28,6 +29,7 @@ public class AllNodes
     private final Set<InternalNode> activeCoordinators;
     private final Set<InternalNode> activeResourceManagers;
     private final Set<InternalNode> activeCatalogServers;
+    private final int activeWorkerCount;
 
     public AllNodes(
             Set<InternalNode> activeNodes,
@@ -43,11 +45,18 @@ public class AllNodes
         this.activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
         this.activeResourceManagers = ImmutableSet.copyOf(requireNonNull(activeResourceManagers, "activeResourceManagers is null"));
         this.activeCatalogServers = ImmutableSet.copyOf(requireNonNull(activeCatalogServers, "activeCatalogServers is null"));
+
+        this.activeWorkerCount = Sets.difference(Sets.difference(activeNodes, activeResourceManagers), activeCatalogServers).size();
     }
 
     public Set<InternalNode> getActiveNodes()
     {
         return activeNodes;
+    }
+
+    public int getActiveWorkerCount()
+    {
+        return activeWorkerCount;
     }
 
     public Set<InternalNode> getInactiveNodes()

@@ -102,7 +102,9 @@ public abstract class AbstractMinMaxByNAggregationFunction
             heap = new TypedKeyValueHeap(comparator, keyType, valueType, toIntExact(n));
             state.setTypedKeyValueHeap(heap);
         }
-
+        else {
+            checkCondition(n == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]", n, heap.getCapacity());
+        }
         long startSize = heap.getEstimatedSize();
         if (!key.isNull(blockIndex)) {
             heap.add(key, value, blockIndex);
@@ -121,6 +123,9 @@ public abstract class AbstractMinMaxByNAggregationFunction
             state.setTypedKeyValueHeap(otherHeap);
             return;
         }
+
+        checkCondition(otherHeap.getCapacity() == heap.getCapacity(), INVALID_FUNCTION_ARGUMENT, "Count argument is not constant: found multiple values [%s, %s]: %s", otherHeap.getCapacity(), heap.getCapacity());
+
         long startSize = heap.getEstimatedSize();
         heap.addAll(otherHeap);
         state.addMemoryUsage(heap.getEstimatedSize() - startSize);
@@ -135,16 +140,17 @@ public abstract class AbstractMinMaxByNAggregationFunction
         }
 
         Type elementType = outputType.getElementType();
+        Type keyType = heap.getKeyType();
 
         BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-        BlockBuilder reversedBlockBuilder = elementType.createBlockBuilder(null, heap.getCapacity());
-        long startSize = heap.getEstimatedSize();
-        heap.popAll(reversedBlockBuilder);
-        state.addMemoryUsage(heap.getEstimatedSize() - startSize);
+        BlockBuilder reversedValueBlockBuilder = elementType.createBlockBuilder(null, heap.getCapacity());
+        BlockBuilder reversedKeyBlockBuilder = keyType.createBlockBuilder(null, heap.getCapacity());
+        heap.popAll(reversedValueBlockBuilder, reversedKeyBlockBuilder);
 
-        for (int i = reversedBlockBuilder.getPositionCount() - 1; i >= 0; i--) {
-            elementType.appendTo(reversedBlockBuilder, i, arrayBlockBuilder);
+        for (int i = reversedValueBlockBuilder.getPositionCount() - 1; i >= 0; i--) {
+            elementType.appendTo(reversedValueBlockBuilder, i, arrayBlockBuilder);
         }
+        heap.addAll(reversedKeyBlockBuilder, reversedValueBlockBuilder);
         out.closeEntry();
     }
 

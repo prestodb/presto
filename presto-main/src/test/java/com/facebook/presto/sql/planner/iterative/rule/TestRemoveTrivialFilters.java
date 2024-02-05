@@ -28,7 +28,7 @@ public class TestRemoveTrivialFilters
     public void testDoesNotFire()
     {
         tester().assertThat(new RemoveTrivialFilters())
-                .on(p -> p.filter(p.expression("1 = 1"), p.values()))
+                .on(p -> p.filter(p.rowExpression("1 = 1"), p.values()))
                 .doesNotFire();
     }
 
@@ -36,7 +36,7 @@ public class TestRemoveTrivialFilters
     public void testRemovesTrueFilter()
     {
         tester().assertThat(new RemoveTrivialFilters())
-                .on(p -> p.filter(p.expression("TRUE"), p.values()))
+                .on(p -> p.filter(p.rowExpression("TRUE"), p.values()))
                 .matches(values());
     }
 
@@ -45,7 +45,7 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        p.expression("FALSE"),
+                        p.rowExpression("FALSE"),
                         p.values(
                                 ImmutableList.of(p.variable("a")),
                                 ImmutableList.of(constantExpressions(BIGINT, 1L)))))

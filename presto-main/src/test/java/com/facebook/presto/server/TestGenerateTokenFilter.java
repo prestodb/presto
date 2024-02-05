@@ -64,9 +64,9 @@ public class TestGenerateTokenFilter
 
         // extract the filter
         List<HttpRequestFilter> filters = httpClient.getRequestFilters();
-        assertEquals(filters.size(), 2);
-        assertInstanceOf(filters.get(1), GenerateTraceTokenRequestFilter.class);
-        filter = (GenerateTraceTokenRequestFilter) filters.get(1);
+        assertEquals(filters.size(), 3);
+        assertInstanceOf(filters.get(2), GenerateTraceTokenRequestFilter.class);
+        filter = (GenerateTraceTokenRequestFilter) filters.get(2);
     }
 
     @AfterClass(alwaysRun = true)

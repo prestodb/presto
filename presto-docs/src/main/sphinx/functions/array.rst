@@ -40,6 +40,13 @@ Array Functions
     Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
     ``null``.
 
+.. function:: array_cum_sum(array(T)) -> array(T)
+
+    Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1]+input[2]+...+input[i].
+    If there there is null elements in the array, the cumulative sum at and after the element is null. ::
+
+        SELECT array_cum_sum(ARRAY [1, 2, null, 3]) -- array[1, 3, null, null]
+
 .. function:: array_distinct(x) -> array
 
     Remove duplicate values from the array ``x``.
@@ -72,6 +79,15 @@ Array Functions
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
+
+.. function:: array_least_frequent(array(T)) -> array(T)
+
+    Returns the least frequent element of an array. If there are multiple elements with same frequency, the function returns the largest element.
+
+.. function:: array_least_frequent(array(T), n) -> array(T)
+
+    Returns n least frequent elements of an array. The elements are based on increasing order of their frequencies.
+    If two elements have same frequency then element with higher value will appear before lower value.
 
 .. function:: array_max(x) -> x
 
@@ -168,6 +184,14 @@ Array Functions
     ``T`` must be coercible to ``double``.
     Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
 
+.. function:: array_top_n(array(T), int) -> array(T)
+
+    Returns an array of top n elements from a given ``array``, according to its natural descending order.
+    If n is smaller than the size of the given ``array``, the returned list will be the same size as the input instead of n.
+        SELECT array_top_n(ARRAY [1, 100, 2, 5, 3], 3); -- [100, 5, 3]
+        SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]
+        SELECT array_top_n(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3); -- ['zzz', 'zz', 'g']
+
 .. function:: arrays_overlap(x, y) -> boolean
 
     Tests if arrays ``x`` and ``y`` have any non-null elements in common.
@@ -190,7 +214,7 @@ Array Functions
 .. function:: combinations(array(T), n) -> array(array(T))
 
     Returns n-element combinations of the input array.
-    If the input array has no duplicates, ``combinations`` returns n-element subsets. 
+    If the input array has no duplicates, ``combinations`` returns n-element subsets.
     Order of subgroup is deterministic but unspecified. Order of elements within
     a subgroup are deterministic but unspecified. ``n`` must not be greater than 5,
     and the total size of subgroups generated must be smaller than 100000::

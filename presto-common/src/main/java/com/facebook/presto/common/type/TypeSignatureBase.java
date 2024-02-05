@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
 
 import java.util.Objects;
@@ -22,6 +25,7 @@ import static com.facebook.presto.common.type.StandardTypes.DISTINCT_TYPE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
+@ThriftStruct
 public class TypeSignatureBase
 {
     private final Optional<String> standardTypeBase;
@@ -31,7 +35,7 @@ public class TypeSignatureBase
     {
         int pos = name.indexOf(":");
         if (pos >= 0) {
-            return new TypeSignatureBase(QualifiedObjectName.valueOf(name.substring(0, pos)), name.substring(pos + 1));
+            return new TypeSignatureBase(QualifiedObjectName.valueOf(name.substring(0, pos).toLowerCase(ENGLISH)), name.substring(pos + 1));
         }
         if (name.chars().noneMatch(c -> c == '.')) {
             return new TypeSignatureBase(name);
@@ -81,6 +85,13 @@ public class TypeSignatureBase
         this.typeName = Optional.of(typeName);
     }
 
+    @ThriftConstructor
+    public TypeSignatureBase(Optional<String> optionalStandardTypeBase, Optional<QualifiedObjectName> optionalQualifiedObjectName)
+    {
+        this.standardTypeBase = optionalStandardTypeBase;
+        this.typeName = optionalQualifiedObjectName;
+    }
+
     public boolean hasStandardType()
     {
         return standardTypeBase.isPresent();
@@ -101,6 +112,18 @@ public class TypeSignatureBase
     {
         checkArgument(standardTypeBase.isPresent(), "TypeSignatureBase %s does not have standard type base", toString());
         return standardTypeBase.get();
+    }
+
+    @ThriftField(1)
+    public Optional<String> getOptionalStandardTypeBase()
+    {
+        return standardTypeBase;
+    }
+
+    @ThriftField(2)
+    public Optional<QualifiedObjectName> getOptionalQualifiedObjectName()
+    {
+        return typeName;
     }
 
     private static boolean validateName(String name)

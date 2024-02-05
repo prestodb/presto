@@ -12,12 +12,26 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "velox/exec/ExchangeClient.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
+velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+  return obj["id"].asString();
+}
+
+#define CALL_SHUFFLE(call, methodName)                                \
+  try {                                                               \
+    call;                                                             \
+  } catch (const VeloxException& e) {                                 \
+    throw;                                                            \
+  } catch (const std::exception& e) {                                 \
+    VELOX_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
+  }
+
 class ShuffleWriteOperator : public Operator {
  public:
   ShuffleWriteOperator(
@@ -29,17 +43,16 @@ class ShuffleWriteOperator : public Operator {
             planNode->outputType(),
             operatorId,
             planNode->id(),
-            "ShuffleWrite") {
+            "ShuffleWrite"),
+        numPartitions_{planNode->numPartitions()},
+        serializedShuffleWriteInfo_{planNode->serializedShuffleWriteInfo()} {
     const auto& shuffleName = planNode->shuffleName();
-    auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
-    VELOX_CHECK(
-        shuffleFactory != nullptr,
-        fmt::format(
-            "Failed to create shuffle write interface: Shuffle factory "
-            "with name '{}' is not registered.",
-            shuffleName));
-    shuffle_ = shuffleFactory->createWriter(
-        planNode->serializedShuffleWriteInfo(), operatorCtx_->pool());
+    shuffleFactory_ = ShuffleInterfaceFactory::factory(shuffleName);
+    VELOX_CHECK_NOT_NULL(
+        shuffleFactory_,
+        "Failed to create shuffle write interface: Shuffle factory "
+        "with name '{}' is not registered.",
+        shuffleName);
   }
 
   bool needsInput() const override {
@@ -47,18 +60,60 @@ class ShuffleWriteOperator : public Operator {
   }
 
   void addInput(RowVectorPtr input) override {
+    checkCreateShuffleWriter();
     auto partitions = input->childAt(0)->as<SimpleVector<int32_t>>();
     auto serializedRows = input->childAt(1)->as<SimpleVector<StringView>>();
+    SimpleVector<bool>* replicate = nullptr;
+    if (input->type()->size() == 3) {
+      replicate = input->childAt(2)->as<SimpleVector<bool>>();
+    }
+
     for (auto i = 0; i < input->size(); ++i) {
-      auto partition = partitions->valueAt(i);
       auto data = serializedRows->valueAt(i);
-      shuffle_->collect(partition, std::string_view(data.data(), data.size()));
+      if (replicate && replicate->valueAt(i)) {
+        for (auto partition = 0; partition < numPartitions_; ++partition) {
+          CALL_SHUFFLE(
+              shuffle_->collect(
+                  partition, std::string_view(data.data(), data.size())),
+              "collect");
+        }
+      } else {
+        auto partition = partitions->valueAt(i);
+        CALL_SHUFFLE(
+            shuffle_->collect(
+                partition, std::string_view(data.data(), data.size())),
+            "collect");
+      }
     }
   }
 
   void noMoreInput() override {
     Operator::noMoreInput();
-    shuffle_->noMoreData(true);
+
+    checkCreateShuffleWriter();
+    CALL_SHUFFLE(shuffle_->noMoreData(true), "noMoreData");
+
+    recordShuffleWriteClientStats();
+  }
+
+  void recordShuffleWriteClientStats() {
+    auto lockedStats = stats_.wlock();
+    const auto shuffleStats = shuffle_->stats();
+    for (const auto& [name, value] : shuffleStats) {
+      lockedStats->runtimeStats[name] = RuntimeMetric(value);
+    }
+
+    auto backgroundCpuTimeMs =
+        shuffleStats.find(ExchangeClient::kBackgroundCpuTimeMs);
+    if (backgroundCpuTimeMs != shuffleStats.end()) {
+      const CpuWallTiming backgroundTiming{
+          static_cast<uint64_t>(1),
+          0,
+          static_cast<uint64_t>(backgroundCpuTimeMs->second) *
+              Timestamp::kNanosecondsInMillisecond};
+      lockedStats->backgroundTiming.clear();
+      lockedStats->backgroundTiming.add(backgroundTiming);
+    }
   }
 
   RowVectorPtr getOutput() override {
@@ -74,9 +129,43 @@ class ShuffleWriteOperator : public Operator {
   }
 
  private:
+  void checkCreateShuffleWriter() {
+    if (shuffle_ == nullptr) {
+      shuffle_ = shuffleFactory_->createWriter(
+          serializedShuffleWriteInfo_, operatorCtx_->pool());
+    }
+  }
+
+  const uint32_t numPartitions_;
+  const std::string serializedShuffleWriteInfo_;
+  ShuffleInterfaceFactory* shuffleFactory_;
   std::shared_ptr<ShuffleWriter> shuffle_;
 };
+
+#undef CALL_SHUFFLE
 } // namespace
+
+folly::dynamic ShuffleWriteNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["numPartitions"] = numPartitions_;
+  obj["shuffleName"] = ISerializable::serialize<std::string>(shuffleName_);
+  obj["shuffleWriteInfo"] =
+      ISerializable::serialize<std::string>(serializedShuffleWriteInfo_);
+  obj["sources"] = ISerializable::serialize(sources_);
+  return obj;
+}
+
+velox::core::PlanNodePtr ShuffleWriteNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<ShuffleWriteNode>(
+      deserializePlanNodeId(obj),
+      obj["numPartitions"].asInt(),
+      ISerializable::deserialize<std::string>(obj["shuffleName"], context),
+      ISerializable::deserialize<std::string>(obj["shuffleWriteInfo"], context),
+      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+          obj["sources"], context)[0]);
+}
 
 std::unique_ptr<Operator> ShuffleWriteTranslator::toOperator(
     DriverCtx* ctx,

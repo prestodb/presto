@@ -23,6 +23,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInput;
+import com.facebook.presto.spark.execution.shuffle.PrestoSparkShufflePageInput;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;

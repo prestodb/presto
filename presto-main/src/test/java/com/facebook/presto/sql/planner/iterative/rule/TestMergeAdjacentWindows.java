@@ -41,7 +41,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
@@ -141,7 +140,7 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.variable("avg_2"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),
                                 p.filter(
-                                        expression("a > 5"),
+                                        p.registerVariable(p.variable("a")).rowExpression("a > 5"),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.variable("avg_1"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),

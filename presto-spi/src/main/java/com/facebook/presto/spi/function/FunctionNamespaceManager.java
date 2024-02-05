@@ -118,7 +118,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
 
     Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName);
 
-    default AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle)
+    default AggregationFunctionImplementation getAggregateFunctionImplementation(FunctionHandle functionHandle, TypeManager typeManager)
     {
         throw new UnsupportedOperationException("Does not support get aggregation function");
     }

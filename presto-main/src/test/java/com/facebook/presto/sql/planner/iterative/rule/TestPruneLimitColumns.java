@@ -27,7 +27,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expres
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -62,7 +62,7 @@ public class TestPruneLimitColumns
         VariableReferenceExpression a = planBuilder.variable("a");
         VariableReferenceExpression b = planBuilder.variable("b");
         return planBuilder.project(
-                identityAssignmentsAsSymbolReferences(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
+                identityAssignments(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.limit(1, planBuilder.values(a, b)));
     }
 }

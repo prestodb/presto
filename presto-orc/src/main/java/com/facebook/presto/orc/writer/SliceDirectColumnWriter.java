@@ -130,6 +130,11 @@ public class SliceDirectColumnWriter
         presentStream = updatedPresentStream;
     }
 
+    void updateRawSize(long rawSize)
+    {
+        statisticsBuilder.incrementRawSize(rawSize);
+    }
+
     @Override
     public long writeBlock(Block block)
     {
@@ -150,7 +155,10 @@ public class SliceDirectColumnWriter
                 nonNullValueCount++;
             }
         }
-        return (block.getPositionCount() - nonNullValueCount) * NULL_SIZE + elementSize;
+
+        long rawSize = (block.getPositionCount() - nonNullValueCount) * NULL_SIZE + elementSize;
+        statisticsBuilder.incrementRawSize(rawSize);
+        return rawSize;
     }
 
     void writePresentValue(boolean value)

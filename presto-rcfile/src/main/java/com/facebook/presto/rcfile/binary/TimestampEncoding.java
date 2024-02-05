@@ -169,8 +169,8 @@ public class TimestampEncoding
 
     private static void writeTimestamp(SliceOutput output, long millis)
     {
-        long seconds = floorDiv(millis, 1000);
-        int nanos = toIntExact(floorMod(millis, 1000) * 1_000_000);
+        long seconds = floorDiv(millis, 1000L);
+        int nanos = toIntExact(floorMod(millis, 1000L) * 1_000_000);
         writeTimestamp(seconds, nanos, output);
     }
 

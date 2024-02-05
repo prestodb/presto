@@ -15,7 +15,9 @@
 import React from "react";
 
 type Props = {
-    title: string
+    titles: string[],
+    urls?: string[],
+    current?: number,
 }
 
 type State = {
@@ -27,6 +29,22 @@ type State = {
     errorText: ?string,
 }
 
+function ClusterResourceGroupNavBar({titles, urls, current = 0} : Props) {
+    const classNames = ['navbar-brand inactive', 'navbar-brand'];
+    const navBarItems = titles.map( (title, index) => {
+        const classNameIdx = (current === index || !urls?.length) ? 0 : 1;
+        return (
+            <td key={index}>
+                <span className={classNames[classNameIdx]}>
+                    { classNameIdx ? <a href={urls?.[index]}>{title}</a> : title}
+                </span>
+            </td>
+        );
+    });
+    return (
+        <>{navBarItems}</>
+    );
+}
 export class PageTitle extends React.Component<Props, State> {
     timeoutId: TimeoutID;
 
@@ -42,7 +60,7 @@ export class PageTitle extends React.Component<Props, State> {
         };
     }
 
-    refreshLoop() {
+    refreshLoop: () => void = () => {
         clearTimeout(this.timeoutId);
         fetch("/v1/info")
             .then(response => response.json())
@@ -79,10 +97,10 @@ export class PageTitle extends React.Component<Props, State> {
     }
 
     componentDidMount() {
-        this.refreshLoop.bind(this)();
+        this.refreshLoop();
     }
 
-    renderStatusLight() {
+    renderStatusLight(): any {
         if (this.state.noConnection) {
             if (this.state.lightShown) {
                 return <span className="status-light status-light-red" id="status-indicator"/>;
@@ -94,7 +112,7 @@ export class PageTitle extends React.Component<Props, State> {
         return <span className="status-light status-light-green" id="status-indicator"/>;
     }
 
-    render() {
+    render(): any {
         const info = this.state.info;
         if (!info) {
             return null;
@@ -111,9 +129,7 @@ export class PageTitle extends React.Component<Props, State> {
                                     <td>
                                         <a href="/ui/"><img src="assets/logo.png"/></a>
                                     </td>
-                                    <td>
-                                        <span className="navbar-brand">{this.props.title}</span>
-                                    </td>
+                                    <ClusterResourceGroupNavBar titles={this.props.titles} urls={this.props.urls} current={this.props.current} />
                                 </tr>
                                 </tbody>
                             </table>

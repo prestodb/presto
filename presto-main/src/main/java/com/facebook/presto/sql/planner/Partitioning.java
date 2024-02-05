@@ -19,9 +19,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.tree.CoalesceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -39,10 +36,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.arePartitionHandlesCompatibleForCoalesce;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -367,33 +361,15 @@ public final class Partitioning
                 // of the arguments. Thus we extract and compare the variables of the COALESCE as a set rather than compare COALESCE directly.
                 VariableReferenceExpression translated = null;
                 for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.entrySet()) {
-                    if (isExpression(entry.getValue())) {
-                        if (castToExpression(entry.getValue()) instanceof CoalesceExpression) {
-                            Set<Expression> coalesceOperands = ImmutableSet.copyOf(((CoalesceExpression) castToExpression(entry.getValue())).getOperands());
-                            if (!coalesceOperands.stream().allMatch(SymbolReference.class::isInstance)) {
-                                continue;
-                            }
-
-                            if (coalesceOperands.stream()
-                                    .map(operand -> new VariableReferenceExpression(getSourceLocation(operand), ((SymbolReference) operand).getName(), types.get(operand)))
-                                    .collect(toImmutableSet())
-                                    .equals(coalesceArguments)) {
-                                translated = entry.getKey();
-                                break;
-                            }
+                    if (entry.getValue() instanceof SpecialFormExpression && ((SpecialFormExpression) entry.getValue()).getForm().equals(COALESCE)) {
+                        Set<RowExpression> assignmentArguments = ImmutableSet.copyOf(((SpecialFormExpression) entry.getValue()).getArguments());
+                        if (!assignmentArguments.stream().allMatch(VariableReferenceExpression.class::isInstance)) {
+                            continue;
                         }
-                    }
-                    else {
-                        if (entry.getValue() instanceof SpecialFormExpression && ((SpecialFormExpression) entry.getValue()).getForm().equals(COALESCE)) {
-                            Set<RowExpression> assignmentArguments = ImmutableSet.copyOf(((SpecialFormExpression) entry.getValue()).getArguments());
-                            if (!assignmentArguments.stream().allMatch(VariableReferenceExpression.class::isInstance)) {
-                                continue;
-                            }
 
-                            if (assignmentArguments.equals(coalesceArguments)) {
-                                translated = entry.getKey();
-                                break;
-                            }
+                        if (assignmentArguments.equals(coalesceArguments)) {
+                            translated = entry.getKey();
+                            break;
                         }
                     }
                 }

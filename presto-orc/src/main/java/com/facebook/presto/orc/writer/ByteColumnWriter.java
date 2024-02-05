@@ -58,12 +58,13 @@ public class ByteColumnWriter
     private final boolean compressed;
     private final ByteOutputStream dataStream;
     private final PresentOutputStream presentStream;
-    private CompressedMetadataWriter metadataWriter;
+    private final CompressedMetadataWriter metadataWriter;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private long columnStatisticsRetainedSizeInBytes;
 
     private int nonNullValueCount;
+    private long rawSize;
 
     private boolean closed;
 
@@ -115,17 +116,20 @@ public class ByteColumnWriter
             }
         }
         // For byte columns, null and values has the same size (1 byte)
-        return block.getPositionCount() * NULL_SIZE;
+        long rawSize = block.getPositionCount() * NULL_SIZE;
+        this.rawSize += rawSize;
+        return rawSize;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, rawSize, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
+        rawSize = 0;
         return ImmutableMap.of(column, statistics);
     }
 
@@ -188,5 +192,6 @@ public class ByteColumnWriter
         rowGroupColumnStatistics.clear();
         columnStatisticsRetainedSizeInBytes = 0;
         nonNullValueCount = 0;
+        rawSize = 0;
     }
 }

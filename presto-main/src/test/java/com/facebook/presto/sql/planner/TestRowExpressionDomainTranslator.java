@@ -27,6 +27,7 @@ import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
@@ -43,6 +44,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -931,6 +933,35 @@ public class TestRowExpressionDomainTranslator
                 and(
                         greaterThan(C_DOUBLE, doubleLiteral(0)),
                         greaterThan(C_BIGINT, bigintLiteral(0))));
+    }
+
+    @Test
+    public void testComplexDisjunctExpression()
+    {
+        TestingRowExpressionTranslator rowExpressionTranslator = new TestingRowExpressionTranslator(metadata);
+        VariableReferenceExpression left = new VariableReferenceExpression(Optional.empty(), "L", INTEGER);
+        VariableReferenceExpression right = new VariableReferenceExpression(Optional.empty(), "R", INTEGER);
+        Map<String, Type> types = ImmutableMap.of("L", INTEGER, "R", INTEGER);
+
+        // Inferring of the 'right' variable  does not occur, since equality inference is not performed
+        ExtractionResult result = fromPredicate(rowExpressionTranslator.translate("L = 10 and R = L + 20", types));
+        assertEquals(result.getTupleDomain(),
+                withColumnDomains(ImmutableMap.of(
+                        left, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 10L)), false))));
+        assertEquals(result.getRemainingExpression(), rowExpressionTranslator.translate("R = L + 20", types));
+
+        // The 'right' variable cannot be inferred as [5] since we have 'R = L + 20' as one of the expressions in the disjunction
+        result = fromPredicate(rowExpressionTranslator.translate("(L = 10 and R = L + 20) or (L = 42 AND R = 5)", types));
+        assertEquals(result.getTupleDomain(),
+                withColumnDomains(ImmutableMap.of(
+                        left, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 10L), Range.equal(INTEGER, 42L)), false))));
+
+        // Tuple domains for both 'left' and 'right' can be inferred
+        result = fromPredicate(rowExpressionTranslator.translate("(L = 10 and R = 20) or (L = 42 AND R = 5)", types));
+        assertEquals(result.getTupleDomain(),
+                withColumnDomains(ImmutableMap.of(
+                        left, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 10L), Range.equal(INTEGER, 42L)), false),
+                        right, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 20L), Range.equal(INTEGER, 5L)), false))));
     }
 
     @Test

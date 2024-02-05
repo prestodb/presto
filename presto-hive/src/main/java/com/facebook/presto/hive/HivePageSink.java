@@ -209,6 +209,12 @@ public class HivePageSink
     }
 
     @Override
+    public long getWrittenFilesCount()
+    {
+        return writers.size();
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         return systemMemoryUsage;

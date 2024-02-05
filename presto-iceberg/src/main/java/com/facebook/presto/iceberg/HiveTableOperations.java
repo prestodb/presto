@@ -16,11 +16,10 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -41,18 +40,15 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
-import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.Tasks;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,16 +56,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static com.facebook.presto.hive.HiveMetadata.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -91,7 +88,7 @@ public class HiveTableOperations
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
     private static final String METADATA_FOLDER_NAME = "metadata";
 
-    private static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
+    public static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
@@ -206,6 +203,10 @@ public class HiveTableOperations
             throw new UnknownTableTypeException(getSchemaTableName());
         }
 
+        if (isPrestoView(table)) {
+            throw new TableNotFoundException(new SchemaTableName(database, tableName));
+        }
+
         String metadataLocation = table.getParameters().get(METADATA_LOCATION);
         if (metadataLocation == null) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION, getSchemaTableName()));
@@ -241,7 +242,7 @@ public class HiveTableOperations
         tableLevelMutex.lock();
         try {
             try {
-                lockId = Optional.of(metastore.lock(metastoreContext, database, tableName));
+                lockId = metastore.lock(metastoreContext, database, tableName);
                 if (base == null) {
                     String tableComment = metadata.properties().get(TABLE_COMMENT);
                     Map<String, String> parameters = new HashMap<>();
@@ -300,7 +301,11 @@ public class HiveTableOperations
                 metastore.createTable(metastoreContext, table, privileges);
             }
             else {
+                PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
                 metastore.replaceTable(metastoreContext, database, tableName, table, privileges);
+
+                // attempt to put back previous table statistics
+                metastore.updateTableStatistics(metastoreContext, database, tableName, oldStats -> tableStats);
             }
         }
         finally {
@@ -428,16 +433,5 @@ public class HiveTableOperations
             log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
             return -1;
         }
-    }
-
-    private static List<Column> toHiveColumns(List<NestedField> columns)
-    {
-        return columns.stream()
-                .map(column -> new Column(
-                        column.name(),
-                        HiveType.toHiveType(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty(),
-                        Optional.empty()))
-                .collect(toImmutableList());
     }
 }

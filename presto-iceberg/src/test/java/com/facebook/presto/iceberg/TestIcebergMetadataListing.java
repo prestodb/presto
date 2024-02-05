@@ -25,6 +25,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +82,7 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table2 (_double DOUBLE) WITH (partitioning = ARRAY['_double'])");
         assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
+        assertQuerySucceeds("CREATE VIEW iceberg.test_schema.iceberg_view AS SELECT * FROM iceberg.test_schema.iceberg_table1");
     }
 
     @AfterClass(alwaysRun = true)
@@ -89,6 +91,7 @@ public class TestIcebergMetadataListing
         assertQuerySucceeds("DROP TABLE IF EXISTS hive.test_schema.hive_table");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table2");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table1");
+        assertQuerySucceeds("DROP VIEW IF EXISTS iceberg.test_schema.iceberg_view");
         assertQuerySucceeds("DROP SCHEMA IF EXISTS hive.test_schema");
     }
 
@@ -96,7 +99,7 @@ public class TestIcebergMetadataListing
     public void testTableListing()
     {
         // For now, iceberg connector will show all the tables(iceberg and non-iceberg) under a schema.
-        assertQuery("SHOW TABLES FROM iceberg.test_schema", "VALUES 'iceberg_table1', 'iceberg_table2', 'hive_table'");
+        assertQuery("SHOW TABLES FROM iceberg.test_schema", "VALUES 'iceberg_table1', 'iceberg_table2', 'hive_table', 'iceberg_view'");
     }
 
     @Test
@@ -104,13 +107,33 @@ public class TestIcebergMetadataListing
     {
         // Verify information_schema.columns does not include columns from non-Iceberg tables
         assertQuery("SELECT table_name, column_name FROM iceberg.information_schema.columns WHERE table_schema = 'test_schema'",
-                "VALUES ('iceberg_table1', '_string'), ('iceberg_table1', '_integer'), ('iceberg_table2', '_double')");
+                "VALUES ('iceberg_table1', '_string'), ('iceberg_table1', '_integer'), ('iceberg_table2', '_double'), " +
+                        "('iceberg_view', '_string'), ('iceberg_view', '_integer')");
     }
 
     @Test
     public void testTableDescribing()
     {
         assertQuery("DESCRIBE iceberg.test_schema.iceberg_table1", "VALUES ('_string', 'varchar', '', ''), ('_integer', 'integer', '', '')");
+    }
+
+    @Test
+    public void testTableDropWithMissingMetadata()
+    {
+        assertQuerySucceeds("CREATE SCHEMA hive.test_metadata_schema");
+        assertQuerySucceeds("CREATE TABLE iceberg.test_metadata_schema.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
+        assertQuerySucceeds("CREATE TABLE iceberg.test_metadata_schema.iceberg_table2 (_string VARCHAR, _integer INTEGER)");
+        assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table1', 'iceberg_table2'");
+
+        File tableMetadataDir = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog").resolve("test_metadata_schema").resolve("iceberg_table1").resolve("metadata").toFile();
+        for (File file : tableMetadataDir.listFiles()) {
+            file.delete();
+        }
+        tableMetadataDir.delete();
+
+        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Could not read table schema");
+        assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
+        assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
     }
 
     @Test

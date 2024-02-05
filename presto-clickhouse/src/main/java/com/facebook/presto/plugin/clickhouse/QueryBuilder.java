@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator.GeneratedClickhouseSQL;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
@@ -102,55 +103,77 @@ public class QueryBuilder
             List<ClickHouseColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<ClickHouseExpression> additionalPredicate,
-            Optional<String> simpleExpression)
+            Optional<String> simpleExpression,
+            Optional<GeneratedClickhouseSQL> clickhouseSQL)
             throws SQLException
     {
-        StringBuilder sql = new StringBuilder();
+        List<TypeAndValue> accumulator = null;
+        List<String> clauses = null;
+        PreparedStatement statement = null;
+        StringBuilder sql = null;
+        String columnNames = null;
 
-        String columnNames = columns.stream()
-                .map(ClickHouseColumnHandle::getColumnName)
-                .map(this::quote)
-                .collect(joining(", "));
+        if (clickhouseSQL.isPresent()) {
+            accumulator = new ArrayList<>();
 
-        sql.append("SELECT ");
-        sql.append(columnNames);
-        if (columns.isEmpty()) {
-            sql.append("null");
+            clauses = toConjuncts(columns, tupleDomain, accumulator);
+            if (additionalPredicate.isPresent()) {
+                clauses = ImmutableList.<String>builder()
+                        .addAll(clauses)
+                        .add(additionalPredicate.get().getExpression())
+                        .build();
+                accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                        .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                        .collect(ImmutableList.toImmutableList()));
+            }
+
+            statement = client.getPreparedStatement(connection, clickhouseSQL.get().getClickhouseSQL());
         }
+        else {
+            sql = new StringBuilder();
+            columnNames = columns.stream()
+                    .map(ClickHouseColumnHandle::getColumnName)
+                    .map(this::quote)
+                    .collect(joining(", "));
+            sql.append("SELECT ");
+            sql.append(columnNames);
+            if (columns.isEmpty()) {
+                sql.append("null");
+            }
+            sql.append(" FROM ");
+            if (!isNullOrEmpty(catalog)) {
+                sql.append(quote(catalog)).append('.');
+            }
+            if (!isNullOrEmpty(schema)) {
+                sql.append(quote(schema)).append('.');
+            }
+            sql.append(quote(table));
 
-        sql.append(" FROM ");
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
+            accumulator = new ArrayList<>();
+
+            clauses = toConjuncts(columns, tupleDomain, accumulator);
+            if (additionalPredicate.isPresent()) {
+                clauses = ImmutableList.<String>builder()
+                        .addAll(clauses)
+                        .add(additionalPredicate.get().getExpression())
+                        .build();
+                accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                        .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                        .collect(ImmutableList.toImmutableList()));
+            }
+
+            if (!clauses.isEmpty()) {
+                sql.append(" WHERE ")
+                        .append(Joiner.on(" AND ").join(clauses));
+            }
+
+            if (simpleExpression.isPresent()) {
+                sql.append(simpleExpression.get());
+            }
+
+            sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
+            statement = client.getPreparedStatement(connection, sql.toString());
         }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        sql.append(quote(table));
-
-        List<TypeAndValue> accumulator = new ArrayList<>();
-
-        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
-        if (additionalPredicate.isPresent()) {
-            clauses = ImmutableList.<String>builder()
-                    .addAll(clauses)
-                    .add(additionalPredicate.get().getExpression())
-                    .build();
-            accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
-                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
-                    .collect(ImmutableList.toImmutableList()));
-        }
-
-        if (!clauses.isEmpty()) {
-            sql.append(" WHERE ")
-                    .append(Joiner.on(" AND ").join(clauses));
-        }
-
-        if (simpleExpression.isPresent()) {
-            sql.append(simpleExpression.get());
-        }
-
-        sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
-        PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);

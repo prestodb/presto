@@ -388,11 +388,11 @@ public class TestCassandraIntegrationSmokeTest
 
         assertQueryFailsEventually(
                 "SHOW COLUMNS FROM cassandra.keyspace_5.table_5",
-                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
                 new Duration(1, MINUTES));
         assertQueryFailsEventually(
                 "SELECT * FROM cassandra.keyspace_5.table_5",
-                "More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
+                ".*More than one column has been found for the case insensitive column name: column_5 -> \\(CoLuMn_5, cOlUmN_5\\)",
                 new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE keyspace_5");

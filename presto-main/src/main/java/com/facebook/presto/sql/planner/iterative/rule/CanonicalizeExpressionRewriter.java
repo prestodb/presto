@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
+@Deprecated
 public class CanonicalizeExpressionRewriter
 {
     private CanonicalizeExpressionRewriter() {}

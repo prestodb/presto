@@ -96,6 +96,8 @@ public class LookupJoinOperator
     private Optional<ListenableFuture<Supplier<LookupSource>>> unspilledLookupSource = Optional.empty();
     private Iterator<Page> unspilledInputPages = emptyIterator();
     private final boolean optimizeProbeForEmptyBuild;
+    private long nullProbeRowCount;
+    private long inputProbeRowCount;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -188,7 +190,8 @@ public class LookupJoinOperator
     public boolean needsInput()
     {
         // We can skip probe for empty build input only when probeOnOuterSide is false
-        if (optimizeProbeForEmptyBuild && !probeOnOuterSide) {
+        // When finishing is true, the partition in the lookup source may have been released and set to null, skip if finishing is true.
+        if (optimizeProbeForEmptyBuild && !probeOnOuterSide && !finishing) {
             if (tryFetchLookupSourceProvider()) {
                 lookupSourceProvider.withLease(lookupSourceLease -> {
                     // Do not have spill, build side is empty and probe side does not output for non match, skip and finish the operator
@@ -403,6 +406,8 @@ public class LookupJoinOperator
             lookupSourceProvider = null;
         }
         spiller.ifPresent(PartitioningSpiller::verifyAllPartitionsRead);
+        operatorContext.recordJoinProbeKeyCount(inputProbeRowCount);
+        operatorContext.recordNullJoinProbeKeyCount(nullProbeRowCount);
         finished = true;
     }
 
@@ -714,6 +719,10 @@ public class LookupJoinOperator
     private void clearProbe()
     {
         // Before updating the probe flush the current page
+        if (probe != null) {
+            nullProbeRowCount += probe.getNullRowCount();
+            inputProbeRowCount += probe.getPositionCount();
+        }
         buildPage();
         probe = null;
     }

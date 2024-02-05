@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,13 +53,6 @@ public class Plans
         public PlanNode visitGroupReference(GroupReference node, Void context)
         {
             return lookup.resolve(node).accept(this, context);
-        }
-
-        @Override
-        public PlanNode visitNativeExecution(NativeExecutionNode node, Void context)
-        {
-            node.getSubPlan().accept(this, context);
-            return node;
         }
     }
 

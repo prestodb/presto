@@ -82,10 +82,11 @@ public class TimestampColumnWriter
     private long columnStatisticsRetainedSizeInBytes;
 
     private final long baseTimestampInSeconds;
-    private final int unitsPerSecond;
+    private final long unitsPerSecond;
     private final int trailingZeros;
 
     private int nonNullValueCount;
+    private long rawSize;
 
     private boolean closed;
 
@@ -197,17 +198,20 @@ public class TimestampColumnWriter
         }
 
         nonNullValueCount += blockNonNullValueCount;
-        return (block.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + blockNonNullValueCount * TIMESTAMP_RAW_SIZE;
+        long rawSize = (block.getPositionCount() - blockNonNullValueCount) * NULL_SIZE + blockNonNullValueCount * TIMESTAMP_RAW_SIZE;
+        this.rawSize += rawSize;
+        return rawSize;
     }
 
     @Override
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, rawSize, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;
+        rawSize = 0;
         return ImmutableMap.of(column, statistics);
     }
 
@@ -273,5 +277,6 @@ public class TimestampColumnWriter
         rowGroupColumnStatistics.clear();
         columnStatisticsRetainedSizeInBytes = 0;
         nonNullValueCount = 0;
+        rawSize = 0;
     }
 }

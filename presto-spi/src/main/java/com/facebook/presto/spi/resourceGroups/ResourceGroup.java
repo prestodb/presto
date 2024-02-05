@@ -102,4 +102,14 @@ public interface ResourceGroup
      * The maximum resources a query can consume before being killed.
      */
     void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits);
+
+    /**
+     * Number of workers each query needs. This is equivalent to the concurrency limits:
+     * let's say we have 600 workers and hard concurrency limit is 100. Workers per query
+     * limit equal to 6 would be roughly equivalent. This is intended to be used in clusters
+     * using elastic compute.
+     */
+    public int getWorkersPerQueryLimit();
+
+    public void setWorkersPerQueryLimit(int workersPerQueryLimit);
 }

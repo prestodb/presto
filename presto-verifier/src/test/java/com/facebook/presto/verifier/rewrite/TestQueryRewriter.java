@@ -17,6 +17,7 @@ import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
@@ -34,6 +35,7 @@ import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -51,9 +53,13 @@ import static com.facebook.presto.verifier.VerifierTestUtil.SCHEMA;
 import static com.facebook.presto.verifier.VerifierTestUtil.createTypeManager;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupPresto;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
+import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.constructFunctionCallSubstituteMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertEqualsDeep;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -294,6 +300,174 @@ public class TestQueryRewriter
                         "    CAST(ROW (NULL) AS ROW(BIGINT))");
     }
 
+    @Test
+    public void testConstructMakeFunctionCallSubstituteMap()
+    {
+        assertEqualsDeep(constructFunctionCallSubstituteMap("/max_by(a,b)/max(b)/"),
+                ImmutableMap.of(QualifiedName.of("max_by"), new FunctionCallSubstitute(QualifiedName.of("max"), ImmutableList.of(1))));
+        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(,,1c)/func2(1c)/"),
+                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(2))));
+        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(a,_,b)/func2(_)/"),
+                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(1))));
+        assertEqualsDeep(constructFunctionCallSubstituteMap("/func1(a,b)/func2(b)/,/func3(a,)/func4(a)/"),
+                ImmutableMap.of(QualifiedName.of("func1"), new FunctionCallSubstitute(QualifiedName.of("func2"), ImmutableList.of(1)),
+                        QualifiedName.of("func3"), new FunctionCallSubstitute(QualifiedName.of("func4"), ImmutableList.of(0))));
+
+        assertTrue(constructFunctionCallSubstituteMap("").isEmpty());
+        assertTrue(constructFunctionCallSubstituteMap("/func1(a,b)//").isEmpty());
+    }
+
+    @Test
+    public void testRewriteFunctionCalls()
+    {
+        QueryRewriter queryRewriter = getQueryRewriter(Optional.of("/approx_distinct(x)/count(x)/," +
+                "/approx_percentile(x,_)/avg(x)/," +
+                "/arbitrary(x)/min(x)/," +
+                "/first_value(x)/min(x)/," +
+                "/max_by(x,_)/max(x)/," +
+                "/min_by(x,_)/min(x)/"));
+
+        // Test rewriting window functions
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    FIRST_VALUE(a) OVER (\n" +
+                                "        PARTITION BY b\n" +
+                                "    )\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    MIN(a) OVER (\n" +
+                        "        PARTITION BY b\n" +
+                        "    )\n" +
+                        "FROM test_table");
+
+        // Test rewriting columns with nested function calls
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    IF(APPROX_DISTINCT(a) > 10, TRUE, FALSE)\n" +
+                                "FROM test_table",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    IF(COUNT(a) > 10, TRUE, FALSE)\n" +
+                        "FROM test_table");
+
+        // Test rewriting columns in Join
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT *\n" +
+                                "FROM test_table x\n" +
+                                "JOIN (\n" +
+                                "    SELECT\n" +
+                                "        b,\n" +
+                                "        APPROX_PERCENTILE(a, 0.5) AS a\n" +
+                                "    FROM test_table\n" +
+                                "    GROUP BY\n" +
+                                "        1\n" +
+                                ") y\n" +
+                                "    ON (x.b = y.b)",
+                        CONTROL).getQuery(),
+                "SELECT *\n" +
+                        "FROM test_table x\n" +
+                        "JOIN (\n" +
+                        "    SELECT\n" +
+                        "        b,\n" +
+                        "        AVG(a) AS a\n" +
+                        "    FROM test_table\n" +
+                        "    GROUP BY\n" +
+                        "        1\n" +
+                        ") y\n" +
+                        "    ON (x.b = y.b)");
+
+        // Test rewriting columns in SubqueryExpression
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT a, b\n" +
+                                "FROM test_table\n" +
+                                "WHERE a IN (\n" +
+                                "    SELECT\n" +
+                                "        ARBITRARY(a)\n" +
+                                "    FROM test_table\n" +
+                                ")",
+                        CONTROL).getQuery(),
+                "SELECT a, b\n" +
+                        "FROM test_table\n" +
+                        "WHERE a IN (\n" +
+                        "    SELECT\n" +
+                        "        MIN(a)\n" +
+                        "    FROM test_table\n" +
+                        ")");
+
+        // Test rewriting columns in TableSubquery
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT one\n" +
+                                "FROM (\n" +
+                                "    SELECT\n" +
+                                "        ARBITRARY(b) AS one\n" +
+                                "    FROM test_table\n" +
+                                ") x",
+                        CONTROL).getQuery(),
+                "SELECT one\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        MIN(b) AS one\n" +
+                        "    FROM test_table\n" +
+                        ") x");
+
+        // Test rewriting columns in With
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "WITH x AS (\n" +
+                                "    SELECT\n" +
+                                "        MAX_BY(a, b) AS a\n" +
+                                "    FROM test_table\n" +
+                                ")\n" +
+                                "SELECT\n" +
+                                "    a\n" +
+                                "FROM x", CONTROL).getQuery(),
+                "WITH x AS (\n" +
+                        "    SELECT\n" +
+                        "        MAX(a) AS a\n" +
+                        "    FROM test_table\n" +
+                        ")\n" +
+                        "SELECT\n" +
+                        "    a\n" +
+                        "FROM x");
+
+        // Test rewriting columns in Union
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT\n" +
+                                "    ARBITRARY(a)\n" +
+                                "FROM (\n" +
+                                "    SELECT \n" +
+                                "       MIN_BY(a, b) AS a\n" +
+                                "    FROM test_table\n" +
+                                "\n" +
+                                "    UNION ALL\n" +
+                                "\n" +
+                                "    SELECT \n" +
+                                "       MIN_BY(a, b) AS a\n" +
+                                "    FROM test_table\n" +
+                                ") x",
+                        CONTROL).getQuery(),
+                "SELECT\n" +
+                        "    MIN(a)\n" +
+                        "FROM (\n" +
+                        "    SELECT \n" +
+                        "       MIN(a) AS a\n" +
+                        "    FROM test_table\n" +
+                        "\n" +
+                        "    UNION ALL\n" +
+                        "\n" +
+                        "    SELECT \n" +
+                        "       MIN(a) AS a\n" +
+                        "    FROM test_table\n" +
+                        ") x");
+    }
+
     private void assertShadowed(
             QueryRewriter queryRewriter,
             @Language("SQL") String query,
@@ -354,5 +528,16 @@ public class TestQueryRewriter
     private QueryRewriter getQueryRewriter(QueryRewriteConfig config)
     {
         return new VerificationQueryRewriterFactory(sqlParser, createTypeManager(), config, config).create(prestoAction);
+    }
+
+    private QueryRewriter getQueryRewriter(Optional<String> nonDeterministicFunctionSubstitutes)
+    {
+        return new QueryRewriter(
+                sqlParser,
+                createTypeManager(),
+                prestoAction,
+                ImmutableMap.of(CONTROL, QualifiedName.of("control"), TEST, QualifiedName.of("test")),
+                ImmutableMap.of(CONTROL, ImmutableList.of(), TEST, ImmutableList.of()),
+                nonDeterministicFunctionSubstitutes);
     }
 }

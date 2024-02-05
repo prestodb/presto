@@ -31,15 +31,18 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_PARTITIONING_MERGING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PRECISION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING;
@@ -50,6 +53,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -59,7 +63,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -296,6 +299,34 @@ public class TestAddExchangesPlans
     }
 
     @Test
+    public void testRowNumberWithPartialNode()
+    {
+        assertExactDistributedPlan(
+                "SELECT\n" +
+                        "    *\n" +
+                        "FROM (\n" +
+                        "    SELECT\n" +
+                        "        a,\n" +
+                        "        ROW_NUMBER() OVER (\n" +
+                        "            PARTITION BY\n" +
+                        "                a\n" +
+                        "        ) <= 1 as keep\n" +
+                        "    FROM (\n" +
+                        "        VALUES\n" +
+                        "            (1)\n" +
+                        "    ) t (a)\n" +
+                        ") t where keep",
+                anyTree(
+                        rowNumber(
+                                pattern -> pattern.maxRowCountPerPartition(Optional.of(1)),
+                                anyTree(
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                rowNumber(
+                                                        pattern -> pattern.maxRowCountPerPartition(Optional.of(1)),
+                                                        anyTree(values("a"))))))));
+    }
+
+    @Test
     public void testTopNRowNumberIsExactlyPartitioned()
     {
         assertExactDistributedPlan(
@@ -485,6 +516,9 @@ public class TestAddExchangesPlans
                         .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.toString())
                         .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.toString())
                         .setSystemProperty(PARTITIONING_PRECISION_STRATEGY, PREFER_EXACT_PARTITIONING.toString())
+                        .setSystemProperty(ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT, "true")
+                        // Set for testSemiJoinExactlyPartitioned, which will be simplified if set to true
+                        .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                         .build(),
                 pattern);
     }

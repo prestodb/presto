@@ -24,16 +24,24 @@ namespace facebook::presto {
 namespace {
 
 dwio::common::FileFormat toVeloxFileFormat(
-    const facebook::presto::protocol::String& format) {
-  if (format == "com.facebook.hive.orc.OrcInputFormat") {
+    const presto::protocol::StorageFormat& format) {
+  if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
     return dwio::common::FileFormat::DWRF;
   } else if (
-      format ==
+      format.inputFormat ==
       "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat") {
     return dwio::common::FileFormat::PARQUET;
-  } else {
-    VELOX_FAIL("Unknown file format {}", format);
+  } else if (format.inputFormat == "org.apache.hadoop.mapred.TextInputFormat") {
+    if (format.serDe == "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe") {
+      return dwio::common::FileFormat::TEXT;
+    } else if (format.serDe == "org.apache.hive.hcatalog.data.JsonSerDe") {
+      return dwio::common::FileFormat::JSON;
+    }
+  } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
+    return dwio::common::FileFormat::ALPHA;
   }
+  VELOX_UNSUPPORTED(
+      "Unsupported file format: {} {}", format.inputFormat, format.serDe);
 }
 
 } // anonymous namespace
@@ -53,18 +61,34 @@ velox::exec::Split toVeloxSplit(
           entry.value == nullptr ? std::nullopt
                                  : std::optional<std::string>{*entry.value});
     }
-
+    std::unordered_map<std::string, std::string> customSplitInfo;
+    for (const auto& [key, value] : hiveSplit->fileSplit.customSplitInfo) {
+      customSplitInfo[key] = value;
+    }
+    std::shared_ptr<std::string> extraFileInfo;
+    if (hiveSplit->fileSplit.extraFileInfo) {
+      extraFileInfo = std::make_shared<std::string>(
+          velox::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
+    }
+    std::unordered_map<std::string, std::string> serdeParameters;
+    serdeParameters.reserve(hiveSplit->storage.serdeParameters.size());
+    for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
+      serdeParameters[key] = value;
+    }
     return velox::exec::Split(
         std::make_shared<connector::hive::HiveConnectorSplit>(
             scheduledSplit.split.connectorId,
             hiveSplit->fileSplit.path,
-            toVeloxFileFormat(hiveSplit->storage.storageFormat.inputFormat),
+            toVeloxFileFormat(hiveSplit->storage.storageFormat),
             hiveSplit->fileSplit.start,
             hiveSplit->fileSplit.length,
             partitionKeys,
             hiveSplit->tableBucketNumber
                 ? std::optional<int>(*hiveSplit->tableBucketNumber)
-                : std::nullopt),
+                : std::nullopt,
+            customSplitInfo,
+            extraFileInfo,
+            serdeParameters),
         splitGroupId);
   }
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(

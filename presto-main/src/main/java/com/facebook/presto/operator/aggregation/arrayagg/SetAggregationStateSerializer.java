@@ -20,15 +20,16 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.SetOfValues;
 import com.facebook.presto.operator.aggregation.state.SetAggregationState;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.TypeParameter;
 
 public class SetAggregationStateSerializer
         implements AccumulatorStateSerializer<SetAggregationState>
 {
     private final ArrayType arrayType;
 
-    public SetAggregationStateSerializer(ArrayType arrayType)
+    public SetAggregationStateSerializer(@TypeParameter("T") Type elementType)
     {
-        this.arrayType = arrayType;
+        this.arrayType = new ArrayType(elementType);
     }
 
     @Override

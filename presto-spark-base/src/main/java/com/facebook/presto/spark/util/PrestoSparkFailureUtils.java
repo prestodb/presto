@@ -16,27 +16,25 @@ package com.facebook.presto.spark.util;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spi.ErrorCause;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.execution.ExecutionFailureInfo.toStackTraceElement;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getRetryOnOutOfMemoryWithIncreasedMemoryErrorCodes;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryBroadcastJoinEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryWithIncreasedMemoryEnabled;
-import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
-import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.DISABLE_BROADCAST_JOIN;
-import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.INCREASE_CONTAINER_SIZE;
-import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.INCREASE_HASH_PARTITION_COUNT;
+import static com.facebook.presto.spark.classloader_interface.ExecutionStrategy.DISABLE_BROADCAST_JOIN;
+import static com.facebook.presto.spark.classloader_interface.ExecutionStrategy.INCREASE_CONTAINER_SIZE;
+import static com.facebook.presto.spark.classloader_interface.ExecutionStrategy.INCREASE_HASH_PARTITION_COUNT;
 import static com.facebook.presto.spi.ErrorCause.LOW_PARTITION_COUNT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +48,7 @@ public class PrestoSparkFailureUtils
         PrestoSparkFailure prestoSparkFailure = toPrestoSparkFailure(executionFailureInfo);
         checkState(prestoSparkFailure != null);
 
-        Optional<RetryExecutionStrategy> retryExecutionStrategy = getRetryExecutionStrategy(session,
+        List<ExecutionStrategy> retryExecutionStrategies = getRetryExecutionStrategies(session,
                 executionFailureInfo.getErrorCode(),
                 executionFailureInfo.getMessage(),
                 executionFailureInfo.getErrorCause());
@@ -59,7 +57,7 @@ public class PrestoSparkFailureUtils
                 prestoSparkFailure.getCause(),
                 prestoSparkFailure.getType(),
                 prestoSparkFailure.getErrorCode(),
-                retryExecutionStrategy);
+                retryExecutionStrategies);
     }
 
     @Nullable
@@ -74,7 +72,7 @@ public class PrestoSparkFailureUtils
                 toPrestoSparkFailure(executionFailureInfo.getCause()),
                 executionFailureInfo.getType(),
                 executionFailureInfo.getErrorCode() == null ? "" : executionFailureInfo.getErrorCode().getName(),
-                Optional.empty());
+                ImmutableList.of());
 
         for (ExecutionFailureInfo suppressed : executionFailureInfo.getSuppressed()) {
             prestoSparkFailure.addSuppressed(requireNonNull(toPrestoSparkFailure(suppressed), "suppressed failure is null"));
@@ -88,27 +86,32 @@ public class PrestoSparkFailureUtils
         return prestoSparkFailure;
     }
 
-    private static Optional<RetryExecutionStrategy> getRetryExecutionStrategy(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
+    /**
+     * Returns a list of retry strategies based on the provided error.
+     */
+    private static List<ExecutionStrategy> getRetryExecutionStrategies(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
     {
         if (errorCode == null || message == null) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
+
+        ImmutableList.Builder<ExecutionStrategy> strategies = new ImmutableList.Builder<>();
 
         if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) &&
                 errorCode.equals(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode())) {
-            return Optional.of(DISABLE_BROADCAST_JOIN);
+            strategies.add(DISABLE_BROADCAST_JOIN);
         }
 
-        if (isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(session)
-                && (errorCode.equals(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()) || errorCode.equals(SPARK_EXECUTOR_OOM.toErrorCode()))) {
-            return Optional.of(INCREASE_CONTAINER_SIZE);
+        if (isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(session) &&
+                getRetryOnOutOfMemoryWithIncreasedMemoryErrorCodes(session).contains(errorCode.getName().toUpperCase())) {
+            strategies.add(INCREASE_CONTAINER_SIZE);
         }
 
         if (isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(session) &&
                 LOW_PARTITION_COUNT == errorCause) {
-            return Optional.of(INCREASE_HASH_PARTITION_COUNT);
+            strategies.add(INCREASE_HASH_PARTITION_COUNT);
         }
 
-        return Optional.empty();
+        return strategies.build();
     }
 }

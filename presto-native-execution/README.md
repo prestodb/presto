@@ -9,6 +9,7 @@ using [Velox](https://github.com/facebookincubator/velox).
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
+* [Troubleshooting](#troubleshooting)
 
 ## Build from Source
 * Clone the Presto repository
@@ -45,13 +46,6 @@ The Velox library installs other dependencies not listed below.
 | [fbthrift](https://github.com/facebook/fbthrift) |`2022.11.14.00`|
 
 ### Build Prestissimo
-* After installing the above dependencies, from the
-`presto/presto-native-execution` directory, run `make`
-* For development, use
-`make debug` to build a non-optimized debug version. 
-* Use `make unittest` to build
-and run tests.
-
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
 `PRESTO_ENABLE_S3 = "ON"` in the environment.
 
@@ -59,7 +53,23 @@ S3 support needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the script below from the
 `presto/presto-native-execution` directory.
 
-`./velox/scripts/setup-adapters.sh install_aws-sdk-cpp`
+`./velox/scripts/setup-adapters.sh aws`
+
+To enable JWT authentication support, set `PRESTO_ENABLE_JWT = "ON"` in
+the environment.
+
+JWT authentication support needs the [JWT CPP](https://github.com/Thalhammer/jwt-cpp) library.
+This dependency can be installed by running the script below from the
+`presto/presto-native-execution` directory.
+
+`./scripts/setup-adapters.sh jwt`
+
+* After installing the above dependencies, from the
+`presto/presto-native-execution` directory, run `make`
+* For development, use
+`make debug` to build a non-optimized debug version.
+* Use `make unittest` to build
+and run tests.
 
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
@@ -100,20 +110,22 @@ From the Presto repo run the commands below:
 
 Run IntelliJ IDEA:
 * Edit/Create `HiveQueryRunnerExternal` Application Run/Debug Configuration (alter paths accordingly).
-  * Main class: `com.facebook.presto.hive.HiveExternalWorkerQueryRunner`.
+  * Main class: `com.facebook.presto.nativeworker.HiveExternalWorkerQueryRunner`.
   * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-execution` module.
-* Edit/Create `TestHiveQueriesUsingJSON` Test Run/Debug Configuration (alter paths accordingly).
-  * Class: `com.facebook.presto.nativeworker.TestHiveQueriesUsingJSON`
+* Edit/Create `TestPrestoNativeGeneralQueriesJSON` Test Run/Debug Configuration (alter paths accordingly).
+  * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
   * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
   * Working directory: `$MODULE_WORKING_DIR$`
+  * On Apple Silicon
+    * Environment Variables: `DYLD_LIBRARY_PATH=/usr/local/lib`
 * Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.cli.Presto`
   * Program arguments: `--catalog hive --schema tpch`
   * Use classpath of module: choose `presto-cli` module.
-  
+
 Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` directory as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
@@ -123,6 +135,7 @@ Run CLion:
 * Edit menu CLion->Preferences->Build, Execution, Deployment->CMake
   * CMake options: `-DVELOX_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug`
   * Build options: `-- -j 12`
+  * Optional CMake options to enable Parquet and S3: `-DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON`
 * Edit menu CLion->Preferences->Editor->Code Style->C/C++
   * Scheme: `Project`
 * To enable clang format you need
@@ -203,3 +216,6 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 * `git add presto-native-execution/velox`
 * Build and run tests (including E2E) to ensure everything works.
 * Submit a PR, get it approved and merged.
+
+## Troubleshooting
+For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).

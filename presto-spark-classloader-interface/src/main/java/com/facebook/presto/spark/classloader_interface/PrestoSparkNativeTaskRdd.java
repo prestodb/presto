@@ -105,7 +105,7 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
         return getTaskProcessor().process(
                 taskSourceIterator,
                 getShuffleReadDescriptors(partitions),
-                getShuffleWriteDescriptor(split));
+                getShuffleWriteDescriptor(context.stageId(), split));
     }
 
     private PrestoSparkNativeTaskRdd(
@@ -152,19 +152,20 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
                             handle,
                             shuffleRdd.getNumPartitions(),
                             getBlockIds(((ShuffledRDDPartition) partition), handle),
+                            getPartitionIds(((ShuffledRDDPartition) partition), handle),
                             getPartitionSize(((ShuffledRDDPartition) partition), handle)));
         }
         return shuffleReadDescriptors.build();
     }
 
-    private Optional<PrestoSparkShuffleWriteDescriptor> getShuffleWriteDescriptor(Partition split)
+    private Optional<PrestoSparkShuffleWriteDescriptor> getShuffleWriteDescriptor(int stageId, Partition split)
     {
         // Get shuffle information from Spark shuffle manager for shuffle write
         checkState(
                 SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager,
                 "Native execution requires to use PrestoSparkNativeExecutionShuffleManager. But got: %s", SparkEnv.get().shuffleManager().getClass().getName());
         PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(split.index());
+        Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(stageId, split.index());
 
         return shuffleHandle.map(handle -> new PrestoSparkShuffleWriteDescriptor(handle, shuffleManager.getNumOfPartitions(handle.shuffleId())));
     }
@@ -175,6 +176,18 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
         Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
                 shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
         return mapSizes.stream().map(item -> item._1.executorId()).collect(Collectors.toList());
+    }
+
+    private List<String> getPartitionIds(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)
+    {
+        MapOutputTracker mapOutputTracker = SparkEnv.get().mapOutputTracker();
+        Collection<Tuple2<BlockManagerId, Seq<Tuple2<BlockId, Object>>>> mapSizes = asJavaCollection(mapOutputTracker.getMapSizesByExecutorId(
+                shuffleHandle.shuffleId(), partition.idx(), partition.idx() + 1));
+        return mapSizes.stream()
+                .map(item -> asJavaCollection(item._2))
+                .flatMap(Collection::stream)
+                .map(i -> i._1.toString())
+                .collect(Collectors.toList());
     }
 
     private List<Long> getPartitionSize(ShuffledRDDPartition partition, ShuffleHandle shuffleHandle)

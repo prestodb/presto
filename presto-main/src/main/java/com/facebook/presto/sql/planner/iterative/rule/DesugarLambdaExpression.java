@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
 public class DesugarLambdaExpression
-        extends ExpressionRewriteRuleSet
+        extends RowExpressionRewriteRuleSet
 {
     public DesugarLambdaExpression()
     {
@@ -31,15 +31,15 @@ public class DesugarLambdaExpression
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                projectExpressionRewrite(),
-                aggregationExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
+                projectRowExpressionRewriteRule(),
+                aggregationRowExpressionRewriteRule(),
+                filterRowExpressionRewriteRule(),
+                joinRowExpressionRewriteRule(),
+                valueRowExpressionRewriteRule());
     }
 
-    private static Expression rewrite(Expression expression, Rule.Context context)
+    private static RowExpression rewrite(RowExpression expression, Rule.Context context)
     {
-        return LambdaCaptureDesugaringRewriter.rewrite(expression, context.getVariableAllocator());
+        return LambdaCaptureDesugaringRowExpressionRewriter.rewrite(expression, context.getVariableAllocator());
     }
 }

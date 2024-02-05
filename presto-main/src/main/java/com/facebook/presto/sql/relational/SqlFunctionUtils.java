@@ -17,6 +17,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -55,7 +56,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 
 public final class SqlFunctionUtils
@@ -82,31 +82,35 @@ public final class SqlFunctionUtils
     public static RowExpression getSqlFunctionRowExpression(
             FunctionMetadata functionMetadata,
             SqlInvokedScalarFunctionImplementation implementation,
-            FunctionAndTypeResolver functionAndTypeResolver,
+            FunctionAndTypeManager functionAndTypeManager,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             List<RowExpression> arguments)
     {
         VariableAllocator variableAllocator = new VariableAllocator();
-        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeResolver, variableAllocator);
-        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
+        Map<String, VariableReferenceExpression> argumentVariables = allocateFunctionArgumentVariables(functionMetadata, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator);
+        Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeManager.getFunctionAndTypeResolver(), variableAllocator, sqlFunctionProperties, argumentVariables);
 
         // Translate to row expression
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         expression,
                         analyzeSqlFunctionExpression(
-                                functionAndTypeResolver,
+                                functionAndTypeManager.getFunctionAndTypeResolver(),
                                 sqlFunctionProperties,
                                 expression,
                                 argumentVariables.values().stream()
                                         .collect(toImmutableMap(VariableReferenceExpression::getName, VariableReferenceExpression::getType))).getExpressionTypes(),
                         ImmutableMap.of(),
-                        functionAndTypeResolver,
+                        functionAndTypeManager,
                         Optional.empty(),
                         Optional.empty(),
                         sqlFunctionProperties,
-                        sessionFunctions),
+                        sessionFunctions,
+                        // TODO: use session to determine if this is a native query
+                        // https://github.com/prestodb/presto/issues/20008
+                        false,
+                        new SqlToRowExpressionTranslator.Context()),
                 functionMetadata.getArgumentNames().get(),
                 arguments,
                 argumentVariables);
@@ -140,7 +144,7 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<String, String> context, ExpressionTreeRewriter<Map<String, String>> treeRewriter)
             {
-                String name = node.getValue().toLowerCase(ENGLISH);
+                String name = node.getValueLowerCase();
                 if (context.containsKey(name)) {
                     return new Identifier(context.get(name));
                 }

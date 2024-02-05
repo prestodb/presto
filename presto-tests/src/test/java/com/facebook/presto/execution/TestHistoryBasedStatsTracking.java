@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -31,22 +32,23 @@ import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.statistics.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.HISTORY_CANONICAL_PLAN_NODE_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
@@ -55,6 +57,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.isNaN;
+import static org.testng.Assert.assertFalse;
 
 @Test(singleThreaded = true)
 public class TestHistoryBasedStatsTracking
@@ -249,22 +252,111 @@ public class TestHistoryBasedStatsTracking
     {
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(Double.NaN)));
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
 
         executeAndTrackHistory("SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'");
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204)), anyTree(any()))));
+                anyTree(node(JoinNode.class, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1500, 0, 2204, 0)), anyTree(any()))));
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
-                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915)));
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915).withJoinStatistics(22, 0, 2204, 0)));
         // Check that output size doesn't include hash variables
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
                 anyTree(anyTree(anyTree(any()), anyTree(any())), anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(22).withOutputSize(661 - 22 * 8))));
+    }
+
+    @Test
+    public void testJoinWithBuildNull()
+    {
+        assertPlan(
+                "SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995",
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
+
+        executeAndTrackHistory("SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995");
+        assertPlan(
+                "SELECT O.totalprice, C.name FROM orders O JOIN (SELECT name, custkey FROM customer UNION ALL SELECT * FROM (VALUES ('unknown', NULL)) t(name, custkey)) C ON C.custkey = O.custkey AND YEAR(O.orderdate) = 1995",
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1501, 1, 2204, 0)));
+    }
+
+    @Test
+    public void testJoinWithProbeNull()
+    {
+        String sql = "SELECT\n" +
+                "    O.totalprice,\n" +
+                "    C.name\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        totalprice,\n" +
+                "        custkey,\n" +
+                "        orderdate\n" +
+                "    FROM orders\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            (10.0, NULL, date '1995-09-20')\n" +
+                "    )\n" +
+                ") O\n" +
+                "JOIN customer C\n" +
+                "    ON C.custkey = O.custkey\n" +
+                "    AND YEAR(O.orderdate) = 1995";
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
+
+        executeAndTrackHistory(sql);
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1500, 0, 2205, 1)));
+    }
+
+    @Test
+    public void testJoinNull()
+    {
+        String sql = "SELECT\n" +
+                "    O.totalprice,\n" +
+                "    C.name\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        totalprice,\n" +
+                "        custkey,\n" +
+                "        orderdate\n" +
+                "    FROM orders\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            (10.0, NULL, DATE '1995-09-20')\n" +
+                "    )\n" +
+                ") O\n" +
+                "JOIN (\n" +
+                "    SELECT\n" +
+                "        name,\n" +
+                "        custkey\n" +
+                "    FROM customer\n" +
+                "\n" +
+                "    UNION ALL\n" +
+                "\n" +
+                "    SELECT\n" +
+                "        *\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            ('unknown', NULL)\n" +
+                "    ) t(name, custkey)\n" +
+                ") C\n" +
+                "    ON C.custkey = O.custkey\n" +
+                "    AND YEAR(O.orderdate) = 1995";
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN).withJoinStatistics(Double.NaN, Double.NaN, Double.NaN, Double.NaN)));
+
+        executeAndTrackHistory(sql);
+        assertPlan(sql, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204).withJoinStatistics(1501, 1, 2205, 1)));
     }
 
     @Test
@@ -299,6 +391,19 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
         executeAndTrackHistory(query);
         assertPlan(query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(255)));
+    }
+
+    @Test
+    public void testUseHistoriesWithLimitingPlanNode()
+    {
+        String query = "SELECT orderkey FROM orders where orderkey < 1000 GROUP BY 1 ORDER BY 1 DESC LIMIT 10000";
+        Session session = Session.builder(createSession())
+                .setSystemProperty(HISTORY_CANONICAL_PLAN_NODE_LIMIT, "2")
+                .build();
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+        getQueryRunner().execute(session, query);
+        assertFalse(getHistoryProvider().waitProcessQueryEventsIfAvailable());
+        assertPlan(session, query, anyTree(node(TopNNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
     }
 
     @Test
@@ -357,6 +462,7 @@ public class TestHistoryBasedStatsTracking
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(USE_PERFECTLY_CONSISTENT_HISTORIES, "true")
                 .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();

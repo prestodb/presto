@@ -105,4 +105,16 @@ public class TestExplainVerification
         assertEquals(event.getName(), NAME);
         assertEquals(event.getStatus(), expectedStatus.name());
     }
+
+    @Test
+    public void testRunningInQueryBankMode()
+    {
+        Optional<VerifierQueryEvent> event = runExplain("SELECT 1", "SELECT 2", saveSnapshotSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED);
+
+        event = runExplain("SELECT 1", "SELECT 2", queryBankModeSettings);
+        assertTrue(event.isPresent());
+        assertEvent(event.get(), SUCCEEDED);
+    }
 }

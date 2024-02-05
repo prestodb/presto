@@ -15,6 +15,7 @@ package com.facebook.presto.parquet;
 
 import io.airlift.slice.Slice;
 import org.apache.parquet.column.statistics.Statistics;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -22,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 public class DataPageV2
         extends DataPage
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DataPageV2.class).instanceSize();
+
     private final int rowCount;
     private final int nullCount;
     private final Slice repetitionLevels;
@@ -94,6 +97,11 @@ public class DataPageV2
     public boolean isCompressed()
     {
         return isCompressed;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + repetitionLevels.getRetainedSize() + definitionLevels.getRetainedSize() + slice.getRetainedSize();
     }
 
     @Override

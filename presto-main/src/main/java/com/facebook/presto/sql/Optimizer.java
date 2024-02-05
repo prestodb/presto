@@ -26,22 +26,31 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
+import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.google.common.base.Splitter;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerResults;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
@@ -105,11 +114,19 @@ public class Optimizer
                     throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
                 }
                 long start = System.nanoTime();
-                root = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
-                if (enableVerboseRuntimeStats) {
-                    session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", optimizer.getClass().getSimpleName()), NANO, System.nanoTime() - start);
+                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
+                if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
+                    String optimizerName = optimizer.getClass().getSimpleName();
+                    if (optimizer instanceof StatsRecordingPlanOptimizer) {
+                        optimizerName = format("%s:%s", optimizerName, ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName());
+                    }
+                    session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", optimizerName), NANO, System.nanoTime() - start);
                 }
+                TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
+
+                collectOptimizerInformation(optimizer, root, optimizerResult, types);
+                root = optimizerResult.getPlanNode();
             }
         }
 
@@ -122,6 +139,20 @@ public class Optimizer
         return new Plan(root, types, computeStats(root, types));
     }
 
+    private boolean trackOptimizerRuntime(Session session, PlanOptimizer optimizer)
+    {
+        String optimizerString = getOptimizersToEnableVerboseRuntimeStats(session);
+        if (optimizerString.isEmpty()) {
+            return false;
+        }
+        List<String> optimizers = Splitter.on(",").trimResults().splitToList(optimizerString);
+        String optimizerName = optimizer.getClass().getSimpleName();
+        if (optimizer instanceof StatsRecordingPlanOptimizer) {
+            optimizerName = ((StatsRecordingPlanOptimizer) optimizer).getDelegate().getClass().getSimpleName();
+        }
+        return optimizers.contains(optimizerName);
+    }
+
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
     {
         if (explain || isPrintStatsForNonJoinQuery(session) ||
@@ -132,5 +163,33 @@ public class Optimizer
             return StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return StatsAndCosts.empty();
+    }
+
+    private void collectOptimizerInformation(PlanOptimizer optimizer, PlanNode oldNode, PlanOptimizerResult planOptimizerResult, TypeProvider types)
+    {
+        if (optimizer instanceof IterativeOptimizer) {
+            // iterative optimizers do their own recording of what rules got triggered
+            return;
+        }
+
+        String optimizerName = optimizer.getClass().getSimpleName();
+        boolean isTriggered = planOptimizerResult.isOptimizerTriggered();
+        boolean isApplicable =
+                isTriggered ||
+                !optimizer.isEnabled(session) && isVerboseOptimizerInfoEnabled(session) &&
+                        optimizer.isApplicable(oldNode, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+        boolean isCostBased = isTriggered && optimizer.isCostBased(session);
+        String statsSource = optimizer.getStatsSource();
+
+        if (isTriggered || isApplicable || isCostBased) {
+            session.getOptimizerInformationCollector().addInformation(
+                    new PlanOptimizerInformation(optimizerName, isTriggered, Optional.of(isApplicable), Optional.empty(), Optional.of(isCostBased), statsSource == null ? Optional.empty() : Optional.of(statsSource)));
+        }
+
+        if (isTriggered && isVerboseOptimizerResults(session, optimizerName)) {
+            String oldNodeStr = PlannerUtils.getPlanString(oldNode, session, types, metadata, false);
+            String newNodeStr = PlannerUtils.getPlanString(planOptimizerResult.getPlanNode(), session, types, metadata, false);
+            session.getOptimizerResultCollector().addOptimizerResult(optimizerName, oldNodeStr, newNodeStr);
+        }
     }
 }

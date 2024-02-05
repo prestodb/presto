@@ -23,8 +23,10 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -46,7 +48,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -268,6 +270,11 @@ public final class StreamPropertyDerivations
         //
         // Source nodes
         //
+        @Override
+        public StreamProperties visitSequence(SequenceNode node, List<StreamProperties> inputProperties)
+        {
+            return new StreamProperties(MULTIPLE, Optional.empty(), false);
+        }
 
         @Override
         public StreamProperties visitValues(ValuesNode node, List<StreamProperties> context)
@@ -616,6 +623,19 @@ public final class StreamPropertyDerivations
         public StreamProperties visitSample(SampleNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
+        }
+
+        @Override
+        public StreamProperties visitRemoteSource(RemoteSourceNode node, List<StreamProperties> inputProperties)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+            if (node.isEnsureSourceOrdering()) {
+                return StreamProperties.singleStream();
+            }
+
+            return StreamProperties.fixedStreams();
         }
     }
 

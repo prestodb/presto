@@ -21,6 +21,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
@@ -111,6 +112,13 @@ public class RowExpressionDeterminismEvaluator
         public Boolean visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
             return specialForm.getArguments().stream()
+                    .allMatch(expression -> expression.accept(this, context));
+        }
+
+        @Override
+        public Boolean visitIntermediateFormExpression(IntermediateFormExpression intermediateFormRowExpression, Void context)
+        {
+            return intermediateFormRowExpression.getChildren().stream()
                     .allMatch(expression -> expression.accept(this, context));
         }
     }

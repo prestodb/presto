@@ -510,7 +510,7 @@ public class FunctionAndTypeManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle);
+        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
     }
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)

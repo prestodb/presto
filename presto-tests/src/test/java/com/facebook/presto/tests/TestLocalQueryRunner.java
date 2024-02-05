@@ -39,7 +39,7 @@ public class TestLocalQueryRunner
     public void testAnalyzeAccessControl()
     {
         assertAccessAllowed("ANALYZE nation");
-        assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
+        assertAccessDenied("ANALYZE nation", "Cannot insert into table .*.nation.*", privilege("nation", INSERT_TABLE));
         assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
         assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*nationkey.*] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
     }

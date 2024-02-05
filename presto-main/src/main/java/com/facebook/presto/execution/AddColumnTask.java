@@ -48,7 +48,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask
         implements DDLDefinitionTask<AddColumn>
@@ -97,7 +96,7 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
+        if (columnHandles.containsKey(element.getName().getValueLowerCase())) {
             if (!statement.isColumnNotExists()) {
                 throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
             }

@@ -37,8 +37,6 @@ import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpress
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -143,9 +141,6 @@ public final class VariablesExtractor
 
     private static Set<VariableReferenceExpression> extractUniqueVariableInternal(RowExpression expression, TypeProvider types)
     {
-        if (isExpression(expression)) {
-            return extractUnique(castToExpression(expression), types);
-        }
         return extractUnique(expression);
     }
 

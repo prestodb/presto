@@ -28,10 +28,12 @@ import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
+import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,10 +42,13 @@ import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_M
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.DETAILS_MISMATCH;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.STRUCTURE_MISMATCH;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
+import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySupplier.VERIFIER_SNAPSHOT_KEY_PATTERN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainVerification
@@ -60,9 +65,11 @@ public class ExplainVerification
             VerificationContext verificationContext,
             VerifierConfig verifierConfig,
             SqlParser sqlParser,
-            ListeningExecutorService executor)
+            ListeningExecutorService executor,
+            SnapshotQueryConsumer snapshotQueryConsumer,
+            Map<String, SnapshotQuery> snapshotQueries)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, executor);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, executor, snapshotQueryConsumer, snapshotQueries);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
@@ -88,10 +95,27 @@ public class ExplainVerification
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext)
     {
-        checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
         checkArgument(testQueryResult.isPresent(), "test query plan is missing");
 
-        JsonRenderedNode controlPlan = planCodec.fromJson(getOnlyElement(controlQueryResult.get().getResults()));
+        JsonRenderedNode controlPlan;
+        if (isControlEnabled()) {
+            checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
+            String result = getOnlyElement(controlQueryResult.get().getResults());
+            if (saveSnapshot) {
+                snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, result));
+                return new ExplainMatchResult(MATCH);
+            }
+            controlPlan = planCodec.fromJson(result);
+        }
+        else {
+            String key = format(VERIFIER_SNAPSHOT_KEY_PATTERN, getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain);
+            SnapshotQuery snapshotQuery = snapshotQueries.get(key);
+            if (snapshotQuery == null) {
+                return new ExplainMatchResult(SNAPSHOT_DOES_NOT_EXIST);
+            }
+            String snapshotJson = snapshotQuery.getSnapshot();
+            controlPlan = planCodec.fromJson(snapshotJson);
+        }
         JsonRenderedNode testPlan = planCodec.fromJson(getOnlyElement(testQueryResult.get().getResults()));
 
         return new ExplainMatchResult(match(controlPlan, testPlan));

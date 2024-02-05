@@ -15,13 +15,17 @@ package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class BinaryPlainValuesDecoder
         implements BinaryValuesDecoder
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryPlainValuesDecoder.class).instanceSize();
+
     private final byte[] buffer;
     private final int bufEnd;
 
@@ -82,6 +86,12 @@ public class BinaryPlainValuesDecoder
             remaining--;
         }
         checkState(remaining == 0, "Invalid read size request");
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(buffer);
     }
 
     public static class PlainValueBuffer

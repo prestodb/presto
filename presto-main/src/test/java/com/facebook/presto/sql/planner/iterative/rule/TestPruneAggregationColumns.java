@@ -31,7 +31,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -71,11 +71,11 @@ public class TestPruneAggregationColumns
         VariableReferenceExpression b = planBuilder.variable("b");
         VariableReferenceExpression key = planBuilder.variable("key");
         return planBuilder.project(
-                identityAssignmentsAsSymbolReferences(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
+                identityAssignments(ImmutableList.of(a, b).stream().filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                         .source(planBuilder.values(key))
                         .singleGroupingSet(key)
-                        .addAggregation(a, planBuilder.expression("count()"), ImmutableList.of())
-                        .addAggregation(b, planBuilder.expression("count()"), ImmutableList.of())));
+                        .addAggregation(a, planBuilder.rowExpression("count()"))
+                        .addAggregation(b, planBuilder.rowExpression("count()"))));
     }
 }

@@ -17,19 +17,35 @@
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <re2/re2.h>
-#include "presto_cpp/main/common/Counters.h"
+#include <wangle/ssl/SSLContextConfig.h>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/http/HttpConstants.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/common/time/Timer.h"
 
 namespace facebook::presto::http {
+
+using json = nlohmann::json;
+
+void sendOkResponse(proxygen::ResponseHandler* downstream);
+
+void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body);
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body);
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body);
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error = "",
+    uint16_t status = http::kHttpInternalServerError);
 
 class AbstractRequestHandler : public proxygen::RequestHandler {
  public:
   void onRequest(
       std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override {
-    REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequest, 1);
-    startTime_ = std::chrono::steady_clock::now();
     headers_ = std::move(headers);
     body_.clear();
   }
@@ -41,21 +57,14 @@ class AbstractRequestHandler : public proxygen::RequestHandler {
   void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
 
   void requestComplete() noexcept override {
-    REPORT_ADD_STAT_VALUE(
-        kCounterHTTPRequestLatencyMs,
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - startTime_)
-            .count());
     delete this;
   }
 
   void onError(proxygen::ProxygenError err) noexcept override {
-    REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequestError, 1);
     delete this;
   }
 
  protected:
-  std::chrono::steady_clock::time_point startTime_;
   std::unique_ptr<proxygen::HTTPMessage> headers_;
   std::vector<std::unique_ptr<folly::IOBuf>> body_;
 };
@@ -168,6 +177,35 @@ using EndpointRequestHandlerFactory = std::function<proxygen::RequestHandler*(
     proxygen::HTTPMessage* message,
     const std::vector<std::string>& args)>;
 
+class EndPoint {
+ public:
+  EndPoint(
+      const std::string& pattern,
+      const EndpointRequestHandlerFactory& factory)
+      : re_(pattern), factory_(factory) {}
+
+  bool check(
+      const std::string& path,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  proxygen::RequestHandler* checkAndApply(
+      const std::string& path,
+      proxygen::HTTPMessage* message,
+      std::vector<std::string>& matches,
+      std::vector<RE2::Arg>& args,
+      std::vector<RE2::Arg*>& argPtrs) const;
+
+  const std::string& pattern() const {
+    return re_.pattern();
+  }
+
+ private:
+  const RE2 re_;
+  EndpointRequestHandlerFactory factory_;
+};
+
 class DispatchingRequestHandlerFactory
     : public proxygen::RequestHandlerFactory {
  public:
@@ -184,44 +222,65 @@ class DispatchingRequestHandlerFactory
       const std::string& pattern,
       const EndpointRequestHandlerFactory& endpoint);
 
+  const std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>&
+  endpoints() const;
+
  private:
-  class EndPoint {
-   public:
-    EndPoint(
-        const std::string& pattern,
-        const EndpointRequestHandlerFactory& factory)
-        : re_(pattern), factory_(factory) {}
-
-    proxygen::RequestHandler* checkAndApply(
-        const std::string& path,
-        proxygen::HTTPMessage* message,
-        std::vector<std::string>& matches,
-        std::vector<RE2::Arg>& args,
-        std::vector<RE2::Arg*>& argPtrs) const;
-
-   private:
-    RE2 re_;
-    EndpointRequestHandlerFactory factory_;
-  };
-
   std::unordered_map<
       proxygen::HTTPMethod,
       std::vector<std::unique_ptr<EndPoint>>>
       endpoints_;
 };
 
+class HttpConfig {
+ public:
+  explicit HttpConfig(
+      const folly::SocketAddress& address,
+      bool reusePort = false);
+
+  proxygen::HTTPServer::IPConfig ipConfig() const;
+
+ private:
+  const folly::SocketAddress address_;
+  const bool reusePort_{false};
+};
+
+class HttpsConfig {
+ public:
+  HttpsConfig(
+      const folly::SocketAddress& address,
+      const std::string& certPath,
+      const std::string& keyPath,
+      const std::string& supportedCiphers,
+      bool reusePort = false);
+
+  proxygen::HTTPServer::IPConfig ipConfig() const;
+
+ private:
+  const folly::SocketAddress address_;
+  const std::string certPath_;
+  const std::string keyPath_;
+  std::string supportedCiphers_;
+  const bool reusePort_;
+};
+
 class HttpServer {
  public:
   explicit HttpServer(
-      const folly::SocketAddress& httpAddress,
-      int httpExecThreads = 8);
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor,
+      std::unique_ptr<HttpConfig> httpConfig,
+      std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
+      std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
+          {},
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
   folly::IOThreadPoolExecutor* getExecutor() {
-    return httpExecutor_.get();
+    return httpIOExecutor_.get();
   }
 
   void stop() {
@@ -293,13 +352,17 @@ class HttpServer {
     registerDelete(pattern, endPointWrapper(callback));
   }
 
+  std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>
+  endpoints() const;
+
  private:
-  const folly::SocketAddress httpAddress_;
-  int httpExecThreads_;
-  std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_ =
-      std::make_unique<DispatchingRequestHandlerFactory>();
+  const std::unique_ptr<HttpConfig> httpConfig_;
+  const std::unique_ptr<HttpsConfig> httpsConfig_;
+  std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;
   std::unique_ptr<proxygen::HTTPServer> server_;
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpIOExecutor_;
 
   static EndpointRequestHandlerFactory endPointWrapper(
       const RequestHandlerCallback& callback) {

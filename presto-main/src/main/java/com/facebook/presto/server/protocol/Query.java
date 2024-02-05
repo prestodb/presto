@@ -50,6 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -61,6 +62,7 @@ import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -81,6 +83,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,6 +97,7 @@ import static java.util.Objects.requireNonNull;
 class Query
 {
     private static final Logger log = Logger.get(Query.class);
+    private static final Base64.Encoder BASE64_ENCODER = Base64.getEncoder();
 
     private final QueryManager queryManager;
     private final TransactionManager transactionManager;
@@ -307,7 +311,7 @@ class Query
         return removedSessionFunctions;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize, boolean binaryResults)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -323,7 +327,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, scheme, targetResultSize, binaryResults), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -376,9 +380,9 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
     {
-        QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize);
+        QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize, binaryResults);
         if (queryResults.getError() == null || !queryResults.getError().isRetriable()) {
             return queryResults;
         }
@@ -410,6 +414,7 @@ class Query
                 createRetryUri(scheme, uriInfo),
                 queryResults.getColumns(),
                 null,
+                null,
                 StatementStats.builder()
                         .setState(WAITING_FOR_PREREQUISITES.toString())
                         .setWaitingForPrerequisites(true)
@@ -420,7 +425,7 @@ class Query
                 queryResults.getUpdateCount());
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -442,25 +447,51 @@ class Query
         // last page is removed.  If another thread observes this state before the response is cached
         // the pages will be lost.
         Iterable<List<Object>> data = null;
+        List<String> binaryData = null;
         try {
-            ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
-            long bytes = 0;
             long rows = 0;
+            long bytes = 0;
             long targetResultBytes = targetResultSize.toBytes();
-            while (bytes < targetResultBytes) {
-                SerializedPage serializedPage = exchangeClient.pollPage();
-                if (serializedPage == null) {
-                    break;
-                }
+            if (binaryResults) {
+                ImmutableList.Builder<String> pages = ImmutableList.builder();
+                while (bytes < targetResultBytes) {
+                    SerializedPage serializedPage = exchangeClient.pollPage();
+                    if (serializedPage == null) {
+                        break;
+                    }
 
-                Page page = serde.deserialize(serializedPage);
-                bytes += page.getLogicalSizeInBytes();
-                rows += page.getPositionCount();
-                pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                    rows += serializedPage.getPositionCount();
+                    bytes += serializedPage.getSizeInBytes();
+
+                    DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
+                    writeSerializedPage(sliceOutput, serializedPage);
+
+                    String encodedPage = BASE64_ENCODER.encodeToString(sliceOutput.slice().byteArray());
+                    pages.add(encodedPage);
+                }
+                if (rows > 0) {
+                    binaryData = pages.build();
+                }
+            }
+            else {
+                ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
+                while (bytes < targetResultBytes) {
+                    SerializedPage serializedPage = exchangeClient.pollPage();
+                    if (serializedPage == null) {
+                        break;
+                    }
+
+                    Page page = serde.deserialize(serializedPage);
+                    bytes += page.getLogicalSizeInBytes();
+                    rows += page.getPositionCount();
+                    pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                }
+                if (rows > 0) {
+                    // client implementations do not properly handle empty list of data
+                    data = Iterables.concat(pages.build());
+                }
             }
             if (rows > 0) {
-                // client implementations do not properly handle empty list of data
-                data = Iterables.concat(pages.build());
                 hasProducedResult = true;
             }
         }
@@ -508,7 +539,7 @@ class Query
 
         URI nextResultsUri = null;
         if (nextToken.isPresent()) {
-            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
+            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong(), binaryResults);
         }
 
         // update catalog, schema, and path
@@ -542,6 +573,7 @@ class Query
                 nextResultsUri,
                 columns,
                 data,
+                binaryData,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
                 queryInfo.getWarnings(),
@@ -596,7 +628,7 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
+    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken, boolean binaryResults)
     {
         UriBuilder uri = uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
@@ -605,6 +637,9 @@ class Query
                 .path(String.valueOf(nextToken))
                 .replaceQuery("")
                 .queryParam("slug", this.slug);
+        if (binaryResults) {
+            uri.queryParam("binaryResults", "true");
+        }
         Optional<DataSize> targetResultSize = getTargetResultSize(session);
         if (targetResultSize.isPresent()) {
             uri = uri.queryParam("targetResultSize", targetResultSize.get());

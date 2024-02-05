@@ -38,6 +38,7 @@ import org.apache.hudi.common.util.HoodieTimer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
 import static com.facebook.presto.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
@@ -107,8 +108,10 @@ public class HudiPartitionSplitGenerator
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
         String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
-        fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false)
-                .map(fileSlice -> createHudiSplit(table, fileSlice, latestInstant, hudiPartition, splitWeightProvider))
+        Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
+                fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :
+                fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false);
+        fileSlices.map(fileSlice -> createHudiSplit(table, fileSlice, latestInstant, hudiPartition, splitWeightProvider))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .forEach(asyncQueue::offer);

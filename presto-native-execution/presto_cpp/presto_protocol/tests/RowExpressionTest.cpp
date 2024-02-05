@@ -18,6 +18,51 @@
 
 using namespace facebook::presto::protocol;
 
+namespace {
+const std::string strJson = R"(
+        {
+             "@type":"special",
+             "form":"COALESCE",
+             "returnType":"bigint",
+             "arguments":[
+                {
+                   "@type":"call",
+                   "displayName":"$operator$hash_code",
+                   "functionHandle":{
+                      "@type":"$static",
+                      "signature":{
+                         "name":"presto.default.$operator$hash_code",
+                         "kind":"SCALAR",
+                         "typeVariableConstraints":[
+                         ],
+                         "longVariableConstraints":[
+                         ],
+                         "returnType":"bigint",
+                         "argumentTypes":[
+                            "integer"
+                         ],
+                         "variableArity":false
+                      }
+                   },
+                   "returnType":"bigint",
+                   "arguments":[
+                      {
+                         "@type":"variable",
+                         "name":"segment",
+                         "type":"integer"
+                      }
+                   ]
+                },
+                {
+                   "@type":"constant",
+                   "valueBlock":"CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAAAA",
+                   "type":"bigint"
+                }
+             ]
+        }
+    )";
+};
+
 class RowExpressionTest : public ::testing::Test {};
 
 TEST_F(RowExpressionTest, constant) {
@@ -93,52 +138,7 @@ TEST_F(RowExpressionTest, call) {
 }
 
 TEST_F(RowExpressionTest, special) {
-  std::string str = R"(
-        {
-             "@type":"special",
-             "form":"COALESCE",
-             "returnType":"bigint",
-             "arguments":[
-                {
-                   "@type":"call",
-                   "displayName":"$operator$hash_code",
-                   "functionHandle":{
-                      "@type":"$static",
-                      "signature":{
-                         "name":"presto.default.$operator$hash_code",
-                         "kind":"SCALAR",
-                         "typeVariableConstraints":[
-
-                         ],
-                         "longVariableConstraints":[
-
-                         ],
-                         "returnType":"bigint",
-                         "argumentTypes":[
-                            "integer"
-                         ],
-                         "variableArity":false
-                      }
-                   },
-                   "returnType":"bigint",
-                   "arguments":[
-                      {
-                         "@type":"variable",
-                         "name":"segment",
-                         "type":"integer"
-                      }
-                   ]
-                },
-                {
-                   "@type":"constant",
-                   "valueBlock":"CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAAAA",
-                   "type":"bigint"
-                }
-             ]
-        }
-    )";
-
-  json j = json::parse(str);
+  json j = json::parse(strJson);
   std::shared_ptr<RowExpression> p = j;
 
   // Check some values ...
@@ -154,52 +154,7 @@ TEST_F(RowExpressionTest, special) {
 }
 
 TEST_F(RowExpressionTest, variableReference) {
-  std::string str = R"(
-        {
-             "@type":"special",
-             "form":"COALESCE",
-             "returnType":"bigint",
-             "arguments":[
-                {
-                   "@type":"call",
-                   "displayName":"$operator$hash_code",
-                   "functionHandle":{
-                      "@type":"$static",
-                      "signature":{
-                         "name":"presto.default.$operator$hash_code",
-                         "kind":"SCALAR",
-                         "typeVariableConstraints":[
-
-                         ],
-                         "longVariableConstraints":[
-
-                         ],
-                         "returnType":"bigint",
-                         "argumentTypes":[
-                            "integer"
-                         ],
-                         "variableArity":false
-                      }
-                   },
-                   "returnType":"bigint",
-                   "arguments":[
-                      {
-                         "@type":"variable",
-                         "name":"segment",
-                         "type":"integer"
-                      }
-                   ]
-                },
-                {
-                   "@type":"constant",
-                   "valueBlock":"CgAAAExPTkdfQVJSQVkBAAAAAAAAAAAAAAAA",
-                   "type":"bigint"
-                }
-             ]
-        }
-    )";
-
-  json j = json::parse(str);
+  json j = json::parse(strJson);
   std::shared_ptr<RowExpression> p = j;
 
   // Check some values ...

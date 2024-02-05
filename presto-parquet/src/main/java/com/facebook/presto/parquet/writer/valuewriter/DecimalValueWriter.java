@@ -72,9 +72,9 @@ public class DecimalValueWriter
         }
     }
 
-    private static byte[] paddingBigInteger(BigInteger bigInteger)
+    private byte[] paddingBigInteger(BigInteger bigInteger)
     {
-        byte[] result = new byte[16];
+        byte[] result = new byte[getTypeLength()];
         if (bigInteger.signum() < 0) {
             Arrays.fill(result, (byte) 0xFF);
         }

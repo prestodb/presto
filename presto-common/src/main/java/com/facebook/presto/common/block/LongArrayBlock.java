@@ -313,6 +313,13 @@ public class LongArrayBlock
     }
 
     @Override
+    public long toLong(int position)
+    {
+        checkReadablePosition(position);
+        return getLongUnchecked(position + arrayOffset);
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

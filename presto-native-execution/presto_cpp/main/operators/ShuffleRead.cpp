@@ -13,12 +13,16 @@
  */
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "velox/exec/Exchange.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
+#include "velox/serializers/CompactRowSerializer.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace facebook::presto::operators {
+velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+  return obj["id"].asString();
+}
+
 namespace {
 class ShuffleReadOperator : public Exchange {
  public:
@@ -35,7 +39,7 @@ class ShuffleReadOperator : public Exchange {
                 shuffleReadNode->outputType()),
             exchangeClient,
             "ShuffleRead"),
-        serde_(std::make_unique<serializer::spark::UnsafeRowVectorSerde>()) {}
+        serde_(std::make_unique<velox::serializer::CompactRowVectorSerde>()) {}
 
  protected:
   VectorSerde* getSerde() override {
@@ -43,9 +47,23 @@ class ShuffleReadOperator : public Exchange {
   }
 
  private:
-  std::unique_ptr<serializer::spark::UnsafeRowVectorSerde> serde_;
+  std::unique_ptr<velox::serializer::CompactRowVectorSerde> serde_;
 };
 } // namespace
+
+folly::dynamic ShuffleReadNode::serialize() const {
+  auto obj = PlanNode::serialize();
+  obj["outputType"] = outputType_->serialize();
+  return obj;
+}
+
+velox::core::PlanNodePtr ShuffleReadNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<ShuffleReadNode>(
+      deserializePlanNodeId(obj),
+      ISerializable::deserialize<RowType>(obj["outputType"], context));
+}
 
 std::unique_ptr<Operator> ShuffleReadTranslator::toOperator(
     DriverCtx* ctx,

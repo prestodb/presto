@@ -16,8 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
@@ -29,9 +27,7 @@ import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
-import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
-import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
@@ -103,11 +99,9 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
@@ -148,13 +142,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -166,6 +159,9 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.ColumnWithStructSubfield;
@@ -180,9 +176,6 @@ import static com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
@@ -193,7 +186,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION_OPERATION;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveManifestUtils.getManifestSizeInBytes;
@@ -208,6 +200,7 @@ import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatib
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
 import static com.facebook.presto.hive.HiveSessionProperties.HIVE_STORAGE_FORMAT;
 import static com.facebook.presto.hive.HiveSessionProperties.RESPECT_TABLE_FORMAT;
+import static com.facebook.presto.hive.HiveSessionProperties.getBucketFunctionTypeForCteMaterialization;
 import static com.facebook.presto.hive.HiveSessionProperties.getBucketFunctionTypeForExchange;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionCodec;
 import static com.facebook.presto.hive.HiveSessionProperties.getHiveStorageFormat;
@@ -234,6 +227,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnab
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldCreateEmptyBucketFilesForTemporaryTable;
+import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
+import static com.facebook.presto.hive.HiveStatisticsUtil.getColumnStatistics;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -272,7 +267,6 @@ import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveTableProperties.getPreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveTableProperties.isExternalTable;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
-import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeMaterializedViewData;
@@ -291,6 +285,11 @@ import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriterFactory.computeBucketedFileName;
 import static com.facebook.presto.hive.HiveWriterFactory.getFileExtension;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
+import static com.facebook.presto.hive.MetadataUtils.getPredicate;
+import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -298,15 +297,22 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivile
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.checkIfNullView;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.createTableObjectForViewCreation;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.createViewProperties;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isPrestoView;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyAndPopulateViews;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
@@ -316,9 +322,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.Statistics.ReduceOperator.ADD;
 import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.hive.metastore.Statistics.createEmptyPartitionStatistics;
-import static com.facebook.presto.hive.metastore.Statistics.fromComputedStatistics;
 import static com.facebook.presto.hive.metastore.Statistics.reduce;
-import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static com.facebook.presto.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
@@ -373,8 +377,6 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 public class HiveMetadata
         implements TransactionalMetadata
 {
-    public static final String PRESTO_VERSION_NAME = "presto_version";
-    public static final String TABLE_COMMENT = "comment";
     public static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
     public static final String REFERENCED_MATERIALIZED_VIEWS = "referenced_materialized_views";
 
@@ -1393,19 +1395,6 @@ public class HiveMetadata
         return tableBuilder.build();
     }
 
-    private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
-    {
-        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
-        return new PrincipalPrivileges(
-                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, owner, owner))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, owner, owner))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, owner, owner))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, owner, owner))
-                        .build(),
-                ImmutableMultimap.of());
-    }
-
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
@@ -1509,7 +1498,7 @@ public class HiveMetadata
 
         if (partitionColumns.isEmpty()) {
             // commit analyze to unpartitioned table
-            metastore.setTableStatistics(metastoreContext, table, createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of())));
+            metastore.setTableStatistics(metastoreContext, table, createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of()), timeZone));
         }
         else {
             List<List<String>> partitionValuesList;
@@ -1539,7 +1528,7 @@ public class HiveMetadata
                 }
                 else {
                     usedComputedStatistics++;
-                    partitionStatistics.put(partitionValues, createPartitionStatistics(session, columnTypes, collectedStatistics));
+                    partitionStatistics.put(partitionValues, createPartitionStatistics(session, columnTypes, collectedStatistics, timeZone));
                 }
             }
             verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
@@ -1714,7 +1703,7 @@ public class HiveMetadata
                     .map(PartitionUpdate::getStatistics)
                     .reduce((first, second) -> reduce(first, second, ADD))
                     .orElse(createZeroStatistics());
-            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
+            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
         }
         else {
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
@@ -1740,7 +1729,7 @@ public class HiveMetadata
                     session,
                     update.getStatistics(),
                     columnTypes,
-                    getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                    getColumnStatistics(partitionComputedStatistics, partition.getValues()), timeZone);
             metastore.addPartition(
                     session,
                     handle.getSchemaName(),
@@ -1765,7 +1754,7 @@ public class HiveMetadata
 
     private MetastoreContext getMetastoreContext(ConnectorSession session)
     {
-        return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
     }
 
     private Column columnHandleToColumn(ConnectorSession session, HiveColumnHandle handle)
@@ -2047,7 +2036,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
+                        getColumnStatistics(partitionComputedStatistics, ImmutableList.of()), timeZone);
                 metastore.finishInsertIntoExistingTable(
                         session,
                         handle.getSchemaName(),
@@ -2066,7 +2055,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionValues));
+                        getColumnStatistics(partitionComputedStatistics, partitionValues), timeZone);
                 metastore.finishInsertIntoExistingPartition(
                         session,
                         handle.getSchemaName(),
@@ -2125,7 +2114,8 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                        getColumnStatistics(partitionComputedStatistics, partition.getValues()),
+                        timeZone);
 
                 // New partition or overwriting existing partition by staging and moving the new partition
                 if (!isExistingPartition || handle.getLocationHandle().getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -2194,44 +2184,6 @@ public class HiveMetadata
                 .collect(toImmutableList());
     }
 
-    private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
-            Map<String, Type> columnTypes,
-            ComputedStatistics computedStatistics)
-    {
-        Map<ColumnStatisticMetadata, Block> computedColumnStatistics = computedStatistics.getColumnStatistics();
-
-        Block rowCountBlock = Optional.ofNullable(computedStatistics.getTableStatistics().get(ROW_COUNT))
-                .orElseThrow(() -> new VerifyException("rowCount not present"));
-        verify(!rowCountBlock.isNull(0), "rowCount must never be null");
-        long rowCount = BIGINT.getLong(rowCountBlock, 0);
-        HiveBasicStatistics rowCountOnlyBasicStatistics = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(rowCount), OptionalLong.empty(), OptionalLong.empty());
-        return createPartitionStatistics(session, rowCountOnlyBasicStatistics, columnTypes, computedColumnStatistics);
-    }
-
-    private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
-            HiveBasicStatistics basicStatistics,
-            Map<String, Type> columnTypes,
-            Map<ColumnStatisticMetadata, Block> computedColumnStatistics)
-    {
-        long rowCount = basicStatistics.getRowCount().orElseThrow(() -> new IllegalArgumentException("rowCount not present"));
-        Map<String, HiveColumnStatistics> columnStatistics = fromComputedStatistics(
-                session,
-                timeZone,
-                computedColumnStatistics,
-                columnTypes,
-                rowCount);
-        return new PartitionStatistics(basicStatistics, columnStatistics);
-    }
-
-    private static Map<ColumnStatisticMetadata, Block> getColumnStatistics(Map<List<String>, ComputedStatistics> statistics, List<String> partitionValues)
-    {
-        return Optional.ofNullable(statistics.get(partitionValues))
-                .map(ComputedStatistics::getColumnStatistics)
-                .orElse(ImmutableMap.of());
-    }
-
     private Map<String, Optional<Partition>> getExistingPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)
     {
         ImmutableMap.Builder<String, Optional<Partition>> existingPartitions = ImmutableMap.builder();
@@ -2263,56 +2215,15 @@ public class HiveMetadata
     @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(TABLE_COMMENT, "Presto View")
-                .put(PRESTO_VIEW_FLAG, "true")
-                .put(PRESTO_VERSION_NAME, prestoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .build();
-
-        List<Column> columns = new ArrayList<>();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        ColumnConverter columnConverter = metastoreContext.getColumnConverter();
-
-        for (ColumnMetadata column : viewMetadata.getColumns()) {
-            try {
-                HiveType hiveType = toHiveType(typeTranslator, column.getType());
-                columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
-            }
-            catch (PrestoException e) {
-                // if a view uses any unsupported hive types, include only a dummy column value
-                if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
-                    columns = ImmutableList.of(
-                            new Column(
-                                    "dummy",
-                                    HIVE_STRING,
-                                    Optional.of(format("Using dummy because column %s uses unsupported Hive type %s ", column.getName(), column.getType())),
-                                    Optional.empty()));
-                    break;
-                }
-                else {
-                    throw e;
-                }
-            }
-        }
-
         SchemaTableName viewName = viewMetadata.getTable();
-
-        Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(viewName.getSchemaName())
-                .setTableName(viewName.getTableName())
-                .setOwner(session.getUser())
-                .setTableType(VIRTUAL_VIEW)
-                .setDataColumns(columns)
-                .setPartitionColumns(ImmutableList.of())
-                .setParameters(properties)
-                .setViewOriginalText(Optional.of(encodeViewData(viewData)))
-                .setViewExpandedText(Optional.of("/* Presto View */"));
-
-        tableBuilder.getStorageBuilder()
-                .setStorageFormat(VIEW_STORAGE_FORMAT)
-                .setLocation("");
-        Table table = tableBuilder.build();
+        Table table = createTableObjectForViewCreation(
+                session,
+                viewMetadata,
+                createViewProperties(session, prestoVersion),
+                typeTranslator,
+                metastoreContext,
+                encodeViewData(viewData));
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
 
         Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
@@ -2337,9 +2248,7 @@ public class HiveMetadata
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
-        if (view == null) {
-            throw new ViewNotFoundException(viewName);
-        }
+        checkIfNullView(view, viewName);
 
         try {
             metastore.dropTable(
@@ -2380,14 +2289,10 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (table.isPresent() && MetastoreUtil.isPrestoView(table.get())) {
-                views.put(schemaTableName, new ConnectorViewDefinition(
-                        schemaTableName,
-                        Optional.ofNullable(table.get().getOwner()),
-                        decodeViewData(table.get().getViewOriginalText().get())));
+            if (table.isPresent() && isPrestoView(table.get())) {
+                verifyAndPopulateViews(table.get(), schemaTableName, decodeViewData(table.get().getViewOriginalText().get()), views);
             }
         }
-
         return views.build();
     }
 
@@ -2580,7 +2485,7 @@ public class HiveMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return updateRowIdHandle();
     }
@@ -2661,7 +2566,7 @@ public class HiveMetadata
                 .collect(toImmutableSet());
 
         Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
-                .map(HiveColumnHandle::getName)
+                .map(BaseHiveColumnHandle::getName)
                 .collect(toImmutableSet());
 
         return partitionColumnNames.containsAll(predicateColumnNames);
@@ -2785,14 +2690,7 @@ public class HiveMetadata
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveLayoutHandle.getPartitionColumns());
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        Optional<DiscretePredicates> discretePredicates = Optional.empty();
-        if (!partitionColumns.isEmpty()) {
-            // Do not create tuple domains for every partition at the same time!
-            // There can be a huge number of partitions so use an iterable so
-            // all domains do not need to be in memory at the same time.
-            Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, (hivePartition) -> TupleDomain.fromFixedValues(hivePartition.getKeys()));
-            discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
-        }
+        Optional<DiscretePredicates> discretePredicates = getDiscretePredicates(partitionColumns, partitions);
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         SchemaTableName tableName = hiveLayoutHandle.getSchemaTableName();
@@ -2848,22 +2746,16 @@ public class HiveMetadata
         TupleDomain<ColumnHandle> predicate;
         RowExpression subfieldPredicate;
         if (hiveLayoutHandle.isPushdownFilterEnabled()) {
-            predicate = hiveLayoutHandle.getDomainPredicate()
-                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
-                    .transform(hiveLayoutHandle.getPredicateColumns()::get)
-                    .transform(ColumnHandle.class::cast)
-                    .intersect(createPredicate(partitionColumns, partitions));
+            Map<String, ColumnHandle> predicateColumns = hiveLayoutHandle.getPredicateColumns().entrySet()
+                    .stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            predicate = getPredicate(hiveLayoutHandle, partitionColumns, partitions, predicateColumns);
 
             // capture subfields from domainPredicate to add to remainingPredicate
             // so those filters don't get lost
             Map<String, Type> columnTypes = hiveColumnHandles(table).stream()
                     .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager).getType()));
-            SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
 
-            subfieldPredicate = rowExpressionService.getDomainTranslator().toPredicate(
-                    hiveLayoutHandle.getDomainPredicate()
-                            .transform(subfield -> !isEntireColumn(subfield) ? subfield : null)
-                            .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName()))));
+            subfieldPredicate = getSubfieldPredicate(session, hiveLayoutHandle, columnTypes, functionResolution, rowExpressionService);
         }
         else {
             predicate = createPredicate(partitionColumns, partitions);
@@ -2900,10 +2792,7 @@ public class HiveMetadata
         }
 
         // combine subfieldPredicate with remainingPredicate
-        List<RowExpression> predicatesToCombine = ImmutableList.of(subfieldPredicate, hiveLayoutHandle.getRemainingPredicate()).stream()
-                .filter(p -> !p.equals(TRUE_CONSTANT))
-                .collect(toImmutableList());
-        RowExpression combinedRemainingPredicate = binaryExpression(SpecialFormExpression.Form.AND, predicatesToCombine);
+        RowExpression combinedRemainingPredicate = getCombinedRemainingPredicate(hiveLayoutHandle, subfieldPredicate);
 
         return new ConnectorTableLayout(
                 hiveLayoutHandle,
@@ -3023,10 +2912,19 @@ public class HiveMetadata
     }
 
     @Override
+    public ConnectorPartitioningHandle getPartitioningHandleForCteMaterialization(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
+    {
+        return getHivePartitionHandle(session, partitionCount, partitionTypes, getBucketFunctionTypeForCteMaterialization(session));
+    }
+
+    @Override
     public ConnectorPartitioningHandle getPartitioningHandleForExchange(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
     {
-        BucketFunctionType bucketFunctionType = getBucketFunctionTypeForExchange(session);
+        return getHivePartitionHandle(session, partitionCount, partitionTypes, getBucketFunctionTypeForExchange(session));
+    }
 
+    private HivePartitioningHandle getHivePartitionHandle(ConnectorSession session, int partitionCount, List<Type> partitionTypes, BucketFunctionType bucketFunctionType)
+    {
         if (isUsePageFileForHiveUnsupportedType(session)) {
             if (!partitionTypes.stream()
                     .allMatch(HiveTypeTranslator::isSupportedHiveType)) {
@@ -3055,56 +2953,6 @@ public class HiveMetadata
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }
-    }
-
-    @VisibleForTesting
-    static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
-    {
-        if (partitions.isEmpty()) {
-            return TupleDomain.none();
-        }
-
-        return withColumnDomains(
-                partitionColumns.stream()
-                        .collect(toMap(identity(), column -> buildColumnDomain(column, partitions))));
-    }
-
-    private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
-    {
-        checkArgument(!partitions.isEmpty(), "partitions cannot be empty");
-
-        boolean hasNull = false;
-        Set<Object> nonNullValues = new HashSet<>();
-        Type type = null;
-
-        for (HivePartition partition : partitions) {
-            NullableValue value = partition.getKeys().get(column);
-            if (value == null) {
-                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
-            }
-
-            if (value.isNull()) {
-                hasNull = true;
-            }
-            else {
-                nonNullValues.add(value.getValue());
-            }
-
-            if (type == null) {
-                type = value.getType();
-            }
-        }
-
-        if (!nonNullValues.isEmpty()) {
-            Domain domain = Domain.multipleValues(type, ImmutableList.copyOf(nonNullValues));
-            if (hasNull) {
-                return domain.union(Domain.onlyNull(type));
-            }
-
-            return domain;
-        }
-
-        return Domain.onlyNull(type);
     }
 
     @Override
@@ -3300,7 +3148,7 @@ public class HiveMetadata
     private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
     {
         return statisticTypes.stream()
-                .map(type -> new ColumnStatisticMetadata(columnName, type))
+                .map(type -> type.getColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
     }
 
@@ -3828,7 +3676,7 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle tableHandle = (HiveTableLayoutHandle) connectorTableLayoutHandle;
         Set<String> relevantColumns = tableHandle.getPartitionColumns().stream()
-                .map(HiveColumnHandle::getName)
+                .map(BaseHiveColumnHandle::getName)
                 .filter(relevantPartitionColumns::contains)
                 .collect(toImmutableSet());
         if (relevantColumns.isEmpty()) {

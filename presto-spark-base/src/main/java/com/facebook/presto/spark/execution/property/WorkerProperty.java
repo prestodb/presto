@@ -52,28 +52,32 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * // New WorkerProperty with new InternalNativeExecutionNodeConfig
  * public class InternalWorkerProperty
- * extends WorkerProperty<NativeExecutionConnectorConfig, InternalNativeExecutionNodeConfig, NativeExecutionSystemConfig>
+ * extends WorkerProperty<NativeExecutionConnectorConfig, InternalNativeExecutionNodeConfig, NativeExecutionSystemConfig, NativeExecutionVeloxConfig>
  * {
  * @Inject public InternalWorkerProperty(
- * NativeExecutionSystemConfig systemConfig,
  * NativeExecutionConnectorConfig connectorConfig,
- * InternalNativeExecutionNodeConfig nodeConfig)
+ * InternalNativeExecutionNodeConfig nodeConfig,
+ * NativeExecutionSystemConfig systemConfig,
+ * NativeExecutionVeloxConfig veloxConfig)
  * {
  * super(connectorConfig, nodeConfig, systemConfig);
  * }
  * }
  */
-public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extends NativeExecutionNodeConfig, T3 extends NativeExecutionSystemConfig>
+public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extends NativeExecutionNodeConfig, T3 extends NativeExecutionSystemConfig, T4 extends NativeExecutionVeloxConfig>
 {
     private final T1 connectorConfig;
     private final T2 nodeConfig;
     private final T3 systemConfig;
+    private final T4 veloxConfig;
 
     public WorkerProperty(
             T1 connectorConfig,
             T2 nodeConfig,
-            T3 systemConfig)
+            T3 systemConfig,
+            T4 veloxConfig)
     {
+        this.veloxConfig = requireNonNull(veloxConfig, "veloxConfig is null");
         this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
         this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
         this.connectorConfig = requireNonNull(connectorConfig, "connectorConfig is null");
@@ -94,9 +98,15 @@ public class WorkerProperty<T1 extends NativeExecutionConnectorConfig, T2 extend
         return systemConfig;
     }
 
-    public void populateAllProperties(Path systemConfigPath, Path nodeConfigPath, Path connectorConfigPath)
+    public T4 getVeloxConfig()
+    {
+        return veloxConfig;
+    }
+
+    public void populateAllProperties(Path veloxConfigPath, Path systemConfigPath, Path nodeConfigPath, Path connectorConfigPath)
             throws IOException
     {
+        populateProperty(veloxConfig.getAllProperties(), veloxConfigPath);
         populateProperty(systemConfig.getAllProperties(), systemConfigPath);
         populateProperty(nodeConfig.getAllProperties(), nodeConfigPath);
         populateProperty(connectorConfig.getAllProperties(), connectorConfigPath);

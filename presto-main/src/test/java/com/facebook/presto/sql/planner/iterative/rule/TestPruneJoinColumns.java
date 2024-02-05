@@ -14,12 +14,13 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,7 +34,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneJoinColumns
@@ -48,7 +49,7 @@ public class TestPruneJoinColumns
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         Optional.empty(),
                                         values(ImmutableList.of("leftKey", "leftValue")),
@@ -74,7 +75,7 @@ public class TestPruneJoinColumns
                     return p.project(
                             Assignments.of(),
                             p.join(
-                                    JoinNode.Type.INNER,
+                                    JoinType.INNER,
                                     p.values(leftValue),
                                     p.values(rightValue),
                                     ImmutableList.of(),
@@ -94,15 +95,15 @@ public class TestPruneJoinColumns
         VariableReferenceExpression rightValue = p.variable("rightValue");
         List<VariableReferenceExpression> outputs = ImmutableList.of(leftKey, leftValue, rightKey, rightValue);
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
-                        JoinNode.Type.INNER,
+                        JoinType.INNER,
                         p.values(leftKey, leftValue),
                         p.values(rightKey, rightValue),
-                        ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
+                        ImmutableList.of(new EquiJoinClause(leftKey, rightKey)),
                         outputs,
                         Optional.empty(),
                         Optional.empty(),

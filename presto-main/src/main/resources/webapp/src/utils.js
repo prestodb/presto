@@ -199,14 +199,14 @@ export function addExponentiallyWeightedToHistory (value: number, valuesArray: n
 // DagreD3 Graph-related functions
 // ===============================
 
-export function initializeGraph()
+export function initializeGraph(): any
 {
     return new dagreD3.graphlib.Graph({compound: true})
         .setGraph({rankdir: 'BT'})
         .setDefaultEdgeLabel(function () { return {}; });
 }
 
-export function initializeSvg(selector: any)
+export function initializeSvg(selector: any): any
 {
     const svg = d3.select(selector);
     svg.append("g");
@@ -214,7 +214,7 @@ export function initializeSvg(selector: any)
     return svg;
 }
 
-export function getChildren(nodeInfo: any)
+export function getChildren(nodeInfo: any): any[]
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     const nodeType = removeNodeTypePackage(nodeInfo["@type"]);
@@ -234,6 +234,7 @@ export function getChildren(nodeInfo: any)
         case "TopNNode":
         case "SampleNode":
         case "TableWriterNode":
+        case "TableWriterMergeNode":
         case "DeleteNode":
         case "MetadataDeleteNode":
         case "TableFinishNode":
@@ -495,7 +496,7 @@ export function formatShortDateTime(date: Date): string {
 
 // Remove the Java package from each node type to convert the node type to the short name.
 // For example, in the response sent from the server, an output node is represented by
-// "com.facebook.presto.sql.planner.plan.OutputNode". After the invocation of this function,
+// "com.facebook.presto.spi.plan.OutputNode". After the invocation of this function,
 // the short name "OutputNode" will be returned.
 export function removeNodeTypePackage(nodeType: string): string {
     const classEndIndex = nodeType.lastIndexOf(".");

@@ -22,11 +22,13 @@ import io.airlift.slice.Murmur3Hash32;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.iceberg.PartitionField;
+import org.joda.time.DateTimeField;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
+import java.util.function.LongUnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,25 +40,73 @@ import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public final class PartitionTransforms
 {
     private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
-
+    private static final DateTimeField YEAR_UTC = getInstanceUTC().year();
+    private static final DateTimeField MONTH_OF_YEAR_UTC = getInstanceUTC().monthOfYear();
+    public static final int MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
     private PartitionTransforms() {}
 
+    /**
+     * Returns a ColumnTransform based on an iceberg partition specification.
+     * Year, Month, Day & Hour transform cases will return a transformBlock,
+     * that will write a partition column value using INTEGER type.
+     */
     public static ColumnTransform getColumnTransform(PartitionField field, Type type)
     {
         String transform = field.transform().toString();
-
-        if (transform.equals("identity")) {
-            return new ColumnTransform(type, Function.identity());
+        switch (transform) {
+            case "identity":
+                return new ColumnTransform(type, Function.identity());
+            case "year":
+                if (type.equals(DATE)) {
+                    LongUnaryOperator transformYear = value -> epochYear(DAYS.toMillis(value));
+                    return new ColumnTransform(INTEGER, block -> transformBlock(DATE, block, transformYear));
+                }
+                if (type.equals(TIMESTAMP)) {
+                    LongUnaryOperator transformYear = value -> epochYear(value);
+                    return new ColumnTransform(INTEGER, block -> transformBlock(TIMESTAMP, block, transformYear));
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
+            case "month":
+                if (type.equals(DATE)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(DAYS.toMillis(value));
+                    return new ColumnTransform(INTEGER, block -> transformBlock(DATE, block, transformMonth));
+                }
+                if (type.equals(TIMESTAMP)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(value);
+                    return new ColumnTransform(INTEGER, block -> transformBlock(TIMESTAMP, block, transformMonth));
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
+            case "day":
+                if (type.equals(DATE)) {
+                    LongUnaryOperator transformDay = value -> epochDay(DAYS.toMillis(value));
+                    return new ColumnTransform(INTEGER, block -> transformBlock(DATE, block, transformDay));
+                }
+                if (type.equals(TIMESTAMP)) {
+                    LongUnaryOperator transformDay = value -> epochDay(value);
+                    return new ColumnTransform(INTEGER, block -> transformBlock(TIMESTAMP, block, transformDay));
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
+            case "hour":
+                if (type.equals(TIMESTAMP)) {
+                    LongUnaryOperator transformHour = value -> epochHour(value);
+                    return new ColumnTransform(INTEGER, block -> transformBlock(TIMESTAMP, block, transformHour));
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);
@@ -300,6 +350,45 @@ public final class PartitionTransforms
                 value = value.slice(0, max);
             }
             VARBINARY.writeSlice(builder, value);
+        }
+        return builder.build();
+    }
+
+    static long epochYear(long epochMilli)
+    {
+        return YEAR_UTC.get(epochMilli) - 1970L;
+    }
+
+    static long epochMonth(long epochMilli)
+    {
+        long year = epochYear(epochMilli);
+        return (year * 12) + MONTH_OF_YEAR_UTC.get(epochMilli) - 1L;
+    }
+
+    static long epochDay(long epochMilli)
+    {
+        return floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+    }
+
+    static long epochHour(long epochMilli)
+    {
+        return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
+    }
+
+    /**
+     * Returns a block that writes a partition column value using INTEGER type.
+     * INTEGER type is used in DATE/TIMESTAMP cases based on an iceberg partition specification.
+     */
+    private static Block transformBlock(Type sourceType, Block block, LongUnaryOperator function)
+    {
+        BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+                continue;
+            }
+            long value = sourceType.getLong(block, position);
+            INTEGER.writeLong(builder, function.applyAsLong(value));
         }
         return builder.build();
     }

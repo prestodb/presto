@@ -21,13 +21,20 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -45,7 +52,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -222,9 +230,19 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
+        PlanMatchPattern result = node(AggregationNode.class, source);
         aggregations.entrySet().forEach(
-                aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
+                aggregation ->
+                {
+                    if (aggregation.getKey().isPresent() && masks.containsKey(new Symbol(aggregation.getKey().get()))) {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue(), masks.get(new Symbol(aggregation.getKey().get()))));
+                    }
+                    else {
+                        result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue()));
+                    }
+                });
+        // Put the AggregationMatcher at the end as the mask mapping will use the output mapping from aggregation function calls above
+        result.with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
         return result;
     }
 
@@ -377,17 +395,22 @@ public final class PlanMatchPattern
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return node(JoinNode.class, left, right);
+    }
+
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
     {
         return join(joinType, expectedEquiCriteria, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinDistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
@@ -399,8 +422,8 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
+            JoinType joinType,
+            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
             Map<String, String> expectedDynamicFilter,
             Optional<String> expectedStaticFilter,
             PlanMatchPattern leftSource,
@@ -422,6 +445,23 @@ public final class PlanMatchPattern
                 .with(joinMatcher);
     }
 
+    public static PlanMatchPattern cteConsumer(String cteName)
+    {
+        CteConsumerMatcher cteConsumerMatcher = new CteConsumerMatcher(cteName);
+        return node(CteConsumerNode.class).with(cteConsumerMatcher);
+    }
+
+    public static PlanMatchPattern cteProducer(String cteName, PlanMatchPattern source)
+    {
+        CteProducerMatcher cteProducerMatcher = new CteProducerMatcher(cteName);
+        return node(CteProducerNode.class, source).with(cteProducerMatcher);
+    }
+
+    public static PlanMatchPattern sequence(PlanMatchPattern... sources)
+    {
+        return node(SequenceNode.class, sources);
+    }
+
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
@@ -439,7 +479,7 @@ public final class PlanMatchPattern
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), Optional.empty()));
     }
 
-    public static PlanMatchPattern mergeJoin(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern mergeJoin(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(MergeJoinNode.class, left, right).with(
                 new MergeJoinMatcher(
@@ -451,6 +491,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern unnest(PlanMatchPattern source)
     {
         return node(UnnestNode.class, source);
+    }
+
+    public static PlanMatchPattern unnest(Map<String, List<String>> unnestVariables, PlanMatchPattern source)
+    {
+        return node(UnnestNode.class, source).with(new UnnestMatcher(unnestVariables));
     }
 
     public static PlanMatchPattern exchange(PlanMatchPattern... sources)
@@ -490,7 +535,7 @@ public final class PlanMatchPattern
         return node(ExceptNode.class, sources);
     }
 
-    public static ExpectedValueProvider<JoinNode.EquiJoinClause> equiJoinClause(String left, String right)
+    public static ExpectedValueProvider<EquiJoinClause> equiJoinClause(String left, String right)
     {
         return new EquiJoinClauseProvider(new SymbolAlias(left), new SymbolAlias(right));
     }
@@ -528,6 +573,14 @@ public final class PlanMatchPattern
     public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, PlanMatchPattern source)
     {
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
+    }
+
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias, Map<String, ExpressionMatcher> groupingColumns, PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, identityMappings, groupIdAlias));
+        groupingColumns.entrySet().forEach(
+                groupingColumn -> result.withAlias(groupingColumn.getKey(), groupingColumn.getValue()));
+        return result;
     }
 
     private static PlanMatchPattern values(
@@ -591,6 +644,11 @@ public final class PlanMatchPattern
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
     }
 
+    public static PlanMatchPattern remoteSource(List<PlanFragmentId> sourceFragmentIds, Map<String, Integer> outputSymbolAliases)
+    {
+        return node(RemoteSourceNode.class).with(new RemoteSourceMatcher(sourceFragmentIds, outputSymbolAliases));
+    }
+
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
     {
         requireNonNull(sourcePatterns, "sourcePatterns are null");
@@ -631,7 +689,13 @@ public final class PlanMatchPattern
         SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            MatchResult matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            MatchResult matchResult;
+            if (matcher instanceof AggregationMatcher) {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases.withNewAliases(newAliases.build()));
+            }
+            else {
+                matchResult = matcher.detailMatches(node, stats, session, metadata, symbolAliases);
+            }
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
@@ -717,6 +781,12 @@ public final class PlanMatchPattern
     public PlanMatchPattern withOutputSize(double expectedOutputSize)
     {
         matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
+        return this;
+    }
+
+    public PlanMatchPattern withJoinStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount, double expectedJoinProbeKeyCount, double expectedNullJoinProbeKeyCount)
+    {
+        matchers.add(new StatsJoinKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount, expectedJoinProbeKeyCount, expectedNullJoinProbeKeyCount));
         return this;
     }
 
@@ -912,7 +982,7 @@ public final class PlanMatchPattern
         private final int groupingSetCount;
         private final Set<Integer> globalGroupingSets;
 
-        private GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
+        public GroupingSetDescriptor(List<String> groupingKeys, int groupingSetCount, Set<Integer> globalGroupingSets)
         {
             this.groupingKeys = groupingKeys;
             this.groupingSetCount = groupingSetCount;

@@ -162,7 +162,7 @@ public class RcFileFileWriterFactory
                     codecName,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
-                            .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
+                            .put(MetastoreUtil.PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
                     validationInputFactory));

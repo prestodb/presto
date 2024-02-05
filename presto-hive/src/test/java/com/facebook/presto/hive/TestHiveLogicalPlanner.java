@@ -97,20 +97,21 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
-import static com.facebook.presto.hive.HiveSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -133,7 +134,6 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -159,7 +159,8 @@ public class TestHiveLogicalPlanner
     {
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, LINE_ITEM, CUSTOMER, NATION),
-                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
+                        "pushdown-subfields-from-lambda-enabled", "true"),
                 Optional.empty());
     }
 
@@ -226,7 +227,8 @@ public class TestHiveLogicalPlanner
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "linenumber")))),
+                        project(
+                                strictTableScan("lineitem", identityMap("linenumber"))))),
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), TRUE_CONSTANT, ImmutableSet.of("partkey")));
 
         // Only remaining predicate
@@ -292,7 +294,9 @@ public class TestHiveLogicalPlanner
 
         assertPlan(pushdownFilterEnabled, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
                 output(exchange(
-                        strictTableScan("lineitem", identityMap("partkey", "orderkey", "linenumber")))),
+                        project(
+                                ImmutableMap.of("expr_8", expression("10")),
+                                strictTableScan("lineitem", identityMap("orderkey", "linenumber"))))),
                 plan -> assertTableLayout(plan, "lineitem", withColumnDomains(ImmutableMap.of(new Subfield("partkey", ImmutableList.of()), singleValue(BIGINT, 10L))), remainingPredicate, ImmutableSet.of("partkey", "orderkey")));
     }
 
@@ -547,7 +551,7 @@ public class TestHiveLogicalPlanner
                 "CREATE TABLE test_metadata_aggregation_folding_with_empty_partitions WITH (partitioned_by = ARRAY['ds']) AS " +
                         "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector());
         Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions").get();
 
         // Add one partition with no statistics.
@@ -691,7 +695,7 @@ public class TestHiveLogicalPlanner
                 "CREATE TABLE test_metadata_aggregation_folding_with_empty_partitions_with_threshold WITH (partitioned_by = ARRAY['ds']) AS " +
                         "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector());
         Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_empty_partitions_with_threshold").get();
 
         // Add one partition with no statistics.
@@ -765,7 +769,7 @@ public class TestHiveLogicalPlanner
                         "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds, IF(orderkey % 2 = 1, 'A', 'B') status " +
                         "FROM orders WHERE orderkey < 1000");
         ExtendedHiveMetastore metastore = replicateHiveMetastore((DistributedQueryRunner) queryRunner);
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector());
         Table table = metastore.getTable(metastoreContext, getSession().getSchema().get(), "test_metadata_aggregation_folding_with_two_partitions_columns").get();
 
         // Add one partition with no statistics.
@@ -1207,6 +1211,92 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("y", toSubfields("y[1]")));
         assertPushdownSubfields(format("SELECT id, min(z[1][2]).e.e1 FROM %s GROUP BY 1", tableName), tableName,
                 ImmutableMap.of("z", toSubfields("z[1][2]")));
+    }
+
+    @Test
+    public void testPushDownSubfieldsFromLambdas()
+    {
+        final String tableName = "test_pushdown_subfields_from_array_lambda";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(id bigint, " +
+                    "a array(bigint), " +
+                    "b array(array(varchar)), " +
+                    "mi map(int,array(row(a1 bigint, a2 double))), " +
+                    "mv map(varchar,array(row(a1 bigint, a2 double))), " +
+                    "m1 map(int,row(a1 bigint, a2 double)), " +
+                    "m2 map(int,row(a1 bigint, a2 double)), " +
+                    "m3 map(int,row(a1 bigint, a2 double)), " +
+                    "r row(a array(row(a1 bigint, a2 double)), i bigint, d row(d1 bigint, d2 double)), " +
+                    "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                    "yy array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                    "yyy array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))), " +
+                    "am array(map(int,row(a1 bigint, a2 double))), " +
+                    "aa array(array(row(a1 bigint, a2 double))), " +
+                    "z array(array(row(p bigint, e row(e1 bigint, e2 varchar)))))");
+           // transform
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> x.d.d1) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1")));
+
+            // map_zip_with
+            assertPushdownSubfields("SELECT MAP_ZIP_WITH(m1, m2, (k, v1, v2) -> v1.a1 + v2.a2) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1"), "m2", toSubfields("m2[*].a2")));
+
+            // transform_values
+            assertPushdownSubfields("SELECT TRANSFORM_VALUES(m1, (k, v) -> v.a1 * 1000) FROM " + tableName, tableName,
+                    ImmutableMap.of("m1", toSubfields("m1[*].a1")));
+
+            // transform
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> ROW(x.a, x.d.d1)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a", "y[*].d.d1")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(r.a, x -> x.a1) FROM " + tableName, tableName,
+                    ImmutableMap.of("r", toSubfields("r.a[*].a1")));
+
+            // zip_with
+            assertPushdownSubfields("SELECT ZIP_WITH(y, yy, (x, xx) -> ROW(x.a, xx.d.d1)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].a"), "yy", toSubfields("yy[*].d.d1")));
+
+            // functions that outputing all subfields and accept functional parameter
+
+            //filter
+            assertPushdownSubfields("SELECT FILTER(y, x -> x.a > 0) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields()));
+
+            // flatten
+            assertPushdownSubfields("SELECT TRANSFORM(FLATTEN(z), x -> x.p) FROM " + tableName, tableName,
+                    ImmutableMap.of("z", toSubfields("z[*][*].p")));
+
+            // concat
+            assertPushdownSubfields("SELECT TRANSFORM(y || yy,  x -> x.d.d1) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1"), "yy", toSubfields("yy[*].d.d1")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(CONCAT(y, yy)  ,  x -> x.d.d1) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1"), "yy", toSubfields("yy[*].d.d1")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(CONCAT(y, yy, yyy)  ,  x -> x.d.d1) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields("y[*].d.d1"), "yy", toSubfields("yy[*].d.d1"), "yyy", toSubfields("yyy[*].d.d1")));
+
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> COALESCE(x, row(1, '', 1.0, row(1, 1.0)))) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // 'coalesce' effectively includes the entire subfield to returned values
+
+            // row_construction
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> ROW(x)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // entire struct of the element of 'y' was included to the output
+
+            assertPushdownSubfields("SELECT ZIP_WITH(y, yy, (x, xx) -> ROW(x,xx)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields(), "yy", toSubfields())); // entire struct of the elements of 'y' and 'yy' was included to the output
+
+            // switch
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> CASE x WHEN row(1, '', 1.0, row(1, 1.0)) THEN true ELSE false END) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // entire struct of the element of 'y' was accessed
+
+            // if
+            assertPushdownSubfields("SELECT TRANSFORM(y, x -> IF(x = row(1, '', 1.0, row(1, 1.0)), 1, 0)) FROM " + tableName, tableName,
+                    ImmutableMap.of("y", toSubfields())); // entire struct of the element of 'y' was accessed
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test

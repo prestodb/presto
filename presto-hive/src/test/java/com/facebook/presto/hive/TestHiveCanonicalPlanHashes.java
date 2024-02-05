@@ -22,11 +22,14 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +39,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
@@ -58,7 +62,16 @@ public class TestHiveCanonicalPlanHashes
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM));
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM));
+        queryRunner.installPlugin(new Plugin()
+        {
+            @Override
+            public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+            {
+                return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
+            }
+        });
+        return queryRunner;
     }
 
     @Override
@@ -191,6 +204,7 @@ public class TestHiveCanonicalPlanHashes
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(USE_PERFECTLY_CONSISTENT_HISTORIES, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .build();
     }
 }

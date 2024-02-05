@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
@@ -59,14 +60,12 @@ public class QueryManagerStats
     public void trackQueryStats(DispatchQuery managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener(managedQueryExecution));
     }
 
     public void trackQueryStats(QueryExecution managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener());
         managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
     }
@@ -75,12 +74,16 @@ public class QueryManagerStats
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
-        queryDequeued();
     }
 
     private void queryStopped()
     {
         runningQueries.decrementAndGet();
+    }
+
+    private void queryQueued()
+    {
+        queuedQueries.incrementAndGet();
     }
 
     private void queryDequeued()
@@ -145,6 +148,8 @@ public class QueryManagerStats
         private boolean stopped;
         @GuardedBy("this")
         private boolean started;
+        @GuardedBy("this")
+        private boolean queued;
 
         public StatisticsListener()
         {
@@ -169,16 +174,30 @@ public class QueryManagerStats
                     if (started) {
                         queryStopped();
                     }
-                    else {
+                    else if (queued) {
                         queryDequeued();
                     }
                     finalQueryInfoSupplier.get()
                             .ifPresent(QueryManagerStats.this::queryFinished);
+                    return;
                 }
-                else if (newValue.ordinal() >= RUNNING.ordinal()) {
-                    if (!started) {
-                        started = true;
-                        queryStarted();
+
+                if (newValue.ordinal() == QUEUED.ordinal()) {
+                    if (!queued) {
+                        queued = true;
+                        queryQueued();
+                    }
+                }
+                else if (newValue.ordinal() > QUEUED.ordinal()) {
+                    if (queued) {
+                        queryDequeued();
+                        queued = false;
+                    }
+                    if (newValue.ordinal() >= RUNNING.ordinal()) {
+                        if (!started) {
+                            started = true;
+                            queryStarted();
+                        }
                     }
                 }
             }

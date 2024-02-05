@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
@@ -62,6 +63,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveWarningCode.HIVE_FILE_STATISTICS_CORRUPTION;
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getDomain;
+import static com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate.getRange;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.NaN;
@@ -390,6 +392,20 @@ public class TestTupleDomainParquetPredicate
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column));
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
         assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, Optional.of(page))));
+    }
+
+    @Test
+    public void testGetRange()
+    {
+        Range range1 = getRange(INTEGER, 1, 2);
+        Range range2 = getRange(REAL, 1.0f, 2.0f);
+        Range range3 = getRange(DOUBLE, 1.0, 2.0);
+        assertEquals(range1.getLow().getValue(), 1L);
+        assertEquals(range1.getHigh().getValue(), 2L);
+        assertEquals(range2.getLow().getValue(), (long) floatToRawIntBits(1.0f));
+        assertEquals(range2.getHigh().getValue(), (long) floatToRawIntBits(2.0f));
+        assertEquals(range3.getLow().getValue(), 1.0);
+        assertEquals(range3.getHigh().getValue(), 2.0);
     }
 
     private TupleDomain<ColumnDescriptor> getEffectivePredicate(RichColumnDescriptor column, VarcharType type, Slice value)

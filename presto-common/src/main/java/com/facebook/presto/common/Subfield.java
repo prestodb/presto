@@ -56,6 +56,31 @@ public class Subfield
         }
     }
 
+    public static final class NoSubfield
+            implements PathElement
+    {
+        private static final NoSubfield NO_SUBFIELD = new NoSubfield();
+
+        private NoSubfield() {}
+
+        public static NoSubfield getInstance()
+        {
+            return NO_SUBFIELD;
+        }
+
+        @Override
+        public boolean isSubscript()
+        {
+            return false;
+        }
+
+        @Override
+        public String toString()
+        {
+            return ".$";
+        }
+    }
+
     public static final class NestedField
             implements PathElement
     {
@@ -206,6 +231,11 @@ public class Subfield
     public static PathElement allSubscripts()
     {
         return AllSubscripts.getInstance();
+    }
+
+    public static PathElement noSubfield()
+    {
+        return NoSubfield.getInstance();
     }
 
     @JsonCreator

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
-import java.util.Optional;
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -22,14 +22,14 @@ public class PrestoSparkFailure
 {
     private final String type;
     private final String errorCode;
-    private final Optional<RetryExecutionStrategy> retryExecutionStrategy;
+    private final List<ExecutionStrategy> retryExecutionStrategies;
 
-    public PrestoSparkFailure(String message, Throwable cause, String type, String errorCode, Optional<RetryExecutionStrategy> retryExecutionStrategy)
+    public PrestoSparkFailure(String message, Throwable cause, String type, String errorCode, List<ExecutionStrategy> retryExecutionStrategies)
     {
         super(message, cause);
         this.type = requireNonNull(type, "type is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
-        this.retryExecutionStrategy = requireNonNull(retryExecutionStrategy, "retryExecutionStrategy is null");
+        this.retryExecutionStrategies = requireNonNull(retryExecutionStrategies, "retryExecutionStrategies is null");
     }
 
     public String getType()
@@ -42,9 +42,9 @@ public class PrestoSparkFailure
         return errorCode;
     }
 
-    public Optional<RetryExecutionStrategy> getRetryExecutionStrategy()
+    public List<ExecutionStrategy> getRetryExecutionStrategies()
     {
-        return retryExecutionStrategy;
+        return retryExecutionStrategies;
     }
 
     @Override

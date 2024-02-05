@@ -15,6 +15,7 @@
 #include <folly/io/async/EventBaseManager.h>
 #include <csignal>
 #include "presto_cpp/main/PrestoServer.h"
+#include "presto_cpp/main/common/Utils.h"
 
 namespace facebook::presto {
 
@@ -26,7 +27,7 @@ SignalHandler::SignalHandler(PrestoServer* prestoServer)
 }
 
 void SignalHandler::signalReceived(int signum) noexcept {
-  LOG(INFO) << "SHUTDOWN: Received signal " << signum;
+  PRESTO_SHUTDOWN_LOG(INFO) << "Received signal " << signum;
   prestoServer_->stop();
 }
 

@@ -20,7 +20,7 @@ using namespace facebook::presto::protocol;
 
 class CallExpressionTest : public ::testing::Test {};
 
-TEST_F(CallExpressionTest, basic) {
+TEST_F(CallExpressionTest, dollarStatic) {
   std::string str = R"(
           {
             "@type": "call",
@@ -76,6 +76,56 @@ TEST_F(CallExpressionTest, basic) {
     ASSERT_EQ(k->signature.argumentTypes[0], "real");
     ASSERT_EQ(k->signature.kind, FunctionKind::AGGREGATE);
     ASSERT_EQ(k->signature.returnType, "real");
+  }
+
+  testJsonRoundtrip(j, p);
+}
+
+TEST_F(CallExpressionTest, json_file) {
+  std::string str = R"(
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "variable",
+                "name": "event_based_revenue",
+                "type": "real"
+              }
+            ],
+            "displayName": "sum",
+            "functionHandle": {
+              "@type": "json_file",
+              "functionId": "json.x4.sum;INTEGER;INTEGER",
+              "version": "1"
+            },
+            "returnType": "double"
+          }
+    )";
+
+  json j = json::parse(str);
+  CallExpression p = j;
+
+  // Check some values ...
+  ASSERT_EQ(p._type, "call");
+  ASSERT_EQ(p.displayName, "sum");
+  ASSERT_EQ(p.returnType, "double");
+
+  ASSERT_NE(p.arguments[0], nullptr);
+  {
+    ASSERT_EQ(p.arguments[0]->_type, "variable");
+    std::shared_ptr<VariableReferenceExpression> k =
+        std::static_pointer_cast<VariableReferenceExpression>(p.arguments[0]);
+    ASSERT_EQ(k->name, "event_based_revenue");
+    ASSERT_EQ(k->type, "real");
+  }
+
+  ASSERT_NE(p.functionHandle, nullptr);
+  {
+    ASSERT_EQ(p.functionHandle->_type, "json_file");
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::static_pointer_cast<SqlFunctionHandle>(p.functionHandle);
+    ASSERT_EQ(k->functionId, "json.x4.sum;INTEGER;INTEGER");
+    ASSERT_EQ(k->version, "1");
   }
 
   testJsonRoundtrip(j, p);

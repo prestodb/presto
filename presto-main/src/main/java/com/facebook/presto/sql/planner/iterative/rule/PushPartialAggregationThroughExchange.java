@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.PartialAggregationStatsEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -46,7 +48,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
+import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
+import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -54,6 +59,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -68,6 +74,7 @@ public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private String statsSource;
 
     public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -86,6 +93,18 @@ public class PushPartialAggregationThroughExchange
     public Pattern<AggregationNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isCostBased(Session session)
+    {
+        return getPartialAggregationStrategy(session) == AUTOMATIC;
+    }
+
+    @Override
+    public String getStatsSource()
+    {
+        return statsSource;
     }
 
     @Override
@@ -112,8 +131,7 @@ public class PushPartialAggregationThroughExchange
         if (!decomposable ||
                 partialAggregationStrategy == NEVER ||
                 partialAggregationStrategy == AUTOMATIC &&
-                        partialAggregationNotUseful(aggregationNode, exchangeNode, context) &&
-                        aggregationNode.getGroupingKeys().size() == 1) {
+                        partialAggregationNotUseful(aggregationNode, exchangeNode, context, aggregationNode.getGroupingKeys().size())) {
             return Result.empty();
         }
 
@@ -145,15 +163,32 @@ public class PushPartialAggregationThroughExchange
             return Result.empty();
         }
 
+        // System table scan must be run in Java on coordinator and partial aggregation output may not be compatible with Velox
+        if (isNativeExecutionEnabled(context.getSession()) && containsSystemTableScan(exchangeNode, context.getLookup())) {
+            return Result.empty();
+        }
+
+        PlanNode resultNode = null;
         switch (aggregationNode.getStep()) {
             case SINGLE:
                 // Split it into a FINAL on top of a PARTIAL and
-                return Result.ofPlanNode(split(aggregationNode, context));
+                resultNode = split(aggregationNode, context);
+                storeStatsSourceInfo(context, partialAggregationStrategy, aggregationNode);
+                return Result.ofPlanNode(resultNode);
             case PARTIAL:
                 // Push it underneath each branch of the exchange
-                return Result.ofPlanNode(pushPartial(aggregationNode, exchangeNode, context));
+                resultNode = pushPartial(aggregationNode, exchangeNode, context);
+                storeStatsSourceInfo(context, partialAggregationStrategy, aggregationNode);
+                return Result.ofPlanNode(resultNode);
             default:
                 return Result.empty();
+        }
+    }
+
+    private void storeStatsSourceInfo(Context context, PartialAggregationStrategy partialAggregationStrategy, PlanNode resultNode)
+    {
+        if (partialAggregationStrategy == AUTOMATIC) {
+            statsSource = context.getStatsProvider().getStats(resultNode).getSourceInfo().getSourceInfoName();
         }
     }
 
@@ -218,7 +253,7 @@ public class PushPartialAggregationThroughExchange
             AggregationNode.Aggregation originalAggregation = entry.getValue();
             String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
+            AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
             VariableReferenceExpression intermediateVariable = context.getVariableAllocator().newVariable(entry.getValue().getCall().getSourceLocation(), functionName, function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
@@ -263,6 +298,7 @@ public class PushPartialAggregationThroughExchange
             preGroupedSymbols = ImmutableList.copyOf(node.getGroupingSets().getGroupingKeys());
         }
 
+        Integer aggregationId = Integer.parseInt(context.getIdAllocator().getNextId().getId());
         PlanNode partial = new AggregationNode(
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
@@ -274,7 +310,8 @@ public class PushPartialAggregationThroughExchange
                 preGroupedSymbols,
                 PARTIAL,
                 node.getHashVariable(),
-                node.getGroupIdVariable());
+                node.getGroupIdVariable(),
+                Optional.of(aggregationId));
 
         return new AggregationNode(
                 node.getSourceLocation(),
@@ -287,19 +324,31 @@ public class PushPartialAggregationThroughExchange
                 ImmutableList.of(),
                 FINAL,
                 node.getHashVariable(),
-                node.getGroupIdVariable());
+                node.getGroupIdVariable(),
+                Optional.of(aggregationId));
     }
 
-    private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context)
+    private boolean partialAggregationNotUseful(AggregationNode aggregationNode, ExchangeNode exchangeNode, Context context, int numAggregationKeys)
     {
         StatsProvider stats = context.getStatsProvider();
         PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
-        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode);
-        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode);
+        double inputSize = exchangeStats.getOutputSizeInBytes(exchangeNode);
+        double outputSize = aggregationStats.getOutputSizeInBytes(aggregationNode);
+        PartialAggregationStatsEstimate partialAggregationStatsEstimate = aggregationStats.getPartialAggregationStatsEstimate();
+        boolean isConfident = exchangeStats.isConfident();
+        // keep old behavior of skipping partial aggregation only for single-key aggregations
+        boolean numberOfKeyCheck = usePartialAggregationHistory(context.getSession()) || numAggregationKeys == 1;
+        if (!isUnknown(partialAggregationStatsEstimate) && usePartialAggregationHistory(context.getSession())) {
+            isConfident = aggregationStats.isConfident();
+            // use rows instead of bytes when use_partial_aggregation_history flag is on
+            inputSize = partialAggregationStatsEstimate.getInputRowCount();
+            outputSize = partialAggregationStatsEstimate.getOutputRowCount();
+        }
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
-        return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;
+        // calling this function means we are using a cost-based strategy for this optimization
+        return numberOfKeyCheck && isConfident && outputSize > inputSize * byteReductionThreshold;
     }
 
     private static boolean isLambda(RowExpression rowExpression)

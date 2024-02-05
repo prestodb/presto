@@ -265,6 +265,28 @@ public final class FunctionAssertions
         assertEquals(actual.doubleValue(), expected, delta);
     }
 
+    public void assertFunctionDoubleArrayWithError(String projection, Type expectedType, List<Double> expected, double delta)
+    {
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        assertTrue(actual instanceof ArrayList);
+        ArrayList<Object> arrayList = (ArrayList) actual;
+        assertTrue(arrayList.size() == expected.size());
+        for (int i = 0; i < arrayList.size(); ++i) {
+            assertEquals((double) arrayList.get(i), expected.get(i), delta);
+        }
+    }
+
+    public void assertFunctionFloatArrayWithError(String projection, Type expectedType, List<Float> expected, float delta)
+    {
+        Object actual = selectSingleValue(projection, expectedType, compiler);
+        assertTrue(actual instanceof ArrayList);
+        ArrayList<Object> arrayList = (ArrayList) actual;
+        assertTrue(arrayList.size() == expected.size());
+        for (int i = 0; i < arrayList.size(); ++i) {
+            assertEquals((float) arrayList.get(i), expected.get(i), delta);
+        }
+    }
+
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, compiler);
@@ -296,7 +318,7 @@ public final class FunctionAssertions
         MaterializedResult result = runner.execute("SELECT " + projection);
     }
 
-    protected <T> T selectSingleValue(String projection, Type expectedType, Class<T> clazz)
+    public <T> T selectSingleValue(String projection, Type expectedType, Class<T> clazz)
     {
         Object object = selectSingleValue(projection, expectedType, compiler);
         assertEquals(object.getClass(), clazz);
@@ -998,7 +1020,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), session);
+        return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager(), session);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

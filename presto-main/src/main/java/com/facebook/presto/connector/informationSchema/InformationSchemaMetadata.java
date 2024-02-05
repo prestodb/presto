@@ -33,8 +33,8 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -296,7 +296,7 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadata.getMetadataResolver(session).getTableHandle(objectName).isPresent() || metadataResolver.getView(objectName).isPresent())
+                    .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
                     .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }

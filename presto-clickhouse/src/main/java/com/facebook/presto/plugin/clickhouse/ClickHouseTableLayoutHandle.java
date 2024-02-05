@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -32,23 +33,32 @@ public class ClickHouseTableLayoutHandle
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
     private Optional<String> simpleExpression;
+    private Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL;
 
     @JsonCreator
     public ClickHouseTableLayoutHandle(
             @JsonProperty("table") ClickHouseTableHandle table,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
             @JsonProperty("additionalPredicate") Optional<ClickHouseExpression> additionalPredicate,
-            @JsonProperty("simpleExpression") Optional<String> simpleExpression)
+            @JsonProperty("simpleExpression") Optional<String> simpleExpression,
+            @JsonProperty("clickhouseSQL") Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL)
     {
         this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
         this.additionalPredicate = additionalPredicate;
         this.simpleExpression = simpleExpression;
+        this.clickhouseSQL = clickhouseSQL;
     }
     @JsonProperty
     public Optional<String> getSimpleExpression()
     {
         return simpleExpression;
+    }
+
+    @JsonProperty
+    public Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> getClickhouseSQL()
+    {
+        return clickhouseSQL;
     }
 
     @JsonProperty
@@ -82,13 +92,14 @@ public class ClickHouseTableLayoutHandle
         return Objects.equals(table, that.table) &&
                 Objects.equals(tupleDomain, that.tupleDomain) &&
                 Objects.equals(additionalPredicate, that.additionalPredicate) &&
-                Objects.equals(simpleExpression, that.simpleExpression);
+                Objects.equals(simpleExpression, that.simpleExpression) &&
+                Objects.equals(clickhouseSQL, that.clickhouseSQL);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tupleDomain, additionalPredicate, simpleExpression);
+        return Objects.hash(table, tupleDomain, additionalPredicate, simpleExpression, clickhouseSQL);
     }
 
     @Override

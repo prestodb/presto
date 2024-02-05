@@ -123,7 +123,7 @@ public class TestLargeRowGroup
                 //Check the max memory used during each batch read
                 parquetReaderDeepSize = Math.max(parquetReaderDeepSize, sizeOf.deepSizeOf(parquetReader));
                 //Same check will work on system memory context; the upper bound here can be 'tightened' more
-                maxSystemMemoryUsed = Math.max(maxSystemMemoryUsed, parquetReader.getSystemMemoryContext().getBytes());
+                maxSystemMemoryUsed = Math.max(maxSystemMemoryUsed, parquetReader.getSystemMemoryUsage());
             }
 
             String testAssertFormat = "[%d] pages :: %s :: actual [%d], expected < [%d]";

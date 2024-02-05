@@ -144,6 +144,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -178,8 +179,10 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractor;
+import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -223,6 +226,7 @@ import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Singleton;
+import javax.servlet.Filter;
 import javax.servlet.Servlet;
 
 import java.util.List;
@@ -234,6 +238,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.ConcurrentScheduledExecutor.createConcurrentScheduledExecutor;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -249,6 +254,7 @@ import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -261,6 +267,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ServerMainModule
@@ -301,6 +308,12 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
         sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
+
+        // Metadata Extractor
+        binder.bind(ExecutorService.class).annotatedWith(ForMetadataExtractor.class)
+                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%s")));
+        binder.bind(MetadataExtractorMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MetadataExtractorMBean.class).as(generatedNameOf(MetadataExtractor.class));
 
         // analyzer
         binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
@@ -420,6 +433,11 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
+                        // HTTP endpoint for some of ResourceManagerServer methods.
+                        ResourceManagerConfig resourceManagerConfig = buildConfigObject(ResourceManagerConfig.class);
+                        if (resourceManagerConfig.getHeartbeatHttpEnabled()) {
+                            jaxrsBinder(moduleBinder).bind(ResourceManagerHeartbeatResource.class);
+                        }
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
@@ -518,7 +536,6 @@ public class ServerMainModule
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskInfo.class);
-        jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
         binder.bind(ExchangeClientSupplier.class).to(ExchangeClientFactory.class).in(Scopes.SINGLETON);
@@ -671,7 +688,8 @@ public class ServerMainModule
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
-                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
+                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()))
+                .addProperty(POOL_TYPE, serverConfig.getPoolType().name());
 
         RaftConfig raftConfig = buildConfigObject(RaftConfig.class);
         if (serverConfig.isResourceManager() && raftConfig.isEnabled()) {
@@ -742,6 +760,10 @@ public class ServerMainModule
         driftServerBinder(binder).bindService(ThriftServerInfoService.class);
 
         // Async page transport
+        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
+                .to(AsyncPageTransportForwardFilter.class).in(Scopes.SINGLETON);
+        binder.bind(AsyncPageTransportServlet.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(AsyncPageTransportServlet.class).withGeneratedName();
         newMapBinder(binder, String.class, Servlet.class, TheServlet.class)
                 .addBinding("/v1/task/async/*")
                 .to(AsyncPageTransportServlet.class)
@@ -756,6 +778,7 @@ public class ServerMainModule
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
+        binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

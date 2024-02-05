@@ -43,7 +43,7 @@ public class OrcWriterOptions
     public static final DataSize DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE = new DataSize(8, MEGABYTE);
     public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
     public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
-    public static final int DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT = 20000;
+    public static final int DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT = 25000;
     public static final boolean DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED = false;
     public static final boolean DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED = true;
     public static final boolean DEFAULT_STRING_DICTIONARY_SORTING_ENABLED = true;

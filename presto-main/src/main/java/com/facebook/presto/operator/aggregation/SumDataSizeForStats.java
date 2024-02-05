@@ -33,7 +33,7 @@ import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 @AggregationFunction(value = SumDataSizeForStats.NAME, visibility = HIDDEN)
 public final class SumDataSizeForStats
 {
-    public static final String NAME = "$internal$sum_data_size_for_stats";
+    public static final String NAME = "sum_data_size_for_stats";
 
     private SumDataSizeForStats() {}
 

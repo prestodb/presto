@@ -22,12 +22,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -242,6 +243,26 @@ public class PlanFragmenterUtils
                 .filter(node -> node instanceof TableWriterNode)
                 .map(PlanNode::getId)
                 .collect(toImmutableSet());
+    }
+
+    public static Set<PlanNodeId> getOutputTableWriterNodeIds(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(node -> (TableWriterNode) node)
+                .filter(tableWriterNode -> !tableWriterNode.getIsTemporaryTableWriter().orElse(false))
+                .map(TableWriterNode::getId)
+                .collect(toImmutableSet());
+    }
+
+    public static Optional<Integer> getTableWriterTasks(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(x -> ((TableWriterNode) x).getTaskCountIfScaledWriter())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .max(Integer::compareTo);
     }
 
     private static final class PartitioningHandleReassigner

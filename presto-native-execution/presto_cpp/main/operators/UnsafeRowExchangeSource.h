@@ -25,7 +25,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
   UnsafeRowExchangeSource(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
       velox::memory::MemoryPool* FOLLY_NONNULL pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
@@ -34,19 +34,28 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
     return !atEnd_;
   }
 
-  void request() override;
+  folly::SemiFuture<Response> request(
+      uint32_t maxBytes,
+      uint32_t maxWaitSeconds) override;
 
-  void close() override {}
+  void close() override {
+    shuffle_->noMoreData(true);
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override;
 
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
-  static std::unique_ptr<velox::exec::ExchangeSource> createExchangeSource(
+  static std::shared_ptr<velox::exec::ExchangeSource> createExchangeSource(
       const std::string& url,
       int32_t destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   const std::shared_ptr<ShuffleReader> shuffle_;
+
+  // The number of batches read from 'shuffle_'.
+  uint64_t numBatches_{0};
 };
 } // namespace facebook::presto::operators

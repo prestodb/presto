@@ -14,15 +14,13 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.MaxDataSizeForStats;
-import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -41,11 +39,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -62,7 +58,7 @@ public class StatisticsAggregationPlanner
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
     }
 
-    public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap, boolean useOriginalExpression)
+    public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
     {
         StatisticAggregationsDescriptor.Builder<VariableReferenceExpression> descriptor = StatisticAggregationsDescriptor.builder();
 
@@ -101,7 +97,7 @@ public class StatisticsAggregationPlanner
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
             verify(inputVariable != null, "inputVariable is null");
-            ColumnStatisticsAggregation aggregation = createColumnAggregation(statisticType, inputVariable, useOriginalExpression);
+            ColumnStatisticsAggregation aggregation = createColumnAggregation(columnStatisticMetadata, inputVariable);
             VariableReferenceExpression variable = variableAllocator.newVariable(statisticType + ":" + columnName, aggregation.getOutputType());
             aggregations.put(variable, aggregation.getAggregation());
             descriptor.addColumnStatistic(columnStatisticMetadata, variable);
@@ -111,40 +107,18 @@ public class StatisticsAggregationPlanner
         return new TableStatisticAggregation(aggregation, descriptor.build());
     }
 
-    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticType statisticType, VariableReferenceExpression input, boolean useOriginalExpression)
+    private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input)
     {
-        // This is transitional. Will migrate to only using VariableReferenceExpression when supported by all the planner rules.
-        RowExpression inputExpression = useOriginalExpression ? castToRowExpression(createSymbolReference(input)) : input;
-        switch (statisticType) {
-            case MIN_VALUE:
-                return createAggregation("min", inputExpression, input.getType(), input.getType());
-            case MAX_VALUE:
-                return createAggregation("max", inputExpression, input.getType(), input.getType());
-            case NUMBER_OF_DISTINCT_VALUES:
-                return createAggregation("approx_distinct", inputExpression, input.getType(), BIGINT);
-            case NUMBER_OF_NON_NULL_VALUES:
-                return createAggregation("count", inputExpression, input.getType(), BIGINT);
-            case NUMBER_OF_TRUE_VALUES:
-                return createAggregation("count_if", inputExpression, BOOLEAN, BIGINT);
-            case TOTAL_SIZE_IN_BYTES:
-                return createAggregation(SumDataSizeForStats.NAME, inputExpression, input.getType(), BIGINT);
-            case MAX_VALUE_SIZE_IN_BYTES:
-                return createAggregation(MaxDataSizeForStats.NAME, inputExpression, input.getType(), BIGINT);
-            default:
-                throw new IllegalArgumentException("Unsupported statistic type: " + statisticType);
-        }
-    }
-
-    private ColumnStatisticsAggregation createAggregation(String functionName, RowExpression input, Type inputType, Type outputType)
-    {
-        FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = functionAndTypeResolver.getType(getOnlyElement(functionAndTypeResolver.getFunctionMetadata(functionHandle).getArgumentTypes()));
-        verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
+        FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(columnStatisticMetadata.getFunctionName(), TypeSignatureProvider.fromTypes(ImmutableList.of(input.getType())));
+        FunctionMetadata functionMeta = functionAndTypeResolver.getFunctionMetadata(functionHandle);
+        Type inputType = functionAndTypeResolver.getType(getOnlyElement(functionMeta.getArgumentTypes()));
+        Type outputType = functionAndTypeResolver.getType(functionMeta.getReturnType());
+        verify(inputType.equals(input.getType()) || input.getType().equals(UNKNOWN), "resolved function input type does not match the input type: %s != %s", inputType, input.getType());
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new CallExpression(
                                 input.getSourceLocation(),
-                                functionName,
+                                columnStatisticMetadata.getFunctionName(),
                                 functionHandle,
                                 outputType,
                                 ImmutableList.of(input)),

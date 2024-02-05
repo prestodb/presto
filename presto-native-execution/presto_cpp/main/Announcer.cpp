@@ -12,17 +12,20 @@
  * limitations under the License.
  */
 #include "Announcer.h"
+
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include "presto_cpp/external/json/json.hpp"
-#include "presto_cpp/main/http/HttpClient.h"
+#include <folly/futures/Retrying.h>
+#include <velox/common/memory/Memory.h>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 
 namespace facebook::presto {
 namespace {
 
 std::string announcementBody(
     const std::string& address,
+    bool useHttps,
     int port,
     const std::string& nodeVersion,
     const std::string& environment,
@@ -31,13 +34,7 @@ std::string announcementBody(
   std::string id =
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
 
-  std::ostringstream connectors;
-  for (int i = 0; i < connectorIds.size(); i++) {
-    if (i > 0) {
-      connectors << ",";
-    }
-    connectors << connectorIds[i];
-  }
+  const auto uriScheme = useHttps ? "https" : "http";
 
   nlohmann::json body = {
       {"environment", environment},
@@ -49,8 +46,9 @@ std::string announcementBody(
          {"properties",
           {{"node_version", nodeVersion},
            {"coordinator", false},
-           {"connectorIds", connectors.str()},
-           {"http", fmt::format("http://{}:{}", address, port)}}}}}}};
+           {"connectorIds", folly::join(',', connectorIds)},
+           {uriScheme,
+            fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
 }
 
@@ -74,96 +72,36 @@ proxygen::HTTPMessage announcementRequest(
 
 Announcer::Announcer(
     const std::string& address,
+    bool useHttps,
     int port,
-    std::function<folly::SocketAddress()> discoveryAddressLookup,
+    const std::shared_ptr<CoordinatorDiscoverer>& coordinatorDiscoverer,
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeId,
     const std::string& nodeLocation,
     const std::vector<std::string>& connectorIds,
-    int frequencyMs)
-    : discoveryAddressLookup_(std::move(discoveryAddressLookup)),
-      frequencyMs_(frequencyMs),
+    const uint64_t maxFrequencyMs,
+    folly::SSLContextPtr sslContext)
+    : PeriodicServiceInventoryManager(
+          address,
+          port,
+          coordinatorDiscoverer,
+          std::move(sslContext),
+          "Announcement",
+          maxFrequencyMs),
       announcementBody_(announcementBody(
           address,
+          useHttps,
           port,
           nodeVersion,
           environment,
           nodeLocation,
           connectorIds)),
       announcementRequest_(
-          announcementRequest(address, port, nodeId, announcementBody_)),
-      eventBaseThread_(false /*autostart*/) {}
+          announcementRequest(address, port, nodeId, announcementBody_)) {}
 
-Announcer::~Announcer() {
-  stop();
-}
-
-void Announcer::start() {
-  eventBaseThread_.start("Announcer");
-  stopped_ = false;
-  auto* eventBase = eventBaseThread_.getEventBase();
-  eventBase->runOnDestruction([this] { client_.reset(); });
-  eventBase->schedule([this]() { return makeAnnouncement(); });
-}
-
-void Announcer::stop() {
-  stopped_ = true;
-  eventBaseThread_.stop();
-}
-
-void Announcer::makeAnnouncement() {
-  // stop() calls EventBase's destructor which executed all pending callbacks;
-  // make sure not to do anything if that's the case
-  if (stopped_) {
-    return;
-  }
-
-  try {
-    auto newAddress = discoveryAddressLookup_();
-    if (newAddress != address_) {
-      LOG(INFO) << "Discovery service changed to " << newAddress.getAddressStr()
-                << ":" << newAddress.getPort();
-      std::swap(address_, newAddress);
-      client_ = std::make_unique<http::HttpClient>(
-          eventBaseThread_.getEventBase(),
-          address_,
-          std::chrono::milliseconds(10'000));
-    }
-  } catch (const std::exception& ex) {
-    LOG(WARNING) << "Error occurred during announcement run: " << ex.what();
-    scheduleNext();
-    return;
-  }
-
-  client_->sendRequest(announcementRequest_, announcementBody_)
-      .via(eventBaseThread_.getEventBase())
-      .thenValue([](auto response) {
-        auto message = response->headers();
-        if (message->getStatusCode() != http::kHttpAccepted) {
-          LOG(WARNING) << "Announcement failed: HTTP "
-                       << message->getStatusCode() << " - "
-                       << response->dumpBodyChain();
-        } else {
-          LOG(INFO) << "Announcement succeeded: " << message->getStatusCode();
-        }
-      })
-      .thenError(
-          folly::tag_t<std::exception>{},
-          [](const std::exception& e) {
-            LOG(WARNING) << "Announcement failed: " << e.what();
-          })
-      .thenTry([this](auto /*unused*/) { scheduleNext(); });
-}
-
-void Announcer::scheduleNext() {
-  if (stopped_) {
-    return;
-  }
-  eventBaseThread_.getEventBase()->scheduleAt(
-      [this]() { return makeAnnouncement(); },
-      std::chrono::steady_clock::now() +
-          std::chrono::milliseconds(frequencyMs_));
+std::tuple<proxygen::HTTPMessage, std::string> Announcer::httpRequest() {
+  return {announcementRequest_, announcementBody_};
 }
 
 } // namespace facebook::presto

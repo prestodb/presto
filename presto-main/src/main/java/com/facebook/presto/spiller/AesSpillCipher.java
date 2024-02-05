@@ -21,6 +21,7 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
@@ -58,7 +59,7 @@ final class AesSpillCipher
         ByteBuffer output = ByteBuffer.allocate(cipher.getOutputSize(encryptedData.remaining()));
         try {
             cipher.doFinal(encryptedData, output);
-            output.flip();
+            ((Buffer) output).flip();
             return output;
         }
         catch (GeneralSecurityException e) {
@@ -82,7 +83,7 @@ final class AesSpillCipher
                 .put(iv);
         try {
             cipher.doFinal(data, output);
-            output.flip();
+            ((Buffer) output).flip();
             return output;
         }
         catch (GeneralSecurityException e) {

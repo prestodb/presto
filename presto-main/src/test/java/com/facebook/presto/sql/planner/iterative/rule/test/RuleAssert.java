@@ -32,19 +32,15 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +51,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -183,7 +180,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern, planNode -> translateExpressions(planNode, types));
+            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern, planNode -> planNode);
             return null;
         });
     }
@@ -243,7 +240,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session);
-        return inTransaction(session -> textLogicalPlan(translateExpressions(plan, types), types, StatsAndCosts.create(plan, statsProvider, costProvider), metadata.getFunctionAndTypeManager(), session, 2, false));
+        return inTransaction(session -> textLogicalPlan(plan, types, StatsAndCosts.create(plan, statsProvider, costProvider), metadata.getFunctionAndTypeManager(), session, 2, false, isVerboseOptimizerInfoEnabled(session)));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -255,12 +252,6 @@ public class RuleAssert
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
-    }
-
-    private PlanNode translateExpressions(PlanNode node, TypeProvider typeProvider)
-    {
-        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculator, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(node, session, typeProvider, new VariableAllocator(typeProvider.allVariables()), idAllocator, WarningCollector.NOOP);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, VariableAllocator variableAllocator, Memo memo, Lookup lookup, Session session)

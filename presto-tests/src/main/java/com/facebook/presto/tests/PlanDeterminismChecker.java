@@ -23,6 +23,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static org.testng.Assert.assertEquals;
 
 public class PlanDeterminismChecker
@@ -70,7 +71,8 @@ public class PlanDeterminismChecker
                     localQueryRunner.getMetadata().getFunctionAndTypeManager(),
                     transactionSession,
                     0,
-                    false);
+                    false,
+                    isVerboseOptimizerInfoEnabled(session));
         });
     }
 }

@@ -26,4 +26,9 @@ public class TestIcebergDistributedHadoop
     {
         super(HADOOP);
     }
+
+    protected boolean supportsViews()
+    {
+        return false;
+    }
 }

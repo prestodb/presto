@@ -23,6 +23,8 @@ public class DateStatisticsBuilder
         implements LongValueStatisticsBuilder
 {
     private long nonNullValueCount;
+    private long storageSize;
+    private long rawSize;
     private int minimum = Integer.MAX_VALUE;
     private int maximum = Integer.MIN_VALUE;
 
@@ -60,9 +62,21 @@ public class DateStatisticsBuilder
     {
         Optional<DateStatistics> dateStatistics = buildDateStatistics();
         if (dateStatistics.isPresent()) {
-            return new DateColumnStatistics(nonNullValueCount, null, dateStatistics.get());
+            return new DateColumnStatistics(nonNullValueCount, null, rawSize, storageSize, dateStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
+    }
+
+    @Override
+    public void incrementRawSize(long rawSize)
+    {
+        this.rawSize += rawSize;
+    }
+
+    @Override
+    public void incrementSize(long storageSize)
+    {
+        this.storageSize += storageSize;
     }
 
     public static Optional<DateStatistics> mergeDateStatistics(List<ColumnStatistics> stats)

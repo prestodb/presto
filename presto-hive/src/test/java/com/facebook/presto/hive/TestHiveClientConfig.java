@@ -17,8 +17,6 @@ import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.HiveClientConfig.HdfsAuthenticationType;
 import com.facebook.presto.hive.s3.S3FileSystemType;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -39,7 +37,6 @@ import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static io.airlift.units.DataSize.Unit.BYTE;
 
 public class TestHiveClientConfig
@@ -62,7 +59,6 @@ public class TestHiveClientConfig
                 .setSplitLoaderConcurrency(4)
                 .setDomainCompactionThreshold(100)
                 .setWriterSortBufferSize(new DataSize(64, Unit.MEGABYTE))
-                .setNodeSelectionStrategy(NodeSelectionStrategy.valueOf("NO_PREFERENCE"))
                 .setMaxConcurrentFileRenames(20)
                 .setMaxConcurrentZeroRowFileCreations(20)
                 .setRecursiveDirWalkerEnabled(false)
@@ -87,23 +83,11 @@ public class TestHiveClientConfig
                 .setMaxOpenSortFiles(50)
                 .setWriteValidationThreads(16)
                 .setTextMaxLineLength(new DataSize(100, Unit.MEGABYTE))
-                .setUseParquetColumnNames(false)
-                .setParquetMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
                 .setUseOrcColumnNames(false)
                 .setAssumeCanonicalPartitionKeys(false)
-                .setOrcBloomFiltersEnabled(false)
                 .setOrcDefaultBloomFilterFpp(0.05)
-                .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
-                .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
-                .setOrcTinyStripeThreshold(new DataSize(8, Unit.MEGABYTE))
-                .setOrcMaxReadBlockSize(new DataSize(16, Unit.MEGABYTE))
-                .setOrcLazyReadSmallRanges(true)
                 .setRcfileOptimizedWriterEnabled(true)
                 .setRcfileWriterValidate(false)
-                .setOrcOptimizedWriterEnabled(true)
-                .setOrcWriterValidationPercentage(0.0)
-                .setOrcWriterValidationMode(OrcWriteValidationMode.BOTH)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.NONE)
                 .setHdfsImpersonationEnabled(false)
                 .setSkipDeletionForAlter(false)
@@ -136,16 +120,13 @@ public class TestHiveClientConfig
                 .setUsePageFileForHiveUnsupportedType(true)
                 .setPushdownFilterEnabled(false)
                 .setParquetPushdownFilterEnabled(false)
-                .setZstdJniDecompressionEnabled(false)
-                .setRangeFiltersOnSubscriptsEnabled(false)
                 .setAdaptiveFilterReorderingEnabled(true)
                 .setFileStatusCacheExpireAfterWrite(new Duration(0, TimeUnit.SECONDS))
                 .setFileStatusCacheMaxSize(0)
                 .setFileStatusCacheTables("")
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
-                .setParquetBatchReaderVerificationEnabled(false)
-                .setParquetBatchReadOptimizationEnabled(false)
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
+                .setBucketFunctionTypeForCteMaterialization(PRESTO_NATIVE)
                 .setParquetDereferencePushdownEnabled(false)
                 .setIgnoreUnreadablePartition(false)
                 .setMaxMetadataUpdaterThreads(100)
@@ -169,9 +150,10 @@ public class TestHiveClientConfig
                 .setHudiMetadataEnabled(false)
                 .setThriftProtocol(Protocol.BINARY)
                 .setThriftBufferSize(new DataSize(128, BYTE))
-                .setReadNullMaskedParquetEncryptedValue(false)
                 .setCopyOnFirstWriteConfigurationEnabled(true)
-                .setPartitionFilteringFromMetastoreEnabled(true));
+                .setPartitionFilteringFromMetastoreEnabled(true)
+                .setParallelParsingOfPartitionValuesEnabled(false)
+                .setMaxParallelParsingConcurrency(100));
     }
 
     @Test
@@ -212,27 +194,14 @@ public class TestHiveClientConfig
                 .put("hive.max-partitions-per-writers", "222")
                 .put("hive.max-open-sort-files", "333")
                 .put("hive.write-validation-threads", "11")
-                .put("hive.node-selection-strategy", "HARD_AFFINITY")
                 .put("hive.max-concurrent-file-renames", "100")
                 .put("hive.max-concurrent-zero-row-file-creations", "100")
                 .put("hive.assume-canonical-partition-keys", "true")
                 .put("hive.text.max-line-length", "13MB")
-                .put("hive.parquet.use-column-names", "true")
-                .put("hive.parquet.max-read-block-size", "66kB")
                 .put("hive.orc.use-column-names", "true")
-                .put("hive.orc.bloom-filters.enabled", "true")
                 .put("hive.orc.default-bloom-filter-fpp", "0.96")
-                .put("hive.orc.max-merge-distance", "22kB")
-                .put("hive.orc.max-buffer-size", "44kB")
-                .put("hive.orc.stream-buffer-size", "55kB")
-                .put("hive.orc.tiny-stripe-threshold", "61kB")
-                .put("hive.orc.max-read-block-size", "66kB")
-                .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.rcfile-optimized-writer.enabled", "false")
                 .put("hive.rcfile.writer.validate", "true")
-                .put("hive.orc.optimized-writer.enabled", "false")
-                .put("hive.orc.writer.validation-percentage", "0.16")
-                .put("hive.orc.writer.validation-mode", "DETAILED")
                 .put("hive.hdfs.authentication.type", "KERBEROS")
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.skip-deletion-for-alter", "true")
@@ -266,16 +235,13 @@ public class TestHiveClientConfig
                 .put("hive.use-pagefile-for-hive-unsupported-type", "false")
                 .put("hive.pushdown-filter-enabled", "true")
                 .put("hive.parquet.pushdown-filter-enabled", "true")
-                .put("hive.range-filters-on-subscripts-enabled", "true")
                 .put("hive.adaptive-filter-reordering-enabled", "false")
-                .put("hive.zstd-jni-decompression-enabled", "true")
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
                 .put("hive.pagefile.writer.stripe-max-size", "1kB")
-                .put("hive.parquet-batch-read-optimization-enabled", "true")
-                .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
+                .put("hive.bucket-function-type-for-cte-materialization", "HIVE_COMPATIBLE")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.ignore-unreadable-partition", "true")
                 .put("hive.max-metadata-updater-threads", "1000")
@@ -299,9 +265,10 @@ public class TestHiveClientConfig
                 .put("hive.hudi-metadata-enabled", "true")
                 .put("hive.internal-communication.thrift-transport-protocol", "COMPACT")
                 .put("hive.internal-communication.thrift-transport-buffer-size", "256B")
-                .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
                 .put("hive.copy-on-first-write-configuration-enabled", "false")
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
+                .put("hive.parallel-parsing-of-partition-values-enabled", "true")
+                .put("hive.max-parallel-parsing-concurrency", "200")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -319,7 +286,6 @@ public class TestHiveClientConfig
                 .setSplitLoaderConcurrency(1)
                 .setDomainCompactionThreshold(42)
                 .setWriterSortBufferSize(new DataSize(13, Unit.MEGABYTE))
-                .setNodeSelectionStrategy(HARD_AFFINITY)
                 .setMaxConcurrentFileRenames(100)
                 .setMaxConcurrentZeroRowFileCreations(100)
                 .setRecursiveDirWalkerEnabled(true)
@@ -342,23 +308,11 @@ public class TestHiveClientConfig
                 .setDomainSocketPath("/foo")
                 .setS3FileSystemType(S3FileSystemType.EMRFS)
                 .setTextMaxLineLength(new DataSize(13, Unit.MEGABYTE))
-                .setUseParquetColumnNames(true)
-                .setParquetMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
                 .setUseOrcColumnNames(true)
                 .setAssumeCanonicalPartitionKeys(true)
-                .setOrcBloomFiltersEnabled(true)
                 .setOrcDefaultBloomFilterFpp(0.96)
-                .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
-                .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
-                .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
-                .setOrcTinyStripeThreshold(new DataSize(61, Unit.KILOBYTE))
-                .setOrcMaxReadBlockSize(new DataSize(66, Unit.KILOBYTE))
-                .setOrcLazyReadSmallRanges(false)
                 .setRcfileOptimizedWriterEnabled(false)
                 .setRcfileWriterValidate(true)
-                .setOrcOptimizedWriterEnabled(false)
-                .setOrcWriterValidationPercentage(0.16)
-                .setOrcWriterValidationMode(OrcWriteValidationMode.DETAILED)
                 .setHdfsAuthenticationType(HdfsAuthenticationType.KERBEROS)
                 .setHdfsImpersonationEnabled(true)
                 .setSkipDeletionForAlter(true)
@@ -392,16 +346,13 @@ public class TestHiveClientConfig
                 .setUsePageFileForHiveUnsupportedType(false)
                 .setPushdownFilterEnabled(true)
                 .setParquetPushdownFilterEnabled(true)
-                .setZstdJniDecompressionEnabled(true)
-                .setRangeFiltersOnSubscriptsEnabled(true)
                 .setAdaptiveFilterReorderingEnabled(false)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
-                .setParquetBatchReaderVerificationEnabled(true)
-                .setParquetBatchReadOptimizationEnabled(true)
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
+                .setBucketFunctionTypeForCteMaterialization(HIVE_COMPATIBLE)
                 .setParquetDereferencePushdownEnabled(true)
                 .setIgnoreUnreadablePartition(true)
                 .setMaxMetadataUpdaterThreads(1000)
@@ -425,9 +376,10 @@ public class TestHiveClientConfig
                 .setHudiMetadataEnabled(true)
                 .setThriftProtocol(Protocol.COMPACT)
                 .setThriftBufferSize(new DataSize(256, BYTE))
-                .setReadNullMaskedParquetEncryptedValue(true)
                 .setCopyOnFirstWriteConfigurationEnabled(false)
-                .setPartitionFilteringFromMetastoreEnabled(false);
+                .setPartitionFilteringFromMetastoreEnabled(false)
+                .setParallelParsingOfPartitionValuesEnabled(true)
+                .setMaxParallelParsingConcurrency(200);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

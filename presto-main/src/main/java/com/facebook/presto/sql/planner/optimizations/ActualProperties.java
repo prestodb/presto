@@ -23,7 +23,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,12 +38,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.util.MoreLists.filteredCopy;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -212,15 +208,8 @@ public class ActualProperties
         Map<VariableReferenceExpression, VariableReferenceExpression> inputToOutputVariables = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
             RowExpression expression = assignment.getValue();
-            if (isExpression(expression)) {
-                if (castToExpression(expression) instanceof SymbolReference) {
-                    inputToOutputVariables.put(toVariableReference(castToExpression(expression), types), assignment.getKey());
-                }
-            }
-            else {
-                if (expression instanceof VariableReferenceExpression) {
-                    inputToOutputVariables.put((VariableReferenceExpression) expression, assignment.getKey());
-                }
+            if (expression instanceof VariableReferenceExpression) {
+                inputToOutputVariables.put((VariableReferenceExpression) expression, assignment.getKey());
             }
         }
 

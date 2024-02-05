@@ -128,18 +128,17 @@ public class TestPostgreSqlIntegrationSmokeTest
                 AutoCloseable ignore2 = withTable("tpch.supported_columns", format("(good %s)", supportedDataType));
                 AutoCloseable ignore3 = withTable("tpch.no_columns", "()")) {
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("orders", "no_supported_columns", "supported_columns", "no_columns");
+            assertQueryFails("SELECT c FROM tpch.no_supported_columns", "\\QTable 'tpch.no_supported_columns" + "' has no supported columns (all 1 columns are not supported)");
+            assertQueryFails("SELECT * FROM tpch.no_supported_columns", "\\QTable 'tpch.no_supported_columns" + "' has no supported columns (all 1 columns are not supported)");
+            assertQueryFails("SELECT 'a' FROM tpch.no_supported_columns", "\\QTable 'tpch.no_supported_columns" + "' has no supported columns (all 1 columns are not supported)");
 
-            assertQueryFails("SELECT c FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
-            assertQueryFails("SELECT * FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
-            assertQueryFails("SELECT 'a' FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+            assertQueryFails("SELECT c FROM tpch.no_columns", "\\QTable 'tpch.no_columns" + "' has no supported columns (all 0 columns are not supported)");
+            assertQueryFails("SELECT * FROM tpch.no_columns", "\\QTable 'tpch.no_columns" + "' has no supported columns (all 0 columns are not supported)");
+            assertQueryFails("SELECT 'a' FROM tpch.no_columns", "\\QTable 'tpch.no_columns" + "' has no supported columns (all 0 columns are not supported)");
 
-            assertQueryFails("SELECT c FROM no_columns", "Table 'tpch.no_columns' not found");
-            assertQueryFails("SELECT * FROM no_columns", "Table 'tpch.no_columns' not found");
-            assertQueryFails("SELECT 'a' FROM no_columns", "Table 'tpch.no_columns' not found");
-
-            assertQueryFails("SELECT c FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
-            assertQueryFails("SELECT * FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
-            assertQueryFails("SELECT 'a' FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
+            assertQueryFails("SELECT c FROM non_existent", ".*Table .*tpch.non_existent.* does not exist");
+            assertQueryFails("SELECT * FROM non_existent", ".*Table .*tpch.non_existent.* does not exist");
+            assertQueryFails("SELECT 'a' FROM non_existent", ".*Table .*tpch.non_existent.* does not exist");
 
             assertQuery("SHOW COLUMNS FROM no_supported_columns", "SELECT 'nothing' WHERE false");
             assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");

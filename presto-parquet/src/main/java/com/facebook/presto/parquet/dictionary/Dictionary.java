@@ -59,4 +59,9 @@ public abstract class Dictionary
     {
         throw new UnsupportedOperationException();
     }
+
+    public long getRetainedSizeInBytes()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

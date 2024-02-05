@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.281-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-clickhouse</artifactId>
@@ -202,7 +202,6 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
-            <version>1.14.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

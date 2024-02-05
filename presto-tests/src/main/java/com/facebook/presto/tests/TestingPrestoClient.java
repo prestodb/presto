@@ -51,6 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -251,6 +252,17 @@ public class TestingPrestoClient
                             e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
         }
         else if (type instanceof RowType) {
+            if (value instanceof LinkedHashMap) {
+                // If value is an ordered map, use indexes instead of names.
+                List<Object> data = new ArrayList<>(((Map<String, Object>) value).values());
+                List<RowType.Field> fields = ((RowType) type).getFields();
+                List<Object> rowValues = new ArrayList<>();
+                for (int i = 0; i < fields.size(); i++) {
+                    rowValues.add(convertToRowValue(fields.get(i).getType(), data.get(i)));
+                }
+                return rowValues;
+            }
+
             Map<String, Object> data = (Map<String, Object>) value;
             RowType rowType = (RowType) type;
 

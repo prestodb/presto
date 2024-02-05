@@ -27,36 +27,36 @@ public class SqlFunctionProperties
 {
     private final boolean parseDecimalLiteralAsDouble;
     private final boolean legacyRowFieldOrdinalAccessEnabled;
-    private final boolean legacyTypeCoercionWarningEnabled;
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
     private final boolean legacyMapSubscript;
     private final long sessionStartTime;
     private final Locale sessionLocale;
     private final String sessionUser;
+    private final boolean fieldNamesInJsonCastEnabled;
     private final Map<String, String> extraCredentials;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
             boolean legacyRowFieldOrdinalAccessEnabled,
-            boolean legacyTypeCoercionWarningEnabled,
             TimeZoneKey timeZoneKey,
             boolean legacyTimestamp,
             boolean legacyMapSubscript,
             long sessionStartTime,
             Locale sessionLocale,
             String sessionUser,
+            boolean fieldNamesInJsonCastEnabled,
             Map<String, String> extraCredentials)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
-        this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.legacyTimestamp = legacyTimestamp;
         this.legacyMapSubscript = legacyMapSubscript;
         this.sessionStartTime = sessionStartTime;
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
+        this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
     }
 
@@ -68,11 +68,6 @@ public class SqlFunctionProperties
     public boolean isLegacyRowFieldOrdinalAccessEnabled()
     {
         return legacyRowFieldOrdinalAccessEnabled;
-    }
-
-    public boolean isLegacyTypeCoercionWarningEnabled()
-    {
-        return legacyTypeCoercionWarningEnabled;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -111,6 +106,11 @@ public class SqlFunctionProperties
         return extraCredentials;
     }
 
+    public boolean isFieldNamesInJsonCastEnabled()
+    {
+        return fieldNamesInJsonCastEnabled;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -147,13 +147,13 @@ public class SqlFunctionProperties
     {
         private boolean parseDecimalLiteralAsDouble;
         private boolean legacyRowFieldOrdinalAccessEnabled;
-        private boolean legacyTypeCoercionWarningEnabled;
         private TimeZoneKey timeZoneKey;
         private boolean legacyTimestamp;
         private boolean legacyMapSubscript;
         private long sessionStartTime;
         private Locale sessionLocale;
         private String sessionUser;
+        private boolean fieldNamesInJsonCastEnabled;
         private Map<String, String> extraCredentials = emptyMap();
 
         private Builder() {}
@@ -167,12 +167,6 @@ public class SqlFunctionProperties
         public Builder setLegacyRowFieldOrdinalAccessEnabled(boolean legacyRowFieldOrdinalAccessEnabled)
         {
             this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
-            return this;
-        }
-
-        public Builder setLegacyTypeCoercionWarningEnabled(boolean legacyTypeCoercionWarningEnabled)
-        {
-            this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
             return this;
         }
 
@@ -218,9 +212,15 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
+        {
+            this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, legacyTypeCoercionWarningEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, fieldNamesInJsonCastEnabled, extraCredentials);
         }
     }
 }

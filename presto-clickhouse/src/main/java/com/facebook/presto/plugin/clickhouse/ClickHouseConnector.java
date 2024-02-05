@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHousePlanOptimizerProvider;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
@@ -70,6 +71,7 @@ public class ClickHouseConnector
     private final RowExpressionService rowExpressionService;
     private final ClickHouseClient clickHouseClient;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final ClickHouseQueryGenerator clickhouseQueryGenerator;
 
     @Inject
     public ClickHouseConnector(
@@ -84,7 +86,8 @@ public class ClickHouseConnector
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             Set<TablePropertiesProvider> tableProperties,
-            ClickHouseClient clickHouseClient)
+            ClickHouseClient clickHouseClient,
+            ClickHouseQueryGenerator clickhouseQueryGenerator)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.clickHouseMetadataFactory = requireNonNull(clickHouseMetadataFactory, "clickHouseMetadataFactory is null");
@@ -100,6 +103,7 @@ public class ClickHouseConnector
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
+        this.clickhouseQueryGenerator = clickhouseQueryGenerator;
     }
 
     @Override
@@ -110,7 +114,8 @@ public class ClickHouseConnector
                 functionManager,
                 functionResolution,
                 rowExpressionService.getDeterminismEvaluator(),
-                rowExpressionService.getExpressionOptimizer());
+                rowExpressionService.getExpressionOptimizer(),
+                clickhouseQueryGenerator);
     }
 
     @Override

@@ -16,23 +16,41 @@ package com.facebook.presto.orc.writer;
 import com.facebook.presto.orc.DwrfStreamOrderingConfig;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
+import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class StreamOrderingLayout
         implements StreamLayout
 {
+    private static final Comparator<StreamDataOutput> IN_GROUP_COMPARATOR = (streamDataA, streamDataB) -> {
+        Stream streamA = streamDataA.getStream();
+        Stream streamB = streamDataB.getStream();
+        int nodeA = streamA.getColumn();
+        int nodeB = streamB.getColumn();
+
+        // order by the node in asc order
+        if (nodeA != nodeB) {
+            return Integer.compare(nodeA, nodeB);
+        }
+
+        // order streams of the same node by the stream kind
+        return Integer.compare(streamA.getStreamKind().ordinal(), streamB.getStreamKind().ordinal());
+    };
+
     private final DwrfStreamOrderingConfig config;
     private final StreamLayout nonStreamOrderingLayout;
 
@@ -47,11 +65,11 @@ public class StreamOrderingLayout
     private static class StreamMetadata
     {
         // <Column Id, Sequence ID> -> List<Streams>>
-        private final Map<ColumnSequenceInfo, List<StreamDataOutput>> sequenceToStreams;
+        private final Map<ColumnSequenceKey, List<StreamDataOutput>> sequenceToStreams;
         // <Column Id, KeyId> -> SequenceId
         private final Map<ColumnKeyInfo, Integer> keyToSequence;
 
-        public StreamMetadata(Map<ColumnSequenceInfo, List<StreamDataOutput>> sequenceToStreams, Map<ColumnKeyInfo, Integer> keyToSequence)
+        public StreamMetadata(Map<ColumnSequenceKey, List<StreamDataOutput>> sequenceToStreams, Map<ColumnKeyInfo, Integer> keyToSequence)
         {
             this.sequenceToStreams = requireNonNull(sequenceToStreams, "sequenceToStreams cannot be null");
             this.keyToSequence = requireNonNull(keyToSequence, "keyToSequence cannot be null");
@@ -89,44 +107,13 @@ public class StreamOrderingLayout
         }
     }
 
-    private static class ColumnSequenceInfo
-    {
-        private final int column;
-        private final int sequence;
-
-        public ColumnSequenceInfo(int column, int sequence)
-        {
-            this.column = column;
-            this.sequence = sequence;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (obj == null) {
-                return false;
-            }
-            if (!(obj instanceof ColumnSequenceInfo)) {
-                return false;
-            }
-            ColumnSequenceInfo input = (ColumnSequenceInfo) obj;
-            return this.column == input.column && this.sequence == input.sequence;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(column, sequence);
-        }
-    }
-
     private StreamMetadata getStreamMetadata(
             Map<Integer, Integer> nodeIdToColumn,
             Map<Integer, ColumnEncoding> nodeIdToColumnEncodings,
             DwrfStreamOrderingConfig config)
     {
         ImmutableMap.Builder<ColumnKeyInfo, Integer> keyToSequenceBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<ColumnSequenceInfo, List<StreamDataOutput>> sequenceToStreamsBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnSequenceKey, List<StreamDataOutput>> sequenceToStreamsBuilder = ImmutableMap.builder();
         Map<Integer, Set<DwrfProto.KeyInfo>> columnToKeySet = config.getStreamOrdering();
         // Adding a set to track which of the columns in the reorder list are already visited
         // For complex maps (complex values for the value)
@@ -157,7 +144,7 @@ public class StreamOrderingLayout
                     // add the stream only if it is present in the stream ordering config
                     if (keysPerColumn.contains(key)) {
                         keyToSequenceBuilder.put(new ColumnKeyInfo(column, key), sequence);
-                        sequenceToStreamsBuilder.put(new ColumnSequenceInfo(column, sequence), new ArrayList<>());
+                        sequenceToStreamsBuilder.put(new ColumnSequenceKey(column, sequence), new ArrayList<>());
                     }
                 }
                 columnsVisited.add(column);
@@ -174,14 +161,14 @@ public class StreamOrderingLayout
     {
         List<StreamDataOutput> nonReorderStreams = new ArrayList<>();
         StreamMetadata metadata = getStreamMetadata(nodeIdToColumn, nodeIdToColumnEncodings, config);
-        Map<ColumnSequenceInfo, List<StreamDataOutput>> sequenceToStreams = metadata.sequenceToStreams;
+        Map<ColumnSequenceKey, List<StreamDataOutput>> sequenceToStreams = metadata.sequenceToStreams;
         for (StreamDataOutput dataOutput : dataStreams) {
             int nodeId = dataOutput.getStream().getColumn();
             int sequence = dataOutput.getStream().getSequence();
             int column = nodeIdToColumn.get(nodeId);
             // only if sequence ID > 0, we do a look up in sequenceToStreams
             if (sequence > 0) {
-                List<StreamDataOutput> streams = sequenceToStreams.get(new ColumnSequenceInfo(column, sequence));
+                List<StreamDataOutput> streams = sequenceToStreams.get(new ColumnSequenceKey(column, sequence));
                 if (streams == null) {
                     nonReorderStreams.add(dataOutput);
                 }
@@ -203,21 +190,24 @@ public class StreamOrderingLayout
                 ColumnKeyInfo columnKeyInfo = new ColumnKeyInfo(column, key);
                 Integer sequence = keyToSequence.get(columnKeyInfo);
                 if (sequence != null) {
-                    ColumnSequenceInfo columnSequenceInfo = new ColumnSequenceInfo(column, sequence);
+                    ColumnSequenceKey columnSequenceInfo = new ColumnSequenceKey(column, sequence);
                     List<StreamDataOutput> groupedDataStreams = sequenceToStreams.get(columnSequenceInfo);
                     checkState(groupedDataStreams != null, "list of streams for a sequence cannot be null");
                     checkState(groupedDataStreams.size() > 0, "There should be at least one stream for a sequence");
+
+                    // order grouped streams
+                    groupedDataStreams.sort(IN_GROUP_COMPARATOR);
                     orderedStreams.addAll(groupedDataStreams);
                 }
             }
         }
 
         // do actual reordering
-        nonStreamOrderingLayout.reorder(nonReorderStreams, ImmutableMap.of(), ImmutableMap.of());
+        nonStreamOrderingLayout.reorder(nonReorderStreams, nodeIdToColumn, nodeIdToColumnEncodings);
 
         // add all the streams
         checkState(orderedStreams.size() + nonReorderStreams.size() == dataStreams.size(),
-                "Number ordered + non ordered streams should be equal to total number of data streams " +
+                "Number of ordered + non ordered streams should be equal to total number of data streams " +
                 "orderedStreams: %s, nonReorderStreams: %s, dataStreams: %s",
                 orderedStreams.size(),
                 nonReorderStreams.size(),
@@ -225,5 +215,14 @@ public class StreamOrderingLayout
         dataStreams.clear();
         dataStreams.addAll(orderedStreams);
         dataStreams.addAll(nonReorderStreams);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("config", config)
+                .add("nonStreamOrderingLayout", nonStreamOrderingLayout)
+                .toString();
     }
 }

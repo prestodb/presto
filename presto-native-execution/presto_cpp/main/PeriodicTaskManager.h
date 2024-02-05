@@ -14,49 +14,163 @@
 #pragma once
 
 #include <folly/experimental/FunctionScheduler.h>
+#include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/memory/Memory.h"
+#include "velox/exec/Spill.h"
+#include "velox/exec/Task.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
 } // namespace folly
 
+namespace facebook::velox::connector {
+class Connector;
+}
+
+namespace facebook::velox::cache {
+class AsyncDataCache;
+}
+
 namespace facebook::presto {
 
 class TaskManager;
+class PrestoServer;
 
-// Manages a set of periodic tasks via folly::FunctionScheduler.
-// This is a place to add a new task or add more functionality to an existing
-// one.
+/// Manages a set of periodic tasks via folly::FunctionScheduler.
+/// This is a place to add a new task or add more functionality to an existing
+/// one.
 class PeriodicTaskManager {
  public:
   explicit PeriodicTaskManager(
-      folly::CPUThreadPoolExecutor* driverCPUExecutor,
-      folly::IOThreadPoolExecutor* httpExecutor,
-      TaskManager* taskManager);
+      folly::CPUThreadPoolExecutor* const driverCPUExecutor,
+      folly::IOThreadPoolExecutor* const httpExecutor,
+      TaskManager* const taskManager,
+      const velox::memory::MemoryAllocator* const memoryAllocator,
+      const velox::cache::AsyncDataCache* const asyncDataCache,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<velox::connector::Connector>>& connectors,
+      PrestoServer* server);
+
   ~PeriodicTaskManager() {
     stop();
   }
 
-  // All the tasks will start here.
+  /// Invoked to start all registered, and fundamental periodic tasks running at
+  /// the background.
+  ///
+  /// NOTE: start() shall be called after everything in PrestoServer is
+  /// initialized because PeriodicTaskManager relies on proper initializations
+  /// of various entities in the system to work as expected.
   void start();
 
-  // Add a task to run periodically.
+  /// Add a task to run periodically.
   template <typename TFunc>
   void addTask(TFunc&& func, size_t periodMicros, const std::string& taskName) {
-    scheduler_.addFunction(
-        func, std::chrono::microseconds{periodMicros}, taskName);
+    repeatedRunner_.add(
+        taskName,
+        [taskName,
+         periodMicros,
+         func = std::forward<TFunc>(func)]() mutable noexcept {
+          try {
+            func();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Error running periodic task " << taskName << ": "
+                       << e.what();
+          }
+          return std::chrono::milliseconds(periodMicros / 1000);
+        });
   }
 
-  // Stops all periodic tasks. Returns only when everything is stopped.
+  /// Add a task to run once. Before adding, cancels the any task that has same
+  /// name.
+  template <typename TFunc>
+  void
+  addTaskOnce(TFunc&& func, size_t periodMicros, const std::string& taskName) {
+    oneTimeRunner_.cancelFunction(taskName);
+    oneTimeRunner_.addFunctionOnce(
+        std::forward<TFunc>(func),
+        taskName,
+        std::chrono::microseconds{periodMicros});
+  }
+
+  /// Stops all periodic tasks. Returns only when everything is stopped.
   void stop();
 
  private:
-  folly::FunctionScheduler scheduler_;
-  folly::CPUThreadPoolExecutor* driverCPUExecutor_;
-  folly::IOThreadPoolExecutor* httpExecutor_;
-  TaskManager* taskManager_;
-  velox::memory::MemoryManager& memoryManager_;
+  void addExecutorStatsTask();
+  void updateExecutorStats();
+
+  void addTaskStatsTask();
+  void updateTaskStats();
+
+  void addOldTaskCleanupTask();
+  void cleanupOldTask();
+
+  void addMemoryAllocatorStatsTask();
+  void updateMemoryAllocatorStats();
+
+  void addPrestoExchangeSourceMemoryStatsTask();
+  void updatePrestoExchangeSourceMemoryStats();
+
+  void addCacheStatsUpdateTask();
+  void updateCacheStats();
+
+  void addConnectorStatsTask();
+
+  void addOperatingSystemStatsUpdateTask();
+  void updateOperatingSystemStats();
+
+  void addSpillStatsUpdateTask();
+  void updateSpillStatsTask();
+
+  // Adds task that periodically prints http endpoint latency metrics.
+  void addHttpEndpointLatencyStatsTask();
+  void printHttpEndpointLatencyStats();
+
+  void addArbitratorStatsTask();
+  void updateArbitratorStatsTask();
+
+  void addWatchdogTask();
+
+  void detachWorker();
+
+  folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
+  folly::IOThreadPoolExecutor* const httpExecutor_;
+  TaskManager* const taskManager_;
+  const velox::memory::MemoryAllocator* const memoryAllocator_;
+  const velox::cache::AsyncDataCache* const asyncDataCache_;
+  const velox::memory::MemoryArbitrator* const arbitrator_;
+  const std::unordered_map<
+      std::string,
+      std::shared_ptr<velox::connector::Connector>>& connectors_;
+  PrestoServer* const server_;
+
+  // Cache related stats
+  int64_t lastMemoryCacheHits_{0};
+  int64_t lastMemoryCacheHitsBytes_{0};
+  int64_t lastMemoryCacheInserts_{0};
+  int64_t lastMemoryCacheEvictions_{0};
+  int64_t lastMemoryCacheEvictionChecks_{0};
+  int64_t lastMemoryCacheStalls_{0};
+  int64_t lastMemoryCacheAllocClocks_{0};
+  int64_t lastMemoryCacheAgedOuts_{0};
+
+  // Operating system related stats.
+  int64_t lastUserCpuTimeUs_{0};
+  int64_t lastSystemCpuTimeUs_{0};
+  int64_t lastSoftPageFaults_{0};
+  int64_t lastHardPageFaults_{0};
+  int64_t lastVoluntaryContextSwitches_{0};
+  int64_t lastForcedContextSwitches_{0};
+  // Renabled this after update velox.
+  velox::common::SpillStats lastSpillStats_;
+  velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
+
+  // NOTE: declare last since the threads access other members of `this`.
+  folly::FunctionScheduler oneTimeRunner_;
+  folly::ThreadedRepeatingFunctionRunner repeatedRunner_;
 };
 
 } // namespace facebook::presto

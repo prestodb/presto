@@ -82,14 +82,15 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_SERVER_VERSION;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -530,7 +531,8 @@ public class TestHiveSplitManager
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 false,
                 new ConfigBasedCacheQuotaRequirementProvider(new CacheConfig()),
-                new HiveEncryptionInformationProvider(ImmutableList.of()));
+                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HivePartitionSkippabilityChecker());
 
         HiveColumnHandle partitionColumn = new HiveColumnHandle(
                 "ds",
@@ -574,7 +576,7 @@ public class TestHiveSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
-                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
+                new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, new HiveCommonClientConfig())),
                 layoutHandle,
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()

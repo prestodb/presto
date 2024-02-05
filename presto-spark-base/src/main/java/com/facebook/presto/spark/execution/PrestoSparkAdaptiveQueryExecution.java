@@ -17,8 +17,8 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.FragmentStatsProvider;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
-import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryStateTimer;
@@ -38,13 +38,17 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.planner.IterativePlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.storage.TempStorage;
@@ -53,13 +57,15 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.spark.MapOutputStatistics;
@@ -86,12 +92,19 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createQueryInfo;
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createStageInfo;
 import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntimeStats;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textPlanFragment;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -106,6 +119,10 @@ public class PrestoSparkAdaptiveQueryExecution
     private static final Logger log = Logger.get(PrestoSparkAdaptiveQueryExecution.class);
 
     private final IterativePlanFragmenter iterativePlanFragmenter;
+    private final List<PlanOptimizer> adaptivePlanOptimizers;
+    private final VariableAllocator variableAllocator;
+    private final PlanNodeIdAllocator idAllocator;
+    private final FragmentStatsProvider fragmentStatsProvider;
 
     /**
      * Set with the IDs of the fragments that have finished execution.
@@ -154,7 +171,12 @@ public class PrestoSparkAdaptiveQueryExecution
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
-            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
+            AdaptivePlanOptimizers adaptivePlanOptimizers,
+            VariableAllocator variableAllocator,
+            PlanNodeIdAllocator idAllocator,
+            FragmentStatsProvider fragmentStatsProvider,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         super(
                 sparkContext,
@@ -191,8 +213,13 @@ public class PrestoSparkAdaptiveQueryExecution
                 planFragmenter,
                 metadata,
                 partitioningProviderManager,
-                historyBasedPlanStatisticsTracker);
+                historyBasedPlanStatisticsTracker,
+                bootstrapMetricsCollector);
 
+        this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
+        this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null").getAdaptiveOptimizers();
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.iterativePlanFragmenter = createIterativePlanFragmenter();
     }
 
@@ -202,8 +229,17 @@ public class PrestoSparkAdaptiveQueryExecution
         Function<PlanFragmentId, Boolean> isFragmentFinished = this.executedFragments::contains;
 
         // TODO Create the IterativePlanFragmenter by injection (it has to become stateless first--check PR 18811).
-        return new IterativePlanFragmenter(this.planAndMore.getPlan(), isFragmentFinished, this.metadata, new PlanChecker(this.featuresConfig, forceSingleNode), new SqlParser(),
-                new PlanNodeIdAllocator(), new PrestoSparkNodePartitioningManager(this.partitioningProviderManager), this.queryManagerConfig, this.session, this.warningCollector,
+        return new IterativePlanFragmenter(
+                this.planAndMore.getPlan(),
+                isFragmentFinished,
+                this.metadata,
+                new PlanChecker(this.featuresConfig, forceSingleNode),
+                new SqlParser(),
+                this.idAllocator,
+                new PrestoSparkNodePartitioningManager(this.partitioningProviderManager),
+                this.queryManagerConfig,
+                this.session,
+                this.warningCollector,
                 forceSingleNode);
     }
 
@@ -212,6 +248,20 @@ public class PrestoSparkAdaptiveQueryExecution
             throws SparkException, TimeoutException
     {
         queryStateTimer.beginRunning();
+        log.info("Using AdaptiveQueryExecutor");
+        log.info(format("Logical plan : %s",
+                textLogicalPlan(this.planAndMore.getPlan().getRoot(), this.planAndMore.getPlan().getTypes(), this.planAndMore.getPlan().getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0)));
+        queryMonitor.queryUpdatedEvent(
+                createQueryInfo(
+                        session,
+                        query,
+                        PLANNING,
+                        Optional.of(planAndMore),
+                        sparkQueueName,
+                        Optional.empty(),
+                        queryStateTimer,
+                        Optional.of(createStageInfo(session.getQueryId(), planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector), ImmutableList.of())),
+                        warningCollector));
 
         IterativePlanFragmenter.PlanAndFragments planAndFragments = iterativePlanFragmenter.createReadySubPlans(this.planAndMore.getPlan().getRoot());
 
@@ -224,6 +274,8 @@ public class PrestoSparkAdaptiveQueryExecution
             List<SubPlan> readyFragments = planAndFragments.getReadyFragments();
             Set<PlanFragmentId> rootChildren = getRootChildNodeFragmentIDs(planAndFragments.getRemainingPlan().get());
             for (SubPlan fragment : readyFragments) {
+                log.info(format("Executing fragment : %s",
+                        textPlanFragment(fragment.getFragment(), metadata.getFunctionAndTypeManager(), session, true)));
                 Optional<Class<?>> outputType = Optional.empty();
                 if (isCoordinatorOnly(this.planAndMore.getPlan()) && rootChildren.contains(fragment.getFragment().getId())) {
                     outputType = Optional.of(PrestoSparkSerializedPage.class);
@@ -285,11 +337,23 @@ public class PrestoSparkAdaptiveQueryExecution
             verify(fragmentEvent instanceof FragmentCompletionSuccessEvent, String.format("Unexpected FragmentCompletionEvent type: %s", fragmentEvent.getClass().getSimpleName()));
             FragmentCompletionSuccessEvent successEvent = (FragmentCompletionSuccessEvent) fragmentEvent;
             executedFragments.add(successEvent.getFragmentId());
-            Optional<PlanNodeStatsEstimate> runtimeStats = createRuntimeStats(successEvent.getMapOutputStats());
-            // Re-optimizations here.
+
+            // add runtime stats to the fragmentStatsProvider
+            createRuntimeStats(successEvent.getMapOutputStats()).ifPresent(
+                    stats -> fragmentStatsProvider.putStats(session.getQueryId(), successEvent.getFragmentId(), stats));
+
+            // Re-optimize plan.
+            PlanNode optimizedPlan = planAndFragments.getRemainingPlan().get();
+            for (PlanOptimizer optimizer : adaptivePlanOptimizers) {
+                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
+            }
+
+            if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().get())) {
+                log.info("adaptive plan optimizations triggered");
+            }
 
             // Call the iterative fragmenter on the remaining plan that has not yet been submitted for execution.
-            planAndFragments = iterativePlanFragmenter.createReadySubPlans(planAndFragments.getRemainingPlan().get());
+            planAndFragments = iterativePlanFragmenter.createReadySubPlans(optimizedPlan);
         }
 
         verify(planAndFragments.getReadyFragments().size() == 1, "The last step of the adaptive execution is expected to have a single fragment remaining.");
@@ -297,7 +361,7 @@ public class PrestoSparkAdaptiveQueryExecution
 
         setFinalFragmentedPlan(finalFragment);
 
-        return executeFinalFragment(session, finalFragment, tableWriteInfo);
+        return executeFinalFragment(finalFragment, tableWriteInfo);
     }
 
     private static Set<PlanFragmentId> getRootChildNodeFragmentIDs(PlanNode rootPlanNode)
@@ -335,10 +399,8 @@ public class PrestoSparkAdaptiveQueryExecution
     /**
      * Execute the final fragment of the plan and collect the result.
      */
-    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(Session session,
-            SubPlan finalFragment,
-            TableWriteInfo tableWriteInfo
-    ) throws SparkException, TimeoutException
+    private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> executeFinalFragment(SubPlan finalFragment, TableWriteInfo tableWriteInfo)
+            throws SparkException, TimeoutException
     {
         if (finalFragment.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION)) {
             Map<PlanFragmentId, RddAndMore<PrestoSparkSerializedPage>> inputRdds = new HashMap<>();

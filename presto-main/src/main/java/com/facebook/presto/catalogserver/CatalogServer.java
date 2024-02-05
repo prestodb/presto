@@ -24,7 +24,7 @@ import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.sql.analyzer.ViewDefinition;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.core.JsonProcessingException;

@@ -77,6 +77,13 @@ void to_json(json& j, const TableWriterNode& p) {
       "TableWriterNode",
       "PartitioningScheme",
       "preferredShufflePartitioningScheme");
+  to_json_key(
+      j,
+      "statisticsAggregation",
+      p.statisticsAggregation,
+      "TableWriterNode",
+      "StatisticAggregations",
+      "statisticsAggregation");
 }
 
 void from_json(const json& j, TableWriterNode& p) {
@@ -139,5 +146,12 @@ void from_json(const json& j, TableWriterNode& p) {
       "TableWriterNode",
       "PartitioningScheme",
       "preferredShufflePartitioningScheme");
+  from_json_key(
+      j,
+      "statisticsAggregation",
+      p.statisticsAggregation,
+      "TableWriterNode",
+      "StatisticAggregations",
+      "statisticsAggregation");
 }
 } // namespace facebook::presto::protocol

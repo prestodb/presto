@@ -37,16 +37,22 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.ComplexTypeFunctionDescriptor;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.LambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.gen.SqlTypeBytecodeExpression;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -85,6 +91,8 @@ public final class MapTransformValueFunction
 {
     public static final MapTransformValueFunction MAP_TRANSFORM_VALUE_FUNCTION = new MapTransformValueFunction();
 
+    private final ComplexTypeFunctionDescriptor descriptor;
+
     private MapTransformValueFunction()
     {
         super(new Signature(
@@ -95,6 +103,12 @@ public final class MapTransformValueFunction
                 parseTypeSignature("map(K,V2)"),
                 ImmutableList.of(parseTypeSignature("map(K,V1)"), parseTypeSignature("function(K,V1,V2)")),
                 false));
+        descriptor = new ComplexTypeFunctionDescriptor(
+                true,
+                ImmutableList.of(new LambdaDescriptor(1, ImmutableMap.of(1, new LambdaArgumentDescriptor(0, ComplexTypeFunctionDescriptor::prependAllSubscripts)))),
+                Optional.of(ImmutableSet.of(0)),
+                Optional.of(ComplexTypeFunctionDescriptor::clearRequiredSubfields),
+                getSignature());
     }
 
     @Override
@@ -113,6 +127,12 @@ public final class MapTransformValueFunction
     public String getDescription()
     {
         return "apply lambda to each entry of the map and transform the value";
+    }
+
+    @Override
+    public ComplexTypeFunctionDescriptor getComplexTypeFunctionDescriptor()
+    {
+        return descriptor;
     }
 
     @Override

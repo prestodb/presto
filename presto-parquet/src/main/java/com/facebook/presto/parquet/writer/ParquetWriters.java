@@ -27,6 +27,8 @@ import com.facebook.presto.parquet.writer.valuewriter.DoubleValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.IntegerValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimeValueWriter;
+import com.facebook.presto.parquet.writer.valuewriter.TimestampValueWriter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -48,6 +50,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -129,13 +132,26 @@ class ParquetWriters
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
             Type prestoType = requireNonNull(prestoTypes.get(ImmutableList.copyOf(path)), " presto type is null");
-            return new PrimitiveColumnWriter(prestoType,
-                    columnDescriptor,
-                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
-                    parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
-                    parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
-                    compressionCodecName,
-                    parquetProperties.getPageSizeThreshold());
+            switch (parquetProperties.getWriterVersion()) {
+                case PARQUET_1_0:
+                    return new PrimitiveColumnWriterV1(prestoType,
+                            columnDescriptor,
+                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            parquetProperties.newDefinitionLevelWriter(columnDescriptor),
+                            parquetProperties.newRepetitionLevelWriter(columnDescriptor),
+                            compressionCodecName,
+                            parquetProperties.getPageSizeThreshold());
+                case PARQUET_2_0:
+                    return new PrimitiveColumnWriterV2(prestoType,
+                            columnDescriptor,
+                            getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                            parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
+                            parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
+                            compressionCodecName,
+                            parquetProperties.getPageSizeThreshold());
+                default:
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported Parquet writer version: %s", parquetProperties.getWriterVersion()));
+            }
         }
 
         private String[] currentPath()
@@ -165,7 +181,7 @@ class ParquetWriters
         if (DATE.equals(type)) {
             return new DateValueWriter(valuesWriter, parquetType);
         }
-        if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
+        if (BIGINT.equals(type)) {
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
         if (DOUBLE.equals(type)) {
@@ -173,6 +189,12 @@ class ParquetWriters
         }
         if (REAL.equals(type)) {
             return new RealValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP.equals(type)) {
+            return new TimestampValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIME.equals(type)) {
+            return new TimeValueWriter(valuesWriter, type, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);

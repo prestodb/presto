@@ -14,10 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -47,13 +53,18 @@ public class TestRewriteIfOverAggregation
                 enableOptimization(),
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("pricesum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                new PlanMatchPattern.GroupingSetDescriptor(ImmutableList.of("orderstatus$gid", "shippriority$gid", "groupid"), 2, ImmutableSet.of()),
+                                ImmutableMap.of(Optional.of("pricesum"), functionCall("sum", ImmutableList.of("totalprice"))),
+                                ImmutableMap.of(new Symbol("pricesum"), new Symbol("mask")),
+                                Optional.of(new Symbol("groupid")),
+                                AggregationNode.Step.PARTIAL,
                                 project(
                                         ImmutableMap.of("mask", expression("array[1, 0][groupid+1]=0")),
                                         groupingSet(
                                                 ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "shippriority")),
                                                 ImmutableMap.of("totalprice", "totalprice"),
                                                 "groupid",
+                                                ImmutableMap.of("orderstatus$gid", expression("orderstatus"), "shippriority$gid", expression("shippriority")),
                                                 tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "shippriority", "shippriority")))))));
     }
 
@@ -84,13 +95,18 @@ public class TestRewriteIfOverAggregation
                 enableOptimization(),
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("result", functionCall("max_by", ImmutableList.of("shippriority", "totalprice"))),
+                                new PlanMatchPattern.GroupingSetDescriptor(ImmutableList.of("orderstatus$gid", "shippriority$gid", "groupid"), 2, ImmutableSet.of()),
+                                ImmutableMap.of(Optional.of("result"), functionCall("max_by", ImmutableList.of("shippriority", "totalprice"))),
+                                ImmutableMap.of(new Symbol("result"), new Symbol("mask")),
+                                Optional.of(new Symbol("groupid")),
+                                AggregationNode.Step.PARTIAL,
                                 project(
                                         ImmutableMap.of("mask", expression("array[1, 0][groupid+1]=0")),
                                         groupingSet(
                                                 ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "shippriority")),
                                                 ImmutableMap.of("totalprice", "totalprice", "shippriority", "shippriority"),
                                                 "groupid",
+                                                ImmutableMap.of("orderstatus$gid", expression("orderstatus"), "shippriority$gid", expression("shippriority")),
                                                 tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "shippriority", "shippriority")))))));
     }
 }

@@ -918,4 +918,32 @@ public final class StringFunctions
 
         return result;
     }
+
+    @SqlNullable
+    @Description("Returns whether the first string starts with the second")
+    @ScalarFunction("starts_with")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean startsWith(@SqlType("varchar(x)") Slice x, @SqlType("varchar(y)") Slice y)
+    {
+        if (x.length() < y.length()) {
+            return false;
+        }
+
+        return x.equals(0, y.length(), y, 0, y.length());
+    }
+
+    @SqlNullable
+    @Description("Returns whether the first string ends with the second")
+    @ScalarFunction("ends_with")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BOOLEAN)
+    public static Boolean endsWith(@SqlType("varchar(x)") Slice x, @SqlType("varchar(y)") Slice y)
+    {
+        if (x.length() < y.length()) {
+            return false;
+        }
+
+        return x.equals(x.length() - y.length(), y.length(), y, 0, y.length());
+    }
 }

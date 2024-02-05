@@ -11,24 +11,147 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/http/HttpServer.h"
+
+#include <algorithm>
+
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpServer.h"
 
 namespace facebook::presto::http {
 
-HttpServer::HttpServer(
-    const folly::SocketAddress& httpAddress,
-    int httpExecThreads)
-    : httpAddress_(httpAddress),
-      httpExecThreads_(httpExecThreads),
-      httpExecutor_{std::make_shared<folly::IOThreadPoolExecutor>(
-          httpExecThreads,
-          std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"))} {}
+void sendOkResponse(proxygen::ResponseHandler* downstream) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .sendWithEOM();
+}
 
-proxygen::RequestHandler*
-DispatchingRequestHandlerFactory::EndPoint::checkAndApply(
+void sendOkResponse(proxygen::ResponseHandler* downstream, const json& body) {
+  // nlohmann::json throws when it finds invalid UTF-8 characters. In that case
+  // the server will crash. We handle such situation here and generate body
+  // replacing the faulty UTF-8 sequences.
+  std::string messageBody;
+  try {
+    messageBody = body.dump();
+  } catch (const std::exception& e) {
+    messageBody =
+        body.dump(-1, ' ', false, nlohmann::detail::error_handler_t::replace);
+    LOG(WARNING) << "Failed to serialize json to string. "
+                    "Will retry with 'replace' option. "
+                    "Json Dump:\n"
+                 << messageBody;
+  }
+
+  sendOkResponse(downstream, messageBody);
+}
+
+void sendOkResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationJson)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendOkThriftResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& body) {
+  proxygen::ResponseBuilder(downstream)
+      .status(http::kHttpOk, "OK")
+      .header(
+          proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeApplicationThrift)
+      .body(body)
+      .sendWithEOM();
+}
+
+void sendErrorResponse(
+    proxygen::ResponseHandler* downstream,
+    const std::string& error,
+    uint16_t status) {
+  static const size_t kMaxStatusSize = 1024;
+
+  // Use a prefix of the 'error' as status message. Make sure it doesn't include
+  // new lines. See https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html
+
+  size_t statusSize = kMaxStatusSize;
+  auto pos = error.find('\n');
+  if (pos != std::string::npos && pos < statusSize) {
+    statusSize = pos;
+  }
+
+  proxygen::ResponseBuilder(downstream)
+      .status(status, error.substr(0, statusSize))
+      .body(error)
+      .sendWithEOM();
+}
+
+HttpConfig::HttpConfig(const folly::SocketAddress& address, bool reusePort)
+    : address_(address), reusePort_(reusePort) {}
+
+proxygen::HTTPServer::IPConfig HttpConfig::ipConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      address_, proxygen::HTTPServer::Protocol::HTTP};
+  if (reusePort_) {
+    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
+  }
+  return ipConfig;
+}
+
+HttpsConfig::HttpsConfig(
+    const folly::SocketAddress& address,
+    const std::string& certPath,
+    const std::string& keyPath,
+    const std::string& supportedCiphers,
+    bool reusePort)
+    : address_(address),
+      certPath_(certPath),
+      keyPath_(keyPath),
+      supportedCiphers_(supportedCiphers),
+      reusePort_(reusePort) {
+  // Wangle separates ciphers by ":" where in the config it's separated with ","
+  std::replace(supportedCiphers_.begin(), supportedCiphers_.end(), ',', ':');
+}
+
+proxygen::HTTPServer::IPConfig HttpsConfig::ipConfig() const {
+  proxygen::HTTPServer::IPConfig ipConfig{
+      address_, proxygen::HTTPServer::Protocol::HTTP};
+
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
+  sslCfg.setCertificate(certPath_, keyPath_, "");
+  sslCfg.sslCiphers = supportedCiphers_;
+
+  ipConfig.sslConfigs.push_back(sslCfg);
+
+  if (reusePort_) {
+    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
+    ipConfig.acceptorSocketOptions.emplace();
+    ipConfig.acceptorSocketOptions->insert({portReuseOpt, 1});
+  }
+  return ipConfig;
+}
+
+HttpServer::HttpServer(
+    const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor,
+    std::unique_ptr<HttpConfig> httpConfig,
+    std::unique_ptr<HttpsConfig> httpsConfig)
+    : httpConfig_(std::move(httpConfig)),
+      httpsConfig_(std::move(httpsConfig)),
+      handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
+      httpIOExecutor_(httpIOExecutor) {
+  VELOX_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
+  VELOX_CHECK(httpIOExecutor_ != nullptr);
+}
+
+bool EndPoint::check(
     const std::string& path,
-    proxygen::HTTPMessage* message,
     std::vector<std::string>& matches,
     std::vector<RE2::Arg>& args,
     std::vector<RE2::Arg*>& argPtrs) const {
@@ -43,6 +166,18 @@ DispatchingRequestHandlerFactory::EndPoint::checkAndApply(
   }
   if (RE2::FullMatchN(path, re_, argPtrs.data(), numArgs)) {
     matches[0] = path;
+    return true;
+  }
+  return false;
+}
+
+proxygen::RequestHandler* EndPoint::checkAndApply(
+    const std::string& path,
+    proxygen::HTTPMessage* message,
+    std::vector<std::string>& matches,
+    std::vector<RE2::Arg>& args,
+    std::vector<RE2::Arg*>& argPtrs) const {
+  if (check(path, matches, args, argPtrs)) {
     return factory_(message, matches);
   }
   return nullptr;
@@ -96,28 +231,51 @@ void DispatchingRequestHandlerFactory::registerEndPoint(
   }
 }
 
+const std::
+    unordered_map<proxygen::HTTPMethod, std::vector<std::unique_ptr<EndPoint>>>&
+    DispatchingRequestHandlerFactory::endpoints() const {
+  return endpoints_;
+}
+
+std::unordered_map<proxygen::HTTPMethod, std::vector<std::unique_ptr<EndPoint>>>
+HttpServer::endpoints() const {
+  const auto& endpoints = handlerFactory_->endpoints();
+  std::unordered_map<
+      proxygen::HTTPMethod,
+      std::vector<std::unique_ptr<EndPoint>>>
+      copy;
+  for (const auto& methodPair : endpoints) {
+    const auto& method = methodPair.first;
+    copy.emplace(method, std::vector<std::unique_ptr<EndPoint>>());
+    auto& endpoints = copy.at(method);
+    for (const auto& endpoint : methodPair.second) {
+      endpoints.emplace_back(
+          std::make_unique<EndPoint>(endpoint->pattern(), nullptr));
+    }
+  }
+  return copy;
+}
+
 void HttpServer::start(
+    std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
-  proxygen::HTTPServer::IPConfig cfg{
-      httpAddress_, proxygen::HTTPServer::Protocol::HTTP};
-
-  if (SystemConfig::instance()->httpServerReusePort()) {
-    folly::SocketOptionKey portReuseOpt = {SOL_SOCKET, SO_REUSEPORT};
-    cfg.acceptorSocketOptions.emplace();
-    cfg.acceptorSocketOptions->insert({portReuseOpt, 1});
-  }
-
   proxygen::HTTPServerOptions options;
-  // The 'threads' field is not used when we provide our own executor (see us
-  // passing httpExecutor_ below) to the start() method. In that case we create
-  // executor ourselves with exactly that number of threads.
-  options.threads = httpExecThreads_;
   options.idleTimeout = std::chrono::milliseconds(60'000);
   options.enableContentCompression = false;
-  options.handlerFactories = proxygen::RequestHandlerChain()
-                                 .addThen(std::move(handlerFactory_))
-                                 .build();
+
+  proxygen::RequestHandlerChain handlerFactories;
+
+  // Register all filters passed to the http server.
+  for (size_t i = 0; i < filters.size(); ++i) {
+    if (filters[i] != nullptr) {
+      handlerFactories.addThen(std::move(filters[i]));
+    }
+  }
+
+  handlerFactories.addThen(std::move(handlerFactory_));
+  options.handlerFactories = handlerFactories.build();
+
   // Increase the default flow control to 1MB/10MB
   options.initialReceiveWindow = uint32_t(1 << 20);
   options.receiveStreamWindowSize = uint32_t(1 << 20);
@@ -126,10 +284,19 @@ void HttpServer::start(
 
   server_ = std::make_unique<proxygen::HTTPServer>(std::move(options));
 
-  std::vector<proxygen::HTTPServer::IPConfig> ips{cfg};
-  server_->bind(ips);
+  std::vector<proxygen::HTTPServer::IPConfig> ipConfigs;
 
-  LOG(INFO) << "STARTUP: proxygen::HTTPServer::start()";
+  if (httpConfig_ != nullptr) {
+    ipConfigs.push_back(httpConfig_->ipConfig());
+  }
+
+  if (httpsConfig_ != nullptr) {
+    ipConfigs.push_back(httpsConfig_->ipConfig());
+  }
+
+  server_->bind(ipConfigs);
+
+  PRESTO_STARTUP_LOG(INFO) << "proxygen::HTTPServer::start()";
   server_->start(
       [&]() {
         if (onSuccess) {
@@ -138,6 +305,6 @@ void HttpServer::start(
       },
       onError,
       nullptr,
-      httpExecutor_);
+      httpIOExecutor_);
 }
 } // namespace facebook::presto::http

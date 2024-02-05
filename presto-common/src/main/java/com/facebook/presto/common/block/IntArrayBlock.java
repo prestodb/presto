@@ -275,6 +275,13 @@ public class IntArrayBlock
     }
 
     @Override
+    public long toLong(int position)
+    {
+        checkReadablePosition(position);
+        return getIntUnchecked(position + arrayOffset);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

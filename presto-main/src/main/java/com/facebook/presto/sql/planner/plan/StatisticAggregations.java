@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -34,16 +34,36 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticAggregations
 {
+    // outputVariables indicates the order of aggregations in the output
+    private final List<VariableReferenceExpression> outputVariables;
     private final Map<VariableReferenceExpression, Aggregation> aggregations;
     private final List<VariableReferenceExpression> groupingVariables;
 
     @JsonCreator
     public StatisticAggregations(
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("aggregations") Map<VariableReferenceExpression, Aggregation> aggregations,
             @JsonProperty("groupingVariables") List<VariableReferenceExpression> groupingVariables)
     {
+        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        checkArgument(outputVariables.size() == aggregations.size(), "outputVariables and aggregations' sizes are different");
+    }
+
+    public StatisticAggregations(
+            Map<VariableReferenceExpression, Aggregation> aggregations,
+            List<VariableReferenceExpression> groupingVariables)
+    {
+        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
+        this.groupingVariables = ImmutableList.copyOf(requireNonNull(groupingVariables, "groupingVariables is null"));
+        this.outputVariables = ImmutableList.copyOf(aggregations.keySet());
+    }
+
+    @JsonProperty
+    public List<VariableReferenceExpression> getOutputVariables()
+    {
+        return outputVariables;
     }
 
     @JsonProperty
@@ -75,7 +95,7 @@ public class StatisticAggregations
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            JavaAggregationFunctionImplementation function = functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
+            AggregationFunctionImplementation function = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
 
             // create partial aggregation
             VariableReferenceExpression partialVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(), function.getIntermediateType());

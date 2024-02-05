@@ -36,12 +36,12 @@ import static java.util.Objects.requireNonNull;
 public class HudiRealtimeBootstrapBaseFileSplitConverter
         implements CustomSplitConverter
 {
-    private static final String DELTA_FILE_PATHS_KEY = "delta_file_paths";
-    private static final String BASE_PATH_KEY = "base_path";
-    private static final String MAX_COMMIT_TIME_KEY = "max_commit_time";
-    private static final String BOOTSTRAP_FILE_SPLIT_PATH = "bootstrap_split_path";
-    private static final String BOOTSTRAP_FILE_SPLIT_START = "bootstrap_split_start";
-    private static final String BOOTSTRAP_FILE_SPLIT_LEN = "bootstrap_split_len";
+    public static final String DELTA_FILE_PATHS_KEY = "delta_file_paths";
+    public static final String BASE_PATH_KEY = "base_path";
+    public static final String MAX_COMMIT_TIME_KEY = "max_commit_time";
+    public static final String BOOTSTRAP_FILE_SPLIT_PATH = "bootstrap_split_path";
+    public static final String BOOTSTRAP_FILE_SPLIT_START = "bootstrap_split_start";
+    public static final String BOOTSTRAP_FILE_SPLIT_LEN = "bootstrap_split_len";
 
     @Override
     public Optional<Map<String, String>> extractCustomSplitInfo(FileSplit split)

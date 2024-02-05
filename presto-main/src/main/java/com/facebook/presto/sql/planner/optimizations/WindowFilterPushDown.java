@@ -76,7 +76,7 @@ public class WindowFilterPushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -84,7 +84,9 @@ public class WindowFilterPushDown
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, domainTranslator, logicalRowExpressions, session), plan, null);
+        Rewriter rewriter = new Rewriter(idAllocator, metadata, domainTranslator, logicalRowExpressions, session);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -95,6 +97,7 @@ public class WindowFilterPushDown
         private final RowExpressionDomainTranslator domainTranslator;
         private final LogicalRowExpressions logicalRowExpressions;
         private final Session session;
+        private boolean planChanged;
 
         private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, RowExpressionDomainTranslator domainTranslator, LogicalRowExpressions logicalRowExpressions, Session session)
         {
@@ -105,6 +108,11 @@ public class WindowFilterPushDown
             this.session = requireNonNull(session, "session is null");
         }
 
+        public boolean isPlanChanged()
+        {
+            return planChanged;
+        }
+
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
@@ -112,6 +120,7 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node, metadata.getFunctionAndTypeManager())) {
+                planChanged = true;
                 return new RowNumberNode(
                         rewrittenSource.getSourceLocation(),
                         idAllocator.getNextId(),
@@ -119,6 +128,7 @@ public class WindowFilterPushDown
                         node.getPartitionBy(),
                         getOnlyElement(node.getWindowFunctions().keySet()),
                         Optional.empty(),
+                        false,
                         Optional.empty());
             }
             return replaceChildren(node, ImmutableList.of(rewrittenSource));
@@ -139,6 +149,7 @@ public class WindowFilterPushDown
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
                     return rowNumberNode;
                 }
+                planChanged = true;
                 source = rowNumberNode;
             }
             else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source, metadata.getFunctionAndTypeManager()) && isOptimizeTopNRowNumber(session)) {
@@ -149,6 +160,7 @@ public class WindowFilterPushDown
                 if (windowNode.getPartitionBy().isEmpty()) {
                     return topNRowNumberNode;
                 }
+                planChanged = true;
                 source = topNRowNumberNode;
             }
             return replaceChildren(node, ImmutableList.of(source));
@@ -167,6 +179,7 @@ public class WindowFilterPushDown
 
                 if (upperBound.isPresent()) {
                     source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
+                    planChanged = true;
                     return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
             }
@@ -177,6 +190,7 @@ public class WindowFilterPushDown
 
                 if (upperBound.isPresent()) {
                     source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
+                    planChanged = true;
                     return rewriteFilterSource(node, source, rowNumberVariable, upperBound.getAsInt());
                 }
             }
@@ -256,7 +270,7 @@ public class WindowFilterPushDown
             if (node.getMaxRowCountPerPartition().isPresent()) {
                 newRowCountPerPartition = Math.min(node.getMaxRowCountPerPartition().get(), newRowCountPerPartition);
             }
-            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), node.getHashVariable());
+            return new RowNumberNode(node.getSourceLocation(), node.getId(), node.getSource(), node.getPartitionBy(), node.getRowNumberVariable(), Optional.of(newRowCountPerPartition), false, node.getHashVariable());
         }
 
         private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)

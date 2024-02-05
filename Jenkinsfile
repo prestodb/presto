@@ -5,13 +5,18 @@ pipeline {
     environment {
         AWS_CREDENTIAL_ID  = 'aws-jenkins'
         AWS_DEFAULT_REGION = 'us-east-1'
-        AWS_ECR            = credentials('aws-ecr-private-registry')
-        AWS_S3_PREFIX      = 's3://oss-jenkins/artifact/presto'
+        AWS_ECR            = 'public.ecr.aws/oss-presto'
+        AWS_S3_PREFIX      = 's3://oss-prestodb/presto'
+        IMG_NAME           = 'presto'
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '500'))
-        timeout(time: 2, unit: 'HOURS')
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        disableConcurrentBuilds()
+        disableResume()
+        overrideIndexTriggers(false)
+        timeout(time: 3, unit: 'HOURS')
+        timestamps()
     }
 
     parameters {
@@ -35,6 +40,44 @@ pipeline {
                     steps {
                         sh 'apt update && apt install -y awscli git tree'
                         sh 'git config --global --add safe.directory ${WORKSPACE}'
+                        script {
+                            env.PRESTO_COMMIT_SHA = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                        }
+                        echo "${PRESTO_COMMIT_SHA}"
+                    }
+                }
+
+                stage('PR Update') {
+                    when { changeRequest() }
+                    steps {
+                        echo 'get PR head commit sha'
+                        sh 'git config --global --add safe.directory ${WORKSPACE}/presto-pr-${CHANGE_ID}'
+                        script {
+                            checkout $class: 'GitSCM',
+                                    branches: [[name: 'FETCH_HEAD']],
+                                    doGenerateSubmoduleConfigurations: false,
+                                    extensions: [
+                                        [
+                                            $class: 'RelativeTargetDirectory',
+                                            relativeTargetDir: "presto-pr-${env.CHANGE_ID}"
+                                        ], [
+                                            $class: 'CloneOption',
+                                            shallow: true,
+                                            noTags:  true,
+                                            depth:   1,
+                                            timeout: 100
+                                        ], [
+                                            $class: 'LocalBranch'
+                                        ]
+                                    ],
+                                    submoduleCfg: [],
+                                    userRemoteConfigs: [[
+                                        refspec: "+refs/pull/${env.CHANGE_ID}/head:refs/remotes/origin/PR-${env.CHANGE_ID}",
+                                        url: 'https://github.com/prestodb/presto'
+                                    ]]
+                            env.PRESTO_COMMIT_SHA = sh(script: "cd presto-pr-${env.CHANGE_ID} && git rev-parse HEAD", returnStdout: true).trim()
+                        }
+                        echo "${PRESTO_COMMIT_SHA}"
                     }
                 }
 
@@ -49,18 +92,18 @@ pipeline {
                             env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
                             env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
                                 sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
-                                env.GIT_COMMIT.substring(0, 7)
-                            env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
-                            env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
-
+                                env.PRESTO_COMMIT_SHA.substring(0, 7)
+                            env.DOCKER_IMAGE = env.AWS_ECR + "/${IMG_NAME}:${PRESTO_BUILD_VERSION}"
                         }
                         sh 'printenv | sort'
 
                         echo "build prestodb source code with build version ${PRESTO_BUILD_VERSION}"
-                        sh '''
-                            unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
-                            tree /root/.m2/repository/com/facebook/presto/
-                        '''
+                        retry (5) {
+                            sh '''
+                                unset MAVEN_CONFIG && ./mvnw install -DskipTests -B -T C1 -P ci -pl '!presto-docs'
+                                tree /root/.m2/repository/com/facebook/presto/
+                            '''
+                        }
 
                         echo 'Publish Maven tarball'
                         withCredentials([[
@@ -69,6 +112,9 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
+                                echo "${PRESTO_BUILD_VERSION}" > index.txt
+                                git log -n 10 >> index.txt
+                                aws s3 cp index.txt ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                                 aws s3 cp presto-server/target/${PRESTO_PKG}  ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                                 aws s3 cp presto-cli/target/${PRESTO_CLI_JAR} ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/ --no-progress
                             '''
@@ -91,6 +137,13 @@ pipeline {
                     steps {
                         echo 'build docker image'
                         sh 'apk update && apk add aws-cli bash git'
+                        sh '''
+                            docker run --privileged --rm tonistiigi/binfmt --install all
+                            docker context ls
+                            docker buildx create --name="container" --driver=docker-container --bootstrap
+                            docker buildx ls
+                            docker buildx inspect container
+                        '''
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
@@ -107,8 +160,7 @@ pipeline {
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
 
                                 echo "Building ${DOCKER_IMAGE}"
-                                docker buildx build --load --platform "linux/amd64" -t "${DOCKER_IMAGE}-amd64" \
-                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                                REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
                             '''
                         }
                     }
@@ -131,10 +183,10 @@ pipeline {
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
+                                cd docker/
                                 aws s3 ls ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/
-                                docker image ls
-                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
-                                docker push "${DOCKER_IMAGE}-amd64"
+                                aws ecr-public get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                PUBLISH=true REG_ORG=${AWS_ECR} IMAGE_NAME=${IMG_NAME} TAG=${PRESTO_BUILD_VERSION} ./build.sh ${PRESTO_VERSION}
                             '''
                         }
                     }

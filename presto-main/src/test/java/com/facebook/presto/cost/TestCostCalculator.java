@@ -30,32 +30,32 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
-import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -106,6 +106,7 @@ public class TestCostCalculator
     private static final double AVERAGE_ROW_SIZE = 8.;
     private static final double IS_NULL_OVERHEAD = 9. / AVERAGE_ROW_SIZE;
     private static final double OFFSET_AND_IS_NULL_OVERHEAD = 13. / AVERAGE_ROW_SIZE;
+
     private CostCalculator costCalculatorUsingExchanges;
     private CostCalculator costCalculatorWithEstimatedExchanges;
     private PlanFragmenter planFragmenter;
@@ -115,6 +116,7 @@ public class TestCostCalculator
     private FinalizerService finalizerService;
     private NodeScheduler nodeScheduler;
     private NodePartitioningManager nodePartitioningManager;
+    private TestingRowExpressionTranslator translator;
 
     @BeforeClass
     public void setUp()
@@ -144,6 +146,7 @@ public class TestCostCalculator
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
+        translator = new TestingRowExpressionTranslator();
     }
 
     @AfterClass(alwaysRun = true)
@@ -190,7 +193,8 @@ public class TestCostCalculator
     public void testProject()
     {
         TableScanNode tableScan = tableScan("ts", "orderkey");
-        PlanNode project = project("project", tableScan, new VariableReferenceExpression(Optional.empty(), "string", VARCHAR), new Cast(new SymbolReference("orderkey"), "VARCHAR"));
+        RowExpression cast = translator.translate(new Cast(new SymbolReference("orderkey"), "VARCHAR"), TypeProvider.viewOf(ImmutableMap.of("orderkey", BIGINT)));
+        PlanNode project = project("project", tableScan, new VariableReferenceExpression(Optional.empty(), "string", VARCHAR), cast);
         Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
         Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
                 "project", statsEstimate(project, 4000),
@@ -225,7 +229,7 @@ public class TestCostCalculator
         JoinNode join = join("join",
                 ts1,
                 ts2,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "orderkey",
                 "orderkey_0");
 
@@ -267,7 +271,7 @@ public class TestCostCalculator
         JoinNode join = join("join",
                 ts1,
                 ts2,
-                JoinNode.DistributionType.REPLICATED,
+                JoinDistributionType.REPLICATED,
                 "orderkey",
                 "orderkey_0");
 
@@ -318,14 +322,14 @@ public class TestCostCalculator
                 "join23",
                 ts2,
                 ts3,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "key2",
                 "key3");
         JoinNode join = join(
                 "join",
                 ts1,
                 join23,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "key1",
                 "key2");
 
@@ -432,7 +436,7 @@ public class TestCostCalculator
     {
         TableScanNode ts1 = tableScan("ts1", "orderkey");
         TableScanNode ts2 = tableScan("ts2", "orderkey_0");
-        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), new SymbolReference("orderkey"));
+        PlanNode p1 = project("p1", ts1, variable("orderkey_1", BIGINT), variable("orderkey", BIGINT));
         ExchangeNode remoteExchange1 = systemPartitionedExchange(
                 new PlanNodeId("re1"),
                 REMOTE_STREAMING,
@@ -455,7 +459,7 @@ public class TestCostCalculator
         JoinNode join = join("join",
                 remoteExchange1,
                 localExchange,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "orderkey_1",
                 "orderkey_0");
 
@@ -492,7 +496,7 @@ public class TestCostCalculator
         JoinNode join = join("join",
                 ts1,
                 localExchange,
-                JoinNode.DistributionType.REPLICATED,
+                JoinDistributionType.REPLICATED,
                 "orderkey",
                 "orderkey_0");
 
@@ -572,12 +576,6 @@ public class TestCostCalculator
         // Explicitly generate the statsAndCosts, bypass fragment generation and sanity checks for mock plans.
         StatsAndCosts statsAndCosts = StatsAndCosts.create(node, statsProvider, costProvider).getForSubplan(node);
         return new CostAssertionBuilder(statsAndCosts.getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
-    }
-
-    private PlanNode translateExpression(PlanNode node, StatsCalculator statsCalculator, TypeProvider typeProvider)
-    {
-        IterativeOptimizer optimizer = new IterativeOptimizer(new RuleStatsRecorder(), statsCalculator, costCalculatorUsingExchanges, new TranslateExpressions(metadata, new SqlParser()).rules());
-        return optimizer.optimize(node, session, typeProvider, new VariableAllocator(typeProvider.allVariables()), new PlanNodeIdAllocator(), WarningCollector.NOOP);
     }
 
     private static class TestingCostProvider
@@ -695,7 +693,6 @@ public class TestCostCalculator
         TypeProvider typeProvider = TypeProvider.copyOf(types);
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session);
-        node = translateExpression(node, statsCalculator, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
     }
@@ -796,7 +793,7 @@ public class TestCostCalculator
                 TupleDomain.all());
     }
 
-    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, Expression expression)
+    private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, RowExpression expression)
     {
         return new ProjectNode(
                 new PlanNodeId(id),
@@ -817,6 +814,7 @@ public class TestCostCalculator
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -824,19 +822,19 @@ public class TestCostCalculator
      * EquiJoinClause is created from symbols in form of:
      * symbol[0] = symbol[1] AND symbol[2] = symbol[3] AND ...
      */
-    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinNode.DistributionType distributionType, String... symbols)
+    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinDistributionType distributionType, String... symbols)
     {
         checkArgument(symbols.length % 2 == 0);
-        ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
+            criteria.add(new EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(
                 Optional.empty(),
                 new PlanNodeId(planNodeId),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

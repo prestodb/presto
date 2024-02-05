@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.analyzer;
 
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.function.FunctionKind;
 
 import java.util.Map;
@@ -41,4 +42,19 @@ public interface QueryAnalysis
      * Returns function names based on the kinds (scalar, aggregate and window).
      */
     Map<FunctionKind, Set<String>> getInvokedFunctions();
+
+    /**
+     * Returns access control references for ACL checks
+     */
+    AccessControlReferences getAccessControlReferences();
+
+    /**
+     * Returns whether the QueryAnalysis represents an "EXPLAIN ANALYZE" query.
+     */
+    boolean isExplainAnalyzeQuery();
+
+    /**
+     * Extracts the set of ConnectorIds used in the QueryAnalysis.
+     */
+    Set<ConnectorId> extractConnectors();
 }

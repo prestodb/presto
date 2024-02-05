@@ -862,7 +862,9 @@ public class TestSelectiveOrcReader
 
         tester.testRoundTrip(createCharType(2), newArrayList(limit(cycle(ImmutableList.of("aa", "bb", "cc", "dd")), NUM_ROWS)), IS_NULL);
 
-        tester.testRoundTrip(createCharType(1), newArrayList(limit(cycle(ImmutableList.of("a", "b", "c", "d")), NUM_ROWS)),
+        tester.testRoundTrip(
+                createCharType(1),
+                newArrayList(limit(cycle(ImmutableList.of("a", "b", "c", "d")), NUM_ROWS)),
                 stringIn(false, "a", "b"),
                 stringIn(true, "a", "b"));
 
@@ -874,18 +876,26 @@ public class TestSelectiveOrcReader
                         .collect(toList()));
 
         // char with filter
+        // The values are padded with trailing spaces so that they are all 10 characters long
+        List<?> values = newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS)).stream()
+                .map(i -> toCharValue(i, 10))
+                .collect(toList());
+        // Test with filter c IN {'1','3'}. Note that the values should not have any paddings since the filter passed to the reader is without paddings for CHAR(n).
+        // The filter for the expected values is with the paddings because of the test limitations.
         tester.testRoundTrip(
                 CHAR_10,
-                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), NUM_ROWS)).stream()
-                        .map(i -> toCharValue(i, 10))
-                        .collect(toList()),
-                stringIn(true, toCharValue(1, 10), toCharValue(3, 10)));
+                values,
+                ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(true, toCharValue(1, 1), toCharValue(3, 1)))),
+                ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(true, toCharValue(1, 10), toCharValue(3, 10)))));
 
         // char with 0 truncated length
         tester.testRoundTrip(CHAR_10, newArrayList(limit(cycle(toCharValue("", 10)), NUM_ROWS)));
 
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))),
-                stringIn(false, "a", "b"));
+        tester.testRoundTrip(
+                VARCHAR,
+                newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))),
+                ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(false, "a", "b"))),
+                ImmutableList.of(ImmutableMap.of(new Subfield("c"), stringIn(false, "a", "b"))));
     }
 
     @Test

@@ -18,6 +18,8 @@ import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
+import com.facebook.presto.memory.HighMemoryTaskKiller;
+import com.facebook.presto.memory.LowMemoryMonitor;
 import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Binder;
@@ -55,6 +57,10 @@ public class WorkerModule
         binder.bind(NodeResourceStatusProvider.class).toInstance(newProxy(NodeResourceStatusProvider.class, (proxy, method, args) -> {
             return true;
         }));
+
+        binder.bind(LowMemoryMonitor.class).in(Scopes.SINGLETON);
+
+        binder.bind(HighMemoryTaskKiller.class).in(Scopes.SINGLETON);
     }
 
     @Provides

@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -56,6 +57,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class PartitionTable
@@ -272,7 +275,7 @@ public class PartitionTable
         return Partition.toMap(idToTypeMapping, idToMetricMap);
     }
 
-    public static Object convert(Object value, Type type)
+    private Object convert(Object value, Type type)
     {
         if (value == null) {
             return null;
@@ -286,6 +289,15 @@ public class PartitionTable
         }
         if (type instanceof Types.FloatType) {
             return Float.floatToIntBits((Float) value);
+        }
+        if (type instanceof Types.TimestampType) {
+            com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
+            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
+                return MICROSECONDS.toMillis((long) value);
+            }
+        }
+        if (type instanceof Types.TimeType) {
+            return MICROSECONDS.toMillis((long) value);
         }
         return value;
     }

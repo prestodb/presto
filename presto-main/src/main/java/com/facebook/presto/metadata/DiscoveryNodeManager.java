@@ -27,6 +27,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
@@ -67,6 +68,8 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
+import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
+import static com.facebook.presto.spi.NodePoolType.DEFAULT;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
@@ -167,6 +170,7 @@ public final class DiscoveryNodeManager
             NodeVersion nodeVersion = getNodeVersion(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
+                NodePoolType poolType = getPoolType(service);
                 InternalNode node = new InternalNode(
                         service.getNodeId(),
                         uri,
@@ -176,7 +180,8 @@ public final class DiscoveryNodeManager
                         isResourceManager(service),
                         isCatalogServer(service),
                         ALIVE,
-                        raftPort);
+                        raftPort,
+                        poolType);
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -189,6 +194,14 @@ public final class DiscoveryNodeManager
             }
         }
         throw new IllegalStateException("INVARIANT: current node not returned from service selector");
+    }
+
+    private static NodePoolType getPoolType(ServiceDescriptor service)
+    {
+        if (!service.getProperties().containsKey(POOL_TYPE)) {
+            return DEFAULT;
+        }
+        return NodePoolType.valueOf(service.getProperties().get(POOL_TYPE));
     }
 
     @PostConstruct
@@ -264,8 +277,9 @@ public final class DiscoveryNodeManager
     {
         // This is currently a blacklist.
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
+        Set<ServiceDescriptor> failed = failureDetector.getFailed();
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failureDetector.getFailed().contains(service))
+                .filter(service -> !failed.contains(service))
                 .filter(filterRelevantNodes())
                 .collect(toImmutableSet());
 
@@ -300,7 +314,7 @@ public final class DiscoveryNodeManager
             boolean catalogServer = isCatalogServer(service);
             OptionalInt raftPort = getRaftPort(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, resourceManager, catalogServer, ALIVE, raftPort, getPoolType(service));
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -367,7 +381,7 @@ public final class DiscoveryNodeManager
                 InternalNode deadNode = nodes.get(nodeId);
                 Set<ConnectorId> deadNodeConnectorIds = connectorIdsByNodeId.get(nodeId);
                 for (ConnectorId id : deadNodeConnectorIds) {
-                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort()));
+                    byConnectorIdBuilder.put(id, new InternalNode(deadNode.getNodeIdentifier(), deadNode.getInternalUri(), deadNode.getThriftPort(), deadNode.getNodeVersion(), deadNode.isCoordinator(), deadNode.isResourceManager(), deadNode.isCatalogServer(), DEAD, deadNode.getRaftPort(), deadNode.getPoolType()));
                 }
             }
         }

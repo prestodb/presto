@@ -100,6 +100,7 @@ import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -234,7 +235,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getSplitLoaderConcurrency(),
                 config.getRecursiveDirWalkerEnabled(),
                 new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
-                new HiveEncryptionInformationProvider(ImmutableSet.of()));
+                new HiveEncryptionInformationProvider(ImmutableSet.of()),
+                new HivePartitionSkippabilityChecker());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,
@@ -268,7 +270,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
+        return new TestingConnectorSession(getAllSessionProperties(config, new HiveCommonClientConfig()));
     }
 
     protected Transaction newTransaction()

@@ -15,10 +15,13 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.presto.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.hudi.HudiQueryRunner.createHudiQueryRunner;
+import static java.lang.String.format;
 
 public class TestHudiIntegration
         extends com.facebook.presto.hive.hudi.TestHudiIntegration
@@ -28,5 +31,15 @@ public class TestHudiIntegration
             throws Exception
     {
         return createHudiQueryRunner(Optional.empty());
+    }
+
+    @Test
+    public void testQueryWithPartitionFilter()
+    {
+        @Language("SQL") String sqlTemplate = "SELECT symbol, ts, dt FROM %s WHERE symbol = 'GOOG' AND dt > '2018-08-30'";
+        @Language("SQL") String sqlResult = "SELECT * FROM VALUES " +
+                "('GOOG', '2018-08-31 09:59:00', '2018-08-31')," +
+                "('GOOG', '2018-08-31 10:59:00', '2018-08-31')";
+        assertQuery(format(sqlTemplate, "stock_ticks_cow"), sqlResult);
     }
 }

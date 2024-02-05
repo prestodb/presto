@@ -15,6 +15,7 @@ package com.facebook.presto.parquet;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -22,6 +23,8 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryPage
         extends Page
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryPage.class).instanceSize();
+
     private final Slice slice;
     private final int dictionarySize;
     private final ParquetEncoding encoding;
@@ -61,6 +64,11 @@ public class DictionaryPage
     public DictionaryPage copy()
     {
         return new DictionaryPage(Slices.copyOf(slice), getUncompressedSize(), dictionarySize, encoding);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + slice.getRetainedSize();
     }
 
     @Override

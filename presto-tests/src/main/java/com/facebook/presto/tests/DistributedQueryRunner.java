@@ -33,6 +33,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
@@ -79,6 +80,8 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
+import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
@@ -209,6 +212,10 @@ public class DistributedQueryRunner
                 externalWorkers = ImmutableList.of();
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
+                    // We are simply splitting the nodes into leaf and intermediate for testing purpose
+                    NodePoolType workerPool = i % 2 == 0 ? LEAF : INTERMEDIATE;
+                    Map<String, String> workerProperties = new HashMap<>(extraProperties);
+                    workerProperties.put("pool-type", workerPool.name());
                     TestingPrestoServer worker = closer.register(createTestingPrestoServer(
                                     discoveryUrl,
                                     false,
@@ -216,7 +223,7 @@ public class DistributedQueryRunner
                                     false,
                                     catalogServerEnabled,
                                     false,
-                                    extraProperties,
+                                    workerProperties,
                                     parserOptions,
                                     environment,
                                     dataDirectory,
@@ -311,7 +318,7 @@ public class DistributedQueryRunner
 
         long start = nanoTime();
         while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(30, SECONDS));
+            Assertions.assertLessThan(nanosSince(start), new Duration(60, SECONDS));
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -453,7 +460,7 @@ public class DistributedQueryRunner
     @Override
     public int getNodeCount()
     {
-        return servers.size();
+        return servers.size() + externalWorkers.size();
     }
 
     @Override
@@ -777,7 +784,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public final void close()
+    public final synchronized void close()
     {
         cancelAllQueries();
         try {

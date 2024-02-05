@@ -58,7 +58,7 @@ public class LongDictionarySelectiveStreamReader
     @Nullable
     private BooleanInputStream presentStream;
     @Nullable
-    private TupleDomainFilter rowGroupFilter;
+    private TupleDomainFilter filter;
 
     private LongDictionaryProvider dictionaryProvider;
     private int dictionarySize;
@@ -109,7 +109,7 @@ public class LongDictionarySelectiveStreamReader
 
         // TODO In case of all nulls, the stream type will be LongDirect
         int streamPosition;
-        if (rowGroupFilter == null) {
+        if (filter == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -168,7 +168,7 @@ public class LongDictionarySelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
                     if (context.isOutputRequired()) {
                         nulls[outputPositionCount] = true;
                         values[outputPositionCount] = 0;
@@ -186,7 +186,7 @@ public class LongDictionarySelectiveStreamReader
 
                     if (dictionaryFilterStatus != null) {
                         if (dictionaryFilterStatus[id] == FILTER_NOT_EVALUATED) {
-                            if (rowGroupFilter.testLong(value)) {
+                            if (filter.testLong(value)) {
                                 dictionaryFilterStatus[id] = FILTER_PASSED;
                             }
                             else {
@@ -196,11 +196,11 @@ public class LongDictionarySelectiveStreamReader
                         filterPassed = dictionaryFilterStatus[id] == FILTER_PASSED;
                     }
                     else {
-                        filterPassed = rowGroupFilter.testLong(value);
+                        filterPassed = filter.testLong(value);
                     }
                 }
                 else {
-                    filterPassed = rowGroupFilter.testLong(value);
+                    filterPassed = filter.testLong(value);
                 }
                 if (filterPassed) {
                     if (context.isOutputRequired()) {
@@ -216,9 +216,9 @@ public class LongDictionarySelectiveStreamReader
 
             streamPosition++;
 
-            outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+            outputPositionCount -= filter.getPrecedingPositionsToFail();
 
-            int succeedingPositionsToFail = rowGroupFilter.getSucceedingPositionsToFail();
+            int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
             if (succeedingPositionsToFail > 0) {
                 int positionsToSkip = 0;
                 for (int j = 0; j < succeedingPositionsToFail; j++) {
@@ -258,14 +258,14 @@ public class LongDictionarySelectiveStreamReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
-        rowGroupFilter = context.getRowGroupFilter(presentStream);
+        filter = context.getFilter(presentStream);
 
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
             DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(context.getStreamDescriptor(), dictionary, dictionarySize);
             dictionary = dictionaryResult.dictionaryBuffer();
             isDictionaryOwner = dictionaryResult.isBufferOwner();
-            if (!context.isLowMemory() && rowGroupFilter != null && !context.isNonDeterministicFilter()) {
+            if (!context.isLowMemory() && filter != null && !context.isNonDeterministicFilter()) {
                 dictionaryFilterStatus = ensureCapacity(dictionaryFilterStatus, dictionarySize);
                 Arrays.fill(dictionaryFilterStatus, 0, dictionarySize, FILTER_NOT_EVALUATED);
             }
@@ -317,7 +317,7 @@ public class LongDictionarySelectiveStreamReader
         readOffset = 0;
 
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         inDictionaryStream = null;
         dataStream = null;
 
@@ -333,7 +333,7 @@ public class LongDictionarySelectiveStreamReader
 
         readOffset = 0;
         presentStream = null;
-        rowGroupFilter = null;
+        filter = null;
         inDictionaryStream = null;
         dataStream = null;
 

@@ -17,4 +17,5 @@ public enum SparkProcessType
 {
     DRIVER,
     EXECUTOR,
+    LOCAL_EXECUTOR,
 }

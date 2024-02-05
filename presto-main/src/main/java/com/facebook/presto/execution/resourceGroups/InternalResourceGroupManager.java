@@ -18,6 +18,7 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.server.ResourceGroupInfo;
 import com.facebook.presto.server.ServerConfig;
@@ -65,7 +66,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager.HARD_CONCURRENCY_LIMIT;
 import static com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager.MAX_QUEUED_QUERIES;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.spi.StandardErrorCode.MISSING_RESOURCE_GROUP_SELECTOR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,8 +87,9 @@ public final class InternalResourceGroupManager<C>
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
+    private static final int REFRESH_EXECUTOR_POOL_SIZE = 2;
 
-    private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(2, daemonThreadsNamed("ResourceGroupManager"));
+    private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(REFRESH_EXECUTOR_POOL_SIZE, daemonThreadsNamed("resource-group-manager-refresher-%d-" + REFRESH_EXECUTOR_POOL_SIZE));
     private final PeriodicTaskExecutor resourceGroupRuntimeExecutor;
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
@@ -109,6 +111,7 @@ public final class InternalResourceGroupManager<C>
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
     private final boolean isResourceManagerEnabled;
     private final QueryManagerConfig queryManagerConfig;
+    private final InternalNodeManager nodeManager;
 
     @Inject
     public InternalResourceGroupManager(
@@ -117,10 +120,12 @@ public final class InternalResourceGroupManager<C>
             NodeInfo nodeInfo,
             MBeanExporter exporter,
             ResourceGroupService resourceGroupService,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            InternalNodeManager nodeManager)
     {
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
+        this.nodeManager = requireNonNull(nodeManager, "node manager is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager, nodeInfo.getEnvironment());
         this.initializingConfigurationManager = new InitializingConfigurationManager();
         this.configurationManager = new AtomicReference(cast(initializingConfigurationManager));
@@ -148,6 +153,14 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
+    public List<ResourceGroupInfo> getRootResourceGroups()
+    {
+        ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
+        rootGroups.forEach(group -> builder.add(group.getInfo()));
+        return builder.build();
+    }
+
+    @Override
     public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
@@ -159,7 +172,7 @@ public final class InternalResourceGroupManager<C>
     public SelectionContext<C> selectGroup(SelectionCriteria criteria)
     {
         return configurationManager.get().match(criteria)
-                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
+                .orElseThrow(() -> new PrestoException(MISSING_RESOURCE_GROUP_SELECTOR, "Query did not match any selection rule"));
     }
 
     @Override
@@ -298,7 +311,7 @@ public final class InternalResourceGroupManager<C>
             }
         }
         catch (Throwable t) {
-            log.error(t, "Error while executing refreshAndStartQueries");
+            log.error(t, "Error while executing refreshResourceGroupRuntimeInfo");
         }
     }
 
@@ -375,7 +388,7 @@ public final class InternalResourceGroupManager<C>
             else {
                 RootInternalResourceGroup root;
                 if (!isResourceManagerEnabled) {
-                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false);
+                    root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, ignored -> Optional.empty(), rg -> false, nodeManager);
                 }
                 else {
                     root = new RootInternalResourceGroup(
@@ -387,7 +400,8 @@ public final class InternalResourceGroupManager<C>
                                     rg,
                                     resourceGroupRuntimeInfosSnapshot::get,
                                     lastUpdatedResourceGroupRuntimeInfo::get,
-                                    concurrencyThreshold));
+                                    concurrencyThreshold),
+                            nodeManager);
                 }
                 group = root;
                 rootGroups.add(root);

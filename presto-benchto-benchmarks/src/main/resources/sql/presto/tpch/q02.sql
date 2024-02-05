@@ -41,4 +41,5 @@ ORDER BY
   n.name,
   s.name,
   p.partkey
+LIMIT 100
 ;

@@ -222,7 +222,7 @@ public class GatherAndMergeWindows
                     parent.getPreSortedOrderPrefix());
 
             return Optional.of(
-                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputVariables()), true)
+                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputVariables()))
                             .orElse(mergedWindowNode));
         }
     }
@@ -241,7 +241,7 @@ public class GatherAndMergeWindows
             if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
-                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()), true)
+                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()))
                                 .orElse(transposedWindows));
             }
             else {

@@ -182,13 +182,13 @@ class SimulationController
             runningTasks.put(specification, new LeafTask(
                     taskExecutor,
                     specification,
-                    new TaskId(specification.getName(), 0, 0, runningTasks.get(specification).size() + completedTasks.get(specification).size())));
+                    new TaskId(specification.getName(), 0, 0, runningTasks.get(specification).size() + completedTasks.get(specification).size(), 0)));
         }
         else {
             runningTasks.put(specification, new IntermediateTask(
                     taskExecutor,
                     specification,
-                    new TaskId(specification.getName(), 0, 0, runningTasks.get(specification).size() + completedTasks.get(specification).size())));
+                    new TaskId(specification.getName(), 0, 0, runningTasks.get(specification).size() + completedTasks.get(specification).size(), 0)));
         }
     }
 

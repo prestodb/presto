@@ -128,6 +128,7 @@ public class RuleTester
     public OptimizerAssert assertThat(Set<Rule<?>> rules)
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
+                getMetadata(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),
@@ -138,6 +139,7 @@ public class RuleTester
     public OptimizerAssert assertThat(Set<Rule<?>> rules, LogicalPropertiesProvider logicalPropertiesProvider)
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
+                getMetadata(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),

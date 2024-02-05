@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.OrderBy;
@@ -32,8 +33,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -42,10 +41,18 @@ public class AggregationFunctionMatcher
         implements RvalueMatcher
 {
     private final ExpectedValueProvider<FunctionCall> callMaker;
+    private final Optional<Symbol> mask;
 
     public AggregationFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
     {
         this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.mask = Optional.empty();
+    }
+
+    public AggregationFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker, Symbol mask)
+    {
+        this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.mask = Optional.of(requireNonNull(mask, "mask is null"));
     }
 
     @Override
@@ -60,7 +67,7 @@ public class AggregationFunctionMatcher
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<VariableReferenceExpression, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (verifyAggregation(metadata.getFunctionAndTypeManager(), assignment.getValue(), expectedCall)) {
+            if (verifyAggregation(metadata.getFunctionAndTypeManager(), assignment.getValue(), expectedCall, mask.map(x -> new Symbol(symbolAliases.get(x.getName()).getName())))) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
@@ -69,7 +76,7 @@ public class AggregationFunctionMatcher
         return result;
     }
 
-    private static boolean verifyAggregation(FunctionAndTypeManager functionAndTypeManager, Aggregation aggregation, FunctionCall expectedCall)
+    private static boolean verifyAggregation(FunctionAndTypeManager functionAndTypeManager, Aggregation aggregation, FunctionCall expectedCall, Optional<Symbol> mask)
     {
         return functionAndTypeManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getObjectName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
                 aggregation.getArguments().size() == expectedCall.getArguments().size() &&
@@ -79,7 +86,8 @@ public class AggregationFunctionMatcher
                         (actualArgument, expectedArgument) -> isEquivalent(Optional.of(expectedArgument), Optional.of(actualArgument))).allMatch(Boolean::booleanValue) &&
                 isEquivalent(expectedCall.getFilter(), aggregation.getFilter()) &&
                 expectedCall.isDistinct() == aggregation.isDistinct() &&
-                verifyAggregationOrderBy(aggregation.getOrderBy(), expectedCall.getOrderBy());
+                verifyAggregationOrderBy(aggregation.getOrderBy(), expectedCall.getOrderBy()) &&
+                maskMatch(mask, aggregation.getMask());
     }
 
     private static boolean verifyAggregationOrderBy(Optional<OrderingScheme> orderingScheme, Optional<OrderBy> expectedSortOrder)
@@ -110,13 +118,18 @@ public class AggregationFunctionMatcher
     {
         // Function's argument provided by FunctionCallProvider is SymbolReference that already resolved from symbolAliases.
         if (rowExpression.isPresent() && expression.isPresent()) {
-            if (isExpression(rowExpression.get())) {
-                return expression.get().equals(castToExpression(rowExpression.get()));
-            }
             checkArgument(rowExpression.get() instanceof VariableReferenceExpression, "can only process variableReference");
             return expression.get().equals(createSymbolReference(((VariableReferenceExpression) rowExpression.get())));
         }
         return rowExpression.isPresent() == expression.isPresent();
+    }
+
+    private static boolean maskMatch(Optional<Symbol> symbol, Optional<VariableReferenceExpression> mask)
+    {
+        if (symbol.isPresent() && mask.isPresent()) {
+            return symbol.get().getName().equals(mask.get().getName());
+        }
+        return symbol.isPresent() == mask.isPresent();
     }
 
     @Override

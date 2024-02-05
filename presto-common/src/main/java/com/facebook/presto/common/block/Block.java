@@ -361,4 +361,17 @@ public interface Block
      * The original block won't be modified.
      */
     Block appendNull();
+
+    /**
+     * Returns the converted long value at {@code position} if the value ar {@code position} can be converted to long.
+     * @throws UnsupportedOperationException if value at {@code position} is not compatible to be converted to long.
+     *
+     * Difference between toLong() and getLong() is:
+     * getLong() would only return value when the block is LongArrayBlock, otherwise it would throw exception.
+     * toLong() would return value for compatible types: LongArrayBlock, IntArrayBlock, ByteArrayBlock and ShortArrayBlock.
+     */
+    default long toLong(int position)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
 }

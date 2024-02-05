@@ -27,4 +27,6 @@ public interface IPrestoSparkTaskExecutorFactory
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType);
+
+    public void close();
 }

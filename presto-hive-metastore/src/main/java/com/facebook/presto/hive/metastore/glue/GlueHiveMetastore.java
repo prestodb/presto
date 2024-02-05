@@ -1018,4 +1018,14 @@ public class GlueHiveMetastore
     {
         throw new PrestoException(NOT_SUPPORTED, "setPartitionLeases is not supported by Glue");
     }
+
+    public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return Optional.empty();
+    }
+
+    public void unlock(MetastoreContext metastoreContext, long lockId)
+    {
+        //No-op
+    }
 }

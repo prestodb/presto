@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -27,6 +28,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -35,7 +38,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestCanonicalize
         extends BasePlanTest
@@ -49,6 +51,10 @@ public class TestCanonicalize
                         "    SELECT EXTRACT(DAY FROM DATE '2017-01-01')\n" +
                         ") t\n" +
                         "CROSS JOIN (VALUES 1)",
+                // This optimization will optimize out the projection below, hence disable it
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
+                        .build(),
                 anyTree(
                         join(INNER, ImmutableList.of(), Optional.empty(),
                                 project(
@@ -77,6 +83,7 @@ public class TestCanonicalize
                 ImmutableList.of(
                         new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                         new IterativeOptimizer(
+                                getMetadata(),
                                 new RuleStatsRecorder(),
                                 getQueryRunner().getStatsCalculator(),
                                 getQueryRunner().getCostCalculator(),

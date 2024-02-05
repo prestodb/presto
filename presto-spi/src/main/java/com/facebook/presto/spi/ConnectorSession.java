@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -35,6 +37,8 @@ public interface ConnectorSession
     }
 
     ConnectorIdentity getIdentity();
+
+    TimeZoneKey getTimeZoneKey();
 
     Locale getLocale();
 
@@ -60,4 +64,6 @@ public interface ConnectorSession
     }
 
     WarningCollector getWarningCollector();
+
+    RuntimeStats getRuntimeStats();
 }

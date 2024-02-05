@@ -13,13 +13,30 @@ env:
   RETRY: .github/bin/retry
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+    # For pull requests it's not necessary to checkout the code
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          codechange:
+            - '!presto-docs/**'
+
   test:
     runs-on: ubuntu-latest
+    needs: changes
     strategy:
       fail-fast: false
       matrix:
         modules:
-          - ":presto-docs"
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
           - ":presto-tests -P ci-only-distributed-non-hash-gen"
@@ -28,8 +45,7 @@ jobs:
           - ":presto-tests -P ci-only-distributed-queries"
           - ":presto-tests -P ci-only-aggregation-queries"
           - ":presto-tests -P ci-only-plan-determinism"
-          - ":presto-tests -P ci-only-resource-manager"
-          - ":presto-raptor"
+          - ":presto-tests -P ci-only-resource-manager" 
           - ":presto-accumulo"
           - ":presto-cassandra -P test-cassandra-integration-smoke-test"
           - ":presto-hive"
@@ -49,16 +65,20 @@ jobs:
           - ":presto-spark-base -P presto-spark-tests-smoke"
           - ":presto-spark-base -P presto-spark-tests-all-queries"
           - ":presto-spark-base -P presto-spark-tests-spill-queries"
+          - ":presto-iceberg"
     timeout-minutes: 80
     concurrency:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v2
+        if: needs.changes.outputs.codechange == 'true'
       - uses: actions/setup-java@v1
+        if: needs.changes.outputs.codechange == 'true'
         with:
           java-version: 8
       - name: Cache local Maven repository
+        if: needs.changes.outputs.codechange == 'true'
         id: cache-maven
         uses: actions/cache@v2
         with:
@@ -67,11 +87,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-2-
       - name: Populate maven cache
-        if: steps.cache-maven.outputs.cache-hit != 'true'
+        if: steps.cache-maven.outputs.cache-hit != 'true' && needs.changes.outputs.codechange == 'true'
         run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Install
+        if: needs.changes.outputs.codechange == 'true'
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
+        if: needs.changes.outputs.codechange == 'true'
         run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}

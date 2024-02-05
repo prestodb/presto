@@ -14,11 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.ConnectorJoinNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -33,6 +38,8 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +62,9 @@ public class ApplyConnectorOptimization
         implements PlanOptimizer
 {
     static final Set<Class<? extends PlanNode>> CONNECTOR_ACCESSIBLE_PLAN_NODES = ImmutableSet.of(
+            CteProducerNode.class,
+            CteConsumerNode.class,
+            CteReferenceNode.class,
             DistinctLimitNode.class,
             FilterNode.class,
             TableScanNode.class,
@@ -79,7 +89,7 @@ public class ApplyConnectorOptimization
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -89,7 +99,7 @@ public class ApplyConnectorOptimization
 
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         // retrieve all the connectors
@@ -140,6 +150,9 @@ public class ApplyConnectorOptimization
                             containsAll(ImmutableSet.copyOf(newNode.getOutputVariables()), node.getOutputVariables()),
                             "the connector optimizer from %s returns a node that does not cover all output before optimization",
                             connectorId);
+
+                    newNode = SimplePlanRewriter.rewriteWith(new ConnectorToInternalJoinRewriter(), newNode);
+
                     updates.put(node, newNode);
                 }
             }
@@ -173,7 +186,7 @@ public class ApplyConnectorOptimization
             }
         }
 
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, true);
     }
 
     private static void getAllConnectorIds(PlanNode node, ImmutableSet.Builder<ConnectorId> builder)
@@ -285,5 +298,27 @@ public class ApplyConnectorOptimization
             }
         }
         return true;
+    }
+
+    private static class ConnectorToInternalJoinRewriter
+            extends SimplePlanRewriter<Void>
+    {
+        @Override
+        public PlanNode visitConnectorJoinNode(ConnectorJoinNode node, RewriteContext<Void> context)
+        {
+            return new JoinNode(node.getSourceLocation(),
+                    node.getId(),
+                    node.getStatsEquivalentPlanNode(),
+                    node.getType(),
+                    context.rewrite(node.getSources().get(0)),
+                    context.rewrite(node.getSources().get(1)),
+                    ImmutableList.copyOf(node.getCriteria()),
+                    node.getOutputVariables(),
+                    node.getFilters().isEmpty() ? Optional.empty() : Optional.of(LogicalRowExpressions.and(node.getFilters())),
+                    Optional.empty(),
+                    Optional.empty(),
+                    node.getDistributionType(),
+                    ImmutableMap.of());
+        }
     }
 }

@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveFileWriterFactory;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -44,6 +45,7 @@ import java.util.concurrent.Callable;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedWriterEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static java.util.Objects.requireNonNull;
@@ -102,6 +104,7 @@ public class ParquetFileWriterFactory
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
+                .setWriterVersion(getParquetWriterVersion(session))
                 .build();
 
         CompressionCodecName compressionCodecName = getCompression(conf);
@@ -123,11 +126,17 @@ public class ParquetFileWriterFactory
                 return null;
             };
 
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                    fileColumnTypes,
+                    fileColumnNames);
+
             return Optional.of(new ParquetFileWriter(
                     fileSystem.create(path),
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
                     compressionCodecName));

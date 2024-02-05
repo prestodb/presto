@@ -36,11 +36,12 @@ public class RuntimeMetricName
     public static final String GET_MATERIALIZED_VIEW_TIME_NANOS = "getMaterializedViewTimeNanos";
     public static final String GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS = "getMaterializedViewStatusTimeNanos";
     public static final String GET_TABLE_HANDLE_TIME_NANOS = "getTableHandleTimeNanos";
-    public static final String GET_TABLE_METADATA_TIME_NANOS = "getTableMetadataTimeNanos";
+    public static final String GET_COLUMN_HANDLE_TIME_NANOS = "getColumnHandleTimeNanos";
     public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
+    public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";
     public static final String FRAGMENT_PLAN_TIME_NANOS = "fragmentPlanTimeNanos";
     public static final String GET_LAYOUT_TIME_NANOS = "getLayoutTimeNanos";
     public static final String REWRITE_AGGREGATION_IF_TO_FILTER_APPLIED = "rewriteAggregationIfToFilterApplied";
@@ -54,4 +55,7 @@ public class RuntimeMetricName
     public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
     // Size of the data retrieved by read call to storage
     public static final String STORAGE_READ_DATA_BYTES = "storageReadDataBytes";
+    public static final String WRITTEN_FILES_COUNT = "writtenFilesCount";
+    public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES = "historyOptimizerQueryRegistrationGetPlanNodeHashes";
+    public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
 }

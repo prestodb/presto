@@ -22,6 +22,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -29,7 +30,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -39,7 +42,9 @@ import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Collections.emptyMap;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.MapEntry.entry;
 import static org.testng.Assert.assertEquals;
@@ -52,6 +57,7 @@ public class TestJdbcMetadata
 {
     private TestingDatabase database;
     private JdbcMetadata metadata;
+    private JdbcMetadataCache jdbcMetadataCache;
     private JdbcTableHandle tableHandle;
 
     @BeforeMethod
@@ -59,7 +65,9 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(database.getJdbcClient(), false);
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
+        jdbcMetadataCache = new JdbcMetadataCache(executor, database.getJdbcClient(), new JdbcMetadataCacheStats(), OptionalLong.of(0), OptionalLong.of(0), 100);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -254,7 +262,7 @@ public class TestJdbcMetadata
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
-        metadata = new JdbcMetadata(database.getJdbcClient(), true);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
         try {

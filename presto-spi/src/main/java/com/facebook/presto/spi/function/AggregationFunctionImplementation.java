@@ -14,9 +14,17 @@
 
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.api.Experimental;
 
 @Experimental
 public interface AggregationFunctionImplementation
 {
+    Type getIntermediateType();
+
+    Type getFinalType();
+
+    boolean isDecomposable();
+
+    boolean isOrderSensitive();
 }

@@ -38,6 +38,7 @@ import com.facebook.presto.spark.ErrorClassifier;
 import com.facebook.presto.spark.PrestoSparkBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMemoryBasedBroadcastDependency;
 import com.facebook.presto.spark.PrestoSparkMetadataStorage;
+import com.facebook.presto.spark.PrestoSparkNativeStorageBasedDependency;
 import com.facebook.presto.spark.PrestoSparkQueryData;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.PrestoSparkQueryStatusInfo;
@@ -60,6 +61,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
+import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
@@ -119,6 +121,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -126,6 +129,7 @@ import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extra
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
+import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
@@ -206,6 +210,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     private AtomicReference<SubPlan> finalFragmentedPlan = new AtomicReference<>();
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
+    private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -242,7 +247,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
-            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
@@ -280,6 +286,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsTracker, "historyBasedPlanStatisticsTracker is null");
+        this.bootstrapMetricsCollector = requireNonNull(bootstrapMetricsCollector, "bootstrapTimeCollector is null");
     }
 
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
@@ -323,6 +330,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
         try {
+            tuneMaxExecutorsCount();
             rddResults = doExecute();
             queryStateTimer.beginFinishing();
             PrestoSparkTransactionUtils.commit(session, transactionManager);
@@ -412,7 +420,8 @@ public abstract class AbstractPrestoSparkQueryExecution
                 types.size() == 1 &&
                 types.get(0).equals(BIGINT) &&
                 results.size() == 1 &&
-                results.get(0).size() == 1) {
+                results.get(0).size() == 1 &&
+                results.get(0).get(0) != null) {
             updateCount = OptionalLong.of(((Number) results.get(0).get(0)).longValue());
         }
 
@@ -480,6 +489,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 PrestoSparkSerializedPage page = tuple._2;
                 currentFragmentOutputCompressedSizeInBytes += page.getSize();
                 currentFragmentOutputUncompressedSizeInBytes += page.getUncompressedSizeInBytes();
+                log.info("Received %s rows from partition %s in fragment %s", page.getPositionCount(), tuple._1.getPartition(), inputFuture.getKey());
                 pages.add(page);
             }
             log.info(
@@ -606,6 +616,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                     queryStatusInfoOutputLocation.get(),
                     queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
         }
+        processBootstrapStats();
     }
 
     protected final void setFinalFragmentedPlan(SubPlan subPlan)
@@ -873,6 +884,16 @@ public abstract class AbstractPrestoSparkQueryExecution
         if (maxBroadcastMemory == null) {
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
         }
+
+        if (isNativeExecutionEnabled(session)) {
+            return new PrestoSparkNativeStorageBasedDependency(
+                    (RddAndMore<PrestoSparkSerializedPage>) childRdd,
+                    maxBroadcastMemory,
+                    queryCompletionDeadline,
+                    waitTimeMetrics,
+                    pagesSerde);
+        }
+
         if (isStorageBasedBroadcastJoinEnabled(session)) {
             validateStorageCapabilities(tempStorage);
             TempDataOperationContext tempDataOperationContext = new TempDataOperationContext(
@@ -971,6 +992,41 @@ public abstract class AbstractPrestoSparkQueryExecution
                     .compare(this.fragmentId, that.fragmentId)
                     .compare(this.operation, that.operation)
                     .result();
+        }
+    }
+
+    private void processBootstrapStats()
+    {
+        if (!this.bootstrapMetricsCollector.isPresent()) {
+            return;
+        }
+        List<Map<String, Long>> bootstrapStats = this.bootstrapMetricsCollector.get().value();
+        int loggedBootstrapCount = bootstrapStats.size();
+        if (loggedBootstrapCount > 0) {
+            Set<String> statsKeySet = bootstrapStats.get(0).keySet();
+            StringBuilder metricsLog = new StringBuilder();
+            metricsLog.append("Average executor bootstrap durations in milliseconds: \n");
+            for (String statsKey : statsKeySet) {
+                double avgDuration = 0.0;
+                for (int i = 0; i < loggedBootstrapCount; i++) {
+                    avgDuration = (avgDuration * i + bootstrapStats.get(i).get(statsKey)) / (i + 1);
+                }
+                metricsLog.append(String.format("%s: %.2f \n", statsKey, avgDuration));
+            }
+            log.info(metricsLog.toString());
+        }
+        else {
+            log.info("No entry found in bootstrapMetricsCollector");
+        }
+    }
+
+    private void tuneMaxExecutorsCount()
+    {
+        // Executor allocation is currently only supported at root level of the plan
+        // In future this could be extended to fragment level configuration
+        if (planAndMore.getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()) {
+            sparkContext.sc().conf().set(SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG,
+                    Integer.toString(planAndMore.getPhysicalResourceSettings().getMaxExecutorCount()));
         }
     }
 }

@@ -16,49 +16,19 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonMap;
 
 public class AssignmentUtils
 {
     private AssignmentUtils() {}
-
-    @Deprecated
-    public static Map.Entry<VariableReferenceExpression, RowExpression> identityAsSymbolReference(VariableReferenceExpression variable)
-    {
-        return singletonMap(variable, castToRowExpression(asSymbolReference(variable)))
-                .entrySet().iterator().next();
-    }
-
-    @Deprecated
-    public static Map<VariableReferenceExpression, RowExpression> identitiesAsSymbolReferences(Collection<VariableReferenceExpression> variables)
-    {
-        Map<VariableReferenceExpression, RowExpression> map = new LinkedHashMap<>();
-        for (VariableReferenceExpression variable : variables) {
-            map.put(variable, castToRowExpression(asSymbolReference(variable)));
-        }
-        return map;
-    }
-
-    @Deprecated
-    public static Assignments identityAssignmentsAsSymbolReferences(Collection<VariableReferenceExpression> variables)
-    {
-        return Assignments.builder().putAll(identitiesAsSymbolReferences(variables)).build();
-    }
 
     public static Assignments identityAssignments(Collection<VariableReferenceExpression> variables)
     {
@@ -72,27 +42,37 @@ public class AssignmentUtils
         return identityAssignments(asList(variables));
     }
 
+    public static boolean isIdentity(Assignments assignments)
+    {
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (!assignment.getKey().equals(assignment.getValue())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static Map<VariableReferenceExpression, RowExpression> getNonIdentityAssignments(Assignments assignments)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, RowExpression> nonIdentityAssignments = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, RowExpression> assignment : assignments.entrySet()) {
+            if (!assignment.getKey().equals(assignment.getValue())) {
+                nonIdentityAssignments.put(assignment);
+            }
+        }
+        return nonIdentityAssignments.build();
+    }
+
     public static boolean isIdentity(Assignments assignments, VariableReferenceExpression output)
     {
-        //TODO this will be checking against VariableExpression once getOutput returns VariableReferenceExpression
         RowExpression value = assignments.get(output);
-        if (isExpression(value)) {
-            Expression expression = castToExpression(value);
-            return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
-        }
         return value instanceof VariableReferenceExpression && ((VariableReferenceExpression) value).getName().equals(output.getName());
     }
 
-    @Deprecated
-    public static Assignments identityAssignmentsAsSymbolReferences(VariableReferenceExpression... variables)
-    {
-        return identityAssignmentsAsSymbolReferences(asList(variables));
-    }
-
-    public static Assignments rewrite(Assignments assignments, Function<Expression, Expression> rewrite)
+    public static Assignments rewrite(Assignments assignments, Function<RowExpression, RowExpression> rewrite)
     {
         return assignments.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), castToRowExpression(rewrite.apply(castToExpression(entry.getValue())))))
+                .map(entry -> Maps.immutableEntry(entry.getKey(), rewrite.apply(entry.getValue())))
                 .collect(toAssignments());
     }
 

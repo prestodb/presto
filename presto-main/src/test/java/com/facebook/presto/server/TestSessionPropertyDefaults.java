@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -27,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -36,11 +38,12 @@ public class TestSessionPropertyDefaults
 {
     private static final ResourceGroupId TEST_RESOURCE_GROUP_ID = new ResourceGroupId("test");
     private static final NodeInfo TEST_NODE_INFO = new NodeInfo("test");
+    private static final NodeVersion TEST_NODE_VERSION = new NodeVersion("testversion");
 
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO);
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, TEST_NODE_VERSION);
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 new SystemSessionPropertyConfiguration(
                     ImmutableMap.<String, String>builder()
@@ -63,6 +66,7 @@ public class TestSessionPropertyDefaults
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .setSystemProperty(HASH_PARTITION_COUNT, "43")
+                .setSystemProperty(CTE_HASH_PARTITION_COUNT, "100")
                 .setSystemProperty("override", "should be overridden")
                 .setCatalogSessionProperty("testCatalog", "explicit_set", "explicit_set")
                 .build();
@@ -71,6 +75,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
+                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("override", "should be overridden")
                 .build());
         assertEquals(
@@ -87,6 +92,7 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
+                .put(CTE_HASH_PARTITION_COUNT, "100")
                 .put("system_default", "system_default")
                 .put("override", "overridden")
                 .build());

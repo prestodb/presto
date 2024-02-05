@@ -25,12 +25,16 @@ import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -55,7 +59,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
@@ -755,6 +759,12 @@ public class PropertyDerivations
                     .build();
         }
 
+        public ActualProperties visitSequence(SequenceNode node, List<ActualProperties> context)
+        {
+            // Return the rightmost node properties
+            return context.get(context.size() - 1);
+        }
+
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
@@ -786,6 +796,24 @@ public class PropertyDerivations
             properties.local(LocalProperties.translate(constantAppendedLocalProperties, column -> Optional.ofNullable(assignments.get(column))));
 
             return properties.build();
+        }
+
+        @Override
+        public ActualProperties visitRemoteSource(RemoteSourceNode node, List<ActualProperties> inputProperties)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return ActualProperties.builder()
+                        .global(singleStreamPartition())
+                        .unordered(false)
+                        .build();
+            }
+            if (node.isEnsureSourceOrdering()) {
+                return ActualProperties.builder()
+                        .global(singleStreamPartition())
+                        .build();
+            }
+
+            return ActualProperties.builder().build();
         }
 
         private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, VariableReferenceExpression> assignments, Map<ColumnHandle, ConstantExpression> constants)
@@ -838,7 +866,7 @@ public class PropertyDerivations
         }
     }
 
-    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    static boolean spillPossible(Session session, JoinType joinType)
     {
         if (!isSpillEnabled(session) || !isJoinSpillingEnabled(session)) {
             return false;
@@ -868,7 +896,7 @@ public class PropertyDerivations
     // Used to filter columns that are not exposed by join node
     // Or, if they are part of the equalities, to translate them
     // to the other symbol if that's exposed, instead.
-    public static Optional<VariableReferenceExpression> filterOrRewrite(Collection<VariableReferenceExpression> columns, List<JoinNode.EquiJoinClause> equalities, VariableReferenceExpression column)
+    public static Optional<VariableReferenceExpression> filterOrRewrite(Collection<VariableReferenceExpression> columns, List<EquiJoinClause> equalities, VariableReferenceExpression column)
     {
         // symbol is exposed directly, so no translation needed
         if (columns.contains(column)) {
@@ -877,7 +905,7 @@ public class PropertyDerivations
 
         // if the column is part of the equality conditions and its counterpart
         // is exposed, use that, instead
-        for (JoinNode.EquiJoinClause equality : equalities) {
+        for (EquiJoinClause equality : equalities) {
             if (equality.getLeft().equals(column) && columns.contains(equality.getRight())) {
                 return Optional.of(equality.getRight());
             }

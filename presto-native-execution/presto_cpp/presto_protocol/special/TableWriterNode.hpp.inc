@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 namespace facebook::presto::protocol {
 struct TableWriterNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
@@ -23,7 +24,7 @@ struct TableWriterNode : public PlanNode {
   List<VariableReferenceExpression> notNullColumnVariables = {};
   std::shared_ptr<PartitioningScheme> partitioningScheme = {};
   std::shared_ptr<PartitioningScheme> preferredShufflePartitioningScheme = {};
-  // TODO Add statisticsAggregation
+  std::shared_ptr<StatisticAggregations> statisticsAggregation = {};
 
   TableWriterNode() noexcept;
 };

@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 
 public class Identifier
         extends Expression
@@ -61,6 +62,11 @@ public class Identifier
     public String getValue()
     {
         return value;
+    }
+
+    public String getValueLowerCase()
+    {
+        return value.toLowerCase(ENGLISH);
     }
 
     public boolean isDelimited()

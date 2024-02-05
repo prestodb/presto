@@ -36,6 +36,7 @@ public class ResourceGroupSpecBuilder
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
+    private final Optional<Integer> workersPerQueryLimit;
     private final Optional<String> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
     private final Optional<Boolean> jmxExport;
@@ -60,6 +61,7 @@ public class ResourceGroupSpecBuilder
             Optional<String> perQueryExecutionTimeLimit,
             Optional<String> perQueryTotalMemoryLimit,
             Optional<String> perQueryCpuTimeLimit,
+            Optional<Integer> workersPerQueryLimit,
             Optional<Long> parentId)
     {
         this.id = id;
@@ -68,6 +70,7 @@ public class ResourceGroupSpecBuilder
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = requireNonNull(softConcurrencyLimit, "softConcurrencyLimit is null");
         this.hardConcurrencyLimit = hardConcurrencyLimit;
+        this.workersPerQueryLimit = workersPerQueryLimit;
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         this.schedulingWeight = schedulingWeight;
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
@@ -125,7 +128,8 @@ public class ResourceGroupSpecBuilder
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                perQueryLimits);
+                perQueryLimits,
+                workersPerQueryLimit);
     }
 
     public static class Mapper
@@ -149,6 +153,11 @@ public class ResourceGroupSpecBuilder
             if (resultSet.wasNull()) {
                 schedulingWeight = Optional.empty();
             }
+            Optional<Integer> workersPerQueryLimit = Optional.of(resultSet.getInt("workers_per_query_limit"));
+            if (resultSet.wasNull()) {
+                workersPerQueryLimit = Optional.empty();
+            }
+
             Optional<Boolean> jmxExport = Optional.of(resultSet.getBoolean("jmx_export"));
             if (resultSet.wasNull()) {
                 jmxExport = Optional.empty();
@@ -177,6 +186,7 @@ public class ResourceGroupSpecBuilder
                     perQueryExecutionTimeLimit,
                     perQueryTotalMemoryLimit,
                     perQueryCpuTimeLimit,
+                    workersPerQueryLimit,
                     parentId);
         }
     }

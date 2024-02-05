@@ -48,9 +48,13 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
 
     private int hashPartitionCount = 100;
+
+    private int cteHashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private String ctePartitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
+    private boolean enableWorkerIsolation;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -152,6 +156,20 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getCteHashPartitionCount()
+    {
+        return cteHashPartitionCount;
+    }
+
+    @Config("query.cte-hash-partition-count")
+    @ConfigDescription("Number of writers or buckets allocated per materialized CTE. (Recommended value: 4 - 10x times the size of the cluster)")
+    public QueryManagerConfig setCteHashPartitionCount(int cteHashPartitionCount)
+    {
+        this.cteHashPartitionCount = cteHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
     public int getHashPartitionCount()
     {
         return hashPartitionCount;
@@ -169,6 +187,20 @@ public class QueryManagerConfig
     public String getPartitioningProviderCatalog()
     {
         return partitioningProviderCatalog;
+    }
+
+    @NotNull
+    public String getCtePartitioningProviderCatalog()
+    {
+        return ctePartitioningProviderCatalog;
+    }
+
+    @Config("query.cte-partitioning-provider-catalog")
+    @ConfigDescription("Name of the catalog providing custom partitioning for cte materialization")
+    public QueryManagerConfig setCtePartitioningProviderCatalog(String ctePartitioningProviderCatalog)
+    {
+        this.ctePartitioningProviderCatalog = ctePartitioningProviderCatalog;
+        return this;
     }
 
     @Config("query.partitioning-provider-catalog")
@@ -676,6 +708,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRateLimiterCacheWindowMinutes(int rateLimiterCacheWindowMinutes)
     {
         this.rateLimiterCacheWindowMinutes = rateLimiterCacheWindowMinutes;
+        return this;
+    }
+
+    public boolean isEnableWorkerIsolation()
+    {
+        return enableWorkerIsolation;
+    }
+
+    @Config("query-manager.enable-worker-isolation")
+    @ConfigDescription("Config to enable isolating leaf and intermediate workers for query execution")
+    public QueryManagerConfig setEnableWorkerIsolation(boolean enableWorkerIsolation)
+    {
+        this.enableWorkerIsolation = enableWorkerIsolation;
         return this;
     }
 

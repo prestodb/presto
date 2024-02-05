@@ -29,12 +29,10 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.Collections.emptyList;
 
 public class TestRedundantTopNRemoval
@@ -63,9 +61,9 @@ public class TestRedundantTopNRemoval
                                 10,
                                 ImmutableList.of(p.variable("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.variable("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
-                                        .globalGrouping()
-                                        .source(p.values(p.variable("foo"))))))
+                                        .source(p.values(p.variable("foo")))
+                                        .addAggregation(p.variable("c"), p.rowExpression("count(foo)"))
+                                        .globalGrouping())))
                 .matches(
                         node(AggregationNode.class,
                                 node(ValuesNode.class)));
@@ -115,9 +113,9 @@ public class TestRedundantTopNRemoval
                                 10,
                                 ImmutableList.of(p.variable("c")),
                                 p.aggregation(builder -> builder
-                                        .addAggregation(p.variable("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
-                                        .singleGroupingSet(p.variable("foo"))
-                                        .source(p.values(20, p.variable("foo"))))))
+                                        .source(p.values(20, p.variable("foo")))
+                                        .addAggregation(p.variable("c"), p.rowExpression("count(foo)"))
+                                        .singleGroupingSet(p.variable("foo")))))
                 .doesNotFire();
     }
 

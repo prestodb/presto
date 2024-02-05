@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
+import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -36,12 +37,14 @@ import java.util.concurrent.ExecutionException;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceHash;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceName;
+import static com.facebook.presto.iceberg.IcebergUtil.loadCachingProperties;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BEARER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 
 /**
@@ -56,16 +59,22 @@ public class IcebergResourceFactory
     private final String catalogWarehouse;
     private final List<String> hadoopConfigResources;
     private final NessieConfig nessieConfig;
+    private final S3ConfigurationUpdater s3ConfigurationUpdater;
+    private final GcsConfigurationInitializer gcsConfigurationInitialize;
+
+    private final IcebergConfig icebergConfig;
 
     @Inject
-    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig)
+    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
-        requireNonNull(config, "config is null");
+        this.icebergConfig = requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
         this.catalogWarehouse = config.getCatalogWarehouse();
         this.hadoopConfigResources = config.getHadoopConfigResources();
         this.nessieConfig = requireNonNull(nessieConfig, "nessieConfig is null");
+        this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
+        this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
@@ -75,7 +84,7 @@ public class IcebergResourceFactory
     {
         try {
             return catalogCache.get(getCatalogCacheKey(session), () -> CatalogUtil.loadCatalog(
-                    catalogType.getCatalogImpl(), catalogName, getCatalogProperties(session), getHadoopConfiguration(session)));
+                    catalogType.getCatalogImpl(), catalogName, getCatalogProperties(session), getHadoopConfiguration()));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -96,25 +105,7 @@ public class IcebergResourceFactory
     private String getCatalogCacheKey(ConnectorSession session)
     {
         StringBuilder sb = new StringBuilder();
-        ConnectorIdentity identity = session.getIdentity();
-        sb.append("User:");
-        sb.append(identity.getUser());
-        if (identity.getPrincipal().isPresent()) {
-            sb.append(",Principle:");
-            sb.append(identity.getPrincipal().toString());
-        }
-        if (identity.getRole().isPresent()) {
-            sb.append(",Role:");
-            sb.append(identity.getRole());
-        }
-        if (identity.getExtraCredentials() != null) {
-            identity.getExtraCredentials().forEach((key, value) -> {
-                sb.append(",");
-                sb.append(key);
-                sb.append(":");
-                sb.append(value);
-            });
-        }
+        sb.append(catalogName);
 
         if (catalogType == NESSIE) {
             sb.append(getNessieReferenceName(session));
@@ -125,13 +116,18 @@ public class IcebergResourceFactory
         return sb.toString();
     }
 
-    private Configuration getHadoopConfiguration(ConnectorSession session)
+    private Configuration getHadoopConfiguration()
     {
         Configuration configuration = new Configuration(false);
+
         if (hadoopConfigResources.isEmpty()) {
             configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
             configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
         }
+
+        s3ConfigurationUpdater.updateConfiguration(configuration);
+        gcsConfigurationInitialize.updateConfiguration(configuration);
+
         for (String resourcePath : hadoopConfigResources) {
             Configuration resourceProperties = new Configuration(false);
             resourceProperties.addResource(new Path(resourcePath));
@@ -145,6 +141,12 @@ public class IcebergResourceFactory
     public Map<String, String> getCatalogProperties(ConnectorSession session)
     {
         Map<String, String> properties = new HashMap<>();
+        if (icebergConfig.getManifestCachingEnabled()) {
+            loadCachingProperties(properties, icebergConfig);
+        }
+        if (icebergConfig.getFileIOImpl() != null) {
+            properties.put(FILE_IO_IMPL, icebergConfig.getFileIOImpl());
+        }
         if (catalogWarehouse != null) {
             properties.put(WAREHOUSE_LOCATION, catalogWarehouse);
         }
@@ -170,7 +172,7 @@ public class IcebergResourceFactory
                             .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.bearer.token must be set with BEARER authentication")));
                 }
             });
-            if (nessieConfig.isCompressionDisabled()) {
+            if (!nessieConfig.isCompressionEnabled()) {
                 properties.put("transport.disable-compression", "true");
             }
         }

@@ -13,31 +13,35 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -47,18 +51,24 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 
 public class TestReorderJoins
+        extends BasePlanTest
 {
     private RuleTester tester;
     private FunctionResolution functionResolution;
@@ -67,6 +77,37 @@ public class TestReorderJoins
     private static final ImmutableList<List<RowExpression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
     private static final QualifiedName RANDOM = QualifiedName.of("random");
 
+    @DataProvider
+    public static Object[][] tableSpecificationPermutations()
+    {
+        return new Object[][] {
+                {"supplier s, partsupp ps, customer c, orders o"},
+                {"supplier s, partsupp ps, orders o, customer c"},
+                {"supplier s, customer c, partsupp ps, orders o"},
+                {"supplier s, customer c, orders o, partsupp ps"},
+                {"supplier s, orders o, partsupp ps, customer c"},
+                {"supplier s, orders o, customer c, partsupp ps"},
+                {"partsupp ps, supplier s, customer c, orders o"},
+                {"partsupp ps, supplier s, orders o, customer c"},
+                {"partsupp ps, customer c, supplier s, orders o"},
+                {"partsupp ps, customer c, orders o, supplier s"},
+                {"partsupp ps, orders o, supplier s, customer c"},
+                {"partsupp ps, orders o, customer c, supplier s"},
+                {"customer c, supplier s, partsupp ps, orders o"},
+                {"customer c, supplier s, orders o, partsupp ps"},
+                {"customer c, partsupp ps, supplier s, orders o"},
+                {"customer c, partsupp ps, orders o, supplier s"},
+                {"customer c, orders o, supplier s, partsupp ps"},
+                {"customer c, orders o, partsupp ps, supplier s"},
+                {"orders o, supplier s, partsupp ps, customer c"},
+                {"orders o, supplier s, customer c, partsupp ps"},
+                {"orders o, partsupp ps, supplier s, customer c"},
+                {"orders o, partsupp ps, customer c, supplier s"},
+                {"orders o, customer c, supplier s, partsupp ps"},
+                {"orders o, customer c, partsupp ps, supplier s"}
+        };
+    }
+
     @BeforeClass
     public void setUp()
     {
@@ -74,7 +115,8 @@ public class TestReorderJoins
                 ImmutableList.of(),
                 ImmutableMap.of(
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
-                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
+                        JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name(),
+                        HANDLE_COMPLEX_EQUI_JOINS, "true"),
                 Optional.of(4));
         this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
@@ -280,7 +322,7 @@ public class TestReorderJoins
                                 p.values(new PlanNodeId("valuesB"), ImmutableList.of(p.variable("B1")), TWO_ROWS),
                                 p.values(new PlanNodeId("valuesA"), p.variable("A1")), // matches isAtMostScalar
                                 ImmutableList.of(new EquiJoinClause(p.variable("A1"), p.variable("B1"))),
-                                ImmutableList.of(p.variable("A1"), p.variable("B1")),
+                                ImmutableList.of(p.variable("B1"), p.variable("A1")),
                                 Optional.empty()))
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)
@@ -548,6 +590,159 @@ public class TestReorderJoins
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("B1", 0)),
                         values(ImmutableMap.of("A1", 0))));
+    }
+
+    /**
+     * This test asserts that join re-ordering works as expected for complex equi join clauses ('s.acctbal = c.acctbal + o.totalprice')
+     * and works irrespective of the order in which tables are specified in the FROM clause
+     *
+     * @param tableSpecificationOrder The table specification order
+     */
+    @Test(dataProvider = "tableSpecificationPermutations")
+    public void testComplexEquiJoinCriteria(String tableSpecificationOrder)
+    {
+        // For a full connected join graph, we don't see any CrossJoins
+        String query = "select 1 from " + tableSpecificationOrder + " where s.suppkey = ps.suppkey and c.custkey = o.custkey and s.acctbal = c.acctbal + o.totalprice";
+        PlanMatchPattern expectedPlan =
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
+                                anyTree(tableScan("partsupp", ImmutableMap.of("PS_SUPPKEY", "suppkey"))),
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("SUM", "S_ACCTBAL")),
+                                                anyTree(
+                                                        project(ImmutableMap.of("SUM", expression("C_ACCTBAL + O_TOTALPRICE")),
+                                                                join(INNER,
+                                                                        ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
+                                                                        anyTree(
+                                                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_TOTALPRICE", "totalprice"))),
+                                                                        anyTree(
+                                                                                tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_ACCTBAL", "acctbal")))))),
+                                                anyTree(
+                                                        tableScan("supplier", ImmutableMap.of("S_ACCTBAL", "acctbal", "S_SUPPKEY", "suppkey")))))));
+        assertPlan(query, tester.getSession(), expectedPlan);
+
+        // The plan is identical to the plan for the fully spelled out version of the Join
+        String fullQuery = "select 1 from (supplier s inner join partsupp ps on s.suppkey = ps.suppkey) inner join (orders o inner join customer c on c.custkey = o.custkey) " +
+                " on  s.acctbal = c.acctbal + o.totalprice";
+        assertPlan(fullQuery, tester.getSession(), expectedPlan);
+    }
+
+    @Test
+    public void testComplexEquiJoinCriteriaForDisjointGraphs()
+    {
+        // If the join clause is written with the Left/Right side referring to both sides of a Join node, an equi-join condition cannot be inferred
+        // and the join space is broken up. Hence, we observe a CrossJoin node
+        assertPlan("select 1 from supplier s, partsupp ps, customer c, orders o  where s.suppkey = ps.suppkey and c.custkey = o.custkey and s.acctbal - c.acctbal = o.totalprice", tester.getSession(),
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("C_CUSTKEY", "O_CUSTKEY"), equiJoinClause("SUBTRACT", "O_TOTALPRICE")),
+                                anyTree(
+                                        project(ImmutableMap.of("SUBTRACT", expression("S_ACCTBAL - C_ACCTBAL")),
+                                                join(INNER,
+                                                        ImmutableList.of(), //CrossJoin
+                                                        join(INNER,
+                                                                ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
+                                                                anyTree(tableScan("partsupp", ImmutableMap.of("PS_SUPPKEY", "suppkey"))),
+                                                                anyTree(
+                                                                        tableScan("supplier", ImmutableMap.of("S_ACCTBAL", "acctbal", "S_SUPPKEY", "suppkey")))),
+                                                        anyTree(
+                                                                tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_ACCTBAL", "acctbal")))))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_TOTALPRICE", "totalprice"))))));
+
+        // The table specification order determines the join order for such cases
+        // With the below table specification order, the planner adds the complex equi-join condition as a FilterNode on top of a JoinNode
+        assertPlan("select 1 from orders o, customer c, supplier s, partsupp ps where s.suppkey = ps.suppkey and c.custkey = o.custkey and s.acctbal - c.acctbal = o.totalprice", tester.getSession(),
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
+                                anyTree(
+                                        tableScan("partsupp", ImmutableMap.of("PS_SUPPKEY", "suppkey"))),
+                                anyTree(
+                                        filter("O_TOTALPRICE = S_ACCTBAL - C_ACCTBAL",
+                                                join(INNER,
+                                                        ImmutableList.of(), //CrossJoin
+                                                        join(INNER,
+                                                                ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
+                                                                anyTree(tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_TOTALPRICE", "totalprice"))),
+                                                                anyTree(
+                                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_ACCTBAL", "acctbal")))),
+                                                        anyTree(
+                                                                tableScan("supplier", ImmutableMap.of("S_ACCTBAL", "acctbal", "S_SUPPKEY", "suppkey")))))))));
+
+        // For sub-graphs that are fully connected, join-reordering works with complex predicates as expected
+        // The rest of the join graph is connected using a CrossJoin
+        assertPlan("select 1 " +
+                "from orders o, customer c, supplier s, partsupp ps, part p " +
+                "where s.suppkey = ps.suppkey " +
+                "    and c.custkey = o.custkey " +
+                "    and s.acctbal = c.acctbal + o.totalprice" +
+                "    and ps.partkey - p.partkey = 0 ",
+                tester.getSession(),
+                anyTree(
+                        filter("PS_PARTKEY - P_PARTKEY = 0",
+                                join(INNER,
+                                        ImmutableList.of(), // CrossJoin
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("PS_SUPPKEY", "S_SUPPKEY")),
+                                                anyTree(
+                                                        tableScan("partsupp", ImmutableMap.of("PS_SUPPKEY", "suppkey", "PS_PARTKEY", "partkey"))),
+                                                anyTree(
+                                                        join(INNER,
+                                                                ImmutableList.of(equiJoinClause("SUM", "S_ACCTBAL")),
+                                                                anyTree(
+                                                                        project(ImmutableMap.of("SUM", expression("C_ACCTBAL + O_TOTALPRICE")),
+                                                                                join(INNER,
+                                                                                        ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
+                                                                                        anyTree(
+                                                                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_TOTALPRICE", "totalprice"))),
+                                                                                        anyTree(
+                                                                                                tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_ACCTBAL", "acctbal")))))),
+                                                                anyTree(
+                                                                        tableScan("supplier", ImmutableMap.of("S_ACCTBAL", "acctbal", "S_SUPPKEY", "suppkey")))))),
+                                        anyTree(
+                                                tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey")))))));
+    }
+
+    @Test
+    public void testComplexEquiJoinCriteriaForJoinsWithUSINGClause()
+    {
+        // Projecting all the columns from the sources while joining tables with a USING clause introduces intermediate Project Nodes in the join graph
+        // This breaks join-reordering, and we get table-specification ordering for the Join graph
+        String usingQueryWithStarProjection = "select * from orders join lineitem USING (orderkey) join customer USING (custkey)";
+
+        Session session = Session.builder(tester.getSession()).setSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, "false").build();
+        assertPlan(usingQueryWithStarProjection, session,
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_ORDERKEY", "orderkey"))))),
+                                anyTree(
+                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey"))))));
+
+        // With HANDLE_COMPLEX_EQUI_JOINS turned on, the intermediate Project nodes are handled and join-reordering works as expected
+        session = Session.builder(tester.getSession()).setSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, "true").build();
+        assertPlan(usingQueryWithStarProjection, session,
+                anyTree(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))),
+                                anyTree(
+                                        join(INNER,
+                                                ImmutableList.of(equiJoinClause("O_CUSTKEY", "C_CUSTKEY")),
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_ORDERKEY", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey"))))))));
     }
 
     private RuleAssert assertReorderJoins()

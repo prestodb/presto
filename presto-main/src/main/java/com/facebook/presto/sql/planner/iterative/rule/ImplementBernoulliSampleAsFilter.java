@@ -15,19 +15,22 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.DoubleLiteral;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.relational.FunctionResolution;
 
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.plan.Patterns.Sample.sampleType;
 import static com.facebook.presto.sql.planner.plan.Patterns.sample;
 import static com.facebook.presto.sql.planner.plan.SampleNode.Type.BERNOULLI;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -47,6 +50,15 @@ public class ImplementBernoulliSampleAsFilter
     private static final Pattern<SampleNode> PATTERN = sample()
             .with(sampleType().equalTo(BERNOULLI));
 
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final StandardFunctionResolution functionResolution;
+
+    public ImplementBernoulliSampleAsFilter(FunctionAndTypeManager functionAndTypeManager)
+    {
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+    }
+
     @Override
     public Pattern<SampleNode> getPattern()
     {
@@ -60,9 +72,10 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getSourceLocation(),
                 sample.getId(),
                 sample.getSource(),
-                castToRowExpression(new ComparisonExpression(
-                        ComparisonExpression.Operator.LESS_THAN,
-                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
-                        new DoubleLiteral(Double.toString(sample.getSampleRatio()))))));
+                comparisonExpression(
+                        functionResolution,
+                        LESS_THAN,
+                        call(functionAndTypeManager, "rand", DOUBLE),
+                        new ConstantExpression(sample.getSampleRatio(), DOUBLE))));
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.presto.client.SocketChannelSocketFactory;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -44,7 +43,6 @@ public class PrestoDriver
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder()
             .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION))
-            .socketFactory(new SocketChannelSocketFactory())
             .build();
 
     static {
@@ -87,6 +85,7 @@ public class PrestoDriver
         PrestoDriverUri uri = new PrestoDriverUri(url, info);
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
+        builder.followRedirects(uri.followRedirects());
         uri.setupClient(builder);
         QueryExecutor executor = new QueryExecutor(builder.build());
 

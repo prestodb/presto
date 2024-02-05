@@ -20,19 +20,19 @@ import javax.validation.constraints.NotNull;
 
 public class JsonFileBasedFunctionNamespaceManagerConfig
 {
-    private String functionDefinitionFile = "";
+    private String functionDefinitionPath = "";
 
     @NotNull
-    public String getFunctionDefinitionFile()
+    public String getFunctionDefinitionPath()
     {
-        return functionDefinitionFile;
+        return functionDefinitionPath;
     }
 
     @Config("json-based-function-manager.path-to-function-definition")
-    @ConfigDescription("Path to the Json file which the namespace manager load function data from")
-    public JsonFileBasedFunctionNamespaceManagerConfig setFunctionDefinitionFile(String functionDefinitionFile)
+    @ConfigDescription("Path to a JSON file or directory of JSON files which the namespace manager loads function metadata from")
+    public JsonFileBasedFunctionNamespaceManagerConfig setFunctionDefinitionPath(String functionDefinitionPath)
     {
-        this.functionDefinitionFile = functionDefinitionFile;
+        this.functionDefinitionPath = functionDefinitionPath;
         return this;
     }
 }

@@ -121,9 +121,14 @@ public class ColumnIdentity
 
     public static ColumnIdentity createColumnIdentity(Types.NestedField column)
     {
-        int id = column.fieldId();
-        String name = column.name();
-        org.apache.iceberg.types.Type fieldType = column.type();
+        return createColumnIdentity(column.name(), column.fieldId(), column.type());
+    }
+
+    public static ColumnIdentity createColumnIdentity(String name, int id, org.apache.iceberg.types.Type fieldType)
+    {
+        if (fieldType.equals(Types.TimestampType.withZone())) {
+            throw new UnsupportedOperationException(format("Iceberg column type %s is not supported", fieldType));
+        }
 
         if (!fieldType.isNestedType()) {
             return new ColumnIdentity(id, name, PRIMITIVE, ImmutableList.of());

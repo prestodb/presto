@@ -172,6 +172,13 @@ public interface AccessControl
     void checkCanTruncateTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to update the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
+
+    /**
      * Check if identity is allowed to create the specified view.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

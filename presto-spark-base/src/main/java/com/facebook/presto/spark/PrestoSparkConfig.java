@@ -15,9 +15,11 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.LegacyConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -30,6 +32,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class PrestoSparkConfig
 {
@@ -66,6 +69,9 @@ public class PrestoSparkConfig
     private boolean hashPartitionCountAllocationStrategyEnabled;
     private boolean adaptiveQueryExecutionEnabled;
     private boolean adaptiveJoinSideSwitchingEnabled;
+    private String nativeExecutionBroadcastBasePath;
+    private boolean nativeTerminateWithCoreWhenUnresponsiveEnabled;
+    private Duration nativeTerminateWithCoreTimeout = new Duration(5, MINUTES);
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -475,6 +481,47 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setAdaptiveJoinSideSwitchingEnabled(boolean adaptiveJoinSideSwitchingEnabled)
     {
         this.adaptiveJoinSideSwitchingEnabled = adaptiveJoinSideSwitchingEnabled;
+        return this;
+    }
+
+    public String getNativeExecutionBroadcastBasePath()
+    {
+        return nativeExecutionBroadcastBasePath;
+    }
+
+    @Config("native-execution-broadcast-base-path")
+    @ConfigDescription("Base path for temporary broadcast files for native execution")
+    public PrestoSparkConfig setNativeExecutionBroadcastBasePath(String nativeExecutionBroadcastBasePath)
+    {
+        this.nativeExecutionBroadcastBasePath = nativeExecutionBroadcastBasePath;
+        return this;
+    }
+
+    public boolean isNativeTerminateWithCoreWhenUnresponsiveEnabled()
+    {
+        return nativeTerminateWithCoreWhenUnresponsiveEnabled;
+    }
+
+    @Config("native-terminate-with-core-when-unresponsive-enabled")
+    @LegacyConfig("native-trigger-coredump-when-unresponsive-enabled")
+    @ConfigDescription("Terminate native execution process with core when it becomes unresponsive")
+    public PrestoSparkConfig setNativeTerminateWithCoreWhenUnresponsiveEnabled(boolean nativeTerminateWithCoreWhenUnresponsiveEnabled)
+    {
+        this.nativeTerminateWithCoreWhenUnresponsiveEnabled = nativeTerminateWithCoreWhenUnresponsiveEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getNativeTerminateWithCoreTimeout()
+    {
+        return nativeTerminateWithCoreTimeout;
+    }
+
+    @Config("native-terminate-with-core-timeout")
+    @ConfigDescription("Timeout for native execution process termination with core. The process is forcefully killed on timeout")
+    public PrestoSparkConfig setNativeTerminateWithCoreTimeout(Duration nativeTerminateWithCoreTimeout)
+    {
+        this.nativeTerminateWithCoreTimeout = nativeTerminateWithCoreTimeout;
         return this;
     }
 }

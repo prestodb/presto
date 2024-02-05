@@ -19,6 +19,7 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -32,14 +33,20 @@ import org.joda.time.format.DateTimeFormat;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.time.ZoneId;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_CLIENT_INFO;
@@ -50,6 +57,7 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_USER_NAME;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionNamesAndValues;
@@ -158,6 +166,22 @@ public class TestHiveUtil
         assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_CLIENT_INFO)), SESSION.getClientInfo());
         assertEquals(additionalProperties.get(PRESTO_USER_NAME), SESSION.getUser());
         assertEquals(Optional.ofNullable(additionalProperties.get(PRESTO_METASTORE_HEADER)), getMetastoreHeaders(SESSION));
+    }
+
+    @Test
+    public void testParsePartitionValue()
+    {
+        Object prestoValue = parsePartitionValue("p=1970-01-02", "1970-01-02", DATE, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        assertEquals(Long.parseLong(String.valueOf(prestoValue)), 1L);
+
+        prestoValue = parsePartitionValue("p=1234", "1234", INTEGER, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        assertEquals(Integer.parseInt(String.valueOf(prestoValue)), 1234);
+
+        prestoValue = parsePartitionValue("p=true", "true", BOOLEAN, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        assertTrue(Boolean.parseBoolean(String.valueOf(prestoValue)));
+
+        prestoValue = parsePartitionValue("p=USA", "USA", VARCHAR, ZoneId.of(TimeZone.getDefault().getID())).getValue();
+        assertEquals(prestoValue, Slices.utf8Slice("USA"));
     }
 
     private static void assertToPartitionValues(String partitionName)

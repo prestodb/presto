@@ -49,5 +49,11 @@ public class TestHiveDistributedQueriesWithOptimizedRepartitioning
         // Hive connector currently does not support row-by-row delete
     }
 
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }

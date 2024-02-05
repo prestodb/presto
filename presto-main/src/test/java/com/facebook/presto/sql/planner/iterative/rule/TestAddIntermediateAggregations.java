@@ -37,8 +37,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -226,15 +225,15 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.variable("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.variable("b"), expression("count(a)"), ImmutableList.of(BIGINT))
+                                                    .addAggregation(p.variable("b"), p.registerVariable(p.variable("a")).rowExpression("count(a)"))
                                                     .source(
-                                                            p.values(p.variable("a"))))));
+                                                            p.values(p.variable("a"))))))
+                            .addAggregation(p.variable("c"), p.rowExpression("count(b)"));
                 }))
                 .doesNotFire();
     }
@@ -250,15 +249,14 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.variable("c"), expression("count(b)"), ImmutableList.of(BIGINT))
+                            .addAggregation(p.variable("c"), p.registerVariable(p.variable("b")).rowExpression("count(b)"))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.variable("b"), expression("count(a)"), ImmutableList.of(BIGINT))
-                                                    .source(
-                                                            p.values(p.variable("a"))))));
+                                                    .source(p.values(p.variable("a")))
+                                                    .addAggregation(p.variable("b"), p.rowExpression("count(a)")))));
                 }))
                 .matches(
                         aggregation(
@@ -293,15 +291,14 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.singleGroupingSet(p.variable("c"))
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.variable("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.aggregation(ap -> ap.singleGroupingSet(p.variable("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
-                                                    .addAggregation(p.variable("b"), expression("count(a)"), ImmutableList.of(BIGINT))
-                                                    .source(
-                                                            p.values(p.variable("a"))))));
+                                                    .source(p.values(p.variable("a")))
+                                                    .addAggregation(p.variable("b"), p.rowExpression("count(a)")))))
+                            .addAggregation(p.variable("c"), p.rowExpression("count(b)"));
                 }))
                 .doesNotFire();
     }
@@ -317,17 +314,16 @@ public class TestAddIntermediateAggregations
                 .on(p -> p.aggregation(af -> {
                     af.globalGrouping()
                             .step(AggregationNode.Step.FINAL)
-                            .addAggregation(p.variable("c"), expression("count(b)"), ImmutableList.of(BIGINT))
                             .source(
                                     p.gatheringExchange(
                                             ExchangeNode.Scope.REMOTE_STREAMING,
                                             p.project(
-                                                    identityAssignmentsAsSymbolReferences(p.variable("b")),
+                                                    identityAssignments(p.variable("b")),
                                                     p.aggregation(ap -> ap.globalGrouping()
                                                             .step(AggregationNode.Step.PARTIAL)
-                                                            .addAggregation(p.variable("b"), expression("count(a)"), ImmutableList.of(BIGINT))
-                                                            .source(
-                                                                    p.values(p.variable("a")))))));
+                                                            .source(p.values(p.variable("a")))
+                                                            .addAggregation(p.variable("b"), p.rowExpression("count(a)"))))))
+                            .addAggregation(p.variable("c"), p.rowExpression("count(b)"));
                 }))
                 .matches(
                         aggregation(

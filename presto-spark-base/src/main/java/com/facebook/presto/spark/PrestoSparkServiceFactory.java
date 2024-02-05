@@ -16,8 +16,10 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,8 +37,9 @@ public class PrestoSparkServiceFactory
     private final Logger log = Logger.get(PrestoSparkServiceFactory.class);
 
     @Override
-    public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration)
+    public IPrestoSparkService createService(SparkProcessType sparkProcessType, PrestoSparkConfiguration configuration, PrestoSparkBootstrapTimer bootstrapTimer)
     {
+        bootstrapTimer.beginPrestoSparkServiceCreation();
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(configuration.getConfigProperties());
         properties.put("plugin.dir", configuration.getPluginsDirectoryPath());
@@ -53,8 +56,9 @@ public class PrestoSparkServiceFactory
                 getSqlParserOptions(),
                 getAdditionalModules(configuration));
 
-        Injector injector = prestoSparkInjectorFactory.create();
+        Injector injector = prestoSparkInjectorFactory.create(bootstrapTimer);
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
+        bootstrapTimer.endPrestoSparkServiceCreation();
         log.info("Initialized");
         return prestoSparkService;
     }
@@ -62,7 +66,10 @@ public class PrestoSparkServiceFactory
     protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)
     {
         checkArgument(METADATA_STORAGE_TYPE_LOCAL.equalsIgnoreCase(configuration.getMetadataStorageType()), "only local metadata storage is supported");
-        return ImmutableList.of(new PrestoSparkLocalMetadataStorageModule());
+        return ImmutableList.of(
+                new PrestoSparkLocalMetadataStorageModule(),
+                // TODO: Need to let NativeExecutionModule addition be controlled by configuration as well.
+                new NativeExecutionModule());
     }
 
     protected SqlParserOptions getSqlParserOptions()

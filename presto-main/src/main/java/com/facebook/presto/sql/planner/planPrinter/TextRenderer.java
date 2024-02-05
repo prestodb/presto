@@ -15,6 +15,11 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.TableWriterNodeStatsEstimate;
+import com.facebook.presto.spi.eventlistener.CTEInformation;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
+import com.facebook.presto.sql.planner.optimizations.OptimizerResult;
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
@@ -38,18 +43,30 @@ public class TextRenderer
 {
     private final boolean verbose;
     private final int level;
+    private final boolean verboseOptimizerInfo;
 
-    public TextRenderer(boolean verbose, int level)
+    public TextRenderer(boolean verbose, int level, boolean verboseOptimizerInfo)
     {
         this.verbose = verbose;
         this.level = level;
+        this.verboseOptimizerInfo = verboseOptimizerInfo;
     }
 
     @Override
     public String render(PlanRepresentation plan)
     {
         StringBuilder output = new StringBuilder();
-        return writeTextOutput(output, plan, level, plan.getRoot());
+        String result = writeTextOutput(output, plan, level, plan.getRoot());
+
+        if (verboseOptimizerInfo) {
+            String optimizerInfo = optimizerInfoToText(plan.getPlanOptimizerInfo());
+            String cteInformation = cteInformationToText(plan.getCteInformationList());
+            String optimizerResults = optimizerResultsToText(plan.getPlanOptimizerResults());
+            result += optimizerInfo;
+            result += cteInformation;
+            result += optimizerResults;
+        }
+        return result;
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, int level, NodeRepresentation node)
@@ -57,6 +74,7 @@ public class TextRenderer
         output.append(indentString(level))
                 .append("- ")
                 .append(node.getName())
+                .append(node.getPlanNodeIds().isEmpty() ? "" : format("[PlanNodeId %s]", Joiner.on(",").join(node.getPlanNodeIds())))
                 .append(node.getSourceLocation().isPresent() ? "(" + node.getSourceLocation().get().toString() + ")" : "")
                 .append(node.getIdentifier())
                 .append(" => [")
@@ -218,13 +236,24 @@ public class TextRenderer
         for (int i = 0; i < estimateCount; i++) {
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
             PlanCostEstimate cost = node.getEstimatedCost().get(i);
-
-            output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
+            String formatStr = "{source: %s, rows: %s (%s), cpu: %s, memory: %s, network: %s";
+            boolean hasHashtableStats = stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount() > 0 || stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount() > 0;
+            String joinStatsFormatStr = hasHashtableStats ? ", hashtable[size: %s, nulls %s]" : "%s%s";
+            boolean hasTableWriterStats = !stats.getTableWriterNodeStatsEstimate().equals(TableWriterNodeStatsEstimate.unknown());
+            String tableWriterStatsFormatStr = hasTableWriterStats ? ", tablewriter[initial tasks: %s]" : "%s";
+            formatStr += joinStatsFormatStr;
+            formatStr += tableWriterStatsFormatStr;
+            formatStr += "}";
+            output.append(format(formatStr,
+                    stats.getSourceInfo().getClass().getSimpleName(),
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(plan.getPlanNodeRoot())),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
-                    formatDouble(cost.getNetworkCost())));
+                    formatDouble(cost.getNetworkCost()),
+                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getJoinBuildKeyCount()) : "",
+                    hasHashtableStats ? formatDouble(stats.getJoinNodeStatsEstimate().getNullJoinBuildKeyCount()) : "",
+                    hasTableWriterStats ? formatAsLong(stats.getTableWriterNodeStatsEstimate().getTaskCountIfScaledWriter()) : ""));
 
             if (i < estimateCount - 1) {
                 output.append("/");
@@ -243,7 +272,7 @@ public class TextRenderer
     public static String formatAsLong(double value)
     {
         if (isFinite(value)) {
-            return format(Locale.US, "%d", Math.round(value));
+            return format(Locale.US, "%,d", Math.round(value));
         }
 
         return "?";
@@ -252,7 +281,7 @@ public class TextRenderer
     public static String formatDouble(double value)
     {
         if (isFinite(value)) {
-            return format(Locale.US, "%.2f", value);
+            return format(Locale.US, "%,.2f", value);
         }
 
         return "?";
@@ -261,7 +290,7 @@ public class TextRenderer
     static String formatPositions(long positions)
     {
         String noun = (positions == 1) ? "row" : "rows";
-        return positions + " " + noun;
+        return format(Locale.US, "%,d %s", positions, noun);
     }
 
     static String indentString(int indent)
@@ -272,5 +301,47 @@ public class TextRenderer
     private static String indentMultilineString(String string, int level)
     {
         return string.replaceAll("(?m)^", indentString(level));
+    }
+
+    private String optimizerInfoToText(List<PlanOptimizerInformation> planOptimizerInfo)
+    {
+        List<String> applicableOptimizerNames = planOptimizerInfo.stream()
+                .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().get())
+                .map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+
+        List<String> triggeredOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getOptimizerTriggered()).map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
+        List<String> costBasedOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getIsCostBased().isPresent() && x.getIsCostBased().get()).map(x -> x.getOptimizerName() + "(" + x.getStatsSource().get() + ")").distinct().sorted().collect(toList());
+
+        String triggered = "Triggered optimizers: [" +
+                String.join(", ", triggeredOptimizerNames) + "]\n";
+        String applicable = "Applicable optimizers: [" +
+                String.join(", ", applicableOptimizerNames) + "]\n";
+        String costBased = "Cost-based optimizers: [" +
+                String.join(", ", costBasedOptimizerNames) + "]\n";
+
+        return triggered + applicable + costBased;
+    }
+
+    private String cteInformationToText(List<CTEInformation> cteInformationList)
+    {
+        List<String> cteInfo = cteInformationList.stream().map(
+                x -> x.getCteName() + ": " + x.getNumberOfReferences() + " (is_view: " + x.getIsView() + ")")
+                .collect(toList());
+
+        return "CTEInfo: [" + String.join(", ", cteInfo) + "]\n";
+    }
+
+    private String optimizerResultsToText(List<OptimizerResult> optimizerResults)
+    {
+        StringBuilder builder = new StringBuilder();
+
+        optimizerResults.forEach(opt -> {
+            builder.append(opt.getOptimizer() + " (before):\n");
+            builder.append(opt.getOldNode() + "\n");
+            builder.append(opt.getOptimizer() + " (after):\n");
+            builder.append(opt.getNewNode() + "\n");
+        });
+
+        return builder.toString();
     }
 }

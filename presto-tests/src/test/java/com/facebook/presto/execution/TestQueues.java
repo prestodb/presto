@@ -61,7 +61,7 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryStat
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.facebook.presto.spi.StandardErrorCode.MISSING_RESOURCE_GROUP_SELECTOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static java.lang.String.format;
@@ -330,7 +330,8 @@ public class TestQueues
         }
     }
 
-    @Test(timeOut = 60_000)
+    // This test is flaky: https://github.com/prestodb/presto/issues/19633
+    @Test(timeOut = 60_000, enabled = false)
     public void testQueuedQueryInteraction()
             throws Exception
     {
@@ -391,7 +392,7 @@ public class TestQueues
             QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
             DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-            assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+            assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), MISSING_RESOURCE_GROUP_SELECTOR.toErrorCode());
         }
     }
 

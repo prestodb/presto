@@ -136,8 +136,26 @@ public class PartitionData
             case TIME:
                 return partitionValue.asLong();
             case FLOAT:
+                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
+                    return Float.NaN;
+                }
+                if (partitionValue.asText().equalsIgnoreCase("Infinity")) {
+                    return Float.POSITIVE_INFINITY;
+                }
+                if (partitionValue.asText().equalsIgnoreCase("-Infinity")) {
+                    return Float.NEGATIVE_INFINITY;
+                }
                 return partitionValue.floatValue();
             case DOUBLE:
+                if (partitionValue.asText().equalsIgnoreCase("NaN")) {
+                    return Double.NaN;
+                }
+                if (partitionValue.asText().equalsIgnoreCase("Infinity")) {
+                    return Double.POSITIVE_INFINITY;
+                }
+                if (partitionValue.asText().equalsIgnoreCase("-Infinity")) {
+                    return Double.NEGATIVE_INFINITY;
+                }
                 return partitionValue.doubleValue();
             case STRING:
                 return partitionValue.asText();

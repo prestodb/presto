@@ -14,10 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
@@ -75,6 +74,7 @@ import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -452,12 +452,13 @@ public class TestBackgroundHiveSplitLoader
             assertEquals(future.get().size(), TEST_FILES.size());
         }
 
-        assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
         if (fileStatusCacheTables.length() == 0) {
+            assertEquals(cachingDirectoryLister.getRequestCount(), 0);
             assertEquals(cachingDirectoryLister.getHitCount(), 0);
-            assertEquals(cachingDirectoryLister.getMissCount(), totalCount);
+            assertEquals(cachingDirectoryLister.getMissCount(), 0);
         }
         else {
+            assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
             assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
             assertEquals(cachingDirectoryLister.getMissCount(), 1);
         }
@@ -504,12 +505,9 @@ public class TestBackgroundHiveSplitLoader
             Table table,
             Optional<HiveBucketHandle> bucketHandle)
     {
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(
+        ConnectorSession connectorSession = new TestingConnectorSession(getAllSessionProperties(
                         new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+                        new HiveCommonClientConfig()));
         return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle, samplePartitionMetadatas());
     }
 
@@ -551,14 +549,10 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister, String fileStatusCacheTables)
     {
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig()
-                                .setMaxSplitSize(new DataSize(1.0, GIGABYTE))
+        ConnectorSession connectorSession = new TestingConnectorSession(getAllSessionProperties(
+                        new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE))
                                 .setFileStatusCacheTables(fileStatusCacheTables),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+                        new HiveCommonClientConfig()));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
@@ -578,12 +572,9 @@ public class TestBackgroundHiveSplitLoader
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoaderOfflinePartitions()
     {
-        ConnectorSession connectorSession = new TestingConnectorSession(
-                new HiveSessionProperties(
+        ConnectorSession connectorSession = new TestingConnectorSession(getAllSessionProperties(
                         new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+                        new HiveCommonClientConfig()));
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,

@@ -22,7 +22,21 @@ public class HiveMetastoreCacheStats
         implements MetastoreCacheStats
 {
     private final CounterStat partitionsWithColumnCountGreaterThanThreshold = new CounterStat();
+    private LoadingCache<?, ?> tableCache;
+    private LoadingCache<?, ?> partitionNamesCache;
     private LoadingCache<?, ?> partitionCache;
+
+    @Override
+    public void setTableCache(LoadingCache<?, ?> tableCache)
+    {
+        this.tableCache = tableCache;
+    }
+
+    @Override
+    public void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache)
+    {
+        this.partitionNamesCache = partitionNamesCache;
+    }
 
     @Override
     public void setPartitionCache(LoadingCache<?, ?> partitionCache)
@@ -34,6 +48,62 @@ public class HiveMetastoreCacheStats
     public void incrementPartitionsWithColumnCountGreaterThanThreshold()
     {
         partitionsWithColumnCountGreaterThanThreshold.update(1);
+    }
+
+    @Managed
+    @Override
+    public long getTableCacheHit()
+    {
+        return tableCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableCacheMiss()
+    {
+        return tableCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableCacheEviction()
+    {
+        return tableCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getTableCacheSize()
+    {
+        return tableCache.size();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheHit()
+    {
+        return partitionNamesCache.stats().hitCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheMiss()
+    {
+        return partitionNamesCache.stats().missCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheEviction()
+    {
+        return partitionNamesCache.stats().evictionCount();
+    }
+
+    @Managed
+    @Override
+    public long getPartitionNamesCacheSize()
+    {
+        return partitionNamesCache.size();
     }
 
     @Managed

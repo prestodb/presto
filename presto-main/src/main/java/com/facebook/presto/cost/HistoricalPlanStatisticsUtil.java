@@ -34,14 +34,14 @@ public class HistoricalPlanStatisticsUtil
     public static PlanStatistics getPredictedPlanStatistics(
             HistoricalPlanStatistics historicalPlanStatistics,
             List<PlanStatistics> inputTableStatistics,
-            HistoryBasedOptimizationConfig config)
+            double historyMatchingThreshold)
     {
         List<HistoricalPlanStatisticsEntry> lastRunsStatistics = historicalPlanStatistics.getLastRunsStatistics();
         if (lastRunsStatistics.isEmpty()) {
             return PlanStatistics.empty();
         }
 
-        Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, config.getHistoryMatchingThreshold());
+        Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, historyMatchingThreshold);
 
         if (similarStatsIndex.isPresent()) {
             return lastRunsStatistics.get(similarStatsIndex.get()).getPlanStatistics();
@@ -113,7 +113,7 @@ public class HistoricalPlanStatisticsUtil
         return Optional.empty();
     }
 
-    private static boolean similarStats(double stats1, double stats2, double threshold)
+    public static boolean similarStats(double stats1, double stats2, double threshold)
     {
         if (isNaN(stats1) && isNaN(stats2)) {
             return true;

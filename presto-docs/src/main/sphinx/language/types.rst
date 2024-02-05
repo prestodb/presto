@@ -102,18 +102,43 @@ String
 
     Variable length character data with an optional maximum length.
 
-    Example type definitions: ``varchar``, ``varchar(20)``
+    Example type definitions: ``varchar``, ``varchar(20)``.
+
+    SQL supports simple and Unicode string literals:
+     - Literal string : ``'Hello winter !'``
+     - Unicode string with default escape character: ``U&'Hello winter \2603 !'``
+     - Unicode string with custom escape character: ``U&'Hello winter #2603 !' UESCAPE '#'``
+
+    A Unicode string is prefixed with ``U&`` and requires an escape character
+    before any Unicode character usage with 4 digits. In these examples
+    ``\2603`` and ``#2603`` represent a snowman character. Long Unicode codes
+    with 6 digits require a plus symbol ``+`` before the code. For example,
+    use ``\+01F600`` for a grinning face emoji.
+
+    Single quotes in string literals can be escaped by using another single quote: ``'It''s a beautiful day!'``
 
 ``CHAR``
 ^^^^^^^^
 
-    Fixed length character data. A ``CHAR`` type without length specified has a default length of 1.
-    A ``CHAR(x)`` value always has ``x`` characters. For instance, casting ``dog`` to ``CHAR(7)``
-    adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
-    ``CHAR`` values. As a result, two character values with different lengths (``CHAR(x)`` and
-    ``CHAR(y)`` where ``x != y``) will never be equal.
+    Fixed length character data. A `CHAR` type without length specified has a
+    default length of 1. A `CHAR(x)` value always has `x` characters. For example,
+    casting `dog` to `CHAR(7)` adds 4 implicit trailing spaces. Leading and trailing
+    spaces are included in comparisons of `CHAR` values. As a result, two character
+    values with different lengths (`CHAR(x)` and `CHAR(y)` where `x != y`) are never
+    equal, but comparison of such values implicitly converts the types to the same
+    length and pads with spaces so that the following query returns `true`:
 
-    Example type definitions: ``char``, ``char(20)``
+    ```sql
+    SELECT cast('example' AS char(20)) = cast('example    ' AS char(25));
+    ```
+    
+    As with `VARCHAR`, a single quote in a `CHAR`
+    literal can be escaped with another single quote:
+    
+    ```sql
+    SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
+    ```
+
 
 ``VARBINARY``
 ^^^^^^^^^^^^^
@@ -237,19 +262,6 @@ Network Address
 
     Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
 
-UUID
-----
-
-.. _uuid_type:
-
-``UUID``
-^^^^^^^^
-
-    This type represents a UUID (Universally Unique IDentifier), also known as a
-    GUID (Globally Unique IDentifier), using the format defined in :rfc:`4122`.
-
-    Example: ``UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'``
-
 .. _ipprefix_type:
 
 ``IPPREFIX``
@@ -269,6 +281,19 @@ UUID
     format defined in :rfc:`5952`.
 
     Examples: ``IPPREFIX '10.0.1.0/24'``, ``IPPREFIX '2001:db8::/48'``
+
+UUID
+----
+
+.. _uuid_type:
+
+``UUID``
+^^^^^^^^
+
+    This type represents a UUID (Universally Unique IDentifier), also known as a
+    GUID (Globally Unique IDentifier), using the format defined in :rfc:`4122`.
+
+    Example: ``UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'``
 
 HyperLogLog
 -----------
@@ -302,6 +327,31 @@ KHyperLogLog
 
     A KHyperLogLog is a data sketch that can be used to compactly represents the association of two
     columns. See :doc:`/functions/khyperloglog`.
+
+SetDigest
+---------
+
+.. _setdigest_type:
+
+``SetDigest``
+^^^^^^^^^^^^^
+
+A SetDigest (setdigest) is a data sketch structure used
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
+between two sets.
+
+SetDigest encapsulates the following components:
+
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+
+The HyperLogLog structure is used for the approximation of the distinct elements
+in the original set.
+
+The MinHash structure is used to store a low memory footprint signature of the original set.
+The similarity of any two sets is estimated by comparing their signatures.
+
+SetDigests are additive, meaning they can be merged together.
 
 Quantile Digest
 ---------------

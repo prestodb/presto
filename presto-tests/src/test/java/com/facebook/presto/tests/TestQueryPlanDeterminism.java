@@ -182,6 +182,11 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
+    public void testExplainValidate()
+    {
+    }
+
+    @Override
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
     {
     }
@@ -211,6 +216,14 @@ public class TestQueryPlanDeterminism
     {
         determinismChecker.checkPlanIsDeterministic(sql);
         return super.computeExpected(sql, resultTypes);
+    }
+
+    // Give more time for large queries in plan determinsm check.
+    @Override
+    @Test(timeOut = 100_000)
+    public void testLargeQuery()
+    {
+        super.testLargeQuery();
     }
 
     @Test

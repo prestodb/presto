@@ -235,7 +235,8 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                     initialPartitionCount,
                     autoTuneEnabled,
                     minSparkInputPartitionCountForAutoTune,
-                    maxSparkInputPartitionCountForAutoTune);
+                    maxSparkInputPartitionCountForAutoTune,
+                    0);
 
             Optional<SetMultimap<Integer, ScheduledSplit>> actualAssignment = assigner.getNextBatch();
             if (!splitSizes.isEmpty()) {
@@ -263,7 +264,8 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                     initialPartitionCount,
                     autoTuneEnabled,
                     minSparkInputPartitionCountForAutoTune,
-                    maxSparkInputPartitionCountForAutoTune);
+                    maxSparkInputPartitionCountForAutoTune,
+                    0);
 
             while (true) {
                 Optional<SetMultimap<Integer, ScheduledSplit>> assignment = assigner.getNextBatch();
@@ -300,7 +302,8 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                     initialPartitionCount,
                     true,
                     minSparkInputPartitionCountForAutoTune,
-                    maxSparkInputPartitionCountForAutoTune);
+                    maxSparkInputPartitionCountForAutoTune,
+                    0);
 
             HashMultimap<Integer, ScheduledSplit> actualAssignment = HashMultimap.create();
 

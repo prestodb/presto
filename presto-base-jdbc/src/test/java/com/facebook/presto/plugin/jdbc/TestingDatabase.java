@@ -100,15 +100,15 @@ final class TestingDatabase
     public JdbcSplit getSplit(String schemaName, String tableName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
-        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, new SchemaTableName(schemaName, tableName));
+        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(session, identity, new SchemaTableName(schemaName, tableName));
         JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.all(), Optional.empty());
-        ConnectorSplitSource splits = jdbcClient.getSplits(identity, jdbcLayoutHandle);
+        ConnectorSplitSource splits = jdbcClient.getSplits(session, identity, jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)
     {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(session, JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle);
         checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
 

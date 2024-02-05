@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -103,7 +102,7 @@ public class BasePlanTest
                 .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
-    private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
+    protected static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
@@ -186,9 +185,7 @@ public class BasePlanTest
             Plan actualPlan = queryRunner.createPlan(
                     transactionSession,
                     sql,
-                    ImmutableList.<PlanOptimizer>builder()
-                            .addAll(optimizers)
-                            .add(getExpressionTranslator()).build(), // To avoid assert plan failure not printing out plan (#12885)
+                    optimizers,
                     stage,
                     WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
@@ -212,11 +209,11 @@ public class BasePlanTest
                 new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         assertPlan(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
@@ -328,16 +325,6 @@ public class BasePlanTest
     protected Metadata getMetadata()
     {
         return getQueryRunner().getMetadata();
-    }
-
-    // Translate all OriginalExpression in planNodes to RowExpression so that we can do plan pattern asserting and printing on RowExpression only.
-    protected PlanOptimizer getExpressionTranslator()
-    {
-        return new IterativeOptimizer(
-                new RuleStatsRecorder(),
-                getQueryRunner().getStatsCalculator(),
-                getQueryRunner().getCostCalculator(),
-                ImmutableSet.copyOf(new TranslateExpressions(getMetadata(), getQueryRunner().getSqlParser()).rules()));
     }
 
     public interface LocalQueryRunnerSupplier

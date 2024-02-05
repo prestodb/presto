@@ -15,13 +15,9 @@ namespace facebook::presto::protocol {
 struct MergeJoinNode : public PlanNode {
   MergeJoinNode() noexcept;
   PlanNodeId id = {};
-  // JoinNodeType is referenced as JoinNode.Type in Presto
-  // Since presto_cpp codegen can't nicely handle inner class references
-  // So a special hard-coded template is required here
-  JoinNodeType type = {};
+  JoinType type = {};
   std::shared_ptr<PlanNode> left = {};
   std::shared_ptr<PlanNode> right = {};
-  // EquiJoinClause is referenced as JoinNode.EquiJoinClause in Presto
   List<EquiJoinClause> criteria = {};
   List<VariableReferenceExpression> outputVariables = {};
   std::shared_ptr<std::shared_ptr<RowExpression>> filter = {};

@@ -312,6 +312,19 @@ column named ``result`` of type VARCHAR. It contains the JSON payload returned
 by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
 </functions/json>`.
 
+Password Authentication
+-----------------------
+
+To enable Password authentication in elasticsearch, the ``elasticsearch.security`` option needs to be set to ``PASSWORD``.
+Additionally, the following options need to be configured appropriately:
+
+================================ =======================================
+Property Name                    Description
+================================ =======================================
+``elasticsearch.auth.user``      Username to connect to Elasticsearch.
+``elasticsearch.auth.password``  Password to authenticate Elasticsearch.
+================================ =======================================
+
 AWS Authorization
 -----------------
 

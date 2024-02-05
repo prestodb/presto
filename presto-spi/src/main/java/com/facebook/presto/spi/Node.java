@@ -36,4 +36,6 @@ public interface Node
     boolean isResourceManager();
 
     boolean isCatalogServer();
+
+    NodePoolType getPoolType();
 }

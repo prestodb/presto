@@ -37,7 +37,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class RenameColumnTask
         implements DDLDefinitionTask<RenameColumn>
@@ -70,8 +69,8 @@ public class RenameColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
 
-        String source = statement.getSource().getValue().toLowerCase(ENGLISH);
-        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
+        String source = statement.getSource().getValueLowerCase();
+        String target = statement.getTarget().getValueLowerCase();
 
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 

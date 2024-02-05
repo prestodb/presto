@@ -40,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class LambdaCaptureDesugaringRewriter
 {
     public static Expression rewrite(Expression expression, VariableAllocator variableAllocator)

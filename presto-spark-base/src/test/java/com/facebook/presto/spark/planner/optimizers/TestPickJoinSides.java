@@ -33,11 +33,14 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spark.PrestoSparkSessionProperties;
 import com.facebook.presto.spark.PrestoSparkSessionPropertyManagerProvider;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,20 +53,23 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.remoteSource;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.flipType;
 import static com.facebook.presto.testing.TestngUtils.toDataProvider;
 
@@ -95,12 +101,12 @@ public class TestPickJoinSides
     @DataProvider(name = "joinTypes")
     public static Object[][] joinTypes()
     {
-        return Arrays.stream(JoinNode.Type.values())
+        return Arrays.stream(JoinType.values())
                 .collect(toDataProvider());
     }
 
     @Test(dataProvider = "joinTypes")
-    public void testFlipsWhenProbeSmaller(JoinNode.Type joinType)
+    public void testFlipsWhenProbeSmaller(JoinType joinType)
     {
         int aSize = 100;
         int bSize = 10_000;
@@ -122,7 +128,7 @@ public class TestPickJoinSides
                                         new PlanNodeId("valuesB"),
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -139,7 +145,7 @@ public class TestPickJoinSides
     }
 
     @Test(dataProvider = "joinTypes")
-    public void testDoesNotFireWhenTablesSameSize(JoinNode.Type joinType)
+    public void testDoesNotFireWhenTablesSameSize(JoinType joinType)
     {
         int aSize = 100;
         int bSize = 100;
@@ -159,7 +165,7 @@ public class TestPickJoinSides
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -170,7 +176,7 @@ public class TestPickJoinSides
     }
 
     @Test(dataProvider = "joinTypes")
-    public void testFlipWhenOneTableMuchSmallerAndJoinCardinalityUnknown(JoinNode.Type joinType)
+    public void testFlipWhenOneTableMuchSmallerAndJoinCardinalityUnknown(JoinType joinType)
     {
         int aRows = 100;
         int bRows = 10_000;
@@ -190,7 +196,7 @@ public class TestPickJoinSides
                                 joinType,
                                 p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -233,7 +239,7 @@ public class TestPickJoinSides
                             LEFT,
                             p.filter(new PlanNodeId("filterB"), TRUE_CONSTANT, p.values(new PlanNodeId("valuesB"), bRows, b1)),
                             p.values(new PlanNodeId("valuesA"), aRows, a1),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
                             ImmutableList.of(b1, a1),
                             Optional.empty(),
                             Optional.empty(),
@@ -277,20 +283,20 @@ public class TestPickJoinSides
         // source tables size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit but one side is significantly bigger than the other
         // therefore we keep the smaller side to the build
         assertPickJoinSides()
-                .overrideStats("valuesA", aStatsEstimate)
-                .overrideStats("valuesB", bStatsEstimate)
+                .overrideStats("remoteSourceA", aStatsEstimate)
+                .overrideStats("remoteSourceB", bStatsEstimate)
                 .overrideStats("filterB", PlanNodeStatsEstimate.unknown()) // unestimated term to trigger size based join ordering
                 .on(p -> {
                     VariableReferenceExpression a1 = p.variable("A1", variableType);
                     VariableReferenceExpression b1 = p.variable("B1", variableType);
                     return p.join(
                             INNER,
-                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.remoteSource(new PlanNodeId("remoteSourceA"), ImmutableList.of(new PlanFragmentId(1)), ImmutableList.of(a1)),
                             p.filter(
                                     new PlanNodeId("filterB"),
                                     TRUE_CONSTANT,
-                                    p.values(new PlanNodeId("valuesB"), bRows, b1)),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                                    p.remoteSource(new PlanNodeId("remoteSourceB"), ImmutableList.of(new PlanFragmentId(2)), ImmutableList.of(b1))),
+                            ImmutableList.of(new EquiJoinClause(a1, b1)),
                             ImmutableList.of(a1, b1),
                             Optional.empty(),
                             Optional.empty(),
@@ -302,8 +308,9 @@ public class TestPickJoinSides
 
         // same but with join sides reversed
         assertPickJoinSides()
-                .overrideStats("valuesA", aStatsEstimate)
-                .overrideStats("valuesB", bStatsEstimate)
+                .setSystemProperty(TASK_CONCURRENCY, "2")
+                .overrideStats("remoteSourceA", aStatsEstimate)
+                .overrideStats("remoteSourceB", bStatsEstimate)
                 .overrideStats("filterB", PlanNodeStatsEstimate.unknown()) // unestimated term to trigger size based join ordering
                 .on(p -> {
                     VariableReferenceExpression a1 = p.variable("A1", variableType);
@@ -313,9 +320,12 @@ public class TestPickJoinSides
                             p.filter(
                                     new PlanNodeId("filterB"),
                                     TRUE_CONSTANT,
-                                    p.values(new PlanNodeId("valuesB"), bRows, b1)),
-                            p.values(new PlanNodeId("valuesA"), aRows, a1),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                                    p.remoteSource(new PlanNodeId("remoteSourceB"), ImmutableList.of(new PlanFragmentId(2)), ImmutableList.of(b1))),
+                            p.exchange(e -> e.scope(ExchangeNode.Scope.LOCAL)
+                                    .fixedHashDistributionPartitioningScheme(ImmutableList.of(a1), ImmutableList.of(a1))
+                                    .addInputsSet(a1)
+                                    .addSource(p.remoteSource(new PlanNodeId("remoteSourceA"), ImmutableList.of(new PlanFragmentId(1)), ImmutableList.of(a1)))),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
                             ImmutableList.of(b1, a1),
                             Optional.empty(),
                             Optional.empty(),
@@ -328,8 +338,10 @@ public class TestPickJoinSides
                         ImmutableList.of(equiJoinClause("A1", "B1")),
                         Optional.empty(),
                         Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                        remoteSource(ImmutableList.of(new PlanFragmentId(1)), ImmutableMap.of("A1", 0)),
+                        exchange(ExchangeNode.Scope.LOCAL, ExchangeNode.Type.REPARTITION,
+                                filter("true",
+                                        remoteSource(ImmutableList.of(new PlanFragmentId(2)), ImmutableMap.of("B1", 0))))));
 
         // Don't flip sides when both are similar in size
         bStatsEstimate = PlanNodeStatsEstimate.builder()
@@ -339,8 +351,8 @@ public class TestPickJoinSides
                         new VariableStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         assertPickJoinSides()
-                .overrideStats("valuesA", aStatsEstimate)
-                .overrideStats("valuesB", bStatsEstimate)
+                .overrideStats("remoteSourceA", aStatsEstimate)
+                .overrideStats("remoteSourceB", bStatsEstimate)
                 .overrideStats("filterB", PlanNodeStatsEstimate.unknown()) // unestimated term to trigger size based join ordering
                 .on(p -> {
                     VariableReferenceExpression a1 = p.variable("A1", variableType);
@@ -350,9 +362,9 @@ public class TestPickJoinSides
                             p.filter(
                                     new PlanNodeId("filterB"),
                                     TRUE_CONSTANT,
-                                    p.values(new PlanNodeId("valuesB"), aRows, b1)),
-                            p.values(new PlanNodeId("valuesA"), aRows, a1),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(b1, a1)),
+                                    p.remoteSource(new PlanNodeId("remoteSourceB"), ImmutableList.of(new PlanFragmentId(2)), ImmutableList.of(b1))),
+                            p.remoteSource(new PlanNodeId("remoteSourceA"), ImmutableList.of(new PlanFragmentId(1)), ImmutableList.of(a1)),
+                            ImmutableList.of(new EquiJoinClause(b1, a1)),
                             ImmutableList.of(b1, a1),
                             Optional.empty(),
                             Optional.empty(),
@@ -367,7 +379,7 @@ public class TestPickJoinSides
     {
         int aSize = 100;
         int bSize = 10_000;
-        tester.assertThat(new PickJoinSides())
+        tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "false")
                 .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
                         .setTotalSize(aSize)
@@ -384,7 +396,7 @@ public class TestPickJoinSides
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -415,7 +427,7 @@ public class TestPickJoinSides
                                 p.values(
                                         ImmutableList.of(p.variable("B1")),
                                         ImmutableList.of(constantExpressions(BIGINT, 50L), constantExpressions(BIGINT, 11L))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
                                 ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -458,7 +470,7 @@ public class TestPickJoinSides
 
     private RuleAssert assertPickJoinSides()
     {
-        return tester.assertThat(new PickJoinSides())
+        return tester.assertThat(new PickJoinSides(tester.getMetadata(), tester.getSqlParser()))
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
                 .setSystemProperty(ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED, "true");
     }

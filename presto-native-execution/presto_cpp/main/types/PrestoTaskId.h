@@ -14,25 +14,24 @@
 #pragma once
 #include <folly/Conv.h>
 #include <string>
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
 class PrestoTaskId {
  public:
   explicit PrestoTaskId(const std::string& taskId) {
-    int start = 0;
-    auto pos = nextDot(taskId, start);
-    queryId_ = taskId.substr(0, pos);
+    std::vector<std::string> taskIdParts;
+    folly::split('.', taskId, taskIdParts);
 
-    start = pos + 1;
-    pos = nextDot(taskId, start);
-    stageId_ = parseInt(taskId, start, pos);
+    if (taskIdParts.size() != 5) {
+      VELOX_USER_FAIL("Malformed task ID: {}", taskId);
+    }
 
-    start = pos + 1;
-    pos = nextDot(taskId, start);
-    stageExecutionId_ = parseInt(taskId, start, pos);
-
-    start = pos + 1;
-    id_ = parseInt(taskId, start, taskId.length());
+    queryId_ = taskIdParts[0];
+    stageId_ = folly::to<int32_t>(taskIdParts[1]);
+    stageExecutionId_ = folly::to<int32_t>(taskIdParts[2]);
+    id_ = folly::to<int32_t>(taskIdParts[3]);
+    attemptNumber_ = folly::to<int32_t>(taskIdParts[4]);
   }
 
   const std::string& queryId() const {
@@ -51,22 +50,25 @@ class PrestoTaskId {
     return id_;
   }
 
+  int32_t attemptNumber() const {
+    return attemptNumber_;
+  }
+
+  std::string toString() const {
+    return fmt::format(
+        "{}.{}.{}.{}.{}",
+        queryId_,
+        stageId_,
+        stageExecutionId_,
+        id_,
+        attemptNumber_);
+  }
+
  private:
-  int nextDot(const std::string& taskId, int start) {
-    auto pos = taskId.find(".", start);
-    if (pos == std::string::npos) {
-      throw std::invalid_argument("Malformed task ID: " + taskId);
-    }
-    return pos;
-  }
-
-  int parseInt(const std::string& taskId, int start, int end) {
-    return folly::to<int>(taskId.substr(start, end - start));
-  }
-
   std::string queryId_;
-  int32_t stageId_;
-  int32_t stageExecutionId_;
-  int32_t id_;
+  int32_t stageId_{0};
+  int32_t stageExecutionId_{0};
+  int32_t id_{0};
+  int32_t attemptNumber_{0};
 };
 } // namespace facebook::presto

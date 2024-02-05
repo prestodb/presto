@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -28,7 +30,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -72,10 +74,12 @@ public class TestPruneOrderByInAggregation
         VariableReferenceExpression keyHash = planBuilder.variable("keyHash");
         VariableReferenceExpression mask = planBuilder.variable("mask");
         List<VariableReferenceExpression> sourceVariables = ImmutableList.of(input, key, keyHash, mask);
+        OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(new Ordering(input, ASC_NULLS_LAST)));
+
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
-                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, planBuilder.rowExpression("avg(input order by input)"), Optional.empty(), Optional.of(orderingScheme), false, Optional.of(mask))
+                .addAggregation(arrayAgg, planBuilder.rowExpression("array_agg(input order by input)"), Optional.empty(), Optional.of(orderingScheme), false, Optional.of(mask))
                 .hashVariable(keyHash)
                 .source(planBuilder.values(sourceVariables, ImmutableList.of())));
     }

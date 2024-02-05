@@ -94,6 +94,7 @@ Name                              Description
 ``accessToken``                   Access token for token based authentication.
 ``timeZoneId``                    Timezone to be used for timestamp columns in query output.
                                   Example: ``timeZoneId=UTC``.
+``disableCompression``            Disable compression of query result HTTP responses from the server
 ``SSL``                           Use HTTPS for connections
 ``SSLKeyStorePath``               The location of the Java KeyStore file that contains the certificate
                                   and private key to use for authentication.
@@ -118,4 +119,6 @@ Name                              Description
                                   customHeaders is a list of key-value pairs. Example:
                                   ``testHeaderKey:testHeaderValue`` will inject the header ``testHeaderKey``
                                   with value ``testHeaderValue``. Values should be percent encoded.
+``validateNextUriSource``         Validates that host and port in next URI does not change during query execution.
+``followRedirects``               Disable Presto client to follow a redirect as a security measure.
 ================================= =======================================================================

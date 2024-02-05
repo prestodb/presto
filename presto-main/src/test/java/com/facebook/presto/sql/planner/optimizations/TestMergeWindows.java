@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -23,8 +23,6 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.GatherAndMergeWindows;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
@@ -468,7 +466,7 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
+                                join(JoinType.INNER, ImmutableList.of(),
                                         any(
                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                 .specification(leftSpecification)
@@ -588,11 +586,7 @@ public class TestMergeWindows
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new IterativeOptimizer(
-                        new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getCostCalculator(),
-                        new TranslateExpressions(getQueryRunner().getMetadata(), new SqlParser()).rules()),
-                new IterativeOptimizer(
+                        getMetadata(),
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getEstimatedExchangesCostCalculator(),

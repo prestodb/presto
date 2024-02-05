@@ -24,7 +24,7 @@ using namespace facebook::velox;
 class Base64Test : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultMemoryPool();
+    pool_ = memory::deprecatedAddDefaultLeafMemoryPool();
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -90,71 +90,62 @@ TEST_F(Base64Test, simpleLongDecimal) {
   // Unscaled value = 0
   const std::string data0 =
       "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
-  auto vector0 = readBlock(LONG_DECIMAL(24, 2), data0, pool_.get());
+  auto vector0 = readBlock(DECIMAL(24, 2), data0, pool_.get());
 
-  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector0->typeKind());
+  ASSERT_EQ(TypeKind::HUGEINT, vector0->typeKind());
   ASSERT_EQ(1, vector0->size());
   ASSERT_FALSE(vector0->isNullAt(0));
 
-  auto decimalVector0 =
-      vector0->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
-  ASSERT_EQ(UnscaledLongDecimal(0), decimalVector0->valueAt(0));
+  auto decimalVector0 = vector0->as<FlatVector<int128_t>>();
+  ASSERT_EQ(0, decimalVector0->valueAt(0));
 
   // Unscaled value = 100
   const std::string data1 =
       "DAAAAElOVDEyOF9BUlJBWQEAAAAAZAAAAAAAAAAAAAAAAAAAAA==";
-  auto vector1 = readBlock(LONG_DECIMAL(24, 2), data1, pool_.get());
+  auto vector1 = readBlock(DECIMAL(24, 2), data1, pool_.get());
 
-  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector1->typeKind());
+  ASSERT_EQ(TypeKind::HUGEINT, vector1->typeKind());
   ASSERT_EQ(1, vector1->size());
   ASSERT_FALSE(vector1->isNullAt(0));
 
-  auto decimalVector1 =
-      vector1->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
-  ASSERT_EQ(UnscaledLongDecimal(100), decimalVector1->valueAt(0));
+  auto decimalVector1 = vector1->as<FlatVector<int128_t>>();
+  ASSERT_EQ(100, decimalVector1->valueAt(0));
 
   // Unscaled value = -100
   const std::string data2 =
       "DAAAAElOVDEyOF9BUlJBWQEAAAAAZAAAAAAAAAAAAAAAAAAAgA==";
-  auto vector2 = readBlock(LONG_DECIMAL(24, 2), data2, pool_.get());
+  auto vector2 = readBlock(DECIMAL(24, 2), data2, pool_.get());
 
-  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector2->typeKind());
+  ASSERT_EQ(TypeKind::HUGEINT, vector2->typeKind());
   ASSERT_EQ(1, vector2->size());
   ASSERT_FALSE(vector2->isNullAt(0));
 
-  auto decimalVector2 =
-      vector2->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
-  ASSERT_EQ(UnscaledLongDecimal(-100), decimalVector2->valueAt(0));
+  auto decimalVector2 = vector2->as<FlatVector<int128_t>>();
+  ASSERT_EQ(-100, decimalVector2->valueAt(0));
 
   // Unscaled value = 10^20
   const std::string data3 =
       "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAQYy1ex2sFAAAAAAAAAA==";
-  auto vector3 = readBlock(LONG_DECIMAL(24, 2), data3, pool_.get());
+  auto vector3 = readBlock(DECIMAL(24, 2), data3, pool_.get());
 
-  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector3->typeKind());
+  ASSERT_EQ(TypeKind::HUGEINT, vector3->typeKind());
   ASSERT_EQ(1, vector3->size());
   ASSERT_FALSE(vector3->isNullAt(0));
 
-  auto decimalVector3 =
-      vector3->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
-  ASSERT_EQ(
-      UnscaledLongDecimal(DecimalUtil::kPowersOfTen[20]),
-      decimalVector3->valueAt(0));
+  auto decimalVector3 = vector3->as<FlatVector<int128_t>>();
+  ASSERT_EQ(DecimalUtil::kPowersOfTen[20], decimalVector3->valueAt(0));
 
   // Unscaled value = -10^20
   const std::string data4 =
       "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAQYy1ex2sFAAAAAAAAgA==";
-  auto vector4 = readBlock(LONG_DECIMAL(24, 2), data4, pool_.get());
+  auto vector4 = readBlock(DECIMAL(24, 2), data4, pool_.get());
 
-  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector4->typeKind());
+  ASSERT_EQ(TypeKind::HUGEINT, vector4->typeKind());
   ASSERT_EQ(1, vector4->size());
   ASSERT_FALSE(vector4->isNullAt(0));
 
-  auto decimalVector4 =
-      vector4->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
-  ASSERT_EQ(
-      UnscaledLongDecimal(-DecimalUtil::kPowersOfTen[20]),
-      decimalVector4->valueAt(0));
+  auto decimalVector4 = vector4->as<FlatVector<int128_t>>();
+  ASSERT_EQ(-DecimalUtil::kPowersOfTen[20], decimalVector4->valueAt(0));
 }
 
 TEST_F(Base64Test, singleString) {
@@ -437,4 +428,80 @@ TEST_F(Base64Test, timestampWithTimezone) {
           ->asFlatVector<int16_t>()
           ->valueAt(0),
       1825);
+}
+
+TEST_F(Base64Test, rowOfNull) {
+  // SELECT CAST(NULL AS ROW(c1 VARCHAR, c2 DOUBLE))
+  const std::string data =
+      "AwAAAFJPVwIAAAAOAAAAVkFSSUFCTEVfV0lEVEgAAAAAAAAAAAADAAAAUkxFAAAAAAoAAAB"
+      "MT05HX0FSUkFZAQAAAAGAAQAAAAAAAAAAAAAAAYA=";
+  auto resultVector =
+      readBlock(ROW({"c1", "c2"}, {VARCHAR(), DOUBLE()}), data, pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 2);
+  ASSERT_EQ(resultVector->isNullAt(0), true);
+}
+
+TEST_F(Base64Test, rowWithNullChild) {
+  // SELECT CAST(ROW(1, 'b', null, 4.0) AS ROW(c1 BIGINT, c2 VARCHAR, c3 BIGINT,
+  // c4 DOUBLE))
+  const std::string data =
+      "AwAAAFJPVwQAAAAKAAAATE9OR19BUlJBWQEAAAAAAQAAAAAAAAAOAAAAVkFSSUFCTEVfV0l"
+      "EVEgBAAAAAQAAAAABAAAAYgMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAKAAAATE"
+      "9OR19BUlJBWQEAAAAAAAAAAAAAEEABAAAAAAAAAAEAAAAA";
+  auto resultVector = readBlock(
+      ROW({"c1", "c2", "c3", "c4"}, {BIGINT(), VARCHAR(), BIGINT(), DOUBLE()}),
+      data,
+      pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 4);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(0)
+          ->asFlatVector<int64_t>()
+          ->valueAt(0),
+      1);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(1)
+          ->asFlatVector<StringView>()
+          ->valueAt(0)
+          .str(),
+      "b");
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(2)
+          ->as<ConstantVector<int64_t>>()
+          ->isNullAt(0),
+      true);
+  ASSERT_EQ(
+      resultVector->as<RowVector>()
+          ->childAt(3)
+          ->asFlatVector<double>()
+          ->valueAt(0),
+      4.0);
+}
+
+TEST_F(Base64Test, rowWithNestedRow) {
+  // SELECT ROW(ROW(1, 'a'), ROW(2.0, TRUE, null))
+  const std::string data =
+      "AwAAAFJPVwIAAAADAAAAUk9XAgAAAAkAAABJTlRfQVJSQVkBAAAAAAEAAAAOAAAAVkFSSUF"
+      "CTEVfV0lEVEgBAAAAAQAAAAABAAAAYQEAAAAAAAAAAQAAAAADAAAAUk9XAwAAAAoAAABMT0"
+      "5HX0FSUkFZAQAAAAAAAAAAAAAAQAoAAABCWVRFX0FSUkFZAQAAAAABAwAAAFJMRQEAAAAKA"
+      "AAAQllURV9BUlJBWQEAAAABgAEAAAAAAAAAAQAAAAABAAAAAAAAAAEAAAAA";
+  auto resultVector = readBlock(
+      ROW({"", ""},
+          {ROW({"", ""}, {INTEGER(), VARCHAR()}),
+           ROW({"", "", ""}, {DOUBLE(), BOOLEAN(), UNKNOWN()})}),
+      data,
+      pool_.get());
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 2);
+  auto rowVector1 = resultVector->as<RowVector>()->childAt(0)->as<RowVector>();
+  auto rowVector2 = resultVector->as<RowVector>()->childAt(1)->as<RowVector>();
+  ASSERT_EQ(rowVector1->childAt(0)->asFlatVector<int32_t>()->valueAt(0), 1);
+  ASSERT_EQ(
+      rowVector1->childAt(1)->asFlatVector<StringView>()->valueAt(0), "a");
+  ASSERT_EQ(rowVector2->childAt(0)->asFlatVector<double>()->valueAt(0), 2.0);
+  ASSERT_EQ(rowVector2->childAt(1)->asFlatVector<bool>()->valueAt(0), true);
+  ASSERT_EQ(
+      rowVector2->childAt(2)->as<SimpleVector<UnknownValue>>()->isNullAt(0),
+      true);
 }

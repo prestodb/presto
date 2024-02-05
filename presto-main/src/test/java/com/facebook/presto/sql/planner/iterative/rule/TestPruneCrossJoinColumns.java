@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,7 +31,7 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class TestPruneCrossJoinColumns
@@ -46,7 +46,7 @@ public class TestPruneCrossJoinColumns
                         strictProject(
                                 ImmutableMap.of("rightValue", PlanMatchPattern.expression("rightValue")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         strictProject(
@@ -65,7 +65,7 @@ public class TestPruneCrossJoinColumns
                         strictProject(
                                 ImmutableMap.of("leftValue", PlanMatchPattern.expression("leftValue")),
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         values(ImmutableList.of("leftValue")),
@@ -89,12 +89,12 @@ public class TestPruneCrossJoinColumns
         VariableReferenceExpression rightValue = p.variable("rightValue");
         List<VariableReferenceExpression> outputs = ImmutableList.of(leftValue, rightValue);
         return p.project(
-                identityAssignmentsAsSymbolReferences(
+                identityAssignments(
                         outputs.stream()
                                 .filter(projectionFilter)
                                 .collect(toImmutableList())),
                 p.join(
-                        JoinNode.Type.INNER,
+                        JoinType.INNER,
                         p.values(leftValue),
                         p.values(rightValue),
                         ImmutableList.of(),

@@ -21,8 +21,11 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -31,14 +34,15 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,14 +50,17 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.shouldPushAggregationThroughJoin;
+import static com.facebook.presto.SystemSessionProperties.useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -129,14 +136,14 @@ public class PushAggregationThroughOuterJoin
         JoinNode join = captures.get(JOIN);
 
         if (join.getFilter().isPresent()
-                || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
+                || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputVariables())
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)) {
             return Result.empty();
         }
 
         List<VariableReferenceExpression> groupingKeys = join.getCriteria().stream()
-                .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
+                .map(join.getType() == JoinType.RIGHT ? EquiJoinClause::getLeft : EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = new AggregationNode(
                 aggregation.getSourceLocation(),
@@ -147,10 +154,11 @@ public class PushAggregationThroughOuterJoin
                 ImmutableList.of(),
                 aggregation.getStep(),
                 aggregation.getHashVariable(),
-                aggregation.getGroupIdVariable());
+                aggregation.getGroupIdVariable(),
+                aggregation.getAggregationId());
 
         JoinNode rewrittenJoin;
-        if (join.getType() == JoinNode.Type.LEFT) {
+        if (join.getType() == JoinType.LEFT) {
             rewrittenJoin = new JoinNode(
                     join.getSourceLocation(),
                     join.getId(),
@@ -187,7 +195,7 @@ public class PushAggregationThroughOuterJoin
                     join.getDynamicFilters());
         }
 
-        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup());
+        Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup(), useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins(context.getSession()));
         if (!resultNode.isPresent()) {
             return Result.empty();
         }
@@ -197,9 +205,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getInnerTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode innerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType().equals(JoinType.LEFT)) {
             innerNode = join.getRight();
         }
         else {
@@ -210,9 +218,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getOuterTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode outerNode;
-        if (join.getType().equals(JoinNode.Type.LEFT)) {
+        if (join.getType().equals(JoinType.LEFT)) {
             outerNode = join.getLeft();
         }
         else {
@@ -231,7 +239,7 @@ public class PushAggregationThroughOuterJoin
     // of an aggregation over a single null row is one or zero rather than null. In order to ensure correct results,
     // we add a coalesce function with the output of the new outer join and the aggregation performed over a single
     // null row.
-    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    private Optional<PlanNode> coalesceWithNullAggregation(AggregationNode aggregationNode, PlanNode outerJoin, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup, boolean useDefaultsForCorrelatedAggregations)
     {
         // Create an aggregation node over a row of nulls.
         Optional<MappedAggregationInfo> aggregationOverNullInfoResultNode = createAggregationOverNull(
@@ -249,11 +257,34 @@ public class PushAggregationThroughOuterJoin
         AggregationNode aggregationOverNull = aggregationOverNullInfo.getAggregation();
         Map<VariableReferenceExpression, VariableReferenceExpression> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getVariableMapping();
 
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        Map<VariableReferenceExpression, RowExpression> literalMap = new HashMap<>();
+
+        if (useDefaultsForCorrelatedAggregations) {
+            for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
+                FunctionHandle functionHandle = aggregation.getValue().getFunctionHandle();
+
+                Optional<RowExpression> defaultLiteral = Optional.empty();
+                if (functionResolution.isCountFunction(functionHandle) && !aggregation.getValue().getArguments().isEmpty()) { // Can also include count_if
+                    defaultLiteral = Optional.of(constant(Long.valueOf(0), aggregation.getKey().getType()));
+                }
+                else if (!functionAndTypeManager.getFunctionMetadata(functionHandle).isCalledOnNullInput()) {
+                    defaultLiteral = Optional.of(constantNull(aggregation.getKey().getType()));
+                }
+
+                if (defaultLiteral.isPresent()) {
+                    literalMap.put(aggregation.getKey(), defaultLiteral.get());
+                }
+            }
+        }
+
+        PlanNode finalJoinNode = outerJoin;
+        if (literalMap.size() < aggregationNode.getAggregations().size()) {
         // Do a cross join with the aggregation over null
-        JoinNode crossJoin = new JoinNode(
+            finalJoinNode = new JoinNode(
                 outerJoin.getSourceLocation(),
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),
@@ -266,23 +297,20 @@ public class PushAggregationThroughOuterJoin
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of());
+        }
 
         // Add coalesce expressions for all aggregation functions
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         for (VariableReferenceExpression variable : outerJoin.getOutputVariables()) {
             if (aggregationNode.getAggregations().keySet().contains(variable)) {
-                assignmentsBuilder.put(variable, coalesce(ImmutableList.of(variable, sourceAggregationToOverNullMapping.get(variable))));
+                RowExpression coalesceArgument = literalMap.containsKey(variable) ? literalMap.get(variable) : sourceAggregationToOverNullMapping.get(variable);
+                assignmentsBuilder.put(variable, coalesce(ImmutableList.of(variable, coalesceArgument)));
             }
             else {
                 assignmentsBuilder.put(variable, variable);
             }
         }
-        return Optional.of(new ProjectNode(idAllocator.getNextId(), crossJoin, assignmentsBuilder.build()));
-    }
-
-    private static RowExpression coalesce(List<RowExpression> expressions)
-    {
-        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
+        return Optional.of(new ProjectNode(idAllocator.getNextId(), finalJoinNode, assignmentsBuilder.build()));
     }
 
     private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
@@ -352,6 +380,7 @@ public class PushAggregationThroughOuterJoin
                 globalAggregation(),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

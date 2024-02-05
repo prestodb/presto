@@ -52,6 +52,44 @@ public class TestSourceQueryModule
     }
 
     @Test
+    public void testMysqlSnapshotQuerySupplier()
+            throws Exception
+    {
+        Bootstrap app = new Bootstrap(
+                ImmutableList.<Module>builder()
+                        .add(new SourceQueryModule(ImmutableSet.of()))
+                        .build());
+        Injector injector = app
+                .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
+                        .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
+                        .put("source-query.database", "jdbc://localhost:1080")
+                        .put("source-query.suites", "test")
+                        .put("source-query.max-queries-per-suite", "1000")
+                        .build())
+                .initialize();
+        assertTrue(injector.getInstance(SnapshotQuerySupplier.class) instanceof MysqlSnapshotQuerySupplier);
+    }
+
+    @Test
+    public void testMysqlSnapshotQueryConsumer()
+            throws Exception
+    {
+        Bootstrap app = new Bootstrap(
+                ImmutableList.<Module>builder()
+                        .add(new SourceQueryModule(ImmutableSet.of()))
+                        .build());
+        Injector injector = app
+                .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
+                        .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
+                        .put("source-query.database", "jdbc://localhost:1080")
+                        .put("source-query.suites", "test")
+                        .put("source-query.max-queries-per-suite", "1000")
+                        .build())
+                .initialize();
+        assertTrue(injector.getInstance(SnapshotQueryConsumer.class) instanceof MysqlSnapshotQueryConsumer);
+    }
+
+    @Test
     public void testCustomSourceQuerySupplier()
             throws Exception
     {

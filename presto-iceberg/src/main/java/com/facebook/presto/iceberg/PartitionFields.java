@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.expressions.Term;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -26,6 +27,13 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static org.apache.iceberg.expressions.Expressions.bucket;
+import static org.apache.iceberg.expressions.Expressions.day;
+import static org.apache.iceberg.expressions.Expressions.hour;
+import static org.apache.iceberg.expressions.Expressions.month;
+import static org.apache.iceberg.expressions.Expressions.ref;
+import static org.apache.iceberg.expressions.Expressions.truncate;
+import static org.apache.iceberg.expressions.Expressions.year;
 
 public final class PartitionFields
 {
@@ -41,6 +49,8 @@ public final class PartitionFields
     private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket" + FUNCTION_NAME_INT);
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate" + FUNCTION_NAME_INT);
 
+    private static final Pattern COLUMN_BUCKET_PATTERN = Pattern.compile("bucket\\((\\d+)\\)");
+    private static final Pattern COLUMN_TRUNCATE_PATTERN = Pattern.compile("truncate\\((\\d+)\\)");
     private static final Pattern ICEBERG_BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern ICEBERG_TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
 
@@ -86,6 +96,60 @@ public final class PartitionFields
         return spec.fields().stream()
                 .map(field -> toPartitionField(spec, field))
                 .collect(toImmutableList());
+    }
+
+    // Keep consistency with PartitionSpec.Builder
+    protected static String getPartitionColumnName(String columnName, String transform)
+    {
+        switch (transform) {
+            case "identity":
+                return columnName;
+            case "year":
+            case "month":
+            case "day":
+            case "hour":
+                return columnName + "_" + transform;
+        }
+
+        Matcher matcher = COLUMN_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_bucket";
+        }
+
+        matcher = COLUMN_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return columnName + "_trunc";
+        }
+
+        throw new UnsupportedOperationException("Unknown partition transform: " + transform);
+    }
+
+    protected static Term getTransformTerm(String columnName, String transform)
+    {
+        switch (transform) {
+            case "identity":
+                return ref(columnName);
+            case "year":
+                return year(columnName);
+            case "month":
+                return month(columnName);
+            case "day":
+                return day(columnName);
+            case "hour":
+                return hour(columnName);
+        }
+
+        Matcher matcher = COLUMN_BUCKET_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return bucket(columnName, Integer.valueOf(matcher.group(1)));
+        }
+
+        matcher = COLUMN_TRUNCATE_PATTERN.matcher(transform);
+        if (matcher.matches()) {
+            return truncate(columnName, Integer.valueOf(matcher.group(1)));
+        }
+
+        throw new UnsupportedOperationException("Unknown partition transform: " + transform);
     }
 
     private static String toPartitionField(PartitionSpec spec, PartitionField field)

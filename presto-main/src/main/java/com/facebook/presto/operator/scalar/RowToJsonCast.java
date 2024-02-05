@@ -19,6 +19,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
@@ -33,11 +34,13 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.JsonOperators.JSON_FACTORY;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -52,7 +55,10 @@ public class RowToJsonCast
         extends SqlOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, SqlFunctionProperties.class, Block.class);
+
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, List.class, SqlFunctionProperties.class, Block.class);
+    private static final int ESTIMATED_FIELD_VALUE_SIZE = 40;
+    private static final int ESTIMATED_FIELD_KEY_SIZE = 10;
 
     private RowToJsonCast()
     {
@@ -72,10 +78,14 @@ public class RowToJsonCast
 
         List<Type> fieldTypes = type.getTypeParameters();
         List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
-        for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
-        }
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldWriters);
+        List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+        List fieldNames = typeSignatureParameters.stream()
+                .map(typeSignatureParameter -> typeSignatureParameter.getNamedTypeSignature().getName().orElse(""))
+                .collect(Collectors.toList());
+        checkCondition(fieldNames.size() == fieldTypes.size(), INVALID_ARGUMENTS, "The number of field names (%d) and field types (%d) should match in type %s ", fieldNames.size(), fieldTypes.size(), type);
+        fieldTypes.forEach(fieldType -> fieldWriters.add(createJsonGeneratorWriter(fieldType)));
+
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldWriters);
 
         return new BuiltInScalarFunctionImplementation(
                 false,
@@ -83,11 +93,10 @@ public class RowToJsonCast
                 methodHandle);
     }
 
-    @UsedByGeneratedCode
-    public static Slice toJson(List<JsonGeneratorWriter> fieldWriters, SqlFunctionProperties session, Block block)
+    private static Slice toJsonArray(List<JsonGeneratorWriter> fieldWriters, SqlFunctionProperties session, Block block)
     {
         try {
-            SliceOutput output = new DynamicSliceOutput(40);
+            SliceOutput output = new DynamicSliceOutput(ESTIMATED_FIELD_VALUE_SIZE);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartArray();
                 for (int i = 0; i < block.getPositionCount(); i++) {
@@ -99,6 +108,34 @@ public class RowToJsonCast
         }
         catch (IOException e) {
             throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @UsedByGeneratedCode
+    public static Slice toJson(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlFunctionProperties session, Block block)
+    {
+        if (session.isFieldNamesInJsonCastEnabled()) {
+            return toJsonObject(fieldNames, fieldWriters, session, block);
+        }
+        return toJsonArray(fieldWriters, session, block);
+    }
+
+    private static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlFunctionProperties session, Block block)
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(ESTIMATED_FIELD_KEY_SIZE + ESTIMATED_FIELD_VALUE_SIZE);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeStartObject();
+                for (int i = 0; i < block.getPositionCount(); i++) {
+                    jsonGenerator.writeFieldName(fieldNames.get(i));
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i, session);
+                }
+                jsonGenerator.writeEndObject();
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

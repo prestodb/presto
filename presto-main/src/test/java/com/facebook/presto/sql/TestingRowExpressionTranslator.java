@@ -74,13 +74,13 @@ public class TestingRowExpressionTranslator
                 expression,
                 getExpressionTypes(expression, typeProvider),
                 ImmutableMap.of(),
-                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                metadata.getFunctionAndTypeManager(),
                 TEST_SESSION);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
         return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
     }

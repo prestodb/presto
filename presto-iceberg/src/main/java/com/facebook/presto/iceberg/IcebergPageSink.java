@@ -24,6 +24,8 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -70,6 +72,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -310,7 +313,7 @@ public class IcebergPageSink
         return new WriteContext(writer, outputPath, partitionData);
     }
 
-    private static Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)
+    private Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)
     {
         if (columns.isEmpty()) {
             return Optional.empty();
@@ -321,16 +324,17 @@ public class IcebergPageSink
             PartitionColumn column = columns.get(i);
             Block block = page.getBlock(column.getSourceChannel());
             Type type = column.getSourceType();
+            org.apache.iceberg.types.Type icebergType = outputSchema.findType(column.getField().sourceId());
             Object value = getIcebergValue(block, position, type);
-            values[i] = applyTransform(column.getField().transform(), value);
+            values[i] = applyTransform(column.getField().transform(), icebergType, value);
         }
         return Optional.of(new PartitionData(values));
     }
 
     @SuppressWarnings("unchecked")
-    private static Object applyTransform(Transform<?, ?> transform, Object value)
+    private static Object applyTransform(Transform<?, ?> transform, org.apache.iceberg.types.Type icebergType, Object value)
     {
-        return ((Transform<Object, Object>) transform).apply(value);
+        return ((Transform<Object, Object>) transform).bind(icebergType).apply(value);
     }
 
     public static Object getIcebergValue(Block block, int position, Type type)
@@ -361,6 +365,14 @@ public class IcebergPageSink
         }
         if (type instanceof VarcharType) {
             return type.getSlice(block, position).toStringUtf8();
+        }
+        if (type instanceof TimestampType) {
+            long timestamp = type.getLong(block, position);
+            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+        }
+        if (type instanceof TimeType) {
+            long time = type.getLong(block, position);
+            return MILLISECONDS.toMicros(time);
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }

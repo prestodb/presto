@@ -42,6 +42,34 @@ function getHumanReadableStateFromInfo(query) {
     );
 }
 
+
+function ResourceGroupLinks({groupId, length=35}) {
+    if (!groupId?.length) return ('n/a');
+
+    let previousLen = 0;
+    let remaining = length;
+    const links = groupId.map((grp, idx) => {
+        remaining -= previousLen;
+        if (remaining <= 0) {
+            return null;
+        }
+        previousLen = grp.length + (idx === 0 ? 0 : 1);
+        return (
+            <a
+                className={idx === 0 ? '' : 'grouplink'}
+                href={'./res_groups.html?group=' + encodeURIComponent(groupId.slice(0, idx + 1).join('.'))}
+                key={idx}
+            >
+                {truncateString(grp, remaining)}
+            </a>
+        );
+    });
+
+    return (
+        <>{links}</>
+    );
+}
+
 export class QueryListItem extends React.Component {
     static stripQueryTextWhitespace(queryText, isTruncated) {
         const lines = queryText.split("\n");
@@ -162,10 +190,10 @@ export class QueryListItem extends React.Component {
                 </span>
             </div>);
 
-        let user = (<span>{query.user}</span>);
+        let user = (<span>{truncateString(query.user, 35)}</span>);
         if (query.authenticated) {
             user = (
-                <span>{query.user}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
+                <span>{truncateString(query.user, 35)}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
             );
         }
 
@@ -186,7 +214,7 @@ export class QueryListItem extends React.Component {
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="User">
                                     <span className="glyphicon glyphicon-user" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(user, 35)}</span>
+                                    <span>{user}</span>
                                 </span>
                             </div>
                         </div>
@@ -202,7 +230,9 @@ export class QueryListItem extends React.Component {
                             <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Resource Group">
                                     <span className="glyphicon glyphicon-road" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
-                                    <span>{truncateString(query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a", 35)}</span>
+                                    <span>
+                                        <ResourceGroupLinks groupId={query.resourceGroupId} length="35"/>
+                                    </span>
                                 </span>
                             </div>
                         </div>

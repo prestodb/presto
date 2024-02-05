@@ -46,18 +46,14 @@ public final class PlanChecker
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
-                        new NoSubqueryExpressionLeftChecker(),
-                        new NoIdentifierLeftChecker(),
-                        new VerifyOnlyOneOutputNode())
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoUnresolvedSymbolExpression())
                 .putAll(
                         Stage.FRAGMENT,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
-                        new NoSubqueryExpressionLeftChecker(),
-                        new NoIdentifierLeftChecker(),
                         new VerifyNoFilteredAggregations(),
-                        new VerifyNoOriginalExpression(),
                         new VerifyNoIntermediateFormExpression(),
                         new ValidateStreamingJoins())
                 .putAll(
@@ -66,13 +62,10 @@ public final class PlanChecker
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new TypeValidator(),
-                        new NoSubqueryExpressionLeftChecker(),
-                        new NoIdentifierLeftChecker(),
                         new VerifyOnlyOneOutputNode(),
                         new VerifyNoFilteredAggregations(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
-                        new VerifyNoOriginalExpression(),
                         new VerifyNoIntermediateFormExpression(),
                         new VerifyProjectionLocality(),
                         new DynamicFiltersChecker(),

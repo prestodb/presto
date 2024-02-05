@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestEvaluateZeroLimit
         extends BaseRuleTest
@@ -44,13 +43,14 @@ public class TestEvaluateZeroLimit
                 .on(p ->
                         p.limit(
                                 0,
-                                p.filter(
-                                        expression("b > 5"),
-                                        p.values(
-                                                ImmutableList.of(p.variable("a"), p.variable("b")),
-                                                ImmutableList.of(
-                                                        constantExpressions(BIGINT, 1L, 10L),
-                                                        constantExpressions(BIGINT, 2L, 11L))))))
+                                p.registerVariable(p.variable("b"))
+                                        .filter(
+                                                p.rowExpression("b > 5"),
+                                                p.values(
+                                                        ImmutableList.of(p.variable("a"), p.variable("b")),
+                                                        ImmutableList.of(
+                                                                constantExpressions(BIGINT, 1L, 10L),
+                                                                constantExpressions(BIGINT, 2L, 11L))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
     }

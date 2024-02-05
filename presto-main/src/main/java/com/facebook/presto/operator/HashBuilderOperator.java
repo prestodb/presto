@@ -643,6 +643,8 @@ public class HashBuilderOperator
     {
         LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
         hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+        operatorContext.recordNullJoinBuildKeyCount(partition.getPositionIsNullCount());
+        operatorContext.recordJoinBuildKeyCount(partition.getPositionCount());
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
         return partition;

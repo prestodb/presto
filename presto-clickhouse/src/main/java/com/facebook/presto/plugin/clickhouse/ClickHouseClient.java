@@ -192,7 +192,8 @@ public class ClickHouseClient
                 tableHandle.getTableName(),
                 layoutHandle.getTupleDomain(),
                 layoutHandle.getAdditionalPredicate(),
-                layoutHandle.getSimpleExpression());
+                layoutHandle.getSimpleExpression(),
+                layoutHandle.getClickhouseSQL());
         return new FixedSplitSource(ImmutableList.of(clickHouseSplit));
     }
 
@@ -255,7 +256,8 @@ public class ClickHouseClient
                 columnHandles,
                 split.getTupleDomain(),
                 split.getAdditionalPredicate(),
-                split.getSimpleExpression());
+                split.getSimpleExpression(),
+                split.getClickhouseSQL());
     }
 
     public String getIdentifierQuote()
@@ -868,7 +870,6 @@ public class ClickHouseClient
             return "String";
         }
         if (type instanceof VarbinaryType) {
-            // Strings of arbitrary length.
             return "String";
         }
         if (type == DATE) {

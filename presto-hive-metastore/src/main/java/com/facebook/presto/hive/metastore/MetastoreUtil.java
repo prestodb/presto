@@ -39,24 +39,32 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
+import com.facebook.presto.hive.TypeTranslator;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
@@ -101,8 +109,17 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.HiveType.toHiveType;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
+import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -172,6 +189,10 @@ public class MetastoreUtil
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
+    public static final String TABLE_COMMENT = "comment";
+    public static final String PRESTO_VIEW_COMMENT = "Presto View";
+    public static final String PRESTO_VERSION_NAME = "presto_version";
+    public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     private MetastoreUtil()
     {
@@ -1000,5 +1021,89 @@ public class MetastoreUtil
     public static boolean isIcebergTable(Map<String, String> tableParameters)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
+    {
+        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(SELECT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(INSERT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(DELETE, true, owner, owner))
+                        .build(),
+                ImmutableMultimap.of());
+    }
+
+    public static Map<String, String> createViewProperties(ConnectorSession session, String prestoVersion)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                .put(PRESTO_VIEW_FLAG, "true")
+                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .build();
+    }
+
+    public static Table createTableObjectForViewCreation(ConnectorSession session, ConnectorTableMetadata viewMetadata, Map<String, String> properties, TypeTranslator typeTranslator, MetastoreContext metastoreContext, String encodedViewData)
+    {
+        List<Column> columns = new ArrayList<>();
+        ColumnConverter columnConverter = metastoreContext.getColumnConverter();
+
+        for (ColumnMetadata column : viewMetadata.getColumns()) {
+            try {
+                HiveType hiveType = toHiveType(typeTranslator, column.getType());
+                columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
+            }
+            catch (PrestoException e) {
+                // if a view uses any unsupported hive types, include only a dummy column value
+                if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    columns = ImmutableList.of(
+                            new Column(
+                                    "dummy",
+                                    HIVE_STRING,
+                                    Optional.of(format("Using dummy because column %s uses unsupported Hive type %s ", column.getName(), column.getType())),
+                                    Optional.empty()));
+                    break;
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
+
+        SchemaTableName viewName = viewMetadata.getTable();
+
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(viewName.getSchemaName())
+                .setTableName(viewName.getTableName())
+                .setOwner(session.getUser())
+                .setTableType(VIRTUAL_VIEW)
+                .setDataColumns(columns)
+                .setPartitionColumns(ImmutableList.of())
+                .setParameters(properties)
+                .setViewOriginalText(Optional.of(encodedViewData))
+                .setViewExpandedText(Optional.of(PRESTO_VIEW_EXPANDED_TEXT_MARKER));
+
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(VIEW_STORAGE_FORMAT)
+                .setLocation("");
+        return tableBuilder.build();
+    }
+
+    public static void verifyAndPopulateViews(Table table, SchemaTableName schemaTableName, String decodedData, ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views)
+    {
+        views.put(schemaTableName, new ConnectorViewDefinition(
+                schemaTableName,
+                Optional.ofNullable(table.getOwner()),
+                decodedData));
+    }
+
+    public static void checkIfNullView(ConnectorViewDefinition view, SchemaTableName viewName)
+    {
+        if (view == null) {
+            throw new ViewNotFoundException(viewName);
+        }
     }
 }

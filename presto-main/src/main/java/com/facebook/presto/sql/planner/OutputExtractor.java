@@ -17,8 +17,8 @@ import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.VerifyException;
 
@@ -62,10 +62,11 @@ public class OutputExtractor
             return null;
         }
 
-        @Override
-        public Void visitNativeExecution(NativeExecutionNode node, Void context)
+        public Void visitSequence(SequenceNode node, Void context)
         {
-            node.getSubPlan().accept(this, context);
+            // Left children of sequence are ignored since they don't output anything
+            node.getPrimarySource().accept(this, context);
+
             return null;
         }
 

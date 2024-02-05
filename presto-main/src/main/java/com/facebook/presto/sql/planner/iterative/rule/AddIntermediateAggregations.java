@@ -48,8 +48,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -132,7 +130,8 @@ public class AddIntermediateAggregations
                     aggregation.getPreGroupedVariables(),
                     INTERMEDIATE,
                     aggregation.getHashVariable(),
-                    aggregation.getGroupIdVariable());
+                    aggregation.getGroupIdVariable(),
+                    aggregation.getAggregationId());
             source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
 
@@ -176,7 +175,8 @@ public class AddIntermediateAggregations
                 aggregation.getPreGroupedVariables(),
                 INTERMEDIATE,
                 aggregation.getHashVariable(),
-                aggregation.getGroupIdVariable());
+                aggregation.getGroupIdVariable(),
+                aggregation.getAggregationId());
     }
 
     /**
@@ -218,7 +218,7 @@ public class AddIntermediateAggregations
             VariableReferenceExpression input = getOnlyElement(extractAggregationUniqueVariables(entry.getValue(), types));
             // Return type of intermediate aggregation is the same as the input type.
             RowExpression argumentExpr = aggregation.getCall().getArguments().get(0);
-            Type returnType = isExpression(argumentExpr) ? types.get(castToExpression(argumentExpr)) : argumentExpr.getType();
+            Type returnType = argumentExpr.getType();
             appendAggregation(builder, aggregation, input, returnType);
         }
         return builder.build();

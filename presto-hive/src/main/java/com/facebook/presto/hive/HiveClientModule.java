@@ -150,6 +150,7 @@ public class HiveClientModule
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(HivePartitionManager.class).withGeneratedName();
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(TableParameterCodec.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionStats.class).in(Scopes.SINGLETON);
@@ -161,6 +162,7 @@ public class HiveClientModule
         binder.bind(PartitionObjectBuilder.class).to(HivePartitionObjectBuilder.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionSkippabilityChecker.class).to(HivePartitionSkippabilityChecker.class).in(Scopes.SINGLETON);
         binder.bind(CacheQuotaRequirementProvider.class).to(ConfigBasedCacheQuotaRequirementProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);

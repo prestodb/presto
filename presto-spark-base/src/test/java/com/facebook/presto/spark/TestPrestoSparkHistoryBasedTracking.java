@@ -15,18 +15,20 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.statistics.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
@@ -42,7 +44,8 @@ public class TestPrestoSparkHistoryBasedTracking
         extends AbstractTestQueryFramework
 {
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         PrestoSparkQueryRunner queryRunner = createHivePrestoSparkQueryRunner(ImmutableList.of(NATION, ORDERS));
         queryRunner.installPlugin(new Plugin()
@@ -92,7 +95,7 @@ public class TestPrestoSparkHistoryBasedTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", getSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.PARTITIONED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.PARTITIONED))
                     .findFirst()
                     .isPresent());
 
@@ -106,7 +109,7 @@ public class TestPrestoSparkHistoryBasedTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", getSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.REPLICATED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.REPLICATED))
                     .findFirst()
                     .isPresent());
         }
@@ -135,6 +138,7 @@ public class TestPrestoSparkHistoryBasedTracking
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setCatalogSessionProperty("hive", "pushdown_filter_enabled", "true")
                 .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
                 .build();
     }
 }

@@ -79,7 +79,6 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
-import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -101,6 +100,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -129,8 +129,8 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeUtils.isDistinctType;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
@@ -253,7 +253,7 @@ public final class HiveUtil
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, getInputFormatName(schema), true);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
-        if (!customSplitInfo.isEmpty() && isHudiRealtimeSplit(customSplitInfo)) {
+        if (!customSplitInfo.isEmpty()) {
             fileSplit = recreateSplitWithCustomInfo(fileSplit, customSplitInfo);
 
             // Add additional column information for record reader
@@ -307,12 +307,6 @@ public final class HiveUtil
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
-    }
-
-    private static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
-    {
-        String customSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
-        return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
     }
 
     public static void setReadColumns(Configuration configuration, List<Integer> readHiveColumnIndexes)
@@ -606,6 +600,17 @@ public final class HiveUtil
     public static NullableValue parsePartitionValue(HivePartitionKey key, Type type, DateTimeZone timeZone)
     {
         return parsePartitionValue(key.getName(), key.getValue().orElse(HIVE_DEFAULT_DYNAMIC_PARTITION), type, timeZone);
+    }
+
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, ZoneId hiveStorageTimeZoneId)
+    {
+        requireNonNull(hiveStorageTimeZoneId, "hiveStorageTimeZoneId is null");
+        return parsePartitionValue(partitionName, value, type, getDateTimeZone(hiveStorageTimeZoneId));
+    }
+
+    private static DateTimeZone getDateTimeZone(ZoneId hiveStorageTimeZoneId)
+    {
+        return DateTimeZone.forID(hiveStorageTimeZoneId.getId());
     }
 
     public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)

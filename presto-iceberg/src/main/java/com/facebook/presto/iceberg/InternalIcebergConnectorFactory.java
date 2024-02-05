@@ -19,14 +19,15 @@ import com.facebook.airlift.event.client.EventModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveCommonModule;
+import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.hive.RebindSafeMBeanServer;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
-import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
-import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -35,23 +36,34 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.util.Types;
 import org.weakref.jmx.guice.MBeanModule;
 
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -65,19 +77,28 @@ public final class InternalIcebergConnectorFactory
                     new EventModule(),
                     new MBeanModule(),
                     new JsonModule(),
-                    new IcebergModule(catalogName),
-                    new IcebergMetastoreModule(),
+                    new IcebergCommonModule(catalogName),
+                    installModuleIf(
+                            IcebergConfig.class,
+                            conf -> conf.getCatalogType().equals(CatalogType.HIVE),
+                            new IcebergHiveModule(catalogName, metastore),
+                            new IcebergNativeModule()),
                     new HiveS3Module(catalogName),
+                    new HiveGcsModule(),
                     new HiveAuthenticationModule(),
-                    new HiveMetastoreModule(catalogName, metastore),
                     new CachingModule(),
+                    new HiveCommonModule(),
                     binder -> {
+                        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
+                        binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
                     });
 
             Injector injector = app
@@ -93,9 +114,13 @@ public final class InternalIcebergConnectorFactory
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
+            HiveCommonSessionProperties hiveCommonSessionProperties = injector.getInstance(HiveCommonSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
-            ConnectorPlanOptimizer planOptimizer = injector.getInstance(IcebergPlanOptimizer.class);
+            ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
+
+            List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());
+            allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
 
             return new IcebergConnector(
                     lifeCycleManager,
@@ -106,12 +131,13 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     ImmutableSet.of(),
-                    icebergSessionProperties.getSessionProperties(),
+                    allSessionProperties,
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
+                    icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
                     procedures,
-                    planOptimizer);
+                    planOptimizerProvider);
         }
     }
 }

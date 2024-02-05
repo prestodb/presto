@@ -18,8 +18,11 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import io.airlift.units.Duration;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
@@ -39,6 +42,7 @@ public class PrestoSparkSettingsRequirements
     public static final String SPARK_TASK_CPUS_PROPERTY = "spark.task.cpus";
     public static final String SPARK_EXECUTOR_CORES_PROPERTY = "spark.executor.cores";
     public static final String SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG = "spark.dynamicAllocation.maxExecutors";
+    public static final Duration MAX_TASK_ERROR_DURATION = new Duration(1, TimeUnit.MINUTES);
 
     public void verify(SparkContext sparkContext, Session session)
     {
@@ -92,11 +96,13 @@ public class PrestoSparkSettingsRequirements
         config.setInlineSqlFunctions(true);
         config.setEnforceFixedDistributionForOutputOperator(true);
         config.setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true);
+        config.setTrackPartialAggregationHistory(false);
     }
 
     public static void setDefaults(QueryManagerConfig config)
     {
         config.setExchangeMaterializationStrategy(NONE);
         config.setPartitioningProviderCatalog(GlobalSystemConnector.NAME);
+        config.setRemoteTaskMaxErrorDuration(MAX_TASK_ERROR_DURATION);
     }
 }

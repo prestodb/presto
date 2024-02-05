@@ -21,6 +21,17 @@ public class NoopMetastoreCacheStats
 {
     public static final NoopMetastoreCacheStats NOOP_METASTORE_CACHE_STATS = new NoopMetastoreCacheStats();
 
+    @Override
+    public void setTableCache(LoadingCache<?, ?> tableCache)
+    {
+    }
+
+    @Override
+    public void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache)
+    {
+    }
+
+    @Override
     public void setPartitionCache(LoadingCache<?, ?> partitionCache)
     {
     }
@@ -28,6 +39,46 @@ public class NoopMetastoreCacheStats
     @Override
     public void incrementPartitionsWithColumnCountGreaterThanThreshold()
     {
+    }
+
+    public long getTableCacheHit()
+    {
+        return 0;
+    }
+
+    public long getTableCacheMiss()
+    {
+        return 0;
+    }
+
+    public long getTableCacheEviction()
+    {
+        return 0;
+    }
+
+    public long getTableCacheSize()
+    {
+        return 0;
+    }
+
+    public long getPartitionNamesCacheHit()
+    {
+        return 0;
+    }
+
+    public long getPartitionNamesCacheMiss()
+    {
+        return 0;
+    }
+
+    public long getPartitionNamesCacheEviction()
+    {
+        return 0;
+    }
+
+    public long getPartitionNamesCacheSize()
+    {
+        return 0;
     }
 
     public long getPartitionCacheHit()

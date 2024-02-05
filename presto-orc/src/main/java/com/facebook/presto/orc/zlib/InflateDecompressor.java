@@ -16,6 +16,7 @@ package com.facebook.presto.orc.zlib;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.MalformedInputException;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -56,6 +57,6 @@ public class InflateDecompressor
         int outputOffset = output.arrayOffset() + output.position();
 
         int written = decompress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
-        output.position(output.position() + written);
+        ((Buffer) output).position(output.position() + written);
     }
 }

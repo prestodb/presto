@@ -28,9 +28,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -39,15 +36,8 @@ import java.util.Optional;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static com.facebook.presto.cost.SemiJoinStatsCalculator.computeSemiJoin;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -112,14 +102,8 @@ public class SimpleFilterProjectSemiJoinStatsRule
         VariableReferenceExpression filteringSourceJoinVariable = semiJoinNode.getFilteringSourceJoinVariable();
         VariableReferenceExpression sourceJoinVariable = semiJoinNode.getSourceJoinVariable();
 
-        Optional<SemiJoinOutputFilter> semiJoinOutputFilter;
         VariableReferenceExpression semiJoinOutput = semiJoinNode.getSemiJoinOutput();
-        if (isExpression(filterNode.getPredicate())) {
-            semiJoinOutputFilter = extractSemiJoinOutputFilter(castToExpression(filterNode.getPredicate()), semiJoinOutput);
-        }
-        else {
-            semiJoinOutputFilter = extractSemiJoinOutputFilter(filterNode.getPredicate(), semiJoinOutput);
-        }
+        Optional<SemiJoinOutputFilter> semiJoinOutputFilter = extractSemiJoinOutputFilter(filterNode.getPredicate(), semiJoinOutput);
 
         if (!semiJoinOutputFilter.isPresent()) {
             return Optional.empty();
@@ -138,13 +122,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         }
 
         // apply remaining predicate
-        PlanNodeStatsEstimate filteredStats;
-        if (isExpression(filterNode.getPredicate())) {
-            filteredStats = filterStatsCalculator.filterStats(semiJoinStats, castToExpression(semiJoinOutputFilter.get().getRemainingPredicate()), session, types);
-        }
-        else {
-            filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session);
-        }
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session);
 
         if (filteredStats.isOutputRowCountUnknown()) {
             return Optional.of(semiJoinStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
@@ -152,28 +130,8 @@ public class SimpleFilterProjectSemiJoinStatsRule
         return Optional.of(filteredStats);
     }
 
-    private Optional<SemiJoinOutputFilter> extractSemiJoinOutputFilter(Expression predicate, VariableReferenceExpression semiJoinOutput)
-    {
-        List<Expression> conjuncts = extractConjuncts(predicate);
-        List<Expression> semiJoinOutputReferences = conjuncts.stream()
-                .filter(conjunct -> isSemiJoinOutputReference(conjunct, semiJoinOutput))
-                .collect(toImmutableList());
-
-        if (semiJoinOutputReferences.size() != 1) {
-            return Optional.empty();
-        }
-
-        Expression semiJoinOutputReference = Iterables.getOnlyElement(semiJoinOutputReferences);
-        Expression remainingPredicate = combineConjuncts(conjuncts.stream()
-                .filter(conjunct -> conjunct != semiJoinOutputReference)
-                .collect(toImmutableList()));
-        boolean negated = semiJoinOutputReference instanceof NotExpression;
-        return Optional.of(new SemiJoinOutputFilter(negated, castToRowExpression(remainingPredicate)));
-    }
-
     private Optional<SemiJoinOutputFilter> extractSemiJoinOutputFilter(RowExpression predicate, RowExpression input)
     {
-        checkState(!isExpression(predicate));
         List<RowExpression> conjuncts = LogicalRowExpressions.extractConjuncts(predicate);
         List<RowExpression> semiJoinOutputReferences = conjuncts.stream()
                 .filter(conjunct -> isSemiJoinOutputReference(conjunct, input))
@@ -194,13 +152,6 @@ public class SimpleFilterProjectSemiJoinStatsRule
     private boolean isSemiJoinOutputReference(RowExpression conjunct, RowExpression input)
     {
         return conjunct.equals(input) || (isNotFunction(conjunct) && ((CallExpression) conjunct).getArguments().get(0).equals(input));
-    }
-
-    private static boolean isSemiJoinOutputReference(Expression conjunct, VariableReferenceExpression semiJoinOutput)
-    {
-        SymbolReference semiJoinOutputSymbolReference = createSymbolReference(semiJoinOutput);
-        return conjunct.equals(semiJoinOutputSymbolReference) ||
-                (conjunct instanceof NotExpression && ((NotExpression) conjunct).getValue().equals(semiJoinOutputSymbolReference));
     }
 
     private boolean isNotFunction(RowExpression expression)

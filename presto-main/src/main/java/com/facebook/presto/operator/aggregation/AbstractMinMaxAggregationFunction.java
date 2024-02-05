@@ -111,7 +111,7 @@ public abstract class AbstractMinMaxAggregationFunction
 
         if (type.getJavaType() == long.class) {
             stateInterface = NullableLongState.class;
-            stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
+            stateSerializer = getStateSerializer(stateInterface, classLoader);
             inputFunction = LONG_INPUT_FUNCTION.bindTo(compareMethodHandle);
             combineFunction = LONG_COMBINE_FUNCTION.bindTo(compareMethodHandle);
             outputFunction = LONG_OUTPUT_FUNCTION.bindTo(type);
@@ -164,6 +164,11 @@ public abstract class AbstractMinMaxAggregationFunction
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType),
                 type, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+    }
+
+    protected AccumulatorStateSerializer<?> getStateSerializer(Class<? extends AccumulatorState> stateInterface, DynamicClassLoader classLoader)
+    {
+        return StateCompiler.generateStateSerializer(stateInterface, classLoader);
     }
 
     protected Type overrideIntermediateType(Type inputType, Type defaultIntermediateType)

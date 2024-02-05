@@ -18,8 +18,10 @@ import com.facebook.presto.matching.Property;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -235,7 +237,7 @@ public class Patterns
 
     public static class Join
     {
-        public static Property<JoinNode, JoinNode.Type> type()
+        public static Property<JoinNode, JoinType> type()
         {
             return property("type", JoinNode::getType);
         }

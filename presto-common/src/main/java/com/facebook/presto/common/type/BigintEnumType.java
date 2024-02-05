@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -78,12 +81,14 @@ public class BigintEnumType
         return enumMap.getTypeName();
     }
 
+    @ThriftStruct
     public static class LongEnumMap
     {
         private final String typeName;
         private final Map<String, Long> enumMap;
         private final Map<Long, String> flippedEnumMap;
 
+        @ThriftConstructor
         @JsonCreator
         public LongEnumMap(@JsonProperty("typeName") String typeName, @JsonProperty("enumMap") Map<String, Long> enumMap)
         {
@@ -94,12 +99,14 @@ public class BigintEnumType
                     .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
         }
 
+        @ThriftField(1)
         @JsonProperty
         public String getTypeName()
         {
             return typeName;
         }
 
+        @ThriftField(2)
         @JsonProperty
         public Map<String, Long> getEnumMap()
         {

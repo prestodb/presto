@@ -15,6 +15,9 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -35,18 +38,18 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.extractSortExpression;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.sql.planner.sanity.ValidateDependenciesChecker.checkLeftOutputVariablesBeforeRight;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -56,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 public class JoinNode
         extends AbstractJoinNode
 {
-    private final Type type;
+    private final JoinType type;
     private final PlanNode left;
     private final PlanNode right;
     private final List<EquiJoinClause> criteria;
@@ -64,14 +67,14 @@ public class JoinNode
     private final Optional<RowExpression> filter;
     private final Optional<VariableReferenceExpression> leftHashVariable;
     private final Optional<VariableReferenceExpression> rightHashVariable;
-    private final Optional<DistributionType> distributionType;
+    private final Optional<JoinDistributionType> distributionType;
     private final Map<String, VariableReferenceExpression> dynamicFilters;
 
     @JsonCreator
     public JoinNode(
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") JoinType type,
             @JsonProperty("left") PlanNode left,
             @JsonProperty("right") PlanNode right,
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
@@ -79,7 +82,7 @@ public class JoinNode
             @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
             @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("distributionType") Optional<JoinDistributionType> distributionType,
             @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
         this(sourceLocation, id, Optional.empty(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
@@ -89,7 +92,7 @@ public class JoinNode
             Optional<SourceLocation> sourceLocation,
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
-            Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
             List<EquiJoinClause> criteria,
@@ -97,7 +100,7 @@ public class JoinNode
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable,
-            Optional<DistributionType> distributionType,
+            Optional<JoinDistributionType> distributionType,
             Map<String, VariableReferenceExpression> dynamicFilters)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
@@ -122,6 +125,8 @@ public class JoinNode
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
         this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
+
+        checkLeftOutputVariablesBeforeRight(left.getOutputVariables(), outputVariables);
 
         Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(left.getOutputVariables())
@@ -176,7 +181,7 @@ public class JoinNode
     }
 
     @VisibleForTesting
-    public static Type flipType(Type type)
+    public static JoinType flipType(JoinType type)
     {
         switch (type) {
             case INNER:
@@ -213,46 +218,8 @@ public class JoinNode
                 .build();
     }
 
-    public enum DistributionType
-    {
-        PARTITIONED,
-        REPLICATED
-    }
-
-    public enum Type
-    {
-        INNER("InnerJoin"),
-        LEFT("LeftJoin"),
-        RIGHT("RightJoin"),
-        FULL("FullJoin");
-
-        private final String joinLabel;
-
-        Type(String joinLabel)
-        {
-            this.joinLabel = joinLabel;
-        }
-
-        public String getJoinLabel()
-        {
-            return joinLabel;
-        }
-
-        public boolean mustPartition()
-        {
-            // With REPLICATED, the unmatched rows from right-side would be duplicated.
-            return this == RIGHT || this == FULL;
-        }
-
-        public boolean mustReplicate(List<JoinNode.EquiJoinClause> criteria)
-        {
-            // There is nothing to partition on
-            return criteria.isEmpty() && (this == INNER || this == LEFT);
-        }
-    }
-
     @JsonProperty
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }
@@ -332,7 +299,7 @@ public class JoinNode
     }
 
     @JsonProperty
-    public Optional<DistributionType> getDistributionType()
+    public Optional<JoinDistributionType> getDistributionType()
     {
         return distributionType;
     }
@@ -363,7 +330,7 @@ public class JoinNode
         return new JoinNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
-    public JoinNode withDistributionType(DistributionType distributionType)
+    public JoinNode withDistributionType(JoinDistributionType distributionType)
     {
         return new JoinNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters);
     }
@@ -371,64 +338,5 @@ public class JoinNode
     public boolean isCrossJoin()
     {
         return criteria.isEmpty() && !filter.isPresent() && type == INNER;
-    }
-
-    public static class EquiJoinClause
-    {
-        private final VariableReferenceExpression left;
-        private final VariableReferenceExpression right;
-
-        @JsonCreator
-        public EquiJoinClause(@JsonProperty("left") VariableReferenceExpression left, @JsonProperty("right") VariableReferenceExpression right)
-        {
-            this.left = requireNonNull(left, "left is null");
-            this.right = requireNonNull(right, "right is null");
-        }
-
-        @JsonProperty
-        public VariableReferenceExpression getLeft()
-        {
-            return left;
-        }
-
-        @JsonProperty
-        public VariableReferenceExpression getRight()
-        {
-            return right;
-        }
-
-        public EquiJoinClause flip()
-        {
-            return new EquiJoinClause(right, left);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-
-            if (obj == null || !this.getClass().equals(obj.getClass())) {
-                return false;
-            }
-
-            EquiJoinClause other = (EquiJoinClause) obj;
-
-            return Objects.equals(this.left, other.left) &&
-                    Objects.equals(this.right, other.right);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(left, right);
-        }
-
-        @Override
-        public String toString()
-        {
-            return format("%s = %s", left, right);
-        }
     }
 }

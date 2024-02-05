@@ -24,15 +24,7 @@ import java.util.List;
 public interface JavaAggregationFunctionImplementation
         extends AggregationFunctionImplementation
 {
-    boolean isDecomposable();
-
     List<Type> getParameterTypes();
-
-    Type getIntermediateType();
-
-    Type getFinalType();
-
-    boolean isOrderSensitive();
 
     AggregationMetadata getAggregationMetadata();
 

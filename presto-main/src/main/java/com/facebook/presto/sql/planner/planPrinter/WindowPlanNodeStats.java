@@ -37,9 +37,14 @@ public class WindowPlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
+            long planNodeNullJoinBuildKeyCount,
+            long planNodeJoinBuildKeyCount,
+            long planNodeNullJoinProbeKeyCount,
+            long planNodeJoinProbeKeyCount,
             WindowOperatorStats windowOperatorStats)
     {
-        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize, planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats);
+        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeRawInputPositions, planNodeRawInputDataSize,
+                planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats, planNodeNullJoinBuildKeyCount, planNodeJoinBuildKeyCount, planNodeNullJoinProbeKeyCount, planNodeJoinProbeKeyCount);
         this.windowOperatorStats = windowOperatorStats;
     }
 
@@ -65,6 +70,10 @@ public class WindowPlanNodeStats
                 merged.getPlanNodeOutputPositions(),
                 merged.getPlanNodeOutputDataSize(),
                 merged.operatorInputStats,
+                merged.getPlanNodeNullJoinBuildKeyCount(),
+                merged.getPlanNodeJoinBuildKeyCount(),
+                merged.getPlanNodeNullJoinProbeKeyCount(),
+                merged.getPlanNodeJoinProbeKeyCount(),
                 windowOperatorStats);
     }
 }

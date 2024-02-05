@@ -32,7 +32,9 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
+import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,10 +52,10 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
-import static com.facebook.presto.SystemSessionProperties.isLegacyTypeCoercionWarningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
@@ -94,6 +96,8 @@ public final class Session
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
+    private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
+    private final CTEInformationCollector cteInformationCollector = new CTEInformationCollector();
 
     public Session(
             QueryId queryId,
@@ -157,9 +161,9 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.context = new AccessControlContext(queryId, clientInfo, source);
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.context = new AccessControlContext(queryId, clientInfo, source, warningCollector);
     }
 
     public QueryId getQueryId()
@@ -318,6 +322,16 @@ public final class Session
     public OptimizerInformationCollector getOptimizerInformationCollector()
     {
         return optimizerInformationCollector;
+    }
+
+    public OptimizerResultCollector getOptimizerResultCollector()
+    {
+        return optimizerResultCollector;
+    }
+
+    public CTEInformationCollector getCteInformationCollector()
+    {
+        return cteInformationCollector;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
@@ -481,13 +495,13 @@ public final class Session
         return SqlFunctionProperties.builder()
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
-                .setLegacyTypeCoercionWarningEnabled(isLegacyTypeCoercionWarningEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
                 .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
+                .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
                 .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }

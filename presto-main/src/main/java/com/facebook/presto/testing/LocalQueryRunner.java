@@ -18,9 +18,12 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
@@ -117,6 +120,7 @@ import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
+import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
@@ -131,6 +135,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerContext;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.QueryAnalysis;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -159,7 +164,6 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -244,11 +248,13 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
@@ -261,9 +267,11 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
@@ -331,6 +339,8 @@ public class LocalQueryRunner
 
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
+
+    private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -441,6 +451,7 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         NodeInfo nodeInfo = new NodeInfo("test");
+        NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
                 metadata,
                 catalogManager,
@@ -476,7 +487,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
-        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty());
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.empty(), metadataExtractorExecutor);
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(new BuiltInQueryPreparer(sqlParser), queryAnalyzer);
 
         this.pluginManager = new PluginManager(
@@ -492,11 +503,12 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 new TestingTempStorageManager(),
                 new QueryPrerequisitesManager(),
-                new SessionPropertyDefaults(nodeInfo),
+                new SessionPropertyDefaults(nodeInfo, nodeVersion),
                 new ThrowingNodeTtlFetcherManager(),
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
-                new TracerProviderManager(new TracingConfig()));
+                new TracerProviderManager(new TracingConfig()),
+                new NodeStatusNotificationManager());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -783,16 +795,19 @@ public class LocalQueryRunner
 
     private MaterializedResultWithPlan executeInternal(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
+        if (isExplainTypeValidate(sql, session, warningCollector)) {
+            return executeExplainTypeValidate(sql, session, warningCollector);
+        }
+
         lock.readLock().lock();
         try (Closer closer = Closer.create()) {
             AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
             PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
-                builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
+                builder.compareAndSet(null, resultBuilder(session, types));
                 return builder.get()::page;
             });
 
             Plan plan = createPlan(session, sql, warningCollector);
-
             TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
                     .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
@@ -837,6 +852,45 @@ public class LocalQueryRunner
         }
     }
 
+    private MaterializedResultWithPlan executeExplainTypeValidate(String sql, Session session, WarningCollector warningCollector)
+    {
+        AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
+        BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
+
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+        QueryExplainer queryExplainer = new QueryExplainer(
+                getPlanOptimizers(true),
+                planFragmenter,
+                metadata,
+                accessControl,
+                sqlParser,
+                statsCalculator,
+                costCalculator,
+                dataDefinitionTask,
+                distributedPlanChecker);
+
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
+
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
+
+        QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
+
+        MaterializedResult result = MaterializedResult.resultBuilder(session, BooleanType.BOOLEAN)
+                .row(true)
+                .build();
+        return new MaterializedResultWithPlan(result, null);
+    }
+
+    private boolean isExplainTypeValidate(String sql, Session session, WarningCollector warningCollector)
+    {
+        AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
+        PreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        return preparedQuery.isExplainTypeValidate();
+    }
+
     @Override
     public Lock getExclusiveLock()
     {
@@ -857,7 +911,7 @@ public class LocalQueryRunner
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0, false));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0, false, isVerboseOptimizerInfoEnabled(session)));
         }
 
         SubPlan subplan = createSubPlans(session, plan, true);
@@ -1009,7 +1063,6 @@ public class LocalQueryRunner
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
         BuiltInPreparedQuery preparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
-
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
@@ -1060,12 +1113,12 @@ public class LocalQueryRunner
                 dataDefinitionTask,
                 distributedPlanChecker);
 
-        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer));
+        BuiltInQueryAnalyzer queryAnalyzer = new BuiltInQueryAnalyzer(metadata, sqlParser, accessControl, Optional.of(queryExplainer), metadataExtractorExecutor);
 
-        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, idAllocator, new VariableAllocator(), session);
+        AnalyzerContext analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(session), idAllocator, new VariableAllocator(), session);
 
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
-        queryAnalyzer.checkAccessPermissions(analyzerContext, queryAnalysis);
+        checkAccessPermissions(queryAnalysis.getAccessControlReferences());
 
         PlanNode planNode = session.getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,

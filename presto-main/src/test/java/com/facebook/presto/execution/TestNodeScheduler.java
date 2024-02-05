@@ -301,7 +301,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments.keySet()) {
-            TaskId taskId = new TaskId("test", 1, 0, task);
+            TaskId taskId = new TaskId("test", 1, 0, task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createTaskStatsTracker(node, taskId));
             remoteTask.startSplits(25);
@@ -802,11 +802,11 @@ public class TestNodeScheduler
 
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         // Max out number of splits on node
-        TaskId taskId1 = new TaskId("test", 1, 0, 1);
+        TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1, newNode, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(newNode, taskId1));
         nodeTaskMap.addTask(newNode, remoteTask1);
 
-        TaskId taskId2 = new TaskId("test", 1, 0, 2);
+        TaskId taskId2 = new TaskId("test", 1, 0, 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(taskId2, newNode, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(newNode, taskId2));
         nodeTaskMap.addTask(newNode, remoteTask2);
 
@@ -842,13 +842,13 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of splits on node
-            TaskId taskId = new TaskId("test", 1, 0, 1);
+            TaskId taskId = new TaskId("test", 1, 0, 1, 0);
             RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
             tasks.add(remoteTask);
         }
 
-        TaskId taskId = new TaskId("test", 1, 0, 2);
+        TaskId taskId = new TaskId("test", 1, 0, 2, 0);
         RemoteTask newRemoteTask = remoteTaskFactory.createTableScanTask(taskId, newNode, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(newNode, taskId));
         // Max out pending splits on new node
         taskMap.put(newNode, newRemoteTask);
@@ -890,7 +890,7 @@ public class TestNodeScheduler
         int counter = 1;
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of unacknowledged splits on each task
-            TaskId taskId = new TaskId("test", 1, 0, counter);
+            TaskId taskId = new TaskId("test", 1, 0, counter, 0);
             counter++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
@@ -938,7 +938,7 @@ public class TestNodeScheduler
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
-        TaskId taskId = new TaskId("test", 1, 0, 1);
+        TaskId taskId = new TaskId("test", 1, 0, 1, 0);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
                 chosenNode,
@@ -960,7 +960,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
-        TaskId taskId1 = new TaskId("test", 1, 0, 1);
+        TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
                 chosenNode,
                 ImmutableList.of(
@@ -968,7 +968,7 @@ public class TestNodeScheduler
                         new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote())),
                 nodeTaskMap.createTaskStatsTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId("test", 1, 0, 2);
+        TaskId taskId2 = new TaskId("test", 1, 0, 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
@@ -1000,7 +1000,7 @@ public class TestNodeScheduler
         InternalNode workerNode = nodeSelector.selectRandomNodes(1).get(0);
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
 
-        TaskId taskId = new TaskId("test", 1, 0, 1);
+        TaskId taskId = new TaskId("test", 1, 0, 1, 0);
         MockRemoteTaskFactory.MockRemoteTask task = remoteTaskFactory.createTableScanTask(taskId, workerNode, ImmutableList.of(), nodeTaskMap.createTaskStatsTracker(workerNode, taskId));
 
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
@@ -1050,7 +1050,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
-        TaskId taskId1 = new TaskId("test", 1, 0, 1);
+        TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         List<Split> splits = ImmutableList.of(
                 new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()),
                 new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
@@ -1059,7 +1059,7 @@ public class TestNodeScheduler
                 splits,
                 nodeTaskMap.createTaskStatsTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId("test", 1, 0, 2);
+        TaskId taskId2 = new TaskId("test", 1, 0, 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
@@ -1090,7 +1090,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
-        TaskId taskId1 = new TaskId("test", 1, 0, 1);
+        TaskId taskId1 = new TaskId("test", 1, 0, 1, 0);
         List<Split> splits = ImmutableList.of(
                 new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()),
                 new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
@@ -1099,7 +1099,7 @@ public class TestNodeScheduler
                 splits,
                 nodeTaskMap.createTaskStatsTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId("test", 1, 0, 2);
+        TaskId taskId2 = new TaskId("test", 1, 0, 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
@@ -1205,7 +1205,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments.keySet()) {
-            TaskId taskId = new TaskId("test", 1, 1, task);
+            TaskId taskId = new TaskId("test", 1, 1, task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createTaskStatsTracker(node, taskId));
             remoteTask.startSplits(25);

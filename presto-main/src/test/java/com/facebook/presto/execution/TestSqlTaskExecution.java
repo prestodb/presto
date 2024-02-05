@@ -124,7 +124,7 @@ public class TestSqlTaskExecution
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
     private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
-    private static final TaskId TASK_ID = TaskId.valueOf("queryid.0.0.0");
+    private static final TaskId TASK_ID = TaskId.valueOf("queryid.0.0.0.0");
 
     @DataProvider
     public static Object[][] executionStrategies()

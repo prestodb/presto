@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
+import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.Use;
 import com.google.common.collect.ImmutableMap;
 
@@ -98,6 +99,7 @@ public final class StatementUtils
         builder.put(RefreshMaterializedView.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
+        builder.put(Update.class, QueryType.UPDATE);
 
         builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
         builder.put(ShowCreate.class, QueryType.DESCRIBE);
@@ -129,9 +131,9 @@ public final class StatementUtils
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateFunction.class, QueryType.CONTROL);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
+        builder.put(DropFunction.class, QueryType.CONTROL);
         builder.put(Use.class, QueryType.CONTROL);
         builder.put(SetSession.class, QueryType.CONTROL);
         builder.put(ResetSession.class, QueryType.CONTROL);

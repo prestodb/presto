@@ -32,6 +32,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
@@ -42,6 +43,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindow
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
+import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -54,6 +56,7 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private final MetadataExtractor metadataExtractor;
 
     public Analyzer(
             Session session,
@@ -65,6 +68,20 @@ public class Analyzer
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector)
     {
+        this(session, metadata, sqlParser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, Optional.empty());
+    }
+
+    public Analyzer(
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            AccessControl accessControl,
+            Optional<QueryExplainer> queryExplainer,
+            List<Expression> parameters,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            WarningCollector warningCollector,
+            Optional<ExecutorService> metadataExtractorExecutor)
+    {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
@@ -73,6 +90,8 @@ public class Analyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.parameterLookup = requireNonNull(parameterLookup, "parameterLookup is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        requireNonNull(metadataExtractorExecutor, "metadataExtractorExecutor is null");
+        this.metadataExtractor = new MetadataExtractor(session, metadata, metadataExtractorExecutor, sqlParser, warningCollector);
     }
 
     public Analysis analyze(Statement statement)
@@ -84,7 +103,7 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkColumnAccessPermissions(analysis);
+        checkAccessPermissions(analysis.getAccessControlReferences());
         return analysis;
     }
 
@@ -92,27 +111,13 @@ public class Analyzer
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+
+        metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
+        analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
         return analysis;
-    }
-
-    /**
-     * check column access permissions for each table
-     * @param analysis the Analysis that needs to check ACL for
-     */
-    public void checkColumnAccessPermissions(Analysis analysis)
-    {
-        analysis.getTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session))
-                .forEach((accessControlInfo, tableColumnReferences) ->
-                tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                session.getRequiredTransactionId(),
-                                accessControlInfo.getIdentity(),
-                                session.getAccessControlContext(),
-                                tableName,
-                                columns)));
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(

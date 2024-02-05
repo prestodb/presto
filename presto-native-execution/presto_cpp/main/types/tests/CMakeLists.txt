@@ -26,12 +26,11 @@ target_link_libraries(
   velox_dwio_common_exception
   presto_type_converter
   presto_types
-  ${ANTLR4_RUNTIME}
+  velox_type_fbhive
   velox_hive_partition_function)
 
-add_executable(
-  presto_expressions_test RowExpressionTest.cpp TypeSignatureTest.cpp
-                          ValuesPipeTest.cpp PlanConverterTest.cpp)
+add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
+                                       PlanConverterTest.cpp)
 
 add_test(
   NAME presto_expressions_test
@@ -41,18 +40,10 @@ add_test(
 add_dependencies(presto_expressions_test presto_operators presto_protocol
                  presto_types)
 
-# There is not really a better way at this point.  Several posts have complained
-# about the parser generator not producing a file that finds the includes on the
-# default install path. :(
-#
-target_include_directories(presto_expressions_test SYSTEM
-                           PRIVATE "/usr/local/include/antlr4-runtime")
-
 target_link_libraries(
   presto_expressions_test
   gtest
   gtest_main
-  $<TARGET_OBJECTS:duckdb>
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
@@ -70,10 +61,13 @@ target_link_libraries(
   velox_presto_serializer
   velox_serialization
   velox_type
+  velox_type_parser
   Boost::filesystem
   ${RE2}
-  ${ANTLR4_RUNTIME}
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
   pthread)
+
+set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
+                                                     presto_link_job_pool)

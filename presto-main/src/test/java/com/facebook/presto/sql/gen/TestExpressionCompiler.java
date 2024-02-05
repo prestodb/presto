@@ -167,7 +167,7 @@ public class TestExpressionCompiler
         else {
             executor = newDirectExecutorService();
         }
-        functionAssertions = new FunctionAssertions();
+        this.functionAssertions = setFunctionAssertions();
     }
 
     @AfterClass(alwaysRun = true)
@@ -193,6 +193,13 @@ public class TestExpressionCompiler
     {
         assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");
         log.info("FINISHED %s in %s verified %s expressions", method.getName(), Duration.nanosSince(start), futures.size());
+    }
+
+    // This is a setter and not a test method.
+    // TestNG considers this as a test method since we have annotated the class with @Test.
+    public FunctionAssertions setFunctionAssertions()
+    {
+        return new FunctionAssertions();
     }
 
     @Test
@@ -640,12 +647,12 @@ public class TestExpressionCompiler
         // combination of types in one filter
         assertFilter(
                 ImmutableList.of(
-                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
-                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
-                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
-                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
-                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
-                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
+                                "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
+                                "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
+                                "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
+                                "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
+                                "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
+                                "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
                         .stream().collect(joining(" AND ")),
                 true);
     }
@@ -1606,6 +1613,9 @@ public class TestExpressionCompiler
     public void testNullif()
             throws Exception
     {
+        assertExecute("nullif(BIGINT '2', INT '2')", BIGINT, null);
+        assertExecute("nullif(INT '2', BIGINT '2')", INTEGER, null);
+        assertExecute("nullif(INT '2', BIGINT '3')", INTEGER, 2);
         assertExecute("nullif(NULL, NULL)", UNKNOWN, null);
         assertExecute("nullif(NULL, 2)", UNKNOWN, null);
         assertExecute("nullif(2, NULL)", INTEGER, 2);

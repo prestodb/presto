@@ -83,7 +83,10 @@ public abstract class AbstractTestQueryFramework
         queryRunner = createQueryRunner();
         expectedQueryRunner = createExpectedQueryRunner();
         sqlParser = new SqlParser();
+        createTables();
     }
+
+    protected void createTables() {}
 
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
@@ -158,6 +161,23 @@ public abstract class AbstractTestQueryFramework
     {
         checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, false, false);
+    }
+
+    protected void assertQueryWithSameQueryRunner(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        checkArgument(!actual.equals(expected));
+        QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
+    }
+
+    protected void assertQueryWithSameQueryRunner(Session actualSession, @Language("SQL") String query, Session expectedSession)
+    {
+        QueryAssertions.assertQuery(queryRunner, actualSession, query, queryRunner, expectedSession, query, false, false);
+    }
+
+    protected void assertQueryWithSameQueryRunner(Session actualSession, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
+    {
+        checkArgument(!actual.equals(expected));
+        QueryAssertions.assertQuery(queryRunner, actualSession, actual, queryRunner, expectedSession, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
@@ -490,11 +510,25 @@ public abstract class AbstractTestQueryFramework
         return queryRunner;
     }
 
+    protected DistributedQueryRunner getDistributedQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not an instance of DistributedQueryRunner");
+        return (DistributedQueryRunner) queryRunner;
+    }
+
+    protected ExpectedQueryRunner getExpectedQueryRunner()
+    {
+        checkState(expectedQueryRunner != null, "expectedQueryRunner not set");
+        return expectedQueryRunner;
+    }
+
     public interface QueryRunnerSupplier
     {
         QueryRunner get()
                 throws Exception;
     }
+
     public interface ExpectedQueryRunnerSupplier
     {
         ExpectedQueryRunner get()

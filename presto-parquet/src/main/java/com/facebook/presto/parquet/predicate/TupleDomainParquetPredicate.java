@@ -103,11 +103,11 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        if (statistics.getNumNulls() == rowCount) {
+        if (statistics.isNumNullsSet() && statistics.getNumNulls() == rowCount) {
             return Domain.onlyNull(type);
         }
 
-        boolean hasNullValue = statistics.getNumNulls() != 0L;
+        boolean hasNullValue = !statistics.isNumNullsSet() || statistics.getNumNulls() != 0L;
 
         if (!statistics.hasNonNullValue() || statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
@@ -556,7 +556,7 @@ public class TupleDomainParquetPredicate
                 return false;
             }
             List<Range> ranges = new ArrayList<>();
-            ranges.add(Range.range(columnDomain.getType(), statistic.getMin(), true, statistic.getMax(), true));
+            ranges.add(getRange(columnDomain.getType(), statistic.getMin(), statistic.getMax()));
             return canDropWithRangeStatistics(ranges);
         }
 
@@ -573,6 +573,24 @@ public class TupleDomainParquetPredicate
             checkArgument(!ranges.isEmpty(), "cannot use empty ranges");
             Domain domain = Domain.create(ValueSet.ofRanges(ranges), true);
             return columnDomain.intersect(domain).isNone();
+        }
+    }
+
+    @VisibleForTesting
+    public static Range getRange(Type type, Object min, Object max)
+    {
+        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
+            long minValue = asLong(min);
+            long maxValue = asLong(max);
+            return Range.range(type, minValue, true, maxValue, true);
+        }
+        else if (type.equals(REAL)) {
+            long minValue = floatToRawIntBits((float) min);
+            long maxValue = floatToRawIntBits((float) max);
+            return Range.range(type, minValue, true, maxValue, true);
+        }
+        else {
+            return Range.range(type, min, true, max, true);
         }
     }
 
@@ -672,7 +690,7 @@ public class TupleDomainParquetPredicate
                 case BOOLEAN:
                     return buffer -> ((ByteBuffer) buffer).get(0) != 0;
                 case INT32:
-                    return buffer -> ((ByteBuffer) buffer).order(LITTLE_ENDIAN).getInt(0);
+                    return buffer -> (long) ((ByteBuffer) buffer).order(LITTLE_ENDIAN).getInt(0);
                 case INT64:
                     return buffer -> ((ByteBuffer) buffer).order(LITTLE_ENDIAN).getLong(0);
                 case FLOAT:

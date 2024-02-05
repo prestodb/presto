@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.facebook.presto.Session.builder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -209,7 +215,7 @@ public abstract class AbstractTestAggregations
                         "  GROUP BY orderkey " +
                         "HAVING COUNT(DISTINCT partkey) != CARDINALITY(ARRAY_DISTINCT(ARRAY_AGG(partkey))))",
                 "VALUES 0");
-        assertQuery(builder(TEST_SESSION)
+        assertQuery(builder(getSession())
                         .setSystemProperty("use_mark_distinct", "false")
                         .build(),
                 " SELECT COUNT(*) FROM (SELECT orderkey, COUNT(DISTINCT partkey) FROM lineitem " +
@@ -761,42 +767,42 @@ public abstract class AbstractTestAggregations
     public void testSumDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
 
         // char
         // Presto removes trailing whitespaces when casting to CHAR.
         // Hard code the expected data size since there is no easy to way to compute it in H2.
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
 
         // varbinary
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(comment)) FROM orders");
 
         // array
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
 
         // map
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(comment)) FROM orders");
 
         // row
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(comment)) FROM orders");
+        assertQuery("SELECT \"sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(comment)) FROM orders");
     }
 
     @Test
     public void testMaxDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(comment)) FROM orders");
 
         // char
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(comment)) FROM orders");
 
         // varbinary
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
+        assertQuery("SELECT \"max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(comment)) FROM orders");
 
-        // $internal$max_data_size_for_stats is not needed for array, map and row
+        // max_data_size_for_stats is not needed for array, map and row
     }
 
     @Test
@@ -1373,6 +1379,17 @@ public abstract class AbstractTestAggregations
         String doNotTrigger = "SELECT DISTINCT suppkey, cnt FROM (SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey " +
                 "UNION ALL SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey) order by 1, 2";
         assertQuery(doNotTrigger, doNotTrigger);
+    }
+
+    @Test
+    public void testRemoveConstantBeforeGroupBy()
+    {
+        String query = "SELECT nationkey, cast(1 as varchar) from nation group by nationkey, cast(1 as varchar)";
+        // Test that constant("1") project is above aggregation node.
+        assertPlan(query,
+                anyTree(project(
+                        ImmutableMap.of("expr", expression("1")),
+                        node(AggregationNode.class, anyTree(tableScan("nation"))))));
     }
 
     @DataProvider(name = "getType")

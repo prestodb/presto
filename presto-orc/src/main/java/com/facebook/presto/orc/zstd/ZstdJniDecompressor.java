@@ -17,6 +17,7 @@ import com.github.luben.zstd.Zstd;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.MalformedInputException;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 import static java.lang.StrictMath.toIntExact;
@@ -47,6 +48,6 @@ public class ZstdJniDecompressor
         int outputOffset = output.arrayOffset() + output.position();
 
         int written = decompress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
-        output.position(output.position() + written);
+        ((Buffer) output).position(output.position() + written);
     }
 }

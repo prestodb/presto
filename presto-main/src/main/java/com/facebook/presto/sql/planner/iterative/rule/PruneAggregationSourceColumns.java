@@ -34,6 +34,8 @@ public class PruneAggregationSourceColumns
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation();
 
+    public PruneAggregationSourceColumns() {}
+
     @Override
     public Pattern<AggregationNode> getPattern()
     {

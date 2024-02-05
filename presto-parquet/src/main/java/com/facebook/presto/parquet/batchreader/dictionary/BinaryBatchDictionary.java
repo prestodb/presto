@@ -19,13 +19,17 @@ import com.facebook.presto.parquet.batchreader.BytesUtils;
 import com.facebook.presto.parquet.dictionary.Dictionary;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class BinaryBatchDictionary
         extends Dictionary
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryBatchDictionary.class).instanceSize();
+
     private final byte[] pageBuffer;
     private final int dictionarySize;
     private final int[] offsets;
@@ -64,5 +68,11 @@ public final class BinaryBatchDictionary
         int length = offsets[dictionaryId + 1] - (offsets[dictionaryId] + 4);
         System.arraycopy(pageBuffer, offsets[dictionaryId] + 4, byteBuffer, offset, length);
         return length;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(pageBuffer) + sizeOf(offsets);
     }
 }

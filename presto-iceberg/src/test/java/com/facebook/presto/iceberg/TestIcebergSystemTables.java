@@ -26,12 +26,14 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergSystemTables
@@ -189,8 +191,16 @@ public class TestIcebergSystemTables
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 1");
-        assertQuery("SELECT * FROM test_schema.\"test_table$properties\"", "VALUES ('write.format.default', 'PARQUET')");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 2");
+        List<MaterializedRow> materializedRows = computeActual(getSession(),
+                "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
+
+        assertThat(materializedRows).hasSize(2);
+        assertThat(materializedRows)
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")));
     }
 
     @Test
@@ -199,12 +209,25 @@ public class TestIcebergSystemTables
         assertQuery("SELECT sum(record_count) FROM test_schema.\"test_table_drop_column$files\"", "VALUES 6");
     }
 
+    @Test
+    public void testAlterTableColumnNotNull()
+    {
+        String tableName = "test_schema.test_table_add_column";
+        assertUpdate("CREATE TABLE " + tableName + " (c1 INTEGER, c2 INTEGER)");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN c3 INTEGER NOT NULL",
+                "This connector does not support add column with non null");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1,1)", 1);
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN c3 INTEGER NOT NULL",
+                "This connector does not support add column with non null");
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_add_column");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }

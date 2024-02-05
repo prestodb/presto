@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.281-SNAPSHOT</version>
+        <version>0.286-SNAPSHOT</version>
     </parent>
     <artifactId>presto-elasticsearch</artifactId>
     <description>Presto - Elasticsearch Connector</description>
@@ -14,7 +14,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.17.1</dep.log4j.version>
         <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
-        <dep.snakeyaml.version>1.21</dep.snakeyaml.version>
+        <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
     </properties>
 
     <dependencies>
@@ -244,16 +244,8 @@
         </dependency>
 
         <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-            <version>5.5.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.15.2</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -391,6 +383,16 @@
                     <ignoredDependencies>
                         <ignoredDependency>org.yaml:snakeyaml:jar</ignoredDependency>
                     </ignoredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <ignoredClassPattern>module-info</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
         </plugins>

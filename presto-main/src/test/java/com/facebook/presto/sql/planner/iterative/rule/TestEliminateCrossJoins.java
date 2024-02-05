@@ -13,20 +13,19 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -36,15 +35,16 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
@@ -92,7 +92,7 @@ public class TestEliminateCrossJoins
     {
         tester().assertThat(new EliminateCrossJoins())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
-                .on(crossJoinAndJoin(JoinNode.Type.LEFT))
+                .on(crossJoinAndJoin(JoinType.LEFT))
                 .doesNotFire();
     }
 
@@ -219,7 +219,7 @@ public class TestEliminateCrossJoins
                                         values(variable("a1")),
                                         values(variable("b"))),
                                 variable("a2"),
-                                new ArithmeticUnaryExpression(MINUS, new SymbolReference("a1"))),
+                                callOperator(getFunctionManager().getFunctionAndTypeResolver(), NEGATION, BIGINT, variable("a1"))),
                         values(variable("c")),
                         variable("a2"), variable("c"),
                         variable("c"), variable("b"));
@@ -227,7 +227,7 @@ public class TestEliminateCrossJoins
         assertEquals(JoinGraph.buildFrom(plan).size(), 2);
     }
 
-    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
+    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinType secondJoinType)
     {
         return p -> {
             VariableReferenceExpression axVariable = p.variable("axVariable");
@@ -246,7 +246,7 @@ public class TestEliminateCrossJoins
         };
     }
 
-    private PlanNode projectNode(PlanNode source, VariableReferenceExpression variable, Expression expression)
+    private PlanNode projectNode(PlanNode source, VariableReferenceExpression variable, RowExpression expression)
     {
         return new ProjectNode(
                 idAllocator.getNextId(),
@@ -262,16 +262,16 @@ public class TestEliminateCrossJoins
     private JoinNode joinNode(PlanNode left, PlanNode right, VariableReferenceExpression... variables)
     {
         checkArgument(variables.length % 2 == 0);
-        ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < variables.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(variables[i], variables[i + 1]));
+            criteria.add(new EquiJoinClause(variables[i], variables[i + 1]));
         }
 
         return new JoinNode(
                 Optional.empty(),
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

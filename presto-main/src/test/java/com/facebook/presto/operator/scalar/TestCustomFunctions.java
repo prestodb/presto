@@ -13,8 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -22,10 +28,21 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 public class TestCustomFunctions
         extends AbstractTestFunctions
 {
+    public TestCustomFunctions()
+    {
+    }
+
+    protected TestCustomFunctions(FeaturesConfig config)
+    {
+        super(config);
+    }
+
     @BeforeClass
     public void setupClass()
     {
         registerScalar(CustomFunctions.class);
+        List<SqlInvokedFunction> functions = SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(CustomFunctions.class);
+        this.functionAssertions.addFunctions(functions);
     }
 
     @Test
@@ -46,5 +63,12 @@ public class TestCustomFunctions
     {
         assertFunction("custom_is_null(CAST(NULL AS BIGINT))", BOOLEAN, true);
         assertFunction("custom_is_null(0)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testNullIf()
+    {
+        assertFunction("custom_square(2, 5)", IntegerType.INTEGER, 4);
+        assertFunction("custom_square(5, 5)", IntegerType.INTEGER, 25);
     }
 }

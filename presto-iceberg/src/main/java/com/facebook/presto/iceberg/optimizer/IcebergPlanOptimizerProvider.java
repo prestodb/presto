@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
@@ -25,24 +30,41 @@ import static java.util.Objects.requireNonNull;
 public class IcebergPlanOptimizerProvider
         implements ConnectorPlanOptimizerProvider
 {
-    private final ConnectorPlanOptimizer planOptimizer;
+    private final Set<ConnectorPlanOptimizer> planOptimizers;
+    private final Set<ConnectorPlanOptimizer> logicalPlanOptimizers;
 
     @Inject
     public IcebergPlanOptimizerProvider(
-            ConnectorPlanOptimizer planOptimizer)
+            IcebergTransactionManager transactionManager,
+            RowExpressionService rowExpressionService,
+            StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
+            TypeManager typeManager)
     {
-        this.planOptimizer = requireNonNull(planOptimizer, "planOptimizer is null");
+        requireNonNull(transactionManager, "transactionManager is null");
+        requireNonNull(rowExpressionService, "rowExpressionService is null");
+        requireNonNull(functionResolution, "functionResolution is null");
+        requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        requireNonNull(typeManager, "typeManager is null");
+        this.planOptimizers = ImmutableSet.of(
+                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
+                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
+                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager));
+        this.logicalPlanOptimizers = ImmutableSet.<ConnectorPlanOptimizer>builder()
+                .addAll(this.planOptimizers)
+                .add(new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager))
+                .build();
     }
 
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of(planOptimizer);
+        return logicalPlanOptimizers;
     }
 
     @Override
     public Set<ConnectorPlanOptimizer> getPhysicalPlanOptimizers()
     {
-        return ImmutableSet.of();
+        return planOptimizers;
     }
 }

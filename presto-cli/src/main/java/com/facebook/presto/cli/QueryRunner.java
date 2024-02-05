@@ -14,7 +14,6 @@
 package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
-import com.facebook.presto.client.SocketChannelSocketFactory;
 import com.facebook.presto.client.StatementClient;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -67,7 +66,8 @@ public class QueryRunner
             Optional<String> kerberosConfigPath,
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
-            boolean kerberosUseCanonicalHostname)
+            boolean kerberosUseCanonicalHostname,
+            boolean followRedirects)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
@@ -75,8 +75,6 @@ public class QueryRunner
         this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
-
-        builder.socketFactory(new SocketChannelSocketFactory());
 
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
@@ -101,6 +99,7 @@ public class QueryRunner
         Optional.ofNullable(session.getExtraCredentials().get(GCS_CREDENTIALS_PATH_KEY))
                 .ifPresent(credentialPath -> setupGCSOauth(builder, credentialPath, Optional.ofNullable(session.getExtraCredentials().get(GCS_OAUTH_SCOPES_KEY))));
 
+        builder.followRedirects(followRedirects);
         this.httpClient = builder.build();
     }
 

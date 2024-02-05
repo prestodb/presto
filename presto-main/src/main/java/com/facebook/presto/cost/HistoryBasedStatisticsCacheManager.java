@@ -17,6 +17,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,8 +30,11 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+
+import static com.facebook.presto.spi.statistics.HistoricalPlanStatistics.empty;
 
 public class HistoryBasedStatisticsCacheManager
 {
@@ -40,9 +44,14 @@ public class HistoryBasedStatisticsCacheManager
     // Cache hashes of plan node.
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> canonicalInfoCache = new ConcurrentHashMap<>();
 
+    private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
+
+    // Stores query IDs which timeout during history optimizer registration
+    private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
+
     public HistoryBasedStatisticsCacheManager() {}
 
-    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider)
+    public LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> getStatisticsCache(QueryId queryId, Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider, long timeoutInMilliSeconds)
     {
         return statisticsCache.computeIfAbsent(queryId, ignored -> CacheBuilder.newBuilder()
                 .build(new CacheLoader<PlanNodeWithHash, HistoricalPlanStatistics>()
@@ -56,10 +65,10 @@ public class HistoryBasedStatisticsCacheManager
                     @Override
                     public Map<PlanNodeWithHash, HistoricalPlanStatistics> loadAll(Iterable<? extends PlanNodeWithHash> keys)
                     {
-                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys)));
+                        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys), timeoutInMilliSeconds));
                         // loadAll excepts all keys to be written
                         for (PlanNodeWithHash key : keys) {
-                            statistics.putIfAbsent(key, HistoricalPlanStatistics.empty());
+                            statistics.putIfAbsent(key, empty());
                         }
                         return ImmutableMap.copyOf(statistics);
                     }
@@ -71,15 +80,32 @@ public class HistoryBasedStatisticsCacheManager
         return canonicalInfoCache.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
     }
 
+    public Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics> getInputTableStatistics(QueryId queryId)
+    {
+        return inputTableStatistics.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
+    }
+
     public void invalidate(QueryId queryId)
     {
         statisticsCache.remove(queryId);
         canonicalInfoCache.remove(queryId);
+        inputTableStatistics.remove(queryId);
+        queryIdsRegistrationTimeOut.remove(queryId);
     }
 
     @VisibleForTesting
     public Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> getCanonicalInfoCache()
     {
         return canonicalInfoCache;
+    }
+
+    public boolean historyBasedQueryRegistrationTimeout(QueryId queryId)
+    {
+        return queryIdsRegistrationTimeOut.contains(queryId);
+    }
+
+    public void setHistoryBasedQueryRegistrationTimeout(QueryId queryId)
+    {
+        queryIdsRegistrationTimeOut.add(queryId);
     }
 }

@@ -12,10 +12,12 @@ Presto Documentation
     cache
     optimizer
     connector
+    plugin
     functions
     language
     sql
     migration
+    rest
     router
     develop
     release

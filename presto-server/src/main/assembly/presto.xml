@@ -93,6 +93,10 @@
             <outputDirectory>plugin/example-http</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-hana-${project.version}</directory>
+            <outputDirectory>plugin/hana</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-hive-hadoop2-${project.version}</directory>
             <outputDirectory>plugin/hive-hadoop2</outputDirectory>
         </fileSet>
@@ -125,6 +129,10 @@
             <outputDirectory>plugin/mysql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-singlestore-${project.version}</directory>
+            <outputDirectory>plugin/singlestore</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-oracle-${project.version}</directory>
             <outputDirectory>plugin/oracle</outputDirectory>
         </fileSet>
@@ -143,10 +151,6 @@
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-sqlserver-${project.version}</directory>
             <outputDirectory>plugin/sqlserver</outputDirectory>
-        </fileSet>
-        <fileSet>
-            <directory>${project.build.directory}/dependency/presto-raptor-${project.version}</directory>
-            <outputDirectory>plugin/raptor</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>${project.build.directory}/dependency/presto-redis-${project.version}</directory>

@@ -25,6 +25,7 @@ import com.facebook.presto.parquet.cache.CachingParquetMetadataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.cache.ParquetFileMetadata;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
+import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.AbstractIterator;
@@ -102,7 +103,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
-import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -1621,16 +1621,16 @@ public abstract class AbstractTestParquetReader
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("test", "parquet")) {
             Iterable<Integer> values = intsBetween(0, 10);
-            Iterator<?>[] readValues = stream(new Iterable<?>[] {values}).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
 
             List<String> columnNames = singletonList("column1");
             List<Type> columnTypes = singletonList(INTEGER);
             writeParquetFileFromPresto(tempFile.getFile(),
                     columnTypes,
                     columnNames,
-                    readValues,
+                    new Iterable<?>[] {values},
                     10,
-                    CompressionCodecName.GZIP);
+                    CompressionCodecName.GZIP,
+                    ParquetWriterOptions.DEFAULT_WRITER_VERSION);
             long tempFileCreationTime = System.currentTimeMillis();
 
             testSingleRead(new Iterable<?>[] {values},

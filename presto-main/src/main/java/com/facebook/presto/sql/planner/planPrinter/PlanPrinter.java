@@ -37,16 +37,22 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -77,8 +83,6 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
-import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -112,6 +116,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -122,6 +127,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
@@ -180,7 +186,14 @@ public class PlanPrinter
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
+        this.representation = new PlanRepresentation(
+                planRoot,
+                types,
+                totalCpuTime,
+                totalScheduledTime,
+                session.getOptimizerInformationCollector().getOptimizationInfo(),
+                session.getCteInformationCollector().getCTEInformationList(),
+                session.getOptimizerResultCollector().getOptimizerResults());
 
         RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionAndTypeManager);
         ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
@@ -190,9 +203,9 @@ public class PlanPrinter
         planRoot.accept(visitor, null);
     }
 
-    public String toText(boolean verbose, int level)
+    public String toText(boolean verbose, int level, boolean verboseOptimizerInfo)
     {
-        return new TextRenderer(verbose, level).render(representation);
+        return new TextRenderer(verbose, level, verboseOptimizerInfo).render(representation);
     }
 
     public String toJson()
@@ -209,7 +222,13 @@ public class PlanPrinter
 
     public static String textLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session, int level)
     {
-        return new PlanPrinter(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session).toText(false, level);
+        return new PlanPrinter(plan, types,
+                Optional.empty(),
+                estimatedStatsAndCosts,
+                Optional.empty(),
+                functionAndTypeManager,
+                session)
+                .toText(false, level, isVerboseOptimizerInfoEnabled(session));
     }
 
     public static String textLogicalPlan(
@@ -219,9 +238,10 @@ public class PlanPrinter
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             int level,
-            boolean verbose)
+            boolean verbose,
+            boolean verboseOptimizerInfoEnabled)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session, level, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session, level, verbose, verboseOptimizerInfoEnabled);
     }
 
     public static String textLogicalPlan(
@@ -233,9 +253,10 @@ public class PlanPrinter
             FunctionAndTypeManager functionAndTypeManager,
             Session session,
             int level,
-            boolean verbose)
+            boolean verbose,
+            boolean verboseOptimizerInfoEnabled)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level);
+        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level, verboseOptimizerInfoEnabled);
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager, Session session, boolean verbose)
@@ -370,7 +391,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)%n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s), %s tasks%n",
                             stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageExecutionStats.getProcessedInputPositions()),
@@ -378,7 +399,8 @@ public class PlanPrinter
                             formatDouble(avgPositionsPerTask),
                             formatDouble(sdAmongTasks),
                             formatPositions(stageExecutionStats.getOutputPositions()),
-                            stageExecutionStats.getOutputDataSize()));
+                            stageExecutionStats.getOutputDataSize(),
+                            tasks.size()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
@@ -413,7 +435,8 @@ public class PlanPrinter
                         functionAndTypeManager,
                         session,
                         1,
-                        verbose))
+                        verbose,
+                        isVerboseOptimizerInfoEnabled(session)))
                 .append("\n");
 
         return builder.toString();
@@ -480,7 +503,7 @@ public class PlanPrinter
         public Void visitJoin(JoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
@@ -580,7 +603,7 @@ public class PlanPrinter
         public Void visitMergeJoin(MergeJoinNode node, Void context)
         {
             List<String> joinExpressions = new ArrayList<>();
-            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+            for (EquiJoinClause clause : node.getCriteria()) {
                 joinExpressions.add(JoinNodeUtils.toExpression(clause).toString());
             }
             node.getFilter().map(formatter::apply).ifPresent(joinExpressions::add);
@@ -765,7 +788,7 @@ public class PlanPrinter
             args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
 
             NodeRepresentation nodeOutput = addNode(node,
-                    "TopNRowNumber",
+                    format("TopNRowNumber%s", node.isPartial() ? "Partial" : ""),
                     format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashVariable())));
 
             nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
@@ -787,7 +810,7 @@ public class PlanPrinter
             }
 
             NodeRepresentation nodeOutput = addNode(node,
-                    "RowNumber",
+                    format("RowNumber%s", node.isPartial() ? "Partial" : ""),
                     format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashVariable())));
             nodeOutput.appendDetailsLine("%s := %s%s", node.getRowNumberVariable(), "row_number()", formatSourceLocation(node.getRowNumberVariable().getSourceLocation()));
 
@@ -810,6 +833,41 @@ public class PlanPrinter
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             printTableScanInfo(nodeOutput, node, nodeStats);
             return null;
+        }
+
+        @Override
+        public Void visitSequence(SequenceNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "Sequence");
+            nodeOutput.appendDetails(getCteExecutionOrder(node));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteConsumer(CteConsumerNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "CteConsumer");
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteProducer(CteProducerNode node, Void context)
+        {
+            NodeRepresentation nodeOutput;
+            nodeOutput = addNode(node, "CteProducer");
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitCteReference(CteReferenceNode node, Void context)
+        {
+            addNode(node, "CteReference");
+            return processChildren(node, context);
         }
 
         @Override
@@ -1224,15 +1282,6 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitNativeExecution(NativeExecutionNode node, Void context)
-        {
-            NodeRepresentation nodeOutput = addNode(node, "NativeExecution", ImmutableList.of(node.getSubPlan()));
-            node.getSubPlan().accept(this, context);
-
-            return null;
-        }
-
-        @Override
         public Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
@@ -1338,11 +1387,28 @@ public class PlanPrinter
                     estimatedStats,
                     estimatedCosts,
                     childrenIds,
-                    remoteSources);
+                    remoteSources,
+                    allNodes);
 
             representation.addNode(nodeOutput);
             return nodeOutput;
         }
+    }
+
+    public static String getCteExecutionOrder(SequenceNode node)
+    {
+        List<CteProducerNode> cteProducers = node.getCteProducers().stream()
+                .filter(c -> (c instanceof CteProducerNode))
+                .map(CteProducerNode.class::cast)
+                .collect(Collectors.toList());
+        if (cteProducers.isEmpty()) {
+            return "";
+        }
+        Collections.reverse(cteProducers);
+        return format("executionOrder = %s",
+                cteProducers.stream()
+                        .map(CteProducerNode::getCteName)
+                        .collect(Collectors.joining(" -> ", "{", "}")));
     }
 
     public static String getDynamicFilterAssignments(AbstractJoinNode node)

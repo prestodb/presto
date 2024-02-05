@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -77,14 +78,17 @@ public class IndexJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider type, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session), plan, null);
+        Rewriter rewriter = new Rewriter(idAllocator, metadata, session);
+
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
@@ -93,12 +97,18 @@ public class IndexJoinOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final Session session;
+        private boolean planChanged;
 
         private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -108,8 +118,8 @@ public class IndexJoinOptimizer
             PlanNode rightRewritten = context.rewrite(node.getRight());
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<VariableReferenceExpression> leftJoinVariables = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-                List<VariableReferenceExpression> rightJoinVariables = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+                List<VariableReferenceExpression> leftJoinVariables = Lists.transform(node.getCriteria(), EquiJoinClause::getLeft);
+                List<VariableReferenceExpression> rightJoinVariables = Lists.transform(node.getCriteria(), EquiJoinClause::getRight);
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,
@@ -158,6 +168,7 @@ public class IndexJoinOptimizer
                                         identityAssignments(node.getOutputVariables()));
                             }
 
+                            planChanged = true;
                             return indexJoinNode;
                         }
                         break;
@@ -165,6 +176,7 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
+                            planChanged = true;
                             return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinVariables, rightJoinVariables), idAllocator);
                         }
                         break;
@@ -172,6 +184,7 @@ public class IndexJoinOptimizer
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
+                            planChanged = true;
                             return createIndexJoinWithExpectedOutputs(node.getOutputVariables(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinVariables, leftJoinVariables), idAllocator);
                         }
                         break;
@@ -185,6 +198,7 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
+                planChanged = true;
                 return new JoinNode(
                         node.getSourceLocation(),
                         node.getId(),

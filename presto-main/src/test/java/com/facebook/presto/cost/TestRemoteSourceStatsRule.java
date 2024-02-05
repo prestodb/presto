@@ -17,6 +17,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -25,7 +26,6 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 
 public class TestRemoteSourceStatsRule
-        extends BaseStatsCalculatorTest
 {
     @Test
     public void testRemoteSourceStatsRule()
@@ -34,12 +34,12 @@ public class TestRemoteSourceStatsRule
         Session session = testSessionBuilder()
                 .setQueryId(queryId)
                 .build();
-        StatsCalculatorTester tester = new StatsCalculatorTester(session);
-
-        tester.getFragmentStatsProvider().putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of()));
-        tester.getFragmentStatsProvider().putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of()));
-        tester
-                .assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        StatsCalculatorTester tester = new StatsCalculatorTester(localQueryRunner);
+        FragmentStatsProvider fragmentStatsProvider = localQueryRunner.getFragmentStatsProvider();
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(1), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
+        fragmentStatsProvider.putStats(queryId, new PlanFragmentId(2), new PlanNodeStatsEstimate(NaN, 1000, true, ImmutableMap.of(), JoinNodeStatsEstimate.unknown(), TableWriterNodeStatsEstimate.unknown(), PartialAggregationStatsEstimate.unknown()));
+        tester.assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
                 .check(check -> check.totalSize(2000)
                         .outputRowsCountUnknown());
         tester.close();
@@ -48,9 +48,10 @@ public class TestRemoteSourceStatsRule
     @Test
     public void testRemoteSourceStatsUnknown()
     {
-        tester()
-                .assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
+        StatsCalculatorTester tester = new StatsCalculatorTester();
+        tester.assertStatsFor(planBuilder -> planBuilder.remoteSource(ImmutableList.of(new PlanFragmentId(1), new PlanFragmentId(2))))
                 .check(check -> check.outputRowsCountUnknown()
                         .totalSizeUnknown());
+        tester.close();
     }
 }

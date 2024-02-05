@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,6 +36,8 @@ public class MapColumnStatisticsBuilder
     private final boolean collectKeyStats;
 
     private long nonNullValueCount;
+    private long storageSize;
+    private long rawSize;
     private boolean hasEntries;
 
     /**
@@ -83,12 +86,24 @@ public class MapColumnStatisticsBuilder
     {
         if (hasEntries && collectKeyStats) {
             MapStatistics mapStatistics = new MapStatistics(entries.build());
-            return new MapColumnStatistics(nonNullValueCount, null, mapStatistics);
+            return new MapColumnStatistics(nonNullValueCount, null, rawSize, storageSize, mapStatistics);
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
 
-    public static Optional<MapStatistics> mergeMapStatistics(List<ColumnStatistics> stats)
+    @Override
+    public void incrementRawSize(long rawSize)
+    {
+        this.rawSize += rawSize;
+    }
+
+    @Override
+    public void incrementSize(long storageSize)
+    {
+        this.storageSize += storageSize;
+    }
+
+    public static Optional<MapStatistics> mergeMapStatistics(List<ColumnStatistics> stats, Object2LongMap<DwrfProto.KeyInfo> keySizes)
     {
         Map<DwrfProto.KeyInfo, List<ColumnStatistics>> columnStatisticsByKey = new LinkedHashMap<>();
         long nonNullValueCount = 0;
@@ -113,8 +128,9 @@ public class MapColumnStatisticsBuilder
         // merge all column stats for each key
         MapColumnStatisticsBuilder mapStatisticsBuilder = new MapColumnStatisticsBuilder(true);
         for (Map.Entry<DwrfProto.KeyInfo, List<ColumnStatistics>> entry : columnStatisticsByKey.entrySet()) {
-            ColumnStatistics mergedColumnStatistics = mergeColumnStatistics(entry.getValue());
             DwrfProto.KeyInfo key = entry.getKey();
+            Long keySize = keySizes != null ? keySizes.getLong(key) : null;
+            ColumnStatistics mergedColumnStatistics = mergeColumnStatistics(entry.getValue(), keySize, null);
             mapStatisticsBuilder.addMapStatistics(key, mergedColumnStatistics);
         }
         mapStatisticsBuilder.increaseValueCount(nonNullValueCount);

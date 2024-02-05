@@ -18,9 +18,29 @@ import com.google.common.cache.LoadingCache;
 
 public interface MetastoreCacheStats
 {
+    void setTableCache(LoadingCache<?, ?> tableCache);
+
+    void setPartitionNamesCache(LoadingCache<?, ?> partitionNamesCache);
+
     void setPartitionCache(LoadingCache<?, ?> partitionCache);
 
     void incrementPartitionsWithColumnCountGreaterThanThreshold();
+
+    long getTableCacheHit();
+
+    long getTableCacheMiss();
+
+    long getTableCacheEviction();
+
+    long getTableCacheSize();
+
+    long getPartitionNamesCacheHit();
+
+    long getPartitionNamesCacheMiss();
+
+    long getPartitionNamesCacheEviction();
+
+    long getPartitionNamesCacheSize();
 
     long getPartitionCacheHit();
 

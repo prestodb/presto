@@ -35,7 +35,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.util.Locale.ENGLISH;
 
 public class DropColumnTask
         implements DDLDefinitionTask<DropColumn>
@@ -68,7 +67,7 @@ public class DropColumnTask
         }
 
         TableHandle tableHandle = tableHandleOptional.get();
-        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
+        String column = statement.getColumn().getValueLowerCase();
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 

@@ -2,12 +2,12 @@
 Cassandra Connector
 ===================
 
-The Cassandra connector allows querying data stored in Cassandra.
+The Cassandra connector allows querying data stored in Cassandra or in ScyllaDB.
 
 Compatibility
 -------------
 
-Connector is compatible with all Cassandra versions starting from 2.1.5.
+Connector is compatible with all Cassandra versions starting from 2.1.5. Latest ScyllaDB tested is 5.1.11.
 
 Configuration
 -------------
@@ -25,11 +25,15 @@ nodes used to discovery the cluster topology:
 You will also need to set ``cassandra.native-protocol-port`` if your
 Cassandra nodes are not using the default port (9042).
 
-Multiple Cassandra Clusters
+For ScyllaDB you don't need to add any additional configuration.
+ScyllaDB uses the same port as Cassandra by default.
+Just point to ScyllaDB nodes in ``cassandra.contact-points`` config property.
+
+Multiple Cassandra or ScyllaDB Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Cassandra clusters, simply add another properties file to ``etc/catalog``
+Cassandra(ScyllaDB) clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
@@ -156,7 +160,7 @@ Property Name                                                 Description
 ``cassandra.tls.truststore-password``                         Password for the trust store.
 ============================================================= ======================================================================
 
-Querying Cassandra Tables
+Querying Cassandra or ScyllaDB Tables
 -------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra

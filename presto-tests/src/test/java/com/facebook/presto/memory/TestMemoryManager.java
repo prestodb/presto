@@ -388,7 +388,8 @@ public class TestMemoryManager
         queryRunner2.close();
     }
 
-    @Test(timeOut = 300_000, groups = {"outOfMemoryKillerMultiCoordinator"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    // Flaky: https://github.com/prestodb/presto/issues/19679
+    @Test(enabled = false, timeOut = 300_000, groups = {"outOfMemoryKillerMultiCoordinator"}, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKillerMultiCoordinator()
             throws Exception
     {

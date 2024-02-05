@@ -13,7 +13,9 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -101,6 +103,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public TimeZoneKey getTimeZoneKey()
+    {
+        return session.getTimeZoneKey();
+    }
+
+    @Override
     public Locale getLocale()
     {
         return session.getLocale();
@@ -172,6 +180,7 @@ public class FullConnectorSession
                 .add("user", getUser())
                 .add("source", getSource().orElse(null))
                 .add("traceToken", getTraceToken().orElse(null))
+                .add("timeZoneKey", getTimeZoneKey())
                 .add("locale", getLocale())
                 .add("startTime", getStartTime())
                 .add("properties", properties)
@@ -183,5 +192,11 @@ public class FullConnectorSession
     public WarningCollector getWarningCollector()
     {
         return session.getWarningCollector();
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return session.getRuntimeStats();
     }
 }

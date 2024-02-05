@@ -43,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
@@ -55,21 +56,23 @@ import static com.facebook.presto.hive.HiveSessionProperties.MATERIALIZED_VIEW_M
 import static com.facebook.presto.hive.TestHiveLogicalPlanner.replicateHiveMetastore;
 import static com.facebook.presto.hive.TestHiveLogicalPlanner.utf8Slices;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unnest;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
@@ -165,9 +168,11 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    filter("orderkey < BIGINT'100'", constrainedTableScan(table,
-                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                            ImmutableMap.of("orderkey", "orderkey"))),
+                    project(
+                            ImmutableMap.of("ds_61", expression("'2019-01-02'")),
+                            filter("orderkey < BIGINT'100'", constrainedTableScan(table,
+                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                    ImmutableMap.of("orderkey", "orderkey")))),
                     filter("orderkey_62 < BIGINT'100'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_62", "orderkey")))));
         }
         finally {
@@ -201,7 +206,9 @@ public class TestHiveMaterializedViewLogicalPlanner
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
 
-            assertPlan(getSession(), viewQuery, anyTree(
+            // Otherwise the empty values node will be optimized
+            Session disableEmptyInputOptimization = Session.builder(getSession()).setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false").build();
+            assertPlan(disableEmptyInputOptimization, viewQuery, anyTree(
                     anyTree(values("orderkey")), // Alias for the filter column
                     anyTree(filter("orderkey_17 < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("orderkey_17", "orderkey"))))));
         }
@@ -527,10 +534,12 @@ public class TestHiveMaterializedViewLogicalPlanner
             MaterializedResult baseTable = computeActual(baseQuery);
             assertEquals(viewTable, baseTable);
 
-            assertPlan(getSession(), viewQuery, anyTree(values("ds", "orderkey"), anyTree(
-                    constrainedTableScan(table2,
-                            ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-01-02")))),
-                    constrainedTableScan(view, ImmutableMap.of()))));
+            assertPlan(getSession(), viewQuery, anyTree(
+                    project(
+                            ImmutableMap.of("ds_27", expression("'2019-01-02'")),
+                            constrainedTableScan(table2,
+                                    ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2019-01-02"))))),
+                    constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
@@ -978,6 +987,7 @@ public class TestHiveMaterializedViewLogicalPlanner
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                 .build();
         QueryRunner queryRunner = getQueryRunner();
         String table = "orders_partitioned";
@@ -1025,7 +1035,9 @@ public class TestHiveMaterializedViewLogicalPlanner
                             ImmutableMap.of("orderkey_25", "orderkey")))));
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
-            assertPlan(getSession(), viewQuery, expectedPattern);
+
+            Session disableEmptyInputOptimization = Session.builder(getSession()).setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false").build();
+            assertPlan(disableEmptyInputOptimization, viewQuery, expectedPattern);
 
             // Try optimizing the base query when all candidates are incompatible
             setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view1, view3));
@@ -1154,7 +1166,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                                                             ProjectNode.class, constrainedTableScan(
                                                                                     table,
                                                                                     ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2021-07-12"))),
-                                                                                    ImmutableMap.of("orderkey", "orderkey", "ds", "ds"))))))),
+                                                                                    ImmutableMap.of("orderkey", "orderkey"))))))),
                                     anyTree(
                                             constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of())))));
 
@@ -1173,6 +1185,7 @@ public class TestHiveMaterializedViewLogicalPlanner
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
                 .build();
         QueryRunner queryRunner = getQueryRunner();
 
@@ -1347,26 +1360,24 @@ public class TestHiveMaterializedViewLogicalPlanner
 
             PlanMatchPattern expectedPattern = anyTree(
                     aggregation(
-                            singleGroupingSet("ds"),
-                            ImmutableMap.of(Optional.empty(), functionCall("sum", ImmutableList.of("count"))),
-                            ImmutableList.of(),
-                            ImmutableMap.of(),
-                            Optional.empty(),
+                            ImmutableMap.of("sum", functionCall("sum", ImmutableList.of("count"))),
                             SINGLE,
                             node(
                                     ExchangeNode.class,
                                     anyTree(
-                                            aggregation(
-                                                    ImmutableMap.of("count", functionCall("count", false, ImmutableList.of())),
-                                                    SINGLE,
-                                                    node(
-                                                            ExchangeNode.class,
-                                                            anyTree(
-                                                                    node(
-                                                                            ProjectNode.class, constrainedTableScan(
-                                                                                    table,
-                                                                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2021-07-12"))),
-                                                                                    ImmutableMap.of("ds", "ds"))))))),
+                                            project(
+                                                    ImmutableMap.of("ds_43", expression("'2021-07-12'")),
+                                                    aggregation(
+                                                            ImmutableMap.of("count", functionCall("count", false, ImmutableList.of())),
+                                                            SINGLE,
+                                                            node(
+                                                                    ExchangeNode.class,
+                                                                    anyTree(
+                                                                            node(
+                                                                                    ProjectNode.class, constrainedTableScan(
+                                                                                            table,
+                                                                                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2021-07-12"))),
+                                                                                            ImmutableMap.of()))))))),
                                     anyTree(
                                             constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of())))));
 
@@ -1452,11 +1463,13 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    join(INNER, ImmutableList.of(equiJoinClause("orderkey", "orderkey_7")),
-                            anyTree(filter("orderkey < BIGINT'10000'", constrainedTableScan(table1,
-                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                                    ImmutableMap.of("orderkey", "orderkey")))),
-                            anyTree(constrainedTableScan(table2, ImmutableMap.of(), ImmutableMap.of("orderkey_7", "orderkey")))),
+                    project(
+                            ImmutableMap.of("expr_33", expression("'2019-01-02'")),
+                            join(INNER, ImmutableList.of(equiJoinClause("orderkey_7", "orderkey")),
+                                    anyTree(constrainedTableScan(table2, ImmutableMap.of(), ImmutableMap.of("orderkey_7", "orderkey"))),
+                                    anyTree(filter("orderkey < BIGINT'10000'", constrainedTableScan(table1,
+                                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                            ImmutableMap.of("orderkey", "orderkey")))))),
                     filter("view_orderkey < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("view_orderkey", "view_orderkey")))));
         }
         finally {
@@ -1597,23 +1610,23 @@ public class TestHiveMaterializedViewLogicalPlanner
             setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, supplierTable, ImmutableList.of(suppliersView));
 
             String baseQuery = format("WITH long_name_supp AS ( %n" +
-                    "SELECT suppkey, name %n" +
-                    "FROM %s %n" +
-                    "WHERE name != 'bob'), " +
-                    "supp_returns AS (%n" +
-                    "SELECT suppkey, sum(quantity) AS returned_qty %n " +
-                    "FROM %s %n" +
-                    "WHERE returnflag = 'R' " +
-                    "GROUP BY suppkey, ds), %n" +
-                    "supp_sum AS (%n" +
-                    "SELECT suppkey, SUM(quantity) AS qty %n " +
-                    "FROM %s %n " +
-                    "GROUP BY suppkey, ds) %n " +
-                    "SELECT n.suppkey, n.name, r.returned_qty, s.qty %n " +
-                    "FROM long_name_supp AS n %n " +
-                    "LEFT JOIN supp_returns AS r ON n.suppkey = r.suppkey %n " +
-                    "LEFT JOIN supp_sum AS s ON n.suppkey = s.suppkey %n " +
-                    "ORDER BY suppkey, name",
+                            "SELECT suppkey, name %n" +
+                            "FROM %s %n" +
+                            "WHERE name != 'bob'), " +
+                            "supp_returns AS (%n" +
+                            "SELECT suppkey, sum(quantity) AS returned_qty %n " +
+                            "FROM %s %n" +
+                            "WHERE returnflag = 'R' " +
+                            "GROUP BY suppkey, ds), %n" +
+                            "supp_sum AS (%n" +
+                            "SELECT suppkey, SUM(quantity) AS qty %n " +
+                            "FROM %s %n " +
+                            "GROUP BY suppkey, ds) %n " +
+                            "SELECT n.suppkey, n.name, r.returned_qty, s.qty %n " +
+                            "FROM long_name_supp AS n %n " +
+                            "LEFT JOIN supp_returns AS r ON n.suppkey = r.suppkey %n " +
+                            "LEFT JOIN supp_sum AS s ON n.suppkey = s.suppkey %n " +
+                            "ORDER BY suppkey, name",
                     supplierTable, lineItemTable, lineItemTable);
 
             MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
@@ -1642,7 +1655,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                                     anyTree(
                                                             constrainedTableScan(lineItemTable,
                                                                     ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2021-07-11"))),
-                                                                    ImmutableMap.of("ds_108", "ds", "suppkey_94", "suppkey", "quantity_96", "quantity"))),
+                                                                    ImmutableMap.of("suppkey_94", "suppkey", "quantity_96", "quantity"))),
                                                     anyTree(
                                                             constrainedTableScan(lineItemView1,
                                                                     ImmutableMap.of(),
@@ -1710,15 +1723,15 @@ public class TestHiveMaterializedViewLogicalPlanner
 
             String baseQuery = format(
                     "SELECT t1.name, t1.suppkey, low_cost.partkey %n" +
-                    "FROM %s t1 %n" +
-                    "LEFT JOIN (%n" +
-                    "SELECT t2.partkey, t2.suppkey FROM %s t2 %n" +
-                    "LEFT JOIN (SELECT MIN(extendedprice) AS min_price, partkey, ds FROM %s GROUP BY partkey, ds) mp %n" +
-                    "ON mp.partkey = t2.partkey " +
-                    "WHERE t2.extendedprice <= mp.min_price*1.05) " +
-                    "low_cost " +
-                    "ON low_cost.suppkey = t1.suppkey " +
-                    "ORDER BY t1.name, t1.suppkey, low_cost.partkey", supplierTable, lineItemTable, lineItemTable);
+                            "FROM %s t1 %n" +
+                            "LEFT JOIN (%n" +
+                            "SELECT t2.partkey, t2.suppkey FROM %s t2 %n" +
+                            "LEFT JOIN (SELECT MIN(extendedprice) AS min_price, partkey, ds FROM %s GROUP BY partkey, ds) mp %n" +
+                            "ON mp.partkey = t2.partkey " +
+                            "WHERE t2.extendedprice <= mp.min_price*1.05) " +
+                            "low_cost " +
+                            "ON low_cost.suppkey = t1.suppkey " +
+                            "ORDER BY t1.name, t1.suppkey, low_cost.partkey", supplierTable, lineItemTable, lineItemTable);
 
             MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
             MaterializedResult baseQueryResult = computeActual(baseQuery);
@@ -1737,15 +1750,15 @@ public class TestHiveMaterializedViewLogicalPlanner
                                                             ImmutableMap.of("ds", multipleValues(createVarcharType(10), utf8Slices("2021-07-11", "2021-07-12"))),
                                                             ImmutableMap.of("suppkey_0", "suppkey", "extendedprice", "extendedprice"))),
                                             anyTree(
-                                                            exchange(
-                                                                    anyTree(
-                                                                            constrainedTableScan(lineItemTable,
-                                                                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2021-07-11"))),
-                                                                                    ImmutableMap.of("ds_22", "ds", "partkey_7", "partkey", "extendedprice_11", "extendedprice"))),
-                                                                    anyTree(
-                                                                            constrainedTableScan(lineItemView,
-                                                                                    ImmutableMap.of(),
-                                                                                    ImmutableMap.of("ds_103", "ds", "partkey_102", "partkey")))))))));
+                                                    exchange(
+                                                            anyTree(
+                                                                    constrainedTableScan(lineItemTable,
+                                                                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2021-07-11"))),
+                                                                            ImmutableMap.of("partkey_7", "partkey", "extendedprice_11", "extendedprice"))),
+                                                            anyTree(
+                                                                    constrainedTableScan(lineItemView,
+                                                                            ImmutableMap.of(),
+                                                                            ImmutableMap.of("ds_103", "ds", "partkey_102", "partkey")))))))));
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, expectedPattern);
         }
@@ -1787,10 +1800,10 @@ public class TestHiveMaterializedViewLogicalPlanner
                     view, table1, table2, table3));
 
             assertQueryFails(format("CREATE MATERIALIZED VIEW should_fail WITH (partitioned_by = ARRAY['ds']) AS " +
-                                    "SELECT t1.orderkey AS view_orderkey, t2.totalprice AS view_totalprice, t3.orderstatus AS view_orderstatus, t1.ds " +
-                                    "FROM %s t1 INNER JOIN %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey) INNER JOIN %s t3" +
-                                    " ON (t1.orderkey = t3.orderkey)",
-                            table1, table2, table3),
+                            "SELECT t1.orderkey AS view_orderkey, t2.totalprice AS view_totalprice, t3.orderstatus AS view_orderstatus, t1.ds " +
+                            "FROM %s t1 INNER JOIN %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey) INNER JOIN %s t3" +
+                            " ON (t1.orderkey = t3.orderkey)",
+                    table1, table2, table3),
                     "Materialized view tpch.should_fail must have at least one partition column" +
                             " that exists in orders_status_partitioned_join as well");
 
@@ -1813,20 +1826,22 @@ public class TestHiveMaterializedViewLogicalPlanner
 
             assertPlan(getSession(), viewQuery,
                     anyTree(
-                            join(INNER, ImmutableList.of(equiJoinClause("orderkey", "orderkey_28")),
-                                    anyTree(
-                                            filter("orderkey < BIGINT'10000'",
-                                                    constrainedTableScan(table1,
-                                                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                                                            ImmutableMap.of("orderkey", "orderkey")))),
-                                    anyTree(
-                                            join(INNER, ImmutableList.of(equiJoinClause("orderkey_7", "orderkey_28")),
-                                                    anyTree(
-                                                            filter("orderkey_7 < BIGINT'10000'",
-                                                                    constrainedTableScan(table2, ImmutableMap.of(), ImmutableMap.of("orderkey_7", "orderkey")))),
-                                                    anyTree(
-                                                            filter("orderkey_28 < BIGINT'10000'",
-                                                                    constrainedTableScan(table3, ImmutableMap.of(), ImmutableMap.of("orderkey_28", "orderkey"))))))),
+                            project(
+                                    ImmutableMap.of("expr_56", expression("'2019-01-02'")),
+                                    join(INNER, ImmutableList.of(equiJoinClause("orderkey_7", "orderkey")),
+                                            anyTree(
+                                                    filter("orderkey_7 < BIGINT'10000'",
+                                                            constrainedTableScan(table2, ImmutableMap.of(), ImmutableMap.of("orderkey_7", "orderkey")))),
+                                            anyTree(
+                                                    join(INNER, ImmutableList.of(equiJoinClause("orderkey_28", "orderkey")),
+                                                            anyTree(
+                                                                    filter("orderkey_28 < BIGINT'10000'",
+                                                                            constrainedTableScan(table3, ImmutableMap.of(), ImmutableMap.of("orderkey_28", "orderkey")))),
+                                                            anyTree(
+                                                                    filter("orderkey < BIGINT'10000'",
+                                                                            constrainedTableScan(table1,
+                                                                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                                                                    ImmutableMap.of("orderkey", "orderkey")))))))),
                             filter("view_orderkey < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("view_orderkey", "view_orderkey")))));
         }
         finally {
@@ -1923,22 +1938,21 @@ public class TestHiveMaterializedViewLogicalPlanner
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(
                     node(JoinNode.class,
+                            anyTree(
+                                    exchange(
+                                            anyTree(
+                                                    constrainedTableScan(table2,
+                                                            ImmutableMap.of(),
+                                                            ImmutableMap.of("orderkey_13", "orderkey"))),
+                                            anyTree(
+                                                    constrainedTableScan(view2,
+                                                            ImmutableMap.of(),
+                                                            ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey"))))),
                             exchange(
                                     anyTree(
                                             constrainedTableScan(table,
                                                     ImmutableMap.of(),
-                                                    ImmutableMap.of()))),
-                            exchange(
-                                    anyTree(
-                                            exchange(
-                                                    anyTree(
-                                                            constrainedTableScan(table2,
-                                                                    ImmutableMap.of(),
-                                                                    ImmutableMap.of("ds_14", "ds", "orderkey_13", "orderkey"))),
-                                                    anyTree(
-                                                            constrainedTableScan(view2,
-                                                                    ImmutableMap.of(),
-                                                                    ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey")))))))));
+                                                    ImmutableMap.of()))))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);
@@ -2337,12 +2351,20 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertEquals(viewTable, baseTable);
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    join(LEFT, ImmutableList.of(equiJoinClause("ds", "ds_8"), equiJoinClause("orderkey", "orderkey_7")),
-                            anyTree(filter("orderkey < BIGINT'10000'", constrainedTableScan(table1,
-                                    ImmutableMap.of(
-                                            "ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                                    ImmutableMap.of("orderkey", "orderkey", "ds", "ds")))),
-                            anyTree(constrainedTableScan(table2, ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))), ImmutableMap.of("orderkey_7", "orderkey", "ds_8", "ds")))),
+                    project(
+                            join(LEFT, ImmutableList.of(equiJoinClause("expr_6", "expr_23"), equiJoinClause("orderkey", "orderkey_7")),
+                                    anyTree(
+                                            project(
+                                                    ImmutableMap.of("expr_6", expression("'2019-01-02'")),
+                                                    filter("orderkey < BIGINT'10000'",
+                                                            constrainedTableScan(table1,
+                                                                    ImmutableMap.of(
+                                                                            "ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                                                    ImmutableMap.of("orderkey", "orderkey"))))),
+                                    anyTree(
+                                            project(ImmutableMap.of("expr_23", expression("'2019-01-02'")),
+                                                    anyTree(
+                                                            constrainedTableScan(table2, ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))), ImmutableMap.of("totalprice", "totalprice", "orderkey_7", "orderkey"))))))),
                     filter("view_orderkey < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("view_orderkey", "view_orderkey")))));
         }
         finally {
@@ -2516,9 +2538,11 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertEquals(computeActual(viewQuery), computeActual(baseQuery));
 
             assertPlan(getSession(), viewQuery, anyTree(
-                    unnest(filter("orderkey < BIGINT'10000'", constrainedTableScan(table,
-                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
-                            ImmutableMap.of("orderkey", "orderkey")))),
+                    project(
+                            ImmutableMap.of("ds_17", expression("'2019-01-02'")),
+                            unnest(filter("orderkey < BIGINT'10000'", constrainedTableScan(table,
+                                    ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2019-01-02"))),
+                                    ImmutableMap.of("orderkey", "orderkey"))))),
                     filter("view_orderkey < BIGINT'10000'", constrainedTableScan(view, ImmutableMap.of(), ImmutableMap.of("view_orderkey", "view_orderkey")))));
         }
         finally {
@@ -2710,7 +2734,7 @@ public class TestHiveMaterializedViewLogicalPlanner
 
     private void appendTableParameter(ExtendedHiveMetastore metastore, String tableName, String parameterKey, String parameterValue)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = new MetastoreContext(getSession().getUser(), getSession().getQueryId().getId(), Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, getSession().getWarningCollector());
         Optional<Table> table = metastore.getTable(metastoreContext, getSession().getSchema().get(), tableName);
         if (table.isPresent()) {
             Table originalTable = table.get();

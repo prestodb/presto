@@ -283,6 +283,13 @@ Spilling Properties
     this property defines the threshold at which to trigger spilling for a task.  This property
     is ignored for any other spilling strategy.
 
+``experimental.max-revocable-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    * **Type:** ``data size``
+    * **Default value:** ``16GB``
+
+    This property defines the amount of revocable memory a query can use on each node
+
 ``experimental.spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -338,6 +345,7 @@ Spilling Properties
     * **Default value:** ``4 MB``
 
     Limit for memory used for unspilling a single aggregation operator instance.
+    This config property can be overridden by the ``aggregation_operator_unspill_memory_limit`` session property
 
 ``experimental.spill-compression-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -356,6 +364,30 @@ Spilling Properties
     Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
     data spilled to disk
 
+``experimental.spiller.single-stream-spiller-choice``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **Default value:** ``LOCAL_FILE``
+
+    The Single Stream Spiller to be used when spilling is enabled. There are two options
+    LOCAL_FILE (default) and TEMP_STORAGE.
+
+``experimental.spiller.spiller-temp-storage``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``String``
+    * **Default value:** ``local``
+
+    Temp storage used by spiller when ``experimental.spiller.single-stream-spiller-choice`` is set to TEMP_STORAGE
+
+``experimental.temp-storage-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``Data Size``
+    * **Default value:** ``4KB``
+
+    Size of buffer when ``experimental.spiller.single-stream-spiller-choice`` is set to TEMP_STORAGE
 
 Exchange Properties
 -------------------
@@ -737,6 +769,33 @@ Optimizer Properties
     .. warning:: The number of possible join orders scales factorially with the number of relations,
                  so increasing this value can cause serious performance issues.
 
+``optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Aggregations can sometimes be pushed below outer joins (see optimizer.push-aggregation-through-join).
+    In general, aggregate functions have custom null-handling behavior. In order to correctly process the
+    null padded rows that may be produced by the outer join, the optimizer introduces a subsequent cross
+    join with corresponding aggregations over a single null value and then coalesces the aggregations
+    from the join output with these null aggregated values.
+
+    For certain aggregate functions (those that ignore nulls, ``COUNT``, etc) the cross join may be
+    avoided and the default/known aggregate value over ``NULL`` may be coalesced  directly with the aggregate
+    outputs of the join. This optimization eliminates the cross join, may convert the outer join into an inner
+    join and thereby produces more optimal plans.
+
+``optimizer.rewrite-expression-with-constant-variable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
+    constant value.
+
+
 Planner Properties
 --------------------------------------
 
@@ -795,3 +854,40 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     to hit the limit on matches for subsequent rows as well, you want to use the
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
+
+CTE Materialization Properties
+--------------------------------------
+
+``cte-materialization-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``ALL``, ``NONE``
+    * **Default value:** ``NONE``
+
+    Specifies the strategy to use for materializing Common Table Expressions (CTEs) in queries.
+    ``NONE`` indicates that no CTEs will be materialized.
+    ``ALL`` indicates that all CTEs in the query will be materialized.
+    This can also be specified on a per-query basis using the ``cte_materialization_strategy`` session property.
+
+``query.cte-hash-partition-count``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+    The number of partitions to be used for materializing Common Table Expressions (CTEs) in queries.
+    This setting determines how many buckets or writers should be used when materializing the CTEs, potentially affecting the performance of queries involving CTE materialization.
+    A higher number of partitions might improve parallelism but also increases overhead in terms of memory and network communication.
+    Recommended value: 4 - 10x times the size of the cluster.
+    This can also be specified on a per-query basis using the ``cte_hash_partition_count`` session property.
+
+``query.cte-partitioning-provider-catalog``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``system``
+
+    The name of the catalog to be used for Common Table Expressions (CTE) and which provides custom partitioning for Common Table Expression (CTE) materialization.
+    This setting specifies which catalog should be used for CTE materialization and for determining how to partition the materialization of CTEs in queries.
+    This can also be specified on a per-query basis using the ``cte_partitioning_provider_catalog`` session property.

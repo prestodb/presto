@@ -33,6 +33,8 @@ public class LongDecimalStatisticsBuilder
     public static final long LONG_DECIMAL_VALUE_BYTES = 16L;
 
     private long nonNullValueCount;
+    private long storageSize;
+    private long rawSize;
     private BigDecimal minimum;
     private BigDecimal maximum;
 
@@ -95,9 +97,21 @@ public class LongDecimalStatisticsBuilder
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics(LONG_DECIMAL_VALUE_BYTES);
         if (decimalStatistics.isPresent()) {
-            return new DecimalColumnStatistics(nonNullValueCount, null, decimalStatistics.get());
+            return new DecimalColumnStatistics(nonNullValueCount, null, rawSize, storageSize, decimalStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
+    }
+
+    @Override
+    public void incrementRawSize(long rawSize)
+    {
+        this.rawSize += rawSize;
+    }
+
+    @Override
+    public void incrementSize(long storageSize)
+    {
+        this.storageSize += storageSize;
     }
 
     public static Optional<DecimalStatistics> mergeDecimalStatistics(List<ColumnStatistics> stats)

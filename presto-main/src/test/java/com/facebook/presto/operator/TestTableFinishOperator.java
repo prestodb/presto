@@ -101,7 +101,7 @@ public class TestTableFinishOperator
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
         TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
-        ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
+        ColumnStatisticMetadata statisticMetadata = MAX_VALUE.getColumnStatisticMetadata("column");
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -182,7 +182,7 @@ public class TestTableFinishOperator
     {
         TestingTableFinisher tableFinisher = new TestingTableFinisher();
         TestingPageSinkCommitter pageSinkCommitter = new TestingPageSinkCommitter();
-        ColumnStatisticMetadata statisticMetadata = new ColumnStatisticMetadata("column", MAX_VALUE);
+        ColumnStatisticMetadata statisticMetadata = MAX_VALUE.getColumnStatisticMetadata("column");
         StatisticAggregationsDescriptor<Integer> descriptor = new StatisticAggregationsDescriptor<>(
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -277,7 +277,7 @@ public class TestTableFinishOperator
         return TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
                 new TableCommitContext(
                         lifespan,
-                        new TaskId("query", stageId, 0, taskId),
+                        new TaskId("query", stageId, 0, taskId, 0),
                         pageSinkCommitStrategy,
                         lastPage));
     }

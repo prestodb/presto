@@ -329,7 +329,7 @@ public class EqualityInference
         {
             return expression -> {
                 expression = normalizeInPredicateToEquality(expression);
-                if (isOperation(expression, EQUAL) &&
+                if (isOperation(expression, EQUAL, functionAndTypeManager) &&
                         determinismEvaluator.isDeterministic(expression) &&
                         !nullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
                     // We should only consider equalities that have distinct left and right components
@@ -450,30 +450,30 @@ public class EqualityInference
             generateMoreEquivalences();
             return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions, determinismEvaluator, functionAndTypeManager);
         }
-
-        private boolean isOperation(RowExpression expression, OperatorType type)
-        {
-            if (expression instanceof CallExpression) {
-                CallExpression call = (CallExpression) expression;
-                Optional<OperatorType> expressionOperatorType = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
-                if (expressionOperatorType.isPresent()) {
-                    return expressionOperatorType.get() == type;
-                }
-            }
-            return false;
-        }
     }
 
-    private static RowExpression getLeft(RowExpression expression)
+    protected static RowExpression getLeft(RowExpression expression)
     {
         checkArgument(expression instanceof CallExpression && ((CallExpression) expression).getArguments().size() == 2, "must be binary call expression");
         return ((CallExpression) expression).getArguments().get(0);
     }
 
-    private static RowExpression getRight(RowExpression expression)
+    protected static RowExpression getRight(RowExpression expression)
     {
         checkArgument(expression instanceof CallExpression && ((CallExpression) expression).getArguments().size() == 2, "must be binary call expression");
         return ((CallExpression) expression).getArguments().get(1);
+    }
+
+    protected static boolean isOperation(RowExpression expression, OperatorType type, FunctionAndTypeManager functionAndTypeManager)
+    {
+        if (expression instanceof CallExpression) {
+            CallExpression call = (CallExpression) expression;
+            Optional<OperatorType> expressionOperatorType = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
+            if (expressionOperatorType.isPresent()) {
+                return expressionOperatorType.get() == type;
+            }
+        }
+        return false;
     }
 
     private static boolean isInPredicate(RowExpression expression)

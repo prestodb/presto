@@ -62,6 +62,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.RuntimeMetricName.WRITTEN_FILES_COUNT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -194,6 +195,11 @@ public class TestTableWriterOperator
             assertEquals(info.getPageSinkPeakMemoryUsage(), peakMemoryUsage);
             assertEquals((long) (info.getValidationCpuTime().getValue(NANOSECONDS)), validationCpuNanos);
         }
+        tableWriterOperator.finish();
+        while (!tableWriterOperator.isFinished()) {
+            tableWriterOperator.getOutput();
+        }
+        assertTrue(tableWriterOperator.getOperatorContext().getRuntimeStats().getMetrics().get(WRITTEN_FILES_COUNT).getSum() > 0);
     }
 
     @Test
@@ -264,7 +270,7 @@ public class TestTableWriterOperator
         return wrappedBuffer(TABLE_COMMIT_CONTEXT_CODEC.toJsonBytes(
                 new TableCommitContext(
                         Lifespan.taskWide(),
-                        new TaskId("query", 0, 0, 0),
+                        new TaskId("query", 0, 0, 0, 0),
                         NO_COMMIT,
                         lastPage)));
     }
@@ -419,6 +425,12 @@ public class TestTableWriterOperator
                 memoryUsage += page.getRetainedSizeInBytes();
             }
             return memoryUsage;
+        }
+
+        @Override
+        public long getWrittenFilesCount()
+        {
+            return 2;
         }
 
         @Override

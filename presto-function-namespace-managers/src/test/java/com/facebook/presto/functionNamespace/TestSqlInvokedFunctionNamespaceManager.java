@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.functionNamespace;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +35,7 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_DOUBLE;
@@ -35,7 +43,9 @@ import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTe
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.FUNCTION_POWER_TOWER_INT;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -153,6 +163,25 @@ public class TestSqlInvokedFunctionNamespaceManager
         assertSame(functions1, functions2);
     }
 
+    @Test
+    public void testErrorHandling()
+    {
+        FunctionNamespaceManager functionNamespaceManager = new ErrorThrowingFunctionNamespaceManager(
+                TEST_CATALOG,
+                new SqlFunctionExecutors(ImmutableMap.of(), new NoopSqlFunctionExecutor()),
+                new SqlInvokedFunctionNamespaceManagerConfig());
+
+        // ErrorThrowingFunctionNamespaceManager returns a NOT_FOUND error fetching the type, so this function should return Optional.empty()
+        assertEquals(functionNamespaceManager.getUserDefinedType(QualifiedObjectName.valueOf("catalog.schema.type")), Optional.empty());
+
+        // ErrorThrowingFunctionNamespaceManager throws a PrestoException that gets propagated
+        assertPrestoException(() -> functionNamespaceManager.getFunctionMetadata(new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), "123")), GENERIC_USER_ERROR, "Error fetching function metadata");
+        assertPrestoException(() -> functionNamespaceManager.getFunctionHandle(Optional.empty(), FUNCTION_POWER_TOWER_DOUBLE.getSignature()), GENERIC_USER_ERROR, "Error fetching functions");
+
+        // ErrorThrowingFunctionNamespaceManager throws an exception that is not a PrestoException. It gets wrapped in a PrestoException GENERIC_INTERNAL_ERROR
+        assertPrestoException(() -> functionNamespaceManager.getScalarFunctionImplementation(new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), "123")), GENERIC_INTERNAL_ERROR, "Error getting ScalarFunctionImplementation for handle: unittest\\.memory\\.power_tower\\(double\\):123");
+    }
+
     private static InMemoryFunctionNamespaceManager createFunctionNamespaceManager()
     {
         return new InMemoryFunctionNamespaceManager(
@@ -171,7 +200,70 @@ public class TestSqlInvokedFunctionNamespaceManager
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
-            assertTrue(e.getMessage().matches(expectedMessageRegex));
+            assertTrue(e.getMessage().matches(expectedMessageRegex), format("Messages did not match. Actual message: \"%s\", Expected regex: \"%s\"", e.getMessage(), expectedMessageRegex));
+        }
+    }
+
+    private class ErrorThrowingFunctionNamespaceManager
+            extends AbstractSqlInvokedFunctionNamespaceManager
+    {
+        public ErrorThrowingFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
+        {
+            super(catalogName, sqlFunctionExecutors, config);
+        }
+
+        @Override
+        protected Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName)
+        {
+            throw new PrestoException(GENERIC_USER_ERROR, "Error fetching functions");
+        }
+
+        @Override
+        protected UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
+        {
+            throw new PrestoException(NOT_FOUND, "type not found");
+        }
+
+        @Override
+        protected FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle)
+        {
+            throw new PrestoException(GENERIC_USER_ERROR, "Error fetching function metadata");
+        }
+
+        @Override
+        protected ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle)
+        {
+            throw new UnsupportedOperationException("Not implemented");
+        }
+
+        @Override
+        public void createFunction(SqlInvokedFunction function, boolean replace)
+        {
+            throw new UnsupportedOperationException("Not implemented");
+        }
+
+        @Override
+        public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+        {
+            throw new UnsupportedOperationException("Not implemented");
+        }
+
+        @Override
+        public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+        {
+            throw new UnsupportedOperationException("Not implemented");
+        }
+
+        @Override
+        public Collection<SqlInvokedFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
+        {
+            throw new UnsupportedOperationException("Not implemented");
+        }
+
+        @Override
+        public void addUserDefinedType(UserDefinedType userDefinedType)
+        {
+            throw new UnsupportedOperationException("Not implemented");
         }
     }
 }

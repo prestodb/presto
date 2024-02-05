@@ -91,10 +91,11 @@ import static java.util.Objects.requireNonNull;
 public class OrcSelectiveRecordReader
         extends AbstractOrcRecordReader<SelectiveStreamReader>
 {
+    // Marks a SQL null when occurring in constantValues.
+    public static final byte[] NULL_MARKER = new byte[0];
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcSelectiveRecordReader.class).instanceSize();
 
-    // Marks a SQL null when occurring in constantValues.
-    private static final byte[] NULL_MARKER = new byte[0];
     private static final Page EMPTY_PAGE = new Page(0);
 
     private final int[] hiveColumnIndices;                            // elements are hive column indices

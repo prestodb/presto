@@ -20,7 +20,6 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -52,6 +51,8 @@ public class PlanFragment
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
+
+    // Only true for output table writer and false for temporary table writers
     private final boolean outputTableWriterFragment;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
@@ -212,11 +213,6 @@ public class PlanFragment
     {
         for (PlanNode source : node.getSources()) {
             findRemoteSourceNodes(source, builder);
-        }
-
-        if (node instanceof NativeExecutionNode) {
-            findRemoteSourceNodes(((NativeExecutionNode) node).getSubPlan(), builder);
-            return;
         }
 
         if (node instanceof RemoteSourceNode) {

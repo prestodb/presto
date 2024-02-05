@@ -24,6 +24,17 @@ public class MapSqlFunctions
 {
     private MapSqlFunctions() {}
 
+    @SqlInvokedScalarFunction(value = "map_keys_by_top_n_values", deterministic = true, calledOnNullInput = false)
+    @Description("Returns the top N keys of the given map in descending order according to the natural ordering of its values.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint")})
+    @SqlType("array<K>")
+    public static String mapKeysByTopNValues()
+    {
+        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), map_keys(map_top_n(input, n)))";
+    }
+
     @SqlInvokedScalarFunction(value = "map_top_n", deterministic = true, calledOnNullInput = true)
     @Description("Truncates map items. Keeps only the top N elements by value.")
     @TypeParameter("K")
@@ -32,11 +43,11 @@ public class MapSqlFunctions
     @SqlType("map(K, V)")
     public static String mapTopN()
     {
-        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), map_from_entries(slice(array_sort(map_entries(map_filter(input, (k, v) -> v is not null)), (x, y) -> IF(x[2] < y[2], 1, IF(x[2] = y[2], 0, -1))) || map_entries(map_filter(input, (k, v) -> v is null)), 1, n)))";
+        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), map_from_entries(slice(array_sort(map_entries(map_filter(input, (k, v) -> v is not null)), (x, y) -> IF(x[2] < y[2], 1, IF(x[2] = y[2], IF(x[1] < y[1], 1, -1), -1))) || map_entries(map_filter(input, (k, v) -> v is null)), 1, n)))";
     }
 
     @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = false)
-    @Description("Returns the top N keys of the given map in descending order according to the natural ordering of its values.")
+    @Description("Returns the top N keys of the given map by sorting the keys in descending order according to the natural ordering of its keys.")
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint")})
@@ -47,7 +58,7 @@ public class MapSqlFunctions
     }
 
     @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = true)
-    @Description("Returns the top N keys of the given map sorted using the provided lambda comparator.")
+    @Description("Returns the top N keys of the given map sorting its keys using the provided lambda comparator.")
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint"), @SqlParameter(name = "f", type = "function(K, K, int)")})
@@ -88,5 +99,60 @@ public class MapSqlFunctions
     public static String mapRemoveNulls()
     {
         return "RETURN map_filter(input, (k, v) -> v is not null)";
+    }
+
+    @SqlInvokedScalarFunction(value = "all_keys_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether all keys of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(K, boolean)")})
+    @SqlType("boolean")
+    public static String allKeysMatch()
+    {
+        return "RETURN ALL_MATCH(MAP_KEYS(input), f)";
+    }
+
+    @SqlInvokedScalarFunction(value = "any_keys_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether any key of a map matches the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(K, boolean)")})
+    @SqlType("boolean")
+    public static String anyKeysMatch()
+    {
+        return "RETURN ANY_MATCH(MAP_KEYS(input), f)";
+    }
+
+    @SqlInvokedScalarFunction(value = "any_values_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether any values of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(V, boolean)")})
+    @SqlType("boolean")
+    public static String anyValuesMatch()
+    {
+        return "RETURN ANY_MATCH(MAP_VALUES(input), f)";
+    }
+
+    @SqlInvokedScalarFunction(value = "no_keys_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether no keys of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(K, boolean)")})
+    @SqlType("boolean")
+    public static String noKeysMatch()
+    {
+        return "RETURN NONE_MATCH(MAP_KEYS(input), f)";
+    }
+
+    @SqlInvokedScalarFunction(value = "no_values_match", deterministic = true, calledOnNullInput = true)
+    @Description("Returns whether no values of a map match the given predicate.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "f", type = "function(V, boolean)")})
+    @SqlType("boolean")
+    public static String noValuesMatch()
+    {
+        return "RETURN NONE_MATCH(MAP_VALUES(input), f)";
     }
 }

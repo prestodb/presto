@@ -33,27 +33,27 @@ import java.util.Set;
 
 public interface JdbcClient
 {
-    default boolean schemaExists(JdbcIdentity identity, String schema)
+    default boolean schemaExists(ConnectorSession session, JdbcIdentity identity, String schema)
     {
-        return getSchemaNames(identity).contains(schema);
+        return getSchemaNames(session, identity).contains(schema);
     }
 
     String getIdentifierQuote();
 
-    Set<String> getSchemaNames(JdbcIdentity identity);
+    Set<String> getSchemaNames(ConnectorSession session, JdbcIdentity identity);
 
-    List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);
+    List<SchemaTableName> getTableNames(ConnectorSession session, JdbcIdentity identity, Optional<String> schema);
 
     @Nullable
-    JdbcTableHandle getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
+    JdbcTableHandle getTableHandle(ConnectorSession session, JdbcIdentity identity, SchemaTableName schemaTableName);
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
 
-    ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle);
+    ConnectorSplitSource getSplits(ConnectorSession session, JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle);
 
-    Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+    Connection getConnection(ConnectorSession session, JdbcIdentity identity, JdbcSplit split)
             throws SQLException;
 
     default void abortReadConnection(Connection connection)
@@ -65,36 +65,36 @@ public interface JdbcClient
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 
-    void addColumn(JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column);
+    void addColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column);
 
-    void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column);
+    void dropColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column);
 
-    void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
+    void renameColumn(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
 
-    void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName);
+    void renameTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName);
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void commitCreateTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle);
 
     JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void finishInsertTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle);
 
-    void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
+    void dropTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
 
-    void truncateTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
+    void truncateTable(ConnectorSession session, JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
 
-    void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void rollbackCreateTable(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle);
 
-    String buildInsertSql(JdbcOutputTableHandle handle);
+    String buildInsertSql(ConnectorSession session, JdbcOutputTableHandle handle);
 
-    Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    Connection getConnection(ConnectorSession session, JdbcIdentity identity, JdbcOutputTableHandle handle)
             throws SQLException;
 
-    PreparedStatement getPreparedStatement(Connection connection, String sql)
+    PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException;
 
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain);

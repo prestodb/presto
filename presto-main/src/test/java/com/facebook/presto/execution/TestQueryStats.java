@@ -14,14 +14,25 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.stats.Distribution;
+import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.operator.ExchangeOperator;
 import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.HashBuilderOperator;
+import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.TableWriterOperator;
+import com.facebook.presto.operator.TaskOutputOperator;
+import com.facebook.presto.operator.exchange.LocalExchangeSinkOperator;
+import com.facebook.presto.operator.exchange.LocalExchangeSource;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -29,6 +40,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -85,7 +97,11 @@ public class TestQueryStats
                     succinctBytes(130L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1)))),
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                    0,
+                    0,
+                    0,
+                    0),
             new OperatorStats(
                     20,
                     201,
@@ -125,7 +141,11 @@ public class TestQueryStats
                     succinctBytes(230L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2)))),
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
+                    0,
+                    0,
+                    0,
+                    0),
             new OperatorStats(
                     30,
                     301,
@@ -165,7 +185,11 @@ public class TestQueryStats
                     succinctBytes(330L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats()));
+                    new RuntimeStats(),
+                    0,
+                    0,
+                    0,
+                    0));
 
     static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
@@ -246,6 +270,140 @@ public class TestQueryStats
 
             OPERATOR_SUMMARIES,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_2))));
+
+    @Test
+    public void testInputAndOutputStatsCalculation()
+    {
+        // First of all, we build a StageInfo including 2 stages, it's architecture would be as follows:
+        //  stage_0:
+        //      pipeline_0: ExchangeOperator->TaskOutputOperator
+        //  stage_1:
+        //      pipeline_0: ScanFilterAndProjectOperator->LocalExchangeSinkOperator
+        //      pipeline_1: ScanFilterAndProjectOperator->LocalExchangeSinkOperator
+        //      pipeline_2: LocalExchangeSource->HashBuilderOperator
+        //      pipeline_3: LocalExchangeSource->LookupJoinOperator->TaskOutputOperator
+        PlanFragment testPlanFragment = TaskTestUtils.createPlanFragment();
+
+        // build stage_0 execution info
+        int stageId0 = 0;
+        int stageExecutionId0 = 1;
+        List<OperatorStats> pipeline00 = ImmutableList.of(
+                createOperatorStats(stageId0, stageExecutionId0, 0, 0, new PlanNodeId("101"),
+                        ExchangeOperator.class,
+                        succinctBytes(5384L), 100L,
+                        succinctBytes(5040L), 100L,
+                        succinctBytes(5040L), 100L),
+                createOperatorStats(stageId0, stageExecutionId0, 0, 1, new PlanNodeId("102"),
+                        TaskOutputOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(5040L), 100L,
+                        succinctBytes(5040L), 100L));
+        StageExecutionStats stageExecutionStats0 = createStageStats(stageId0, stageExecutionId0,
+                succinctBytes(5384L), 100L,
+                succinctBytes(5040L), 100L,
+                succinctBytes(5040L), 100L,
+                pipeline00);
+        StageExecutionInfo stageExecutionInfo0 = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats0,
+                ImmutableList.of(),
+                Optional.empty());
+
+        // build stage_1 execution info
+        int stageId1 = 1;
+        int stageExecutionId1 = 11;
+        List<OperatorStats> pipeline10 = ImmutableList.of(
+                createOperatorStats(stageId1, stageExecutionId1, 0, 0, new PlanNodeId("1001"),
+                        ScanFilterAndProjectOperator.class,
+                        succinctBytes(6150L), 100L,
+                        succinctBytes(6150L), 100L,
+                        succinctBytes(4400L), 100L),
+                createOperatorStats(stageId1, stageExecutionId1, 0, 1, new PlanNodeId("1002"),
+                        LocalExchangeSinkOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(4400L), 100L,
+                        succinctBytes(4400L), 100L));
+
+        List<OperatorStats> pipeline11 = ImmutableList.of(
+                createOperatorStats(stageId1, stageExecutionId1, 1, 0, new PlanNodeId("1003"),
+                        ScanFilterAndProjectOperator.class,
+                        succinctBytes(2470L), 50L,
+                        succinctBytes(2470L), 50L,
+                        succinctBytes(1670L), 50L),
+                createOperatorStats(stageId1, stageExecutionId1, 1, 1, new PlanNodeId("1004"),
+                        LocalExchangeSinkOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(1670L), 50L,
+                        succinctBytes(1670L), 50L));
+
+        List<OperatorStats> pipeline12 = ImmutableList.of(
+                createOperatorStats(stageId1, stageExecutionId1, 2, 0, new PlanNodeId("1005"),
+                        LocalExchangeSource.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(1670L), 50L,
+                        succinctBytes(1670L), 50L),
+                createOperatorStats(stageId1, stageExecutionId1, 2, 1, new PlanNodeId("1006"),
+                        HashBuilderOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(1670L), 50L,
+                        succinctBytes(1670L), 50L));
+
+        List<OperatorStats> pipeline13 = ImmutableList.of(
+                createOperatorStats(stageId1, stageExecutionId1, 3, 0, new PlanNodeId("1007"),
+                        LocalExchangeSource.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(4400L), 100L,
+                        succinctBytes(4400L), 100L),
+                createOperatorStats(stageId1, stageExecutionId1, 3, 1, new PlanNodeId("1008"),
+                        LookupJoinOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(4400L), 100L,
+                        succinctBytes(5040L), 100L),
+                createOperatorStats(stageId1, stageExecutionId1, 3, 2, new PlanNodeId("1009"),
+                        TaskOutputOperator.class,
+                        succinctBytes(0L), 0L,
+                        succinctBytes(5040L), 100L,
+                        succinctBytes(5040L), 100L));
+        Builder<OperatorStats> stageOperatorStatsBuilder = ImmutableList.builder();
+        StageExecutionStats stageExecutionStats1 = createStageStats(stageId1, stageExecutionId1,
+                succinctBytes(8620L), 150L,
+                succinctBytes(8620L), 150L,
+                succinctBytes(5040L), 100L,
+                stageOperatorStatsBuilder.addAll(pipeline10)
+                        .addAll(pipeline11)
+                        .addAll(pipeline12)
+                        .addAll(pipeline13)
+                        .build());
+        StageExecutionInfo stageExecutionInfo1 = new StageExecutionInfo(
+                StageExecutionState.FINISHED,
+                stageExecutionStats1,
+                ImmutableList.of(),
+                Optional.empty());
+
+        // build whole stage info architecture
+        StageInfo stageInfo1 = new StageInfo(StageId.valueOf("0.1"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo1, ImmutableList.of(), ImmutableList.of(), false);
+        StageInfo stageInfo0 = new StageInfo(StageId.valueOf("0.0"), URI.create("127.0.0.1"),
+                Optional.of(testPlanFragment),
+                stageExecutionInfo0, ImmutableList.of(), ImmutableList.of(stageInfo1), false);
+
+        // calculate query stats
+        Optional<StageInfo> rootStage = Optional.of(stageInfo0);
+        List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
+        QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
+                succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L),
+                new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
+
+        assertEquals(queryStats.getRawInputDataSize().toBytes(), 8620);
+        assertEquals(queryStats.getRawInputPositions(), 150);
+        assertEquals(queryStats.getShuffledDataSize().toBytes(), 5384);
+        assertEquals(queryStats.getShuffledPositions(), 100);
+        assertEquals(queryStats.getProcessedInputDataSize().toBytes(), 13660);
+        assertEquals(queryStats.getProcessedInputPositions(), 250);
+        assertEquals(queryStats.getOutputDataSize().toBytes(), 5040);
+        assertEquals(queryStats.getOutputPositions(), 100);
+    }
 
     @Test
     public void testJson()
@@ -344,5 +502,122 @@ public class TestQueryStats
         assertEquals(m1.getCount(), m2.getCount());
         assertEquals(m1.getMax(), m2.getMax());
         assertEquals(m1.getMin(), m2.getMin());
+    }
+
+    private static OperatorStats createOperatorStats(int stageId, int stageExecutionId, int pipelineId,
+                                                     int operatorId, PlanNodeId planNodeId, Class operatorCls,
+                                                     DataSize rawInputDataSize, long rawInputPositions,
+                                                     DataSize inputDataSize, long inputPositions,
+                                                     DataSize outputDataSize, long outputPositions)
+    {
+        return new OperatorStats(
+                stageId,
+                stageExecutionId,
+                pipelineId,
+                operatorId,
+                planNodeId,
+                operatorCls.getSimpleName(),
+                0L,
+                0L,
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new DataSize(0, BYTE),
+                rawInputDataSize,
+                rawInputPositions,
+                inputDataSize,
+                inputPositions,
+                0.0,
+                0L,
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new DataSize(0, BYTE),
+                outputDataSize,
+                outputPositions,
+                succinctBytes(0L),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                0L,
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new DataSize(0, BYTE),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                succinctBytes(0L),
+                Optional.empty(),
+                null,
+                new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                0,
+                0,
+                0,
+                0);
+    }
+
+    private static StageExecutionStats createStageStats(int stageId, int stageExecutionId, DataSize rawInputDataSize, long rawInputPositions,
+                                                        DataSize inputDataSize, long inputPositions,
+                                                        DataSize outputDataSize, long outputPositions,
+                                                        List<OperatorStats> operatorSummaries)
+    {
+        return new StageExecutionStats(
+                new DateTime(0),
+
+                new Distribution(0).snapshot(),
+
+                1,
+                0,
+                1,
+
+                0,
+                0,
+
+                0,
+                0,
+                0,
+                0,
+                0,
+
+                0.0,
+                0.0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+
+                new DataSize(0, BYTE),
+
+                rawInputDataSize,
+                rawInputPositions,
+
+                inputDataSize,
+                inputPositions,
+
+                new DataSize(0, BYTE),
+                outputDataSize,
+                outputPositions,
+
+                new DataSize(0, BYTE),
+
+                new StageGcStatistics(
+                        stageId,
+                        stageExecutionId,
+                        102,
+                        103,
+                        104,
+                        105,
+                        106,
+                        107),
+
+                operatorSummaries,
+                new RuntimeStats());
     }
 }

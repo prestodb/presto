@@ -661,7 +661,7 @@ public final class LogicalRowExpressions
 
     private int numOfClauses(RowExpression expression)
     {
-        if (expression instanceof SpecialFormExpression) {
+        if (isConjunctionOrDisjunction(expression)) {
             return getGroupedClauses((SpecialFormExpression) expression).stream().mapToInt(List::size).sum();
         }
         return 1;

@@ -81,6 +81,7 @@ public class Driver
     private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
+    private final Optional<UpdateOperator> updateOperator;
 
     // This variable acts as a staging area. When new splits (encapsulated in TaskSource) are
     // provided to a Driver, the Driver will not process them right away. Instead, the splits are
@@ -140,6 +141,7 @@ public class Driver
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
         Optional<DeleteOperator> deleteOperator = Optional.empty();
+        Optional<UpdateOperator> updateOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
                 checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
@@ -149,9 +151,14 @@ public class Driver
                 checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
             }
+            else if (operator instanceof UpdateOperator) {
+                checkArgument(!updateOperator.isPresent(), "There must be at most one UpdateOperator");
+                updateOperator = Optional.of((UpdateOperator) operator);
+            }
         }
         this.sourceOperator = sourceOperator;
         this.deleteOperator = deleteOperator;
+        this.updateOperator = updateOperator;
 
         currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
@@ -188,6 +195,8 @@ public class Driver
             return;
         }
 
+        // set the yield signal and interrupt any actively running driver to stop them as soon as possible
+        driverContext.getYieldSignal().yieldImmediatelyForTermination();
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
@@ -275,6 +284,7 @@ public class Driver
 
             Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(newSplit);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            updateOperator.ifPresent(updateOperator -> updateOperator.setPageSource(pageSource));
         }
 
         // set no more splits

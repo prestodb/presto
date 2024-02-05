@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
+import static java.util.Objects.requireNonNull;
 
 public class MergeFilters
         implements Rule<FilterNode>
@@ -33,6 +35,17 @@ public class MergeFilters
 
     private static final Pattern<FilterNode> PATTERN = filter()
             .with(source().matching(filter().capturedAs(CHILD)));
+
+    private final LogicalRowExpressions logicalRowExpressions;
+
+    public MergeFilters(FunctionAndTypeManager functionAndTypeManager)
+    {
+        requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
+                functionAndTypeManager);
+    }
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -50,6 +63,6 @@ public class MergeFilters
                         parent.getSourceLocation(),
                         parent.getId(),
                         child.getSource(),
-                        castToRowExpression(combineConjuncts(castToExpression(child.getPredicate()), castToExpression(parent.getPredicate())))));
+                        logicalRowExpressions.combineConjuncts(child.getPredicate(), parent.getPredicate())));
     }
 }

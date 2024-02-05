@@ -34,7 +34,7 @@ public interface HistoryBasedPlanStatisticsProvider
      *
      * TODO: Using PlanNode as map key can be expensive, we can use Plan node id as a map key.
      */
-    Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodesWithHash);
+    Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodesWithHash, long timeoutInMilliSeconds);
 
     /**
      * Given plan hashes and corresponding statistics after a query is run, store them for future retrieval.

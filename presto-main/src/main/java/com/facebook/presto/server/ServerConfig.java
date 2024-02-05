@@ -14,14 +14,18 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.spi.NodePoolType;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 
+import static com.facebook.presto.spi.NodePoolType.DEFAULT;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
+    public static final String POOL_TYPE = "pool_type";
     private boolean resourceManager;
     private boolean resourceManagerEnabled;
     private boolean catalogServer;
@@ -33,6 +37,9 @@ public class ServerConfig
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
     private boolean queryResultsCompressionEnabled = true;
+    private NodePoolType poolType = DEFAULT;
+    private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
+    private boolean nestedDataSerializationEnabled = true;
 
     public boolean isResourceManager()
     {
@@ -169,6 +176,42 @@ public class ServerConfig
     public ServerConfig setQueryResultsCompressionEnabled(boolean queryResultsCompressionEnabled)
     {
         this.queryResultsCompressionEnabled = queryResultsCompressionEnabled;
+        return this;
+    }
+
+    public NodePoolType getPoolType()
+    {
+        return poolType;
+    }
+
+    @Config("pool-type")
+    public ServerConfig setPoolType(NodePoolType poolType)
+    {
+        this.poolType = poolType;
+        return this;
+    }
+
+    public Duration getClusterStatsExpirationDuration()
+    {
+        return clusterStatsExpirationDuration;
+    }
+
+    @Config("cluster-stats-expiration-duration")
+    public ServerConfig setClusterStatsExpirationDuration(Duration clusterStatsExpirationDuration)
+    {
+        this.clusterStatsExpirationDuration = clusterStatsExpirationDuration;
+        return this;
+    }
+
+    public boolean isNestedDataSerializationEnabled()
+    {
+        return nestedDataSerializationEnabled;
+    }
+
+    @Config("nested-data-serialization-enabled")
+    public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
+    {
+        this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
         return this;
     }
 }

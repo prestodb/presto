@@ -679,6 +679,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public long toLong(int position)
+    {
+        return dictionary.toLong(getId(position));
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

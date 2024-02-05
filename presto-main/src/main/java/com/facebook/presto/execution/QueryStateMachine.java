@@ -33,6 +33,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -41,6 +43,7 @@ import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -150,6 +153,7 @@ public class QueryStateMachine
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<StatsAndCosts> planStatsAndCosts = new AtomicReference<>();
+    private final AtomicReference<Map<PlanNodeId, PlanNode>> planIdNodeMap = new AtomicReference<>();
     private final AtomicReference<List<CanonicalPlanWithInfo>> planCanonicalInfo = new AtomicReference<>();
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
@@ -486,10 +490,13 @@ public class QueryStateMachine
                 removedSessionFunctions,
                 Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
+                session.getCteInformationCollector().getCTEInformationList(),
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
                 windowsFunctions.get(),
-                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
+                Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
+                Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
+                Optional.empty());
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -542,6 +549,12 @@ public class QueryStateMachine
     {
         requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.planStatsAndCosts.set(statsAndCosts);
+    }
+
+    public void setPlanIdNodeMap(Map<PlanNodeId, PlanNode> planIdNodeMap)
+    {
+        requireNonNull(planIdNodeMap, "planIdNodeMap is null");
+        this.planIdNodeMap.set(ImmutableMap.copyOf(planIdNodeMap));
     }
 
     public void setPlanCanonicalInfo(List<CanonicalPlanWithInfo> planCanonicalInfo)
@@ -1087,10 +1100,13 @@ public class QueryStateMachine
                 queryInfo.getRemovedSessionFunctions(),
                 StatsAndCosts.empty(),
                 queryInfo.getOptimizerInformation(),
+                queryInfo.getCteInformationList(),
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
                 queryInfo.getWindowsFunctions(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                queryInfo.getPrestoSparkExecutionContext());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
