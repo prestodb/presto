@@ -215,7 +215,7 @@ uint64_t MemoryReclaimer::reclaim(
   };
   std::vector<Candidate> candidates;
   {
-    folly::SharedMutex::ReadHolder guard{pool->poolMutex_};
+    std::shared_lock guard{pool->poolMutex_};
     candidates.reserve(pool->children_.size());
     for (auto& entry : pool->children_) {
       auto child = entry.second.lock();

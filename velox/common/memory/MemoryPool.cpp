@@ -266,7 +266,7 @@ MemoryPool* MemoryPool::root() const {
 }
 
 uint64_t MemoryPool::getChildCount() const {
-  folly::SharedMutex::ReadHolder guard{poolMutex_};
+  std::shared_lock guard{poolMutex_};
   return children_.size();
 }
 
@@ -274,7 +274,7 @@ void MemoryPool::visitChildren(
     const std::function<bool(MemoryPool*)>& visitor) const {
   std::vector<std::shared_ptr<MemoryPool>> children;
   {
-    folly::SharedMutex::ReadHolder guard{poolMutex_};
+    std::shared_lock guard{poolMutex_};
     children.reserve(children_.size());
     for (auto& entry : children_) {
       auto child = entry.second.lock();
