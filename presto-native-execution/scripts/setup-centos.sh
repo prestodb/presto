@@ -18,12 +18,7 @@ export FB_OS_VERSION=v2023.12.04.00
 export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
 
-dnf install -y maven
-dnf install -y java
-dnf install -y python3-devel
-dnf install -y clang-tools-extra
-dnf install -y jq
-dnf install -y perl-XML-XPath
+dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
 
 python3 -m pip install regex pyyaml chevron black six
 
@@ -57,13 +52,6 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
-)
-
-(
-  git clone https://github.com/google/re2 &&
-  cd re2 &&
-  git checkout $RE2_VERSION &&    
-  cmake_install -DBUILD_SHARED_LIBS=ON
 )
 
 
