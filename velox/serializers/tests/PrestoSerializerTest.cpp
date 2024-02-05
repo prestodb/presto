@@ -488,16 +488,60 @@ TEST_P(PrestoSerializerTest, intervalDayTime) {
 }
 
 TEST_P(PrestoSerializerTest, unknown) {
+  // Verify vectors of UNKNOWN type. Also verifies a special case where a
+  // vector, not of UNKNOWN type and with all nulls is serialized as an UNKNOWN
+  // type having BYTE_ARRAY encoding.
+  auto testAllNullSerializedAsUnknown = [&](VectorPtr vector,
+                                            TypePtr outputType) {
+    auto rowVector = makeRowVector({vector});
+    auto expected = makeRowVector(
+        {BaseVector::createNullConstant(outputType, vector->size(), pool())});
+    std::ostringstream out;
+    serialize(rowVector, &out, nullptr);
+
+    auto rowType = asRowType(expected->type());
+    auto deserialized = deserialize(rowType, out.str(), nullptr);
+    assertEqualVectors(expected, deserialized);
+
+    if (rowVector->size() < 3) {
+      return;
+    }
+
+    // Split input into 3 batches. Serialize each separately. Then, deserialize
+    // all into one vector.
+    auto splits = split(rowVector, 3);
+    std::vector<std::string> serialized;
+    for (const auto& split : splits) {
+      std::ostringstream oss;
+      serialize(split, &oss, nullptr);
+      serialized.push_back(oss.str());
+    }
+
+    auto paramOptions = getParamSerdeOptions(nullptr);
+    RowVectorPtr result;
+    vector_size_t offset = 0;
+    for (auto i = 0; i < serialized.size(); ++i) {
+      auto byteStream = toByteStream(serialized[i]);
+      serde_->deserialize(
+          &byteStream, pool_.get(), rowType, &result, offset, &paramOptions);
+      offset = result->size();
+    }
+
+    assertEqualVectors(expected, result);
+  };
+
   const vector_size_t size = 123;
   auto constantVector =
-      BaseVector::createNullConstant(UNKNOWN(), 123, pool_.get());
+      BaseVector::createNullConstant(UNKNOWN(), size, pool_.get());
   testRoundTrip(constantVector);
+  testAllNullSerializedAsUnknown(constantVector, BIGINT());
 
   auto flatVector = BaseVector::create(UNKNOWN(), size, pool_.get());
   for (auto i = 0; i < size; i++) {
     flatVector->setNull(i, true);
   }
   testRoundTrip(flatVector);
+  testAllNullSerializedAsUnknown(flatVector, BIGINT());
 }
 
 TEST_P(PrestoSerializerTest, multiPage) {
