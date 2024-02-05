@@ -2000,11 +2000,13 @@ bool Task::getLongRunningOpCalls(
       if (!opCallStatus.empty()) {
         auto callDurationMs = opCallStatus.callDuration();
         if (callDurationMs > thresholdDurationMs) {
+          auto* op = driver->findOperatorNoThrow(opCallStatus.opId);
           out.push_back({
               .durationMs = callDurationMs,
               .tid = driver->state().tid,
               .opId = opCallStatus.opId,
               .taskId = taskId_,
+              .opCall = OpCallStatusRaw::formatCall(op, opCallStatus.method),
           });
         }
       }

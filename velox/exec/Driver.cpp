@@ -395,7 +395,10 @@ size_t OpCallStatusRaw::callDuration() const {
 /*static*/ std::string OpCallStatusRaw::formatCall(
     Operator* op,
     const char* operatorMethod) {
-  return fmt::format("{}::{}", op ? op->operatorType() : "N/A", operatorMethod);
+  return op
+      ? fmt::format(
+            "{}.{}::{}", op->operatorType(), op->planNodeId(), operatorMethod)
+      : fmt::format("null::{}", operatorMethod);
 }
 
 CpuWallTiming Driver::processLazyTiming(

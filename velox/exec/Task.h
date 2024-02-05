@@ -257,9 +257,12 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Information about an operator call that helps debugging stuck calls.
   struct OpCallInfo {
     size_t durationMs;
+    /// Thread id of where the operator got stuck.
     int32_t tid;
     int32_t opId;
     std::string taskId;
+    /// Call in the format of "<operatorType>.<nodeId>::<operatorMethod>".
+    std::string opCall;
   };
 
   /// Collect long running operator calls across all drivers in this task.
