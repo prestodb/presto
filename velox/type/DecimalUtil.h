@@ -251,7 +251,7 @@ class DecimalUtil {
       uint8_t /*bRescale*/) {
     VELOX_USER_CHECK_NE(b, 0, "Division by zero");
     int resultSign = 1;
-    A unsignedDividendRescaled(a);
+    R unsignedDividendRescaled(a);
     if (a < 0) {
       resultSign = -1;
       unsignedDividendRescaled *= -1;

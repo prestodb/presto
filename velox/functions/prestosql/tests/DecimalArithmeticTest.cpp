@@ -314,6 +314,18 @@ TEST_F(DecimalArithmeticTest, decimalDivTest) {
       "divide(c0, c1)",
       {shortFlat, longFlat});
 
+  testDecimalExpr<TypeKind::HUGEINT>(
+      makeFlatVector<int128_t>(
+          {HugeInt::parse("20000000000000000"),
+           HugeInt::parse("50000000000000000")},
+          DECIMAL(38, 19)),
+      "divide(c0, c1)",
+      {makeFlatVector<int64_t>({100, 200}, DECIMAL(17, 4)),
+       makeFlatVector<int128_t>(
+           {HugeInt::parse("50000000000000000000"),
+            HugeInt::parse("40000000000000000000")},
+           DECIMAL(21, 19))});
+
   // Divide long and long, returning long.
   testDecimalExpr<TypeKind::HUGEINT>(
       makeFlatVector<int128_t>({500, 300}, DECIMAL(22, 2)),
