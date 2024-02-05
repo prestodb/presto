@@ -52,6 +52,7 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.ceil;
+import static java.lang.String.format;
 
 /**
  * This WIP class is responsible for assigning a subset of the cluster nodes
@@ -105,7 +106,7 @@ public class FixedSubsetNodeSetSupplier
                 .collect(Collectors.toList());
 
         NodeSetAcquireRequest nodeSetAcquireRequest = pendingRequests.peek();
-        while (nodeSetAcquireRequest != null && avaialableNodes.size() > 0) {
+        while (nodeSetAcquireRequest != null && nodeSetAcquireRequest.getCount() <= avaialableNodes.size()) {
             try {
                 List<InternalNode> nodesForQuery = new ArrayList<>();
                 for (int i = 0; i < nodeSetAcquireRequest.getCount(); i++) {
@@ -122,7 +123,7 @@ public class FixedSubsetNodeSetSupplier
                 nodeSetAcquireRequest = pendingRequests.peek();
             }
             catch (Exception ex) {
-                log.error("Unable to satisfy nodeAcquireRequest=%s", nodeSetAcquireRequest);
+                log.error("Exception in satisfying nodeAcquireRequest=%s", nodeSetAcquireRequest, ex);
             }
         }
     }
@@ -284,6 +285,12 @@ public class FixedSubsetNodeSetSupplier
                 return 0;
             }
             return this.getCount() < otherRequest.getCount() ? -1 : 1;
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("[%s,%s]", queryId, count);
         }
     }
 }

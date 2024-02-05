@@ -191,6 +191,7 @@ public final class HiveQueryRunner
                 .put("task.partitioned-writer-count", "4")
                 .put("tracing.tracer-type", "simple")
                 .put("tracing.enable-distributed-tracing", "simple")
+                .put("query.hash-partition-count", "5")
                 .putAll(extraProperties)
                 .build();
 

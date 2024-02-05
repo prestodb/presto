@@ -80,7 +80,6 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.spi.NodePoolType.DEFAULT;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -214,9 +213,9 @@ public class DistributedQueryRunner
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
                     // We are simply splitting the nodes into leaf and intermediate for testing purpose
-//                    NodePoolType workerPool = i % 2 == 0 ? LEAF : INTERMEDIATE;
+                    NodePoolType workerPool = i % 2 == 0 ? LEAF : INTERMEDIATE;
                     Map<String, String> workerProperties = new HashMap<>(extraProperties);
-                    workerProperties.put("pool-type", DEFAULT.toString());
+                    workerProperties.put("pool-type", workerPool.name());
                     TestingPrestoServer worker = closer.register(createTestingPrestoServer(
                                     discoveryUrl,
                                     false,
