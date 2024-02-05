@@ -20,7 +20,7 @@ export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
 
-python3 -m pip install regex pyyaml chevron black six
+python3 -m pip install regex pyyaml chevron black
 
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
