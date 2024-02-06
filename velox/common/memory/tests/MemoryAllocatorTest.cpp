@@ -30,6 +30,10 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#ifdef linux
+#include <fstream>
+#endif // linux
+
 DECLARE_int32(velox_memory_pool_mb);
 DECLARE_bool(velox_memory_leak_check_enabled);
 
@@ -1407,7 +1411,7 @@ TEST_P(MemoryAllocatorTest, contiguousAllocation) {
     ASSERT_EQ(movedAllocation.pool(), pool_.get());
     *allocation = std::move(movedAllocation);
     ASSERT_TRUE(!allocation->empty()); // NOLINT
-    ASSERT_TRUE(movedAllocation.empty());
+    ASSERT_TRUE(movedAllocation.empty()); // NOLINT
     ASSERT_EQ(allocation->pool(), pool_.get());
   }
   ASSERT_THROW(allocation->setPool(pool_.get()), VeloxRuntimeError);
