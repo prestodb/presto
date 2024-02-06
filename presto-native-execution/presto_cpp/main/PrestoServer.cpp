@@ -24,6 +24,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/StatsReporterImpl.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -217,6 +218,10 @@ void PrestoServer::run() {
     exit(EXIT_FAILURE);
   }
 
+  if (systemConfig->enableRuntimeMetricsCollection()) {
+    // This flag must be set to register the counters.
+    facebook::velox::BaseStatsReporter::registered = true;
+  }
   registerStatsCounters();
   registerFileSinks();
   registerFileSystems();
@@ -317,6 +322,14 @@ void PrestoServer::run() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
         server->reportServerInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/health/metrics",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportHealthMetrics(downstream);
       });
   httpServer_->registerGet(
       "/v1/info/state",
@@ -1136,6 +1149,17 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
+void PrestoServer::reportHealthMetrics(proxygen::ResponseHandler* downstream) {
+  auto reporter = std::dynamic_pointer_cast<StatsReporterImpl>(
+      folly::Singleton<facebook::velox::BaseStatsReporter>::try_get());
+  auto nodeConfig = facebook::presto::NodeConfig::instance();
+  std::string cluster = nodeConfig->nodeEnvironment();
+  char* hostName = std::getenv("HOSTNAME");
+  std::string worker = !hostName ? "" : hostName;
+  prometheus::PrometheusSerializer serializer(
+      prometheus::Labels{{"cluster", cluster}, {"worker", worker}});
+  http::sendOkResponse(downstream, reporter->getMetrics(serializer));
+}
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
 }

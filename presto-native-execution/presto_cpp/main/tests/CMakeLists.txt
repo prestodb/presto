@@ -28,6 +28,11 @@ add_test(
   COMMAND presto_server_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+add_executable(ahana_stats_test StatsReporterImplTest.cpp)
+
+target_link_libraries(ahana_stats_test presto_server_lib velox_exec_test_lib
+                      gtest gtest_main)
+
 target_link_libraries(
   presto_server_test
   velox_caching
