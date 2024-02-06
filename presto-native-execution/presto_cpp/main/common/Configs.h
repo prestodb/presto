@@ -319,6 +319,10 @@ class SystemConfig : public ConfigBase {
   /// cache entries.
   static constexpr std::string_view kCacheVeloxTtlCheckInterval{
       "cache.velox.ttl-check-interval"};
+
+  static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
+  static constexpr std::string_view kMmapArenaCapacityRatio{
+      "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
   static constexpr std::string_view kEnableRuntimeMetricsCollection{
