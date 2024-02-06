@@ -385,6 +385,125 @@ class PrestoSerializerTest
     });
   }
 
+  RowVectorPtr encodingsArrayElementsTestVector() {
+    auto baseNoNulls = makeFlatVector<int64_t>({1, 2, 3, 4});
+    auto baseWithNulls =
+        makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3});
+    auto baseArray =
+        makeArrayVector<int32_t>({{1, 2, 3}, {}, {4, 5}, {6, 7, 8, 9, 10}});
+    auto elementIndices = makeIndices(16, [](auto row) { return row / 4; });
+    std::vector<vector_size_t> offsets{0, 2, 4, 6, 8, 10, 12, 14, 16};
+
+    return makeRowVector({
+        makeArrayVector(
+            offsets,
+            BaseVector::wrapInDictionary(
+                nullptr, elementIndices, 16, baseNoNulls)),
+        makeArrayVector(
+            offsets,
+            BaseVector::wrapInDictionary(
+                nullptr, elementIndices, 16, baseWithNulls)),
+        makeArrayVector(
+            offsets,
+            BaseVector::wrapInDictionary(
+                nullptr, elementIndices, 16, baseArray)),
+        makeArrayVector(
+            offsets,
+            BaseVector::createConstant(INTEGER(), 123, 16, pool_.get())),
+        makeArrayVector(
+            offsets,
+            BaseVector::createNullConstant(VARCHAR(), 16, pool_.get())),
+        makeArrayVector(offsets, BaseVector::wrapInConstant(16, 1, baseArray)),
+        makeRowVector({
+            makeArrayVector(
+                offsets,
+                BaseVector::wrapInDictionary(
+                    nullptr, elementIndices, 16, baseNoNulls)),
+            makeArrayVector(
+                offsets,
+                BaseVector::wrapInDictionary(
+                    nullptr, elementIndices, 16, baseWithNulls)),
+            makeArrayVector(
+                offsets,
+                BaseVector::wrapInDictionary(
+                    nullptr, elementIndices, 16, baseArray)),
+            makeArrayVector(
+                offsets,
+                BaseVector::createConstant(INTEGER(), 123, 16, pool_.get())),
+            makeArrayVector(
+                offsets,
+                BaseVector::createNullConstant(VARCHAR(), 16, pool_.get())),
+            makeArrayVector(
+                offsets, BaseVector::wrapInConstant(16, 1, baseArray)),
+        }),
+    });
+  }
+
+  RowVectorPtr encodingsMapValuesTestVector() {
+    auto baseNoNulls = makeFlatVector<int64_t>({1, 2, 3, 4});
+    auto baseWithNulls =
+        makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3});
+    auto baseArray =
+        makeArrayVector<int32_t>({{1, 2, 3}, {}, {4, 5}, {6, 7, 8, 9, 10}});
+    auto valueIndices = makeIndices(16, [](auto row) { return row / 4; });
+    std::vector<vector_size_t> offsets{0, 2, 4, 6, 8, 10, 12, 14, 16};
+    auto mapKeys = makeFlatVector<int32_t>(16, [](auto row) { return row; });
+
+    return makeRowVector({
+        makeMapVector(
+            offsets,
+            mapKeys,
+            BaseVector::wrapInDictionary(
+                nullptr, valueIndices, 16, baseNoNulls)),
+        makeMapVector(
+            offsets,
+            mapKeys,
+            BaseVector::wrapInDictionary(
+                nullptr, valueIndices, 16, baseWithNulls)),
+        makeMapVector(
+            offsets,
+            mapKeys,
+            BaseVector::wrapInDictionary(nullptr, valueIndices, 16, baseArray)),
+        makeMapVector(
+            offsets,
+            mapKeys,
+            BaseVector::createConstant(INTEGER(), 123, 16, pool_.get())),
+        makeMapVector(
+            offsets,
+            mapKeys,
+            BaseVector::createNullConstant(VARCHAR(), 16, pool_.get())),
+        makeMapVector(
+            offsets, mapKeys, BaseVector::wrapInConstant(16, 1, baseArray)),
+        makeRowVector({
+            makeMapVector(
+                offsets,
+                mapKeys,
+                BaseVector::wrapInDictionary(
+                    nullptr, valueIndices, 16, baseNoNulls)),
+            makeMapVector(
+                offsets,
+                mapKeys,
+                BaseVector::wrapInDictionary(
+                    nullptr, valueIndices, 16, baseWithNulls)),
+            makeMapVector(
+                offsets,
+                mapKeys,
+                BaseVector::wrapInDictionary(
+                    nullptr, valueIndices, 16, baseArray)),
+            makeMapVector(
+                offsets,
+                mapKeys,
+                BaseVector::createConstant(INTEGER(), 123, 16, pool_.get())),
+            makeMapVector(
+                offsets,
+                mapKeys,
+                BaseVector::createNullConstant(VARCHAR(), 16, pool_.get())),
+            makeMapVector(
+                offsets, mapKeys, BaseVector::wrapInConstant(16, 1, baseArray)),
+        }),
+    });
+  }
+
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
 };
 
@@ -635,6 +754,28 @@ TEST_P(PrestoSerializerTest, encodings) {
 // preserved by the PrestoBatchVectorSerializer.
 TEST_P(PrestoSerializerTest, encodingsBatchVectorSerializer) {
   testBatchVectorSerializerRoundTrip(encodingsTestVector());
+}
+
+// Test that array elements have their encodings preserved.
+TEST_P(PrestoSerializerTest, encodingsArrayElements) {
+  testEncodedRoundTrip(encodingsArrayElementsTestVector());
+}
+
+// Test that array elements have their encodings preserved by the
+// PrestoBatchVectorSerializer.
+TEST_P(PrestoSerializerTest, encodingsArrayElementsBatchVectorSerializer) {
+  testBatchVectorSerializerRoundTrip(encodingsArrayElementsTestVector());
+}
+
+// Test that map values have their encodings preserved.
+TEST_P(PrestoSerializerTest, encodingsMapValues) {
+  testEncodedRoundTrip(encodingsMapValuesTestVector());
+}
+
+// Test that map values have their encodings preserved by the
+// PrestoBatchVectorSerializer.
+TEST_P(PrestoSerializerTest, encodingsMapValuesBatchVectorSerializer) {
+  testBatchVectorSerializerRoundTrip(encodingsMapValuesTestVector());
 }
 
 TEST_P(PrestoSerializerTest, scatterEncoded) {
