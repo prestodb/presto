@@ -30,7 +30,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -49,10 +48,10 @@ import java.util.Optional;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
-import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -90,7 +89,7 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    protected Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getNativeIcebergTable(resourceFactory, session, schemaTableName);
     }
@@ -99,10 +98,8 @@ public class IcebergNativeMetadata
     protected boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName.getSchemaName(), name.getTableName());
-
         try {
-            resourceFactory.getCatalog(session).loadTable(tableIdentifier);
+            getIcebergTable(session, new SchemaTableName(schemaTableName.getSchemaName(), name.getTableName()));
         }
         catch (NoSuchTableException e) {
             // return null to throw
@@ -207,7 +204,7 @@ public class IcebergNativeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be dropped");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         resourceFactory.getCatalog(session).dropTable(tableIdentifier);
     }
@@ -216,7 +213,7 @@ public class IcebergNativeMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be renamed");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
         TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         TableIdentifier to = toIcebergTableIdentifier(newTable);
         resourceFactory.getCatalog(session).renameTable(from, to);

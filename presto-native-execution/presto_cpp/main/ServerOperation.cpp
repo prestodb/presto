@@ -24,7 +24,9 @@ const folly::F14FastMap<std::string, ServerOperation::Action>
         {"getProperty", ServerOperation::Action::kGetProperty},
         {"getDetail", ServerOperation::Action::kGetDetail},
         {"listAll", ServerOperation::Action::kListAll},
-        {"trace", ServerOperation::Action::kTrace}};
+        {"trace", ServerOperation::Action::kTrace},
+        {"setState", ServerOperation::Action::kSetState},
+        {"announcer", ServerOperation::Action::kAnnouncer}};
 
 const folly::F14FastMap<ServerOperation::Action, std::string>
     ServerOperation::kReverseActionLookup{
@@ -34,7 +36,9 @@ const folly::F14FastMap<ServerOperation::Action, std::string>
         {ServerOperation::Action::kGetProperty, "getProperty"},
         {ServerOperation::Action::kGetDetail, "getDetail"},
         {ServerOperation::Action::kListAll, "listAll"},
-        {ServerOperation::Action::kTrace, "trace"}};
+        {ServerOperation::Action::kTrace, "trace"},
+        {ServerOperation::Action::kSetState, "setState"},
+        {ServerOperation::Action::kAnnouncer, "announcer"}};
 
 const folly::F14FastMap<std::string, ServerOperation::Target>
     ServerOperation::kTargetLookup{

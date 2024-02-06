@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.sun.management.OperatingSystemMXBean;
+import io.airlift.units.Duration;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Tuple2;
@@ -95,12 +96,13 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeExecutionBroadcastBasePath;
-import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTriggerCoredumpWhenUnresponsiveEnabled;
-import static com.facebook.presto.spark.execution.nativeprocess.NativeExecutionProcessFactory.DEFAULT_URI;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getNativeTerminateWithCoreTimeout;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeTerminateWithCoreWhenUnresponsiveEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -296,7 +298,8 @@ public class PrestoSparkNativeTaskExecutorFactory
         Optional<String> broadcastDirectory =
                 isFixedBroadcastDistribution ? Optional.of(getBroadcastDirectoryPath(session)) : Optional.empty();
 
-        boolean triggerCoredumpWhenUnresponsive = isNativeTriggerCoredumpWhenUnresponsiveEnabled(session);
+        boolean terminateWithCoreWhenUnresponsive = isNativeTerminateWithCoreWhenUnresponsiveEnabled(session);
+        Duration terminateWithCoreTimeout = getNativeTerminateWithCoreTimeout(session);
         try {
             // 3. Submit the task to cpp process for execution
             log.info("Submitting native execution task ");
@@ -325,10 +328,11 @@ public class PrestoSparkNativeTaskExecutorFactory
                     executionExceptionFactory,
                     cpuTracker,
                     nativeExecutionProcess,
-                    triggerCoredumpWhenUnresponsive);
+                    terminateWithCoreWhenUnresponsive,
+                    terminateWithCoreTimeout);
         }
         catch (RuntimeException e) {
-            throw processFailure(e, nativeExecutionProcess, triggerCoredumpWhenUnresponsive);
+            throw processFailure(e, nativeExecutionProcess, terminateWithCoreWhenUnresponsive, terminateWithCoreTimeout);
         }
     }
 
@@ -408,9 +412,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         try {
             // create the CPP sidecar process if it doesn't exist.
             // We create this when the first task is scheduled
-            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(
-                    session,
-                    DEFAULT_URI);
+            nativeExecutionProcess = nativeExecutionProcessFactory.getNativeExecutionProcess(session);
             nativeExecutionProcess.start();
         }
         catch (ExecutionException | InterruptedException | IOException e) {
@@ -524,7 +526,8 @@ public class PrestoSparkNativeTaskExecutorFactory
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final CpuTracker cpuTracker;
         private final NativeExecutionProcess nativeExecutionProcess;
-        private final boolean triggerCoredumpWhenUnresponsive;
+        private final boolean terminateWithCoreWhenUnresponsive;
+        private final Duration terminateWithCoreTimeout;
 
         public PrestoSparkNativeTaskOutputIterator(
                 int partitionId,
@@ -535,7 +538,8 @@ public class PrestoSparkNativeTaskExecutorFactory
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 CpuTracker cpuTracker,
                 NativeExecutionProcess nativeExecutionProcess,
-                boolean triggerCoredumpWhenUnresponsive)
+                boolean terminateWithCoreWhenUnresponsive,
+                Duration terminateWithCoreTimeout)
         {
             this.partitionId = partitionId;
             this.nativeExecutionTask = nativeExecutionTask;
@@ -545,7 +549,8 @@ public class PrestoSparkNativeTaskExecutorFactory
             this.executionExceptionFactory = executionExceptionFactory;
             this.cpuTracker = cpuTracker;
             this.nativeExecutionProcess = requireNonNull(nativeExecutionProcess, "nativeExecutionProcess is null");
-            this.triggerCoredumpWhenUnresponsive = triggerCoredumpWhenUnresponsive;
+            this.terminateWithCoreWhenUnresponsive = terminateWithCoreWhenUnresponsive;
+            this.terminateWithCoreTimeout = requireNonNull(terminateWithCoreTimeout, "terminateWithCoreTimeout is null");
         }
 
         /**
@@ -624,7 +629,11 @@ public class PrestoSparkNativeTaskExecutorFactory
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
                 completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
-                throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(ex, nativeExecutionProcess, triggerCoredumpWhenUnresponsive));
+                throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
+                        ex,
+                        nativeExecutionProcess,
+                        terminateWithCoreWhenUnresponsive,
+                        terminateWithCoreTimeout));
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -654,16 +663,17 @@ public class PrestoSparkNativeTaskExecutorFactory
     private static RuntimeException processFailure(
             RuntimeException failure,
             NativeExecutionProcess process,
-            boolean triggerCoredumpWhenUnresponsive)
+            boolean terminateWithCoreWhenUnresponsive,
+            Duration terminateWithCoreTimeout)
     {
-        if (failure instanceof PrestoTransportException) {
+        if (isCommunicationLoss(failure)) {
             PrestoTransportException transportException = (PrestoTransportException) failure;
             String message;
             // lost communication with the native execution process
             if (process.isAlive()) {
                 // process is unresponsive
-                if (triggerCoredumpWhenUnresponsive) {
-                    process.sendCoreSignal();
+                if (terminateWithCoreWhenUnresponsive) {
+                    process.terminateWithCore(terminateWithCoreTimeout);
                 }
                 message = "Native execution process is alive but unresponsive";
             }
@@ -682,5 +692,14 @@ public class PrestoSparkNativeTaskExecutorFactory
                     failure);
         }
         return failure;
+    }
+
+    private static boolean isCommunicationLoss(RuntimeException failure)
+    {
+        if (!(failure instanceof PrestoTransportException)) {
+            return false;
+        }
+        PrestoTransportException transportException = (PrestoTransportException) failure;
+        return TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(transportException.getErrorCode());
     }
 }

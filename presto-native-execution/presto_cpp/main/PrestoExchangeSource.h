@@ -108,8 +108,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::EventBase* ioEventBase,
       proxygen::SessionPool* sessionPool,
-      const std::string& clientCertAndKeyPath_ = "",
-      const std::string& ciphers_ = "");
+      folly::SSLContextPtr sslContext);
 
   /// Returns 'true' is there is no request in progress, this source is not at
   /// end and most recent request hasn't failed. Transitions into
@@ -141,7 +140,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
-      ConnectionPools* connectionPools);
+      ConnectionPools* connectionPools,
+      folly::SSLContextPtr sslContext);
 
   /// Completes the future returned by 'request()' if it hasn't completed
   /// already.
@@ -154,7 +154,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     };
   }
 
-  std::string toJsonString() override {
+  folly::dynamic toJson() override {
     folly::dynamic obj = folly::dynamic::object;
     obj["taskId"] = taskId_;
     obj["destination"] = destination_;
@@ -167,7 +167,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
     obj["atEnd"] = atEnd_;
-    return folly::toPrettyJson(obj);
+    return obj;
   }
 
   int testingFailedAttempts() const {
@@ -247,8 +247,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string basePath_;
   const std::string host_;
   const uint16_t port_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
+  const folly::SSLContextPtr sslContext_;
   const bool immediateBufferTransfer_;
 
   folly::CPUThreadPoolExecutor* const driverExecutor_;

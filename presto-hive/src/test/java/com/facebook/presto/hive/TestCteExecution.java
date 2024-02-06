@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
@@ -48,7 +47,7 @@ public class TestCteExecution
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
                 ImmutableMap.of(
-                        "query.partitioning-provider-catalog", "hive"),
+                        "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true"),
@@ -101,7 +100,9 @@ public class TestCteExecution
                         testQuery));
     }
 
-    @Test
+    // ToDo prestodb/21791: write with 0 length varchar fails in hive
+    // See reference - While Presto supports Varchar of length 0 (as discussed in trinodb/trino#1136
+    @Test(enabled = false)
     public void testCteWithZeroLengthVarchar()
     {
         String testQuery = "WITH temp AS (" +
@@ -189,6 +190,236 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), testQuery));
     }
 
+    @Test
+    public void testPersistentCteForVarbinaryType()
+    {
+        String testQuery = "WITH  dataset AS (\n" +
+                "    SELECT data FROM (VALUES \n" +
+                "        (1, ARRAY[ROW('John Doe', 30)], from_base64('Sm9obiBEb2U=')), " +
+                "        (2, ARRAY[ROW('Jane Smith', 25)], from_base64('SmFuZSBTbWl0aA=='))," +
+                "        (3, ARRAY[ROW('Bob Johnson', 40)], from_base64('Qm9iIEpvaG5zb24=')) -- 'Bob Johnson' in base64\n" +
+                "    ) AS t (id, people, data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithBigInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (1),\n" +
+                "        (2),\n" +
+                "        (3)\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithInteger()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (123456789),\n" +
+                "        (987654321),\n" +
+                "        (-2147483648)\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithSmallInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (CAST(32767 AS SMALLINT)),\n" +
+                "        (CAST(-32768 AS SMALLINT)),\n" +
+                "        (CAST(12345 AS SMALLINT))\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithTinyInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (CAST(127 AS TINYINT)),\n" +
+                "        (CAST(-128 AS TINYINT)),\n" +
+                "        (CAST(0 AS TINYINT))\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithReal()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT value FROM (VALUES \n" +
+                "        (CAST(123.45 AS REAL)),\n" +
+                "        (CAST(-123.45 AS REAL)),\n" +
+                "        (CAST(0.0 AS REAL))\n" +
+                "    ) AS t (value)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithBoolean()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT flag FROM (VALUES \n" +
+                "        (true),\n" +
+                "        (false),\n" +
+                "        (true)\n" +
+                "    ) AS t (flag)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithDecimal()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT value FROM (VALUES \n" +
+                "        (DECIMAL '10.5'),\n" +
+                "        (DECIMAL '20.75'),\n" +
+                "        (DECIMAL '30.00')\n" +
+                "    ) AS t (value)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithChar()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT charColumn FROM (VALUES \n" +
+                "        (CAST('A' AS CHAR(1))),\n" + // Single character 'A'
+                "        (CAST('B' AS CHAR(1))),\n" + // Single character 'B'
+                "        (CAST('C' AS CHAR(1)))\n" +  // Single character 'C'
+                "    ) AS t (charColumn)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithArrayWhereInnerTypeSupported()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT arr FROM (VALUES \n" +
+                "        (ARRAY[1, 2, 3]),\n" +
+                "        (ARRAY[4, 5, 6]),\n" +
+                "        (ARRAY[7, 8, 9])\n" +
+                "    ) AS t (arr)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithArrayWhereInnerTypeIsNotSupported()
+    {
+        String testQuery = "WITH  dataset AS (\n" +
+                "    SELECT people FROM (VALUES \n" +
+                "        (1, ARRAY[ROW('John Doe', 30)], from_base64('Sm9obiBEb2U=')), -- 'John Doe' in base64\n" +
+                "        (2, ARRAY[ROW('Jane Smith', 25)], from_base64('SmFuZSBTbWl0aA==')), -- 'Jane Smith' in base64\n" +
+                "        (3, ARRAY[ROW('Bob Johnson', 40)], from_base64('Qm9iIEpvaG5zb24=')) -- 'Bob Johnson' in base64\n" +
+                "    ) AS t (id, people, data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithMap()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT map FROM (VALUES \n" +
+                "        (MAP(ARRAY['key1', 'key2'], ARRAY[1, 2])),\n" +
+                "        (MAP(ARRAY['key3', 'key4'], ARRAY[3, 4]))\n" +
+                "    ) AS t (map)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithVarbinary()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT data FROM (VALUES \n" +
+                "        (from_base64('YmluYXJ5RGF0YTE=')),\n" + // 'binaryData1' in base64
+                "        (from_base64('YmluYXJ5RGF0YTJ='))\n" +  // 'binaryData2' in base64
+                "    ) AS t (data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(
+                queryRunner.execute(getMaterializedSession(), testQuery),
+                queryRunner.execute(getSession(), testQuery));
+    }
     @Test
     public void testComplexRefinedCtesOutsideScope()
     {
@@ -823,7 +1054,6 @@ public class TestCteExecution
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
-                .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .build();
     }
 }

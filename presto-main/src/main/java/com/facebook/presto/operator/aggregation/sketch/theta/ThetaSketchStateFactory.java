@@ -15,7 +15,6 @@ package com.facebook.presto.operator.aggregation.sketch.theta;
 
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import org.apache.datasketches.theta.Union;
 import org.openjdk.jol.info.ClassLayout;
@@ -25,6 +24,20 @@ import static java.util.Objects.requireNonNull;
 public class ThetaSketchStateFactory
         implements AccumulatorStateFactory<ThetaSketchAggregationState>
 {
+    /**
+     * This is technically not the correct size to add as the {@link Union} class is an abstract
+     * class without members. There are numerous implementations which extend this class that are
+     * not public, so we cannot access them to calculate the memory utilization accurately. In the
+     * case they become public in a future version, this variable should be updated to use the
+     * concrete implementation.
+     * <br>
+     * This is safe to keep at the moment as the estimated size remains at a constant 296-byte
+     * deficit of the true size regardless of the inputs to the sketch to the lack of our ability
+     * to calculate the additional memory used by the class layout. Using this increases the
+     * estimate by a few bytes to account for at least <em>some</em> of that deficit.
+     */
+    private static final long SKETCH_INSTANCE_SIZE = ClassLayout.parseClass(Union.class).instanceSize();
+
     @Override
     public SingleThetaSketchState createSingleState()
     {
@@ -50,8 +63,10 @@ public class ThetaSketchStateFactory
     }
 
     public static final class SingleThetaSketchState
-            implements ThetaSketchAggregationState, AccumulatorState
+            implements ThetaSketchAggregationState
     {
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleThetaSketchState.class).instanceSize();
+
         private Union sketch = Union.builder().buildUnion();
 
         @Override
@@ -67,9 +82,15 @@ public class ThetaSketchStateFactory
         }
 
         @Override
+        public void addMemoryUsage(long memoryBytes)
+        {
+            // noop
+        }
+
+        @Override
         public long getEstimatedSize()
         {
-            return sketch.getCurrentBytes();
+            return INSTANCE_SIZE + getEstimatedMemoryUsage(sketch);
         }
     }
 
@@ -79,6 +100,7 @@ public class ThetaSketchStateFactory
     {
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedThetaSketchState.class).instanceSize();
         private final ObjectBigArray<Union> sketches = new ObjectBigArray<>();
+        private long sizeBytes;
 
         @Override
         public Union getSketch()
@@ -96,9 +118,15 @@ public class ThetaSketchStateFactory
         }
 
         @Override
+        public void addMemoryUsage(long memoryBytes)
+        {
+            sizeBytes += memoryBytes;
+        }
+
+        @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + sketches.sizeOf();
+            return INSTANCE_SIZE + sketches.sizeOf() + sizeBytes;
         }
 
         @Override
@@ -106,5 +134,10 @@ public class ThetaSketchStateFactory
         {
             sketches.ensureCapacity(size);
         }
+    }
+
+    static long getEstimatedMemoryUsage(Union sketch)
+    {
+        return SKETCH_INSTANCE_SIZE + sketch.getCurrentBytes();
     }
 }

@@ -22,7 +22,6 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.apache.iceberg.FileFormat;
 
 import java.nio.file.Path;
 import java.util.Map;

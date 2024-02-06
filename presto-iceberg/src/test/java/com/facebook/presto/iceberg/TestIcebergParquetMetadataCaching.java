@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
 
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

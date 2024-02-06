@@ -41,7 +41,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 public class TestKHyperLogLogAggregationFunction
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
-    private static final String NAME = KHyperLogLogAggregationFunction.getFunctionName();
+    private static final String NAME = KHyperLogLogWithLimitAggregationFunction.getFunctionName();
 
     @Test
     public void testSimpleKHyperLogLog()

@@ -88,7 +88,11 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String CTE_HASH_PARTITION_COUNT = "cte_hash_partition_count";
+
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
+
+    public static final String CTE_PARTITIONING_PROVIDER_CATALOG = "cte_partitioning_provider_catalog";
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION = "grouped_execution";
@@ -306,6 +310,7 @@ public final class SystemSessionProperties
     public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
+    public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -319,6 +324,11 @@ public final class SystemSessionProperties
     public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
     public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
+    public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
+    public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
+    public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
+    public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
+    public static final String NATIVE_JOIN_SPILLER_PARTITION_BITS = "native_join_spiller_partition_bits";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -409,10 +419,20 @@ public final class SystemSessionProperties
                         "Number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getHashPartitionCount(),
                         false),
+                integerProperty(
+                        CTE_HASH_PARTITION_COUNT,
+                        "Number of partitions for materializing CTEs",
+                        queryManagerConfig.getCteHashPartitionCount(),
+                        false),
                 stringProperty(
                         PARTITIONING_PROVIDER_CATALOG,
                         "Name of the catalog providing custom partitioning",
                         queryManagerConfig.getPartitioningProviderCatalog(),
+                        false),
+                stringProperty(
+                        CTE_PARTITIONING_PROVIDER_CATALOG,
+                        "Name of the catalog providing custom partitioning for cte materialization",
+                        queryManagerConfig.getCtePartitioningProviderCatalog(),
                         false),
                 new PropertyMetadata<>(
                         EXCHANGE_MATERIALIZATION_STRATEGY,
@@ -1597,6 +1617,32 @@ public final class SystemSessionProperties
                         false,
                         false),
                 booleanProperty(
+                        NATIVE_WINDOW_SPILL_ENABLED,
+                        "Native Execution only. Enable window spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_WRITER_SPILL_ENABLED,
+                        "Native Execution only. Enable writer spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_ROW_NUMBER_SPILL_ENABLED,
+                        "Native Execution only. Enable row number spilling on native engine",
+                        false,
+                        false),
+                booleanProperty(
+                        NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED,
+                        "Native Execution only. Enable topN row number spilling on native engine",
+                        false,
+                        false),
+                integerProperty(
+                        NATIVE_JOIN_SPILLER_PARTITION_BITS,
+                        "Native Execution only. The number of bits (N) used to calculate the " +
+                                "spilling partition number for hash join and RowNumber: 2 ^ N",
+                        2,
+                        false),
+                booleanProperty(
                         NATIVE_EXECUTION_ENABLED,
                         "Enable execution on native engine",
                         featuresConfig.isNativeExecutionEnabled(),
@@ -1853,6 +1899,11 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
+                                false),
+                booleanProperty(
+                        REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
+                        "Rewrite left join with is null check to semi join",
+                        featuresConfig.isRewriteExpressionWithConstantVariable(),
                         false));
     }
 
@@ -1935,9 +1986,19 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
     }
 
+    public static int getCteHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(CTE_HASH_PARTITION_COUNT, Integer.class);
+    }
+
     public static String getPartitioningProviderCatalog(Session session)
     {
         return session.getSystemProperty(PARTITIONING_PROVIDER_CATALOG, String.class);
+    }
+
+    public static String getCtePartitioningProviderCatalog(Session session)
+    {
+        return session.getSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, String.class);
     }
 
     public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session)
@@ -3081,5 +3142,10 @@ public final class SystemSessionProperties
     public static boolean shouldGenerateDomainFilters(Session session)
     {
         return session.getSystemProperty(GENERATE_DOMAIN_FILTERS, Boolean.class);
+    }
+
+    public static boolean isRewriteExpressionWithConstantEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
     }
 }

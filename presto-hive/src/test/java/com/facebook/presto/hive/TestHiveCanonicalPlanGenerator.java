@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -148,7 +149,7 @@ public class TestHiveCanonicalPlanGenerator
                     "SELECT * FROM test_column_predicates WHERE ds IN ('2020-09-01', '2020-09-02')",
                     "SELECT * FROM test_column_predicates");
             assertSameCanonicalLeafSubPlan(
-                    pushdownFilterEnabled(),
+                    pushdownFilterEnabledConstantPullUpDisabled(),
                     "SELECT * FROM test_column_predicates WHERE ds = '2020-09-01'",
                     "SELECT * FROM test_column_predicates WHERE ds = '2020-09-02'");
             assertSameCanonicalLeafSubPlan(
@@ -203,6 +204,14 @@ public class TestHiveCanonicalPlanGenerator
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
+    private Session pushdownFilterEnabledConstantPullUpDisabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
                 .build();
     }
 

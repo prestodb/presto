@@ -42,7 +42,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(true)
                 .setAggregationSpillEnabled(true)
                 .setJoinSpillEnabled(true)
-                .setOrderBySpillEnabled(true));
+                .setOrderBySpillEnabled(true)
+                .setMaxSpillBytes(500L << 30));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionVeloxConfig expected = new NativeExecutionVeloxConfig()
@@ -50,7 +51,8 @@ public class TestNativeExecutionSystemConfig
                 .setSpillEnabled(false)
                 .setAggregationSpillEnabled(false)
                 .setJoinSpillEnabled(false)
-                .setOrderBySpillEnabled(false);
+                .setOrderBySpillEnabled(false)
+                .setMaxSpillBytes(1L);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);
     }
@@ -64,6 +66,7 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxExpressionLogging(false)
                 .setEnableVeloxTaskLogging(true)
                 .setHttpServerReusePort(true)
+                .setHttpServerBindToNodeInternalAddressOnlyEnabled(true)
                 .setHttpServerPort(7777)
                 .setHttpServerNumIoThreadsHwMultiplier(1.0)
                 .setHttpsServerPort(7778)
@@ -83,6 +86,7 @@ public class TestNativeExecutionSystemConfig
                 .setMemoryArbitratorCapacityGb(8)
                 .setMemoryPoolInitCapacity(8L << 30)
                 .setMemoryPoolTransferCapacity(2L << 30)
+                .setMemoryReclaimWaitMs(300_000)
                 .setSpillerSpillPath("")
                 .setConcurrentLifespansPerTask(5)
                 .setMaxDriversPerTask(15)
@@ -100,6 +104,7 @@ public class TestNativeExecutionSystemConfig
                 .setEnableVeloxExpressionLogging(true)
                 .setEnableVeloxTaskLogging(false)
                 .setHttpServerReusePort(false)
+                .setHttpServerBindToNodeInternalAddressOnlyEnabled(false)
                 .setHttpServerPort(8080)
                 .setHttpServerNumIoThreadsHwMultiplier(3.0)
                 .setHttpsServerPort(8081)
@@ -120,6 +125,7 @@ public class TestNativeExecutionSystemConfig
                 .setMemoryArbitratorCapacityGb(10)
                 .setMemoryPoolInitCapacity(7L << 30)
                 .setMemoryPoolTransferCapacity(1L << 30)
+                .setMemoryReclaimWaitMs(123123123)
                 .setSpillerSpillPath("dummy.spill.path")
                 .setMaxDriversPerTask(30)
                 .setOldTaskCleanupMs(true)
@@ -138,7 +144,7 @@ public class TestNativeExecutionSystemConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionNodeConfig.class)
                 .setNodeEnvironment("spark-velox")
                 .setNodeLocation("/dummy/location")
-                .setNodeIp("0.0.0.0")
+                .setNodeInternalAddress("127.0.0.1")
                 .setNodeId(0)
                 .setNodeMemoryGb(10));
 
@@ -147,7 +153,7 @@ public class TestNativeExecutionSystemConfig
                 .setNodeEnvironment("next-gen-spark")
                 .setNodeId(1)
                 .setNodeLocation("/extra/dummy/location")
-                .setNodeIp("1.1.1.1")
+                .setNodeInternalAddress("1.1.1.1")
                 .setNodeMemoryGb(40);
         Map<String, String> properties = expected.getAllProperties();
         assertFullMapping(properties, expected);

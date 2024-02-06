@@ -160,13 +160,13 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-BufferPtr LocalPersistentShuffleReader::next() {
+folly::SemiFuture<BufferPtr> LocalPersistentShuffleReader::next() {
   if (readPartitionFiles_.empty()) {
     readPartitionFiles_ = getReadPartitionFiles();
   }
 
   if (readPartitionFileIndex_ >= readPartitionFiles_.size()) {
-    return nullptr;
+    return folly::makeSemiFuture<BufferPtr>(BufferPtr{});
   }
 
   const auto filename = readPartitionFiles_[readPartitionFileIndex_];
@@ -174,7 +174,7 @@ BufferPtr LocalPersistentShuffleReader::next() {
   auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
   file->pread(0, file->size(), buffer->asMutable<void>());
   ++readPartitionFileIndex_;
-  return buffer;
+  return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
 }
 
 void LocalPersistentShuffleReader::noMoreData(bool success) {

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -214,7 +215,7 @@ public class PruneUnreferencedOutputs
             }
 
             ImmutableSet.Builder<VariableReferenceExpression> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), EquiJoinClause::getLeft));
             if (node.getLeftHashVariable().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashVariable().get());
             }
@@ -222,7 +223,7 @@ public class PruneUnreferencedOutputs
             Set<VariableReferenceExpression> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<VariableReferenceExpression> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
+            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), EquiJoinClause::getRight));
             if (node.getRightHashVariable().isPresent()) {
                 rightInputsBuilder.add(node.getRightHashVariable().get());
             }
@@ -763,7 +764,8 @@ public class PruneUnreferencedOutputs
                     node.getTablePartitioningScheme(),
                     node.getPreferredShufflePartitioningScheme(),
                     node.getStatisticsAggregation(),
-                    node.getTaskCountIfScaledWriter());
+                    node.getTaskCountIfScaledWriter(),
+                    node.getIsTemporaryTableWriter());
         }
 
         @Override

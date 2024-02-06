@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>1.4.1</dep.iceberg.version>
+        <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.nessie.version>0.71.0</dep.nessie.version>
     </properties>
 
@@ -468,6 +468,18 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-cache</artifactId>

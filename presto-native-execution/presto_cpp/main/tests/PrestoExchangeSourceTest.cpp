@@ -42,7 +42,7 @@ using namespace testing;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, true);
+  folly::Init init{&argc, &argv};
   FLAGS_velox_memory_leak_check_enabled = true;
   return RUN_ALL_TESTS();
 }
@@ -411,12 +411,11 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
     SystemConfig::instance()->setValue(
         std::string(SystemConfig::kExchangeImmediateBufferTransfer),
         GetParam().immediateBufferTransfer ? "true" : "false");
-    SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsClientCertAndKeyPath),
-        getCertsPath("client_ca.pem"));
-    SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kHttpsSupportedCiphers),
-        "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384");
+    const std::string keyPath = getCertsPath("client_ca.pem");
+    const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+    sslContext_ = std::make_shared<folly::SSLContext>();
+    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+    sslContext_->setCiphersOrThrow(ciphers);
   }
 
   void TearDown() override {
@@ -443,7 +442,8 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         pool != nullptr ? pool : pool_.get(),
         exchangeCpuExecutor_.get(),
         exchangeIoExecutor_.get(),
-        &connectionPools_);
+        &connectionPools_,
+        useHttps ? sslContext_ : nullptr);
   }
 
   void requestNextPage(
@@ -460,6 +460,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   std::shared_ptr<folly::CPUThreadPoolExecutor> exchangeCpuExecutor_;
   std::shared_ptr<folly::IOThreadPoolExecutor> exchangeIoExecutor_;
   ConnectionPools connectionPools_;
+  folly::SSLContextPtr sslContext_;
 };
 
 int64_t totalBytes(const std::vector<std::string>& pages) {
@@ -975,6 +976,36 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
       ASSERT_EQ(peakMemoryBytes, 0);
     }
   }
+}
+
+TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
+  const auto useHttps = GetParam().useHttps;
+  auto producer = std::make_unique<Producer>();
+  producer->enqueue("one pager");
+  producer->noMoreData();
+
+  auto producerServer = createHttpServer(useHttps);
+  producer->registerEndpoints(producerServer.get());
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto queue = makeSingleSourceQueue();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::request",
+      std::function<void(PrestoExchangeSource*)>((
+          [&](auto* prestoExchangeSource) { prestoExchangeSource->close(); })));
+  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
+  {
+    std::lock_guard<std::mutex> l(queue->mutex());
+    ASSERT_TRUE(exchangeSource->shouldRequestLocked());
+  }
+  auto future = exchangeSource->request(1 << 20, 2);
+  ASSERT_TRUE(future.isReady());
+  auto response = std::move(future).get();
+  ASSERT_EQ(response.bytes, 0);
+  ASSERT_FALSE(response.atEnd);
+  exchangeCpuExecutor_->stop();
+  serverWrapper.stop();
 }
 
 INSTANTIATE_TEST_CASE_P(

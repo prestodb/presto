@@ -15,6 +15,7 @@
 #include <velox/common/base/Exceptions.h>
 #include <velox/common/base/VeloxException.h>
 #include <velox/common/process/TraceContext.h>
+#include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -140,10 +141,11 @@ std::string PrestoServerOperations::systemConfigOperation(
           "Missing 'name' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
           ServerOperation::actionString(op.action));
-      return fmt::format(
-          "{}\n",
-          SystemConfig::instance()->optionalProperty(name).value_or(
-              "<default>"));
+      auto valueOpt = SystemConfig::instance()->optionalProperty(name);
+      VELOX_USER_CHECK(
+          valueOpt.has_value(),
+          fmt::format("Could not find property '{}'\n", name));
+      return fmt::format("{}\n", valueOpt.value());
     }
     default:
       break;
@@ -203,32 +205,35 @@ std::string PrestoServerOperations::taskOperation(
       if (task == taskMap.end()) {
         return fmt::format("No task found with id {}", id);
       }
-      return task->second->toJsonString();
+      return folly::toPrettyJson(task->second->toJson());
     }
     case ServerOperation::Action::kListAll: {
       uint32_t limit;
+      const auto& limitStr = message->getQueryParam("limit");
       try {
-        const auto& limitStr = message->getQueryParam("limit");
         limit = limitStr == proxygen::empty_string
             ? std::numeric_limits<uint32_t>::max()
             : stoi(limitStr);
       } catch (std::exception& ex) {
-        VELOX_USER_FAIL(ex.what());
+        VELOX_USER_FAIL("Invalid limit provided '{}'.", limitStr);
       }
       std::stringstream oss;
-      oss << "[";
-      uint32_t count = 0;
-      for (const auto& task : taskMap) {
-        const auto& veloxTask = task.second->task;
-        if (++count > limit) {
-          oss << "... " << (taskMap.size() - limit) << " more tasks ...\n";
+      if (limit < taskMap.size()) {
+        oss << "Showing " << limit << "/" << taskMap.size() << " tasks:\n";
+      }
+      folly::dynamic arrayObj = folly::dynamic::array;
+      uint32_t index = 0;
+      for (auto taskItr = taskMap.begin(); taskItr != taskMap.end();
+           ++taskItr) {
+        const auto& veloxTask = taskItr->second->task;
+        const bool atLimit = ++index >= limit;
+        arrayObj.push_back(
+            (veloxTask == nullptr ? "null" : veloxTask->toShortJson()));
+        if (atLimit) {
           break;
         }
-        oss << task.first << "("
-            << (veloxTask == nullptr ? "null" : veloxTask->toShortJsonString())
-            << "),\n";
       }
-      oss << "]";
+      oss << folly::toPrettyJson(arrayObj);
       return oss.str();
     }
     default:
@@ -239,15 +244,72 @@ std::string PrestoServerOperations::taskOperation(
 
 std::string PrestoServerOperations::serverOperation(
     const ServerOperation& op,
-    proxygen::HTTPMessage* /* unused */) {
+    proxygen::HTTPMessage* message) {
   switch (op.action) {
-    case ServerOperation::Action::kTrace: {
-      return velox::process::TraceContext::statusLine();
-    }
+    case ServerOperation::Action::kTrace:
+      return serverOperationTrace();
+    case ServerOperation::Action::kSetState:
+      return serverOperationSetState(message);
+    case ServerOperation::Action::kAnnouncer:
+      return serverOperationAnnouncer(message);
     default:
       break;
   }
   return unsupportedAction(op);
+}
+
+std::string PrestoServerOperations::serverOperationTrace() {
+  return velox::process::TraceContext::statusLine();
+}
+
+std::string PrestoServerOperations::serverOperationSetState(
+    proxygen::HTTPMessage* message) {
+  if (server_) {
+    const auto& stateStr = message->getQueryParam("state");
+    const auto prevState = server_->nodeState();
+    NodeState newNodeState{NodeState::kActive};
+    if (stateStr == "active") {
+      newNodeState = NodeState::kActive;
+    } else if (stateStr == "inactive") {
+      newNodeState = NodeState::kInActive;
+    } else if (stateStr == "shutting_down") {
+      newNodeState = NodeState::kShuttingDown;
+    } else {
+      VELOX_USER_FAIL(
+          "Invalid state '{}'. "
+          "Supported states are: 'active', 'inactive', 'shutting_down'. "
+          "Example: server/setState?state=shutting_down",
+          stateStr);
+    }
+    if (newNodeState != prevState) {
+      LOG(INFO) << "Setting node state to " << nodeState2String(newNodeState);
+      server_->setNodeState(newNodeState);
+    }
+    return fmt::format(
+        "New node state: '{}', previous state: '{}'.",
+        nodeState2String(newNodeState),
+        nodeState2String(prevState));
+  }
+  return "No PrestoServer to change state of (it is nullptr).";
+}
+
+std::string PrestoServerOperations::serverOperationAnnouncer(
+    proxygen::HTTPMessage* message) {
+  if (server_) {
+    const auto& actionStr = message->getQueryParam("action");
+    if (actionStr == "enable") {
+      server_->enableAnnouncer(true);
+      return "Announcer enabled";
+    } else if (actionStr == "disable") {
+      server_->enableAnnouncer(false);
+      return "Announcer disabled";
+    }
+    VELOX_USER_FAIL(
+        "Invalid action '{}'. Supported actions are: 'enable', 'disable'. "
+        "Example: server/announcer?action=disable",
+        actionStr);
+  }
+  return "No PrestoServer to change announcer of (it is nullptr).";
 }
 
 } // namespace facebook::presto

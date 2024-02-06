@@ -48,7 +48,10 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
 
     private int hashPartitionCount = 100;
+
+    private int cteHashPartitionCount = 100;
     private String partitioningProviderCatalog = GlobalSystemConnector.NAME;
+    private String ctePartitioningProviderCatalog = GlobalSystemConnector.NAME;
     private ExchangeMaterializationStrategy exchangeMaterializationStrategy = ExchangeMaterializationStrategy.NONE;
     private boolean useStreamingExchangeForMarkDistinct;
     private boolean enableWorkerIsolation;
@@ -153,6 +156,20 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getCteHashPartitionCount()
+    {
+        return cteHashPartitionCount;
+    }
+
+    @Config("query.cte-hash-partition-count")
+    @ConfigDescription("Number of writers or buckets allocated per materialized CTE. (Recommended value: 4 - 10x times the size of the cluster)")
+    public QueryManagerConfig setCteHashPartitionCount(int cteHashPartitionCount)
+    {
+        this.cteHashPartitionCount = cteHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
     public int getHashPartitionCount()
     {
         return hashPartitionCount;
@@ -170,6 +187,20 @@ public class QueryManagerConfig
     public String getPartitioningProviderCatalog()
     {
         return partitioningProviderCatalog;
+    }
+
+    @NotNull
+    public String getCtePartitioningProviderCatalog()
+    {
+        return ctePartitioningProviderCatalog;
+    }
+
+    @Config("query.cte-partitioning-provider-catalog")
+    @ConfigDescription("Name of the catalog providing custom partitioning for cte materialization")
+    public QueryManagerConfig setCtePartitioningProviderCatalog(String ctePartitioningProviderCatalog)
+    {
+        this.ctePartitioningProviderCatalog = ctePartitioningProviderCatalog;
+        return this;
     }
 
     @Config("query.partitioning-provider-catalog")

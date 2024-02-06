@@ -140,16 +140,17 @@ public abstract class AbstractMinMaxByNAggregationFunction
         }
 
         Type elementType = outputType.getElementType();
+        Type keyType = heap.getKeyType();
 
         BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-        BlockBuilder reversedBlockBuilder = elementType.createBlockBuilder(null, heap.getCapacity());
-        long startSize = heap.getEstimatedSize();
-        heap.popAll(reversedBlockBuilder);
-        state.addMemoryUsage(heap.getEstimatedSize() - startSize);
+        BlockBuilder reversedValueBlockBuilder = elementType.createBlockBuilder(null, heap.getCapacity());
+        BlockBuilder reversedKeyBlockBuilder = keyType.createBlockBuilder(null, heap.getCapacity());
+        heap.popAll(reversedValueBlockBuilder, reversedKeyBlockBuilder);
 
-        for (int i = reversedBlockBuilder.getPositionCount() - 1; i >= 0; i--) {
-            elementType.appendTo(reversedBlockBuilder, i, arrayBlockBuilder);
+        for (int i = reversedValueBlockBuilder.getPositionCount() - 1; i >= 0; i--) {
+            elementType.appendTo(reversedValueBlockBuilder, i, arrayBlockBuilder);
         }
+        heap.addAll(reversedKeyBlockBuilder, reversedValueBlockBuilder);
         out.closeEntry();
     }
 

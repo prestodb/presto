@@ -216,6 +216,9 @@ Property Name                                      Description                  
 
 ``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
                                                    updates.
+
+``iceberg.delete-as-join-rewrite-enabled``         When enabled, equality delete row filtering is applied        ``true``
+                                                   as a join with the data of the equality delete files.
 ================================================== ============================================================= ============
 
 Table Properties
@@ -269,6 +272,18 @@ and a file system location of ``s3://test_bucket/test_schema/test_table``:
         location = 's3://test_bucket/test_schema/test_table')
     )
 
+Session Properties
+-------------------
+
+Session properties set behavior changes for queries executed within the given session.
+
+============================================= ======================================================================
+Property Name                                 Description
+============================================= ======================================================================
+``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
+                                              ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+============================================= ======================================================================
+
 Caching Support
 ----------------
 
@@ -303,6 +318,107 @@ Property Name                                          Description              
                                                        caching in bytes. Manifest files with a length exceeding
                                                        this size will not be cached.
 ====================================================   =============================================================   ============
+
+Alluxio Data Cache
+^^^^^^^^^^^^^^^^^^
+
+A Presto worker caches remote storage data in its original form (compressed and possibly encrypted) on local SSD upon read.
+
+The following configuration properties are required to set in the Iceberg catalog file (catalog/iceberg.properties):
+
+.. code-block:: none
+
+    cache.enabled=true
+    cache.base-directory=file:///mnt/flash/data
+    cache.type=ALLUXIO
+    cache.alluxio.max-cache-size=1600GB
+    hive.node-selection-strategy=SOFT_AFFINITY
+
+JMX queries to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.alluxio:name=client.cachehitrate,type=gauges";
+
+    SELECT * FROM jmx.current."com.facebook.alluxio:name=client.cachebytesreadcache,type=meters";
+
+    SHOW TABLES FROM jmx.current like '%alluxio%';
+
+File And Stripe Footer Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Caches open file descriptors and stripe or file footer information in leaf worker memory. These pieces of data are mostly frequently accessed when reading files.
+
+The following configuration properties are required to set in the Iceberg catalog file (catalog/iceberg.properties):
+
+.. code-block:: none
+
+    # scheduling
+    hive.node-selection-strategy=SOFT_AFFINITY
+
+    # orc
+    iceberg.orc.file-tail-cache-enabled=true
+    iceberg.orc.file-tail-cache-size=100MB
+    iceberg.orc.file-tail-cache-ttl-since-last-access=6h
+    iceberg.orc.stripe-metadata-cache-enabled=true
+    iceberg.orc.stripe-footer-cache-size=100MB
+    iceberg.orc.stripe-footer-cache-ttl-since-last-access=6h
+    iceberg.orc.stripe-stream-cache-size=300MB
+    iceberg.orc.stripe-stream-cache-ttl-since-last-access=6h
+
+    # parquet
+    iceberg.parquet.metadata-cache-enabled=true
+    iceberg.parquet.metadata-cache-size=100MB
+    iceberg.parquet.metadata-cache-ttl-since-last-access=6h
+
+JMX queries to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
+
+Metastore Versioned Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+
+.. note::
+
+    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+
+.. code-block:: none
+
+    hive.metastore-cache-ttl=2d
+    hive.metastore-refresh-interval=3d
+    hive.metastore-cache-maximum-size=10000000
+
+Extra Hidden Metadata Columns
+----------------------------
+
+The Iceberg connector exposes extra hidden metadata columns. You can query these
+as part of a SQL query by including them in your SELECT statement.
+
+``$path`` column
+^^^^^^^^^^^^^^^^
+* ``$path``: Full file system path name of the file for this row
+.. code-block:: sql
+
+    SELECT "$path", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+             $path                    |  regionkey
+     ---------------------------------+-----------
+      /full/path/to/file/file.parquet | 2
+
+``$data_sequence_number`` column
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
+.. code-block:: sql
+
+    SELECT "$data_sequence_number", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+             $data_sequence_number     |  regionkey
+     ----------------------------------+------------
+                  2                    | 3
 
 Extra Hidden Metadata Tables
 ----------------------------

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -26,6 +27,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig("exchange.async-page-transport-enabled")
 public class ExchangeClientConfig
 {
     private DataSize maxBufferSize = new DataSize(32, Unit.MEGABYTE);
@@ -38,7 +40,6 @@ public class ExchangeClientConfig
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;
     private double responseSizeExponentialMovingAverageDecayingAlpha = 0.1;
-    private boolean asyncPageTransportEnabled = true;
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -169,17 +170,5 @@ public class ExchangeClientConfig
     public double getResponseSizeExponentialMovingAverageDecayingAlpha()
     {
         return responseSizeExponentialMovingAverageDecayingAlpha;
-    }
-
-    public boolean isAsyncPageTransportEnabled()
-    {
-        return asyncPageTransportEnabled;
-    }
-
-    @Config("exchange.async-page-transport-enabled")
-    public ExchangeClientConfig setAsyncPageTransportEnabled(boolean asyncPageTransportEnabled)
-    {
-        this.asyncPageTransportEnabled = asyncPageTransportEnabled;
-        return this;
     }
 }

@@ -245,6 +245,16 @@ public class PlanFragmenterUtils
                 .collect(toImmutableSet());
     }
 
+    public static Set<PlanNodeId> getOutputTableWriterNodeIds(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(node -> (TableWriterNode) node)
+                .filter(tableWriterNode -> !tableWriterNode.getIsTemporaryTableWriter().orElse(false))
+                .map(TableWriterNode::getId)
+                .collect(toImmutableSet());
+    }
+
     public static Optional<Integer> getTableWriterTasks(PlanNode plan)
     {
         return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))

@@ -146,6 +146,15 @@ class TaskManager {
   // in exec/Task.h).
   std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
 
+  /// Invoked to check the stuck operation calls in the system.  If the function
+  /// fails to get the stuck call information from a task due to the lock
+  /// timeout, it adds the task to 'blockedTasks'.  Otherwise, it adds all stuck
+  /// call information to 'stuckOpCalls'.  The function returns false if a lock
+  /// on the taskMap cannot be taken, otherwise returns true.
+  bool getStuckOpCalls(
+      std::vector<std::string>& deadlockTasks,
+      std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
+
   /// Build directory path for spilling for the given task.
   /// Always returns non-empty string.
   static std::string buildTaskSpillDirectoryPath(

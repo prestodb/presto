@@ -22,7 +22,7 @@
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
 int main(int argc, char* argv[]) {
-  folly::init(&argc, &argv);
+  folly::Init init{&argc, &argv};
 
   google::InstallFailureSignalHandler();
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";

@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.changelog;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplit;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,7 +44,9 @@ import java.util.concurrent.CompletableFuture;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.changelog.ChangelogOperation.fromIcebergChangelogOperation;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -119,15 +122,16 @@ public class ChangelogSplitSource
                 task.file().path().toString(),
                 task.start(),
                 task.length(),
-                task.file().format(),
+                FileFormat.fromIcebergFileFormat(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
-                Optional.of(new ChangelogSplitInfo(changeTask.operation(),
+                Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),
-                        columnHandles)));
+                        columnHandles)),
+                getDataSequenceNumber(task.file()));
     }
 }

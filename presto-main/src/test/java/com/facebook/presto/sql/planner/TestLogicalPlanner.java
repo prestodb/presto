@@ -77,6 +77,11 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.TestExpressionInterpreter.AVG_UDAF_CPP;
@@ -120,11 +125,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -442,11 +442,13 @@ public class TestLogicalPlanner
                 anyTree(
                         markDistinct(
                                 "is_distinct",
-                                ImmutableList.of("orderstatus"),
+                                ImmutableList.of("orderstatus_35"),
                                 "hash",
                                 anyTree(
-                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus), 0))")),
-                                                tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus")))))));
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus_35), 0))")),
+                                                project(
+                                                        ImmutableMap.of("orderstatus_35", expression("'F'")),
+                                                tableScan("orders", ImmutableMap.of())))))));
     }
 
     @Test
@@ -585,8 +587,9 @@ public class TestLogicalPlanner
                 "SELECT * FROM orders WHERE orderkey = (SELECT 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(),
-                                filter("orderkey = BIGINT '1'",
-                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
+                                project(
+                                        filter("orderkey = BIGINT '1'",
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))),
                                 anyTree(
                                         project(ImmutableMap.of("orderkey", expression("1")), any())))));
     }
@@ -702,9 +705,11 @@ public class TestLogicalPlanner
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
                 OPTIMIZED,
                 any(
-                        filter(
-                                "X = BIGINT '3'",
-                                tableScan("orders", ImmutableMap.of("X", "orderkey")))));
+                        project(
+                                ImmutableMap.of("X", expression("3")),
+                                filter(
+                                        "X = BIGINT '3'",
+                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))))));
     }
 
     @Test
@@ -727,15 +732,16 @@ public class TestLogicalPlanner
         // rewrite Limit to decorrelated Limit
         assertPlan("SELECT regionkey, n.nationkey FROM region CROSS JOIN LATERAL (SELECT nationkey FROM nation WHERE region.regionkey = 3 LIMIT 2) n",
                 any(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                //Optional.of("region_regionkey = BIGINT '3'"),
-                                any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                limit(
-                                        2,
-                                        any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey")))))));
+                        project(
+                                join(
+                                        INNER,
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        //Optional.of("region_regionkey = BIGINT '3'"),
+                                        any(any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey")))),
+                                        limit(
+                                                2,
+                                                any(tableScan("nation", ImmutableMap.of("nation_nationkey", "nationkey"))))))));
     }
 
     @Test
@@ -994,11 +1000,13 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderkey=5",
                 output(
+                        project(
+                                ImmutableMap.of("expr_2", expression("5")),
                         filter("orderkey = BIGINT '5'",
                                 constrainedTableScanWithTableLayout(
                                         "orders",
                                         ImmutableMap.of(),
-                                        ImmutableMap.of("orderkey", "orderkey")))));
+                                        ImmutableMap.of("orderkey", "orderkey"))))));
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderstatus='F'",
                 output(
@@ -1176,15 +1184,15 @@ public class TestLogicalPlanner
                         "AND l.comment = p.comment " +
                         "WHERE l.comment = '42'",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
-                                anyTree(
-                                        filter(
-                                                "l_comment = '42'",
-                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
+                        join(INNER, ImmutableList.of(equiJoinClause("p_suppkey", "l_suppkey")),
                                 anyTree(
                                         filter(
                                                 "p_comment = '42' ",
-                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
+                                                tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))),
+                                anyTree(
+                                        filter(
+                                                "l_comment = '42'",
+                                                tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))))));
     }
 
     @Test

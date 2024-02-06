@@ -25,14 +25,16 @@ class PeriodicServiceInventoryManager {
       std::string address,
       int port,
       std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer,
-      std::string clientCertAndKeyPath,
-      std::string ciphers,
+      folly::SSLContextPtr sslContext,
       std::string id,
       uint64_t frequencyMs);
 
   void start();
 
   void stop();
+
+  /// If disabled then won't send any requests, but keeps itself running.
+  void enableRequest(bool enable);
 
  protected:
   // Denotes whether we retry failed requests due to network errors.
@@ -58,8 +60,7 @@ class PeriodicServiceInventoryManager {
   const std::string address_;
   const int port_;
   const std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
+  const folly::SSLContextPtr sslContext_;
   const std::string id_;
   const uint64_t frequencyMs_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
@@ -71,6 +72,7 @@ class PeriodicServiceInventoryManager {
   folly::SocketAddress serviceAddress_;
   std::shared_ptr<http::HttpClient> client_;
   std::atomic_bool stopped_{true};
+  std::atomic_bool requestEnabled_{true};
   uint64_t failedAttempts_{0};
   uint64_t attempts_{0};
 

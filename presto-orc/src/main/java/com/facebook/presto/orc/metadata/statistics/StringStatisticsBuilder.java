@@ -32,7 +32,7 @@ public class StringStatisticsBuilder
     private final int stringStatisticsLimitInBytes;
 
     private long nonNullValueCount;
-    private long size;
+    private long storageSize;
     private long rawSize;
     private Slice minimum;
     private Slice maximum;
@@ -128,9 +128,9 @@ public class StringStatisticsBuilder
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
         if (stringStatistics.isPresent()) {
             verify(nonNullValueCount > 0);
-            return new StringColumnStatistics(nonNullValueCount, null, stringStatistics.get());
+            return new StringColumnStatistics(nonNullValueCount, null, rawSize, storageSize, stringStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
 
     @Override
@@ -140,9 +140,9 @@ public class StringStatisticsBuilder
     }
 
     @Override
-    public void incrementSize(long size)
+    public void incrementSize(long storageSize)
     {
-        this.size += size;
+        this.storageSize += storageSize;
     }
 
     public static Optional<StringStatistics> mergeStringStatistics(List<ColumnStatistics> stats)

@@ -371,7 +371,8 @@ public class StoragePartitionLoader
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 cacheable,
                 hdfsContext.getIdentity(),
-                buildDirectoryContextProperties(session));
+                buildDirectoryContextProperties(session),
+                session.getRuntimeStats());
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(hiveFileInfo -> splitFactory.createInternalHiveSplit(hiveFileInfo, splittable))
                 .filter(Optional::isPresent)
@@ -402,7 +403,8 @@ public class StoragePartitionLoader
                     FAIL,
                     isUseListDirectoryCache(session),
                     hdfsContext.getIdentity(),
-                    buildDirectoryContextProperties(session))));
+                    buildDirectoryContextProperties(session),
+                    session.getRuntimeStats())));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -550,7 +552,8 @@ public class StoragePartitionLoader
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 isUseListDirectoryCache(session),
                 hdfsContext.getIdentity(),
-                buildDirectoryContextProperties(session));
+                buildDirectoryContextProperties(session),
+                session.getRuntimeStats());
         return stream(directoryLister.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());

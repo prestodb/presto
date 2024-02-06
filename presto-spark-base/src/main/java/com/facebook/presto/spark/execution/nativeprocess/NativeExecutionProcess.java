@@ -47,19 +47,21 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
@@ -70,6 +72,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NativeExecutionProcess
         implements AutoCloseable
@@ -86,7 +89,7 @@ public class NativeExecutionProcess
     private final PrestoSparkHttpServerClient serverClient;
     private final URI location;
     private final int port;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Executor executor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
@@ -96,30 +99,35 @@ public class NativeExecutionProcess
 
     public NativeExecutionProcess(
             Session session,
-            URI uri,
             HttpClient httpClient,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            Executor executor,
+            ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
-        this.port = getAvailableTcpPort();
+        String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
+        this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
-        this.location = getBaseUriWithPort(requireNonNull(uri, "uri is null"), getPort());
+        this.location = uriBuilder()
+                .scheme("http")
+                .host(nodeInternalAddress)
+                .port(getPort())
+                .build();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
                 location,
                 serverInfoCodec);
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
-                uri,
+                location,
                 NATIVE_EXECUTION_TASK_ERROR,
                 NATIVE_EXECUTION_TASK_ERROR_MESSAGE,
                 maxErrorDuration,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
@@ -175,31 +183,51 @@ public class NativeExecutionProcess
     /**
      * Triggers coredump (also terminates the process)
      */
-    public void sendCoreSignal()
+    public void terminateWithCore(Duration timeout)
     {
         // chosen as the least likely core signal to occur naturally (invalid sys call)
         // https://man7.org/linux/man-pages/man7/signal.7.html
-        sendSignal(SIGSYS);
+        Process process = sendSignal(SIGSYS);
+        if (process == null) {
+            return;
+        }
+        try {
+            long pid = getPid(process);
+            log.info("Waiting %s for process %s to terminate", timeout, pid);
+            if (!process.waitFor(timeout.toMillis(), MILLISECONDS)) {
+                log.warn("Process %s did not terminate within %s", pid, timeout);
+                process.destroyForcibly();
+            }
+            else {
+                log.info("Process %s successfully terminated with status code %s", pid, process.exitValue());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
-    public void sendSignal(int signal)
+    private Process sendSignal(int signal)
     {
         Process process = this.process;
         if (process == null) {
             log.warn("Failure sending signal, process does not exist");
-            return;
+            return null;
         }
         long pid = getPid(process);
         if (!process.isAlive()) {
             log.warn("Failure sending signal, process is dead: %s", pid);
-            return;
+            return null;
         }
         try {
             log.info("Sending signal to process %s: %s", pid, signal);
             Runtime.getRuntime().exec(format("kill -%s %s", signal, pid));
+            return process;
         }
         catch (IOException e) {
             log.warn(e, "Failure sending signal to process %s", pid);
+            return null;
         }
     }
 
@@ -280,17 +308,11 @@ public class NativeExecutionProcess
         return location;
     }
 
-    private static URI getBaseUriWithPort(URI baseUri, int port)
-    {
-        return uriBuilderFrom(baseUri)
-                .port(port)
-                .build();
-    }
-
-    private static int getAvailableTcpPort()
+    private static int getAvailableTcpPort(String nodeInternalAddress)
     {
         try {
-            ServerSocket socket = new ServerSocket(0);
+            ServerSocket socket = new ServerSocket();
+            socket.bind(new InetSocketAddress(nodeInternalAddress, 0));
             int port = socket.getLocalPort();
             socket.close();
             return port;
@@ -358,7 +380,7 @@ public class NativeExecutionProcess
                     doGetServerInfo(future);
                 }
                 else {
-                    errorRateLimit.addListener(() -> doGetServerInfo(future), errorRetryScheduledExecutor);
+                    errorRateLimit.addListener(() -> doGetServerInfo(future), executor);
                 }
             }
         }, directExecutor());

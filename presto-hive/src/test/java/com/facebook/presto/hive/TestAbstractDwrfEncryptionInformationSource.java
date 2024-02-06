@@ -26,10 +26,10 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.ColumnEncryptionInformation.fromHiveProperty;
 import static com.facebook.presto.hive.DwrfTableEncryptionProperties.forPerColumn;
 import static com.facebook.presto.hive.DwrfTableEncryptionProperties.forTable;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;

@@ -36,7 +36,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -107,7 +106,6 @@ public class TestPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
-                Optional.empty(),
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -194,7 +192,6 @@ public class TestPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
-                Optional.empty(),
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -236,7 +233,6 @@ public class TestPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
-                Optional.empty(),
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -306,7 +302,6 @@ public class TestPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 true,
                 location,
-                Optional.empty(),
                 callback,
                 scheduler,
                 pageBufferClientCallbackExecutor);
@@ -362,7 +357,6 @@ public class TestPageBufferClient
                 new Duration(30, TimeUnit.SECONDS),
                 true,
                 location,
-                Optional.empty(),
                 callback,
                 scheduler,
                 ticker,

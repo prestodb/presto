@@ -21,6 +21,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergMetadataColumn;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -46,8 +47,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -286,7 +287,7 @@ public class TestIcebergHiveStatistics
                         ((IcebergColumnHandle) handle).getType(),
                         ((IcebergColumnHandle) handle).getComment(),
                         REGULAR,
-                        ((IcebergColumnHandle) handle).getRequiredSubfields());
+                        handle.getRequiredSubfields());
             }
             ColumnStatistics actual = actualStats.get(handle);
             assertEquals(actual.getRange(), expected.getRange(), "range for col: " + handle);
@@ -319,7 +320,9 @@ public class TestIcebergHiveStatistics
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)
     {
-        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session));
+        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session)).entrySet().stream()
+                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     static void assertStatValuePresent(StatsSchema column, MaterializedResult result, Set<String> columnNames)

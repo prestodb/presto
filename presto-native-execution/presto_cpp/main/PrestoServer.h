@@ -16,6 +16,7 @@
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <folly/io/async/SSLContext.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <velox/exec/Task.h>
 #include <velox/expression/Expr.h>
@@ -56,8 +57,10 @@ struct MemoryInfo;
 
 namespace facebook::presto {
 
-// Three states our server can be in.
-enum class NodeState { ACTIVE, INACTIVE, SHUTTING_DOWN };
+/// Three states server can be in.
+enum class NodeState : int8_t { kActive, kInActive, kShuttingDown };
+
+std::string nodeState2String(NodeState nodeState);
 
 class Announcer;
 class SignalHandler;
@@ -83,6 +86,10 @@ class PrestoServer {
   void setNodeState(NodeState nodeState) {
     nodeState_ = nodeState;
   }
+
+  /// Enable/disable announcer (process notifying coordinator about this
+  /// worker).
+  void enableAnnouncer(bool enable);
 
  protected:
   /// Hook for derived PrestoServer implementations to add/stop additional
@@ -125,8 +132,6 @@ class PrestoServer {
 
   virtual void registerMemoryArbitrators();
 
-  virtual void registerStatsCounters();
-
   /// Invoked after creating global (singleton) config objects (SystemConfig and
   /// NodeConfig) and before loading their properties from the file.
   /// In the implementation any extra config properties can be registered.
@@ -142,6 +147,9 @@ class PrestoServer {
   /// Invoked to get the spill directory.
   virtual std::string getBaseSpillDirectory() const;
 
+  /// Invoked to enable stats reporting and register counters.
+  virtual void enableRuntimeMetricReporting();
+
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
@@ -149,6 +157,8 @@ class PrestoServer {
   void initializeVeloxMemory();
 
   void initializeThreadPools();
+
+  void registerStatsCounters();
 
  protected:
   void addServerPeriodicTasks();
@@ -203,7 +213,7 @@ class PrestoServer {
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
-  std::atomic<NodeState> nodeState_{NodeState::ACTIVE};
+  std::atomic<NodeState> nodeState_{NodeState::kActive};
   std::atomic_bool shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
@@ -219,6 +229,7 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
+  folly::SSLContextPtr sslContext_;
 };
 
 } // namespace facebook::presto

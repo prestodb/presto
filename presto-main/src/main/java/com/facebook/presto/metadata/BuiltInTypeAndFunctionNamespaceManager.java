@@ -105,6 +105,7 @@ import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyApproximat
 import com.facebook.presto.operator.aggregation.noisyaggregation.NoisyCountIfGaussianAggregation;
 import com.facebook.presto.operator.aggregation.noisyaggregation.SfmSketchMergeAggregation;
 import com.facebook.presto.operator.aggregation.reservoirsample.ReservoirSampleFunction;
+import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction;
 import com.facebook.presto.operator.scalar.ArrayAllMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayAnyMatchFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
@@ -270,7 +271,9 @@ import com.facebook.presto.type.VarcharParametricType;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogAggregationFunction;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogFunctions;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogOperators;
+import com.facebook.presto.type.khyperloglog.KHyperLogLogWithLimitAggregationFunction;
 import com.facebook.presto.type.khyperloglog.MergeKHyperLogLogAggregationFunction;
+import com.facebook.presto.type.khyperloglog.MergeKHyperLogLogWithLimitAggregationFunction;
 import com.facebook.presto.type.setdigest.BuildSetDigestAggregation;
 import com.facebook.presto.type.setdigest.MergeSetDigestAggregation;
 import com.facebook.presto.type.setdigest.SetDigestFunctions;
@@ -370,7 +373,6 @@ import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySum
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianClippingRandomSeedAggregation.NOISY_SUM_GAUSSIAN_CLIPPING_RANDOM_SEED_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.noisyaggregation.NoisySumGaussianRandomSeedAggregation.NOISY_SUM_GAUSSIAN_RANDOM_SEED_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchAggregationFunction.THETA_SKETCH;
 import static com.facebook.presto.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -943,15 +945,13 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
-                .aggregates(MergeKHyperLogLogAggregationFunction.class)
-                .function(new KHyperLogLogAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()))
                 .scalars(KHyperLogLogFunctions.class)
                 .scalars(KHyperLogLogOperators.class)
                 .scalars(WilsonInterval.class)
                 .scalars(TDigestOperators.class)
                 .scalars(TDigestFunctions.class)
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
-                .function(THETA_SKETCH)
+                .aggregate(ThetaSketchAggregationFunction.class)
                 .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
@@ -1009,6 +1009,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.aggregates(ApproximateRealPercentileAggregations.class);
             builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
             builder.function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()));
+        }
+
+        if (featuresConfig.getLimitNumberOfGroupsForKHyperLogLogAggregations()) {
+            builder.function(new MergeKHyperLogLogWithLimitAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()));
+            builder.function(new KHyperLogLogWithLimitAggregationFunction(featuresConfig.getKHyperLogLogAggregationGroupNumberLimit()));
+        }
+        else {
+            builder.aggregates(MergeKHyperLogLogAggregationFunction.class);
+            builder.aggregates(KHyperLogLogAggregationFunction.class);
         }
 
         return builder.getFunctions();

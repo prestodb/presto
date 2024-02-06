@@ -77,6 +77,16 @@ protocol::RuntimeUnit toPrestoRuntimeUnit(RuntimeCounter::Unit unit) {
   }
 }
 
+// Presto operator's node id sometimes is not equivalent to velox's.
+// So when reporting task stats, we need to parse node id back to presto's.
+// For example, velox's partitionedOutput operator would have "root." prefix.
+std::string toPrestoPlanNodeId(const protocol::PlanNodeId& id) {
+  if (FOLLY_LIKELY(id.find("root.") == std::string::npos)) {
+    return id;
+  }
+  return id.substr(5);
+}
+
 // Presto has certain query stats logic depending on the operator names.
 // To leverage this logic we need to supply Presto's operator names.
 std::string toPrestoOperatorType(const std::string& operatorType) {
@@ -440,9 +450,32 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
 
+  if (taskStats.outputBufferStats.has_value()) {
+    const auto& outputBufferStats = taskStats.outputBufferStats.value();
+
+    const auto averageBufferTimeNanos =
+        outputBufferStats.averageBufferTimeMs * 1'000'000;
+    taskRuntimeStats.insert(
+        {"averageOutputBufferWallNanos",
+         RuntimeMetric(averageBufferTimeNanos, RuntimeCounter::Unit::kNanos)});
+  }
+
+  if (taskStats.memoryReclaimCount > 0) {
+    taskRuntimeStats["memoryReclaimCount"].addValue(
+        taskStats.memoryReclaimCount);
+    taskRuntimeStats.insert(
+        {"memoryReclaimWallNanos",
+         RuntimeMetric(
+             taskStats.memoryReclaimMs * 1'000'000,
+             RuntimeCounter::Unit::kNanos)});
+  }
+
   if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
-    taskRuntimeStats["outputConsumedDelayInNanos"].addValue(
-        (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000);
+    taskRuntimeStats.insert(
+        {"outputConsumedDelayInNanos",
+         RuntimeMetric(
+             (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000,
+             RuntimeCounter::Unit::kNanos)});
     taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
@@ -507,6 +540,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.stageExecutionId = id.stageExecutionId();
       opOut.pipelineId = i;
       opOut.planNodeId = op.planNodeId;
+      opOut.planNodeId = toPrestoPlanNodeId(opOut.planNodeId);
       opOut.operatorId = op.operatorId;
       opOut.operatorType = toPrestoOperatorType(op.operatorType);
 
@@ -689,10 +723,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   return str;
 }
 
-std::string PrestoTask::toJsonString() const {
+folly::dynamic PrestoTask::toJson() const {
   std::lock_guard<std::mutex> l(mutex);
   folly::dynamic obj = folly::dynamic::object;
-  obj["task"] = task ? task->toJsonString() : "null";
+  obj["task"] = task ? task->toJson() : "null";
   obj["taskStarted"] = taskStarted;
   obj["lastHeartbeatMs"] = lastHeartbeatMs;
   obj["lastTaskStatsUpdateMs"] = lastTaskStatsUpdateMs;
@@ -700,8 +734,8 @@ std::string PrestoTask::toJsonString() const {
 
   json j;
   to_json(j, info);
-  obj["taskInfo"] = to_string(j);
-  return folly::toPrettyJson(obj);
+  obj["taskInfo"] = folly::parseJson(to_string(j));
+  return obj;
 }
 
 protocol::RuntimeMetric toRuntimeMetric(

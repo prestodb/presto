@@ -21,6 +21,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class BaseHiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
+    private final List<BaseHiveColumnHandle> partitionColumns;
     private final TupleDomain<Subfield> domainPredicate;
     private final RowExpression remainingPredicate;
     private final boolean pushdownFilterEnabled;
@@ -40,17 +42,41 @@ public class BaseHiveTableLayoutHandle
 
     @JsonCreator
     public BaseHiveTableLayoutHandle(
+            @JsonProperty("partitionColumns") List<BaseHiveColumnHandle> partitionColumns,
             @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
             @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
-            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate,
-            @JsonProperty("partitions") Optional<List<HivePartition>> partitions)
+            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate)
     {
+        this(
+                partitionColumns,
+                domainPredicate,
+                remainingPredicate,
+                pushdownFilterEnabled,
+                partitionColumnPredicate,
+                Optional.empty());
+    }
+
+    public BaseHiveTableLayoutHandle(
+            List<BaseHiveColumnHandle> partitionColumns,
+            TupleDomain<Subfield> domainPredicate,
+            RowExpression remainingPredicate,
+            boolean pushdownFilterEnabled,
+            TupleDomain<ColumnHandle> partitionColumnPredicate,
+            Optional<List<HivePartition>> partitions)
+    {
+        this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
         this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
         this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.partitionColumnPredicate = requireNonNull(partitionColumnPredicate, "partitionColumnPredicate is null");
         this.partitions = requireNonNull(partitions, "partitions is null");
+    }
+
+    @JsonProperty
+    public List<BaseHiveColumnHandle> getPartitionColumns()
+    {
+        return partitionColumns;
     }
 
     @JsonProperty

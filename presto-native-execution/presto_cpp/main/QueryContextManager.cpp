@@ -48,6 +48,14 @@ std::string toVeloxConfig(const std::string& name) {
           {"native_spill_file_create_config",
            QueryConfig::kSpillFileCreateConfig},
           {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
+          {"native_window_spill_enabled", QueryConfig::kWindowSpillEnabled},
+          {"native_writer_spill_enabled", QueryConfig::kWriterSpillEnabled},
+          {"native_row_number_spill_enabled",
+           QueryConfig::kRowNumberSpillEnabled},
+          {"native_join_spiller_partition_bits",
+           QueryConfig::kJoinSpillPartitionBits},
+          {"native_topn_row_number_spill_enabled",
+           QueryConfig::kTopNRowNumberSpillEnabled},
           {"native_debug_validate_output_from_operators",
            QueryConfig::kValidateOutputFromOperators}};
   auto it = kPrestoToVeloxMapping.find(name);

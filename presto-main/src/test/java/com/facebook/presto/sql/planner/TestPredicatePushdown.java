@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -22,7 +23,6 @@ import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +34,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -47,10 +51,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static java.util.Collections.emptyList;
 
@@ -160,15 +160,17 @@ public class TestPredicatePushdown
     {
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "expr_6", "SEMI_JOIN_RESULT",
                                 anyTree(
                                         filter("LINE_ORDER_KEY = BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINE_ORDER_KEY", "orderkey",
                                                         "LINE_QUANTITY", "quantity")))),
                                 anyTree(
-                                        filter("ORDERS_ORDER_KEY = BIGINT '2'",
-                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+                                        project(
+                                                ImmutableMap.of("expr_6", expression("2")),
+                                                filter("ORDERS_ORDER_KEY = BIGINT '2'",
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))))));
     }
 
     @Test
@@ -291,7 +293,9 @@ public class TestPredicatePushdown
                 // predicate matches exactly single partition, no FilterNode needed
                 output(
                         exchange(
-                                tableScan("orders"))),
+                                project(
+                                        ImmutableMap.of("expr_2", expression("'O'")),
+                                        tableScan("orders")))),
                 allOptimizers);
 
         assertPlan(
@@ -311,8 +315,8 @@ public class TestPredicatePushdown
                         join(
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("A", "B")),
-                                project(assignUniqueId("unique", filter("A = 1", values("A")))),
-                                project(filter("1 = B", values("B"))))));
+                                project(assignUniqueId("unique", project(ImmutableMap.of("A", expression("1")), filter("A = 1", values("A"))))),
+                                project(project(ImmutableMap.of("B", expression("1")), filter("1 = B", values("B")))))));
     }
 
     @Test

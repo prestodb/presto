@@ -179,7 +179,7 @@ public class HivePageSinkProvider
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
                         memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
-                        new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider)),
+                        new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector())),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

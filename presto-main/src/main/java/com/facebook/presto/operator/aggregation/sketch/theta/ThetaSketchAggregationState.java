@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.operator.aggregation.sketch.theta;
 
+import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 import org.apache.datasketches.theta.Union;
 
 @AccumulatorStateMetadata(stateSerializerClass = ThetaSketchStateSerializer.class, stateFactoryClass = ThetaSketchStateFactory.class)
 public interface ThetaSketchAggregationState
+        extends AccumulatorState
 {
     Union getSketch();
 
     void setSketch(Union value);
+
+    void addMemoryUsage(long memoryBytes);
 }

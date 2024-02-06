@@ -14,8 +14,10 @@
 #pragma once
 
 #include <folly/experimental/FunctionScheduler.h>
+#include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/Spill.h"
+#include "velox/exec/Task.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
@@ -33,6 +35,7 @@ class AsyncDataCache;
 namespace facebook::presto {
 
 class TaskManager;
+class PrestoServer;
 
 /// Manages a set of periodic tasks via folly::FunctionScheduler.
 /// This is a place to add a new task or add more functionality to an existing
@@ -47,7 +50,8 @@ class PeriodicTaskManager {
       const velox::cache::AsyncDataCache* const asyncDataCache,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::Connector>>& connectors);
+          std::shared_ptr<velox::connector::Connector>>& connectors,
+      PrestoServer* server);
 
   ~PeriodicTaskManager() {
     stop();
@@ -64,8 +68,19 @@ class PeriodicTaskManager {
   /// Add a task to run periodically.
   template <typename TFunc>
   void addTask(TFunc&& func, size_t periodMicros, const std::string& taskName) {
-    scheduler_.addFunction(
-        func, std::chrono::microseconds{periodMicros}, taskName);
+    repeatedRunner_.add(
+        taskName,
+        [taskName,
+         periodMicros,
+         func = std::forward<TFunc>(func)]() mutable noexcept {
+          try {
+            func();
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Error running periodic task " << taskName << ": "
+                       << e.what();
+          }
+          return std::chrono::milliseconds(periodMicros / 1000);
+        });
   }
 
   /// Add a task to run once. Before adding, cancels the any task that has same
@@ -73,9 +88,11 @@ class PeriodicTaskManager {
   template <typename TFunc>
   void
   addTaskOnce(TFunc&& func, size_t periodMicros, const std::string& taskName) {
-    scheduler_.cancelFunction(taskName);
-    scheduler_.addFunctionOnce(
-        func, taskName, std::chrono::microseconds{periodMicros});
+    oneTimeRunner_.cancelFunction(taskName);
+    oneTimeRunner_.addFunctionOnce(
+        std::forward<TFunc>(func),
+        taskName,
+        std::chrono::microseconds{periodMicros});
   }
 
   /// Stops all periodic tasks. Returns only when everything is stopped.
@@ -115,7 +132,10 @@ class PeriodicTaskManager {
   void addArbitratorStatsTask();
   void updateArbitratorStatsTask();
 
-  folly::FunctionScheduler scheduler_;
+  void addWatchdogTask();
+
+  void detachWorker();
+
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;
   TaskManager* const taskManager_;
@@ -125,6 +145,7 @@ class PeriodicTaskManager {
   const std::unordered_map<
       std::string,
       std::shared_ptr<velox::connector::Connector>>& connectors_;
+  PrestoServer* const server_;
 
   // Cache related stats
   int64_t lastMemoryCacheHits_{0};
@@ -146,6 +167,10 @@ class PeriodicTaskManager {
   // Renabled this after update velox.
   velox::common::SpillStats lastSpillStats_;
   velox::memory::MemoryArbitrator::Stats lastArbitratorStats_;
+
+  // NOTE: declare last since the threads access other members of `this`.
+  folly::FunctionScheduler oneTimeRunner_;
+  folly::ThreadedRepeatingFunctionRunner repeatedRunner_;
 };
 
 } // namespace facebook::presto

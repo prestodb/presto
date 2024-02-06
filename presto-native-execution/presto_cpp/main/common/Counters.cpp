@@ -60,8 +60,12 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTasksWithStuckOperator, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumTaskManagerLockTimeOut, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumRunningDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterMappedMemoryBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterMmapRawAllocBytesSmall, facebook::velox::StatType::AVG);
@@ -198,7 +202,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterSpillSortTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(
       kCounterSpillSerializationTimeUs, facebook::velox::StatType::SUM);
-  DEFINE_METRIC(kCounterSpillDiskWrites, facebook::velox::StatType::SUM);
+  DEFINE_METRIC(kCounterSpillWrites, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillFlushTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillWriteTimeUs, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterSpillMemoryBytes, facebook::velox::StatType::AVG);
