@@ -85,7 +85,7 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
   ///
   /// If no data is available returns empty list and sets 'atEnd' to true if no
   /// more data is expected. If data is still expected, sets 'atEnd' to false
-  /// and sets 'future' to a Future that will comlete when data arrives.
+  /// and sets 'future' to a Future that will complete when data arrives.
   ///
   /// The data may be compressed, in which case 'maxBytes' applies to compressed
   /// size.

@@ -114,7 +114,7 @@ class ExchangeQueue {
   /// sets 'atEnd' to false and 'future' to a Future that will complete when
   /// data arrives. If no more data is expected, sets 'atEnd' to true. Returns
   /// at least one page if data is available. If multiple pages are available,
-  /// returns as many pages as fit within 'maxBytes', but no fewer than onc.
+  /// returns as many pages as fit within 'maxBytes', but no fewer than one.
   /// Calling this method with 'maxBytes' of 1 returns at most one page.
   ///
   /// The data may be compressed, in which case 'maxBytes' applies to compressed

@@ -255,11 +255,14 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
   auto client =
       std::make_shared<ExchangeClient>("test", 17, 1 << 20, pool(), executor());
 
-  bool atEnd;
-  ContinueFuture future;
-  auto pages = client->next(1, &atEnd, &future);
-  ASSERT_EQ(0, pages.size());
-  ASSERT_FALSE(atEnd);
+  {
+    bool atEnd;
+    ContinueFuture future = ContinueFuture::makeEmpty();
+    auto pages = client->next(1, &atEnd, &future);
+    ASSERT_EQ(0, pages.size());
+    ASSERT_FALSE(atEnd);
+    ASSERT_TRUE(future.valid());
+  }
 
   const auto& queue = client->queue();
   addSources(*queue, 1);
@@ -269,20 +272,25 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
   }
 
   // Fetch one page.
-  pages = client->next(1, &atEnd, &future);
+  bool atEnd;
+  ContinueFuture future = ContinueFuture::makeEmpty();
+  auto pages = client->next(1, &atEnd, &future);
   ASSERT_EQ(1, pages.size());
   ASSERT_FALSE(atEnd);
+  ASSERT_FALSE(future.valid());
 
   // Fetch multiple pages. Each page is slightly larger than 1K bytes, hence,
   // only 4 pages fit.
   pages = client->next(5'000, &atEnd, &future);
   ASSERT_EQ(4, pages.size());
   ASSERT_FALSE(atEnd);
+  ASSERT_FALSE(future.valid());
 
   // Fetch the rest of the pages.
   pages = client->next(10'000, &atEnd, &future);
   ASSERT_EQ(5, pages.size());
   ASSERT_FALSE(atEnd);
+  ASSERT_FALSE(future.valid());
 
   // Signal no-more-data.
   enqueue(*queue, nullptr);
@@ -290,6 +298,7 @@ TEST_F(ExchangeClientTest, multiPageFetch) {
   pages = client->next(10'000, &atEnd, &future);
   ASSERT_EQ(0, pages.size());
   ASSERT_TRUE(atEnd);
+  ASSERT_FALSE(future.valid());
 
   client->close();
 }
