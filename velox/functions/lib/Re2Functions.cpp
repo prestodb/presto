@@ -839,8 +839,9 @@ class LikeWithRe2 final : public exec::VectorFunction {
 
 // This function is constructed when pattern or escape are not constants.
 // It allows up to kMaxCompiledRegexes different regular expressions to be
-// compiled throughout the query life per function, note that optimized regular
-// expressions that are not compiled are not counted.
+// compiled throughout the query lifetime per expression and thread of
+// execution, note that optimized regular expressions that are not compiled are
+// not counted.
 class LikeGeneric final : public exec::VectorFunction {
   void apply(
       const SelectivityVector& rows,
@@ -853,25 +854,8 @@ class LikeGeneric final : public exec::VectorFunction {
     auto applyWithRegex = [&](const StringView& input,
                               const StringView& pattern,
                               const std::optional<char>& escapeChar) -> bool {
-      RE2::Options opt{RE2::Quiet};
-      opt.set_dot_nl(true);
-      bool validEscapeUsage;
-      auto regex = likePatternToRe2(pattern, escapeChar, validEscapeUsage);
-      VELOX_USER_CHECK(
-          validEscapeUsage,
-          "Escape character must be followed by '%', '_' or the escape character itself");
-
-      auto key =
-          std::pair<StringView, std::optional<char>>{pattern, escapeChar};
-
-      auto [it, inserted] = compiledRegularExpressions_.emplace(
-          key, std::make_unique<RE2>(toStringPiece(regex), opt));
-      VELOX_USER_CHECK_LE(
-          compiledRegularExpressions_.size(),
-          kMaxCompiledRegexes,
-          "Max number of regex reached");
-      checkForBadPattern(*it->second);
-      return re2FullMatch(input, *it->second);
+      auto* re = findOrCompileRegex(pattern, escapeChar);
+      return re2FullMatch(input, *re);
     };
 
     auto applyRow = [&](const StringView& input,
@@ -963,6 +947,40 @@ class LikeGeneric final : public exec::VectorFunction {
   }
 
  private:
+  RE2* findOrCompileRegex(
+      const StringView& pattern,
+      std::optional<char> escapeChar) const {
+    const auto key =
+        std::pair<std::string, std::optional<char>>{pattern, escapeChar};
+
+    auto reIt = compiledRegularExpressions_.find(key);
+    if (reIt != compiledRegularExpressions_.end()) {
+      return reIt->second.get();
+    }
+
+    VELOX_USER_CHECK_LT(
+        compiledRegularExpressions_.size(),
+        kMaxCompiledRegexes,
+        "Max number of regex reached");
+
+    bool validEscapeUsage;
+    auto regex = likePatternToRe2(pattern, escapeChar, validEscapeUsage);
+    VELOX_USER_CHECK(
+        validEscapeUsage,
+        "Escape character must be followed by '%', '_' or the escape character itself");
+
+    RE2::Options opt{RE2::Quiet};
+    opt.set_dot_nl(true);
+    auto re = std::make_unique<RE2>(toStringPiece(regex), opt);
+    checkForBadPattern(*re);
+
+    auto [it, inserted] =
+        compiledRegularExpressions_.emplace(key, std::move(re));
+    VELOX_CHECK(inserted);
+
+    return it->second.get();
+  }
+
   mutable folly::F14FastMap<
       std::pair<std::string, std::optional<char>>,
       std::unique_ptr<RE2>>
