@@ -41,7 +41,8 @@ int32_t SparkCastHooks::castStringToDate(const StringView& dateString) const {
 
 void SparkCastHooks::castTimestampToString(
     const Timestamp& timestamp,
-    exec::StringWriter<false>& out) const {
+    exec::StringWriter<false>& out,
+    const date::time_zone* /*timeZone*/) const {
   static constexpr TimestampToStringOptions options = {
       .precision = TimestampToStringOptions::Precision::kMicroseconds,
       .leadingPositiveSign = true,

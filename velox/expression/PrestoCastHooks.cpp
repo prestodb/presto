@@ -30,13 +30,25 @@ int32_t PrestoCastHooks::castStringToDate(const StringView& dateString) const {
 
 void PrestoCastHooks::castTimestampToString(
     const Timestamp& timestamp,
-    StringWriter<false>& out) const {
-  out.copy_from(
-      legacyCast_
-          ? util::Converter<TypeKind::VARCHAR, void, util::LegacyCastPolicy>::
-                cast(timestamp)
-          : util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
-                cast(timestamp));
+    StringWriter<false>& out,
+    const date::time_zone* timeZone) const {
+  if (legacyCast_) {
+    out.copy_from(
+        util::Converter<TypeKind::VARCHAR, void, util::LegacyCastPolicy>::cast(
+            timestamp));
+  } else {
+    if (timeZone) {
+      Timestamp adjustedTimestamp(timestamp);
+      adjustedTimestamp.toTimezone(*timeZone);
+      out.copy_from(
+          util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
+              cast(adjustedTimestamp));
+    } else {
+      out.copy_from(
+          util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
+              cast(timestamp));
+    }
+  }
   out.finalize();
 }
 

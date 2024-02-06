@@ -606,6 +606,7 @@ TEST_F(CastExprTest, timestampToString) {
   testCast<Timestamp, std::string>(
       "string",
       {
+          Timestamp(0, 0),
           Timestamp(946729316, 123),
           Timestamp(-50049331200, 0),
           Timestamp(253405036800, 0),
@@ -613,10 +614,32 @@ TEST_F(CastExprTest, timestampToString) {
           std::nullopt,
       },
       {
+          "1970-01-01T00:00:00.000",
           "2000-01-01T12:21:56.000",
           "384-01-01T08:00:00.000",
           "10000-02-01T16:00:00.000",
           "-10-02-01T10:00:00.000",
+          std::nullopt,
+      });
+
+  setLegacyCast(false);
+  setTimezone("America/Los_Angeles");
+  testCast<Timestamp, std::string>(
+      "string",
+      {
+          Timestamp(0, 0),
+          Timestamp(946729316, 123),
+          Timestamp(-50049331622, 0),
+          Timestamp(253405036800, 0),
+          Timestamp(-62480038022, 0),
+          std::nullopt,
+      },
+      {
+          "1969-12-31 16:00:00.000",
+          "2000-01-01 04:21:56.000",
+          "0384-01-01 00:00:00.000",
+          "10000-02-01 08:00:00.000",
+          "-0010-02-01 02:00:00.000",
           std::nullopt,
       });
 }

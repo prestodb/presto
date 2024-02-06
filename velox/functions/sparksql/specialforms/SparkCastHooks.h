@@ -35,7 +35,8 @@ class SparkCastHooks : public exec::CastHooks {
   /// first if the year exceeds 9999.
   void castTimestampToString(
       const Timestamp& timestamp,
-      exec::StringWriter<false>& out) const override;
+      exec::StringWriter<false>& out,
+      const date::time_zone* timeZone) const override;
 
   // Returns false.
   bool legacy() const override;

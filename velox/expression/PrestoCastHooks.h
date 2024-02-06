@@ -36,7 +36,8 @@ class PrestoCastHooks : public CastHooks {
   // Applies different cast options according to 'isLegacyCast' config.
   void castTimestampToString(
       const Timestamp& timestamp,
-      StringWriter<false>& out) const override;
+      StringWriter<false>& out,
+      const date::time_zone* timeZone) const override;
 
   // Follows 'isLegacyCast' config.
   bool legacy() const override;

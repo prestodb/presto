@@ -345,7 +345,14 @@ void CastExpr::applyCastKernel(
         FromKind == TypeKind::TIMESTAMP &&
         (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY)) {
       auto writer = exec::StringWriter<>(result, row);
-      hooks_->castTimestampToString(inputRowValue, writer);
+      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
+      auto sessionTzName = queryConfig.sessionTimezone();
+      if (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty()) {
+        const auto* timeZone = date::locate_zone(sessionTzName);
+        hooks_->castTimestampToString(inputRowValue, writer, timeZone);
+      } else {
+        hooks_->castTimestampToString(inputRowValue, writer);
+      }
       return;
     }
 
