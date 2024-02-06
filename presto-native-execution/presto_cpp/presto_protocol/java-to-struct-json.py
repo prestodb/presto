@@ -333,9 +333,15 @@ def main():
         classes[abstract_name].subclasses = []
 
         for subclass in abstract_value.subclasses:
-            subclasses[subclass.name] = util.attrdict(
-                super=abstract_name, key=subclass.key
-            )
+            if "super" in subclass:
+                subclasses[subclass.name] = util.attrdict(
+                    super=subclass.super, key=subclass.key
+                )
+                depends[subclass.name].update([subclass.super])
+            else:
+                subclasses[subclass.name] = util.attrdict(
+                    super=abstract_name, key=subclass.key
+                )
 
             classes[abstract_name].subclasses.append(
                 util.attrdict(
