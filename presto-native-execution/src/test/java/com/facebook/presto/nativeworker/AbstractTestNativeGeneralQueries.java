@@ -877,6 +877,14 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT to_ieee754_64(-3.14158999999999988261834005243E0)");
         assertQuery("SELECT to_ieee754_64(totalprice) FROM orders");
         assertQuery("SELECT to_ieee754_64(acctbal) FROM customer");
+
+        //from_ieee754_64
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(null))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(0.0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(-3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(totalprice)) FROM orders");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(acctbal)) FROM customer");
     }
 
     @Test
