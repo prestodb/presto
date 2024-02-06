@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_process ProcessBase.cpp StackTrace.cpp ThreadDebugInfo.cpp
-                          TraceContext.cpp)
+                          TraceContext.cpp TraceHistory.cpp)
 
 target_link_libraries(
   velox_process

@@ -16,23 +16,34 @@
 
 #include "velox/common/process/TraceContext.h"
 
+#include "velox/common/process/TraceHistory.h"
+
 #include <sstream>
 
 namespace facebook::velox::process {
 
 namespace {
-folly::Synchronized<std::unordered_map<std::string, TraceData>>& traceMap() {
-  static folly::Synchronized<std::unordered_map<std::string, TraceData>>
-      staticTraceMap;
-  return staticTraceMap;
-}
+
+// We use thread local instead lock here since the critical path is on write
+// side.
+auto registry = std::make_shared<TraceContext::Registry>();
+thread_local auto threadLocalTraceData =
+    std::make_shared<TraceContext::Registry::Reference>(registry);
+
 } // namespace
 
 TraceContext::TraceContext(std::string label, bool isTemporary)
     : label_(std::move(label)),
       enterTime_(std::chrono::steady_clock::now()),
-      isTemporary_(isTemporary) {
-  traceMap().withWLock([&](auto& counts) {
+      isTemporary_(isTemporary),
+      traceData_(threadLocalTraceData) {
+  TraceHistory::push([&](auto& entry) {
+    entry.time = enterTime_;
+    entry.file = __FILE__;
+    entry.line = __LINE__;
+    snprintf(entry.label, entry.kLabelCapacity, "%s", label_.c_str());
+  });
+  traceData_->withValue([&](auto& counts) {
     auto& data = counts[label_];
     ++data.numThreads;
     if (data.numThreads == 1) {
@@ -43,17 +54,18 @@ TraceContext::TraceContext(std::string label, bool isTemporary)
 }
 
 TraceContext::~TraceContext() {
-  traceMap().withWLock([&](auto& counts) {
-    auto& data = counts[label_];
-    --data.numThreads;
+  traceData_->withValue([&](auto& counts) {
+    auto it = counts.find(label_);
+    auto& data = it->second;
+    if (--data.numThreads == 0 && isTemporary_) {
+      counts.erase(it);
+      return;
+    }
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                   std::chrono::steady_clock::now() - enterTime_)
                   .count();
     data.totalMs += ms;
     data.maxMs = std::max<uint64_t>(data.maxMs, ms);
-    if (!data.numThreads && isTemporary_) {
-      counts.erase(label_);
-    }
   });
 }
 
@@ -61,27 +73,39 @@ TraceContext::~TraceContext() {
 std::string TraceContext::statusLine() {
   std::stringstream out;
   auto now = std::chrono::steady_clock::now();
-  traceMap().withRLock([&](auto& counts) {
-    for (auto& pair : counts) {
-      if (pair.second.numThreads) {
-        auto continued = std::chrono::duration_cast<std::chrono::milliseconds>(
-                             now - pair.second.startTime)
-                             .count();
-
-        out << pair.first << "=" << pair.second.numThreads << " entered "
-            << pair.second.numEnters << " avg ms "
-            << (pair.second.totalMs / pair.second.numEnters) << " max ms "
-            << pair.second.maxMs << " continuous for " << continued
-            << std::endl;
-      }
+  auto counts = status();
+  for (auto& [label, data] : counts) {
+    if (data.numThreads > 0) {
+      auto continued = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           now - data.startTime)
+                           .count();
+      out << label << ": numThreads=" << data.numThreads
+          << " numEnters=" << data.numEnters
+          << " avgMs=" << (data.totalMs / data.numEnters)
+          << " maxMs=" << data.maxMs << " continued=" << continued << std::endl;
     }
-  });
+  }
   return out.str();
 }
 
 // static
-std::unordered_map<std::string, TraceData> TraceContext::status() {
-  return traceMap().withRLock([&](auto& map) { return map; });
+folly::F14FastMap<std::string, TraceData> TraceContext::status() {
+  folly::F14FastMap<std::string, TraceData> total;
+  registry->forAllValues([&](auto& counts) {
+    for (auto& [k, v] : counts) {
+      auto& sofar = total[k];
+      if (sofar.numEnters == 0) {
+        sofar.startTime = v.startTime;
+      } else if (v.numEnters > 0) {
+        sofar.startTime = std::min(sofar.startTime, v.startTime);
+      }
+      sofar.numThreads += v.numThreads;
+      sofar.numEnters += v.numEnters;
+      sofar.totalMs += v.totalMs;
+      sofar.maxMs = std::max(sofar.maxMs, v.maxMs);
+    }
+  });
+  return total;
 }
 
 } // namespace facebook::velox::process

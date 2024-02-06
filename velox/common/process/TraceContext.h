@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include "velox/common/process/ThreadLocalRegistry.h"
+
 #include <mutex>
 #include <string>
 #include <unordered_map>
 
-#include <folly/Synchronized.h>
+#include <folly/container/F14Map.h>
 
 namespace facebook::velox::process {
 
@@ -47,6 +49,8 @@ struct TraceData {
 // produces a concise report of what the system is doing at any one
 // time. This is good for diagnosing crashes or hangs which are
 // difficult to figure out from stacks in a core dump.
+//
+// NOTE: TraceContext is not sharable between different threads.
 class TraceContext {
  public:
   // Starts a trace context. isTemporary is false if this is a generic
@@ -56,6 +60,9 @@ class TraceContext {
   // which the record should be dropped once the last thread finishes.
   explicit TraceContext(std::string label, bool isTemporary = false);
 
+  TraceContext(const TraceContext&) = delete;
+  TraceContext& operator=(const TraceContext&) = delete;
+
   ~TraceContext();
 
   // Produces a human readable report of all TraceContexts in existence at the
@@ -63,12 +70,18 @@ class TraceContext {
   static std::string statusLine();
 
   // Returns a copy of the trace status.
-  static std::unordered_map<std::string, TraceData> status();
+  static folly::F14FastMap<std::string, TraceData> status();
+
+  // Implementation detail type.  Made public to be available with
+  // std::make_shared.  Do not use outside this class.
+  using Registry =
+      ThreadLocalRegistry<folly::F14FastMap<std::string, TraceData>>;
 
  private:
   const std::string label_;
   const std::chrono::steady_clock::time_point enterTime_;
   const bool isTemporary_;
+  std::shared_ptr<Registry::Reference> traceData_;
 };
 
 } // namespace facebook::velox::process
