@@ -2344,10 +2344,84 @@ TEST_P(MultiThreadedHashJoinTest, leftJoin) {
       .buildVectors(std::move(buildVectors))
       .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
       .joinType(core::JoinType::kLeft)
-      //.joinOutputLayout({"row_number", "c0", "c1", "u_c1"})
       .joinOutputLayout({"row_number", "c0", "c1", "u_c0"})
       .referenceQuery(
           "SELECT t.row_number, t.c0, t.c1, u.c0 FROM t LEFT JOIN u ON t.c0 = u.c0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        int nullJoinBuildKeyCount = 0;
+        int nullJoinProbeKeyCount = 0;
+
+        for (auto& pipeline : task->taskStats().pipelineStats) {
+          for (auto op : pipeline.operatorStats) {
+            if (op.operatorType == "HashBuild") {
+              nullJoinBuildKeyCount += op.numNullKeys;
+            }
+            if (op.operatorType == "HashProbe") {
+              nullJoinProbeKeyCount += op.numNullKeys;
+            }
+          }
+        }
+        ASSERT_EQ(nullJoinBuildKeyCount, 33 * GetParam().numDrivers);
+        ASSERT_EQ(nullJoinProbeKeyCount, 34 * GetParam().numDrivers);
+      })
+      .run();
+}
+
+TEST_P(MultiThreadedHashJoinTest, nullStatsWithEmptyBuild) {
+  std::vector<RowVectorPtr> probeVectors =
+      makeBatches(1, [&](int32_t /*unused*/) {
+        return makeRowVector(
+            {"c0", "c1", "row_number"},
+            {
+                makeFlatVector<int32_t>(
+                    77, [](auto row) { return row % 21; }, nullEvery(13)),
+                makeFlatVector<int32_t>(77, [](auto row) { return row; }),
+                makeFlatVector<int32_t>(77, [](auto row) { return row; }),
+            });
+      });
+
+  // All null keys on build side.
+  std::vector<RowVectorPtr> buildVectors =
+      makeBatches(1, [&](int32_t /*unused*/) {
+        return makeRowVector({
+            makeFlatVector<int32_t>(
+                1, [](auto row) { return row % 5; }, nullEvery(1)),
+            makeFlatVector<int32_t>(
+                1, [](auto row) { return -111 + row * 2; }, nullEvery(1)),
+        });
+      });
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(numDrivers_)
+      .probeKeys({"c0"})
+      .probeVectors(std::move(probeVectors))
+      .buildKeys({"u_c0"})
+      .buildVectors(std::move(buildVectors))
+      .buildProjections({"c0 AS u_c0", "c1 AS u_c1"})
+      .joinType(core::JoinType::kLeft)
+      .joinOutputLayout({"row_number", "c0", "c1", "u_c0"})
+      .referenceQuery(
+          "SELECT t.row_number, t.c0, t.c1, u.c0 FROM t LEFT JOIN u ON t.c0 = u.c0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        int nullJoinBuildKeyCount = 0;
+        int nullJoinProbeKeyCount = 0;
+
+        for (auto& pipeline : task->taskStats().pipelineStats) {
+          for (auto op : pipeline.operatorStats) {
+            if (op.operatorType == "HashBuild") {
+              nullJoinBuildKeyCount += op.numNullKeys;
+            }
+            if (op.operatorType == "HashProbe") {
+              nullJoinProbeKeyCount += op.numNullKeys;
+            }
+          }
+        }
+        // Due to inaccurate stats tracking in case of empty build side,
+        // we will report 0 null keys on probe side.
+        ASSERT_EQ(nullJoinProbeKeyCount, 0);
+        ASSERT_EQ(nullJoinBuildKeyCount, 1 * GetParam().numDrivers);
+      })
+      .checkSpillStats(false)
       .run();
 }
 

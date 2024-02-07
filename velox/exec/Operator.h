@@ -152,6 +152,11 @@ struct OperatorStats {
   int64_t lastLazyCpuNanos{0};
   int64_t lastLazyWallNanos{0};
 
+  // Total null keys processed by the operator.
+  // Currently populated only by HashJoin/HashBuild.
+  // HashProbe doesn't populate numNullKeys when build side is empty.
+  int64_t numNullKeys{0};
+
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;

@@ -481,6 +481,8 @@ void OperatorStats::add(const OperatorStats& other) {
   spilledRows += other.spilledRows;
   spilledPartitions += other.spilledPartitions;
   spilledFiles += other.spilledFiles;
+
+  numNullKeys += other.numNullKeys;
 }
 
 void OperatorStats::clear() {

@@ -581,6 +581,17 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
   activeRows_ = nonNullInputRows_;
 
+  // Update statistics for null keys in join operator.
+  // Updating here means we will report 0 null keys when build side is empty.
+  // If we want more accurate stats, we will have to decode input vector
+  // even when not needed. So we tradeoff less accurate stats for more
+  // performance.
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->numNullKeys +=
+        activeRows_.size() - activeRows_.countSelected();
+  }
+
   table_->prepareForJoinProbe(*lookup_.get(), input_, activeRows_, false);
 
   passingInputRowsInitialized_ = false;

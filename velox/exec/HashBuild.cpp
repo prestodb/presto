@@ -334,6 +334,18 @@ void HashBuild::addInput(RowVectorPtr input) {
     hashers[i]->decode(*key, activeRows_);
   }
 
+  // Update statistics for null keys in join operator.
+  // We use activeRows_ to store which rows have some null keys,
+  // and reset it after using it.
+  // Only process when input is not spilled, to avoid overcounting.
+  if (!isInputFromSpill()) {
+    auto lockedStats = stats_.wlock();
+    deselectRowsWithNulls(hashers, activeRows_);
+    lockedStats->numNullKeys +=
+        activeRows_.size() - activeRows_.countSelected();
+    activeRows_.setAll();
+  }
+
   if (!isRightJoin(joinType_) && !isFullJoin(joinType_) &&
       !isRightSemiProjectJoin(joinType_) &&
       !isLeftNullAwareJoinWithFilter(joinNode_)) {
