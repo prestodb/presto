@@ -1096,8 +1096,19 @@ public class CachingHiveMetastore
 
     private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
     {
-        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? new MetastoreContext(context.getUsername(), context.getQueryId(), context.getClientInfo(), context.getSource(), true, context.getMetastoreHeaders(), context.isUserDefinedTypeEncodingEnabled(), context.getColumnConverterProvider(), context.getWarningCollector()) : context;
-        return new KeyAndContext<>(metastoreContext, key);
+        if (metastoreImpersonationEnabled) {
+            context = new MetastoreContext(
+                    context.getUsername(),
+                    context.getQueryId(),
+                    context.getClientInfo(),
+                    context.getSource(),
+                    true,
+                    context.getMetastoreHeaders(),
+                    context.isUserDefinedTypeEncodingEnabled(),
+                    context.getColumnConverterProvider(),
+                    context.getWarningCollector());
+        }
+        return new KeyAndContext<>(context, key);
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)
