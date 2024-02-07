@@ -1431,5 +1431,45 @@ TEST_F(Re2FunctionsTest, regexExtractAllLarge) {
       "No group 4611686018427387904 in regex '(\\d+)([a-z]+)")
 }
 
+// Make sure we do not compile more than kMaxCompiledRegexes.
+TEST_F(Re2FunctionsTest, limit) {
+  auto data = makeRowVector({
+      makeFlatVector<std::string>(
+          100,
+          [](auto row) { return fmt::format("Apples and oranges {}", row); }),
+      makeFlatVector<std::string>(
+          100,
+          [](auto row) { return fmt::format("Apples (.*) oranges {}", row); }),
+      makeFlatVector<std::string>(
+          100,
+          [](auto row) {
+            return fmt::format("Apples (.*) oranges {}", row % 20);
+          }),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_extract(c0, c1)", data), "Max number of regex reached");
+  ASSERT_NO_THROW(evaluate("regexp_extract(c0, c2)", data));
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_extract(c0, c1, 1)", data),
+      "Max number of regex reached");
+  ASSERT_NO_THROW(evaluate("regexp_extract(c0, c2, 1)", data));
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_extract_all(c0, c1)", data),
+      "Max number of regex reached");
+  ASSERT_NO_THROW(evaluate("regexp_extract_all(c0, c2)", data));
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_extract_all(c0, c1, 1)", data),
+      "Max number of regex reached");
+  ASSERT_NO_THROW(evaluate("regexp_extract_all(c0, c2, 1)", data));
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_like(c0, c1)", data), "Max number of regex reached");
+  ASSERT_NO_THROW(evaluate("regexp_like(c0, c2)", data));
+}
+
 } // namespace
 } // namespace facebook::velox::functions
