@@ -160,6 +160,7 @@ Array Functions
         SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: Ordering nulls is not supported
 
 .. function:: array_sort(array(T), function(T,U)) -> array(T)
+    :noindex:
 
     Returns the array sorted by values computed using specified lambda in ascending
     order. U must be an orderable type. Null elements will be placed at the end of
@@ -185,6 +186,7 @@ Array Functions
         SELECT array_sort(ARRAY [ARRAY [1, 2], ARRAY [1, null]]); -- failed: Ordering nulls is not supported
 
 .. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
+    :noindex:
 
     Returns the array sorted by values computed using specified lambda in descending
     order. U must be an orderable type. Null elements will be placed at the end of
@@ -221,9 +223,9 @@ Array Functions
     When 'element' is of complex type, throws if 'x' or 'element' contains nested nulls
     and these need to be compared to produce a result. ::
 
-    SELECT contains(ARRAY[ARRAY[1, 3]], ARRAY[2, null]); -- false.
-    SELECT contains(ARRAY[ARRAY[2, 3]], ARRAY[2, null]); -- failed: contains does not support arrays with elements that are null or contain null
-    SELECT contains(ARRAY[ARRAY[2, null]], ARRAY[2, 1]); -- failed: contains does not support arrays with elements that are null or contain null
+        SELECT contains(ARRAY[ARRAY[1, 3]], ARRAY[2, null]); -- false.
+        SELECT contains(ARRAY[ARRAY[2, 3]], ARRAY[2, null]); -- failed: contains does not support arrays with elements that are null or contain null
+        SELECT contains(ARRAY[ARRAY[2, null]], ARRAY[2, 1]); -- failed: contains does not support arrays with elements that are null or contain null
 
 .. function:: element_at(array(E), index) -> E
 
@@ -247,6 +249,7 @@ Array Functions
     for no-match and first-match-is-null cases.
 
 .. function:: find_first(array(T), index, function(T,boolean)) -> E
+    :noindex:
 
     Returns the first element of ``array`` that matches the predicate.
     Returns ``NULL`` if no element matches the predicate.
@@ -268,6 +271,7 @@ Array Functions
     Returns ``NULL`` if no such element exists.
 
 .. function:: find_first_index(array(T), index, function(T,boolean)) -> BIGINT
+    :noindex:
 
     Returns the 1-based index of the first element of ``array`` that matches the predicate.
     Returns ``NULL`` if no such element exists.
@@ -304,7 +308,9 @@ Array Functions
     the element, ``inputFunction`` takes the current state, initially
     ``initialState``, and returns the new state. ``outputFunction`` will be
     invoked to turn the final state into the result value. It may be the
-    identity function (``i -> i``). ::
+    identity function (``i -> i``).
+
+    Throws if array has more than 10,000 elements. ::
 
         SELECT reduce(ARRAY [], 0, (s, x) -> s + x, s -> s); -- 0
         SELECT reduce(ARRAY [5, 20, 50], 0, (s, x) -> s + x, s -> s); -- 75
@@ -327,7 +333,7 @@ Array Functions
 
 .. function:: shuffle(array(E)) -> array(E)
 
-    Generate a random permutation of the given ``array``::
+    Generate a random permutation of the given ``array`` ::
 
         SELECT shuffle(ARRAY [1, 2, 3]); -- [3, 1, 2] or any other random permutation
         SELECT shuffle(ARRAY [0, 0, 0]); -- [0, 0, 0]
@@ -375,7 +381,7 @@ Array Functions
 
 .. function:: remove_nulls(x) -> array
 
-    Remove null values from an array ``array``::
+    Remove null values from an array ``array`` ::
 
         SELECT remove_nulls(ARRAY[1, NULL, 3, NULL]); -- [1, 3]
         SELECT remove_nulls(ARRAY[true, false, NULL]); -- [true, false]
@@ -392,7 +398,8 @@ Array Functions
 .. function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
 
     Merges the two given arrays, element-wise, into a single array using ``function``.
-    If one array is shorter, nulls are appended at the end to match the length of the longer array, before applying ``function``::
+    If one array is shorter, nulls are appended at the end to match the length of the
+    longer array, before applying ``function`` ::
 
         SELECT zip_with(ARRAY[1, 3, 5], ARRAY['a', 'b', 'c'], (x, y) -> (y, x)); -- [ROW('a', 1), ROW('b', 3), ROW('c', 5)]
         SELECT zip_with(ARRAY[1, 2], ARRAY[3, 4], (x, y) -> x + y); -- [4, 6]

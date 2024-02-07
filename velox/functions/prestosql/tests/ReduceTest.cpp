@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -241,4 +242,30 @@ TEST_F(ReduceTest, nullArray) {
       makeRowVector({allNullsArrayVector}));
   assertEqualVectors(
       makeNullableFlatVector<int64_t>({std::nullopt, std::nullopt}), result);
+}
+
+// Verify limit on the number of array elements.
+TEST_F(ReduceTest, limit) {
+  // Make array vector with huge arrays in rows 2 and 4.
+  auto data = makeRowVector({makeArrayVector(
+      {0, 1'000, 10'000, 100'000, 100'010}, makeConstant(123, 1'000'000))});
+
+  VELOX_ASSERT_THROW(
+      evaluate("reduce(c0, 0, (s, x) -> s + x, s -> s)", data),
+      "reduce lambda function doesn't support arrays with more than 10000 elements");
+
+  // Exclude huge arrays.
+  SelectivityVector rows(4);
+  rows.setValid(2, false);
+  rows.updateBounds();
+  auto result = evaluate("reduce(c0, 0, (s, x) -> s + x, s -> s)", data, rows);
+  auto expected =
+      makeFlatVector<int64_t>({123 * 1'000, 123 * 9'000, -1, 123 * 10});
+  assertEqualVectors(expected, result, rows);
+
+  // Mask errors with TRY.
+  result = evaluate("TRY(reduce(c0, 0, (s, x) -> s + x, s -> s))", data);
+  expected = makeNullableFlatVector<int64_t>(
+      {123 * 1'000, 123 * 9'000, std::nullopt, 123 * 10, std::nullopt});
+  assertEqualVectors(expected, result);
 }

@@ -19,6 +19,34 @@
 namespace facebook::velox::functions {
 namespace {
 
+// Throws if any array in any of 'rows' has more than 10K elements.
+// Evaluating 'reduce' lambda function on very large arrays is too slow.
+void checkArraySizes(
+    const SelectivityVector& rows,
+    DecodedVector& decodedArray,
+    exec::EvalCtx& context) {
+  const auto* indices = decodedArray.indices();
+  const auto* rawSizes = decodedArray.base()->as<ArrayVector>()->rawSizes();
+
+  static const vector_size_t kMaxArraySize = 10'000;
+
+  rows.applyToSelected([&](auto row) {
+    if (decodedArray.isNullAt(row)) {
+      return;
+    }
+    const auto size = rawSizes[indices[row]];
+    try {
+      VELOX_USER_CHECK_LT(
+          size,
+          kMaxArraySize,
+          "reduce lambda function doesn't support arrays with more than {} elements",
+          kMaxArraySize);
+    } catch (VeloxUserError&) {
+      context.setError(row, std::current_exception());
+    }
+  });
+}
+
 /// Populates indices of the n-th elements of the arrays.
 /// Selects 'row' in 'arrayRows' if corresponding array has an n-th element.
 /// Sets elementIndices[row] to the index of the n-th element in the 'elements'
@@ -75,6 +103,36 @@ class ReduceFunction : public exec::VectorFunction {
     exec::LocalDecodedVector arrayDecoder(context, *args[0], rows);
     auto& decodedArray = *arrayDecoder.get();
 
+    checkArraySizes(rows, decodedArray, context);
+
+    exec::LocalSelectivityVector remainingRows(context, rows);
+    context.deselectErrors(*remainingRows);
+
+    doApply(*remainingRows, args, decodedArray, outputType, context, result);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // array(T), S, function(S, T, S), function(S, R) -> R
+    return {exec::FunctionSignatureBuilder()
+                .typeVariable("T")
+                .typeVariable("S")
+                .typeVariable("R")
+                .returnType("R")
+                .argumentType("array(T)")
+                .argumentType("S")
+                .argumentType("function(S,T,S)")
+                .argumentType("function(S,R)")
+                .build()};
+  }
+
+ private:
+  void doApply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      DecodedVector& decodedArray,
+      const TypePtr& outputType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
     auto flatArray = flattenArray(rows, args[0], decodedArray);
     // Identify the rows need to be computed.
     exec::LocalSelectivityVector nonNullRowsHolder(*context.execCtx());
@@ -157,6 +215,7 @@ class ReduceFunction : public exec::VectorFunction {
         n++;
       }
     }
+
     // Apply output function.
     VectorPtr localResult;
     auto outputFuncIt =
@@ -177,20 +236,6 @@ class ReduceFunction : public exec::VectorFunction {
           rows, flatArray->rawNulls(), context, outputType, localResult);
     }
     context.moveOrCopyResult(localResult, rows, result);
-  }
-
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // array(T), S, function(S, T, S), function(S, R) -> R
-    return {exec::FunctionSignatureBuilder()
-                .typeVariable("T")
-                .typeVariable("S")
-                .typeVariable("R")
-                .returnType("R")
-                .argumentType("array(T)")
-                .argumentType("S")
-                .argumentType("function(S,T,S)")
-                .argumentType("function(S,R)")
-                .build()};
   }
 };
 } // namespace
