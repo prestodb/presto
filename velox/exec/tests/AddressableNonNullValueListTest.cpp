@@ -15,6 +15,7 @@
  */
 #include "velox/exec/AddressableNonNullValueList.h"
 #include <gtest/gtest.h>
+#include "velox/common/base/IOUtils.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::aggregate::prestosql {
@@ -28,14 +29,17 @@ class AddressableNonNullValueListTest : public testing::Test,
     memory::MemoryManager::testingSetInstance({});
   }
 
-  void test(const VectorPtr& data, const VectorPtr& uniqueData) {
-    using T = AddressableNonNullValueList::Entry;
-    using Set = folly::F14FastSet<
-        T,
-        AddressableNonNullValueList::Hash,
-        AddressableNonNullValueList::EqualTo,
-        AlignedStlAllocator<T, 16>>;
+  using T = AddressableNonNullValueList::Entry;
+  using Set = folly::F14FastSet<
+      T,
+      AddressableNonNullValueList::Hash,
+      AddressableNonNullValueList::EqualTo,
+      AlignedStlAllocator<T, 16>>;
 
+  static constexpr size_t kSizeOfHash = sizeof(uint64_t);
+  static constexpr size_t kSizeOfLength = sizeof(vector_size_t);
+
+  void test(const VectorPtr& data, const VectorPtr& uniqueData) {
     Set uniqueValues{
         0,
         AddressableNonNullValueList::Hash{},
@@ -45,6 +49,10 @@ class AddressableNonNullValueListTest : public testing::Test,
     AddressableNonNullValueList values;
 
     std::vector<T> entries;
+
+    // Tracks the number of bytes for serializing the
+    // AddressableNonNullValueList.
+    vector_size_t totalSize = 0;
 
     DecodedVector decodedVector(*data);
     for (auto i = 0; i < data->size(); ++i) {
@@ -56,6 +64,9 @@ class AddressableNonNullValueListTest : public testing::Test,
       }
 
       entries.push_back(entry);
+      // The total size for serialization is
+      // (size of length + size of hash + actual value size) for each entry.
+      totalSize += entry.size + kSizeOfHash + kSizeOfLength;
 
       ASSERT_TRUE(uniqueValues.insert(entry).second);
       ASSERT_TRUE(uniqueValues.contains(entry));
@@ -65,7 +76,19 @@ class AddressableNonNullValueListTest : public testing::Test,
     ASSERT_EQ(uniqueData->size(), values.size());
     ASSERT_EQ(uniqueData->size(), uniqueValues.size());
 
-    auto copy = BaseVector::create(data->type(), uniqueData->size(), pool());
+    testDirectRead(entries, uniqueValues, uniqueData);
+    testSerialization(entries, totalSize, uniqueData);
+  }
+
+  // Test direct read from AddressableNonNullValueList.
+  // Reads AddressableNonNullValueList into a vector, and validates its
+  // content.
+  void testDirectRead(
+      const std::vector<T>& entries,
+      const Set& uniqueValues,
+      const VectorPtr& uniqueData) {
+    auto copy =
+        BaseVector::create(uniqueData->type(), uniqueData->size(), pool());
     for (auto i = 0; i < entries.size(); ++i) {
       auto entry = entries[i];
       ASSERT_TRUE(uniqueValues.contains(entry));
@@ -73,6 +96,57 @@ class AddressableNonNullValueListTest : public testing::Test,
     }
 
     test::assertEqualVectors(uniqueData, copy);
+  }
+
+  // Test copy/appendSerialized round-trip for AddressableNonNullValueList.
+  // Steps in the test:
+  // i) Copy entry length, hash and value of each entry to a stream.
+  // ii) Deserialize stream to a new set of entries.
+  // iii) Read deserialized entries back into a vector.
+  // iv) Validate the result vector.
+  void testSerialization(
+      const std::vector<T>& entries,
+      vector_size_t totalSize,
+      const VectorPtr& uniqueData) {
+    size_t offset = 0;
+    auto buffer = AlignedBuffer::allocate<char>(totalSize, pool());
+    auto* rawBuffer = buffer->asMutable<char>();
+
+    auto append = [&](const void* value, size_t size) {
+      memcpy((void*)(rawBuffer + offset), value, size);
+      offset += size;
+    };
+
+    for (const auto& entry : entries) {
+      append(&entry.size, kSizeOfLength);
+      append(&entry.hash, kSizeOfHash);
+      AddressableNonNullValueList::readSerialized(
+          entry, (char*)(rawBuffer + offset));
+      offset += entry.size;
+    }
+    ASSERT_EQ(offset, totalSize);
+
+    // Deserialize entries from the stream.
+    AddressableNonNullValueList deserialized;
+    std::vector<T> deserializedEntries;
+    common::InputByteStream stream(rawBuffer);
+    while (stream.offset() < totalSize) {
+      auto length = stream.read<vector_size_t>();
+      auto hash = stream.read<uint64_t>();
+      StringView contents(stream.read<char>(length), length);
+      auto position = deserialized.appendSerialized(contents, allocator());
+      deserializedEntries.push_back({position, contents.size(), hash});
+    }
+
+    // Direct read from deserialized AddressableNonNullValueList. Validate the
+    // results.
+    auto deserializedCopy =
+        BaseVector::create(uniqueData->type(), uniqueData->size(), pool());
+    for (auto i = 0; i < deserializedEntries.size(); ++i) {
+      auto entry = deserializedEntries[i];
+      AddressableNonNullValueList::read(entry, *deserializedCopy, i);
+    }
+    test::assertEqualVectors(uniqueData, deserializedCopy);
   }
 
   HashStringAllocator* allocator() {

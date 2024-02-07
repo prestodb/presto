@@ -18,9 +18,7 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
-    const DecodedVector& decoded,
-    vector_size_t index,
+ByteOutputStream AddressableNonNullValueList::initStream(
     HashStringAllocator* allocator) {
   ByteOutputStream stream(allocator);
   if (!firstHeader_) {
@@ -30,12 +28,20 @@ AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
     // and a next pointer. This could be adaptive, with smaller initial
     // sizes for lots of small arrays.
     static constexpr int kInitialSize = 44;
-
     currentPosition_ = allocator->newWrite(stream, kInitialSize);
     firstHeader_ = currentPosition_.header;
   } else {
     allocator->extendWrite(currentPosition_, stream);
   }
+
+  return stream;
+}
+
+AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
+    const DecodedVector& decoded,
+    vector_size_t index,
+    HashStringAllocator* allocator) {
+  auto stream = initStream(allocator);
 
   const auto hash = decoded.base()->hashValueAt(decoded.index(index));
 
@@ -44,7 +50,6 @@ AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
   // Write value.
   exec::ContainerRowSerde::serialize(
       *decoded.base(), decoded.index(index), stream);
-
   ++size_;
 
   auto startAndFinish = allocator->finishWrite(stream, 1024);
@@ -53,6 +58,21 @@ AddressableNonNullValueList::Entry AddressableNonNullValueList::append(
   const auto writtenSize = stream.size() - originalSize;
 
   return {startAndFinish.first, writtenSize, hash};
+}
+
+HashStringAllocator::Position AddressableNonNullValueList::appendSerialized(
+    const StringView& value,
+    HashStringAllocator* allocator) {
+  auto stream = initStream(allocator);
+
+  const auto originalSize = stream.size();
+  stream.appendStringView(value);
+  ++size_;
+
+  auto startAndFinish = allocator->finishWrite(stream, 1024);
+  currentPosition_ = startAndFinish.second;
+  VELOX_CHECK_EQ(stream.size() - originalSize, value.size());
+  return {startAndFinish.first};
 }
 
 namespace {
@@ -92,6 +112,14 @@ void AddressableNonNullValueList::read(
     vector_size_t index) {
   auto stream = prepareRead(position);
   exec::ContainerRowSerde::deserialize(stream, index, &result);
+}
+
+// static
+void AddressableNonNullValueList::readSerialized(
+    const Entry& position,
+    char* dest) {
+  auto stream = prepareRead(position);
+  stream.readBytes(dest, position.size);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

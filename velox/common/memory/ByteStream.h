@@ -227,6 +227,10 @@ class ByteOutputStream {
 
   void operator=(const ByteOutputStream& other) = delete;
 
+  // Forcing a move constructor to be able to return ByteOutputStream objects
+  // from a function.
+  ByteOutputStream(ByteOutputStream&&) = default;
+
   /// Sets 'this' to range over 'range'. If this is for purposes of writing,
   /// lastWrittenPosition specifies the end of any pre-existing content in
   /// 'range'.

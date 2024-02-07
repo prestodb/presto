@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/IOUtils.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/vector/DecodedVector.h"
 
@@ -57,6 +58,12 @@ class AddressableNonNullValueList {
       vector_size_t index,
       HashStringAllocator* allocator);
 
+  /// Append a non-null serialized value to the end of the list.
+  /// Returns position that can be used to access the value later.
+  HashStringAllocator::Position appendSerialized(
+      const StringView& value,
+      HashStringAllocator* allocator);
+
   /// Removes last element. 'position' must be a value returned from the latest
   /// call to 'append'.
   void removeLast(const Entry& entry) {
@@ -77,6 +84,9 @@ class AddressableNonNullValueList {
   static void
   read(const Entry& position, BaseVector& result, vector_size_t index);
 
+  /// Copies to 'dest' entry.size bytes at position.
+  static void readSerialized(const Entry& position, char* dest);
+
   void free(HashStringAllocator& allocator) {
     if (size_ > 0) {
       allocator.free(firstHeader_);
@@ -84,6 +94,8 @@ class AddressableNonNullValueList {
   }
 
  private:
+  ByteOutputStream initStream(HashStringAllocator* allocator);
+
   // Memory allocation (potentially multi-part).
   HashStringAllocator::Header* firstHeader_{nullptr};
   HashStringAllocator::Position currentPosition_{nullptr, nullptr};
