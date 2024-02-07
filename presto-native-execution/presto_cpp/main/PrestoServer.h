@@ -83,9 +83,28 @@ class PrestoServer {
     return nodeState_;
   }
 
-  void setNodeState(NodeState nodeState) {
-    nodeState_ = nodeState;
+  /// Returns true if the worker needs and has a coordinator discovery and the
+  /// announcer.
+  bool hasCoordinatorDiscoverer() const {
+    return coordinatorDiscoverer_ != nullptr;
   }
+
+  /// Returns true if the server got terminate signal and in the 'shutting down'
+  /// mode. False otherwise.
+  bool isShuttingDown() const {
+    return *shuttingDown_.rlock();
+  }
+
+  /// Set worker into the SHUTTING_DOWN state even if we aren't shutting down.
+  /// This will prevent coordinator from sending new tasks to this worker.
+  void detachWorker();
+
+  /// Set worker into the ACTIVE state if we aren't shutting down.
+  /// This will enable coordinator to send new tasks to this worker.
+  void maybeAttachWorker();
+
+  /// Changes this node's state.
+  void setNodeState(NodeState nodeState);
 
   /// Enable/disable announcer (process notifying coordinator about this
   /// worker).
@@ -161,6 +180,8 @@ class PrestoServer {
   void registerStatsCounters();
 
  protected:
+  void updateAnnouncerDetails();
+
   void addServerPeriodicTasks();
 
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
@@ -214,7 +235,7 @@ class PrestoServer {
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};
-  std::atomic_bool shuttingDown_{false};
+  folly::Synchronized<bool> shuttingDown_{false};
   std::chrono::steady_clock::time_point start_;
   std::unique_ptr<PeriodicTaskManager> periodicTaskManager_;
   std::unique_ptr<PrestoServerOperations> prestoServerOperations_;

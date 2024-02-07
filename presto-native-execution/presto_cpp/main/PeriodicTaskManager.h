@@ -135,6 +135,7 @@ class PeriodicTaskManager {
   void addWatchdogTask();
 
   void detachWorker();
+  void maybeAttachWorker();
 
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
   folly::IOThreadPoolExecutor* const httpExecutor_;
