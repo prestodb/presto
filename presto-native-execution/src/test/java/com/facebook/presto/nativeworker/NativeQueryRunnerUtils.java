@@ -85,6 +85,17 @@ public class NativeQueryRunnerUtils
         }
     }
 
+    public static void createLineitemForIceberg(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
+            queryRunner.execute("CREATE TABLE lineitem AS " +
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
+                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
+                    "FROM tpch.tiny.lineitem");
+        }
+    }
+
     public static void createOrders(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
@@ -124,6 +135,25 @@ public class NativeQueryRunnerUtils
             queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
+            queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
+        }
+    }
+
+    public static void createNationWithFormat(QueryRunner queryRunner, String storageFormat)
+    {
+        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("ORC") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("JSON") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
+            queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
             queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
         }
     }
