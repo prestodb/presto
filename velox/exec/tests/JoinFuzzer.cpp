@@ -140,11 +140,15 @@ class JoinFuzzer {
 JoinFuzzer::JoinFuzzer(size_t initialSeed)
     : vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
   filesystems::registerLocalFileSystem();
+
+  // Make sure not to run out of open file descriptors.
+  const std::unordered_map<std::string, std::string> hiveConfig = {
+      {connector::hive::HiveConfig::kNumCacheFileHandles, "1000"}};
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, std::make_shared<core::MemConfig>());
-  connector::registerConnector(hiveConnector);
+          ->newConnector(
+              kHiveConnectorId, std::make_shared<core::MemConfig>(hiveConfig));
 
   seed(initialSeed);
 }
