@@ -212,7 +212,7 @@ TEST_F(FindFirstTest, invalidIndex) {
       "SQL array indices start at 1. Got 0.");
 
   // Mark 3rd row null. Expect no error.
-  data->setNull(2, true);
+  data->childAt(1)->setNull(2, true);
   expected = makeAllNullFlatVector<int32_t>(4);
   verify("find_first(c0, c1, x -> (x > 0))", data, expected);
 }

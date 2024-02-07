@@ -325,42 +325,6 @@ TEST_F(FilterProjectTest, projectAndIdentityOverLazy) {
   assertQuery(plan, "SELECT c0 < 10 AND c1 < 10, c1 FROM tmp");
 }
 
-// Verify that nulls on nested parent are propagated to child without copying
-// the child.  Note that null on top level columns are handled separately in
-// Expr::evalWithNulls; this happens only once per expression tree so we are not
-// optimizing that code.  We are testing the optimization of potentially more
-// expensive case of FieldReference::evalSpecialForm here.
-TEST_F(FilterProjectTest, nestedFieldReference) {
-  auto vector = makeRowVector({
-      makeRowVector({
-          makeRowVector(
-              {
-                  makeRowVector({
-                      makeFlatVector<int32_t>(10, folly::identity),
-                  }),
-              },
-              nullEvery(2)),
-      }),
-  });
-  CursorParameters params;
-  params.planNode =
-      PlanBuilder().values({vector}).project({"(c0).c0.c0.c0"}).planNode();
-  params.copyResult = false;
-  auto cursor = TaskCursor::create(params);
-  ASSERT_TRUE(cursor->moveNext());
-  auto result = cursor->current();
-  auto* actual = result->as<RowVector>()->childAt(0).get();
-  const BaseVector* expected = vector.get();
-  for (int i = 0; i < 4; ++i) {
-    expected = expected->as<RowVector>()->childAt(0).get();
-  }
-  ASSERT_EQ(*actual->type(), *expected->type());
-  ASSERT_EQ(actual, expected);
-  for (int i = 0; i < actual->size(); ++i) {
-    ASSERT_EQ(actual->isNullAt(i), i % 2 == 0);
-  }
-}
-
 // Verify the optimization of avoiding copy in null propagation does not break
 // the case when the field is shared between multiple parents.
 TEST_F(FilterProjectTest, nestedFieldReferenceSharedChild) {

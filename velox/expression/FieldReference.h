@@ -86,12 +86,6 @@ class FieldReference : public SpecialForm {
   void
   apply(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);
 
-  bool addNullsFast(
-      const SelectivityVector& rows,
-      EvalCtx& context,
-      VectorPtr& result,
-      const RowVector* row);
-
   const std::string field_;
   int32_t index_ = -1;
 };
