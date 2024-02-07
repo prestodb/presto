@@ -104,24 +104,14 @@ public class FixedSubsetNodeSetSupplier
             }
         }
 
-        Set<InternalNode> allocatedNodes = queryNodesMap.values().stream()
-                .flatMap(Collection::stream)
-                .collect(Collectors.toSet());
-
-        Set<InternalNode> currentActiveWorkerNodesInCluster = nodeManager.getNodes(ACTIVE).stream()
-                .filter(node -> !node.isResourceManager() && !node.isCoordinator() && !node.isCatalogServer())
-                .collect(Collectors.toSet());
-
-        List<InternalNode> avaialableNodes = currentActiveWorkerNodesInCluster.stream()
-                .filter(node -> !allocatedNodes.contains(node))
-                .collect(Collectors.toList());
+        List<InternalNode> freeNodes = computeFreeNodesInCluster();
 
         NodeSetAcquireRequest nodeSetAcquireRequest = pendingRequests.peek();
-        while (nodeSetAcquireRequest != null && nodeSetAcquireRequest.getCount() <= avaialableNodes.size()) {
+        while (nodeSetAcquireRequest != null && nodeSetAcquireRequest.getCount() <= freeNodes.size()) {
             try {
                 List<InternalNode> nodesForQuery = new ArrayList<>();
                 for (int i = 0; i < nodeSetAcquireRequest.getCount(); i++) {
-                    nodesForQuery.add(avaialableNodes.remove(i));
+                    nodesForQuery.add(freeNodes.remove(i));
                 }
                 // assign the nodes to this query
                 queryNodesMap.put(nodeSetAcquireRequest.getQueryId(), nodesForQuery);
@@ -136,11 +126,22 @@ public class FixedSubsetNodeSetSupplier
                 nodeSetAcquireRequest = pendingRequests.peek();
             }
             catch (Exception ex) {
-                log.error("Exception in satisfying nodeAcquireRequest=%s", nodeSetAcquireRequest, ex);
+                log.error("Exception in satisfying nodeAcquireRequest=%s, ex=%s", nodeSetAcquireRequest, ex);
             }
         }
     }
 
+    public List<InternalNode> computeFreeNodesInCluster()
+    {
+        Set<InternalNode> allocatedNodes = queryNodesMap.values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        return nodeManager.getNodes(ACTIVE).stream()
+                .filter(node -> !node.isResourceManager() && !node.isCoordinator() && !node.isCatalogServer())
+                .filter(node -> !allocatedNodes.contains(node))
+                .collect(Collectors.toList());
+    }
     @Override
     public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier)
     {
@@ -245,6 +246,21 @@ public class FixedSubsetNodeSetSupplier
             throws IOException
     {
         scheduledFuture.cancel(true);
+    }
+
+    public PriorityQueue<NodeSetAcquireRequest> getPendingRequests()
+    {
+        return pendingRequests;
+    }
+
+    public Map<QueryId, List<InternalNode>> getQueryNodesMap()
+    {
+        return queryNodesMap;
+    }
+
+    public Map<QueryId, Supplier<QueryState>> getQueryStateMap()
+    {
+        return queryStateMap;
     }
 
     public static class NodeSetAcquireRequest

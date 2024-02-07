@@ -378,7 +378,10 @@ public class ServerMainModule
             .toInstance(newScheduledThreadPool(1, daemonThreadsNamed("node-scheduler-%s")));
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         if (serverConfig.isCoordinator()) {
+            binder.bind(FixedSubsetNodeSetSupplier.class).in(Scopes.SINGLETON);
             binder.bind(NodeSetSupplier.class).to(FixedSubsetNodeSetSupplier.class).in(Scopes.SINGLETON);
+            // node-maps statistics
+            jaxrsBinder(binder).bind(NodeMapsResource.class);
         }
         else {
             binder.bind(NodeSetSupplier.class).to(DefaultNodeSetSupplier.class).in(Scopes.SINGLETON);
