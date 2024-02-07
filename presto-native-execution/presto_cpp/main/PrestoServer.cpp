@@ -268,6 +268,7 @@ void PrestoServer::run() {
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
         sslContext_);
+    updateAnnouncerDetails();
     announcer_->start();
 
     uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
@@ -718,33 +719,63 @@ void PrestoServer::initializeVeloxMemory() {
 }
 
 void PrestoServer::stop() {
-  // Make sure we only go here once.
-  auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
-  if (!shuttingDown_.exchange(true)) {
+  // Make sure we only go here once and change the state under the lock.
+  {
+    auto writeLockedShuttingDown = shuttingDown_.wlock();
+    if (*writeLockedShuttingDown) {
+      return;
+    }
+
     PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown has been requested. "
                                  "Setting node state to 'shutting down'.";
+    *writeLockedShuttingDown = true;
     setNodeState(NodeState::kShuttingDown);
-    PRESTO_SHUTDOWN_LOG(INFO)
-        << "Waiting for " << shutdownOnsetSec
-        << " second(s) before proceeding with the shutdown...";
-
-    // Give coordinator some time to receive our new node state and stop sending
-    // any tasks.
-    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
-
-    taskManager_->shutdown();
-
-    // Give coordinator some time to request tasks stats for completed or failed
-    // tasks.
-    std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
-
-    if (httpServer_) {
-      PRESTO_SHUTDOWN_LOG(INFO)
-          << "All tasks are completed. Stopping HTTP Server...";
-      httpServer_->stop();
-      PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
-    }
   }
+
+  auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Waiting for " << shutdownOnsetSec
+      << " second(s) before proceeding with the shutdown...";
+
+  // Give coordinator some time to receive our new node state and stop sending
+  // any tasks.
+  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+
+  taskManager_->shutdown();
+
+  // Give coordinator some time to request tasks stats for completed or failed
+  // tasks.
+  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+
+  if (httpServer_) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "All tasks are completed. Stopping HTTP Server...";
+    httpServer_->stop();
+    PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
+  }
+}
+
+void PrestoServer::detachWorker() {
+  auto readLockedShuttingDown = shuttingDown_.rlock();
+  if (!*readLockedShuttingDown && nodeState() == NodeState::kActive) {
+    // Benefit of shutting down is that the queries that aren't stuck yet will
+    // be finished.  While stopping announcement would kill them.
+    LOG(WARNING) << "Changing node status to SHUTTING_DOWN.";
+    setNodeState(NodeState::kShuttingDown);
+  }
+}
+
+void PrestoServer::maybeAttachWorker() {
+  auto readLockedShuttingDown = shuttingDown_.rlock();
+  if (!*readLockedShuttingDown && nodeState() == NodeState::kShuttingDown) {
+    LOG(WARNING) << "Changing node status to ACTIVE.";
+    setNodeState(NodeState::kActive);
+  }
+}
+
+void PrestoServer::setNodeState(NodeState nodeState) {
+  nodeState_ = nodeState;
+  updateAnnouncerDetails();
 }
 
 void PrestoServer::enableAnnouncer(bool enable) {
@@ -757,6 +788,13 @@ void PrestoServer::initializeCoordinatorDiscoverer() {
   // Do not create CoordinatorDiscoverer if we don't have discovery uri.
   if (SystemConfig::instance()->discoveryUri().has_value()) {
     coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
+  }
+}
+
+void PrestoServer::updateAnnouncerDetails() {
+  if (announcer_ != nullptr) {
+    announcer_->setDetails(
+        fmt::format("State: {}.", nodeState2String(nodeState_)));
   }
 }
 

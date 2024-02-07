@@ -46,6 +46,10 @@ void PeriodicServiceInventoryManager::stop() {
   eventBaseThread_.stop();
 }
 
+void PeriodicServiceInventoryManager::setDetails(const std::string& details) {
+  *details_.wlock() = details;
+}
+
 void PeriodicServiceInventoryManager::enableRequest(bool enable) {
   if (requestEnabled_.exchange(enable) != enable) {
     LOG(INFO) << id_ << " has been " << (enable ? "enabled" : "disabled");
@@ -108,7 +112,8 @@ void PeriodicServiceInventoryManager::sendRequest() {
           LOG(ERROR) << id_ << " failed: " << response->error();
         } else {
           failedAttempts_ = 0;
-          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode();
+          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode()
+                    << ". " << *details_.rlock();
         }
       })
       .thenError(
