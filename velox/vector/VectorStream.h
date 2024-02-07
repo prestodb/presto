@@ -39,9 +39,9 @@ struct IndexRange {
 /// Uses successive calls to `append` to add more rows to the serialization
 /// buffer.  Then call `flush` to write the aggregate serialized data to an
 /// OutputStream.
-class VectorSerializer {
+class IterativeVectorSerializer {
  public:
-  virtual ~VectorSerializer() = default;
+  virtual ~IterativeVectorSerializer() = default;
 
   /// Serialize a subset of rows in a vector.
   virtual void append(
@@ -159,7 +159,19 @@ class VectorSerde {
   ///
   /// This is more appropriate if the use case involves many small writes, e.g.
   /// partitioning a RowVector across multiple destinations.
-  virtual std::unique_ptr<VectorSerializer> createSerializer(
+  ///
+  /// TODO: Remove createSerializer once Presto is updated to call
+  /// createIterativeSerializer.
+  virtual std::unique_ptr<IterativeVectorSerializer> createSerializer(
+      RowTypePtr type,
+      int32_t numRows,
+      StreamArena* streamArena,
+      const Options* options = nullptr) {
+    return createIterativeSerializer(
+        std::move(type), numRows, streamArena, options);
+  }
+
+  virtual std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,
@@ -298,7 +310,7 @@ class VectorStreamGroup : public StreamArena {
       const VectorSerde::Options* options = nullptr);
 
  private:
-  std::unique_ptr<VectorSerializer> serializer_;
+  std::unique_ptr<IterativeVectorSerializer> serializer_;
   VectorSerde* serde_{nullptr};
 };
 

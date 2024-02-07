@@ -41,7 +41,7 @@ class DefaultBatchVectorSerializer : public BatchVectorSerializer {
     }
 
     StreamArena arena(pool_);
-    auto serializer = serde_->createSerializer(
+    auto serializer = serde_->createIterativeSerializer(
         asRowType(vector->type()), numRows, &arena, options_);
     serializer->append(vector, ranges, scratch);
     serializer->flush(stream);
@@ -67,7 +67,7 @@ getNamedVectorSerdeImpl() {
 
 } // namespace
 
-void VectorSerializer::append(const RowVectorPtr& vector) {
+void IterativeVectorSerializer::append(const RowVectorPtr& vector) {
   const IndexRange allRows{0, vector->size()};
   Scratch scratch;
   append(vector, folly::Range(&allRows, 1), scratch);
@@ -144,7 +144,7 @@ void VectorStreamGroup::createStreamTree(
     RowTypePtr type,
     int32_t numRows,
     const VectorSerde::Options* options) {
-  serializer_ = serde_->createSerializer(type, numRows, this, options);
+  serializer_ = serde_->createIterativeSerializer(type, numRows, this, options);
 }
 
 void VectorStreamGroup::append(

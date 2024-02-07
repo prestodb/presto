@@ -92,8 +92,8 @@ class PrestoSerializerTest
     auto rowType = asRowType(rowVector->type());
     auto numRows = rowVector->size();
     auto paramOptions = getParamSerdeOptions(serdeOptions);
-    auto serializer =
-        serde_->createSerializer(rowType, numRows, arena.get(), &paramOptions);
+    auto serializer = serde_->createIterativeSerializer(
+        rowType, numRows, arena.get(), &paramOptions);
     vector_size_t sizeEstimate = 0;
 
     Scratch scratch;

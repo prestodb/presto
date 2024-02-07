@@ -25,7 +25,7 @@ class MockVectorSerde : public VectorSerde {
       const folly::Range<const IndexRange*>& ranges,
       vector_size_t** sizes) override {}
 
-  std::unique_ptr<VectorSerializer> createSerializer(
+  std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,

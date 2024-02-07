@@ -43,7 +43,8 @@ class CompactRowSerializerTest : public ::testing::Test,
 
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = asRowType(rowVector->type());
-    auto serializer = serde_->createSerializer(rowType, numRows, arena.get());
+    auto serializer =
+        serde_->createIterativeSerializer(rowType, numRows, arena.get());
 
     Scratch scratch;
     serializer->append(rowVector, folly::Range(rows.data(), numRows), scratch);

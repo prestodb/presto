@@ -3316,9 +3316,9 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
   const std::unique_ptr<folly::io::Codec> codec_;
 };
 
-class PrestoVectorSerializer : public VectorSerializer {
+class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
  public:
-  PrestoVectorSerializer(
+  PrestoIterativeVectorSerializer(
       const RowTypePtr& rowType,
       std::vector<VectorEncoding::Simple> encodings,
       int32_t numRows,
@@ -3349,7 +3349,7 @@ class PrestoVectorSerializer : public VectorSerializer {
   // Constructor that takes a row vector instead of only the types. This is
   // different because then we know exactly how each vector is encoded
   // (recursively).
-  PrestoVectorSerializer(
+  PrestoIterativeVectorSerializer(
       const RowVectorPtr& rowVector,
       StreamArena* streamArena,
       bool useLosslessTimestamp,
@@ -3455,13 +3455,14 @@ void PrestoVectorSerde::estimateSerializedSize(
   estimateSerializedSizeInt(vector->loadedVector(), rows, sizes, scratch);
 }
 
-std::unique_ptr<VectorSerializer> PrestoVectorSerde::createSerializer(
+std::unique_ptr<IterativeVectorSerializer>
+PrestoVectorSerde::createIterativeSerializer(
     RowTypePtr type,
     int32_t numRows,
     StreamArena* streamArena,
     const Options* options) {
   const auto prestoOptions = toPrestoOptions(options);
-  return std::make_unique<PrestoVectorSerializer>(
+  return std::make_unique<PrestoIterativeVectorSerializer>(
       type,
       prestoOptions.encodings,
       numRows,
@@ -3484,7 +3485,7 @@ void PrestoVectorSerde::deprecatedSerializeEncoded(
     const Options* options,
     OutputStream* out) {
   auto prestoOptions = toPrestoOptions(options);
-  auto serializer = std::make_unique<PrestoVectorSerializer>(
+  auto serializer = std::make_unique<PrestoIterativeVectorSerializer>(
       vector,
       streamArena,
       prestoOptions.useLosslessTimestamp,

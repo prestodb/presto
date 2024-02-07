@@ -24,10 +24,11 @@ namespace facebook::velox::serializer::presto {
 /// There are two ways to serialize data using PrestoVectorSerde:
 ///
 /// 1. In order to append multiple RowVectors into the same serialized payload,
-/// one can first create a VectorSerializer using createSerializer(), then
-/// append successive RowVectors using VectorSerializer::append(). In this case,
-/// since different RowVector might encode columns differently, data is always
-/// flattened in the serialized payload.
+/// one can first create an IterativeVectorSerializer using
+/// createIterativeSerializer(), then append successive RowVectors using
+/// IterativeVectorSerializer::append(). In this case, since different RowVector
+/// might encode columns differently, data is always flattened in the serialized
+/// payload.
 ///
 /// Note that there are two flavors of append(), one that takes a range of rows,
 /// and one that takes a list of row ids. The former is useful when serializing
@@ -76,7 +77,7 @@ class PrestoVectorSerde : public VectorSerde {
       vector_size_t** sizes,
       Scratch& scratch) override;
 
-  std::unique_ptr<VectorSerializer> createSerializer(
+  std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,

@@ -33,7 +33,7 @@ class CompactRowVectorSerde : public VectorSerde {
 
   // This method is not used in production code. It is only used to
   // support round-trip tests for deserialization.
-  std::unique_ptr<VectorSerializer> createSerializer(
+  std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
       StreamArena* streamArena,

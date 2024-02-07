@@ -28,7 +28,7 @@ void CompactRowVectorSerde::estimateSerializedSize(
 }
 
 namespace {
-class CompactRowVectorSerializer : public VectorSerializer {
+class CompactRowVectorSerializer : public IterativeVectorSerializer {
  public:
   using TRowSize = uint32_t;
 
@@ -120,7 +120,8 @@ std::string concatenatePartialRow(
 
 } // namespace
 
-std::unique_ptr<VectorSerializer> CompactRowVectorSerde::createSerializer(
+std::unique_ptr<IterativeVectorSerializer>
+CompactRowVectorSerde::createIterativeSerializer(
     RowTypePtr /* type */,
     int32_t /* numRows */,
     StreamArena* streamArena,

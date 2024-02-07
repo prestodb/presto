@@ -29,7 +29,7 @@ void UnsafeRowVectorSerde::estimateSerializedSize(
 }
 
 namespace {
-class UnsafeRowVectorSerializer : public VectorSerializer {
+class UnsafeRowVectorSerializer : public IterativeVectorSerializer {
  public:
   using TRowSize = uint32_t;
 
@@ -122,7 +122,8 @@ std::string concatenatePartialRow(
 
 } // namespace
 
-std::unique_ptr<VectorSerializer> UnsafeRowVectorSerde::createSerializer(
+std::unique_ptr<IterativeVectorSerializer>
+UnsafeRowVectorSerde::createIterativeSerializer(
     RowTypePtr /* type */,
     int32_t /* numRows */,
     StreamArena* streamArena,
