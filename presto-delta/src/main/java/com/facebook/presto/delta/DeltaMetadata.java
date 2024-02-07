@@ -371,7 +371,8 @@ public class DeltaMetadata
                 Optional.empty(),
                 false,
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                session.getWarningCollector());
+                session.getWarningCollector(),
+                session.getRuntimeStats());
     }
 
     private void checkConnectorId(DeltaTableHandle tableHandle)
