@@ -54,4 +54,12 @@ void registerDenseRankInteger(const std::string& name);
 // Returns the percentage ranking of a value in a group of values.
 void registerPercentRank(const std::string& name);
 
+// Register the Presto function ntile() with the bigint data type
+// for the return and input value.
+void registerNtileBigint(const std::string& name);
+
+// Register the Spark function ntile() with the integer data type
+// for the return and input value.
+void registerNtileInteger(const std::string& name);
+
 } // namespace facebook::velox::functions::window

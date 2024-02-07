@@ -28,7 +28,12 @@ static const std::vector<std::string> kSparkWindowFunctions = {
     std::string("nth_value(c0, c3)"),
     std::string("row_number()"),
     std::string("rank()"),
-    std::string("dense_rank()")};
+    std::string("dense_rank()"),
+    std::string("ntile(c3)"),
+    std::string("ntile(1)"),
+    std::string("ntile(7)"),
+    std::string("ntile(10)"),
+    std::string("ntile(16)")};
 
 struct SparkWindowTestParam {
   const std::string function;

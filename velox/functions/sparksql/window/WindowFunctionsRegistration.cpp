@@ -23,6 +23,7 @@ void registerWindowFunctions(const std::string& prefix) {
   functions::window::registerRowNumberInteger(prefix + "row_number");
   functions::window::registerRankInteger(prefix + "rank");
   functions::window::registerDenseRankInteger(prefix + "dense_rank");
+  functions::window::registerNtileInteger(prefix + "ntile");
 }
 
 } // namespace facebook::velox::functions::window::sparksql

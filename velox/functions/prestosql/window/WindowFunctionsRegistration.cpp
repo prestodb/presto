@@ -21,7 +21,7 @@ namespace facebook::velox::window {
 namespace prestosql {
 
 extern void registerCumeDist(const std::string& name);
-extern void registerNtile(const std::string& name);
+extern void registerNtileBigint(const std::string& name);
 extern void registerFirstValue(const std::string& name);
 extern void registerLastValue(const std::string& name);
 extern void registerLag(const std::string& name);
@@ -33,7 +33,7 @@ void registerAllWindowFunctions(const std::string& prefix) {
   functions::window::registerDenseRankBigint(prefix + "dense_rank");
   functions::window::registerPercentRank(prefix + "percent_rank");
   registerCumeDist(prefix + "cume_dist");
-  registerNtile(prefix + "ntile");
+  functions::window::registerNtileBigint(prefix + "ntile");
   functions::window::registerNthValueBigint(prefix + "nth_value");
   registerFirstValue(prefix + "first_value");
   registerLastValue(prefix + "last_value");
