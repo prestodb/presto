@@ -17,7 +17,6 @@ import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
@@ -33,7 +32,6 @@ public class TestNativeSessionPropertyProvider
     public void testDeserializeSessionProperties()
             throws URISyntaxException
     {
-        URI uri = new URI("http://localhost:7777");
         String responseBody =
                 "[" +
                         "{\"name\":\"sample1\",\"description\":\"Sample description 1\",\"typeSignature\":\"integer\",\"defaultValue\":\"100\",\"hidden\":true}," +
@@ -49,7 +47,6 @@ public class TestNativeSessionPropertyProvider
         SessionPropertyMetadata s4 = new SessionPropertyMetadata("sample4", "Sample description 4", DOUBLE.getTypeSignature(), "3.14", false);
 
         List<SessionPropertyMetadata> expected = ImmutableList.of(s1, s2, s3, s4);
-        new NativeSystemSessionPropertyProvider(uri);
         List<SessionPropertyMetadata> decoded = NativeSystemSessionPropertyProvider.deserializeSessionProperties(responseBody);
 
         assertEquals(decoded.toArray(), expected.toArray());

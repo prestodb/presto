@@ -18,6 +18,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
@@ -25,11 +27,12 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 
 public class NativeSystemSessionPropertyProvider
         implements SystemSessionPropertyProvider
@@ -40,13 +43,14 @@ public class NativeSystemSessionPropertyProvider
 
     private final OkHttpClient httpClient = new OkHttpClient.Builder().build();
 
-    private final URL sessionPropertiesUrl;
+    private final NodeManager nodeManager;
 
-    public NativeSystemSessionPropertyProvider(URI nodeUri)
+    public NativeSystemSessionPropertyProvider(NodeManager manager)
     {
-        this.sessionPropertiesUrl = getSessionPropertiesUrl(nodeUri);
+        this.nodeManager = manager;
     }
 
+    // TODO : Access specifier need made private once NodeManager is made working.
     public static List<SessionPropertyMetadata> deserializeSessionProperties(String responseBody)
     {
         JsonObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
@@ -60,11 +64,16 @@ public class NativeSystemSessionPropertyProvider
         }
     }
 
-    private URL getSessionPropertiesUrl(URI nodeUri)
+    private URL getSessionPropertiesUrl()
     {
+        Set<Node> nodes = nodeManager.getAllNodes();
+        Node nativeNode = nodes.stream()
+                .filter(node -> !node.isCoordinatorSidecar())
+                .findFirst()
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Failed to find native node"));
         try {
             // endpoint to retrieve session properties from native worker
-            return new URL(nodeUri.toString() + SESSION_PROPERTY_ENDPOINT);
+            return new URL(nativeNode.getHttpUri().toString() + SESSION_PROPERTY_ENDPOINT);
         }
         catch (MalformedURLException e) {
             throw new RuntimeException(e);
@@ -77,7 +86,7 @@ public class NativeSystemSessionPropertyProvider
         // Make RPC call and get session properties from prestissimo.
         try {
             Request request = new Request.Builder()
-                    .url(sessionPropertiesUrl)
+                    .url(getSessionPropertiesUrl())
                     .addHeader("CONTENT_TYPE", "APPLICATION_JSON")
                     .build();
             String responseBody = httpClient.newCall(request).execute().body().string();
