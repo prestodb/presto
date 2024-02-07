@@ -541,7 +541,8 @@ public class LocalQueryRunner
                 defaultSession.getPreparedStatements(),
                 defaultSession.getSessionFunctions(),
                 defaultSession.getTracer(),
-                defaultSession.getWarningCollector());
+                defaultSession.getWarningCollector(),
+                defaultSession.getRuntimeStats());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())

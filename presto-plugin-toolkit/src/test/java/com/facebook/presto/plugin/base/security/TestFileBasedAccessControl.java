@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,7 +41,7 @@ import static org.testng.Assert.assertThrows;
 public class TestFileBasedAccessControl
 {
     public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
-    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty(), WarningCollector.NOOP);
+    public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
 
     @Test
     public void testSchemaRules()

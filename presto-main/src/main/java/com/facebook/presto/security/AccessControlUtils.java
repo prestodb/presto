@@ -44,7 +44,8 @@ public class AccessControlUtils
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
                             Optional.ofNullable(sessionContext.getSource()),
-                            WarningCollector.NOOP),
+                            WarningCollector.NOOP,
+                            sessionContext.getRuntimeStats()),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -67,7 +68,8 @@ public class AccessControlUtils
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
                             Optional.ofNullable(sessionContext.getSource()),
-                            WarningCollector.NOOP),
+                            WarningCollector.NOOP,
+                            sessionContext.getRuntimeStats()),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);
