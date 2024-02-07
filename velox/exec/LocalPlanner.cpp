@@ -224,6 +224,12 @@ uint32_t maxDrivers(
       // Merge join must run single-threaded.
       return 1;
     } else if (
+        auto join = std::dynamic_pointer_cast<const core::HashJoinNode>(node)) {
+      // Right semi project doesn't support multi-threaded execution.
+      if (join->isRightSemiProjectJoin()) {
+        return 1;
+      }
+    } else if (
         auto tableWrite =
             std::dynamic_pointer_cast<const core::TableWriteNode>(node)) {
       const auto& connectorInsertHandle =
