@@ -34,14 +34,22 @@ See https://github.com/google/re2/wiki/Syntax for more information.
         SELECT regexp_extract('1a 2b 14m', '\d+'); -- 1
 
 .. function:: regexp_extract(string, pattern, group) -> varchar
-   :noindex:
+    :noindex:
 
     Finds the first occurrence of the regular expression ``pattern`` in
     ``string`` and returns the capturing group number ``group``::
 
         SELECT regexp_extract('1a 2b 14m', '(\d+)([a-z]+)', 2); -- 'a'
 
-.. function:: regexp_extract_all(string, pattern, group) -> array(varchar)
+.. function:: regexp_extract_all(string, pattern) -> array(varchar):
+
+    Returns the substring(s) matched by the regular expression ``pattern``
+    in ``string``::
+
+        SELECT regexp_extract_all('1a 2b 14m', '\d+'); -- [1, 2, 14]
+
+.. function:: regexp_extract_all(string, pattern, group) -> array(varchar):
+    :noindex:
 
     Finds all occurrences of the regular expression ``pattern`` in
     ``string`` and returns the capturing group number ``group``::
@@ -69,7 +77,7 @@ See https://github.com/google/re2/wiki/Syntax for more information.
         SELECT regexp_replace('1a 2b 14m', '\d+[ab] '); -- '14m'
 
 .. function:: regexp_replace(string, pattern, replacement) -> varchar
-   :noindex:
+    :noindex:
 
     Replaces every instance of the substring matched by the regular expression
     ``pattern`` in ``string`` with ``replacement``. Capturing groups can be referenced in
