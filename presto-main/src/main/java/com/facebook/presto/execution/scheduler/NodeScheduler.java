@@ -17,6 +17,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -265,9 +266,9 @@ public class NodeScheduler
         return simpleNodeSelector;
     }
 
-    public CompletableFuture<?> acquireNodes(QueryId queryId, int count)
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier)
     {
-        return nodeSetSupplier.acquireNodes(queryId, count);
+        return nodeSetSupplier.acquireNodes(queryId, count, queryStateSupplier);
     }
 
     public CompletableFuture<?> releaseNodes(QueryId queryId, int count)

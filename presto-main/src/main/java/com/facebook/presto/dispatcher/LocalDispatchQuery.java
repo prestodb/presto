@@ -199,7 +199,7 @@ public class LocalDispatchQuery
     {
         int nodesToAcquire = getHashPartitionCount(getSession());
         CompletableFuture<?> waitForNodesFuture =
-                nodeScheduler.acquireNodes(stateMachine.getQueryId(), nodesToAcquire);
+                nodeScheduler.acquireNodes(stateMachine.getQueryId(), nodesToAcquire, stateMachine::getQueryState);
 
         // Listener to release nodes after query execution completes
         stateMachine.addStateChangeListener(newState -> {

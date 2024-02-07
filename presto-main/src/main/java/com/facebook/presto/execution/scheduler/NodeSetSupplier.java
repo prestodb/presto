@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.QueryId;
@@ -24,7 +25,7 @@ import java.util.function.Predicate;
 
 public interface NodeSetSupplier
 {
-    public CompletableFuture<?> acquireNodes(QueryId queryId, int count);
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier);
 
     public CompletableFuture<?> releaseNodes(QueryId queryId, int count);
 

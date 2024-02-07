@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
@@ -63,7 +64,7 @@ public class DefaultNodeSetSupplier
     }
 
     @Override
-    public CompletableFuture<?> acquireNodes(QueryId queryId, int count)
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier)
     {
         return CompletableFuture.completedFuture(null);
     }

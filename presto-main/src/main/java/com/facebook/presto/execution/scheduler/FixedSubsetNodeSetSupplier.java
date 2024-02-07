@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ConnectorId;
@@ -33,13 +34,13 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -68,7 +69,9 @@ public class FixedSubsetNodeSetSupplier
     private final InternalNodeManager nodeManager;
     private final NetworkLocationCache networkLocationCache;
     // TODO: Use Set<InternalNode>
-    private final Map<QueryId, List<InternalNode>> perQueryNodeAssignments;
+    private final Map<QueryId, List<InternalNode>> queryNodesMap;
+
+    private final Map<QueryId, Supplier<QueryState>> queryStateMap;
 
     private final ScheduledFuture<?> scheduledFuture;
 
@@ -80,7 +83,8 @@ public class FixedSubsetNodeSetSupplier
     {
         this.nodeManager = nodeManager;
         this.networkLocationCache = new NetworkLocationCache(networkTopology);
-        this.perQueryNodeAssignments = new HashMap<>();
+        this.queryNodesMap = new ConcurrentHashMap<>();
+        this.queryStateMap = new ConcurrentHashMap<>();
         this.pendingRequests = new PriorityQueue<>();
         // start loop to check pending node requests every second
         scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 100, TimeUnit.MILLISECONDS);
@@ -92,14 +96,21 @@ public class FixedSubsetNodeSetSupplier
             return;
         }
 
-        log.info("Trying to fulfill nodeset request for=%s", pendingRequests.peek().queryId);
-        List<InternalNode> allocatedNodes = perQueryNodeAssignments.values().stream()
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
+        // In case we have not released nodes on finished queries.
+        // This is to prevent leaking nodes over time as falsely occupied
+        for (Map.Entry<QueryId, List<InternalNode>> entry : queryNodesMap.entrySet()) {
+            if (queryStateMap.containsKey(entry.getKey()) && queryStateMap.get(entry.getKey()).get().isDone()) {
+                releaseNodes(entry.getKey(), entry.getValue().size());
+            }
+        }
 
-        List<InternalNode> currentActiveWorkerNodesInCluster = nodeManager.getNodes(ACTIVE).stream()
+        Set<InternalNode> allocatedNodes = queryNodesMap.values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        Set<InternalNode> currentActiveWorkerNodesInCluster = nodeManager.getNodes(ACTIVE).stream()
                 .filter(node -> !node.isResourceManager() && !node.isCoordinator() && !node.isCatalogServer())
-                .collect(toImmutableList());
+                .collect(Collectors.toSet());
 
         List<InternalNode> avaialableNodes = currentActiveWorkerNodesInCluster.stream()
                 .filter(node -> !allocatedNodes.contains(node))
@@ -113,7 +124,9 @@ public class FixedSubsetNodeSetSupplier
                     nodesForQuery.add(avaialableNodes.remove(i));
                 }
                 // assign the nodes to this query
-                perQueryNodeAssignments.put(nodeSetAcquireRequest.queryId, nodesForQuery);
+                queryNodesMap.put(nodeSetAcquireRequest.getQueryId(), nodesForQuery);
+                // register the state supplier (used for bookeeping/cleanup)
+                queryStateMap.put(nodeSetAcquireRequest.getQueryId(), nodeSetAcquireRequest.getQueryStateSupplier());
                 // Let the query scheduler know that query can now execute
                 nodeSetAcquireRequest.getCompletableFuture().complete(null);
                 log.info("Successfully fulfilled nodeAcquireRequest=%s", nodeSetAcquireRequest);
@@ -129,19 +142,21 @@ public class FixedSubsetNodeSetSupplier
     }
 
     @Override
-    public CompletableFuture<?> acquireNodes(QueryId queryId, int count)
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier)
     {
         CompletableFuture<?> completableFuture = new CompletableFuture<>();
-        NodeSetAcquireRequest nodeSetAcquireRequest = new NodeSetAcquireRequest(queryId, count);
+        NodeSetAcquireRequest nodeSetAcquireRequest = new NodeSetAcquireRequest(queryId, count, queryStateSupplier);
         nodeSetAcquireRequest.setCompletableFuture(completableFuture);
         pendingRequests.add(nodeSetAcquireRequest);
+
         return completableFuture;
     }
 
     @Override
     public CompletableFuture<?> releaseNodes(QueryId queryId, int count)
     {
-        perQueryNodeAssignments.remove(queryId);
+        queryNodesMap.remove(queryId);
+        queryStateMap.remove(queryId);
         return CompletableFuture.completedFuture(null);
     }
 
@@ -176,8 +191,8 @@ public class FixedSubsetNodeSetSupplier
             }
 
             // Here we want to assign a subset of the active nodes to this query
-            if (perQueryNodeAssignments.containsKey(queryId)) {
-                activeNodes = activeNodes.stream().filter(internalNode -> perQueryNodeAssignments.get(queryId)
+            if (queryNodesMap.containsKey(queryId)) {
+                activeNodes = activeNodes.stream().filter(internalNode -> queryNodesMap.get(queryId)
                         .contains(internalNode)).collect(Collectors.toList());
             }
             // TODO: Remove this after enabling commented allNode computation in L93
@@ -238,6 +253,7 @@ public class FixedSubsetNodeSetSupplier
         private QueryId queryId;
         private int count;
 
+        private Supplier<QueryState> queryStateSupplier;
         public CompletableFuture<?> getCompletableFuture()
         {
             return completableFuture;
@@ -251,10 +267,22 @@ public class FixedSubsetNodeSetSupplier
         private CompletableFuture<?> completableFuture;
         public NodeSetAcquireRequest(
                 QueryId queryId,
-                int count)
+                int count,
+                Supplier<QueryState> queryStateSupplier)
         {
             this.queryId = queryId;
             this.count = count;
+            this.queryStateSupplier = queryStateSupplier;
+        }
+
+        public Supplier<QueryState> getQueryStateSupplier()
+        {
+            return queryStateSupplier;
+        }
+
+        public void setQueryStateSupplier(Supplier<QueryState> queryStateSupplier)
+        {
+            this.queryStateSupplier = queryStateSupplier;
         }
 
         public QueryId getQueryId()
