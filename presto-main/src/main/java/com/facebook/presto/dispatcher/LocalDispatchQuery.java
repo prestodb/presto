@@ -47,14 +47,18 @@ import java.util.function.Consumer;
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -197,7 +201,7 @@ public class LocalDispatchQuery
 
     private void waitForMinimumWorkers()
     {
-        int nodesToAcquire = getHashPartitionCount(getSession());
+        int nodesToAcquire = computeNodesToAcquire();
         CompletableFuture<?> waitForNodesFuture =
                 nodeScheduler.acquireNodes(stateMachine.getQueryId(), nodesToAcquire, stateMachine::getQueryState);
 
@@ -222,6 +226,22 @@ public class LocalDispatchQuery
         });
     }
 
+    private int computeNodesToAcquire()
+    {
+        if (ALL.equals(getExchangeMaterializationStrategy(getSession()))) {
+            // TODO (shrinidhijoshi): Fix node count logic for LBM
+            // For LBM, the query.hash-partition-count represents buckets and not
+            // number of nodes. So for experiment we cap it at 600
+            return Math.min(600, getHashPartitionCount(getSession()));
+        }
+        else {
+            int hashPartitionCount = getHashPartitionCount(getSession());
+            if (hashPartitionCount > 4900) {
+                fail(new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, format("Cannot provision nodes %s>4900", hashPartitionCount)));
+            }
+            return getHashPartitionCount(getSession());
+        }
+    }
     private void startExecution(QueryExecution queryExecution, boolean isDispatching)
     {
         queryExecutor.execute(() -> {
