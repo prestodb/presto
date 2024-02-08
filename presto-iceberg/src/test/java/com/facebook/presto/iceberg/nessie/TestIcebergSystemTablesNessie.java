@@ -88,12 +88,12 @@ public class TestIcebergSystemTablesNessie
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 5");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 6");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
 
         // nessie writes a "nessie.commit.id" + "gc.enabled=false" to the table properties
-        assertThat(materializedRows).hasSize(5);
+        assertThat(materializedRows).hasSize(6);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
@@ -102,6 +102,8 @@ public class TestIcebergSystemTablesNessie
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.delete-after-commit.enabled", "false")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")));
     }
 }
