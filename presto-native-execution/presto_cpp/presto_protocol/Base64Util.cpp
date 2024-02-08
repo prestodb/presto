@@ -30,7 +30,7 @@ static const char* kRle = "RLE";
 static const char* kArray = "ARRAY";
 static const char* kMap = "MAP";
 static const char* kInt128Array = "INT128_ARRAY";
-static const __int128_t kInt128Mask = ~(static_cast<__int128_t>(1) << 127);
+static const __uint128_t kInt128Mask = ~(static_cast<__uint128_t>(1) << 127);
 
 struct ByteStream {
   explicit ByteStream(const char* data, int32_t offset = 0)
