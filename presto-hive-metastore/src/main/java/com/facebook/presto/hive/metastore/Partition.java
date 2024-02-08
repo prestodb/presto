@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -45,6 +46,7 @@ public class Partition
     private final boolean sealedPartition;
     private final int createTime;
     private final long lastDataCommitTime;
+    private static final Logger log = Logger.get(Partition.class);
 
     @JsonCreator
     public Partition(
@@ -271,6 +273,7 @@ public class Partition
 
         public Builder setPartitionVersion(long partitionVersion)
         {
+            log.info("S384236 : Partition Version=" + partitionVersion);
             this.partitionVersion = Optional.of(partitionVersion);
             return this;
         }

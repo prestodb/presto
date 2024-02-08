@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
@@ -135,6 +136,7 @@ public final class ThriftMetastoreUtil
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     public static final String LAST_DATA_COMMIT_TIME = "lastDataCommitTime";
+    private static final Logger log = Logger.get(ThriftMetastoreUtil.class);
 
     private ThriftMetastoreUtil() {}
 
@@ -518,7 +520,9 @@ public final class ThriftMetastoreUtil
 
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
-        return partitionBuilder.build();
+        Partition build = partitionBuilder.build();
+        log.info("S384236 : Partition Version=" + build.getPartitionVersion());
+        return build;
     }
 
     public static HiveColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics, OptionalLong rowCount)
