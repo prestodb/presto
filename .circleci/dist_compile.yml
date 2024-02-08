@@ -138,85 +138,8 @@ executors:
   check:
     docker:
       - image : ghcr.io/facebookincubator/velox-dev:check-avx
-  macos-intel:
-    macos:
-      xcode: "14.3.0"
-    resource_class: macos.x86.medium.gen2
-  macos-m1:
-    macos:
-      xcode: "14.2.0"
-    resource_class: macos.m1.large.gen1
 
 jobs:
-  macos-build:
-    parameters:
-      os:
-        type: executor
-    executor: << parameters.os >>
-    environment:
-      ICU_SOURCE: BUNDLED
-      simdjson_SOURCE: BUNDLED
-    steps:
-      - checkout
-      - update-submodules
-      - restore_cache:
-          name: "Restore Dependency Cache"
-          # The version number in the key can be incremented
-          # to manually avoid the case where bad dependencies
-          # are cached, and has no other meaning.
-          # If you update it, be sure to update save_cache too.
-          key: velox-circleci-macos-{{ arch }}-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
-      - run:
-          name: "Install dependencies"
-          command: |
-            set -xu
-            mkdir -p ~/deps ~/deps-src
-            curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C ~/deps
-            PATH=~/deps/bin:${PATH} DEPENDENCY_DIR=~/deps-src INSTALL_PREFIX=~/deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-macos.sh
-            rm -rf ~/deps/.git ~/deps/Library/Taps/  # Reduce cache size by 70%.
-          no_output_timeout: 20m
-      - save_cache:
-          name: "Save Dependency Cache"
-          # The version number in the key can be incremented
-          # to manually avoid the case where bad dependencies
-          # are cached, and has no other meaning.
-          # If you update it, be sure to update restore_cache too.
-          key: velox-circleci-macos-{{ arch }}-deps-v1-{{ checksum ".circleci/config.yml" }}-{{ checksum "scripts/setup-macos.sh" }}
-          paths:
-            - ~/deps
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: "Build on MacOS"
-          command: |
-            export PATH=~/deps/bin:~/deps/opt/bison/bin:~/deps/opt/flex/bin:${PATH}
-            mkdir -p .ccache
-            export CCACHE_DIR=$(pwd)/.ccache
-            ccache -sz -M 5Gi
-            cmake \
-                -B _build/debug \
-                -GNinja \
-                -DTREAT_WARNINGS_AS_ERRORS=1 \
-                -DENABLE_ALL_WARNINGS=1 \
-                -DVELOX_ENABLE_PARQUET=ON \
-                -DCMAKE_BUILD_TYPE=Debug \
-                -DCMAKE_PREFIX_PATH=~/deps \
-                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-                -DFLEX_INCLUDE_DIR=~/deps/opt/flex/include
-            ninja -C _build/debug
-            ccache -s
-          no_output_timeout: 1h
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
-
   linux-build:
     executor: build
     environment:
@@ -681,21 +604,9 @@ workflows:
       - linux-build-options
       - linux-adapters
       - linux-presto-fuzzer-run
-      - macos-build:
-          matrix:
-            parameters:
-              os: [macos-intel]
       - format-check
       - header-check
       - doc-gen-job:
-          filters:
-            branches:
-              only:
-                - main
-      - macos-build:
-          matrix:
-            parameters:
-              os: [ macos-m1 ]
           filters:
             branches:
               only:
@@ -708,21 +619,9 @@ workflows:
       - linux-pr-fuzzer-run
       - linux-build-options
       - linux-adapters
-      - macos-build:
-          matrix:
-            parameters:
-              os: [ macos-intel ]
       - format-check
       - header-check
       - doc-gen-job:
-          filters:
-            branches:
-              only:
-                - main
-      - macos-build:
-          matrix:
-            parameters:
-              os: [ macos-m1 ]
           filters:
             branches:
               only:

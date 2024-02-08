@@ -1,0 +1,81 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+name: macOS Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  macos-build:
+    name: "${{ matrix.os }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-13 = x86_64 Mac
+        # macos-14 = arm64 Mac
+        os: [macos-13, macos-14]
+    runs-on: ${{ matrix.os }}
+    env:
+      CCACHE_DIR: '${{ github.workspace }}/.ccache'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Dependencies
+        run: |
+          brew install \
+            bison boost ccache double-conversion flex fmt gflags glog \
+            icu4c libevent libsodium lz4 lzo ninja openssl range-v3 simdjson \
+            snappy thrift xz xsimd zstd
+          
+          echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
+          
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-macos-${{ matrix.os }}-${{ hashFiles('velox/*') }}
+          restore-keys: ccache-macos-${{ matrix.os }}
+      
+      - name: Configure Build
+        env:
+          folly_SOURCE: BUNDLED
+        run: |
+            ccache -sz -M 5Gi
+            cmake \
+                -B _build/debug \
+                -GNinja \
+                -DTREAT_WARNINGS_AS_ERRORS=1 \
+                -DENABLE_ALL_WARNINGS=1 \
+                -DVELOX_ENABLE_PARQUET=ON \
+                -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: |
+            cmake --build _build/debug -j $NJOBS
+            ccache -s
+      - name: Run Tests
+        if: false
+        run: ctest -j $NJOBS --test-dir _build/debug --output-on-failure
+
