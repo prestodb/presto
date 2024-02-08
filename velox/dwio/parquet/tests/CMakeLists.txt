@@ -43,3 +43,6 @@ target_link_libraries(
   velox_aggregates
   velox_tpch_gen
   ${TEST_LINK_LIBS})
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/examples
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
