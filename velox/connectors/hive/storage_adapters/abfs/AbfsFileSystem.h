@@ -44,9 +44,7 @@ class AbfsFileSystem : public FileSystem {
 
   std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view path,
-      const FileOptions& options = {}) override {
-    VELOX_UNSUPPORTED("write for abfs not implemented");
-  }
+      const FileOptions& options = {}) override;
 
   void rename(
       std::string_view path,

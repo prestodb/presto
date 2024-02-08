@@ -17,7 +17,8 @@
 add_library(velox_abfs RegisterAbfsFileSystem.cpp)
 
 if(VELOX_ENABLE_ABFS)
-  target_sources(velox_abfs PRIVATE AbfsFileSystem.cpp AbfsUtils.cpp)
+  target_sources(velox_abfs PRIVATE AbfsFileSystem.cpp AbfsWriteFile.cpp
+                                    AbfsUtils.cpp)
   target_link_libraries(
     velox_abfs
     PUBLIC velox_file
@@ -25,6 +26,7 @@ if(VELOX_ENABLE_ABFS)
            velox_hive_config
            velox_dwio_common_exception
            Azure::azure-storage-blobs
+           Azure::azure-storage-files-datalake
            Folly::folly
            glog::glog
            fmt::fmt)
