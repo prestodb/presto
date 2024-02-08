@@ -149,6 +149,7 @@ JoinFuzzer::JoinFuzzer(size_t initialSeed)
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
           ->newConnector(
               kHiveConnectorId, std::make_shared<core::MemConfig>(hiveConfig));
+  connector::registerConnector(hiveConnector);
 
   seed(initialSeed);
 }
