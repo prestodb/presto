@@ -199,7 +199,7 @@ public class HivePageSourceProvider
                 hiveStorageTimeZone,
                 typeManager,
                 hiveLayout.getSchemaTableName(),
-                hiveLayout.getPartitionColumns().stream().map(HiveColumnHandle.class::cast).collect(toList()),
+                hiveLayout.getPartitionColumns(),
                 hiveLayout.getDataColumns(),
                 hiveLayout.getTableParameters(),
                 hiveSplit.getPartitionDataColumnCount(),
@@ -616,9 +616,7 @@ public class HivePageSourceProvider
 
     private static boolean shouldSkipPartition(TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
     {
-        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns().stream()
-                .map(HiveColumnHandle.class::cast)
-                .collect(toList());
+        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns();
         List<Type> partitionTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toList());
