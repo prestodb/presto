@@ -418,7 +418,7 @@ if(${VELOX_ENABLE_DUCKDB})
 endif()
 
 set_source(fmt)
-resolve_dependency(fmt)
+resolve_dependency(fmt 9.0.0)
 
 if(NOT ${VELOX_BUILD_MINIMAL})
   find_package(ZLIB REQUIRED)
