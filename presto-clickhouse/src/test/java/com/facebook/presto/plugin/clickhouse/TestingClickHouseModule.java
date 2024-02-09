@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.clickhouse.jdbc.ClickHouseDriver;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.util.Map;
 import java.util.Optional;
