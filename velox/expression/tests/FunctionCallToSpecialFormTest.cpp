@@ -185,3 +185,48 @@ TEST_F(FunctionCallToSpecialFormTest, notASpecialForm) {
       config_);
   ASSERT_EQ(specialForm, nullptr);
 }
+
+class FunctionCallToSpecialFormSanitizeNameTest : public testing::Test,
+                                                  public VectorTestBase {
+ protected:
+  static void SetUpTestCase() {
+    // This class does not pre-register the special forms.
+    memory::MemoryManager::testingSetInstance({});
+  }
+};
+
+TEST_F(FunctionCallToSpecialFormSanitizeNameTest, sanitizeName) {
+  // Make sure no special forms are registered.
+  unregisterAllFunctionCallToSpecialForm();
+
+  ASSERT_FALSE(isFunctionCallToSpecialFormRegistered("and"));
+  ASSERT_FALSE(isFunctionCallToSpecialFormRegistered("AND"));
+  ASSERT_FALSE(isFunctionCallToSpecialFormRegistered("or"));
+  ASSERT_FALSE(isFunctionCallToSpecialFormRegistered("OR"));
+
+  registerFunctionCallToSpecialForm(
+      "and", std::make_unique<ConjunctCallToSpecialForm>(true /* isAnd */));
+  registerFunctionCallToSpecialForm(
+      "OR", std::make_unique<ConjunctCallToSpecialForm>(false /* isAnd */));
+
+  auto testLookup = [this](const std::string& name) {
+    auto type = resolveTypeForSpecialForm(name, {BOOLEAN(), BOOLEAN()});
+    ASSERT_EQ(type, BOOLEAN());
+
+    auto specialForm = constructSpecialForm(
+        name,
+        BOOLEAN(),
+        {std::make_shared<ConstantExpr>(
+             vectorMaker_.constantVector<bool>({true})),
+         std::make_shared<ConstantExpr>(
+             vectorMaker_.constantVector<bool>({false}))},
+        false,
+        core::QueryConfig{{}});
+    ASSERT_EQ(typeid(*specialForm), typeid(const ConjunctExpr&));
+  };
+
+  testLookup("and");
+  testLookup("AND");
+  testLookup("or");
+  testLookup("OR");
+}

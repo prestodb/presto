@@ -29,8 +29,10 @@ SpecialFormRegistry& specialFormRegistryInternal() {
 void SpecialFormRegistry::registerFunctionCallToSpecialForm(
     const std::string& name,
     std::unique_ptr<FunctionCallToSpecialForm> functionCallToSpecialForm) {
-  registry_.withWLock(
-      [&](auto& map) { map[name] = std::move(functionCallToSpecialForm); });
+  const auto sanitizedName = sanitizeName(name);
+  registry_.withWLock([&](auto& map) {
+    map[sanitizedName] = std::move(functionCallToSpecialForm);
+  });
 }
 
 void SpecialFormRegistry::unregisterAllFunctionCallToSpecialForm() {
@@ -39,9 +41,10 @@ void SpecialFormRegistry::unregisterAllFunctionCallToSpecialForm() {
 
 FunctionCallToSpecialForm* FOLLY_NULLABLE
 SpecialFormRegistry::getSpecialForm(const std::string& name) const {
+  const auto sanitizedName = sanitizeName(name);
   FunctionCallToSpecialForm* specialForm = nullptr;
   registry_.withRLock([&](const auto& map) {
-    auto it = map.find(name);
+    auto it = map.find(sanitizedName);
     if (it != map.end()) {
       specialForm = it->second.get();
     }
