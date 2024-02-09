@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
+
 public class NativeQueryRunnerUtils
 {
     private NativeQueryRunnerUtils() {}
@@ -68,6 +70,23 @@ public class NativeQueryRunnerUtils
         createSupplier(queryRunner);
         createEmptyTable(queryRunner);
         createBucketedLineitemAndOrders(queryRunner);
+    }
+
+    /**
+     * Creates all iceberg tables for local testing.
+     *
+     * @param queryRunner
+     */
+    public static void createAllIcebergTables(QueryRunner queryRunner)
+    {
+        createLineitemForIceberg(queryRunner);
+        createOrders(queryRunner);
+        createNationWithFormat(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
+        createCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createSupplier(queryRunner);
     }
 
     public static void createLineitem(QueryRunner queryRunner)
