@@ -76,7 +76,6 @@ add_executable(
   RandTest.cpp
   ReduceTest.cpp
   RegexpReplaceTest.cpp
-  RepeatTest.cpp
   ReverseTest.cpp
   RoundTest.cpp
   ScalarFunctionRegTest.cpp

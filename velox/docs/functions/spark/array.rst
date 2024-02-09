@@ -51,6 +51,18 @@ Array Functions
         SELECT array_min(ARRAY [4.0, float('nan')]); -- 4.0
         SELECT array_min(ARRAY [NULL, float('nan')]); -- NaN
 
+.. spark:function:: array_repeat(element, count) -> array(E)
+
+    Returns an array containing ``element`` ``count`` times. If ``count`` is negative or zero,
+    returns empty array. If ``element`` is NULL, returns an array containing ``count`` NULLs.
+    If ``count`` is NULL, returns NULL as result. Throws an exception if ``count`` exceeds 10'000. ::
+
+        SELECT array_repeat(100, 3); -- [100, 100, 100]
+        SELECT array_repeat(NULL, 3); -- [NULL, NULL, NULL]
+        SELECT array_repeat(100, NULL); -- NULL
+        SELECT array_repeat(100, 0); -- []
+        SELECT array_repeat(100, -1); -- []
+
 .. spark:function:: array_sort(array(E)) -> array(E)
 
     Returns an array which has the sorted order of the input array(E). The elements of array(E) must

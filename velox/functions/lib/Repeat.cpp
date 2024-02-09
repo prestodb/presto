@@ -18,10 +18,14 @@
 
 namespace facebook::velox::functions {
 namespace {
-
 // See documentation at https://prestodb.io/docs/current/functions/array.html
 class RepeatFunction : public exec::VectorFunction {
  public:
+  // @param allowNegativeCount If true, negative 'count' is allowed
+  // and treated the same as zero (Spark's behavior).
+  explicit RepeatFunction(bool allowNegativeCount)
+      : allowNegativeCount_(allowNegativeCount) {}
+
   static constexpr int32_t kMaxResultEntries = 10'000;
 
   bool isDefaultNullBehavior() const override {
@@ -37,29 +41,36 @@ class RepeatFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     VectorPtr localResult;
     if (args[1]->isConstantEncoding()) {
-      localResult = applyConstant(rows, args, outputType, context);
+      localResult = applyConstantCount(rows, args, outputType, context);
       if (localResult == nullptr) {
         return;
       }
     } else {
-      localResult = applyFlat(rows, args, outputType, context);
+      localResult = applyNonConstantCount(rows, args, outputType, context);
     }
     context.moveOrCopyResult(localResult, rows, result);
   }
 
  private:
-  static void checkCount(const int32_t count) {
-    VELOX_USER_CHECK_GE(
-        count,
-        0,
-        "Count argument of repeat function must be greater than or equal to 0");
+  // Check count to make sure it is in valid range.
+  static int32_t checkCount(int32_t count, bool allowNegativeCount) {
+    if (count < 0) {
+      if (allowNegativeCount) {
+        return 0;
+      }
+      VELOX_USER_FAIL(
+          "({} vs. {}) Count argument of repeat function must be greater than or equal to 0",
+          count,
+          0);
+    }
     VELOX_USER_CHECK_LE(
         count,
         kMaxResultEntries,
         "Count argument of repeat function must be less than or equal to 10000");
+    return count;
   }
 
-  VectorPtr applyConstant(
+  VectorPtr applyConstantCount(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
@@ -73,14 +84,13 @@ class RepeatFunction : public exec::VectorFunction {
       return BaseVector::createNullConstant(outputType, numRows, pool);
     }
 
-    const auto count = constantCount->valueAt(0);
+    auto count = constantCount->valueAt(0);
     try {
-      checkCount(count);
+      count = checkCount(count, allowNegativeCount_);
     } catch (const VeloxUserError&) {
       context.setErrors(rows, std::current_exception());
       return nullptr;
     }
-
     const auto totalCount = count * numRows;
 
     // Allocate new vectors for indices, lengths and offsets.
@@ -109,7 +119,7 @@ class RepeatFunction : public exec::VectorFunction {
         BaseVector::wrapInDictionary(nullptr, indices, totalCount, args[0]));
   }
 
-  VectorPtr applyFlat(
+  VectorPtr applyNonConstantCount(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
@@ -120,7 +130,7 @@ class RepeatFunction : public exec::VectorFunction {
     context.applyToSelectedNoThrow(rows, [&](auto row) {
       auto count =
           countDecoded->isNullAt(row) ? 0 : countDecoded->valueAt<int32_t>(row);
-      checkCount(count);
+      count = checkCount(count, allowNegativeCount_);
       totalCount += count;
     });
 
@@ -156,6 +166,9 @@ class RepeatFunction : public exec::VectorFunction {
         return;
       }
       auto count = countDecoded->valueAt<int32_t>(row);
+      if (count < 0) {
+        count = 0;
+      }
       rawSizes[row] = count;
       rawOffsets[row] = offset;
       std::fill(rawIndices + offset, rawIndices + offset + count, row);
@@ -171,9 +184,12 @@ class RepeatFunction : public exec::VectorFunction {
         sizes,
         BaseVector::wrapInDictionary(nullptr, indices, totalCount, args[0]));
   }
-};
 
-static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+  const bool allowNegativeCount_;
+};
+} // namespace
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> repeatSignatures() {
   // T, integer -> array(T)
   return {exec::FunctionSignatureBuilder()
               .typeVariable("T")
@@ -182,11 +198,19 @@ static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
               .argumentType("integer")
               .build()};
 }
-} // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_repeat,
-    signatures(),
-    std::make_unique<RepeatFunction>());
+std::shared_ptr<exec::VectorFunction> makeRepeat(
+    const std::string& /* name */,
+    const std::vector<exec::VectorFunctionArg>& /* inputArgs */,
+    const core::QueryConfig& /*config*/) {
+  return std::make_unique<RepeatFunction>(false);
+}
+
+std::shared_ptr<exec::VectorFunction> makeRepeatAllowNegativeCount(
+    const std::string& /* name */,
+    const std::vector<exec::VectorFunctionArg>& /* inputArgs */,
+    const core::QueryConfig& /*config*/) {
+  return std::make_unique<RepeatFunction>(true);
+}
 
 } // namespace facebook::velox::functions

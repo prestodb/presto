@@ -14,17 +14,27 @@
  * limitations under the License.
  */
 
+#include "velox/functions/lib/Repeat.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
-using namespace facebook::velox;
 using namespace facebook::velox::test;
-using namespace facebook::velox::functions::test;
 
+namespace facebook::velox::functions {
 namespace {
 
-class RepeatTest : public FunctionBaseTest {
+class RepeatTest : public functions::test::FunctionBaseTest {
  protected:
+  static void SetUpTestCase() {
+    FunctionBaseTest::SetUpTestCase();
+    exec::registerStatefulVectorFunction(
+        "repeat", functions::repeatSignatures(), functions::makeRepeat);
+    exec::registerStatefulVectorFunction(
+        "repeat_allow_negative_count",
+        functions::repeatSignatures(),
+        functions::makeRepeatAllowNegativeCount);
+  }
+
   void testExpression(
       const std::string& expression,
       const std::vector<VectorPtr>& input,
@@ -41,7 +51,6 @@ class RepeatTest : public FunctionBaseTest {
         evaluate(expression, makeRowVector(input)), expectedError);
   }
 };
-} // namespace
 
 TEST_F(RepeatTest, repeat) {
   const auto elementVector = makeNullableFlatVector<float>(
@@ -124,3 +133,34 @@ TEST_F(RepeatTest, repeatWithInvalidCount) {
       {elementVector},
       "(10001 vs. 10000) Count argument of repeat function must be less than or equal to 10000");
 }
+
+TEST_F(RepeatTest, repeatAllowNegativeCount) {
+  const auto elementVector = makeNullableFlatVector<float>(
+      {0.0, -2.0, 3.333333, 4.0004, std::nullopt, 5.12345});
+  auto expected = makeArrayVector<float>({{}, {}, {}, {}, {}, {}});
+
+  // Test negative count.
+  auto countVector =
+      makeNullableFlatVector<int32_t>({-1, -2, -3, -5, -10, -100});
+  testExpression(
+      "repeat_allow_negative_count(C0, C1)",
+      {elementVector, countVector},
+      expected);
+
+  // Test using a constant as the count argument.
+  testExpression(
+      "repeat_allow_negative_count(C0, '-5'::INTEGER)",
+      {elementVector},
+      expected);
+
+  // Test mixed case.
+  expected = makeArrayVector<float>(
+      {{0.0}, {-2.0, -2.0}, {}, {}, {}, {5.12345, 5.12345, 5.12345}});
+  countVector = makeNullableFlatVector<int32_t>({1, 2, -1, 0, -10, 3});
+  testExpression(
+      "repeat_allow_negative_count(C0, C1)",
+      {elementVector, countVector},
+      expected);
+}
+} // namespace
+} // namespace facebook::velox::functions

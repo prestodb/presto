@@ -20,6 +20,7 @@ add_executable(
   KllSketchTest.cpp
   MapConcatTest.cpp
   Re2FunctionsTest.cpp
+  RepeatTest.cpp
   ZetaDistributionTest.cpp
   CheckNestedNullsTest.cpp)
 

@@ -28,6 +28,7 @@ add_library(
   KllSketch.cpp
   MapConcat.cpp
   Re2Functions.cpp
+  Repeat.cpp
   StringEncodingUtils.cpp
   SubscriptUtil.cpp
   CheckNestedNulls.cpp
