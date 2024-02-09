@@ -224,7 +224,12 @@ void GroupingSet::addInputForActiveRows(
   TestValue::adjust(
       "facebook::velox::exec::GroupingSet::addInputForActiveRows", this);
 
-  table_->prepareForGroupProbe(*lookup_, input, activeRows_, ignoreNullKeys_);
+  table_->prepareForGroupProbe(
+      *lookup_,
+      input,
+      activeRows_,
+      ignoreNullKeys_,
+      BaseHashTable::kNoSpillInputStartPartitionBit);
   if (lookup_->rows.empty()) {
     // No rows to probe. Can happen when ignoreNullKeys_ is true and all rows
     // have null keys.

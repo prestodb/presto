@@ -99,6 +99,7 @@ QueryTestResult runHashJoinTask(
                       .spillDirectory(spillDirectory->path)
                       .config(core::QueryConfig::kSpillEnabled, true)
                       .config(core::QueryConfig::kJoinSpillEnabled, true)
+                      .config(core::QueryConfig::kSpillStartPartitionBit, "29")
                       .queryCtx(queryCtx)
                       .maxDrivers(numDrivers)
                       .copyResults(pool, result.task);

@@ -823,7 +823,9 @@ bool HashBuild::finishHashBuild() {
   table_->prepareJoinTable(
       std::move(otherTables),
       allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
-                             : nullptr);
+                             : nullptr,
+      isInputFromSpill() ? spillConfig()->startPartitionBit
+                         : BaseHashTable::kNoSpillInputStartPartitionBit);
   addRuntimeStats();
   if (joinBridge_->setHashTable(
           std::move(table_), std::move(spillPartitions), joinHasNullKeys_)) {

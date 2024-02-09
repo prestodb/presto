@@ -78,7 +78,12 @@ void RowNumber::addInput(RowVectorPtr input) {
     }
 
     SelectivityVector rows(numInput);
-    table_->prepareForGroupProbe(*lookup_, input, rows, false);
+    table_->prepareForGroupProbe(
+        *lookup_,
+        input,
+        rows,
+        false,
+        BaseHashTable::kNoSpillInputStartPartitionBit);
     table_->groupProbe(*lookup_);
 
     // Initialize new partitions with zeros.
@@ -93,7 +98,8 @@ void RowNumber::addInput(RowVectorPtr input) {
 void RowNumber::addSpillInput() {
   const auto numInput = input_->size();
   SelectivityVector rows(numInput);
-  table_->prepareForGroupProbe(*lookup_, input_, rows, false);
+  table_->prepareForGroupProbe(
+      *lookup_, input_, rows, false, spillConfig_->startPartitionBit);
   table_->groupProbe(*lookup_);
 
   // Initialize new partitions with zeros.
@@ -157,7 +163,8 @@ void RowNumber::restoreNextSpillPartition() {
 
       const auto numInput = input->size();
       SelectivityVector rows(numInput);
-      table_->prepareForGroupProbe(*lookup_, input, rows, false);
+      table_->prepareForGroupProbe(
+          *lookup_, input, rows, false, spillConfig_->startPartitionBit);
       table_->groupProbe(*lookup_);
 
       auto* counts = data->children().back()->as<FlatVector<int64_t>>();

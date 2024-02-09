@@ -5038,6 +5038,22 @@ TEST_F(HashJoinTest, spillFileSize) {
   }
 }
 
+TEST_F(HashJoinTest, spillPartitionBitsOverlap) {
+  auto builder =
+      HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+          .numDrivers(numDrivers_)
+          .keyTypes({BIGINT(), BIGINT()})
+          .probeVectors(2'000, 3)
+          .buildVectors(2'000, 3)
+          .referenceQuery(
+              "SELECT t_k0, t_k1, t_data, u_k0, u_k1, u_data FROM t, u WHERE t_k0 = u_k0 and t_k1 = u_k1")
+          .config(core::QueryConfig::kSpillStartPartitionBit, "8")
+          .config(core::QueryConfig::kJoinSpillPartitionBits, "1")
+          .checkSpillStats(false)
+          .maxSpillLevel(0);
+  VELOX_ASSERT_THROW(builder.run(), "vs. 8");
+}
+
 // The test is to verify if the hash build reservation has been released on
 // task error.
 DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
@@ -5242,6 +5258,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
           .spillDirectory(testData.spillEnabled ? tempDirectory->path : "")
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+          .config(core::QueryConfig::kSpillStartPartitionBit, "29")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
             const auto statsPair = taskSpilledStats(*task);
             if (testData.expectedReclaimable) {
@@ -5394,6 +5411,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .spillDirectory(tempDirectory->path)
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+        .config(core::QueryConfig::kSpillStartPartitionBit, "29")
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           const auto statsPair = taskSpilledStats(*task);
           ASSERT_GT(statsPair.first.spilledBytes, 0);
@@ -5788,6 +5806,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         .spillDirectory(tempDirectory->path)
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+        .config(core::QueryConfig::kSpillStartPartitionBit, "29")
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           const auto statsPair = taskSpilledStats(*task);
           ASSERT_GT(statsPair.first.spilledBytes, 0);
@@ -6351,6 +6370,7 @@ TEST_F(HashJoinTest, exceededMaxSpillLevel) {
       .spillDirectory(tempDirectory->path)
       .referenceQuery(
           "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+      .config(core::QueryConfig::kSpillStartPartitionBit, "29")
       .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
         auto joinStats = task->taskStats()
                              .pipelineStats.back()

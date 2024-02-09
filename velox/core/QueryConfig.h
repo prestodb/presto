@@ -578,7 +578,7 @@ class QueryConfig {
   /// calculate the spilling partition number for join spill or aggregation
   /// spill.
   uint8_t spillStartPartitionBit() const {
-    constexpr uint8_t kDefaultStartBit = 29;
+    constexpr uint8_t kDefaultStartBit = 48;
     return get<uint8_t>(kSpillStartPartitionBit, kDefaultStartBit);
   }
 
