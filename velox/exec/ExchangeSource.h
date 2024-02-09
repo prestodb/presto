@@ -40,12 +40,6 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
       std::shared_ptr<ExchangeQueue> queue,
       memory::MemoryPool* pool);
 
-  /// Temporary API to indicate whether 'request(maxBytes, maxWaitSeconds)' API
-  /// is supported.
-  virtual bool supportsFlowControlV2() const {
-    VELOX_UNREACHABLE();
-  }
-
   /// Temporary API to indicate whether 'metrics()' API
   /// is supported.
   virtual bool supportsMetrics() const {
