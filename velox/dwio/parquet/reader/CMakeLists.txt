@@ -23,7 +23,6 @@ add_library(
   ParquetData.cpp
   RepeatedColumnReader.cpp
   RleBpDecoder.cpp
-  Statistics.cpp
   StructColumnReader.cpp
   StringColumnReader.cpp)
 

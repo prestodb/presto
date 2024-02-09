@@ -15,10 +15,141 @@
  */
 
 #include "velox/dwio/parquet/reader/Metadata.h"
-
-#include "velox/dwio/parquet/reader/Statistics.h"
+#include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
 
 namespace facebook::velox::parquet {
+
+template <typename T>
+inline const T load(const char* ptr) {
+  T ret;
+  std::memcpy(&ret, ptr, sizeof(ret));
+  return ret;
+}
+
+template <typename T>
+inline std::optional<T> getMin(const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.min_value
+      ? load<T>(columnChunkStats.min_value.data())
+      : (columnChunkStats.__isset.min
+             ? std::optional<T>(load<T>(columnChunkStats.min.data()))
+             : std::nullopt);
+}
+
+template <typename T>
+inline std::optional<T> getMax(const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.max_value
+      ? std::optional<T>(load<T>(columnChunkStats.max_value.data()))
+      : (columnChunkStats.__isset.max
+             ? std::optional<T>(load<T>(columnChunkStats.max.data()))
+             : std::nullopt);
+}
+
+template <>
+inline std::optional<std::string> getMin(
+    const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.min_value
+      ? std::optional(columnChunkStats.min_value)
+      : (columnChunkStats.__isset.min ? std::optional(columnChunkStats.min)
+                                      : std::nullopt);
+}
+
+template <>
+inline std::optional<std::string> getMax(
+    const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.max_value
+      ? std::optional(columnChunkStats.max_value)
+      : (columnChunkStats.__isset.max ? std::optional(columnChunkStats.max)
+                                      : std::nullopt);
+}
+
+std::unique_ptr<dwio::common::ColumnStatistics> buildColumnStatisticsFromThrift(
+    const thrift::Statistics& columnChunkStats,
+    const velox::Type& type,
+    uint64_t numRowsInRowGroup) {
+  std::optional<uint64_t> nullCount = columnChunkStats.__isset.null_count
+      ? std::optional<uint64_t>(columnChunkStats.null_count)
+      : std::nullopt;
+  std::optional<uint64_t> valueCount = nullCount.has_value()
+      ? std::optional<uint64_t>(numRowsInRowGroup - nullCount.value())
+      : std::nullopt;
+  std::optional<bool> hasNull = columnChunkStats.__isset.null_count
+      ? std::optional<bool>(columnChunkStats.null_count > 0)
+      : std::nullopt;
+
+  switch (type.kind()) {
+    case TypeKind::BOOLEAN:
+      return std::make_unique<dwio::common::BooleanColumnStatistics>(
+          valueCount, hasNull, std::nullopt, std::nullopt, std::nullopt);
+    case TypeKind::TINYINT:
+      return std::make_unique<dwio::common::IntegerColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<int8_t>(columnChunkStats),
+          getMax<int8_t>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::SMALLINT:
+      return std::make_unique<dwio::common::IntegerColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<int16_t>(columnChunkStats),
+          getMax<int16_t>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::INTEGER:
+      return std::make_unique<dwio::common::IntegerColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<int32_t>(columnChunkStats),
+          getMax<int32_t>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::BIGINT:
+      return std::make_unique<dwio::common::IntegerColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<int64_t>(columnChunkStats),
+          getMax<int64_t>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::REAL:
+      return std::make_unique<dwio::common::DoubleColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<float>(columnChunkStats),
+          getMax<float>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::DOUBLE:
+      return std::make_unique<dwio::common::DoubleColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<double>(columnChunkStats),
+          getMax<double>(columnChunkStats),
+          std::nullopt);
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      return std::make_unique<dwio::common::StringColumnStatistics>(
+          valueCount,
+          hasNull,
+          std::nullopt,
+          std::nullopt,
+          getMin<std::string>(columnChunkStats),
+          getMax<std::string>(columnChunkStats),
+          std::nullopt);
+
+    default:
+      return std::make_unique<dwio::common::ColumnStatistics>(
+          valueCount, hasNull, std::nullopt, std::nullopt);
+  }
+}
 
 common::CompressionKind thriftCodecToCompressionKind(
     thrift::CompressionCodec::type codec) {
