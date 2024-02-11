@@ -424,6 +424,23 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(2)));
     }
 
+    @Test
+    public void testHBOApplicationOnADifferentQuery()
+    {
+        // First query with a simple selection
+//        String query1 = "SELECT name, regionkey FROM nation WHERE nationkey = 1";
+////        assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+//        executeAndTrackHistory(query1);
+
+        String query2 = "SELECT name, regionkey FROM region ";
+//        assertPlan(query, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query2);
+
+        // Third query with a join
+        String test = "SELECT n.name, r.name FROM region r JOIN nation n ON n.regionkey = r.regionkey WHERE nationkey = 1";
+        assertPlan(test, anyTree(node(DistinctLimitNode.class, anyTree(any())).withOutputRowCount(2)));
+    }
+
     private void executeAndTrackHistory(String sql)
     {
         getQueryRunner().execute(sql);
