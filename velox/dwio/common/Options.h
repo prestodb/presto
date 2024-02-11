@@ -94,6 +94,8 @@ class SerDeOptions {
 
 struct TableParameter {
   static constexpr const char* kSkipHeaderLineCount = "skip.header.line.count";
+  static constexpr const char* kSerializationNullFormat =
+      "serialization.null.format";
 };
 
 /**

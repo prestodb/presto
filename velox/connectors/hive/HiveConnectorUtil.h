@@ -26,6 +26,7 @@
 namespace facebook::velox::connector::hive {
 
 class HiveColumnHandle;
+class HiveTableHandle;
 class HiveConfig;
 struct HiveConnectorSplit;
 
@@ -57,8 +58,8 @@ void configureReaderOptions(
     dwio::common::ReaderOptions& readerOptions,
     const std::shared_ptr<HiveConfig>& config,
     const Config* sessionProperties,
-    const RowTypePtr& fileSchema,
-    std::shared_ptr<HiveConnectorSplit> hiveSplit);
+    const std::shared_ptr<HiveTableHandle>& hiveTableHandle,
+    const std::shared_ptr<HiveConnectorSplit>& hiveSplit);
 
 void configureRowReaderOptions(
     dwio::common::RowReaderOptions& rowReaderOptions,

@@ -82,7 +82,7 @@ void SplitReader::configureReaderOptions() {
       baseReaderOpts_,
       hiveConfig_,
       connectorQueryCtx_->sessionProperties(),
-      hiveTableHandle_->dataColumns(),
+      hiveTableHandle_,
       hiveSplit_);
 }
 
