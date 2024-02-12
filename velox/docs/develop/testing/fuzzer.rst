@@ -235,6 +235,8 @@ ExpressionRunner supports the following flags:
 
 * ``--sql_path`` path to expression SQL that was created by the Fuzzer
 
+* ``--registry`` function registry to use for evaluating expression. One of "presto" (default) or "spark".
+
 * ``--complex_constant_path`` optional path to complex constants that aren't accurately expressable in SQL (Array, Map, Structs, ...). This is used with SQL file to reproduce the exact expression, not needed when the expression doesn't contain complex constants.
 
 * ``--lazy_column_list_path`` optional path for the file stored on-disk which contains a vector of column indices that specify which columns of the input row vector should be wrapped in lazy. This is used when the failing test included input columns that were lazy vector.

@@ -22,6 +22,7 @@
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/sparksql/Register.h"
 #include "velox/vector/VectorSaver.h"
 
 using namespace facebook::velox;
@@ -51,6 +52,12 @@ DEFINE_string(
     "Comma separated SQL expressions to evaluate. This flag and --sql_path "
     "flag are mutually exclusive. If both are specified, --sql is used and "
     "--sql_path is ignored.");
+
+DEFINE_string(
+    registry,
+    "presto",
+    "Funciton registry to use for expression evaluation. Currently supported values are "
+    "presto and spark. Default is presto.");
 
 DEFINE_string(
     result_path,
@@ -83,8 +90,8 @@ static bool validateMode(const char* flagName, const std::string& value) {
   static const std::unordered_set<std::string> kModes = {
       "common", "simplified", "verify", "query"};
   if (kModes.count(value) != 1) {
-    std::cout << "Invalid value for --" << flagName << ": " << value << ". ";
-    std::cout << "Valid values are: " << folly::join(", ", kModes) << "."
+    std::cerr << "Invalid value for --" << flagName << ": " << value << ". ";
+    std::cerr << "Valid values are: " << folly::join(", ", kModes) << "."
               << std::endl;
     return false;
   }
@@ -92,7 +99,26 @@ static bool validateMode(const char* flagName, const std::string& value) {
   return true;
 }
 
+static bool validateRegistry(const char* flagName, const std::string& value) {
+  static const std::unordered_set<std::string> kRegistries = {
+      "presto", "spark"};
+  if (kRegistries.count(value) != 1) {
+    std::cerr << "Invalid value for --" << flagName << ": " << value << ". ";
+    std::cerr << "Valid values are: " << folly::join(", ", kRegistries) << "."
+              << std::endl;
+    return false;
+  }
+  if (value == "spark") {
+    functions::sparksql::registerFunctions("");
+  } else if (value == "presto") {
+    functions::prestosql::registerAllScalarFunctions();
+  }
+
+  return true;
+}
+
 DEFINE_validator(mode, &validateMode);
+DEFINE_validator(registry, &validateRegistry);
 
 DEFINE_int32(
     num_rows,
@@ -172,7 +198,7 @@ int main(int argc, char** argv) {
   }
 
   if (FLAGS_sql.empty() && FLAGS_sql_path.empty()) {
-    std::cout << "One of --sql or --sql_path flags must be set." << std::endl;
+    std::cerr << "One of --sql or --sql_path flags must be set." << std::endl;
     exit(1);
   }
 
@@ -182,8 +208,6 @@ int main(int argc, char** argv) {
     VELOX_CHECK(!sql.empty());
   }
 
-  functions::prestosql::registerAllScalarFunctions();
-  aggregate::prestosql::registerAllAggregateFunctions();
   test::ExpressionRunner::run(
       FLAGS_input_path,
       sql,
