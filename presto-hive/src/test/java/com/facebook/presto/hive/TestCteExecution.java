@@ -737,6 +737,36 @@ public class TestCteExecution
     }
 
     @Test
+    public void testComplexQuery2WithDifferentJoinOrder()
+    {
+        String testQuery = "WITH  supplier_region AS (" +
+                "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                "   FROM SUPPLIER s " +
+                "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                " supplier_parts AS (" +
+                "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                "   FROM supplier_region sr " +
+                "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                "parts_info AS (" +
+                "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                "   FROM supplier_parts sp " +
+                "   JOIN PART p ON sp.partkey = p.partkey), " +
+                " full_supplier_part_info AS (" +
+                "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                "   FROM parts_info pi " +
+                "JOIN REGION r ON pi.region_name = r.name" +
+                "   JOIN NATION n ON pi.nation_name = n.name) " +
+                "SELECT * FROM full_supplier_part_info " +
+                "WHERE part_type LIKE '%BRASS' " +
+                "ORDER BY region_name, supplier_name";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(
+                queryRunner.execute(getMaterializedSession(), testQuery),
+                queryRunner.execute(getSession(), testQuery));
+    }
+
+    @Test
     public void testSimplePersistentCteForCtasQueries()
     {
         QueryRunner queryRunner = getQueryRunner();
