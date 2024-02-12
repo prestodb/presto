@@ -64,6 +64,7 @@ target_link_libraries(
   velox_file
   velox_functions_aggregates
   velox_functions_aggregates_test_lib
+  velox_functions_window_test_lib
   velox_functions_test_lib
   velox_functions_prestosql
   velox_functions_lib

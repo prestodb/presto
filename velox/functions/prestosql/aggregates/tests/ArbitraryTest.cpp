@@ -16,9 +16,11 @@
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/lib/window/tests/WindowTestBase.h"
 
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
+using namespace facebook::velox::window::test;
 
 namespace facebook::velox::aggregate::test {
 
@@ -365,6 +367,39 @@ TEST_F(ArbitraryTest, interval) {
   ASSERT_EQ(interval.value<int64_t>(), 125);
 
   testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
+}
+
+class ArbitraryWindowTest : public WindowTestBase {};
+
+TEST_F(ArbitraryWindowTest, basic) {
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+       makeArrayVector<double>({{1.0}, {2.0}, {3.0}, {4.0}, {5.0}}),
+       makeFlatVector<bool>({false, false, false, false, false})});
+
+  auto expected = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+       makeArrayVector<double>({{1.0}, {2.0}, {3.0}, {4.0}, {5.0}}),
+       makeFlatVector<bool>({false, false, false, false, false}),
+       makeFlatVector<int64_t>({1, 1, 1, 1, 1})});
+  window::test::WindowTestBase::testWindowFunction(
+      {data},
+      "arbitrary(c0)",
+      "partition by c2 order by c0",
+      "range between unbounded preceding and current row",
+      expected);
+
+  expected = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+       makeArrayVector<double>({{1.0}, {2.0}, {3.0}, {4.0}, {5.0}}),
+       makeFlatVector<bool>({false, false, false, false, false}),
+       makeArrayVector<double>({{1.0}, {1.0}, {1.0}, {1.0}, {1.0}})});
+  window::test::WindowTestBase::testWindowFunction(
+      {data},
+      "arbitrary(c1)",
+      "partition by c2 order by c0",
+      "range between unbounded preceding and current row",
+      expected);
 }
 
 } // namespace

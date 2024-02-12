@@ -226,6 +226,11 @@ class NonNumericArbitrary : public exec::Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
+    auto* accumulator = value<SingleValueAccumulator>(group);
+    if (accumulator->hasValue()) {
+      return;
+    }
+
     DecodedVector decoded(*args[0], rows, true);
     if (decoded.isConstantMapping() && decoded.isNullAt(0)) {
       // nothing to do; all values are nulls
@@ -234,7 +239,6 @@ class NonNumericArbitrary : public exec::Aggregate {
 
     const auto* indices = decoded.indices();
     const auto* baseVector = decoded.base();
-    auto* accumulator = value<SingleValueAccumulator>(group);
     // Find the first non-null value.
     rows.testSelected([&](vector_size_t i) {
       if (!decoded.isNullAt(i)) {
