@@ -92,7 +92,7 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
 
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
-    private boolean cteFilterAndProjectionPushdownEnabled = true;
+    private boolean cteFilterAndProjectionPushdownEnabled;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
