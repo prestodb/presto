@@ -245,6 +245,28 @@ TEST_F(DateTimeFunctionsTest, lastDay) {
   EXPECT_EQ(lastDayFunc(std::nullopt), std::nullopt);
 }
 
+TEST_F(DateTimeFunctionsTest, dateFromUnixDate) {
+  const auto dateFromUnixDate = [&](std::optional<int32_t> value) {
+    return evaluateOnce<int32_t>("date_from_unix_date(c0)", value);
+  };
+
+  // Basic tests
+  EXPECT_EQ(parseDate("1970-01-01"), dateFromUnixDate(0));
+  EXPECT_EQ(parseDate("1970-01-02"), dateFromUnixDate(1));
+  EXPECT_EQ(parseDate("1969-12-31"), dateFromUnixDate(-1));
+  EXPECT_EQ(parseDate("1970-02-01"), dateFromUnixDate(31));
+  EXPECT_EQ(parseDate("1971-01-31"), dateFromUnixDate(395));
+  EXPECT_EQ(parseDate("1971-01-01"), dateFromUnixDate(365));
+
+  // Leap year tests
+  EXPECT_EQ(parseDate("1972-02-29"), dateFromUnixDate(365 + 365 + 30 + 29));
+  EXPECT_EQ(parseDate("1971-03-01"), dateFromUnixDate(365 + 30 + 28 + 1));
+
+  // Min and max value tests
+  EXPECT_EQ(parseDate("5881580-07-11"), dateFromUnixDate(kMax));
+  EXPECT_EQ(parseDate("-5877641-06-23"), dateFromUnixDate(kMin));
+}
+
 TEST_F(DateTimeFunctionsTest, dateAdd) {
   const auto dateAdd = [&](const std::string& dateStr,
                            std::optional<int32_t> value) {

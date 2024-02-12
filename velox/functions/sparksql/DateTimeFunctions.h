@@ -361,6 +361,15 @@ struct LastDayFunction {
 };
 
 template <typename T>
+struct DateFromUnixDateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(out_type<Date>& result, const int32_t& value) {
+    result = value;
+  }
+};
+
+template <typename T>
 struct DateAddFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
