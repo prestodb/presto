@@ -59,14 +59,6 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
     return requestPending_;
   }
 
-  /// Requests the producer to generate up to 'maxBytes' more data.
-  /// Returns a future that completes when producer responds either with 'data'
-  /// or with a message indicating that all data has been already produced or
-  /// data will take more time to produce.
-  virtual ContinueFuture request(uint32_t /*maxBytes*/) {
-    VELOX_NYI();
-  }
-
   struct Response {
     /// Size of the response in bytes. Zero means response didn't contain any
     /// data.
