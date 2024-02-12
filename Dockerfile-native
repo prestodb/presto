@@ -48,7 +48,7 @@ RUN tar xvf prestissimo.tar && \
     mv prestissimo/presto_server /usr/local/bin/ && \
     mv velox.properties /opt/presto-server/etc/ && \
     mv entrypoint.sh /opt/ && \
-    mv prestissimo/runtime-libraries/* /usr/local/lib64/ && \
+    mv prestissimo/runtime-libraries/* /usr/local/lib/ && \
     touch /opt/presto-native-execution-${PRESTO_VERSION}
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
