@@ -127,11 +127,13 @@ class FirstLastValueFunction : public exec::WindowFunction {
       // The function returns null for this case. -1 correctly maps to
       // kNullRow as expected for rowNumbers_ extraction.
       if constexpr (TValue == ValueType::kFirst) {
-        rowNumbers_[i] = bits::findFirstBit(
+        auto position = bits::findFirstBit(
             rawNonNulls, frameStart - leastFrame, frameEnd - leastFrame + 1);
+        rowNumbers_[i] = (position == -1) ? -1 : position + leastFrame;
       } else {
-        rowNumbers_[i] = bits::findLastBit(
+        auto position = bits::findLastBit(
             rawNonNulls, frameStart - leastFrame, frameEnd - leastFrame + 1);
+        rowNumbers_[i] = (position == -1) ? -1 : position + leastFrame;
       }
     });
   }
