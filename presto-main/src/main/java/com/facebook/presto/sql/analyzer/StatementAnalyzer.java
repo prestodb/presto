@@ -54,6 +54,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewAccessControl;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.SqlFormatterUtil;
@@ -199,7 +200,9 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.ROW_FILTER_TYPE_MISMATCH;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
@@ -439,6 +442,10 @@ class StatementAnalyzer
                     tableColumnsMetadata.getTableHandle().get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
+            if (!accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable).isEmpty()) {
+                throw new SemanticException(NOT_SUPPORTED, insert, "Insert into table with row filter is not supported");
+            }
+
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
         }
 
@@ -671,6 +678,10 @@ class StatementAnalyzer
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
+            }
+
+            if (!accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName).isEmpty()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Delete from table with row filter is not supported");
             }
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
@@ -1313,6 +1324,16 @@ class StatementAnalyzer
                 checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
             }
+
+            //add row filter
+            List<Field> outputFields = fields.build();
+
+            Scope accessControlScope = Scope.builder()
+                    .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
+                    .build();
+
+            accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name)
+                    .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
 
             analysis.registerTable(table, tableHandle.get());
 

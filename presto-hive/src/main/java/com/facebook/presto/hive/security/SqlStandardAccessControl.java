@@ -30,6 +30,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.RoleGrant;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
@@ -389,6 +390,12 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 
     private boolean isAdmin(ConnectorTransactionHandle transaction, ConnectorIdentity identity, MetastoreContext metastoreContext)
