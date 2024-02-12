@@ -248,6 +248,8 @@ const char* exportArrowFormatStr(
       return "u"; // utf-8 string
     case TypeKind::VARBINARY:
       return "z"; // binary
+    case TypeKind::UNKNOWN:
+      return "n"; // NullType
 
     case TypeKind::TIMESTAMP:
       return "ttn"; // time64 [nanoseconds]
@@ -598,6 +600,7 @@ void exportFlat(
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
     case TypeKind::TIMESTAMP:
+    case TypeKind::UNKNOWN:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
@@ -940,6 +943,8 @@ TypePtr importFromArrowImpl(
       return REAL();
     case 'g':
       return DOUBLE();
+    case 'n':
+      return UNKNOWN();
 
     // Map both utf-8 and large utf-8 string to varchar.
     case 'u':
