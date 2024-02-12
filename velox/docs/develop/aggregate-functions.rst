@@ -283,6 +283,9 @@ initialize all accumulators.
 The author can also optionally define a `destroy` function that is called when
 *this* accumulator object is destructed.
 
+Notice that `writeIntermediateResult` and `writeFinalResult` are expected to not
+modify contents in the accumulator.
+
 addInput
 """"""""
 
@@ -364,6 +367,9 @@ behavior.
 
 On the other hand, the C++ function signatures of `addInput`, `combine`,
 `writeIntermediateResult`, and `writeFinalResult` are different.
+
+Same as the case for default-null behavior, `writeIntermediateResult` and
+`writeFinalResult` are expected to not modify contents in the accumulator.
 
 addInput
 """"""""
@@ -605,6 +611,7 @@ After implementing the addRawInput() method, we proceed to adding logic for extr
 .. code-block:: c++
 
       // Extracts partial results (used for partial and intermediate aggregations).
+      // This method is expected to not modify contents in accumulators.
       // @param groups Pointers to the start of the group rows.
       // @param numGroups Number of groups to extract results from.
       // @param result The result vector to store the results in.
@@ -625,7 +632,8 @@ Next, we implement the extractValues() method that extracts final results from t
 
 .. code-block:: c++
 
-      // Extracts final results (used for final and single aggregations).
+      // Extracts final results (used for final and single aggregations). This method
+      // is expected to not modify contents in accumulators.
       // @param groups Pointers to the start of the group rows.
       // @param numGroups Number of groups to extract results from.
       // @param result The result vector to store the results in.

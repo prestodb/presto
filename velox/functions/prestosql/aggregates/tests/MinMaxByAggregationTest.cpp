@@ -1370,7 +1370,6 @@ class MinMaxByNTest : public AggregationTestBase {
     AggregationTestBase::SetUp();
     AggregationTestBase::allowInputShuffle();
     AggregationTestBase::enableTestStreaming();
-    AggregationTestBase::disableTestIncremental();
   }
 };
 
@@ -1764,6 +1763,10 @@ TEST_F(MinMaxByNTest, sortedGroupBy) {
 }
 
 TEST_F(MinMaxByNTest, variableN) {
+  // Tests below check the error behavior on invalid inputs, so testIncremental
+  // is not needed for these cases.
+  AggregationTestBase::disableTestIncremental();
+
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7}),
       makeFlatVector<int64_t>({77, 66, 55, 44, 33, 22, 11}),
@@ -1819,6 +1822,8 @@ TEST_F(MinMaxByNTest, variableN) {
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan).copyResults(pool()),
       "third argument of max_by/min_by must be a constant for all rows in a group");
+
+  AggregationTestBase::enableTestIncremental();
 }
 
 TEST_F(MinMaxByNTest, globalRow) {
@@ -2108,6 +2113,91 @@ TEST_F(MinMaxByNTest, stringComparison) {
         {data}, {"c4"}, {"min_by(c3, c0, 2)", "max_by(c3, c0, 2)"}, {expected});
     testReadFromFiles(
         {data}, {"c4"}, {"min_by(c3, c0, 2)", "max_by(c3, c0, 2)"}, {expected});
+  }
+}
+
+TEST_F(MinMaxByNTest, incrementalWindow) {
+  // Test that min_by(x, x, 10) and max_by(x, x, 10) produce correct results
+  // when used in window operation with incremental frames.
+  std::vector<VectorPtr> inputs = {
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<StringView>({"1"_sv, "2"_sv}),
+      makeArrayVector<StringView>({{"1"_sv}, {"2"_sv}}),
+      makeFlatVector<Timestamp>({Timestamp(0, 0), Timestamp(0, 1)}),
+      makeFlatVector<int64_t>({10, 10}),
+      makeFlatVector<bool>({false, false}),
+      makeFlatVector<int64_t>({0, 1})};
+  auto data = makeRowVector(inputs);
+  auto result = inputs;
+
+  // Test primitive type.
+  {
+    auto plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"max_by(c0, c0, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+
+    result.push_back(makeArrayVector<int64_t>({{1}, {2, 1}}));
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
+
+    plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"min_by(c0, c0, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+    result.back() = makeArrayVector<int64_t>({{1}, {1, 2}});
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
+  }
+
+  // Test varchar type.
+  {
+    auto plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"max_by(c1, c1, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+
+    result.back() = makeArrayVector<StringView>({{"1"_sv}, {"2"_sv, "1"_sv}});
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
+
+    plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"min_by(c1, c1, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+
+    result.back() = makeArrayVector<StringView>({{"1"_sv}, {"1"_sv, "2"_sv}});
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
+  }
+
+  // Test complex type.
+  {
+    auto plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"max_by(c2, c3, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+
+    result.back() = makeNullableNestedArrayVector<StringView>(
+        {{{{{"1"_sv}}}}, {{{{"2"_sv}}, {{"1"_sv}}}}});
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
+
+    plan =
+        PlanBuilder()
+            .values({data})
+            .window(
+                {"min_by(c2, c3, c4) over (partition by c5 order by c6 asc)"})
+            .planNode();
+
+    result.back() = makeNullableNestedArrayVector<StringView>(
+        {{{{{"1"_sv}}}}, {{{{"1"_sv}}, {{"2"_sv}}}}});
+    AssertQueryBuilder(plan).assertResults(makeRowVector(result));
   }
 }
 
