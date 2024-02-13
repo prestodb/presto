@@ -606,6 +606,15 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.spilledDataSize =
           protocol::DataSize(op.spilledBytes, protocol::DataUnit::BYTE);
 
+      if (op.operatorType == "HashBuild") {
+        opOut.joinBuildKeyCount = op.inputPositions;
+        opOut.nullJoinBuildKeyCount = op.numNullKeys;
+      }
+      if (op.operatorType == "HashProbe") {
+        opOut.joinProbeKeyCount = op.inputPositions;
+        opOut.nullJoinProbeKeyCount = op.numNullKeys;
+      }
+
       for (const auto& stat : op.runtimeStats) {
         auto statName = generateRuntimeStatName(op, stat.first);
         opOut.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
