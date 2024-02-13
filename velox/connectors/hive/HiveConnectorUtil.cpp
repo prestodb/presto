@@ -418,7 +418,9 @@ std::unique_ptr<dwio::common::SerDeOptions> parseSerdeParameters(
   }
   auto serDeOptions = std::make_unique<dwio::common::SerDeOptions>(
       fieldDelim, collectionDelim, mapKeyDelim);
-  serDeOptions->nullString = nullStringIt->second;
+  if (nullStringIt != tableParameters.end()) {
+    serDeOptions->nullString = nullStringIt->second;
+  }
   return serDeOptions;
 }
 

@@ -93,7 +93,14 @@ class SerDeOptions {
 };
 
 struct TableParameter {
+  /// If present in the table parameters, the option is passed to the row reader
+  /// to instruct it to skip the number of rows from the current position. Used
+  /// to skip the column header row(s).
   static constexpr const char* kSkipHeaderLineCount = "skip.header.line.count";
+  /// If present in the table parameters, the option overrides the default value
+  /// of the SerDeOptions::nullString. It causes any field read from the file
+  /// (usually of the TEXT format) to be considered NULL if it is equal to this
+  /// string.
   static constexpr const char* kSerializationNullFormat =
       "serialization.null.format";
 };
