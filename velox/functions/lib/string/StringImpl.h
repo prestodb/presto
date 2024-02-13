@@ -111,7 +111,7 @@ FOLLY_ALWAYS_INLINE int64_t length(const T& input) {
   }
 }
 
-/// Return a capped length(controlled by maxLength) of a string.
+/// Return a capped length in characters(controlled by maxLength) of a string.
 /// The returned length is not greater than maxLength.
 template <bool isAscii, typename T>
 FOLLY_ALWAYS_INLINE int64_t cappedLength(const T& input, size_t maxLength) {
@@ -119,6 +119,19 @@ FOLLY_ALWAYS_INLINE int64_t cappedLength(const T& input, size_t maxLength) {
     return input.size() > maxLength ? maxLength : input.size();
   } else {
     return cappedLengthUnicode(input.data(), input.size(), maxLength);
+  }
+}
+
+/// Return a capped length in bytes(controlled by maxCharacters) of a string.
+/// The returned length may be greater than maxCharacters if there are
+/// multi-byte characters present in the input string.
+template <bool isAscii, typename TString>
+FOLLY_ALWAYS_INLINE int64_t
+cappedByteLength(const TString& input, size_t maxCharacters) {
+  if constexpr (isAscii) {
+    return input.size() > maxCharacters ? maxCharacters : input.size();
+  } else {
+    return cappedByteLengthUnicode(input.data(), input.size(), maxCharacters);
   }
 }
 

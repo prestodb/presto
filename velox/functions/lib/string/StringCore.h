@@ -264,6 +264,33 @@ cappedLengthUnicode(const char* input, size_t size, size_t maxChars) {
   return numChars;
 }
 
+///
+/// Return an capped length in bytes(controlled by maxChars) of a unicode
+/// string. The returned length may be greater than maxCharacters if there are
+/// multi-byte characters present in the input string.
+///
+/// This method is used to help with indexing unicode strings by byte position.
+/// It is used to find the byte position of the Nth character in a string.
+///
+/// @param input input buffer that hold the string
+/// @param size size of input buffer
+/// @param maxChars stop counting characters if the string is longer
+/// than this value
+/// @return the number of bytes represented by the input utf8 string up to
+/// maxChars
+///
+FOLLY_ALWAYS_INLINE int64_t
+cappedByteLengthUnicode(const char* input, size_t size, int64_t maxChars) {
+  size_t utf8Position = 0;
+  size_t numCharacters = 0;
+  while (utf8Position < size && numCharacters < maxChars) {
+    auto charSize = utf8proc_char_length(input + utf8Position);
+    utf8Position += UNLIKELY(charSize < 0) ? 1 : charSize;
+    numCharacters++;
+  }
+  return utf8Position;
+}
+
 /// Returns the start byte index of the Nth instance of subString in
 /// string. Search starts from startPosition. Positions start with 0. If not
 /// found, -1 is returned. To facilitate finding overlapping strings, the
