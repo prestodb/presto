@@ -32,6 +32,7 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tpcds.TpcdsPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -158,6 +159,9 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
+        queryRunner.installPlugin(new TpcdsPlugin());
+        queryRunner.createCatalog("tpcds", "tpcds");
+
         Path icebergDataDirectory = queryRunner.getCoordinator().getDataDirectory();
 
         queryRunner.installPlugin(new IcebergPlugin());
@@ -185,9 +189,13 @@ public final class IcebergQueryRunner
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpch");
             }
+            if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
+                queryRunner.execute("CREATE SCHEMA tpcds");
+            }
         }
         else {
             queryRunner.execute("CREATE SCHEMA tpch");
+            queryRunner.execute("CREATE SCHEMA tpcds");
         }
 
         if (createTpchTables) {
