@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_codegen Codegen.cpp)
-if(${VELOX_CODEGEN_SUPPORT})
+if(${VELOX_ENABLE_CODEGEN_SUPPORT})
   target_link_libraries(velox_codegen velox_experimental_codegen)
 else()
   target_link_libraries(velox_codegen velox_core velox_exec velox_expression

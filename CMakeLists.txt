@@ -62,6 +62,11 @@ option(
   VELOX_BUILD_MINIMAL
   "Build a minimal set of components only. This will override other build options."
   OFF)
+option(
+  VELOX_BUILD_MINIMAL_WITH_DWIO
+  "Build a minimal set of components, including DWIO (file format readers/writers).
+   This will override other build options."
+  OFF)
 
 # option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.
@@ -96,6 +101,7 @@ option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(VELOX_ENABLE_ARROW "Enable Arrow support" OFF)
 option(VELOX_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 option(VELOX_ENABLE_CCACHE "Use ccache if installed." ON)
+option(VELOX_ENABLE_CODEGEN_SUPPORT "Enable experimental codegen support." OFF)
 
 option(VELOX_BUILD_TEST_UTILS "Builds Velox test utilities" OFF)
 option(VELOX_BUILD_PYTHON_PACKAGE "Builds Velox Python bindings" OFF)
@@ -125,7 +131,7 @@ if(${VELOX_BUILD_MINIMAL})
   set(VELOX_ENABLE_GCS OFF)
   set(VELOX_ENABLE_ABFS OFF)
   set(VELOX_ENABLE_SUBSTRAIT OFF)
-  set(VELOX_CODEGEN_SUPPORT OFF)
+  set(VELOX_ENABLE_CODEGEN_SUPPORT OFF)
 endif()
 
 if(${VELOX_BUILD_TESTING})
@@ -175,7 +181,7 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(VELOX_ENABLE_GCS OFF)
   set(VELOX_ENABLE_ABFS OFF)
   set(VELOX_ENABLE_SUBSTRAIT OFF)
-  set(VELOX_CODEGEN_SUPPORT OFF)
+  set(VELOX_ENABLE_CODEGEN_SUPPORT OFF)
   set(VELOX_ENABLE_BENCHMARKS_BASIC OFF)
   set(VELOX_ENABLE_BENCHMARKS OFF)
 endif()
@@ -257,7 +263,7 @@ if(VELOX_ENABLE_PARQUET)
 endif()
 
 # define processor variable for conditional compilation
-if(${VELOX_CODEGEN_SUPPORT})
+if(${VELOX_ENABLE_CODEGEN_SUPPORT})
   add_compile_definitions(CODEGEN_ENABLED=1)
 endif()
 
@@ -420,7 +426,10 @@ endif()
 set_source(fmt)
 resolve_dependency(fmt 9.0.0)
 
-if(NOT ${VELOX_BUILD_MINIMAL})
+if(${VELOX_BUILD_MINIMAL_WITH_DWIO} OR ${VELOX_ENABLE_HIVE_CONNECTOR})
+  # DWIO needs all sorts of stream compression libraries.
+  #
+  # TODO: make these optional and pluggable.
   find_package(ZLIB REQUIRED)
   find_package(lz4 REQUIRED)
   find_package(lzo2 REQUIRED)
@@ -467,7 +476,11 @@ else()
   set(FOLLY_BENCHMARK Folly::follybenchmark)
 endif()
 
-if(NOT ${VELOX_BUILD_MINIMAL})
+# DWIO (ORC/DWRF), Substrait and experimental/codegen depend on protobuf.
+if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
+   OR ${VELOX_ENABLE_HIVE_CONNECTOR}
+   OR ${VELOX_ENABLE_SUBSTRAIT}
+   OR ${VELOX_ENABLE_CODEGEN_SUPPORT})
   # Locate or build protobuf.
   set_source(Protobuf)
   resolve_dependency(Protobuf 3.21 EXACT)

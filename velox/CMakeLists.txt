@@ -44,7 +44,7 @@ if(${VELOX_ENABLE_PARSE})
 endif()
 
 # hive connector depends on dwio
-if(${VELOX_ENABLE_HIVE_CONNECTOR})
+if(${VELOX_BUILD_MINIMAL_WITH_DWIO} OR ${VELOX_ENABLE_HIVE_CONNECTOR})
   add_subdirectory(dwio)
 endif()
 
@@ -65,7 +65,7 @@ if(${VELOX_ENABLE_DUCKDB})
   add_subdirectory(duckdb)
 endif()
 
-if(${VELOX_CODEGEN_SUPPORT})
+if(${VELOX_ENABLE_CODEGEN_SUPPORT})
   add_subdirectory(experimental/codegen)
 endif()
 
