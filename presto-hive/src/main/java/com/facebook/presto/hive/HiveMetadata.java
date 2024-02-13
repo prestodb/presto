@@ -1868,7 +1868,7 @@ public class HiveMetadata
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        checkTableIsWritable(table, writesToNonManagedTablesEnabled);
+        checkTableIsWritable(table, writesToNonManagedTablesEnabled, metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName()));
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
