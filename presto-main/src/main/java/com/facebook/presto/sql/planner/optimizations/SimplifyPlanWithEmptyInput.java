@@ -33,10 +33,12 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
@@ -279,6 +281,18 @@ public class SimplifyPlanWithEmptyInput
 
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
+        {
+            return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
+        {
+            return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
         {
             return convertToEmptyNodeIfInputEmpty(node, context);
         }
