@@ -21,10 +21,433 @@
 
 namespace facebook::presto {
 
+#define SYS_CONF_BASE_PROPS(V)                                                \
+  /* Setting this to 'true' makes configs modifiable via server operations.*/ \
+  V(BOOL, kMutableConfig, "mutable-config", false)
+
+#define SYS_CONF_PROPS(V)                                                         \
+  V(NONE, kPrestoVersion, "presto.version", _)                                    \
+  V(NONE, kHttpServerHttpPort, "http-server.http.port", _)                        \
+  /*                                                                              \
+    This option allows a port closed in TIME_WAIT state to be reused              \
+    immediately upon worker startup. This property is mainly used by batch        \
+    processing. For interactive query, the worker uses a dynamic port upon        \
+    startup.                                                                      \
+  */                                                                              \
+  V(BOOL, kHttpServerReusePort, "http-server.reuse-port", false)                  \
+  /*                                                                              \
+    By default the server binds to 0.0.0.0                                        \
+    With this option enabled the server will bind strictly to the                 \
+    address set in node.internal-address property                                 \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kHttpServerBindToNodeInternalAddressOnlyEnabled,                              \
+    "http-server.bind-to-node-internal-address-only-enabled",                     \
+    false)                                                                        \
+  V(NONE, kDiscoveryUri, "discovery.uri", _)                                      \
+  V(NUM, kMaxDriversPerTask, "task.max-drivers-per-task", 16)                     \
+  V(NUM, kConcurrentLifespansPerTask, "task.concurrent-lifespans-per-task", 1)    \
+  V(STR,                                                                          \
+    kTaskMaxPartialAggregationMemory,                                             \
+    "task.max-partial-aggregation-memory",                                        \
+    "16MB")                                                                       \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.            \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kHttpServerNumIoThreadsHwMultiplier,                                          \
+    "http-server.num-io-threads-hw-multiplier",                                   \
+    1.0)                                                                          \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for HTTP CPU executor: hw_concurrency x multiplier. 1.0 is default.           \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kHttpServerNumCpuThreadsHwMultiplier,                                         \
+    "http-server.num-cpu-threads-hw-multiplier",                                  \
+    1.0)                                                                          \
+  V(NONE, kHttpServerHttpsPort, "http-server.https.port", _)                      \
+  V(BOOL, kHttpServerHttpsEnabled, "http-server.https.enabled", false)            \
+  /*                                                                              \
+    List of comma separated ciphers the client can use.                           \
+    NOTE: the client needs to have at least one cipher shared with server         \
+          to communicate.                                                         \
+  */                                                                              \
+  V(STR,                                                                          \
+    kHttpsSupportedCiphers,                                                       \
+    "https-supported-ciphers",                                                    \
+    "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384")                            \
+  V(NONE, kHttpsCertPath, "https-cert-path", _)                                   \
+  V(NONE, kHttpsKeyPath, "https-key-path", _)                                     \
+  /* Path to a .PEM file with certificate and key concatenated together. */       \
+  V(NONE, kHttpsClientCertAndKeyPath, "https-client-cert-key-path", _)            \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for IO executor for connectors mainly to do preload/prefetch:                 \
+    hw_concurrency x multiplier.                                                  \
+    If 0.0 then connector preload/prefetch is disabled.                           \
+    0.0 is default.                                                               \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kConnectorNumIoThreadsHwMultiplier,                                           \
+    "connector.num-io-threads-hw-multiplier",                                     \
+    1.0)                                                                          \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.         \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kDriverNumCpuThreadsHwMultiplier,                                             \
+    "driver.num-cpu-threads-hw-multiplier",                                       \
+    4.0)                                                                          \
+  /*                                                                              \
+    Time duration threshold used to detect if an operator call in driver is       \
+    stuck or not.  If any of the driver thread is detected as stuck by this       \
+    standard, we take the worker offline and further investigation on the         \
+    worker is required.                                                           \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kDriverStuckOperatorThresholdMs,                                              \
+    "driver.stuck-operator-threshold-ms",                                         \
+    30 * 60 * 1000)                                                               \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for Spiller CPU executor: hw_concurrency x multiplier.                        \
+    If 0.0 then spilling is disabled.                                             \
+    1.0 is default.                                                               \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kSpillerNumCpuThreadsHwMultiplier,                                            \
+    "spiller.num-cpu-threads-hw-multiplier",                                      \
+    1.0)                                                                          \
+  /*                                                                              \
+    Config used to create spill files. This config is provided to underlying      \
+    file system and the config is free form. The form should be defined by the    \
+    underlying file system.                                                       \
+  */                                                                              \
+  V(STR, kSpillerFileCreateConfig, "spiller.file-create-config", "")              \
+  V(NONE, kSpillerSpillPath, "experimental.spiller-spill-path", _)                \
+  V(NUM, kShutdownOnsetSec, "shutdown-onset-sec", 10)                             \
+  /* Memory allocation limit enforced via internal memory allocator. */           \
+  V(NUM, kSystemMemoryGb, "system-memory-gb", 40)                                 \
+  /*                                                                              \
+    Specifies the total memory capacity that can be used by query execution in    \
+    GB. The query memory capacity should be configured less than the system       \
+    memory capacity ('system-memory-gb') to reserve memory for system usage       \
+    such as disk spilling and cache prefetch which are not counted in query       \
+    memory usage.                                                                 \
+                                                                                \ \
+    NOTE: the query memory capacity is enforced by memory arbitrator so that      \
+    this config only applies if the memory arbitration has been enabled.          \
+  */                                                                              \
+  V(NUM, kQueryMemoryGb, "query-memory-gb", 38)                                   \
+  /*                                                                              \
+    If true, enable memory pushback when the server is under low memory           \
+    condition. This only applies if 'system-mem-limit-gb' is set.                 \
+  */                                                                              \
+  V(BOOL, kSystemMemPushbackEnabled, "system-mem-pushback-enabled", false)        \
+  /*                                                                              \
+    Specifies the system memory limit. Used to trigger memory pushback or heap    \
+    dump. A value of zero means no limit is set.                                  \
+  */                                                                              \
+  V(NUM, kSystemMemLimitGb, "system-mem-limit-gb", 55)                            \
+  /*                                                                              \
+    Specifies the memory to shrink when memory pushback is triggered to help      \
+    get the server out of low memory condition. This only applies if              \
+    'system-mem-pushback-enabled' is true.                                        \
+  */                                                                              \
+  V(NUM, kSystemMemShrinkGb, "system-mem-shrink-gb", 8)                           \
+  /*                                                                              \
+    If true, memory pushback will quickly abort queries with the most memory      \
+    usage under low memory condition. This only applies if                        \
+    'system-mem-pushback-enabled' is set.                                         \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kSystemMemPushbackAbortEnabled,                                               \
+    "system-mem-pushback-abort-enabled",                                          \
+    false)                                                                        \
+  /*                                                                              \
+    If true, memory allocated via malloc is periodically checked and a heap       \
+    profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.           \
+  */                                                                              \
+  V(BOOL, kMallocMemHeapDumpEnabled, "malloc-mem-heap-dump-enabled", false)       \
+  /*                                                                              \
+    Specifies the threshold in GigaBytes of memory allocated via malloc, above    \
+    which a heap dump will be triggered. This only applies if                     \
+    'malloc-mem-heap-dump-enabled' is true.                                       \
+  */                                                                              \
+  V(NUM, kMallocHeapDumpThresholdGb, "malloc-heap-dump-threshold-gb", 20)         \
+  /*                                                                              \
+    Specifies the min interval in seconds between consecutive heap dumps. This    \
+    only applies if 'malloc-mem-heap-dump-enabled' is true.                       \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kMallocMemMinHeapDumpInterval,                                                \
+    "malloc-mem-min-heap-dump-interval",                                          \
+    10)                                                                           \
+  /*                                                                              \
+    Specifies the max number of latest heap profiles to keep. This only           \
+    applies if 'malloc-mem-heap-dump-enabled' is true.                            \
+  */                                                                              \
+  V(NUM, kMallocMemMaxHeapDumpFiles, "malloc-mem-max-heap-dump-files", 5)         \
+  V(BOOL, kAsyncDataCacheEnabled, "async-data-cache-enabled", true)               \
+  V(NUM, kAsyncCacheSsdGb, "async-cache-ssd-gb", 0)                               \
+  V(NUM, kAsyncCacheSsdCheckpointGb, "async-cache-ssd-checkpoint-gb", 0)          \
+  V(STR,                                                                          \
+    kAsyncCacheSsdPath,                                                           \
+    "async-cache-ssd-path",                                                       \
+    "/mnt/flash/async_cache.")                                                    \
+  /*                                                                              \
+    In file systems, such as btrfs, supporting cow (copy on write), the ssd       \
+    cache can use all ssd space and stop working. To prevent that, use this       \
+    option to disable cow for cache files.                                        \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kAsyncCacheSsdDisableFileCow,                                                 \
+    "async-cache-ssd-disable-file-cow",                                           \
+    false)                                                                        \
+  V(BOOL,                                                                         \
+    kEnableSerializedPageChecksum,                                                \
+    "enable-serialized-page-checksum",                                            \
+    true)                                                                         \
+  /* Enable TTL for AsyncDataCache and SSD cache. */                              \
+  V(BOOL, kCacheVeloxTtlEnabled, "cache.velox.ttl-enabled", false)                \
+  /* TTL duration for AsyncDataCache and SSD cache entries. */                    \
+  V(STR, kCacheVeloxTtlThreshold, "cache.velox.ttl-threshold", "2d")              \
+  /*                                                                              \
+    The periodic duration to apply cache TTL and evict AsyncDataCache and SSD     \
+    cache entries.                                                                \
+  */                                                                              \
+  V(STR, kCacheVeloxTtlCheckInterval, "cache.velox.ttl-check-interval", "1h")     \
+  V(BOOL, kUseMmapAllocator, "use-mmap-allocator", true)                          \
+  V(BOOL,                                                                         \
+    kEnableRuntimeMetricsCollection,                                              \
+    "runtime-metrics-collection-enabled",                                         \
+    false)                                                                        \
+  /*                                                                              \
+    Specifies the memory arbitrator kind. If it is empty, then there is no        \
+    memory arbitration.                                                           \
+  */                                                                              \
+  V(STR, kMemoryArbitratorKind, "memory-arbitrator-kind", "")                     \
+  /*                                                                              \
+    The initial memory pool capacity in bytes allocated on creation.              \
+    NOTE: this config only applies if the memory arbitration has been enabled.    \
+  */                                                                              \
+  V(NUM, kMemoryPoolInitCapacity, "memory-pool-init-capacity", 128 << 20)         \
+  /*                                                                              \
+    The minimal memory capacity in bytes transferred between memory pools         \
+    during memory arbitration.                                                    \
+    NOTE: this config only applies if the memory arbitration has been enabled.    \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kMemoryPoolTransferCapacity,                                                  \
+    "memory-pool-transfer-capacity",                                              \
+    32 << 20)                                                                     \
+  /*                                                                              \
+    Specifies the max time to wait for memory reclaim by arbitration. The         \
+    memory reclaim might fail if the max wait time has exceeded. If it is         \
+    zero, then there is no timeout.                                               \
+    NOTE: this config only applies if the memory arbitration has been enabled.    \
+  */                                                                              \
+  V(NUM, kMemoryReclaimWaitMs, "memory-reclaim-wait-ms", 300'000)                 \
+  /*                                                                              \
+    Enables the memory usage tracking for the system memory pool used for         \
+    cases such as disk spilling.                                                  \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kEnableSystemMemoryPoolUsageTracking,                                         \
+    "enable_system_memory_pool_usage_tracking",                                   \
+    false)                                                                        \
+  V(BOOL, kEnableVeloxTaskLogging, "enable_velox_task_logging", false)            \
+  V(BOOL,                                                                         \
+    kEnableVeloxExprSetLogging,                                                   \
+    "enable_velox_expression_logging",                                            \
+    false)                                                                        \
+  V(NUM,                                                                          \
+    kLocalShuffleMaxPartitionBytes,                                               \
+    "shuffle.local.max-partition-bytes",                                          \
+    268435456)                                                                    \
+  V(STR, kShuffleName, "shuffle.name", "")                                        \
+  V(BOOL, kHttpEnableAccessLog, "http-server.enable-access-log", false)           \
+  V(BOOL, kHttpEnableStatsFilter, "http-server.enable-stats-filter", false)       \
+  V(BOOL,                                                                         \
+    kHttpEnableEndpointLatencyFilter,                                             \
+    "http-server.enable-endpoint-latency-filter",                                 \
+    false)                                                                        \
+  V(BOOL, kRegisterTestFunctions, "register-test-functions", false)               \
+  /*                                                                              \
+    The options to configure the max quantized memory allocation size to store    \
+    the received http response data.                                              \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kHttpMaxAllocateBytes,                                                        \
+    "http-server.max-response-allocate-bytes",                                    \
+    65536)                                                                        \
+  V(STR, kQueryMaxMemoryPerNode, "query.max-memory-per-node", "4GB")              \
+  /*                                                                              \
+    This system property is added for not crashing the cluster when memory        \
+    leak is detected. The check should be disabled in production cluster.         \
+  */                                                                              \
+  V(BOOL, kEnableMemoryLeakCheck, "enable-memory-leak-check", true)               \
+  /*                                                                              \
+    Terminates the process and generates a core file on an allocation failure     \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kCoreOnAllocationFailureEnabled,                                              \
+    "core-on-allocation-failure-enabled",                                         \
+    false)                                                                        \
+  /*                                                                              \
+    Do not include runtime stats in the returned task info if the task is         \
+    in running state.                                                             \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kSkipRuntimeStatsInRunningTaskInfo,                                           \
+    "skip-runtime-stats-in-running-task-info",                                    \
+    true)                                                                         \
+  V(BOOL, kLogZombieTaskInfo, "log-zombie-task-info", false)                      \
+  V(NUM, kLogNumZombieTasks, "log-num-zombie-tasks", 20)                          \
+  /*                                                                              \
+    Time (ms) since the task execution ended, when task is considered old for     \
+    cleanup.                                                                      \
+  */                                                                              \
+  V(NUM, kOldTaskCleanUpMs, "old-task-cleanup-ms", 60'000)                        \
+  /*                                                                              \
+    Enable periodic old task clean up. Typically enabled for presto (default)     \
+    and disabled for presto-on-spark.                                             \
+  */                                                                              \
+  V(BOOL, kEnableOldTaskCleanUp, "enable-old-task-cleanup", true)                 \
+  V(NUM,                                                                          \
+    kAnnouncementMaxFrequencyMs,                                                  \
+    "announcement-max-frequency-ms",                                              \
+    30'000) /* 30 seconds */                                                      \
+  /*                                                                              \
+    Time (ms) after which we periodically send heartbeats to discovery            \
+    endpoint.                                                                     \
+  */                                                                              \
+  V(NUM, kHeartbeatFrequencyMs, "heartbeat-frequency-ms", 0)                      \
+  V(STR, kExchangeMaxErrorDuration, "exchange.max-error-duration", "3m")          \
+  /*                                                                              \
+    Enable to make immediate buffer memory transfer in the handling IO threads    \
+    as soon as exchange gets its response back. Otherwise the memory transfer     \
+    will happen later in driver thread pool.                                      \
+  */                                                                              \
+  V(BOOL,                                                                         \
+    kExchangeImmediateBufferTransfer,                                             \
+    "exchange.immediate-buffer-transfer",                                         \
+    true)                                                                         \
+  /*                                                                              \
+    Specifies the timeout duration from exchange client's http connect            \
+    success to response reception.                                                \
+  */                                                                              \
+  V(STR,                                                                          \
+    kExchangeRequestTimeout,                                                      \
+    "exchange.http-client.request-timeout",                                       \
+    "10s")                                                                        \
+  /*                                                                              \
+    Specifies the timeout duration from exchange client's http connect            \
+    initiation to connect success. Set to 0 to have no timeout.                   \
+  */                                                                              \
+  V(STR,                                                                          \
+    kExchangeConnectTimeout,                                                      \
+    "exchange.http-client.connect-timeout",                                       \
+    "20s")                                                                        \
+  /* Whether connection pool should be enabled for exchange HTTP client. */       \
+  V(BOOL,                                                                         \
+    kExchangeEnableConnectionPool,                                                \
+    "exchange.http-client.enable-connection-pool",                                \
+    false)                                                                        \
+  /*                                                                              \
+    Floating point number used in calculating how many threads we would use       \
+    for Exchange HTTP client IO executor: hw_concurrency x multiplier.            \
+    1.0 is default.                                                               \
+  */                                                                              \
+  V(NUM,                                                                          \
+    kExchangeHttpClientNumIoThreadsHwMultiplier,                                  \
+    "exchange.http-client.num-io-threads-hw-multiplier",                          \
+    1.0)                                                                          \
+  /* The maximum timeslice for a task on thread if there are threads queued.*/    \
+  V(NUM, kTaskRunTimeSliceMicros, "task-run-timeslice-micros", 50'000)            \
+  V(BOOL, kIncludeNodeInSpillPath, "include-node-in-spill-path", false)           \
+  /* Remote function server configs. */                                           \
+  /* Port used by the remote function thrift server. */                           \
+  V(NONE,                                                                         \
+    kRemoteFunctionServerThriftPort,                                              \
+    "remote-function-server.thrift.port",                                         \
+    _)                                                                            \
+  /*                                                                              \
+    Address (ip or hostname) used by the remote function thrift server            \
+    (fallback to localhost if not specified).                                     \
+  */                                                                              \
+  V(NONE,                                                                         \
+    kRemoteFunctionServerThriftAddress,                                           \
+    "remote-function-server.thrift.address",                                      \
+    _)                                                                            \
+  /*                                                                              \
+    UDS (unix domain socket) path used by the remote function thrift server.      \
+  */                                                                              \
+  V(NONE,                                                                         \
+    kRemoteFunctionServerThriftUdsPath,                                           \
+    "remote-function-server.thrift.uds-path",                                     \
+    _)                                                                            \
+  /*                                                                              \
+    Path where json files containing signatures for remote functions can be       \
+    found.                                                                        \
+  */                                                                              \
+  V(NONE,                                                                         \
+    kRemoteFunctionServerSignatureFilesDirectoryPath,                             \
+    "remote-function-server.signature.files.directory.path",                      \
+    _)                                                                            \
+  /*                                                                              \
+    Optional catalog name to be added as a prefix to the function names           \
+    registered. The pattern registered is `catalog.schema.function_name`.         \
+  */                                                                              \
+  V(STR,                                                                          \
+    kRemoteFunctionServerCatalogName,                                             \
+    "remote-function-server.catalog-name",                                        \
+    "")                                                                           \
+  /*                                                                              \
+    Optional string containing the serialization/deserialization format to be     \
+    used when communicating with the remote server. Supported types are           \
+    "spark_unsafe_row" or "presto_page" ("presto_page" by default).               \
+  */                                                                              \
+  V(STR,                                                                          \
+    kRemoteFunctionServerSerde,                                                   \
+    "remote-function-server.serde",                                               \
+    "presto_page")                                                                \
+  /* Options to configure the internal (in-cluster) JWT authentication.*/         \
+  V(BOOL,                                                                         \
+    kInternalCommunicationJwtEnabled,                                             \
+    "internal-communication.jwt.enabled",                                         \
+    false)                                                                        \
+  V(STR,                                                                          \
+    kInternalCommunicationSharedSecret,                                           \
+    "internal-communication.shared-secret",                                       \
+    "")                                                                           \
+  V(NUM,                                                                          \
+    kInternalCommunicationJwtExpirationSeconds,                                   \
+    "internal-communication.jwt.expiration-seconds",                              \
+    300)                                                                          \
+  /*                                                                              \
+    Below are the Presto properties from config.properties that get converted     \
+    to their velox counterparts in BaseVeloxQueryConfig and used solely from      \
+    BaseVeloxQueryConfig.                                                         \
+  */                                                                              \
+  /* Uses legacy version of array_agg which ignores nulls. */                     \
+  V(BOOL, kUseLegacyArrayAgg, "deprecated.legacy-array-agg", false)               \
+  /* Used solely from BaseVeloxQueryConfig */                                     \
+  V(STR, kSinkMaxBufferSize, "sink.max-buffer-size", "32MB")                      \
+  V(STR,                                                                          \
+    kDriverMaxPagePartitioningBufferSize,                                         \
+    "driver.max-page-partitioning-buffer-size",                                   \
+    "32MB")
+
 class ConfigBase {
  public:
-  // Setting this to 'true' makes configs modifiable via server operations.
-  static constexpr std::string_view kMutableConfig{"mutable-config"};
+#define CONFIG_DEF(_type_, _name_, _prop_, _value_) \
+  static constexpr std::string_view _name_{_prop_};
+  SYS_CONF_BASE_PROPS(CONFIG_DEF)
+#undef CONFIG_DEF
 
   /// Reads configuration properties from the specified file. Must be called
   /// before calling any of the getters below.
@@ -159,344 +582,10 @@ class ConfigBase {
 /// Provides access to system properties defined in config.properties file.
 class SystemConfig : public ConfigBase {
  public:
-  static constexpr std::string_view kPrestoVersion{"presto.version"};
-  static constexpr std::string_view kHttpServerHttpPort{
-      "http-server.http.port"};
-
-  /// This option allows a port closed in TIME_WAIT state to be reused
-  /// immediately upon worker startup. This property is mainly used by batch
-  /// processing. For interactive query, the worker uses a dynamic port upon
-  /// startup.
-  static constexpr std::string_view kHttpServerReusePort{
-      "http-server.reuse-port"};
-  /// By default the server binds to 0.0.0.0
-  /// With this option enabled the server will bind strictly to the
-  /// address set in node.internal-address property
-  static constexpr std::string_view
-      kHttpServerBindToNodeInternalAddressOnlyEnabled{
-          "http-server.bind-to-node-internal-address-only-enabled"};
-  static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
-  static constexpr std::string_view kMaxDriversPerTask{
-      "task.max-drivers-per-task"};
-  static constexpr std::string_view kConcurrentLifespansPerTask{
-      "task.concurrent-lifespans-per-task"};
-  static constexpr std::string_view kTaskMaxPartialAggregationMemory{
-      "task.max-partial-aggregation-memory"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.
-  static constexpr std::string_view kHttpServerNumIoThreadsHwMultiplier{
-      "http-server.num-io-threads-hw-multiplier"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for HTTP CPU executor: hw_concurrency x multiplier. 1.0 is default.
-  static constexpr std::string_view kHttpServerNumCpuThreadsHwMultiplier{
-      "http-server.num-cpu-threads-hw-multiplier"};
-
-  static constexpr std::string_view kHttpServerHttpsPort{
-      "http-server.https.port"};
-  static constexpr std::string_view kHttpServerHttpsEnabled{
-      "http-server.https.enabled"};
-  /// List of comma separated ciphers the client can use.
-  ///
-  /// NOTE: the client needs to have at least one cipher shared with server
-  /// to communicate.
-  static constexpr std::string_view kHttpsSupportedCiphers{
-      "https-supported-ciphers"};
-  static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
-  static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
-  /// Path to a .PEM file with certificate and key concatenated together.
-  static constexpr std::string_view kHttpsClientCertAndKeyPath{
-      "https-client-cert-key-path"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for IO executor for connectors mainly to do preload/prefetch:
-  /// hw_concurrency x multiplier.
-  /// If 0.0 then connector preload/prefetch is disabled.
-  /// 0.0 is default.
-  static constexpr std::string_view kConnectorNumIoThreadsHwMultiplier{
-      "connector.num-io-threads-hw-multiplier"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.
-  static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
-      "driver.num-cpu-threads-hw-multiplier"};
-
-  /// Time duration threshold used to detect if an operator call in driver is
-  /// stuck or not.  If any of the driver thread is detected as stuck by this
-  /// standard, we take the worker offline and further investigation on the
-  /// worker is required.
-  static constexpr std::string_view kDriverStuckOperatorThresholdMs{
-      "driver.stuck-operator-threshold-ms"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for Spiller CPU executor: hw_concurrency x multiplier.
-  /// If 0.0 then spilling is disabled.
-  /// 1.0 is default.
-  static constexpr std::string_view kSpillerNumCpuThreadsHwMultiplier{
-      "spiller.num-cpu-threads-hw-multiplier"};
-  /// Config used to create spill files. This config is provided to underlying
-  /// file system and the config is free form. The form should be defined by the
-  /// underlying file system.
-  static constexpr std::string_view kSpillerFileCreateConfig{
-      "spiller.file-create-config"};
-
-  static constexpr std::string_view kSpillerSpillPath{
-      "experimental.spiller-spill-path"};
-  static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
-  /// Memory allocation limit enforced via internal memory allocator.
-  static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
-  /// Specifies the total memory capacity that can be used by query execution in
-  /// GB. The query memory capacity should be configured less than the system
-  /// memory capacity ('system-memory-gb') to reserve memory for system usage
-  /// such as disk spilling and cache prefetch which are not counted in query
-  /// memory usage.
-  ///
-  /// NOTE: the query memory capacity is enforced by memory arbitrator so that
-  /// this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
-
-  /// If true, enable memory pushback when the server is under low memory
-  /// condition. This only applies if 'system-mem-limit-gb' is set.
-  static constexpr std::string_view kSystemMemPushbackEnabled{
-      "system-mem-pushback-enabled"};
-  /// Specifies the system memory limit. Used to trigger memory pushback or heap
-  /// dump. A value of zero means no limit is set.
-  static constexpr std::string_view kSystemMemLimitGb{"system-mem-limit-gb"};
-  /// Specifies the memory to shrink when memory pushback is triggered to help
-  /// get the server out of low memory condition. This only applies if
-  /// 'system-mem-pushback-enabled' is true.
-  static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
-  /// If true, memory pushback will quickly abort queries with the most memory
-  /// usage under low memory condition. This only applies if
-  /// 'system-mem-pushback-enabled' is set.
-  static constexpr std::string_view kSystemMemPushbackAbortEnabled{
-      "system-mem-pushback-abort-enabled"};
-
-  /// If true, memory allocated via malloc is periodically checked and a heap
-  /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
-  static constexpr std::string_view kMallocMemHeapDumpEnabled{
-      "malloc-mem-heap-dump-enabled"};
-
-  /// Specifies the threshold in GigaBytes of memory allocated via malloc, above
-  /// which a heap dump will be triggered. This only applies if
-  /// 'malloc-mem-heap-dump-enabled' is true.
-  static constexpr std::string_view kMallocHeapDumpThresholdGb{
-      "malloc-heap-dump-threshold-gb"};
-
-  /// Specifies the min interval in seconds between consecutive heap dumps. This
-  /// only applies if 'malloc-mem-heap-dump-enabled' is true.
-  static constexpr std::string_view kMallocMemMinHeapDumpInterval{
-      "malloc-mem-min-heap-dump-interval"};
-
-  /// Specifies the max number of latest heap profiles to keep. This only
-  /// applies if 'malloc-mem-heap-dump-enabled' is true.
-  static constexpr std::string_view kMallocMemMaxHeapDumpFiles{
-      "malloc-mem-max-heap-dump-files"};
-
-  static constexpr std::string_view kAsyncDataCacheEnabled{
-      "async-data-cache-enabled"};
-  static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
-  static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
-      "async-cache-ssd-checkpoint-gb"};
-  static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
-
-  /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
-  /// cache can use all ssd space and stop working. To prevent that, use this
-  /// option to disable cow for cache files.
-  static constexpr std::string_view kAsyncCacheSsdDisableFileCow{
-      "async-cache-ssd-disable-file-cow"};
-  static constexpr std::string_view kEnableSerializedPageChecksum{
-      "enable-serialized-page-checksum"};
-
-  /// Enable TTL for AsyncDataCache and SSD cache.
-  static constexpr std::string_view kCacheVeloxTtlEnabled{
-      "cache.velox.ttl-enabled"};
-  /// TTL duration for AsyncDataCache and SSD cache entries.
-  static constexpr std::string_view kCacheVeloxTtlThreshold{
-      "cache.velox.ttl-threshold"};
-  /// The periodic duration to apply cache TTL and evict AsyncDataCache and SSD
-  /// cache entries.
-  static constexpr std::string_view kCacheVeloxTtlCheckInterval{
-      "cache.velox.ttl-check-interval"};
-  static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
-
-  static constexpr std::string_view kEnableRuntimeMetricsCollection{
-      "runtime-metrics-collection-enabled"};
-
-  /// Specifies the memory arbitrator kind. If it is empty, then there is no
-  /// memory arbitration.
-  static constexpr std::string_view kMemoryArbitratorKind{
-      "memory-arbitrator-kind"};
-
-  /// The initial memory pool capacity in bytes allocated on creation.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolInitCapacity{
-      "memory-pool-init-capacity"};
-
-  /// The minimal memory capacity in bytes transferred between memory pools
-  /// during memory arbitration.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryPoolTransferCapacity{
-      "memory-pool-transfer-capacity"};
-
-  /// Specifies the max time to wait for memory reclaim by arbitration. The
-  /// memory reclaim might fail if the max wait time has exceeded. If it is
-  /// zero, then there is no timeout.
-  ///
-  /// NOTE: this config only applies if the memory arbitration has been enabled.
-  static constexpr std::string_view kMemoryReclaimWaitMs{
-      "memory-reclaim-wait-ms"};
-
-  /// Enables the memory usage tracking for the system memory pool used for
-  /// cases such as disk spilling.
-  static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
-      "enable_system_memory_pool_usage_tracking"};
-  static constexpr std::string_view kEnableVeloxTaskLogging{
-      "enable_velox_task_logging"};
-  static constexpr std::string_view kEnableVeloxExprSetLogging{
-      "enable_velox_expression_logging"};
-  static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
-      "shuffle.local.max-partition-bytes"};
-  static constexpr std::string_view kShuffleName{"shuffle.name"};
-  static constexpr std::string_view kHttpEnableAccessLog{
-      "http-server.enable-access-log"};
-  static constexpr std::string_view kHttpEnableStatsFilter{
-      "http-server.enable-stats-filter"};
-  static constexpr std::string_view kHttpEnableEndpointLatencyFilter{
-      "http-server.enable-endpoint-latency-filter"};
-  static constexpr std::string_view kRegisterTestFunctions{
-      "register-test-functions"};
-
-  /// The options to configure the max quantized memory allocation size to store
-  /// the received http response data.
-  static constexpr std::string_view kHttpMaxAllocateBytes{
-      "http-server.max-response-allocate-bytes"};
-  static constexpr std::string_view kQueryMaxMemoryPerNode{
-      "query.max-memory-per-node"};
-
-  /// This system property is added for not crashing the cluster when memory
-  /// leak is detected. The check should be disabled in production cluster.
-  static constexpr std::string_view kEnableMemoryLeakCheck{
-      "enable-memory-leak-check"};
-
-  /// Terminates the process and generates a core file on an allocation failure
-  static constexpr std::string_view kCoreOnAllocationFailureEnabled{
-      "core-on-allocation-failure-enabled"};
-
-  /// Do not include runtime stats in the returned task info if the task is
-  /// in running state.
-  static constexpr std::string_view kSkipRuntimeStatsInRunningTaskInfo{
-      "skip-runtime-stats-in-running-task-info"};
-
-  static constexpr std::string_view kLogZombieTaskInfo{"log-zombie-task-info"};
-  static constexpr std::string_view kLogNumZombieTasks{"log-num-zombie-tasks"};
-
-  /// Time (ms) since the task execution ended, when task is considered old for
-  /// cleanup.
-  static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
-
-  /// Enable periodic old task clean up. Typically enabled for presto (default)
-  /// and disabled for presto-on-spark.
-  static constexpr std::string_view kEnableOldTaskCleanUp{
-      "enable-old-task-cleanup"};
-
-  static constexpr std::string_view kAnnouncementMaxFrequencyMs{
-      "announcement-max-frequency-ms"};
-
-  /// Time (ms) after which we periodically send heartbeats to discovery
-  /// endpoint.
-  static constexpr std::string_view kHeartbeatFrequencyMs{
-      "heartbeat-frequency-ms"};
-
-  static constexpr std::string_view kExchangeMaxErrorDuration{
-      "exchange.max-error-duration"};
-
-  /// Enable to make immediate buffer memory transfer in the handling IO threads
-  /// as soon as exchange gets its response back. Otherwise the memory transfer
-  /// will happen later in driver thread pool.
-  static constexpr std::string_view kExchangeImmediateBufferTransfer{
-      "exchange.immediate-buffer-transfer"};
-
-  /// Specifies the timeout duration from exchange client's http connect
-  /// success to response reception.
-  static constexpr std::string_view kExchangeRequestTimeout{
-      "exchange.http-client.request-timeout"};
-
-  /// Specifies the timeout duration from exchange client's http connect
-  /// initiation to connect success. Set to 0 to have no timeout.
-  static constexpr std::string_view kExchangeConnectTimeout{
-      "exchange.http-client.connect-timeout"};
-
-  /// Whether connection pool should be enabled for exchange HTTP client.
-  static constexpr std::string_view kExchangeEnableConnectionPool{
-      "exchange.http-client.enable-connection-pool"};
-
-  /// Floating point number used in calculating how many threads we would use
-  /// for Exchange HTTP client IO executor: hw_concurrency x multiplier.
-  /// 1.0 is default.
-  static constexpr std::string_view kExchangeHttpClientNumIoThreadsHwMultiplier{
-      "exchange.http-client.num-io-threads-hw-multiplier"};
-
-  /// The maximum timeslice for a task on thread if there are threads queued.
-  static constexpr std::string_view kTaskRunTimeSliceMicros{
-      "task-run-timeslice-micros"};
-
-  static constexpr std::string_view kIncludeNodeInSpillPath{
-      "include-node-in-spill-path"};
-
-  /// Remote function server configs.
-
-  /// Port used by the remote function thrift server.
-  static constexpr std::string_view kRemoteFunctionServerThriftPort{
-      "remote-function-server.thrift.port"};
-
-  /// Address (ip or hostname) used by the remote function thrift server
-  /// (fallback to localhost if not specified).
-  static constexpr std::string_view kRemoteFunctionServerThriftAddress{
-      "remote-function-server.thrift.address"};
-
-  /// UDS (unix domain socket) path used by the remote function thrift server.
-  static constexpr std::string_view kRemoteFunctionServerThriftUdsPath{
-      "remote-function-server.thrift.uds-path"};
-
-  /// Path where json files containing signatures for remote functions can be
-  /// found.
-  static constexpr std::string_view
-      kRemoteFunctionServerSignatureFilesDirectoryPath{
-          "remote-function-server.signature.files.directory.path"};
-
-  /// Optional catalog name to be added as a prefix to the function names
-  /// registered. The pattern registered is `catalog.schema.function_name`.
-  static constexpr std::string_view kRemoteFunctionServerCatalogName{
-      "remote-function-server.catalog-name"};
-
-  /// Optional string containing the serialization/deserialization format to be
-  /// used when communicating with the remote server. Supported types are
-  /// "spark_unsafe_row" or "presto_page" ("presto_page" by default).
-  static constexpr std::string_view kRemoteFunctionServerSerde{
-      "remote-function-server.serde"};
-
-  /// Options to configure the internal (in-cluster) JWT authentication.
-  static constexpr std::string_view kInternalCommunicationJwtEnabled{
-      "internal-communication.jwt.enabled"};
-  static constexpr std::string_view kInternalCommunicationSharedSecret{
-      "internal-communication.shared-secret"};
-  static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
-      "internal-communication.jwt.expiration-seconds"};
-
-  /// Below are the Presto properties from config.properties that get converted
-  /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
-  /// BaseVeloxQueryConfig.
-
-  /// Uses legacy version of array_agg which ignores nulls.
-  static constexpr std::string_view kUseLegacyArrayAgg{
-      "deprecated.legacy-array-agg"};
-  static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
-  static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
-      "driver.max-page-partitioning-buffer-size"};
+#define CONFIG_DEF(_type_, _name_, _prop_, _value_) \
+  static constexpr std::string_view _name_{_prop_};
+  SYS_CONF_PROPS(CONFIG_DEF)
+#undef CONFIG_DEF
 
   SystemConfig();
 

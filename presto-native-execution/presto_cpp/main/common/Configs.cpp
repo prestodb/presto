@@ -40,7 +40,7 @@ std::string bool2String(bool value) {
   { std::string(_key_), folly::to<std::string>(_val_) }
 #define BOOL_PROP(_key_, _val_) \
   { std::string(_key_), bool2String(_val_) }
-#define NONE_PROP(_key_) \
+#define NONE_PROP(_key_, _val_) \
   { std::string(_key_), folly::none }
 } // namespace
 
@@ -140,89 +140,10 @@ void ConfigBase::checkRegisteredProperties(
 SystemConfig::SystemConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
-          BOOL_PROP(kMutableConfig, false),
-          NONE_PROP(kPrestoVersion),
-          NONE_PROP(kHttpServerHttpPort),
-          BOOL_PROP(kHttpServerReusePort, false),
-          BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
-          NONE_PROP(kDiscoveryUri),
-          NUM_PROP(kMaxDriversPerTask, 16),
-          NUM_PROP(kConcurrentLifespansPerTask, 1),
-          STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
-          NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
-          NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
-          NONE_PROP(kHttpServerHttpsPort),
-          BOOL_PROP(kHttpServerHttpsEnabled, false),
-          STR_PROP(
-              kHttpsSupportedCiphers,
-              "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384"),
-          NONE_PROP(kHttpsCertPath),
-          NONE_PROP(kHttpsKeyPath),
-          NONE_PROP(kHttpsClientCertAndKeyPath),
-          NUM_PROP(kExchangeHttpClientNumIoThreadsHwMultiplier, 1.0),
-          NUM_PROP(kConnectorNumIoThreadsHwMultiplier, 1.0),
-          NUM_PROP(kDriverNumCpuThreadsHwMultiplier, 4.0),
-          NUM_PROP(kDriverStuckOperatorThresholdMs, 30 * 60 * 1000),
-          NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
-          STR_PROP(kSpillerFileCreateConfig, ""),
-          NONE_PROP(kSpillerSpillPath),
-          NUM_PROP(kShutdownOnsetSec, 10),
-          NUM_PROP(kSystemMemoryGb, 40),
-          BOOL_PROP(kSystemMemPushbackEnabled, false),
-          NUM_PROP(kSystemMemLimitGb, 55),
-          NUM_PROP(kSystemMemShrinkGb, 8),
-          BOOL_PROP(kMallocMemHeapDumpEnabled, false),
-          BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
-          NUM_PROP(kMallocHeapDumpThresholdGb, 20),
-          NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
-          NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
-          BOOL_PROP(kAsyncDataCacheEnabled, true),
-          NUM_PROP(kAsyncCacheSsdGb, 0),
-          NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
-          STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
-          BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
-          BOOL_PROP(kEnableSerializedPageChecksum, true),
-          BOOL_PROP(kUseMmapAllocator, true),
-          STR_PROP(kMemoryArbitratorKind, ""),
-          NUM_PROP(kQueryMemoryGb, 38),
-          BOOL_PROP(kEnableVeloxTaskLogging, false),
-          BOOL_PROP(kEnableVeloxExprSetLogging, false),
-          NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
-          STR_PROP(kShuffleName, ""),
-          STR_PROP(kRemoteFunctionServerCatalogName, ""),
-          STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
-          BOOL_PROP(kHttpEnableAccessLog, false),
-          BOOL_PROP(kHttpEnableStatsFilter, false),
-          BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
-          BOOL_PROP(kRegisterTestFunctions, false),
-          NUM_PROP(kHttpMaxAllocateBytes, 65536),
-          STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
-          BOOL_PROP(kEnableMemoryLeakCheck, true),
-          NONE_PROP(kRemoteFunctionServerThriftPort),
-          BOOL_PROP(kSkipRuntimeStatsInRunningTaskInfo, true),
-          BOOL_PROP(kLogZombieTaskInfo, false),
-          NUM_PROP(kLogNumZombieTasks, 20),
-          NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
-          NUM_PROP(kHeartbeatFrequencyMs, 0),
-          STR_PROP(kExchangeMaxErrorDuration, "3m"),
-          STR_PROP(kExchangeRequestTimeout, "10s"),
-          STR_PROP(kExchangeConnectTimeout, "20s"),
-          BOOL_PROP(kExchangeEnableConnectionPool, false),
-          BOOL_PROP(kExchangeImmediateBufferTransfer, true),
-          NUM_PROP(kTaskRunTimeSliceMicros, 50'000),
-          BOOL_PROP(kIncludeNodeInSpillPath, false),
-          NUM_PROP(kOldTaskCleanUpMs, 60'000),
-          BOOL_PROP(kEnableOldTaskCleanUp, true),
-          BOOL_PROP(kInternalCommunicationJwtEnabled, false),
-          STR_PROP(kInternalCommunicationSharedSecret, ""),
-          NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
-          BOOL_PROP(kUseLegacyArrayAgg, false),
-          STR_PROP(kSinkMaxBufferSize, "32MB"),
-          STR_PROP(kDriverMaxPagePartitioningBufferSize, "32MB"),
-          BOOL_PROP(kCacheVeloxTtlEnabled, false),
-          STR_PROP(kCacheVeloxTtlThreshold, "2d"),
-          STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
-          BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+#define CONFIG_DEF(_type_, _name_, _prop_, _value_) \
+  _type_##_PROP(_name_, _value_),
+          SYS_CONF_BASE_PROPS(CONFIG_DEF) SYS_CONF_PROPS(CONFIG_DEF)
+#undef CONFIG_DEF
       };
 }
 
@@ -619,11 +540,11 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 NodeConfig::NodeConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
-          NONE_PROP(kNodeEnvironment),
-          NONE_PROP(kNodeId),
-          NONE_PROP(kNodeIp),
-          NONE_PROP(kNodeInternalAddress),
-          NONE_PROP(kNodeLocation),
+          NONE_PROP(kNodeEnvironment, _),
+          NONE_PROP(kNodeId, _),
+          NONE_PROP(kNodeIp, _),
+          NONE_PROP(kNodeInternalAddress, _),
+          NONE_PROP(kNodeLocation, _),
       };
 }
 
