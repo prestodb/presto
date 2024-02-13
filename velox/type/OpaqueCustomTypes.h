@@ -33,8 +33,8 @@ class CastOperator;
 template <typename T, const char* customTypeName>
 class OpaqueCustomTypeRegister {
  public:
-  static void registerType() {
-    facebook::velox::registerCustomType(
+  static bool registerType() {
+    return facebook::velox::registerCustomType(
         customTypeName, std::make_unique<const TypeFactory>());
   }
 
