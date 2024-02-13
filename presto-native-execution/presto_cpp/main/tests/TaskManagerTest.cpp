@@ -51,6 +51,20 @@ using namespace facebook::velox::exec::test;
 namespace facebook::presto {
 
 namespace {
+
+// Generates task ID in Presto-compatible format.
+class TaskIdGenerator {
+ public:
+  TaskIdGenerator(std::string queryId) : queryId_{std::move(queryId)} {}
+
+  protocol::TaskId makeTaskId(int32_t stage, int32_t task) {
+    return fmt::format("{}.{}.0.{}.0", queryId_, stage, task);
+  }
+
+ private:
+  const std::string queryId_;
+};
+
 int64_t sumOpSpillBytes(
     const std::string& opType,
     const protocol::TaskInfo& taskInfo) {
@@ -347,11 +361,6 @@ class TaskManagerTest : public testing::Test {
       const RowTypePtr& outputType,
       long& splitSequenceId,
       protocol::TaskId outputTaskId = "output.0.0.1.0") {
-    std::vector<std::string> locations;
-    for (auto& taskUri : taskUris) {
-      locations.emplace_back(fmt::format("{}/results/0", taskUri));
-    }
-
     auto planFragment = exec::test::PlanBuilder()
                             .exchange(outputType)
                             .partitionedOutput({}, 1)
@@ -359,7 +368,7 @@ class TaskManagerTest : public testing::Test {
 
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(
-        makeRemoteSource("0", locations, true, splitSequenceId));
+        makeRemoteSource("0", taskUris, 0, splitSequenceId));
     return createOrUpdateTask(outputTaskId, updateRequest, planFragment);
   }
 
@@ -379,15 +388,16 @@ class TaskManagerTest : public testing::Test {
 
   protocol::TaskSource makeRemoteSource(
       const protocol::PlanNodeId& sourceId,
-      const std::vector<std::string>& locations,
-      bool noMoreSplits,
+      const std::vector<std::string>& remoteTaskUris,
+      int32_t destination,
       long& splitSequenceId) {
     protocol::TaskSource source;
     source.planNodeId = sourceId;
-    for (auto& location : locations) {
+    for (const auto& taskUri : remoteTaskUris) {
+      const auto location = fmt::format("{}/results/{}", taskUri, destination);
       source.splits.emplace_back(makeRemoteSplit(location, splitSequenceId++));
     }
-    source.noMoreSplits = noMoreSplits;
+    source.noMoreSplits = true;
     return source;
   }
 
@@ -435,10 +445,12 @@ class TaskManagerTest : public testing::Test {
             .partitionedOutput({"p0"}, numPartitions, {"p0", "a0"})
             .planFragment();
 
+    TaskIdGenerator taskIdGenerator(queryId);
+
     std::vector<std::string> partialAggTasks;
     long splitSequenceId{0};
     for (int i = 0; i < filePaths.size(); ++i) {
-      protocol::TaskId taskId = fmt::format("{}.0.0.{}.0", queryId, i);
+      const auto taskId = taskIdGenerator.makeTaskId(0, i);
       allTaskIds.emplace_back(taskId);
 
       protocol::TaskUpdateRequest updateRequest;
@@ -461,43 +473,21 @@ class TaskManagerTest : public testing::Test {
                 {exec::test::PlanBuilder(planNodeIdGenerator)
                      .exchange(partialAggPlanFragment.planNode->outputType())
                      .planNode()})
-            .addNode([](auto id, auto sourceNode) -> core::PlanNodePtr {
-              auto groupingKey =
-                  std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "p0");
-              auto aggInput =
-                  std::make_shared<core::FieldAccessTypedExpr>(BIGINT(), "a0");
-              core::AggregationNode::Aggregate countAggregate;
-              countAggregate.call = std::make_shared<core::CallTypedExpr>(
-                  BIGINT(), std::vector<core::TypedExprPtr>{aggInput}, "count");
-              return std::make_shared<core::AggregationNode>(
-                  id,
-                  core::AggregationNode::Step::kFinal,
-                  std::vector<core::FieldAccessTypedExprPtr>{groupingKey},
-                  std::vector<
-                      core::FieldAccessTypedExprPtr>{}, // preGroupedKeys
-                  std::vector<std::string>{"a0"},
-                  std::vector<core::AggregationNode::Aggregate>{countAggregate},
-                  false,
-                  sourceNode);
-            })
+            .finalAggregation({"p0"}, {"count(a0)"}, {{BIGINT()}})
             .partitionedOutput({}, 1, {"p0", "a0"})
             .planFragment();
 
     std::vector<std::string> finalAggTasks;
     std::vector<protocol::TaskId> finalAggTaskIds;
     for (int i = 0; i < numPartitions; ++i) {
-      protocol::TaskId finalAggTaskId = fmt::format("{}.1.0.{}.0", queryId, i);
+      const auto finalAggTaskId = taskIdGenerator.makeTaskId(1, i);
+
       allTaskIds.emplace_back(finalAggTaskId);
       finalAggTaskIds.emplace_back(finalAggTaskId);
 
-      std::vector<std::string> locations;
-      for (auto& taskUri : partialAggTasks) {
-        locations.emplace_back(fmt::format("{}/results/{}", taskUri, i));
-      }
-
       protocol::TaskUpdateRequest updateRequest;
       updateRequest.sources.push_back(
-          makeRemoteSource("0", locations, true, splitSequenceId));
+          makeRemoteSource("0", partialAggTasks, i, splitSequenceId));
       updateRequest.session.systemProperties = queryConfigStrings;
       auto taskInfo = createOrUpdateTask(
           finalAggTaskId, updateRequest, finalAggPlanFragment);
@@ -882,10 +872,12 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
                           .partitionedOutput({}, 1, {"c0", "c1"})
                           .planFragment();
 
+  TaskIdGenerator taskIdGenerator("scan");
+
   std::vector<std::string> tasks;
   long splitSequenceId{0};
   for (int i = 0; i < filePaths.size(); i++) {
-    protocol::TaskId taskId = fmt::format("scan.0.0.{}.0", i);
+    const auto taskId = taskIdGenerator.makeTaskId(0, i);
     auto source = makeSource("0", {filePaths[i]}, true, splitSequenceId);
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
@@ -950,6 +942,54 @@ TEST_F(TaskManagerTest, countAggregation) {
   duckDbQueryRunner_.createTable("tmp", vectors);
 
   testCountAggregation("test_count_aggr", filePaths);
+}
+
+// Run distributed sort query that has 2 stages. First stage runs multiple
+// tasks with partial sort. Second stage runs single task with merge exchange.
+TEST_F(TaskManagerTest, distributedSort) {
+  auto filePaths = makeFilePaths(5);
+  auto vectors = makeVectors(filePaths.size(), 1'000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  // Create partial sort tasks.
+  auto partialSortPlan = exec::test::PlanBuilder()
+                             .tableScan(rowType_)
+                             .orderBy({"c0"}, true)
+                             .partitionedOutput({}, 1)
+                             .planFragment();
+
+  TaskIdGenerator taskIdGenerator("distributed-sort");
+
+  std::vector<std::string> partialSortUris;
+  long splitSequenceId{0};
+  for (int i = 0; i < filePaths.size(); ++i) {
+    protocol::TaskId taskId = taskIdGenerator.makeTaskId(1, i);
+
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource("0", {filePaths[i]}, true, splitSequenceId));
+
+    auto taskInfo = createOrUpdateTask(taskId, updateRequest, partialSortPlan);
+    partialSortUris.emplace_back(taskInfo->taskStatus.self);
+  }
+
+  // Create final sort task.
+  auto finalSortPlan = exec::test::PlanBuilder()
+                           .mergeExchange(rowType_, {"c0"})
+                           .partitionedOutput({}, 1)
+                           .planFragment();
+
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeRemoteSource("0", partialSortUris, 0, splitSequenceId));
+  std::string finalTaskId = taskIdGenerator.makeTaskId(0, 0);
+  auto finalSortTask =
+      createOrUpdateTask(finalTaskId, updateRequest, finalSortPlan);
+
+  assertResults(finalTaskId, rowType_, "SELECT * FROM tmp ORDER BY c0");
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
