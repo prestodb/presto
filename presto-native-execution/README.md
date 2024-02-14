@@ -105,7 +105,6 @@ A reminder of the available Makefile targets can be obtained using `make help`
     header-check            Check for license header issues on the current branch
     tidy-fix                Fix clang-tidy issues in the current branch
     tidy-check              Check clang-tidy issues in the current branch
-    linux-container         Build the CircleCi linux container from scratch
     help                    Show the help messages
 ```
 
