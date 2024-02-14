@@ -5,7 +5,6 @@ using [Velox](https://github.com/facebookincubator/velox).
 
 ## Table of Contents
 * [Build from Source](#build-from-source)
-* [Build using Dockerfile](#build-using-dockerfile)
 * [Development](#development)
 * [Create Pull Request](#create-pull-request)
 * [Advance Velox Version](#advance-velox-version)
@@ -107,14 +106,8 @@ A reminder of the available Makefile targets can be obtained using `make help`
     tidy-fix                Fix clang-tidy issues in the current branch
     tidy-check              Check clang-tidy issues in the current branch
     linux-container         Build the CircleCi linux container from scratch
-    runtime-container       Build the software in container using current git commit
     help                    Show the help messages
 ```
-
-## Build using Dockerfile
-Run `make runtime-container` in the presto-native-execution root directory
-to build run-ready containerized version of Prestissimo. Information on available
-configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
 
 ## Development
 ### Setup Presto with [IntelliJ IDEA](https://www.jetbrains.com/idea/) and Prestissimo with [CLion](https://www.jetbrains.com/clion/)
