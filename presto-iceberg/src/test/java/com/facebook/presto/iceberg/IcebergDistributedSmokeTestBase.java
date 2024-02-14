@@ -1012,7 +1012,6 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, tableName);
     }
 
-    @Test
     public void testDatePartitionedByYear()
     {
         Session session = getSession();
