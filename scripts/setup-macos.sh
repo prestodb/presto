@@ -38,26 +38,6 @@ MACOS_DEPS="ninja flex bison cmake ccache protobuf@21 icu4c boost gflags glog li
 
 FB_OS_VERSION="v2023.12.04.00"
 
-function run_and_time {
-  time "$@" || (echo "Failed to run $* ." ; exit 1 )
-  { echo "+ Finished running $*"; } 2> /dev/null
-}
-
-function prompt {
-  (
-    while true; do
-      local input="${PROMPT_ALWAYS_RESPOND:-}"
-      echo -n "$(tput bold)$* [Y, n]$(tput sgr0) "
-      [[ -z "${input}" ]] && read input
-      if [[ "${input}" == "Y" || "${input}" == "y" || "${input}" == "" ]]; then
-        return 0
-      elif [[ "${input}" == "N" || "${input}" == "n" ]]; then
-        return 1
-      fi
-    done
-  ) 2> /dev/null
-}
-
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
   if [ `arch` == "arm64" ] ;

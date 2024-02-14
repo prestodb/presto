@@ -67,26 +67,6 @@ sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-d
   tzdata \
   wget
 
-function run_and_time {
-  time "$@"
-  { echo "+ Finished running $*"; } 2> /dev/null
-}
-
-function prompt {
-  (
-    while true; do
-      local input="${PROMPT_ALWAYS_RESPOND:-}"
-      echo -n "$(tput bold)$* [Y, n]$(tput sgr0) "
-      [[ -z "${input}" ]] && read input
-      if [[ "${input}" == "Y" || "${input}" == "y" || "${input}" == "" ]]; then
-        return 0
-      elif [[ "${input}" == "N" || "${input}" == "n" ]]; then
-        return 1
-      fi
-    done
-  ) 2> /dev/null
-}
-
 function install_fmt {
   github_checkout fmtlib/fmt "${FMT_VERSION}"
   cmake_install -DFMT_TEST=OFF
@@ -155,4 +135,4 @@ function install_velox_deps {
   fi
 )
 
-echo "All deps for Velox installed! Now try \"make\""
+echo "All dependencies for Velox installed!"
