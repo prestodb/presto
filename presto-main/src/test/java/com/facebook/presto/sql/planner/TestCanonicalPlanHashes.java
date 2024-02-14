@@ -36,7 +36,8 @@ import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
@@ -79,7 +80,11 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT totalprice, orderkey / 2 from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice, orderkey / 4 from orders WHERE custkey > 100 AND custkey < 120",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+        assertSamePlanHash(
+                "SELECT totalprice, orderkey / 2 from orders WHERE custkey > 100 AND custkey < 120",
+                "SELECT totalprice, orderkey / 4 from orders WHERE custkey > 100 AND custkey < 120",
+                IGNORE_SCAN_CONSTANTS);
 
         assertDifferentPlanHash(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
@@ -88,11 +93,19 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
         assertSamePlanHash(
                 "SELECT cast(totalprice as varchar), orderkey / 2.0 from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT cast(totalprice as varchar), orderkey / 4.0 from orders WHERE custkey > 100 AND custkey < 120",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+        assertDifferentPlanHash(
+                "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
+                "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
+                IGNORE_SCAN_CONSTANTS);
+        assertSamePlanHash(
+                "SELECT cast(totalprice as varchar), orderkey / 2.0 from orders WHERE custkey > 100 AND custkey < 120",
+                "SELECT cast(totalprice as varchar), orderkey / 4.0 from orders WHERE custkey > 100 AND custkey < 120",
+                IGNORE_SCAN_CONSTANTS);
     }
 
     @Test
@@ -110,11 +123,19 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash(
                 "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey, orderstatus",
                 "SELECT COUNT_IF(totalprice > 5) from orders WHERE custkey > 100 AND custkey < 250 GROUP BY orderkey, orderstatus",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
         assertSamePlanHash(
                 "SELECT COUNT_IF(totalprice > 0), 1 from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
                 "SELECT COUNT_IF(totalprice > 0), 2 from (select *, shippriority/4 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+        assertDifferentPlanHash(
+                "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey, orderstatus",
+                "SELECT COUNT_IF(totalprice > 5) from orders WHERE custkey > 100 AND custkey < 250 GROUP BY orderkey, orderstatus",
+                IGNORE_SCAN_CONSTANTS);
+        assertSamePlanHash(
+                "SELECT COUNT_IF(totalprice > 0), 1 from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
+                "SELECT COUNT_IF(totalprice > 0), 2 from (select *, shippriority/4 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
+                IGNORE_SCAN_CONSTANTS);
 
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
@@ -132,15 +153,28 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
                 "SELECT SUM(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
                 "SELECT COUNT(DISTINCT totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
         assertDifferentPlanHash(
                 "SELECT COUNT_IF(totalprice > 0) from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
                 "SELECT COUNT_IF(totalprice > 0) from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 250 GROUP BY GROUPING SETS ((pri), (custkey))",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+
+        assertDifferentPlanHash(
+                "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
+                "SELECT SUM(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
+                IGNORE_SCAN_CONSTANTS);
+        assertDifferentPlanHash(
+                "SELECT COUNT(totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
+                "SELECT COUNT(DISTINCT totalprice) from orders WHERE custkey > 100 AND custkey < 200 GROUP BY orderkey",
+                IGNORE_SCAN_CONSTANTS);
+        assertDifferentPlanHash(
+                "SELECT COUNT_IF(totalprice > 0) from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 200 GROUP BY GROUPING SETS ((pri), (shippriority, custkey))",
+                "SELECT COUNT_IF(totalprice > 0) from (select *, shippriority/2 as pri from orders) WHERE custkey > 100 AND custkey < 250 GROUP BY GROUPING SETS ((pri), (custkey))",
+                IGNORE_SCAN_CONSTANTS);
     }
 
     @Test
@@ -160,7 +194,12 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3, 4] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
                 "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+
+        assertSamePlanHash(
+                "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3, 4] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
+                "SELECT a.custkey, t.e FROM (SELECT custkey, ARRAY[1, 2, 3] AS my_array FROM orders) a CROSS JOIN UNNEST(my_array) AS t(e)",
+                IGNORE_SCAN_CONSTANTS);
     }
 
     @Test
@@ -190,7 +229,11 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash(
                 "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
                 "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
-                REMOVE_SAFE_CONSTANTS);
+                IGNORE_SAFE_CONSTANTS);
+        assertSamePlanHash(
+                "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
+                IGNORE_SCAN_CONSTANTS);
     }
 
     @Test
@@ -315,7 +358,8 @@ public class TestCanonicalPlanHashes
         assertSamePlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 1000", CONNECTOR);
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation", CONNECTOR);
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", CONNECTOR);
-        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", REMOVE_SAFE_CONSTANTS);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", IGNORE_SAFE_CONSTANTS);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", IGNORE_SCAN_CONSTANTS);
     }
 
     @Test

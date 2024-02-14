@@ -98,6 +98,7 @@ public class FeaturesConfig
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
+    private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -933,6 +934,19 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
     {
         this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
+        return this;
+    }
+
+    @NotNull
+    public String getHistoryBasedOptimizerPlanCanonicalizationStrategies()
+    {
+        return historyBasedOptimizerPlanCanonicalizationStrategies;
+    }
+
+    @Config("optimizer.history-based-optimizer-plan-canonicalization-strategies")
+    public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
+    {
+        this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
         return this;
     }
 
