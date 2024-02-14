@@ -51,7 +51,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class TestCteProjectionAndPredicatePushdown
         extends BasePlanTest
-{
+{ 
     @Test
     public void testProjectionPushdown()
     {
