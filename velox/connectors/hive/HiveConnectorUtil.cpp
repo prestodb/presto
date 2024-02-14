@@ -430,13 +430,29 @@ void configureReaderOptions(
     const Config* sessionProperties,
     const std::shared_ptr<HiveTableHandle>& hiveTableHandle,
     const std::shared_ptr<HiveConnectorSplit>& hiveSplit) {
+  configureReaderOptions(
+      readerOptions,
+      hiveConfig,
+      sessionProperties,
+      hiveTableHandle->dataColumns(),
+      hiveSplit,
+      hiveTableHandle->tableParameters());
+}
+
+void configureReaderOptions(
+    dwio::common::ReaderOptions& readerOptions,
+    const std::shared_ptr<HiveConfig>& hiveConfig,
+    const Config* sessionProperties,
+    const RowTypePtr& fileSchema,
+    const std::shared_ptr<HiveConnectorSplit>& hiveSplit,
+    const std::unordered_map<std::string, std::string>& tableParameters) {
   readerOptions.setMaxCoalesceBytes(hiveConfig->maxCoalescedBytes());
   readerOptions.setMaxCoalesceDistance(hiveConfig->maxCoalescedDistanceBytes());
   readerOptions.setFileColumnNamesReadAsLowerCase(
       hiveConfig->isFileColumnNamesReadAsLowerCase(sessionProperties));
   readerOptions.setUseColumnNamesForColumnMapping(
       hiveConfig->isOrcUseColumnNames(sessionProperties));
-  readerOptions.setFileSchema(hiveTableHandle->dataColumns());
+  readerOptions.setFileSchema(fileSchema);
   readerOptions.setFooterEstimatedSize(hiveConfig->footerEstimatedSize());
   readerOptions.setFilePreloadThreshold(hiveConfig->filePreloadThreshold());
 
@@ -447,8 +463,8 @@ void configureReaderOptions(
         dwio::common::toString(readerOptions.getFileFormat()),
         dwio::common::toString(hiveSplit->fileFormat));
   } else {
-    auto serDeOptions = parseSerdeParameters(
-        hiveSplit->serdeParameters, hiveTableHandle->tableParameters());
+    auto serDeOptions =
+        parseSerdeParameters(hiveSplit->serdeParameters, tableParameters);
     if (serDeOptions) {
       readerOptions.setSerDeOptions(*serDeOptions);
     }

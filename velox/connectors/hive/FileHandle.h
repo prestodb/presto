@@ -25,14 +25,9 @@
 
 #pragma once
 
-#include <cstdint>
-#include <memory>
-#include <string>
-
 #include "velox/common/caching/CachedFactory.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/file/File.h"
-#include "velox/dwio/common/InputStream.h"
 
 namespace facebook::velox {
 

@@ -21,6 +21,8 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/hive/iceberg/IcebergSplitReader.h"
+#include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/ReaderFactory.h"
 
 namespace facebook::velox::connector::hive {
@@ -38,17 +40,33 @@ std::unique_ptr<SplitReader> SplitReader::create(
     const ConnectorQueryCtx* connectorQueryCtx,
     const std::shared_ptr<HiveConfig>& hiveConfig,
     const std::shared_ptr<io::IoStatistics>& ioStats) {
-  return std::make_unique<SplitReader>(
-      hiveSplit,
-      hiveTableHandle,
-      scanSpec,
-      readerOutputType,
-      partitionKeys,
-      fileHandleFactory,
-      executor,
-      connectorQueryCtx,
-      hiveConfig,
-      ioStats);
+  //  Create the SplitReader based on hiveSplit->customSplitInfo["table_format"]
+  if (hiveSplit->customSplitInfo.count("table_format") > 0 &&
+      hiveSplit->customSplitInfo["table_format"] == "hive-iceberg") {
+    return std::make_unique<iceberg::IcebergSplitReader>(
+        hiveSplit,
+        hiveTableHandle,
+        scanSpec,
+        readerOutputType,
+        partitionKeys,
+        fileHandleFactory,
+        executor,
+        connectorQueryCtx,
+        hiveConfig,
+        ioStats);
+  } else {
+    return std::make_unique<SplitReader>(
+        hiveSplit,
+        hiveTableHandle,
+        scanSpec,
+        readerOutputType,
+        partitionKeys,
+        fileHandleFactory,
+        executor,
+        connectorQueryCtx,
+        hiveConfig,
+        ioStats);
+  }
 }
 
 SplitReader::SplitReader(
