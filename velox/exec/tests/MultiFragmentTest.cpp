@@ -404,8 +404,10 @@ TEST_F(MultiFragmentTest, mergeExchange) {
   }
 
   auto finalSortTaskId = makeTaskId("orderby", tasks.size());
+  core::PlanNodeId mergeExchangeId;
   auto finalSortPlan = PlanBuilder()
                            .mergeExchange(outputType, {"c0"})
+                           .capturePlanNodeId(mergeExchangeId)
                            .partitionedOutput({}, 1)
                            .planNode();
 
@@ -421,6 +423,15 @@ TEST_F(MultiFragmentTest, mergeExchange) {
   for (auto& task : tasks) {
     ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
   }
+
+  const auto finalSortStats = toPlanStats(task->taskStats());
+  const auto& mergeExchangeStats = finalSortStats.at(mergeExchangeId);
+
+  EXPECT_EQ(20'000, mergeExchangeStats.inputRows);
+  EXPECT_EQ(20'000, mergeExchangeStats.rawInputRows);
+
+  EXPECT_LT(0, mergeExchangeStats.inputBytes);
+  EXPECT_LT(0, mergeExchangeStats.rawInputBytes);
 }
 
 // Test reordering and dropping columns in PartitionedOutput operator.
