@@ -29,11 +29,11 @@ target_link_libraries(
   ${LIBSODIUM_LIBRARY}
   ${OPENSSL_SSL_LIBRARY}
   ${OPENSSL_CRYPTO_LIBRARY}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
-  ${FMT}
-  ${RE2})
+  Folly::folly
+  glog::glog
+  gflags::gflags
+  fmt::fmt
+  re2::re2)
 
 set_property(TARGET presto_http PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

@@ -64,10 +64,10 @@ target_link_libraries(
   velox_type_tz
   velox_vector
   velox_window
-  ${RE2}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
+  re2::re2
+  Folly::folly
+  glog::glog
+  gflags::gflags
   pthread)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
@@ -94,7 +94,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
                                             RemoteFunctionRegisterer.cpp)
 
   target_link_libraries(presto_server_remote_function velox_expression
-                        velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
+                        velox_functions_remote Folly::folly)
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
 

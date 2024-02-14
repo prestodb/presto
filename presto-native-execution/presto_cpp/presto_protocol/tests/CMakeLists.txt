@@ -43,9 +43,9 @@ target_link_libraries(
   velox_exception
   velox_vector
   Boost::filesystem
-  ${RE2}
-  ${FOLLY_LIBRARIES}
+  re2::re2
+  Folly::folly
   ${DOUBLE_CONVERSION}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
+  glog::glog
+  gflags::gflags
   pthread)

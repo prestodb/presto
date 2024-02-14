@@ -106,71 +106,18 @@ set(VELOX_BUILD_TEST_UTILS
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(Boost_USE_MULTITHREADED TRUE)
-find_package(
-  Boost
-  1.66.0
-  REQUIRED
-  program_options
-  context
-  filesystem
-  regex
-  thread
-  system
-  date_time
-  atomic)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-
-find_package(gflags COMPONENTS shared)
-
-find_library(GLOG glog)
-
-find_library(FMT fmt)
+set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL ON)
 
 find_library(EVENT event)
-
 find_library(DOUBLE_CONVERSION double-conversion)
-
-find_library(LZ4 lz4)
-find_library(LZO lzo2)
-find_library(ZSTD zstd)
-find_package(ZLIB)
-find_library(SNAPPY snappy)
-
-find_package(folly CONFIG REQUIRED)
-set(FOLLY_WITH_DEPENDENCIES
-    ${FOLLY_LIBRARIES}
-    ${DOUBLE_CONVERSION}
-    Boost::context
-    dl
-    ${EVENT}
-    ${SNAPPY}
-    ${LZ4}
-    ${ZSTD}
-    ${ZLIB_LIBRARIES})
-
-find_package(BZip2 MODULE)
-if(BZIP2_FOUND)
-  list(APPEND FOLLY_WITH_DEPENDENCIES ${BZIP2_LIBRARIES})
-endif()
-include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
-
-# Include third party header files
-find_path(OPT_OPENSSL_DIR NAMES opt/openssl@1.1)
-set(OPENSSL_ROOT_DIR "${OPT_OPENSSL_DIR}/opt/openssl@1.1")
-find_package(OpenSSL REQUIRED)
-
-find_package(Sodium REQUIRED)
 find_library(PROXYGEN proxygen)
 find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
+find_package(Sodium REQUIRED)
 find_library(FIZZ fizz)
 find_library(WANGLE wangle)
-
-find_library(RE2 re2)
-
-find_package(fizz CONFIG)
-find_package(wangle CONFIG)
-find_package(FBThrift)
+find_package(fizz CONFIG REQUIRED)
+find_package(wangle CONFIG REQUIRED)
+find_package(FBThrift CONFIG REQUIRED)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
 set(PROXYGEN_LIBRARIES ${PROXYGEN_HTTP_SERVER} ${PROXYGEN} ${WANGLE} ${FIZZ})
@@ -188,6 +135,7 @@ include_directories(${CMAKE_BINARY_DIR})
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 
 add_subdirectory(velox)
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 if(PRESTO_ENABLE_TESTING)
   set(BUILD_TESTING ON) # some third-party dependency could have disabled this.
