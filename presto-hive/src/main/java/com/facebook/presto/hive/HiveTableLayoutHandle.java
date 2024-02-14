@@ -290,7 +290,7 @@ public class HiveTableLayoutHandle
                 .transform(ColumnHandle.class::cast)
                 .intersect(constraint);
 
-        constraint = constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
+        constraint = canonicalizationStrategy.equals(PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS) ? constraint.canonicalize(x -> true) : constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
         return constraint;
     }
 
@@ -305,7 +305,7 @@ public class HiveTableLayoutHandle
                     if (!subfield.getPath().isEmpty() || !predicateColumns.containsKey(subfield.getRootName())) {
                         return subfield;
                     }
-                    return isPartitionKey(predicateColumns.get(subfield.getRootName())) ? null : subfield;
+                    return isPartitionKey(predicateColumns.get(subfield.getRootName())) || strategy.equals(PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS) ? null : subfield;
                 })
                 .canonicalize(ignored -> false);
     }
