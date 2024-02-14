@@ -519,6 +519,10 @@ class Operator : public BaseRuntimeStatWriter {
     return operatorCtx_->operatorType();
   }
 
+  const std::string& taskId() const {
+    return operatorCtx_->taskId();
+  }
+
   /// Registers 'translator' for mapping user defined PlanNode subclass
   /// instances to user-defined Operators.
   static void registerOperator(std::unique_ptr<PlanNodeTranslator> translator);

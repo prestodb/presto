@@ -125,7 +125,7 @@ class MergeExchangeSource : public MergeSource {
       folly::Executor* executor)
       : mergeExchange_(mergeExchange),
         client_(std::make_shared<ExchangeClient>(
-            taskId,
+            mergeExchange->taskId(),
             destination,
             maxQueuedBytes,
             pool,
