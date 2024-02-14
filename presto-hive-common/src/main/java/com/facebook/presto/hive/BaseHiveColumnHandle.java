@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.ColumnHandle;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -39,12 +38,11 @@ public class BaseHiveColumnHandle
     private final ColumnType columnType;
     private final List<Subfield> requiredSubfields;
 
-    @JsonCreator
     public BaseHiveColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+            String name,
+            Optional<String> comment,
+            ColumnType columnType,
+            List<Subfield> requiredSubfields)
     {
         this.name = requireNonNull(name, "name is null");
         this.comment = requireNonNull(comment, "comment is null");
