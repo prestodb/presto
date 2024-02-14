@@ -375,7 +375,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
             [this, taskId, abort, downstream]() {
               std::unique_ptr<protocol::TaskInfo> taskInfo;
               taskInfo = taskManager_.deleteTask(taskId, abort);
-              return std::move(taskInfo);
+              return taskInfo;
             })
             .via(folly::EventBaseManager::get()->getEventBase())
             .thenValue([taskId, downstream, handlerState](auto&& taskInfo) {
