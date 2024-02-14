@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: all cmake build clean debug release unittest submodules velox-submodule
+.PHONY: all cmake build cmake-and-build clean debug release unittest submodules velox-submodule
 
 BUILD_BASE_DIR=_build
 BUILD_DIR=release
@@ -20,6 +20,15 @@ NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 CMAKE_PREFIX_PATH ?= "/usr/local"
 PRESTOCPP_ROOT_DIR="$(shell pwd)"
+# Possible values are centos, ubuntu
+OSNAME ?= centos
+ARCH ?= $(shell uname -p)
+DEPENDENCY_IMAGE_NAME ?= prestissimo/dependency-$(ARCH)-$(OSNAME)
+DEPENDENCY_IMAGE_TAG ?= latest
+DEPENDENCY_BASE_IMAGE ?= quay.io/centos/centos:stream8
+RUNTIME_IMAGE_NAME ?= prestissimo/runtime-$(ARCH)-$(OSNAME)
+RUNTIME_IMAGE_TAG ?= latest
+RUNTIME_BASE_IMAGE ?= quay.io/centos/centos:stream8
 
 PRESTO_ENABLE_PARQUET ?= "OFF"
 PRESTO_ENABLE_S3 ?= "OFF"
@@ -75,6 +84,10 @@ debug:					#: Build with debugging symbols
 	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug
 	$(MAKE) build BUILD_DIR=debug
 
+cmake-and-build:			# Use CMake to create a Makefile build system and build
+	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
+	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
+
 release:				#: Build the release version
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release && \
 	$(MAKE) build BUILD_DIR=release
@@ -106,6 +119,20 @@ tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
 
 tidy-check: cmake		#: Check clang-tidy issues in the master branch
 	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
+
+dependency-image: submodules
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) \
+	             --build-arg BASE_IMAGE=$(DEPENDENCY_BASE_IMAGE) \
+	             --build-arg OSNAME=$(OSNAME) \
+	             --tag $(DEPENDENCY_IMAGE_NAME):$(DEPENDENCY_IMAGE_TAG) -f scripts/dockerfiles/dependency.dockerfile .
+
+runtime-image:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) \
+	             --build-arg DEPENDENCY_IMAGE=$(DEPENDENCY_IMAGE_NAME):$(DEPENDENCY_IMAGE_TAG) \
+	             --build-arg BASE_IMAGE=$(RUNTIME_BASE_IMAGE) \
+	             --build-arg OSNAME=$(OSNAME) \
+	             --build-arg EXTRA_CMAKE_FLAGS="$(EXTRA_CMAKE_FLAGS) -DPRESTO_ENABLE_TESTING=OFF" \
+	             --tag $(RUNTIME_IMAGE_NAME):$(RUNTIME_IMAGE_TAG) -f scripts/dockerfiles/prestissimo.dockerfile .
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
