@@ -58,6 +58,7 @@ import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATI
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTables;
@@ -441,14 +442,9 @@ public final class HiveQueryRunner
         Logging.initialize();
 
         Optional<Path> dataDirectory = Optional.empty();
-        if (args.length > 0) {
-            if (args.length != 1) {
-                log.error("usage: HiveQueryRunner [dataDirectory]\n");
-                log.error("       [dataDirectory] is a local directory under which you want the hive_data directory to be created.]\n");
-                System.exit(1);
-            }
-
-            File dataDirectoryFile = new File(args[0]);
+        Optional<String> suppliedDataDirectoryPath = getProperty("DATA_DIR");
+        if (suppliedDataDirectoryPath.isPresent()) {
+            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
             if (dataDirectoryFile.exists()) {
                 if (!dataDirectoryFile.isDirectory()) {
                     log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
