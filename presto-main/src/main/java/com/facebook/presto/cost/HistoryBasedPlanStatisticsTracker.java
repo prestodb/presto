@@ -55,10 +55,10 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.trackPartialAggregationHistory;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanStatistics;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -181,7 +181,7 @@ public class HistoryBasedPlanStatisticsTracker
                 }
 
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
-                for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+                for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
                     Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
                             canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy)));
                     if (planNodeCanonicalInfo.isPresent()) {

@@ -51,7 +51,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 
@@ -118,7 +118,7 @@ public class TestPrestoSparkStatsCalculator
                 .registerVariable(planBuilder.variable("c1"))
                 .filter(planBuilder.rowExpression("c1 IS NOT NULL"),
                         planBuilder.values(planBuilder.variable("c1")));
-        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, REMOVE_SAFE_CONSTANTS, false);
+        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, IGNORE_SAFE_CONSTANTS, false);
 
         InMemoryHistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = (InMemoryHistoryBasedPlanStatisticsProvider) historyBasedPlanStatisticsCalculator.getHistoryBasedPlanStatisticsProvider().get();
         historyBasedPlanStatisticsProvider.putStats(ImmutableMap.of(

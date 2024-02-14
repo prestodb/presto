@@ -795,6 +795,14 @@ Optimizer Properties
     Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
     constant value.
 
+``optimizer.history-based-optimizer-plan-canonicalization-strategies``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``IGNORE_SAFE_CONSTANTS``
+
+    Plan canonicalization strategies used to canonicalize a query plan for history based optimization.
+
 
 Planner Properties
 --------------------------------------
