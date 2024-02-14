@@ -580,8 +580,7 @@ void HashTable<ignoreNullKeys>::arrayGroupProbe(HashLookup& lookup) {
     if (UNLIKELY(!group)) {
       group = insertEntry(lookup, index, row);
     }
-    groups[row] = group;
-    lookup.hits[row] = group; // NOLINT
+    groups[row] = group; // NOLINT
   }
 }
 
