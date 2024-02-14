@@ -3320,7 +3320,6 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
  public:
   PrestoIterativeVectorSerializer(
       const RowTypePtr& rowType,
-      std::vector<VectorEncoding::Simple> encodings,
       int32_t numRows,
       StreamArena* streamArena,
       bool useLosslessTimestamp,
@@ -3332,40 +3331,10 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
     streams_.resize(numTypes);
 
     for (int i = 0; i < numTypes; ++i) {
-      std::optional<VectorEncoding::Simple> encoding = std::nullopt;
-      if (i < encodings.size()) {
-        encoding = encodings[i];
-      }
       streams_[i] = std::make_unique<VectorStream>(
           types[i],
-          encoding,
           std::nullopt,
-          streamArena,
-          numRows,
-          useLosslessTimestamp);
-    }
-  }
-
-  // Constructor that takes a row vector instead of only the types. This is
-  // different because then we know exactly how each vector is encoded
-  // (recursively).
-  PrestoIterativeVectorSerializer(
-      const RowVectorPtr& rowVector,
-      StreamArena* streamArena,
-      bool useLosslessTimestamp,
-      common::CompressionKind compressionKind)
-      : streamArena_(streamArena),
-        codec_(common::compressionKindToCodec(compressionKind)) {
-    auto numRows = rowVector->size();
-    auto rowType = rowVector->type();
-    auto numChildren = rowVector->childrenSize();
-    streams_.resize(numChildren);
-
-    for (int i = 0; i < numChildren; i++) {
-      streams_[i] = std::make_unique<VectorStream>(
-          rowType->childAt(i),
           std::nullopt,
-          rowVector->childAt(i),
           streamArena,
           numRows,
           useLosslessTimestamp);
@@ -3420,16 +3389,6 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
     flushStreams(streams_, numRows_, *streamArena_, *codec_, out);
   }
 
-  void flushEncoded(const RowVectorPtr& vector, OutputStream* out) {
-    VELOX_CHECK_EQ(0, numRows_);
-
-    std::vector<IndexRange> ranges{{0, vector->size()}};
-    Scratch scratch;
-    append(vector, folly::Range(ranges.data(), ranges.size()), scratch);
-
-    flushStreams(streams_, vector->size(), *streamArena_, *codec_, out);
-  }
-
  private:
   StreamArena* const streamArena_;
   const std::unique_ptr<folly::io::Codec> codec_;
@@ -3464,7 +3423,6 @@ PrestoVectorSerde::createIterativeSerializer(
   const auto prestoOptions = toPrestoOptions(options);
   return std::make_unique<PrestoIterativeVectorSerializer>(
       type,
-      prestoOptions.encodings,
       numRows,
       streamArena,
       prestoOptions.useLosslessTimestamp,
@@ -3477,20 +3435,6 @@ std::unique_ptr<BatchVectorSerializer> PrestoVectorSerde::createBatchSerializer(
   const auto prestoOptions = toPrestoOptions(options);
   return std::make_unique<PrestoBatchVectorSerializer>(
       pool, prestoOptions.useLosslessTimestamp, prestoOptions.compressionKind);
-}
-
-void PrestoVectorSerde::deprecatedSerializeEncoded(
-    const RowVectorPtr& vector,
-    StreamArena* streamArena,
-    const Options* options,
-    OutputStream* out) {
-  auto prestoOptions = toPrestoOptions(options);
-  auto serializer = std::make_unique<PrestoIterativeVectorSerializer>(
-      vector,
-      streamArena,
-      prestoOptions.useLosslessTimestamp,
-      prestoOptions.compressionKind);
-  serializer->flushEncoded(vector, out);
 }
 
 void PrestoVectorSerde::deserialize(

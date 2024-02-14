@@ -58,9 +58,6 @@ class PrestoVectorSerde : public VectorSerde {
     bool useLosslessTimestamp{false};
     common::CompressionKind compressionKind{
         common::CompressionKind::CompressionKind_NONE};
-
-    /// Specifies the encoding for each of the top-level child vector.
-    std::vector<VectorEncoding::Simple> encodings;
   };
 
   /// Adds the serialized sizes of the rows of 'vector' in 'ranges[i]' to
@@ -89,25 +86,6 @@ class PrestoVectorSerde : public VectorSerde {
   std::unique_ptr<BatchVectorSerializer> createBatchSerializer(
       memory::MemoryPool* pool,
       const Options* options) override;
-
-  /// Serializes a single RowVector with possibly encoded children, preserving
-  /// their encodings. Encodings are preserved recursively for any RowVector
-  /// children, but not for children of other nested vectors such as Array, Map,
-  /// and Dictionary.
-  ///
-  /// PrestoPage does not support serialization of Dictionaries with nulls;
-  /// in case dictionaries contain null they are serialized as flat buffers.
-  ///
-  /// In order to override the encodings of top-level columns in the RowVector,
-  /// you can specifiy the encodings using PrestoOptions.encodings
-  ///
-  /// DEPRECATED: Use createBatchSerializer and the BatchVectorSerializer's
-  /// serialize function instead.
-  void deprecatedSerializeEncoded(
-      const RowVectorPtr& vector,
-      StreamArena* streamArena,
-      const Options* options,
-      OutputStream* out);
 
   bool supportsAppendInDeserialize() const override {
     return true;
