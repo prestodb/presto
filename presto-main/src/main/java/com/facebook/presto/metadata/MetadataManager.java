@@ -364,14 +364,10 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
+        ConnectorTableLayoutResult layout = metadata.getTableLayoutForConstraint(connectorSession, connectorTable, constraint, desiredColumns);
         session.getRuntimeStats().addMetricValue(GET_LAYOUT_TIME_NANOS, NANO, System.nanoTime() - startTime);
 
-        if (layouts.size() != 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
-        }
-
-        return new TableLayoutResult(fromConnectorLayout(connectorId, table.getConnectorHandle(), table.getTransaction(), layouts.get(0).getTableLayout()), layouts.get(0).getUnenforcedConstraint());
+        return new TableLayoutResult(fromConnectorLayout(connectorId, table.getConnectorHandle(), table.getTransaction(), layout.getTableLayout()), layout.getUnenforcedConstraint());
     }
 
     @Override
