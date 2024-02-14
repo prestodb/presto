@@ -118,13 +118,6 @@ linux-container:
 	cd /tmp/docker && \
 	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
 
-runtime-container:
-	rm -rf /tmp/release-centos-dockerfile && \
-	mkdir -p /tmp/release-centos-dockerfile && \
-	cp -r scripts/build-centos.sh scripts/release-centos-dockerfile /tmp/release-centos-dockerfile && \
-	cd /tmp/release-centos-dockerfile && \
-	PRESTOCPP_ROOT_DIR=$(PRESTOCPP_ROOT_DIR) ./build-centos.sh
-
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
 	awk '/^[-a-z]+:/' | \
