@@ -107,16 +107,6 @@ tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
 tidy-check: cmake		#: Check clang-tidy issues in the master branch
 	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
 
-centos-container:			#: Build the linux container for CircleCi
-	$(MAKE) linux-container CONTAINER_NAME=centos
-
-linux-container:
-	rm -rf /tmp/docker && \
-	mkdir -p /tmp/docker && \
-	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/setup-helper-functions.sh /tmp/docker && \
-	cd /tmp/docker && \
-	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
-
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
 	awk '/^[-a-z]+:/' | \
