@@ -304,10 +304,7 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<DayOfYearFunction, int32_t, Date>(
       {prefix + "doy", prefix + "dayofyear"});
 
-  registerFunction<DayOfWeekFunction, int32_t, Timestamp>(
-      {prefix + "dow", prefix + "dayofweek"});
-  registerFunction<DayOfWeekFunction, int32_t, Date>(
-      {prefix + "dow", prefix + "dayofweek"});
+  registerFunction<DayOfWeekFunction, int32_t, Date>({prefix + "dayofweek"});
 
   registerFunction<QuarterFunction, int32_t, Date>({prefix + "quarter"});
 

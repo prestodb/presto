@@ -71,17 +71,12 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT dayofyear('2016-04-09'); -- 100
 
-.. spark:function:: dayofweek(date/timestamp) -> integer
+.. spark:function:: dayofweek(date) -> integer
 
-    Returns the day of the week for date/timestamp (1 = Sunday, 2 = Monday, ..., 7 = Saturday).
-    We can use `dow` as alias for ::
+    Returns the day of the week for date (1 = Sunday, 2 = Monday, ..., 7 = Saturday).
 
         SELECT dayofweek('2009-07-30'); -- 5
-        SELECT dayofweek('2023-08-22 11:23:00.100'); -- 3
-
-.. spark:function:: dow(x) -> integer
-
-    This is an alias for :spark:func:`dayofweek`.
+        SELECT dayofweek('2023-08-22'); -- 3
 
 .. spark:function:: from_unixtime(unixTime, format) -> string
 

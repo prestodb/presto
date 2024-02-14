@@ -396,18 +396,12 @@ struct DateSubFunction {
 };
 
 template <typename T>
-struct DayOfWeekFunction : public InitSessionTimezone<T> {
+struct DayOfWeekFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // 1 = Sunday, 2 = Monday, ..., 7 = Saturday
   FOLLY_ALWAYS_INLINE int32_t getDayOfWeek(const std::tm& time) {
     return time.tm_wday + 1;
-  }
-
-  FOLLY_ALWAYS_INLINE void call(
-      int32_t& result,
-      const arg_type<Timestamp>& timestamp) {
-    result = getDayOfWeek(getDateTime(timestamp, this->timeZone_));
   }
 
   FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
