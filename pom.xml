@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.207</dep.airlift.version>
+        <dep.airlift.version>0.209</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -59,7 +59,6 @@
         <dep.tempto.version>1.53</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.logback.version>1.2.3</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.0</dep.asm.version>

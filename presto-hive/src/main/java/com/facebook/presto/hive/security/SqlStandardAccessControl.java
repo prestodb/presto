@@ -104,7 +104,7 @@ public class SqlStandardAccessControl
     public void checkCanCreateSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
         // TODO: Refactor code to inject metastore headers using AccessControlContext instead of empty()
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isAdmin(transaction, identity, metastoreContext)) {
             denyCreateSchema(schemaName);
         }
@@ -113,7 +113,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, schemaName)) {
             denyDropSchema(schemaName);
         }
@@ -122,7 +122,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameSchema(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String schemaName, String newSchemaName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, schemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
         }
@@ -142,7 +142,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
         }
@@ -151,7 +151,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyDropTable(tableName.toString());
         }
@@ -160,7 +160,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
@@ -180,7 +180,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyAddColumn(tableName.toString());
         }
@@ -189,7 +189,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyDropColumn(tableName.toString());
         }
@@ -198,7 +198,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyRenameColumn(tableName.toString());
         }
@@ -207,7 +207,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         // TODO: Implement column level access control
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, SELECT, false)) {
             denySelectTable(tableName.toString());
@@ -217,7 +217,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, INSERT, false)) {
             denyInsertTable(tableName.toString());
         }
@@ -226,7 +226,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString());
         }
@@ -235,7 +235,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanTruncateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, DELETE, false)) {
             denyTruncateTable(tableName.toString());
         }
@@ -244,7 +244,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanUpdateTableColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, UPDATE, false)) {
             denyUpdateTableColumns(tableName.toString(), updatedColumns);
         }
@@ -253,7 +253,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
         }
@@ -262,7 +262,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, viewName)) {
             denyDropView(viewName.toString());
         }
@@ -272,7 +272,7 @@ public class SqlStandardAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkCanSelectFromColumns(transaction, identity, context, tableName, columnNames.stream().map(column -> new Subfield(column)).collect(toImmutableSet()));
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         // TODO implement column level access control
         if (!checkTablePermission(transaction, identity, metastoreContext, tableName, SELECT, true)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
@@ -282,7 +282,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String propertyName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isAdmin(transaction, identity, metastoreContext)) {
             denySetCatalogSessionProperty(connectorId, propertyName);
         }
@@ -291,7 +291,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (isTableOwner(transaction, identity, metastoreContext, tableName)) {
             return;
         }
@@ -304,7 +304,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (isTableOwner(transaction, identity, metastoreContext, tableName)) {
             return;
         }
@@ -321,7 +321,7 @@ public class SqlStandardAccessControl
         if (grantor.isPresent()) {
             throw new AccessDeniedException("Hive Connector does not support WITH ADMIN statement");
         }
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isAdmin(transactionHandle, identity, metastoreContext)) {
             denyCreateRole(role);
         }
@@ -330,7 +330,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String role)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isAdmin(transactionHandle, identity, metastoreContext)) {
             denyDropRole(role);
         }
@@ -343,7 +343,7 @@ public class SqlStandardAccessControl
         if (grantor.isPresent()) {
             throw new AccessDeniedException("Hive Connector does not support GRANTED BY statement");
         }
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!hasAdminOptionForRoles(transactionHandle, identity, metastoreContext, roles)) {
             denyGrantRoles(roles, grantees);
         }
@@ -356,7 +356,7 @@ public class SqlStandardAccessControl
         if (grantor.isPresent()) {
             throw new AccessDeniedException("Hive Connector does not support GRANTED BY statement");
         }
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!hasAdminOptionForRoles(transactionHandle, identity, metastoreContext, roles)) {
             denyRevokeRoles(roles, grantees);
         }
@@ -366,7 +366,7 @@ public class SqlStandardAccessControl
     public void checkCanSetRole(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String role, String catalogName)
     {
         SemiTransactionalHiveMetastore metastore = getMetastore(transaction);
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isRoleApplicable(metastore, identity, new PrestoPrincipal(USER, identity.getUser()), metastoreContext, role)) {
             denySetRole(role);
         }
@@ -375,7 +375,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isAdmin(transactionHandle, identity, metastoreContext)) {
             denyShowRoles(catalogName);
         }

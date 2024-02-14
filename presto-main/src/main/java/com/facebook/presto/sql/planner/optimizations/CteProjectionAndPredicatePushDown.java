@@ -318,7 +318,7 @@ public class CteProjectionAndPredicatePushDown
 
             List<VariableReferenceExpression> producerColumns = node.getOutputVariables();
             List<VariableReferenceExpression> newProducerColumns = producerColumns.stream().filter(var -> usedColumnsSet.contains(var)).collect(Collectors.toList());
-            if (newProducerColumns.size() != producerColumns.size()) {
+            if (!newProducerColumns.equals(newChildNode.getOutputVariables())) {
                 newChildNode = PlannerUtils.restrictOutput(newChildNode, idAllocator, newProducerColumns);
             }
 
@@ -331,7 +331,7 @@ public class CteProjectionAndPredicatePushDown
                         newChildNode,
                         cteName,
                         node.getRowCountVariable(),
-                        newChildNode.getOutputVariables());
+                        newProducerColumns);
             }
 
             return node;
@@ -356,8 +356,7 @@ public class CteProjectionAndPredicatePushDown
                             newConsumerColumns.add(pair.getValue());
                         }
                     });
-
-            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteName());
+            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteName(), node.getOriginalSource());
         }
 
         public boolean isPlanRewritten()
@@ -367,7 +366,7 @@ public class CteProjectionAndPredicatePushDown
 
         private PlanNode addFilter(PlanNode node, List<RowExpression> predicates)
         {
-            if (predicates.size() == 0 || predicates.stream().anyMatch(predicate -> isConstant(predicate, BOOLEAN, true))) {
+            if (isConstTrue(predicates)) {
                 return node;
             }
 
@@ -379,6 +378,11 @@ public class CteProjectionAndPredicatePushDown
                 predicate = new SpecialFormExpression(OR, BOOLEAN, predicates);
             }
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, predicate);
+        }
+
+        private boolean isConstTrue(List<RowExpression> predicates)
+        {
+            return predicates.size() == 0 || predicates.stream().anyMatch(predicate -> isConstant(predicate, BOOLEAN, true));
         }
     }
 

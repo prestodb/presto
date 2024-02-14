@@ -1106,7 +1106,8 @@ public class CachingHiveMetastore
                     context.getMetastoreHeaders(),
                     context.isUserDefinedTypeEncodingEnabled(),
                     context.getColumnConverterProvider(),
-                    context.getWarningCollector());
+                    context.getWarningCollector(),
+                    context.getRuntimeStats());
         }
         return new KeyAndContext<>(context, key);
     }

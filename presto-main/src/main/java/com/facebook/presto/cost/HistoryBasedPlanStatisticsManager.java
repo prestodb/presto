@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
@@ -23,6 +25,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.google.inject.Inject;
 
+import java.util.List;
+
+import static com.facebook.presto.SystemSessionProperties.getHistoryOptimizationPlanCanonicalizationStrategies;
 import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsManager
@@ -68,5 +73,10 @@ public class HistoryBasedPlanStatisticsManager
     public PlanCanonicalInfoProvider getPlanCanonicalInfoProvider()
     {
         return planCanonicalInfoProvider;
+    }
+
+    public static List<PlanCanonicalizationStrategy> historyBasedPlanCanonicalizationStrategyList(Session session)
+    {
+        return getHistoryOptimizationPlanCanonicalizationStrategies(session);
     }
 }

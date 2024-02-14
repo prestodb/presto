@@ -18,7 +18,6 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -39,23 +38,6 @@ public class BaseHiveTableLayoutHandle
 
     // coordinator-only properties
     private final Optional<List<HivePartition>> partitions;
-
-    @JsonCreator
-    public BaseHiveTableLayoutHandle(
-            @JsonProperty("partitionColumns") List<BaseHiveColumnHandle> partitionColumns,
-            @JsonProperty("domainPredicate") TupleDomain<Subfield> domainPredicate,
-            @JsonProperty("remainingPredicate") RowExpression remainingPredicate,
-            @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
-            @JsonProperty("partitionColumnPredicate") TupleDomain<ColumnHandle> partitionColumnPredicate)
-    {
-        this(
-                partitionColumns,
-                domainPredicate,
-                remainingPredicate,
-                pushdownFilterEnabled,
-                partitionColumnPredicate,
-                Optional.empty());
-    }
 
     public BaseHiveTableLayoutHandle(
             List<BaseHiveColumnHandle> partitionColumns,

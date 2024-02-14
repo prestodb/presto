@@ -127,7 +127,8 @@ public class SyncPartitionMetadataProcedure
                 getMetastoreHeaders(session),
                 isUserDefinedTypeEncodingEnabled(session),
                 metastore.getColumnConverterProvider(),
-                session.getWarningCollector());
+                session.getWarningCollector(),
+                session.getRuntimeStats());
         Table table = metastore.getTable(metastoreContext, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {

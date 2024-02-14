@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.common.WarningHandlingLevel;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -43,12 +44,14 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -73,6 +76,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -195,6 +199,7 @@ public final class SystemSessionProperties
     public static final String CTE_MATERIALIZATION_STRATEGY = "cte_materialization_strategy";
     public static final String CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED = "cte_filter_and_projection_pushdown_enabled";
     public static final String DEFAULT_JOIN_SELECTIVITY_COEFFICIENT = "default_join_selectivity_coefficient";
+    public static final String DEFAULT_WRITER_REPLICATION_COEFFICIENT = "default_writer_replication_coefficient";
     public static final String PUSH_LIMIT_THROUGH_OUTER_JOIN = "push_limit_through_outer_join";
     public static final String OPTIMIZE_CONSTANT_GROUPING_KEYS = "optimize_constant_grouping_keys";
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
@@ -265,6 +270,7 @@ public final class SystemSessionProperties
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
+    public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -1091,6 +1097,11 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleValueWithinSelectivityRange(value, DEFAULT_JOIN_SELECTIVITY_COEFFICIENT),
                         object -> object),
+                doubleProperty(
+                        DEFAULT_WRITER_REPLICATION_COEFFICIENT,
+                        "Replication coefficient for costing write operations",
+                        featuresConfig.getDefaultWriterReplicationCoefficient(),
+                        false),
                 booleanProperty(
                         PUSH_LIMIT_THROUGH_OUTER_JOIN,
                         "push limits to the outer side of an outer join",
@@ -1535,6 +1546,14 @@ public final class SystemSessionProperties
                         "When the size difference between current table and history table exceed this threshold, do not match history statistics",
                         0.0,
                         true),
+                stringProperty(
+                        HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY,
+                        format("The plan canonicalization strategies used for history based optimization, the strategies will be applied based on the accuracy of the strategies, from more accurate to less accurate. Options are %s",
+                                Stream.of(PlanCanonicalizationStrategy.values())
+                                        .map(PlanCanonicalizationStrategy::name)
+                                        .collect(joining(","))),
+                        featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
+                        false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -2429,6 +2448,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 
+    public static double getCteProducerReplicationCoefficient(Session session)
+    {
+        return session.getSystemProperty(DEFAULT_WRITER_REPLICATION_COEFFICIENT, Double.class);
+    }
+
     public static int getFilterAndProjectMinOutputPageRowCount(Session session)
     {
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
@@ -2954,6 +2978,20 @@ public final class SystemSessionProperties
     public static double getHistoryInputTableStatisticsMatchingThreshold(Session session)
     {
         return session.getSystemProperty(HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD, Double.class);
+    }
+
+    public static List<PlanCanonicalizationStrategy> getHistoryOptimizationPlanCanonicalizationStrategies(Session session)
+    {
+        List<PlanCanonicalizationStrategy> strategyList;
+        try {
+            strategyList = Splitter.on(",").trimResults().splitToList(session.getSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, String.class)).stream()
+                    .map(x -> PlanCanonicalizationStrategy.valueOf(x)).sorted(Comparator.comparingInt(PlanCanonicalizationStrategy::getErrorLevel)).collect(toImmutableList());
+        }
+        catch (Exception e) {
+            strategyList = ImmutableList.of();
+        }
+
+        return strategyList;
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)

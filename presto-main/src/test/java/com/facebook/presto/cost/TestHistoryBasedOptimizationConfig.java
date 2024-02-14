@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
 public class TestHistoryBasedOptimizationConfig
 {
@@ -45,5 +52,35 @@ public class TestHistoryBasedOptimizationConfig
                 .setHistoryMatchingThreshold(0.2);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testPlanCanonicalizationStrategyOrder()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,DEFAULT,CONNECTOR,IGNORE_SCAN_CONSTANTS")
+                .build();
+        List<PlanCanonicalizationStrategy> strategyList = historyBasedPlanCanonicalizationStrategyList(session);
+        assertEquals(strategyList.size(), 4);
+        assertEquals(strategyList.get(0), PlanCanonicalizationStrategy.DEFAULT);
+        assertEquals(strategyList.get(1), PlanCanonicalizationStrategy.CONNECTOR);
+        assertEquals(strategyList.get(2), PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS);
+        assertEquals(strategyList.get(3), PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS);
+
+        session = testSessionBuilder()
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
+                .build();
+        strategyList = historyBasedPlanCanonicalizationStrategyList(session);
+        assertEquals(strategyList.size(), 2);
+        assertEquals(strategyList.get(0), PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS);
+        assertEquals(strategyList.get(1), PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS);
+
+        session = testSessionBuilder()
+                .setSystemProperty(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SCAN_CONSTANTS,IGNORE_SAFE_CONSTANTS")
+                .build();
+        strategyList = historyBasedPlanCanonicalizationStrategyList(session);
+        assertEquals(strategyList.size(), 2);
+        assertEquals(strategyList.get(0), PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS);
+        assertEquals(strategyList.get(1), PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS);
     }
 }
