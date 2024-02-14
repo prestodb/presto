@@ -23,6 +23,44 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
+
+Connection security
+------------------
+
+The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your SQL Server database host.
+
+To disable encryption in the connection string, use the ``encrypt`` property:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false;
+
+Other SSL configuration properties that can be configured using the ``connection-url``:
+
+SSL Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``trustServerCertificate``                         Indicates that the server certificate is not trusted                 ``false``
+                                                   automatically and a truststore is required for 
+                                                   SSL certificate verification.
+
+``trustStoreType``                                 File format of the truststore file, for example ``JKS`` or ``PEM``.
+
+``hostNameInCertificate``                          Specifies the expected CN (Common Name) in the SSL certificate 
+                                                   from the server.
+
+``trustStore``                                     The path to the truststore file.
+
+``trustStorePassword``                             The password for the truststore.
+================================================== ==================================================================== ===========
+
+A connection string using a truststore would be similar to the following example:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;trustStoreType=PEM;hostNameInCertificate=hostname;trustStore=path/to/truststore.pem;trustStorePassword=password
 Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
