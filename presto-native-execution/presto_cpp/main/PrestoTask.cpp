@@ -167,31 +167,44 @@ std::string generateRuntimeStatName(
       statName);
 }
 
+// Helper to convert Velox-specific generic operator stats into Presto runtime
+// stats.
+struct OperatorStatsCollector {
+  const exec::OperatorStats& veloxOperatorStats;
+  protocol::RuntimeStats& prestoOperatorStats;
+  protocol::RuntimeStats& prestoTaskStats;
+
+  void addIfNotZero(
+      const std::string& name,
+      int64_t value,
+      protocol::RuntimeUnit unit = protocol::RuntimeUnit::NONE) {
+    if (value == 0) {
+      return;
+    }
+
+    add(name, value, unit);
+  }
+
+  void add(
+      const std::string& name,
+      int64_t value,
+      protocol::RuntimeUnit unit = protocol::RuntimeUnit::NONE) {
+    const std::string statName =
+        generateRuntimeStatName(veloxOperatorStats, name);
+    auto prestoMetric = createProtocolRuntimeMetric(statName, value, unit);
+    prestoOperatorStats.emplace(statName, prestoMetric);
+    prestoTaskStats.emplace(statName, prestoMetric);
+  }
+};
+
 // Add 'spilling' metrics from Velox operator stats to Presto operator stats.
-static void addSpillingOperatorMetrics(
-    protocol::OperatorStats& opOut,
-    protocol::TaskStats& prestoTaskStats,
-    const exec::OperatorStats& op) {
-  std::string statName = generateRuntimeStatName(op, "spilledBytes");
-  auto prestoMetric = createProtocolRuntimeMetric(
-      statName, op.spilledBytes, protocol::RuntimeUnit::BYTE);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+void addSpillingOperatorMetrics(OperatorStatsCollector& collector) {
+  auto& op = collector.veloxOperatorStats;
 
-  statName = generateRuntimeStatName(op, "spilledRows");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledRows);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = generateRuntimeStatName(op, "spilledPartitions");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledPartitions);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
-
-  statName = generateRuntimeStatName(op, "spilledFiles");
-  prestoMetric = createProtocolRuntimeMetric(statName, op.spilledFiles);
-  opOut.runtimeStats.emplace(statName, prestoMetric);
-  prestoTaskStats.runtimeStats[statName] = prestoMetric;
+  collector.add("spilledBytes", op.spilledBytes, protocol::RuntimeUnit::BYTE);
+  collector.add("spilledRows", op.spilledRows);
+  collector.add("spilledPartitions", op.spilledPartitions);
+  collector.add("spilledFiles", op.spilledFiles);
 }
 
 // Process the runtime stats of individual protocol::OperatorStats. Do not add
@@ -609,40 +622,22 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       for (const auto& stat : op.runtimeStats) {
         auto statName = generateRuntimeStatName(op, stat.first);
         opOut.runtimeStats[statName] = toRuntimeMetric(statName, stat.second);
-        if (taskRuntimeStats.count(statName)) {
-          taskRuntimeStats[statName].merge(stat.second);
-        } else {
-          taskRuntimeStats[statName] = stat.second;
-        }
+        addRuntimeMetric(taskRuntimeStats, statName, stat.second);
       }
 
-      if (op.numSplits != 0) {
-        const auto statName = generateRuntimeStatName(op, "numSplits");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.numSplits));
-      }
-      if (op.inputVectors != 0) {
-        auto statName = generateRuntimeStatName(op, "inputBatches");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.inputVectors));
-      }
-      if (op.outputVectors != 0) {
-        auto statName = generateRuntimeStatName(op, "outputBatches");
-        opOut.runtimeStats.emplace(
-            statName, createProtocolRuntimeMetric(statName, op.outputVectors));
-      }
-      if (op.memoryStats.numMemoryAllocations > 0) {
-        auto statName = generateRuntimeStatName(op, "numMemoryAllocations");
-        opOut.runtimeStats.emplace(
-            statName,
-            createProtocolRuntimeMetric(
-                statName, op.memoryStats.numMemoryAllocations));
-      }
+      OperatorStatsCollector operatorStatsCollector{
+          op, opOut.runtimeStats, prestoTaskStats.runtimeStats};
+
+      operatorStatsCollector.addIfNotZero("numSplits", op.numSplits);
+      operatorStatsCollector.addIfNotZero("inputBatches", op.inputVectors);
+      operatorStatsCollector.addIfNotZero("outputBatches", op.outputVectors);
+      operatorStatsCollector.addIfNotZero(
+          "numMemoryAllocations", op.memoryStats.numMemoryAllocations);
 
       // If Velox operator has spilling stats, then add them to the Presto
       // operator stats and the task stats as runtime stats.
       if (op.spilledBytes > 0) {
-        addSpillingOperatorMetrics(opOut, prestoTaskStats, op);
+        addSpillingOperatorMetrics(operatorStatsCollector);
       }
 
       auto wallNanos = op.addInputTiming.wallNanos +
