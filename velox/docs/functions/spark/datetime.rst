@@ -189,6 +189,13 @@ These functions support TIMESTAMP and DATE input types.
     Returns the `ISO-Week`_ of the year from x. The value ranges from ``1`` to ``53``.
     A week is considered to start on a Monday and week 1 is the first week with >3 days.
 
+.. function:: weekday(date) -> integer
+
+    Returns the day of the week for date (0 = Monday, 1 = Tuesday, …, 6 = Sunday).
+
+        SELECT weekday('2015-04-08'); -- 2
+        SELECT weekday('2024-02-10'); -- 5
+
 .. _ISO-Week: https://en.wikipedia.org/wiki/ISO_week_date
 
 .. spark:function:: year(x) -> integer

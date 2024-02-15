@@ -306,6 +306,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<DayOfWeekFunction, int32_t, Date>({prefix + "dayofweek"});
 
+  registerFunction<WeekdayFunction, int32_t, Date>({prefix + "weekday"});
+
   registerFunction<QuarterFunction, int32_t, Date>({prefix + "quarter"});
 
   registerFunction<MonthFunction, int32_t, Date>({prefix + "month"});

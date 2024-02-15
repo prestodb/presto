@@ -500,6 +500,20 @@ struct DayOfYearFunction {
 };
 
 template <typename T>
+struct WeekdayFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // 0 = Monday, 1 = Tuesday, ..., 6 = Sunday
+  FOLLY_ALWAYS_INLINE int32_t getWeekday(const std::tm& time) {
+    return (time.tm_wday + 6) % 7;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
+    result = getWeekday(getDateTime(date));
+  }
+};
+
+template <typename T>
 struct NextDayFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

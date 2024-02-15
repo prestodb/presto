@@ -450,6 +450,30 @@ TEST_F(DateTimeFunctionsTest, dayOfWeekDate) {
   EXPECT_EQ(6, dayOfWeek(util::fromDateString("1582-10-15")));
 }
 
+TEST_F(DateTimeFunctionsTest, weekdayDate) {
+  const auto weekday = [&](std::optional<int32_t> value) {
+    return evaluateOnce<int32_t, int32_t>("weekday(c0)", {value}, {DATE()});
+  };
+
+  EXPECT_EQ(3, weekday(0));
+  EXPECT_EQ(2, weekday(-1));
+  EXPECT_EQ(5, weekday(-40));
+  EXPECT_EQ(3, weekday(parseDate("2009-07-30")));
+  EXPECT_EQ(6, weekday(parseDate("2023-08-20")));
+  EXPECT_EQ(0, weekday(parseDate("2023-08-21")));
+  EXPECT_EQ(1, weekday(parseDate("2023-08-22")));
+  EXPECT_EQ(2, weekday(parseDate("2023-08-23")));
+  EXPECT_EQ(3, weekday(parseDate("2023-08-24")));
+  EXPECT_EQ(4, weekday(parseDate("2023-08-25")));
+  EXPECT_EQ(5, weekday(parseDate("2023-08-26")));
+  EXPECT_EQ(6, weekday(parseDate("2023-08-27")));
+  EXPECT_EQ(5, weekday(parseDate("2017-05-27")));
+  EXPECT_EQ(2, weekday(parseDate("2015-04-08")));
+  EXPECT_EQ(4, weekday(parseDate("2013-11-08")));
+  EXPECT_EQ(4, weekday(parseDate("2011-05-06")));
+  EXPECT_EQ(4, weekday(parseDate("1582-10-15")));
+}
+
 TEST_F(DateTimeFunctionsTest, dateDiffDate) {
   const auto dateDiff = [&](std::optional<int32_t> endDate,
                             std::optional<int32_t> startDate) {
