@@ -50,7 +50,7 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,7 +142,7 @@ public class HivePartitionManager
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) threadPoolExecutor);
     }
 
-    public Iterable<HivePartition> getPartitionsIterator(
+    public List<HivePartition> getPartitionsList(
             SemiTransactionalHiveMetastore metastore,
             ConnectorTableHandle tableHandle,
             Constraint<ColumnHandle> constraint,
@@ -171,25 +171,23 @@ public class HivePartitionManager
             return ImmutableList.of(new HivePartition(tableName));
         }
         else {
-            return () -> {
-                List<String> partitionNames = partitionFilteringFromMetastoreEnabled ? getFilteredPartitionNames(session, metastore, hiveTableHandle, effectivePredicate) : getAllPartitionNames(session, metastore, hiveTableHandle, constraint);
+            List<String> partitionNames = partitionFilteringFromMetastoreEnabled ? getFilteredPartitionNames(session, metastore, hiveTableHandle, effectivePredicate) : getAllPartitionNames(session, metastore, hiveTableHandle, constraint);
 
-                if (isParallelParsingOfPartitionValuesEnabled(session) && partitionNames.size() > PARTITION_NAMES_BATCH_SIZE) {
-                    List<List<String>> partitionNameBatches = Lists.partition(partitionNames, PARTITION_NAMES_BATCH_SIZE);
-                    // Use ConcurrentLinkedQueue to prevent race condition when multiple threads try to add partitions to this list
-                    ConcurrentLinkedQueue<HivePartition> result = new ConcurrentLinkedQueue<>();
-                    List<ListenableFuture<?>> futures = new ArrayList<>();
-                    try {
-                        partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint)))));
-                        Futures.transform(Futures.allAsList(futures), input -> result, directExecutor()).get();
-                        return result.iterator();
-                    }
-                    catch (InterruptedException | ExecutionException e) {
-                        log.error(e, "Parallel parsing of partition values failed");
-                    }
+            if (isParallelParsingOfPartitionValuesEnabled(session) && partitionNames.size() > PARTITION_NAMES_BATCH_SIZE) {
+                List<List<String>> partitionNameBatches = Lists.partition(partitionNames, PARTITION_NAMES_BATCH_SIZE);
+                // Use ConcurrentLinkedQueue to prevent race condition when multiple threads try to add partitions to this list
+                ConcurrentLinkedQueue<HivePartition> result = new ConcurrentLinkedQueue<>();
+                List<ListenableFuture<?>> futures = new ArrayList<>();
+                try {
+                    partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint)))));
+                    Futures.transform(Futures.allAsList(futures), input -> result, directExecutor()).get();
+                    return Arrays.asList(result.toArray(new HivePartition[0]));
                 }
-                return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint).iterator();
-            };
+                catch (InterruptedException | ExecutionException e) {
+                    log.error(e, "Parallel parsing of partition values failed");
+                }
+            }
+            return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint);
         }
     }
 
@@ -263,7 +261,13 @@ public class HivePartitionManager
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
-        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
+        List<HivePartition> partitions = getPartitionsList(metastore, tableHandle, constraint, session);
+        if (partitions.size() > maxPartitionsPerScan) {
+            throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                    "Query over table '%s' can potentially read more than %s partitions",
+                    hiveTableHandle.getSchemaTableName().toString(),
+                    maxPartitionsPerScan));
+        }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session, effectivePredicate);
         Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate));
@@ -358,24 +362,6 @@ public class HivePartitionManager
         int bucketsPerPartition = filter.map(hiveBucketFilter -> hiveBucketFilter.getBucketsToKeep().size())
                 .orElseGet(handle::getReadBucketCount);
         return bucketsPerPartition * partitions.size() > getMaxBucketsForGroupedExecution(session);
-    }
-
-    private List<HivePartition> getPartitionsAsList(Iterator<HivePartition> partitionsIterator)
-    {
-        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
-        int count = 0;
-        while (partitionsIterator.hasNext()) {
-            HivePartition partition = partitionsIterator.next();
-            if (count == maxPartitionsPerScan) {
-                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
-                        "Query over table '%s' can potentially read more than %s partitions",
-                        partition.getTableName(),
-                        maxPartitionsPerScan));
-            }
-            partitionList.add(partition);
-            count++;
-        }
-        return partitionList.build();
     }
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
