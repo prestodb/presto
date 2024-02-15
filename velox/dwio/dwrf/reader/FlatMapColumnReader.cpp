@@ -686,7 +686,7 @@ void FlatMapStructEncodingColumnReader<T>::next(
   if (rowVector) {
     // Track children vectors in a local variable because readNulls may reset
     // the parent vector.
-    result->resize(numValues, false);
+    rowVector->unsafeResize(numValues, false);
     children = rowVector->children();
     DWIO_ENSURE_EQ(children.size(), keyNodes_.size());
   }
