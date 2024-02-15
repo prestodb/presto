@@ -408,10 +408,17 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   prestoTaskStats.lastEndTime =
       util::toISOTimestamp(taskStats.executionEndTimeMs);
   prestoTaskStats.endTime = util::toISOTimestamp(taskStats.executionEndTimeMs);
+
+  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
+
   if (taskStats.executionEndTimeMs > taskStats.executionStartTimeMs) {
     prestoTaskStats.elapsedTimeInNanos =
         (taskStats.executionEndTimeMs - taskStats.executionStartTimeMs) *
         1'000'000;
+  } else {
+    prestoTaskStats.elapsedTimeInNanos =
+        (currentTimeMs - taskStats.executionStartTimeMs) * 1'000'000;
   }
 
   const auto stats = task->pool()->stats();
@@ -427,9 +434,6 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   if (lastTaskStatsUpdateMs == 0) {
     lastTaskStatsUpdateMs = taskStats.executionStartTimeMs;
   }
-
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
-  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
 
   const int64_t currentBytes = stats.currentBytes;
 
