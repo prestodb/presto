@@ -478,11 +478,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
         {"memoryReclaimWallNanos", fromMillis(taskStats.memoryReclaimMs)});
   }
 
+  taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
   if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
     taskRuntimeStats.insert(
         {"outputConsumedDelayInNanos",
          fromMillis(taskStats.endTimeMs - taskStats.executionEndTimeMs)});
-    taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
 
