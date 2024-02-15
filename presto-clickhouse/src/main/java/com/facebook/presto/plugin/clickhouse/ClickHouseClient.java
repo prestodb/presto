@@ -71,6 +71,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseEngineType.MERGETREE;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.SAMPLE_BY_PROPERTY;
 import static com.facebook.presto.plugin.clickhouse.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -774,6 +775,24 @@ public class ClickHouseClient
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
                 newTableName = newTableName.toUpperCase(ENGLISH);
             }
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public void setTableProperties(ClickHouseIdentity identity, ClickHouseTableHandle handle, Map<String, Object> properties)
+    {
+        checkArgument(properties.size() == 1 && properties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting `sample_by` property");
+        ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
+        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "ALTER TABLE %s MODIFY %s",
+                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    join(" ", tableOptions.build()));
             execute(connection, sql);
         }
         catch (SQLException e) {

@@ -25,11 +25,22 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.security.SecureRandom;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static com.facebook.presto.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.ORDER_BY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.PARTITION_BY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.PRIMARY_KEY_PROPERTY;
+import static com.facebook.presto.plugin.clickhouse.ClickhouseDXLKeyWords.SAMPLE_BY_PROPERTY;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -354,6 +365,36 @@ public class TestClickHouseDistributedQueries
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')", "Unable to set table property 'engine' to.*");
     }
 
+    @Test
+    public void testSetTableProperties()
+            throws SQLException
+    {
+        String tableName = "test_set_properties_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, c2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'c2'], primary_key = ARRAY['id', 'c2'])");
+        assertThat(getTableProperties("tpch", tableName)).containsAllEntriesOf(ImmutableMap.of(
+                "engine", "MergeTree",
+                "order_by", "id, c2",
+                "partition_by", "",
+                "primary_key", "id, c2",
+                "sample_by", ""));
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES (sample_by = 'c2')");
+        assertThat(getTableProperties("tpch", tableName)).containsAllEntriesOf(ImmutableMap.of(
+                "engine", "MergeTree",
+                "order_by", "id, c2",
+                "partition_by", "",
+                "primary_key", "id, c2",
+                "sample_by", "c2"));
+    }
+
+    @Test
+    public void testAlterInvalidTableProperties()
+    {
+        String tableName = "test_set_invalid_property_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, c2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'c2'], primary_key = ARRAY['id', 'c2'])");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES (invalid_property = 'c2')", "Catalog 'clickhouse' does not support table property 'invalid_property'");
+    }
+
     /**
      * test clickhouse table properties
      * <p>
@@ -421,12 +462,35 @@ public class TestClickHouseDistributedQueries
                 "Invalid value for table property 'partition_by': .*");
     }
 
+    private Map<String, String> getTableProperties(String schemaName, String tableName)
+            throws SQLException
+    {
+        String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
+                PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, schemaName);
+            preparedStatement.setString(2, tableName);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            ImmutableMap.Builder<String, String> properties = new ImmutableMap.Builder<>();
+            while (resultSet.next()) {
+                properties.put(ENGINE_PROPERTY, resultSet.getString("engine"));
+                properties.put(ORDER_BY_PROPERTY, resultSet.getString("sorting_key"));
+                properties.put(PARTITION_BY_PROPERTY, resultSet.getString("partition_key"));
+                properties.put(PRIMARY_KEY_PROPERTY, resultSet.getString("primary_key"));
+                properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
+            }
+            return properties.build();
+        }
+    }
+
     private static String randomTableSuffix()
     {
         SecureRandom random = new SecureRandom();
         String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
         return randomSuffix.substring(0, min(5, randomSuffix.length()));
     }
+
     protected static final class DataMappingTestSetup
     {
         private final String trinoTypeName;
