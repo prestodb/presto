@@ -385,9 +385,9 @@ class SetUnionAggregate : public SetBaseAggregate<T> {
 
 template <template <typename T> class Aggregate>
 std::unique_ptr<exec::Aggregate> create(
-    TypeKind typeKind,
+    const TypePtr& inputType,
     const TypePtr& resultType) {
-  switch (typeKind) {
+  switch (inputType->kind()) {
     case TypeKind::BOOLEAN:
       return std::make_unique<Aggregate<bool>>(resultType);
     case TypeKind::TINYINT:
@@ -398,6 +398,11 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<int32_t>>(resultType);
     case TypeKind::BIGINT:
       return std::make_unique<Aggregate<int64_t>>(resultType);
+    case TypeKind::HUGEINT:
+      VELOX_CHECK(
+          inputType->isLongDecimal(),
+          "Non-decimal use of HUGEINT is not supported");
+      return std::make_unique<Aggregate<int128_t>>(resultType);
     case TypeKind::REAL:
       return std::make_unique<Aggregate<float>>(resultType);
     case TypeKind::DOUBLE:
@@ -415,7 +420,8 @@ std::unique_ptr<exec::Aggregate> create(
     case TypeKind::ROW:
       return std::make_unique<Aggregate<ComplexType>>(resultType);
     default:
-      VELOX_UNREACHABLE("Unexpected type {}", mapTypeKindToName(typeKind));
+      VELOX_UNREACHABLE(
+          "Unexpected type {}", mapTypeKindToName(inputType->kind()));
   }
 }
 
@@ -443,8 +449,9 @@ void registerSetAggAggregate(const std::string& prefix) {
         VELOX_CHECK_EQ(argTypes.size(), 1);
 
         const bool isRawInput = exec::isRawInput(step);
-        const TypeKind typeKind =
-            isRawInput ? argTypes[0]->kind() : argTypes[0]->childAt(0)->kind();
+        const TypePtr& inputType =
+            isRawInput ? argTypes[0] : argTypes[0]->childAt(0);
+        const TypeKind typeKind = inputType->kind();
         const bool throwOnNestedNulls = isRawInput;
 
         switch (typeKind) {
@@ -458,6 +465,11 @@ void registerSetAggAggregate(const std::string& prefix) {
             return std::make_unique<SetAggAggregate<int32_t>>(resultType);
           case TypeKind::BIGINT:
             return std::make_unique<SetAggAggregate<int64_t>>(resultType);
+          case TypeKind::HUGEINT:
+            VELOX_CHECK(
+                inputType->isLongDecimal(),
+                "Non-decimal use of HUGEINT is not supported");
+            return std::make_unique<SetAggAggregate<int128_t>>(resultType);
           case TypeKind::REAL:
             return std::make_unique<SetAggAggregate<float>>(resultType);
           case TypeKind::DOUBLE:
@@ -503,9 +515,7 @@ void registerSetUnionAggregate(const std::string& prefix) {
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1);
 
-        const TypeKind typeKind = argTypes[0]->childAt(0)->kind();
-
-        return create<SetUnionAggregate>(typeKind, resultType);
+        return create<SetUnionAggregate>(argTypes[0]->childAt(0), resultType);
       });
 }
 

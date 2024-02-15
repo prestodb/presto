@@ -24,6 +24,11 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
+constexpr int64_t kLongMax = std::numeric_limits<int64_t>::max();
+constexpr int64_t kLongMin = std::numeric_limits<int64_t>::min();
+constexpr int128_t kHugeMax = std::numeric_limits<int128_t>::max();
+constexpr int128_t kHugeMin = std::numeric_limits<int128_t>::min();
+
 class SetUnionTest : public AggregationTestBase {
  protected:
   void SetUp() override {
@@ -324,5 +329,177 @@ TEST_F(SetUnionTest, inputOrder) {
   assertQuery(plan, expected);
 }
 
+TEST_F(SetUnionTest, shortDecimal) {
+  // Test with short decimal
+  auto type = DECIMAL(6, 2);
+
+  auto data = makeRowVector({
+      makeArrayVector<int64_t>(
+          {
+              {},
+              {kLongMin, 2000, 3000},
+              {kLongMin, -2000},
+              {2000, 3000, kLongMax, 5000},
+              {6000, 7000, -5432},
+          },
+          type),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>(
+          {
+              {kLongMin, -5432, -2000, 2000, 3000, 5000, 6000, 7000, kLongMax},
+          },
+          type),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Test with some NULL inputs (short decimals)
+  data = makeRowVector({
+      makeNullableArrayVector<int64_t>(
+          {
+              {},
+              {-1000, std::nullopt, kLongMax, std::nullopt, 7000},
+              {1000, kLongMax, std::nullopt, 4000, std::nullopt, std::nullopt},
+              {kLongMin, -5923},
+          },
+          ARRAY(type)),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<int64_t>>>{
+              {kLongMin,
+               -5923,
+               -1000,
+               1000,
+               4000,
+               7000,
+               kLongMax,
+               std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  // Test with all NULL inputs (short decimals)
+  data = makeRowVector({
+      makeAllNullArrayVector(10, type),
+  });
+
+  expected = makeRowVector({
+      makeArrayVector<int64_t>({{}}, type),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  data = makeRowVector({
+      makeNullableArrayVector<int64_t>(
+          {
+              {},
+              {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+              {std::nullopt, std::nullopt, std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<int64_t>>>{
+              {std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+}
+
+TEST_F(SetUnionTest, longDecimal) {
+  // Test with long decimals
+  auto type = DECIMAL(20, 2);
+
+  auto data = makeRowVector({
+      makeArrayVector<int128_t>(
+          {
+              {},
+              {kHugeMax, -2000, 3000},
+              {1000, 2000},
+              {2000, kHugeMin, 3000, 4000, 5000},
+              {-6363, 7000},
+          },
+          type),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int128_t>(
+          {
+              {kHugeMin,
+               -6363,
+               -2000,
+               1000,
+               2000,
+               3000,
+               4000,
+               5000,
+               7000,
+               kHugeMax},
+          },
+          type),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+
+  // Test with some NULL inputs (long decimals).
+  data = makeRowVector({
+      makeNullableArrayVector<int128_t>(
+          {
+              {},
+              {kHugeMin},
+              {1000, std::nullopt, 3000, std::nullopt, 7000},
+              {-1000, 3000, std::nullopt, 4000, std::nullopt, std::nullopt},
+              {2000, kHugeMax, -1234},
+          },
+          ARRAY(type)),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<int128_t>>>{
+              {kHugeMin,
+               -1234,
+               -1000,
+               1000,
+               2000,
+               3000,
+               4000,
+               7000,
+               kHugeMax,
+               std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+
+  // Test with all NULL inputs (long decimals).
+  data = makeRowVector({
+      makeAllNullArrayVector(10, type),
+  });
+
+  expected = makeRowVector({
+      makeArrayVector<int128_t>({{}}, type),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test
