@@ -82,6 +82,7 @@ add_executable(
   VectorHasherTest.cpp
   ValuesTest.cpp
   WindowFunctionRegistryTest.cpp
+  WindowTest.cpp
   SortBufferTest.cpp)
 
 add_executable(
