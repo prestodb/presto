@@ -722,7 +722,7 @@ allocation of a fixed size buffer (class page) which is a power of 2 of a
 machine page size. *MMapAllocator* creates 9 different *SizeClass* objects with
 class page size ranging from 1 machine page (4KB) to 256 machine pages (1MB).
 To allocate a large number of machines pages, *MmapAllocator* calls
-&MemoryAllocator::allocationSize* to build the allocation plan
+*MemoryAllocator::allocationSize* to build the allocation plan
 (*MemoryAllocator::SizeMix*) which consists of a list of chosen *SizeClass* objects
 and the number of class pages to allocate from each of them.
 
@@ -780,9 +780,9 @@ The simplified *MmapAllocator::allocateNonContiguous* implementation:
 #. calls *MemoryAllocator::allocationSize* with *numPages* and *minSizeClass*.
    *numPages* specifies the number of machine pages to allocate. *minSizeClass*
    specifies the minimum class page size to allocate from. The function returns
-   the number of class pages to allocate from each chosen *SizeClasses* in
-   *SizeClass::SizeMix*. The sum of machine pages to allocate from *SizeClasses*
-   should be no less than the requested *numPages*
+   the number of class pages to allocate from each chosen *SizeClass* in
+   *MemoryAllocator::SizeMix*. The sum of machine pages to allocate from all
+   *SizeClass* objects should be no less than the requested *numPages*.
 
 #. increase the memory allocator’s memory usage and check if it exceeds the
    system memory limit (*MemoryAllocator::capacity_*). If it exceeds, then fails
