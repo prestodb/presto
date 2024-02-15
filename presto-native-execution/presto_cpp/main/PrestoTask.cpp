@@ -123,13 +123,6 @@ static protocol::RuntimeMetric createProtocolRuntimeMetric(
   return protocol::RuntimeMetric{name, unit, value, 1, value, value};
 }
 
-// Creates a Velox runtime metric object from a raw value.
-static RuntimeMetric createVeloxRuntimeMetric(
-    int64_t value,
-    RuntimeCounter::Unit unit) {
-  return RuntimeMetric{value, unit};
-}
-
 // Updates a Velox runtime metric in the unordered map.
 static void addRuntimeMetric(
     std::unordered_map<std::string, RuntimeMetric>& runtimeMetrics,
@@ -149,10 +142,17 @@ static void addRuntimeMetricIfNotZero(
     const std::string& name,
     uint64_t value) {
   if (value > 0) {
-    auto veloxMetric =
-        createVeloxRuntimeMetric(value, RuntimeCounter::Unit::kNone);
+    auto veloxMetric = RuntimeMetric(value, RuntimeCounter::Unit::kNone);
     addRuntimeMetric(runtimeMetrics, name, veloxMetric);
   }
+}
+
+RuntimeMetric fromMillis(int64_t ms) {
+  return RuntimeMetric{ms * 1'000'000, velox::RuntimeCounter::Unit::kNanos};
+}
+
+RuntimeMetric fromNanos(int64_t nanos) {
+  return RuntimeMetric{nanos, velox::RuntimeCounter::Unit::kNanos};
 }
 
 // Utility to generate presto runtime stat name when translating velox runtime
@@ -453,36 +453,27 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   if (taskStats.outputBufferStats.has_value()) {
     const auto& outputBufferStats = taskStats.outputBufferStats.value();
 
-    const auto averageBufferTimeNanos =
-        outputBufferStats.averageBufferTimeMs * 1'000'000;
     taskRuntimeStats.insert(
         {"averageOutputBufferWallNanos",
-         RuntimeMetric(averageBufferTimeNanos, RuntimeCounter::Unit::kNanos)});
+         fromMillis(outputBufferStats.averageBufferTimeMs)});
   }
 
   if (taskStats.memoryReclaimCount > 0) {
     taskRuntimeStats["memoryReclaimCount"].addValue(
         taskStats.memoryReclaimCount);
     taskRuntimeStats.insert(
-        {"memoryReclaimWallNanos",
-         RuntimeMetric(
-             taskStats.memoryReclaimMs * 1'000'000,
-             RuntimeCounter::Unit::kNanos)});
+        {"memoryReclaimWallNanos", fromMillis(taskStats.memoryReclaimMs)});
   }
 
   if (taskStats.endTimeMs >= taskStats.executionEndTimeMs) {
     taskRuntimeStats.insert(
         {"outputConsumedDelayInNanos",
-         RuntimeMetric(
-             (taskStats.endTimeMs - taskStats.executionEndTimeMs) * 1'000'000,
-             RuntimeCounter::Unit::kNanos)});
+         fromMillis(taskStats.endTimeMs - taskStats.executionEndTimeMs)});
     taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
     taskRuntimeStats["endTime"].addValue(taskStats.endTimeMs);
   }
 
-  taskRuntimeStats.insert(
-      {"nativeProcessCpuTime",
-       RuntimeMetric(processCpuTime_, RuntimeCounter::Unit::kNanos)});
+  taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
 
   for (int i = 0; i < taskStats.pipelineStats.size(); ++i) {
     auto& pipelineOut = info.stats.pipelines[i];
