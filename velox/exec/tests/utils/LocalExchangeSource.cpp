@@ -61,7 +61,8 @@ class LocalExchangeSource : public exec::ExchangeSource {
     // shared_ptr to the current object (self).
     auto resultCallback = [self, requestedSequence, buffers, this](
                               std::vector<std::unique_ptr<folly::IOBuf>> data,
-                              int64_t sequence) {
+                              int64_t sequence,
+                              std::vector<int64_t> remainingBytes) {
       {
         std::lock_guard<std::mutex> l(timeoutMutex_);
         // This function is called either for a result or timeout. Only the
@@ -103,7 +104,6 @@ class LocalExchangeSource : public exec::ExchangeSource {
       numPages_ += pages.size();
       totalBytes_ += totalBytes;
       if (data.empty()) {
-        LOG(INFO) << "adjust timeout";
         common::testutil::TestValue::adjust(
             "facebook::velox::exec::test::LocalExchangeSource::timeout", this);
       }
@@ -148,7 +148,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
       }
 
       if (!requestPromise.isFulfilled()) {
-        requestPromise.setValue(Response{totalBytes, atEnd_});
+        requestPromise.setValue(Response{totalBytes, atEnd_, remainingBytes});
       }
     };
 
@@ -189,8 +189,10 @@ class LocalExchangeSource : public exec::ExchangeSource {
   }
 
  private:
-  using ResultCallback = std::function<
-      void(std::vector<std::unique_ptr<folly::IOBuf>> data, int64_t sequence)>;
+  using ResultCallback = std::function<void(
+      std::vector<std::unique_ptr<folly::IOBuf>> data,
+      int64_t sequence,
+      std::vector<int64_t> remainingBytes)>;
   static void registerTimeout(
       const std::shared_ptr<ExchangeSource>& self,
       ResultCallback callback,
@@ -218,7 +220,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
           }
           if (callback) {
             // Outside of mutex.
-            callback({}, 0);
+            callback({}, 0, {});
             continue;
           }
           std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -235,7 +237,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
       promise = std::move(promise_);
     }
     if (promise.valid() && !promise.isFulfilled()) {
-      promise.setValue(Response{0, false});
+      promise.setValue(Response{0, false, {}});
       return true;
     }
 

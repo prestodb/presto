@@ -82,6 +82,31 @@ class OutputBufferManager {
       DataAvailableCallback notify,
       DataConsumerActiveCheckCallback activeCheck = nullptr);
 
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  bool getData(
+      const std::string& taskId,
+      int destination,
+      uint64_t maxBytes,
+      int64_t sequence,
+      std::function<void(
+          std::vector<std::unique_ptr<folly::IOBuf>> pages,
+          int64_t sequence)> notify,
+      DataConsumerActiveCheckCallback activeCheck = nullptr) {
+    return getData(
+        taskId,
+        destination,
+        maxBytes,
+        sequence,
+        [notify = std::move(notify)](
+            std::vector<std::unique_ptr<folly::IOBuf>> pages,
+            int64_t sequence,
+            std::vector<int64_t> /*remainingBytes*/) mutable {
+          notify(std::move(pages), sequence);
+        },
+        std::move(activeCheck));
+  }
+#endif
+
   void removeTask(const std::string& taskId);
 
   static std::weak_ptr<OutputBufferManager> getInstance();
