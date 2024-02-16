@@ -718,6 +718,11 @@ pre {
     display: inline-table;
 }
 
+.expand-stats-button {
+    padding: 10px 3px 10px 4px;
+    background-color: #3A3F4C;
+}
+
 /** ===================== **/
 /** Common Graph Elements **/
 /** ===================== **/
