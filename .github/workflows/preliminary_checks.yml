@@ -1,0 +1,75 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: Run Checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  check-matrix:
+    name: ${{ matrix.config.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: "License Header", 
+              command: "header-fix",
+              message: "Found missing License Header(s)",
+              reqs: "regex" 
+            }
+          - { name: "Code Format",
+              command: "format-fix",
+              message: "Found format issues",
+              reqs: "regex cmake-format black" 
+            }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          python -m venv check_env
+          source check_env/bin/activate
+          pip install ${{ matrix.config.reqs }}
+
+      - name: Check ${{ matrix.config.name }} 
+        run: |
+          source check_env/bin/activate
+          make ${{ matrix.config.command }}
+
+          if ! git diff --quiet; then
+            diff=`git --no-pager diff`
+            echo "${{ matrix.command.message }} in the following files:"
+            git --no-pager diff --name-only
+            echo "Check the Job summary for a copy-pasteable patch."
+
+            echo "> [!IMPORTANT]" >> $GITHUB_STEP_SUMMARY
+            echo "${{ matrix.config.message }}" >> $GITHUB_STEP_SUMMARY
+            echo "> Please apply fix using:"  >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`sh" >> $GITHUB_STEP_SUMMARY
+            echo "patch -p1 <<EOF" >> $GITHUB_STEP_SUMMARY
+            echo "$diff" >> $GITHUB_STEP_SUMMARY
+            echo "EOF" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

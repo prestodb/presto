@@ -16,7 +16,22 @@ name: macOS Build
 
 on:
   push:
+    paths:
+      - "velox/**"
+      - "!velox/docs/**"
+      - "CMakeLists.txt"
+      - "CMake/**"
+      - "third_party/**"
+      - ".github/workflows/macos.yml"
+
   pull_request:
+    paths:
+      - "velox/**"
+      - "!velox/docs/**"
+      - "CMakeLists.txt"
+      - "CMake/**"
+      - "third_party/**"
+      - ".github/workflows/macos.yml"
 
 permissions:
   contents: read
@@ -48,16 +63,16 @@ jobs:
             bison boost ccache double-conversion flex fmt gflags glog \
             icu4c libevent libsodium lz4 lzo ninja openssl range-v3 simdjson \
             snappy thrift xz xsimd zstd
-          
+
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
-          
+
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-macos-${{ matrix.os }}-${{ hashFiles('velox/*') }}
           restore-keys: ccache-macos-${{ matrix.os }}
-      
+
       - name: Configure Build
         env:
           folly_SOURCE: BUNDLED
@@ -78,4 +93,3 @@ jobs:
       - name: Run Tests
         if: false
         run: ctest -j $NJOBS --test-dir _build/debug --output-on-failure
-

@@ -431,38 +431,6 @@ jobs:
           fuzzer_exe: "_build/debug/velox/exec/tests/velox_join_fuzzer_test"
           fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0"
 
-  format-check:
-    executor: check
-    steps:
-      - checkout
-      - run:
-          name: Check formatting
-          command: |
-            if ! make format-check; then
-              make format-fix
-              echo -e "\n==== Apply using:"
-              echo "patch -p1 \<<EOF"
-              git --no-pager diff
-              echo "EOF"
-              false
-            fi
-
-  header-check:
-    executor: check
-    steps:
-      - checkout
-      - run:
-          name: Check license headers
-          command: |
-            if ! make header-check; then
-              make header-fix
-              echo -e "\n==== Apply using:"
-              echo "patch -p1 \<<EOF"
-              git --no-pager diff
-              echo "EOF"
-              false
-            fi
-
   doc-gen-job:
     executor: build
     steps:
@@ -604,8 +572,6 @@ workflows:
       - linux-build-options
       - linux-adapters
       - linux-presto-fuzzer-run
-      - format-check
-      - header-check
       - doc-gen-job:
           filters:
             branches:
@@ -619,8 +585,6 @@ workflows:
       - linux-pr-fuzzer-run
       - linux-build-options
       - linux-adapters
-      - format-check
-      - header-check
       - doc-gen-job:
           filters:
             branches:
