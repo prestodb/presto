@@ -31,7 +31,8 @@ ReaderFactoriesMap& readerFactories() {
 } // namespace
 
 bool registerReaderFactory(std::shared_ptr<ReaderFactory> factory) {
-  bool ok = readerFactories().insert({factory->fileFormat(), factory}).second;
+  [[maybe_unused]] const bool ok =
+      readerFactories().insert({factory->fileFormat(), factory}).second;
   // NOTE: re-enable this check after Prestissimo has updated dwrf registration.
 #if 0
   VELOX_CHECK(
