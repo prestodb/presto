@@ -851,7 +851,7 @@ bool AsyncDataCache::removeFileEntries(
   for (auto& shard : shards_) {
     try {
       success &= shard->removeFileEntries(filesToRemove, filesRetained);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       VELOX_CACHE_LOG(ERROR)
           << "Error removing file entries from AsyncDataCache shard.";
       success = false;
