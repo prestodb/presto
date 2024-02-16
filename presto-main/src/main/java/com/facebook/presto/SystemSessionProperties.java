@@ -43,6 +43,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKey
 import com.facebook.presto.sql.analyzer.FeaturesConfig.ShardedJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -341,6 +342,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
+    public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1929,7 +1931,19 @@ public final class SystemSessionProperties
                         REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isRewriteExpressionWithConstantVariable(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        DEFAULT_VIEW_SECURITY_MODE,
+                        format("Set default view security mode. Options are: %s",
+                                Stream.of(CreateView.Security.values())
+                                        .map(CreateView.Security::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        CreateView.Security.class,
+                        featuresConfig.getDefaultViewSecurityMode(),
+                        false,
+                        value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
+                        CreateView.Security::name));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3196,5 +3210,10 @@ public final class SystemSessionProperties
     public static boolean isRewriteExpressionWithConstantEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
+    }
+
+    public static CreateView.Security getDefaultViewSecurityMode(Session session)
+    {
+        return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
     }
 }
