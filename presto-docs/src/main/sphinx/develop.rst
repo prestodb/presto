@@ -19,4 +19,3 @@ This guide is intended for Presto contributors and plugin developers.
     develop/client-protocol
     develop/worker-protocol
     develop/serialized-page
-    develop/presto-native

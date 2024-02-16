@@ -21,6 +21,7 @@ Presto Documentation
     ecosystem
     router
     develop
+    prestissimo
     release
 
 .. Note: If "release" is not the last item, the CSS must be updated.
