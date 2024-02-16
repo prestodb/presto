@@ -22,6 +22,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.sql.tree.CreateView;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartiti
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -302,6 +304,7 @@ public class FeaturesConfig
     private long kHyperLogLogAggregationGroupNumberLimit;
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
+    private CreateView.Security defaultViewSecurityMode = DEFINER;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3053,6 +3056,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
     {
         this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public CreateView.Security getDefaultViewSecurityMode()
+    {
+        return this.defaultViewSecurityMode;
+    }
+
+    @Config("default-view-security-mode")
+    @ConfigDescription("Sets the default security mode for view creation. The options are definer/invoker.")
+    public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
+    {
+        this.defaultViewSecurityMode = securityMode;
         return this;
     }
 }
