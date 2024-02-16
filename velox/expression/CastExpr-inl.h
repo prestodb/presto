@@ -717,8 +717,6 @@ void CastExpr::applyCastPrimitives(
   auto* resultFlatVector = result->as<FlatVector<To>>();
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
 
-  auto& resultType = resultFlatVector->type();
-
   if (!hooks_->truncate()) {
     if (!hooks_->legacy()) {
       applyToSelectedNoThrowLocal(context, rows, result, [&](int row) {
