@@ -774,6 +774,39 @@ int64_t OutputBuffer::getAverageBufferTimeMsLocked() const {
   return 0;
 }
 
+namespace {
+
+// Find out how many buffers hold 80% of the data. Useful to identify skew.
+int32_t countTopBuffers(
+    const std::vector<DestinationBuffer::Stats>& bufferStats,
+    int64_t totalBytes) {
+  std::vector<int64_t> bufferSizes;
+  bufferSizes.reserve(bufferStats.size());
+  for (auto i = 0; i < bufferStats.size(); ++i) {
+    const auto& stats = bufferStats[i];
+    bufferSizes.push_back(stats.bytesBuffered + stats.bytesSent);
+  }
+
+  // Sort descending.
+  std::sort(bufferSizes.begin(), bufferSizes.end(), std::greater<int64_t>());
+
+  const auto limit = totalBytes * 0.8;
+  int32_t numBuffers = 0;
+  int32_t runningTotal = 0;
+  for (auto size : bufferSizes) {
+    runningTotal += size;
+    numBuffers++;
+
+    if (runningTotal >= limit) {
+      break;
+    }
+  }
+
+  return numBuffers;
+}
+
+} // namespace
+
 OutputBuffer::Stats OutputBuffer::stats() {
   std::lock_guard<std::mutex> l(mutex_);
   std::vector<DestinationBuffer::Stats> bufferStats;
@@ -801,6 +834,7 @@ OutputBuffer::Stats OutputBuffer::stats() {
       numOutputRows_,
       numOutputPages_,
       getAverageBufferTimeMsLocked(),
+      countTopBuffers(bufferStats, numOutputBytes_),
       bufferStats);
 }
 

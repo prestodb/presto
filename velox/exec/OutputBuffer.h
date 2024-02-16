@@ -214,6 +214,7 @@ class OutputBuffer {
         int64_t _totalRowsSent,
         int64_t _totalPagesSent,
         int64_t _averageBufferTimeMs,
+        int32_t _numTopBuffers,
         const std::vector<DestinationBuffer::Stats>& _buffersStats)
         : kind(_kind),
           noMoreBuffers(_noMoreBuffers),
@@ -225,6 +226,7 @@ class OutputBuffer {
           totalRowsSent(_totalRowsSent),
           totalPagesSent(_totalPagesSent),
           averageBufferTimeMs(_averageBufferTimeMs),
+          numTopBuffers(_numTopBuffers),
           buffersStats(_buffersStats) {}
 
     core::PartitionedOutputNode::Kind kind;
@@ -245,6 +247,9 @@ class OutputBuffer {
 
     /// Average time each piece of data has been buffered for in milliseconds.
     int64_t averageBufferTimeMs{0};
+
+    /// The number of largest buffers that handle 80% of the total data.
+    int32_t numTopBuffers{0};
 
     /// Stats of the OutputBuffer's destinations.
     std::vector<DestinationBuffer::Stats> buffersStats;

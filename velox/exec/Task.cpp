@@ -1897,6 +1897,13 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 void Task::maybeRemoveFromOutputBufferManager() {
   if (hasPartitionedOutput()) {
     if (auto bufferManager = bufferManager_.lock()) {
+      // Capture output buffer stats before deleting the buffer.
+      {
+        std::lock_guard<std::timed_mutex> l(mutex_);
+        if (!taskStats_.outputBufferStats.has_value()) {
+          taskStats_.outputBufferStats = bufferManager->stats(taskId_);
+        }
+      }
       bufferManager->removeTask(taskId_);
     }
   }
@@ -1982,7 +1989,9 @@ TaskStats Task::taskStats() const {
   auto bufferManager = bufferManager_.lock();
   taskStats.outputBufferUtilization = bufferManager->getUtilization(taskId_);
   taskStats.outputBufferOverutilized = bufferManager->isOverutilized(taskId_);
-  taskStats.outputBufferStats = bufferManager->stats(taskId_);
+  if (!taskStats.outputBufferStats.has_value()) {
+    taskStats.outputBufferStats = bufferManager->stats(taskId_);
+  }
   return taskStats;
 }
 
