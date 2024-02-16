@@ -98,6 +98,7 @@ General Aggregate Functions
 .. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
+    When x is a REAL or DOUBLE, returns NaN if all input values are NaN. Ignores NaN values otherwise.
 
 .. function:: max(x, n) -> array<[same as x]>
 
@@ -106,6 +107,7 @@ General Aggregate Functions
 .. function:: min(x) -> [same as input]
 
     Returns the minimum value of all input values.
+    When x is a REAL or DOUBLE, returns NaN if all input values are NaN. Ignores NaN values otherwise.
 
 .. function:: min(x, n) -> array<[same as x]>
 
