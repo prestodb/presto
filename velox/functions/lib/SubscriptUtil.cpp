@@ -318,7 +318,7 @@ namespace {
 std::exception_ptr makeZeroSubscriptError() {
   try {
     VELOX_USER_FAIL("SQL array indices start at 1");
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     return std::current_exception();
   }
 }
@@ -326,7 +326,7 @@ std::exception_ptr makeZeroSubscriptError() {
 std::exception_ptr makeBadSubscriptError() {
   try {
     VELOX_USER_FAIL("Array subscript out of bounds.");
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     return std::current_exception();
   }
 }
@@ -334,7 +334,7 @@ std::exception_ptr makeBadSubscriptError() {
 std::exception_ptr makeNegativeSubscriptError() {
   try {
     VELOX_USER_FAIL("Array subscript is negative.");
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     return std::current_exception();
   }
 }
