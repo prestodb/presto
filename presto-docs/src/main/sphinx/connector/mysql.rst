@@ -215,16 +215,108 @@ The connector maps PrestoDB types to the corresponding MySQL types:
 
 No other types are supported.
 
+SQL Support
+-----------
+
+The MySQL connector allows querying and creating MySQL tables. Here are some examples of the SQL operations supported:
+
+ALTER TABLE
+^^^^^^^^^^^
+
+.. code-block:: sql
+
+    ALTER TABLE mysql.web.page_views ADD COLUMN zipcode VARCHAR;
+    ALTER TABLE mysql.web.page_views RENAME COLUMN zipcode TO location;
+    ALTER TABLE mysql.web.page_views DROP COLUMN location;
+
+CREATE TABLE
+^^^^^^^^^^^^
+
+Create a new MySQL table named ``page_views`` in the ``web`` schema:
+
+.. code-block:: sql
+
+    CREATE TABLE mysql.web.page_views (
+      user_id bigint,
+      page_url varchar,
+      ds date,
+      country varchar
+    );
+
+.. note:: Presto does not enforce primary key constraints. For example, the following statement
+
+ .. code-block:: sql
+
+  CREATE TABLE users (
+          id INT PRIMARY KEY,
+          name TEXT,
+          email TEXT
+      );
+
+ returns an error similar to the following:
+
+ ``Query 20240322_095447_00010_syzb3 failed: line 2:19: mismatched input 'PRIMARY'. Expecting: ')', ','``
+
+CREATE TABLE AS SELECT
+^^^^^^^^^^^^^^^^^^^^^^
+
+Create a new table ``page_views_new`` from an existing table ``page_views``:
+
+.. code-block:: sql
+
+    CREATE TABLE mysql.web.page_views_new AS SELECT * FROM mysql.web.page_views;
+
+.. note:: Advanced SQL features such as data compression are not supported in the ``CREATE TABLE AS SELECT`` statement.
+
+ .. code-block:: sql
+
+   CREATE TABLE compressed_employees AS SELECT * FROM employees WITH (compression = 'Zlib');
+
+ returns an error similar to the following:
+
+ ``Query 20240321_103408_00015_kbd43 failed: line 1:67: mismatched input '('. Expecting: 'DATA', 'NO'``
+
+INSERT INTO
+^^^^^^^^^^^
+
+Insert data into the ``page_views`` table:
+
+.. code-block:: sql
+
+    INSERT INTO mysql.web.page_views VALUES(1, 'https://example.com', current_date, 'country');
+
+SELECT
+^^^^^^
+
+.. code-block:: sql
+
+    SELECT * FROM mysql.web.page_views;
+
+TRUNCATE
+^^^^^^^^
+
+Delete all of the data from the table ``page_views`` without dropping the table:
+
+.. code-block:: sql
+
+    TRUNCATE TABLE mysql.web.page_views;
+
 MySQL Connector Limitations
 ---------------------------
 
-The following SQL statements are not yet supported:
+The following SQL statements are not supported:
 
-* :doc:`/sql/delete`
 * :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
+* :doc:`/sql/analyze`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/create-view`
+* :doc:`/sql/delete`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/drop-view`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
 * :doc:`/sql/show-role-grants`
+* :doc:`/sql/show-roles`
+* :doc:`/sql/update`
