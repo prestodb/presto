@@ -23,7 +23,7 @@ namespace {
 void recordInvalidStartIndex(vector_size_t row, exec::EvalCtx& context) {
   try {
     VELOX_USER_FAIL("SQL array indices start at 1. Got 0.");
-  } catch (const VeloxUserError& exception) {
+  } catch (const VeloxUserError&) {
     context.setVeloxExceptionError(row, std::current_exception());
   }
 }
@@ -322,7 +322,7 @@ class FindFirstFunction : public FindFirstFunctionBase {
           if (flatArray->elements()->isNullAt(firstMatchingIndex)) {
             try {
               VELOX_USER_FAIL("find_first found NULL as the first match");
-            } catch (const VeloxUserError& exception) {
+            } catch (const VeloxUserError&) {
               context.setVeloxExceptionError(row, std::current_exception());
             }
           } else {
