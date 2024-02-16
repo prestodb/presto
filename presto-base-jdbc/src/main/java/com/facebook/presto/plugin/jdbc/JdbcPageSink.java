@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -33,6 +34,8 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -164,6 +167,13 @@ public class JdbcPageSink
             long utcMillis = DAYS.toMillis(type.getLong(block, position));
             long localMillis = getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
             statement.setDate(parameter, new Date(localMillis));
+        }
+        else if (type instanceof TimestampType) {
+            long timestampValue = type.getLong(block, position);
+            statement.setTimestamp(parameter,
+                    Timestamp.from(Instant.ofEpochSecond(
+                            ((TimestampType) type).getEpochSecond(timestampValue),
+                            ((TimestampType) type).getNanos(timestampValue))));
         }
         else if (UuidType.UUID.equals(type)) {
             Slice slice = type.getSlice(block, position);

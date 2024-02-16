@@ -82,6 +82,30 @@ public final class TimestampType
         return Objects.hash(getClass(), precision);
     }
 
+    /**
+     * Gets the timestamp's number of total seconds.
+     * The epoch second count is a simple incrementing count of seconds where second 0 is 1970-01-01T00:00:00Z.
+     *
+     * Returns:
+     * the total seconds in timestamp
+     */
+    public long getEpochSecond(long timestamp)
+    {
+        return this.precision.toSeconds(timestamp);
+    }
+
+    /**
+     * Gets the timestamp's nanosecond portion.
+     *
+     * Returns:
+     * this timestamp's fractional seconds component
+     */
+    public int getNanos(long timestamp)
+    {
+        long unitsPerSecond = precision.convert(1, TimeUnit.SECONDS);
+        return (int) precision.toNanos(timestamp % unitsPerSecond);
+    }
+
     private static String getType(TimeUnit precision)
     {
         if (precision == MICROSECONDS) {
