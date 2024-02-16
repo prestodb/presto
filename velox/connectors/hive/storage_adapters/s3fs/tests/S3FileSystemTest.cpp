@@ -42,6 +42,9 @@ class S3FileSystemTest : public S3Test {
 } // namespace
 
 TEST_F(S3FileSystemTest, writeAndRead) {
+  /// The hive config used for Minio defaults to turning
+  /// off using proxy settings if the environment provides them.
+  setenv("HTTP_PROXY", "http://test:test@127.0.0.1:8888", 1);
   const char* bucketName = "data";
   const char* file = "test.txt";
   const std::string filename = localPath(bucketName) + "/" + file;

@@ -23,6 +23,7 @@
 
 #include <aws/s3/S3Errors.h>
 #include <aws/s3/model/HeadObjectResult.h>
+#include <folly/Uri.h>
 
 #include "velox/common/base/Exceptions.h"
 
@@ -176,6 +177,31 @@ inline std::string getRequestID(
       VELOX_FAIL(errMsg)                                                                                                       \
     }                                                                                                                          \
   }
+
+bool isHostExcludedFromProxy(
+    const std::string& hostname,
+    const std::string& noProxyList);
+
+std::string getHttpProxyEnvVar();
+std::string getHttpsProxyEnvVar();
+std::string getNoProxyEnvVar();
+
+class S3ProxyConfigurationBuilder {
+ public:
+  S3ProxyConfigurationBuilder(const std::string& s3Endpoint)
+      : s3Endpoint_(s3Endpoint){};
+
+  S3ProxyConfigurationBuilder& useSsl(const bool& useSsl) {
+    useSsl_ = useSsl;
+    return *this;
+  }
+
+  std::optional<folly::Uri> build();
+
+ private:
+  const std::string s3Endpoint_;
+  bool useSsl_;
+};
 
 } // namespace facebook::velox
 

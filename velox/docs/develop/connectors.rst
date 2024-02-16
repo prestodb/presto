@@ -99,3 +99,26 @@ are `gs://`.
 
 ABS (Azure Blob Storage) is supported using the
 `Azure SDK for C++ <https://github.com/Azure/azure-sdk-for-cpp>`_ library. ABS supported schemes are `abfs(s)://`.
+
+S3 Storage adapter using a proxy
+********************************
+
+By default, the C++ AWS S3 client does not honor the configuration of the
+environment variables http_proxy, https_proxy, and no_proxy.
+The Java AWS S3 client supports this.
+The environment variables can be specified as lower case, upper case or both.
+In order to enable the use of a proxy the hive connector configuration variable
+`hive.s3.use-proxy-from-env` must be set to `true`. By default, the value
+is `false`.
+
+This is the behavior when the proxy settings are enabled:
+
+1. http_proxy/HTTP_PROXY, https_proxy/HTTPS_PROXY and no_proxy/NO_PROXY
+   environment variables are read. If lower case and upper case variables are set
+   lower case variables take precendence.
+2. The no_proxy/NO_PROXY content is scanned for exact and suffix matches.
+3. CIDR expressions provided in no_proxy/NO_PROXY are not supported for matching.
+4. IP addresses or domains can be specified.
+5. The no_proxy/NO_PROXY list is comma separated.
+6. Use . or \*. to indicate domain suffix matching, e.g. `.foobar.com` will
+   match `test.foobar.com` or `foo.foobar.com`.

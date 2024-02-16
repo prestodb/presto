@@ -43,4 +43,101 @@ std::string getErrorStringFromS3Error(
   }
 }
 
+/// The noProxyList is a comma separated list of subdomains or domains.
+/// For a given hostname check if it has a matching domain or subdomain in
+/// the noProxyList.
+bool isHostExcludedFromProxy(
+    const std::string& hostname,
+    const std::string& noProxyList) {
+  std::vector<std::string> noProxyListElements{};
+
+  if (noProxyList.empty()) {
+    return false;
+  }
+
+  folly::split(',', noProxyList, noProxyListElements);
+  // An exact match or subdomain match is needed.
+  for (auto elem : noProxyListElements) {
+    if (elem.length() < hostname.length() && elem[0] == '.' &&
+        !hostname.compare(
+            hostname.length() - elem.length(), elem.length(), elem)) {
+      return true;
+    } else if (
+        elem.length() < hostname.length() && elem[0] == '*' && elem[1] == '.' &&
+        !hostname.compare(
+            hostname.length() - elem.length() + 1,
+            elem.length() - 1,
+            elem.substr(1))) {
+      return true;
+    } else if (elem.length() == hostname.length() && !hostname.compare(elem)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Reading the various proxy related environment variables.
+/// There is a lacking standard. The environment variables can be
+/// defined lower case or upper case. The lower case values are checked
+/// first and, if set, returned, therefore taking precendence.
+/// Note, the envVar input is expected to be lower case.
+namespace {
+std::string readProxyEnvVar(std::string envVar) {
+  auto httpProxy = getenv(envVar.c_str());
+  if (httpProxy) {
+    return std::string(httpProxy);
+  }
+
+  std::transform(envVar.begin(), envVar.end(), envVar.begin(), ::toupper);
+  httpProxy = getenv(envVar.c_str());
+  if (httpProxy) {
+    return std::string(httpProxy);
+  }
+  return "";
+};
+} // namespace
+
+std::string getHttpProxyEnvVar() {
+  return readProxyEnvVar("http_proxy");
+}
+
+std::string getHttpsProxyEnvVar() {
+  return readProxyEnvVar("https_proxy");
+};
+
+std::string getNoProxyEnvVar() {
+  return readProxyEnvVar("no_proxy");
+};
+
+std::optional<folly::Uri> S3ProxyConfigurationBuilder::build() {
+  std::string proxyUrl;
+  if (useSsl_) {
+    proxyUrl = getHttpsProxyEnvVar();
+  } else {
+    proxyUrl = getHttpProxyEnvVar();
+  }
+
+  if (proxyUrl.empty()) {
+    return std::nullopt;
+  }
+  folly::Uri proxyUri(proxyUrl);
+
+  /// The endpoint is usually a domain with port or an
+  /// IP address with port. It is assumed that there are
+  /// 2 parts separated by a colon.
+  std::vector<std::string> endpointElements{};
+  folly::split(':', s3Endpoint_, endpointElements);
+  if (FOLLY_UNLIKELY(endpointElements.size() > 2)) {
+    LOG(ERROR) << fmt::format(
+        "Too many parts in S3 endpoint URI {} ", s3Endpoint_);
+    return std::nullopt;
+  }
+
+  auto noProxy = getNoProxyEnvVar();
+  if (isHostExcludedFromProxy(endpointElements[0], noProxy)) {
+    return std::nullopt;
+  }
+  return proxyUri;
+}
+
 } // namespace facebook::velox

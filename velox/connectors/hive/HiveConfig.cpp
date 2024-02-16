@@ -202,4 +202,8 @@ uint64_t HiveConfig::filePreloadThreshold() const {
   return config_->get<uint64_t>(kFilePreloadThreshold, 8UL << 20);
 }
 
+bool HiveConfig::s3UseProxyFromEnv() const {
+  return config_->get<bool>(kS3UseProxyFromEnv, false);
+}
+
 } // namespace facebook::velox::connector::hive

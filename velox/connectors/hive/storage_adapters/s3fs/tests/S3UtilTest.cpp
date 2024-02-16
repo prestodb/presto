@@ -108,4 +108,140 @@ TEST(S3UtilTest, bucketAndKeyFromS3Path) {
   EXPECT_EQ(bucket, "bucket");
   EXPECT_EQ(key, "file.txt");
 }
+
+TEST(S3UtilTest, isDomainExcludedFromProxy) {
+  auto hostname = "test.foobar.com";
+
+  std::vector<std::pair<std::string, bool>> tests = {
+      {"localhost,.foobar.com", true},
+      {"localhost,.,foobar.com,.com", true},
+      {"localhost,test.foobar.com", true},
+      {"localhost,foobar.com,*.com", true},
+      {"localhost,*.foobar.com", true},
+      {"localhost", false},
+      {"localhost,foobar.com", false},
+      {"", false},
+  };
+
+  for (auto pair : tests) {
+    EXPECT_EQ(isHostExcludedFromProxy(hostname, pair.first), pair.second);
+  }
+}
+
+TEST(S3UtilTest, isIpExcludedFromProxy) {
+  auto hostname = "127.0.0.1";
+
+  std::vector<std::pair<std::string, bool>> tests = {
+      {"localhost,127.0.0.1,.foobar.com", true},
+      {"localhost,foobar.com,.1,.com", true},
+      {"localhost,test.foobar.com", false},
+      {"localhost,foobar.com,*.1,*.com", true},
+      {"localhost", false},
+      {"localhost,127.1.0.1", false},
+      {"", false},
+  };
+
+  for (auto pair : tests) {
+    EXPECT_EQ(isHostExcludedFromProxy(hostname, pair.first), pair.second)
+        << pair.first;
+  }
+}
+
+class S3UtilProxyTest : public ::testing::TestWithParam<bool> {};
+
+TEST_P(S3UtilProxyTest, proxyBuilderBadEndpoint) {
+  auto s3Endpoint = "http://127.0.0.1:8888";
+  auto useSsl = GetParam();
+
+  setenv("HTTP_PROXY", "http://127.0.0.1:12345", 1);
+  setenv("HTTPS_PROXY", "http://127.0.0.1:12345", 1);
+  EXPECT_FALSE(S3ProxyConfigurationBuilder(s3Endpoint)
+                   .useSsl(useSsl)
+                   .build()
+                   .has_value());
+}
+
+TEST_P(S3UtilProxyTest, proxyBuilderNoProxy) {
+  auto s3Endpoint = "127.0.0.1:8888";
+  auto useSsl = GetParam();
+
+  setenv("HTTP_PROXY", "", 1);
+  setenv("HTTPS_PROXY", "", 1);
+  EXPECT_FALSE(S3ProxyConfigurationBuilder(s3Endpoint)
+                   .useSsl(useSsl)
+                   .build()
+                   .has_value());
+}
+
+TEST_P(S3UtilProxyTest, proxyBuilderSameHttpProxy) {
+  auto s3Endpoint = "192.168.0.1:12345";
+  auto useSsl = GetParam();
+
+  setenv("HTTP_PROXY", "http://127.0.0.1:8888", 1);
+  setenv("HTTPS_PROXY", "http://127.0.0.1:8888", 1);
+  auto proxyConfig =
+      S3ProxyConfigurationBuilder(s3Endpoint).useSsl(useSsl).build();
+  ASSERT_TRUE(proxyConfig.has_value());
+  EXPECT_EQ(proxyConfig.value().scheme(), "http");
+  EXPECT_EQ(proxyConfig.value().host(), "127.0.0.1");
+  EXPECT_EQ(proxyConfig.value().port(), 8888);
+  EXPECT_EQ(proxyConfig.value().username(), "");
+  EXPECT_EQ(proxyConfig.value().password(), "");
+}
+
+TEST_P(S3UtilProxyTest, proxyBuilderMixProxy) {
+  auto s3Endpoint = "192.168.0.1:12345";
+  auto useSsl = GetParam();
+
+  const std::string httpProxy = "https://test1:testpw1@80.67.3.1:35631";
+  setenv("HTTP_PROXY", httpProxy.c_str(), 1);
+  EXPECT_EQ(getHttpProxyEnvVar(), httpProxy)
+      << "HTTP_PROXY environment variable not set.";
+  const std::string httpsProxy = "http://test2:testpw2@80.80.5.1:45631";
+  setenv("HTTPS_PROXY", httpsProxy.c_str(), 1);
+  EXPECT_EQ(getHttpsProxyEnvVar(), httpsProxy)
+      << "HTTPS_PROXY environment variable not set.";
+  auto proxyConfig =
+      S3ProxyConfigurationBuilder(s3Endpoint).useSsl(useSsl).build();
+  ASSERT_TRUE(proxyConfig.has_value());
+  EXPECT_EQ(proxyConfig.value().scheme(), (useSsl ? "http" : "https"));
+  EXPECT_EQ(proxyConfig.value().host(), (useSsl ? "80.80.5.1" : "80.67.3.1"));
+  EXPECT_EQ(proxyConfig.value().port(), (useSsl ? 45631 : 35631));
+  EXPECT_EQ(proxyConfig.value().username(), (useSsl ? "test2" : "test1"));
+  EXPECT_EQ(proxyConfig.value().password(), (useSsl ? "testpw2" : "testpw1"));
+}
+
+TEST_P(S3UtilProxyTest, proxyBuilderMixProxyLowerCase) {
+  auto s3Endpoint = "192.168.0.1:12345";
+  auto useSsl = GetParam();
+
+  const std::string lcHttpProxy = "https://lctest1:lctestpw1@80.67.3.1:35631";
+  const std::string ucHttpProxy = "https://uctest1:uctestpw1@80.67.3.2:35632";
+  setenv("http_proxy", lcHttpProxy.c_str(), 1);
+  setenv("HTTP_PROXY", ucHttpProxy.c_str(), 1);
+  // Lower case value takes precedence.
+  EXPECT_EQ(getHttpProxyEnvVar(), lcHttpProxy)
+      << "http_proxy environment variable not set.";
+  const std::string lcHttpsProxy = "http://lctest2:lctestpw2@80.80.5.1:45631";
+  const std::string ucHttpsProxy = "http://uctest2:uctestpw2@80.80.5.2:45632";
+  setenv("https_proxy", lcHttpsProxy.c_str(), 1);
+  setenv("HTTPS_PROXY", ucHttpsProxy.c_str(), 1);
+  EXPECT_EQ(getHttpsProxyEnvVar(), lcHttpsProxy)
+      << "https_proxy environment variable not set.";
+  auto proxyConfig =
+      S3ProxyConfigurationBuilder(s3Endpoint).useSsl(useSsl).build();
+  ASSERT_TRUE(proxyConfig.has_value());
+  EXPECT_EQ(proxyConfig.value().scheme(), (useSsl ? "http" : "https"));
+  EXPECT_EQ(proxyConfig.value().host(), (useSsl ? "80.80.5.1" : "80.67.3.1"));
+  EXPECT_EQ(proxyConfig.value().port(), (useSsl ? 45631 : 35631));
+  EXPECT_EQ(proxyConfig.value().username(), (useSsl ? "lctest2" : "lctest1"));
+  EXPECT_EQ(
+      proxyConfig.value().password(), (useSsl ? "lctestpw2" : "lctestpw1"));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    S3UtilTest,
+    S3UtilProxyTest,
+    ::testing::Values(true, false));
+
 } // namespace facebook::velox

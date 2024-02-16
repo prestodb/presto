@@ -175,6 +175,9 @@ class HiveConfig {
   static constexpr const char* kSortWriterMaxOutputBytesSession =
       "sort_writer_max_output_bytes";
 
+  static constexpr const char* kS3UseProxyFromEnv =
+      "hive.s3.use-proxy-from-env";
+
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* session) const;
 
@@ -241,6 +244,8 @@ class HiveConfig {
   uint64_t footerEstimatedSize() const;
 
   uint64_t filePreloadThreshold() const;
+
+  bool s3UseProxyFromEnv() const;
 
   HiveConfig(std::shared_ptr<const Config> config) {
     VELOX_CHECK_NOT_NULL(

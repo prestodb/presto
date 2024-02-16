@@ -515,6 +515,20 @@ class S3FileSystem::Impl {
     Aws::Client::ClientConfiguration clientConfig;
     clientConfig.endpointOverride = hiveConfig_->s3Endpoint();
 
+    if (hiveConfig_->s3UseProxyFromEnv()) {
+      auto proxyConfig = S3ProxyConfigurationBuilder(hiveConfig_->s3Endpoint())
+                             .useSsl(hiveConfig_->s3UseSSL())
+                             .build();
+      if (proxyConfig.has_value()) {
+        clientConfig.proxyScheme = Aws::Http::SchemeMapper::FromString(
+            proxyConfig.value().scheme().c_str());
+        clientConfig.proxyHost = awsString(proxyConfig.value().host());
+        clientConfig.proxyPort = proxyConfig.value().port();
+        clientConfig.proxyUserName = awsString(proxyConfig.value().username());
+        clientConfig.proxyPassword = awsString(proxyConfig.value().password());
+      }
+    }
+
     if (hiveConfig_->s3UseSSL()) {
       clientConfig.scheme = Aws::Http::Scheme::HTTPS;
     } else {
