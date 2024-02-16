@@ -175,5 +175,28 @@ TEST_F(AggregateWindowTest, nonNullEmptyResult) {
   WindowTestBase::testWindowFunction(
       {input}, "count(c1)", overClause, frameClause, expected);
 }
+
+TEST_F(AggregateWindowTest, testDecimal) {
+  auto size = 30;
+  auto testAggregate = [&](const TypePtr& type) {
+    auto input = {makeRowVector({
+        makeRandomInputVector(BIGINT(), size, 0.2),
+        makeRandomInputVector(type, size, 0.2),
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 11 + 1; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 13 + 1; }),
+    })};
+
+    WindowTestBase::testWindowFunction(input, "min(c1)", kOverClauses);
+    WindowTestBase::testWindowFunction(
+        input, "max(c1)", kOverClauses, {""}, false);
+    WindowTestBase::testWindowFunction(
+        input, "sum(c1)", kOverClauses, {""}, false);
+    WindowTestBase::testWindowFunction(
+        input, "count(c1)", kOverClauses, {""}, false);
+  };
+
+  testAggregate(DECIMAL(5, 2));
+  testAggregate(DECIMAL(20, 5));
+}
 }; // namespace
 }; // namespace facebook::velox::window::test

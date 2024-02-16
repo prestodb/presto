@@ -88,6 +88,8 @@ class NthValueTest : public WindowTestBase {
         makeRandomInputVector(VARBINARY(), size, 0.7),
         makeRandomInputVector(TIMESTAMP(), size, 0.8),
         makeRandomInputVector(DATE(), size, 0.9),
+        makeRandomInputVector(DECIMAL(10, 2), size, 0.1),
+        makeRandomInputVector(DECIMAL(20, 5), size, 0.2),
     });
 
     const std::string overClause =
