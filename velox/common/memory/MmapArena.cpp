@@ -194,11 +194,9 @@ void MmapArena::removeFreeBlock(std::map<uint64_t, uint64_t>::iterator& iter) {
 
 bool MmapArena::checkConsistency() const {
   uint64_t numErrors = 0;
-  uint64_t bytes = 0;
   auto arenaEndAddress = reinterpret_cast<uint64_t>(address_) + byteSize_;
   auto iter = freeList_.begin();
   auto end = freeList_.end();
-  uint8_t* current = reinterpret_cast<uint8_t*>(address_);
   int64_t freeListTotalBytes = 0;
   while (iter != end) {
     // Lookup list should contain the address
