@@ -164,7 +164,6 @@ static void gen_index(char** index, distribution* s) {
 
 static char*
 gen_text_index(char* dest, seed_t* seed, char** index, distribution* s) {
-  long i = 0;
   DSS_HUGE j;
 
   RANDOM(j, 1, s->list[s->count - 1].weight, seed);
@@ -245,7 +244,6 @@ static char* gen_terminator(char* dest, seed_t* seed) {
 
 static char* gen_sentence(char* dest, seed_t* seed) {
   const char* cptr;
-  int i;
 
   DSS_HUGE j;
   RANDOM(j, 1, grammar.list[grammar.count - 1].weight, seed);
@@ -321,8 +319,7 @@ void free_text_pool() {
  *the last generated sentence as required
  */
 void dbg_text(char* tgt, int min, int max, seed_t* seed) {
-  DSS_HUGE hgLength = 0, hgOffset, wordlen = 0, s_len, needed;
-  char sentence[MAX_SENT_LEN + 1], *cp;
+  DSS_HUGE hgLength = 0, hgOffset;
 
   RANDOM(hgOffset, 0, txtBufferSize - max, seed);
   RANDOM(hgLength, min, max, seed);
