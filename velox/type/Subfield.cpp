@@ -40,7 +40,7 @@ Subfield::Subfield(
 Subfield::Subfield(std::vector<std::unique_ptr<Subfield::PathElement>>&& path)
     : path_(std::move(path)) {
   VELOX_CHECK_GE(path_.size(), 1);
-};
+}
 
 Subfield Subfield::clone() const {
   Subfield subfield;

@@ -42,7 +42,7 @@ const std::vector<vector_size_t>& DecodedVector::consecutiveIndices() {
 const std::vector<vector_size_t>& DecodedVector::zeroIndices() {
   static std::vector<vector_size_t> indices(10'000);
   return indices;
-};
+}
 
 void DecodedVector::decode(
     const BaseVector& vector,
