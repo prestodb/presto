@@ -472,7 +472,6 @@ class ArrayWriter {
 
   template <typename Input>
   void addItemsBoolFastPath(const Input& sourceArray) {
-    auto* vector = sourceArray.elementsVectorBase();
     auto* flatOutput =
         this->elementsVector()->template asUnchecked<FlatVector<bool>>();
 
