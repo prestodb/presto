@@ -31,7 +31,7 @@ WriterFactoriesMap& writerFactories() {
 } // namespace
 
 bool registerWriterFactory(std::shared_ptr<WriterFactory> factory) {
-  const bool ok =
+  [[maybe_unused]] const bool ok =
       writerFactories().insert({factory->fileFormat(), factory}).second;
 // TODO: enable the check after Prestissimo adds to register the dwrf writer.
 #if 0
