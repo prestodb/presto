@@ -136,7 +136,7 @@ class RowReader {
    */
   virtual std::optional<std::vector<PrefetchUnit>> prefetchUnits() {
     return std::nullopt;
-  };
+  }
 
   /**
    * Helper function used by non-selective reader to project top level columns
