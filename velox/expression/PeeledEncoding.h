@@ -171,7 +171,7 @@ class PeeledEncoding {
       vector_size_t innerRow = indices ? indices[outerRow] : constantWrapIndex_;
       func(outerRow, innerRow);
     });
-  };
+  }
 
  private:
   PeeledEncoding() = default;
