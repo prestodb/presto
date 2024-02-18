@@ -375,7 +375,7 @@ std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
       }
     }
     return std::make_unique<SpillStatus>(partition, written, nullptr);
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     // The exception is passed to the caller thread which checks this in
     // advanceSpill().
     return std::make_unique<SpillStatus>(
@@ -409,7 +409,7 @@ void Spiller::runSpill(bool lastRun) {
       // already captured before this runs.
       try {
         write->move();
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
       }
     }
   });
