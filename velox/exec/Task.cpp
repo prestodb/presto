@@ -687,8 +687,6 @@ void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
       queryCtx_->queryConfig(),
       maxDrivers);
 
-  // Keep one exchange client per pipeline (NULL if not used).
-  const uint32_t numPipelines = driverFactories_.size();
   // Calculates total number of drivers and create pipeline stats.
   for (auto& factory : driverFactories_) {
     if (factory->groupedExecution) {
