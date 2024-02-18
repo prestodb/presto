@@ -533,7 +533,7 @@ void Expr::evalSimplifiedImpl(
   try {
     vectorFunction_->apply(
         remainingRows.rows(), inputValues_, type(), context, result);
-  } catch (const VeloxException& ve) {
+  } catch (const VeloxException&) {
     throw;
   } catch (const std::exception& e) {
     VELOX_USER_FAIL(e.what());
@@ -1509,7 +1509,7 @@ void Expr::applyFunction(
 
   try {
     vectorFunction_->apply(rows, inputValues_, type(), context, result);
-  } catch (const VeloxException& ve) {
+  } catch (const VeloxException&) {
     throw;
   } catch (const std::exception& e) {
     VELOX_USER_FAIL(e.what());
@@ -1526,7 +1526,7 @@ void Expr::applyFunction(
         // should only apply when the UDF is buggy (hopefully rarely).
         VELOX_USER_FAIL(
             "Function neither returned results nor threw exception.");
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
         context.setErrors(remainingRows.rows(), std::current_exception());
       }
     }
