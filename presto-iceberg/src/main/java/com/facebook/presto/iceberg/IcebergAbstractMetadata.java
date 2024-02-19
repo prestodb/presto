@@ -319,6 +319,7 @@ public abstract class IcebergAbstractMetadata
 
         switch (name.getTableType()) {
             case CHANGELOG:
+            case SAMPLES:
             case DATA:
                 break;
             case HISTORY:
@@ -342,8 +343,6 @@ public abstract class IcebergAbstractMetadata
                 return Optional.of(new FilesTable(systemTableName, table, snapshotId, typeManager));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
-//            case SAMPLES:
-//                return Optional.of(new SamplesSystemTable(tableName.getSchemaName()))
         }
         return Optional.empty();
     }

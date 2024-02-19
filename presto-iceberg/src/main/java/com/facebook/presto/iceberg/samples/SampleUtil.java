@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableNotFoundException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -34,7 +35,7 @@ public class SampleUtil
 {
     private SampleUtil() {}
 
-    public static final TableIdentifier SAMPLE_TABLE_ID = toIcebergTableIdentifier("sample", "sample-table");
+    public static final TableIdentifier SAMPLE_TABLE_ID = toIcebergTableIdentifier("sample", "sample_table");
 
     public static HadoopCatalog getCatalogForSampleTable(Table icebergSource, String prestoSchema, HdfsEnvironment env, ConnectorSession session)
     {
@@ -57,6 +58,8 @@ public class SampleUtil
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+        } catch (TableNotFoundException e) {
+            return false;
         }
     }
 
