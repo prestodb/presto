@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.SqlDate;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 
@@ -80,5 +82,25 @@ public class TestTimestamp
                 "cast('2001-1-22 Asia/Oral' as timestamp)",
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
+    }
+
+    @Test
+    public void testCastFromTimestampToDate()
+    {
+        assertFunction("cast(timestamp '1970-01-01 00:00:00.000' as date)",
+                DATE,
+                new SqlDate(0));
+
+        assertFunction("cast(timestamp '1970-01-01 05:06:07.234' as date)",
+                DATE,
+                new SqlDate(0));
+
+        assertFunction("cast(TIMESTAMP '1969-12-31 00:00:00.000' as date)",
+                DATE,
+                new SqlDate(-1));
+
+        assertFunction("cast(timestamp '1969-12-31 05:06:07.234' as date)",
+                DATE,
+                new SqlDate(-1));
     }
 }
