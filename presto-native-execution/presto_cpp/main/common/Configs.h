@@ -29,7 +29,8 @@ class ConfigBase {
   /// Reads configuration properties from the specified file. Must be called
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
-  void initialize(const std::string& filePath);
+  /// @param optionalConfig Specify if the configuration file is optional.
+  void initialize(const std::string& filePath, bool optionalConfig = false);
 
   /// Allows individual config to manipulate just-loaded-from-file key-value map
   /// before it is used to initialize the config.

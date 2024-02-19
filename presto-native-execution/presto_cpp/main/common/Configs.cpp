@@ -47,9 +47,14 @@ std::string bool2String(bool value) {
 ConfigBase::ConfigBase()
     : config_(std::make_unique<velox::core::MemConfig>()) {}
 
-void ConfigBase::initialize(const std::string& filePath) {
-  // See if we want to create a mutable config.
-  auto values = util::readConfig(fs::path(filePath));
+void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
+  auto path = fs::path(filePath);
+  std::unordered_map<std::string, std::string> values;
+  if (!optionalConfig || fs::exists(path)) {
+    // See if we want to create a mutable config.
+    values = util::readConfig(path);
+  }
+
   filePath_ = filePath;
   checkRegisteredProperties(values);
   updateLoadedValues(values);
