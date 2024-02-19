@@ -168,6 +168,8 @@ class ASTNode {
             return;
           }
         }
+        setMaybeNull(false);
+        return;
       case ExpressionNullMode::NotNull:
         setMaybeNull(false);
         return;
