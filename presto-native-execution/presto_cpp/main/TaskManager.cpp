@@ -117,7 +117,8 @@ void getData(
       token,
       [taskId = taskId, bufferId = destination, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
-          int64_t sequence) mutable {
+          int64_t sequence,
+          std::vector<int64_t> /*remainingBytes*/) mutable {
         bool complete = pages.empty();
         int64_t nextSequence = sequence;
         std::unique_ptr<folly::IOBuf> iobuf;
