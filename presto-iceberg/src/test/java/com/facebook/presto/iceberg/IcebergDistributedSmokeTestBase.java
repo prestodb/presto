@@ -1303,6 +1303,10 @@ public class IcebergDistributedSmokeTestBase
             assertQuery(session,
                     "SELECT * FROM " + tableName + " WHERE c2 = TIMESTAMP '1969-12-31 05:06:07.234'",
                     "VALUES (7, TIMESTAMP '1969-12-31 05:06:07.234')");
+
+            assertQuery(session,
+                    "SELECT * FROM " + tableName + " WHERE CAST(c2 as DATE) = DATE '1969-12-31'",
+                    "VALUES (6, TIMESTAMP '1969-12-31 00:00:00.000'), (7, TIMESTAMP '1969-12-31 05:06:07.234')");
         }
         finally {
             dropTable(session, tableName);
