@@ -714,11 +714,7 @@ std::shared_ptr<const RowType> ROW(
 }
 
 std::shared_ptr<const RowType> ROW(std::vector<TypePtr>&& types) {
-  std::vector<std::string> names;
-  names.reserve(types.size());
-  for (auto& p : types) {
-    names.push_back("");
-  }
+  std::vector<std::string> names(types.size(), "");
   return TypeFactory<TypeKind::ROW>::create(std::move(names), std::move(types));
 }
 
