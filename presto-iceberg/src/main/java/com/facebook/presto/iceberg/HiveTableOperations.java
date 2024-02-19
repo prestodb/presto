@@ -28,6 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -48,6 +49,7 @@ import org.apache.iceberg.util.Tasks;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -55,6 +57,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
@@ -88,6 +91,9 @@ public class HiveTableOperations
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
     private static final String METADATA_FOLDER_NAME = "metadata";
 
+    @VisibleForTesting
+    protected static Supplier<RetryConfig> defaultRetrySupplier = RetryConfig::new;
+
     public static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
@@ -105,6 +111,7 @@ public class HiveTableOperations
     private String currentMetadataLocation;
     private boolean shouldRefresh = true;
     private int version = -1;
+    private final RetryConfig retryConfig;
 
     private static LoadingCache<String, ReentrantLock> commitLockCache;
 
@@ -162,21 +169,23 @@ public class HiveTableOperations
         this.location = requireNonNull(location, "location is null");
         //TODO: duration from config
         initTableLevelLockCache(TimeUnit.MINUTES.toMillis(10));
+        this.retryConfig = defaultRetrySupplier.get();
     }
 
     private static synchronized void initTableLevelLockCache(long evictionTimeout)
     {
         if (commitLockCache == null) {
             commitLockCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
-                .build(
-                    new CacheLoader<String, ReentrantLock>() {
-                        @Override
-                        public ReentrantLock load(String fullName)
-                        {
-                            return new ReentrantLock();
-                        }
-                    });
+                    .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
+                    .build(
+                            new CacheLoader<String, ReentrantLock>()
+                            {
+                                @Override
+                                public ReentrantLock load(String fullName)
+                                {
+                                    return new ReentrantLock();
+                                }
+                            });
         }
     }
 
@@ -291,11 +300,11 @@ public class HiveTableOperations
             PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
             PrincipalPrivileges privileges = new PrincipalPrivileges(
                     ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
-                        .build(),
+                            .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
+                            .build(),
                     ImmutableMultimap.of());
             if (base == null) {
                 metastore.createTable(metastoreContext, table, privileges);
@@ -385,8 +394,8 @@ public class HiveTableOperations
 
         AtomicReference<TableMetadata> newMetadata = new AtomicReference<>();
         Tasks.foreach(newLocation)
-                .retry(20)
-                .exponentialBackoff(100, 5000, 600000, 4.0)
+                .retry(retryConfig.retries)
+                .exponentialBackoff(retryConfig.minSleepTime.toMillis(), retryConfig.maxSleepTime.toMillis(), retryConfig.maxRetryTime.toMillis(), retryConfig.scaleFactor)
                 .suppressFailureWhenFinished()
                 .run(metadataLocation -> newMetadata.set(
                         TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
@@ -432,6 +441,33 @@ public class HiveTableOperations
         catch (NumberFormatException | IndexOutOfBoundsException e) {
             log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
             return -1;
+        }
+    }
+
+    protected static class RetryConfig
+    {
+        private final int retries;
+        private final Duration minSleepTime;
+        private final Duration maxSleepTime;
+        private final Duration maxRetryTime;
+        private final double scaleFactor;
+
+        public RetryConfig()
+        {
+            this(20, Duration.ofMillis(100), Duration.ofMillis(5000), Duration.ofMillis(60000), 4.0);
+        }
+
+        public RetryConfig(int retries,
+                Duration minSleepTime,
+                Duration maxSleepTime,
+                Duration maxRetryTime,
+                double scaleFactor)
+        {
+            this.retries = retries;
+            this.minSleepTime = minSleepTime;
+            this.maxSleepTime = maxSleepTime;
+            this.maxRetryTime = maxRetryTime;
+            this.scaleFactor = scaleFactor;
         }
     }
 }

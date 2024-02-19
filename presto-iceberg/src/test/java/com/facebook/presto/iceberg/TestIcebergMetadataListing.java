@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
@@ -131,9 +132,15 @@ public class TestIcebergMetadataListing
         }
         tableMetadataDir.delete();
 
-        assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Could not read table schema");
-        assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
-        assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
+        try {
+            HiveTableOperations.defaultRetrySupplier = () -> new HiveTableOperations.RetryConfig(2, Duration.ofMillis(100), Duration.ofMillis(10000), Duration.ofMillis(10000), 4.0);
+            assertQueryFails("SELECT * FROM iceberg.test_metadata_schema.iceberg_table1", "Table metadata is missing.");
+            assertQuerySucceeds("DROP TABLE iceberg.test_metadata_schema.iceberg_table1");
+            assertQuery("SHOW TABLES FROM iceberg.test_metadata_schema", "VALUES 'iceberg_table2'");
+        }
+        finally {
+            HiveTableOperations.defaultRetrySupplier = HiveTableOperations.RetryConfig::new;
+        }
     }
 
     @Test
