@@ -99,6 +99,12 @@ Map Functions
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
         SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
 
+.. function:: map_key_exists(x(K, V), k) -> boolean
+
+    Returns whether the given key exists in the map. Returns ``true`` if key is present in the input map, returns ``false`` if not present.
+
+        SELECT map_key_exists(MAP(ARRAY['x','y'], ARRAY[100,200]), 'x'); -- TRUE
+
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
