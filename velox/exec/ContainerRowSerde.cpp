@@ -167,8 +167,6 @@ void serializeOne<TypeKind::MAP>(
     ByteOutputStream& out) {
   auto map = vector.wrappedVector()->asUnchecked<MapVector>();
   auto wrappedIndex = vector.wrappedIndex(index);
-  auto size = map->sizeAt(wrappedIndex);
-  auto offset = map->offsetAt(wrappedIndex);
   auto indices = map->sortedKeyIndices(wrappedIndex);
   serializeArray(*map->mapKeys(), indices, out);
   serializeArray(*map->mapValues(), indices, out);
