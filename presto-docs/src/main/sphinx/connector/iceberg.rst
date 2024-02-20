@@ -245,7 +245,7 @@ Property Name                                           Description             
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
                                                         This property is required if the ``iceberg.catalog.type`` is
-                                                        ``hadoop``.
+                                                        ``hadoop``. Otherwise, it will be ignored.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
@@ -1800,3 +1800,45 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``TIMESTAMP WITH ZONE``
 
 No other types are supported.
+
+
+Sorted Tables
+^^^^^^^^^^^^^
+
+The Iceberg connector supports the creation of sorted tables.
+Data in the Iceberg table is sorted during the writing process within each file.
+
+Sorted Iceberg tables can provide a huge increase in performance in query times.
+Sorting is particularly beneficial when the sorted columns show a
+high cardinality and are used as a filter for selective reads.
+
+Configure sort order with the ``sorted_by`` table property to specify an array of
+one or more columns to use for sorting.
+The following example creates the table with the ``sorted_by`` property, and sorts the file based
+on the field ``join_date``.
+
+.. code-block:: text
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date']
+    )
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(join_date)'],
+        sorted_by = ARRAY['join_date']
+    )
+
+To disable the sorted writing, set the session property
+``sorted_writing_enabled`` to ``false``.
