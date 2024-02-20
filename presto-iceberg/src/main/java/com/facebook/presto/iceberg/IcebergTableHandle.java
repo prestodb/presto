@@ -16,7 +16,9 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,6 +36,7 @@ public class IcebergTableHandle
     private final Optional<String> tableSchemaJson;
     private final Optional<Set<Integer>> partitionFieldIds;
     private final Optional<Set<Integer>> equalityFieldIds;
+    private final List<SortField> sortOrder;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -44,7 +47,8 @@ public class IcebergTableHandle
             @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
-            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds)
+            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
+            @JsonProperty("sortOrder") List<SortField> sortOrder)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -55,6 +59,7 @@ public class IcebergTableHandle
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
     }
 
     @JsonProperty
@@ -67,6 +72,12 @@ public class IcebergTableHandle
     public boolean isSnapshotSpecified()
     {
         return snapshotSpecified;
+    }
+
+    @JsonProperty
+    public List<SortField> getSortOrder()
+    {
+        return sortOrder;
     }
 
     @JsonProperty
@@ -113,6 +124,7 @@ public class IcebergTableHandle
         return Objects.equals(getSchemaName(), that.getSchemaName()) &&
                 Objects.equals(icebergTableName, that.icebergTableName) &&
                 snapshotSpecified == that.snapshotSpecified &&
+                Objects.equals(sortOrder, that.sortOrder) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(equalityFieldIds, that.equalityFieldIds);
     }
@@ -120,7 +132,7 @@ public class IcebergTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), icebergTableName, snapshotSpecified, tableSchemaJson, equalityFieldIds);
+        return Objects.hash(getSchemaName(), icebergTableName, sortOrder, snapshotSpecified, tableSchemaJson, equalityFieldIds);
     }
 
     @Override

@@ -30,7 +30,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -276,20 +275,6 @@ public class HiveClientConfig
     public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
-        return this;
-    }
-
-    @MinDataSize("1MB")
-    @MaxDataSize("1GB")
-    public DataSize getWriterSortBufferSize()
-    {
-        return writerSortBufferSize;
-    }
-
-    @Config("hive.writer-sort-buffer-size")
-    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
-    {
-        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -695,22 +680,6 @@ public class HiveClientConfig
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
-
-    @Min(2)
-    @Max(1000)
-    public int getMaxOpenSortFiles()
-    {
-        return maxOpenSortFiles;
-    }
-
-    @Config("hive.max-open-sort-files")
-    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
-    {
-        this.maxOpenSortFiles = maxOpenSortFiles;
-        return this;
-    }
-
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
