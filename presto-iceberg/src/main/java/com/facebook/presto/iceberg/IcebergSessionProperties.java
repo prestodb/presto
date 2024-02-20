@@ -60,6 +60,7 @@ public final class IcebergSessionProperties
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
 
     private final List<PropertyMetadata<?>> sessionProperties;
+    private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
 
     @Inject
     public IcebergSessionProperties(
@@ -181,6 +182,11 @@ public final class IcebergSessionProperties
                         DELETE_AS_JOIN_REWRITE_ENABLED,
                         "When enabled equality delete row filtering will be pushed down into a join.",
                         icebergConfig.isDeleteAsJoinRewriteEnabled(),
+                        false),
+                booleanProperty(
+                        SORTED_WRITING_ENABLED,
+                        "Enable sorted writing to tables with a specified sort order",
+                        icebergConfig.isSortedWritingEnabled(),
                         false));
     }
 
@@ -290,5 +296,10 @@ public final class IcebergSessionProperties
     public static boolean isDeleteToJoinPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(DELETE_AS_JOIN_REWRITE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSortedWritingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
     }
 }

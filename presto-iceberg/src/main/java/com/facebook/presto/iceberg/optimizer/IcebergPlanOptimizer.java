@@ -200,7 +200,8 @@ public class IcebergPlanOptimizer
                     oldTableHandle.getStorageProperties(),
                     oldTableHandle.getTableSchemaJson(),
                     oldTableHandle.getPartitionSpecId(),
-                    oldTableHandle.getEqualityFieldIds());
+                    oldTableHandle.getEqualityFieldIds(),
+                    oldTableHandle.getSortOrder());
             TableScanNode newTableScan = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),

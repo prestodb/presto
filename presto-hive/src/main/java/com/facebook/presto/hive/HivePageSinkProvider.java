@@ -91,6 +91,7 @@ public class HivePageSinkProvider
             TypeManager typeManager,
             HiveClientConfig hiveClientConfig,
             MetastoreClientConfig metastoreClientConfig,
+            SortingFileWriterConfig sortingFileWriterConfig,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
@@ -110,8 +111,8 @@ public class HivePageSinkProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = hiveClientConfig.getMaxPartitionsPerWriter();
-        this.maxOpenSortFiles = hiveClientConfig.getMaxOpenSortFiles();
-        this.writerSortBufferSize = requireNonNull(hiveClientConfig.getWriterSortBufferSize(), "writerSortBufferSize is null");
+        this.maxOpenSortFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.writerSortBufferSize = requireNonNull(sortingFileWriterConfig.getWriterSortBufferSize(), "writerSortBufferSize is null");
         this.immutablePartitions = hiveClientConfig.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(hiveClientConfig.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));

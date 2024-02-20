@@ -77,6 +77,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
@@ -122,6 +123,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PRO
 import static com.facebook.presto.iceberg.IcebergTableProperties.FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -141,6 +143,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
+import static com.facebook.presto.iceberg.SortFieldUtils.toSortFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
@@ -162,9 +165,9 @@ public abstract class IcebergAbstractMetadata
 {
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
+    protected Transaction transaction;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
-    protected Transaction transaction;
 
     private final StandardFunctionResolution functionResolution;
     private final ConcurrentMap<SchemaTableName, Table> icebergTables = new ConcurrentHashMap<>();
@@ -430,7 +433,32 @@ public abstract class IcebergAbstractMetadata
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
-                icebergTable.properties());
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()));
+    }
+
+    public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
+    {
+        if (!sortOrder.isSorted()) {
+            return ImmutableList.of();
+        }
+        Set<Integer> baseColumnFieldIds = schema.columns().stream()
+                .map(Types.NestedField::fieldId)
+                .collect(toImmutableSet());
+
+        ImmutableList.Builder<SortField> sortFields = ImmutableList.<SortField>builder();
+        for (org.apache.iceberg.SortField sortField : sortOrder.fields()) {
+            if (!sortField.transform().isIdentity()) {
+                continue;
+            }
+            if (!baseColumnFieldIds.contains(sortField.sourceId())) {
+                continue;
+            }
+
+            sortFields.add(SortField.fromIceberg(sortField));
+        }
+
+        return sortFields.build();
     }
 
     @Override
@@ -520,6 +548,12 @@ public abstract class IcebergAbstractMetadata
 
         properties.put(DELETE_MODE, IcebergUtil.getDeleteMode(icebergTable));
 
+        SortOrder sortOrder = icebergTable.sortOrder();
+        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
+        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
+        }
         return properties.build();
     }
 
@@ -725,7 +759,10 @@ public abstract class IcebergAbstractMetadata
                 tryGetProperties(table),
                 tableSchemaJson,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                table.sortOrder().fields().stream()
+                        .map(SortField::fromIceberg)
+                        .collect(toImmutableList()));
     }
 
     @Override

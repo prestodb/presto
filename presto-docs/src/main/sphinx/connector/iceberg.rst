@@ -413,7 +413,7 @@ Metastore cache only caches schema and table names. Other metadata would be fetc
     hive.metastore-cache-maximum-size=10000000
 
 Extra Hidden Metadata Columns
------------------------------
+----------------------------
 
 The Iceberg connector exposes extra hidden metadata columns. You can query these
 as part of a SQL query by including them in your SELECT statement.
@@ -421,7 +421,6 @@ as part of a SQL query by including them in your SELECT statement.
 ``$path`` column
 ^^^^^^^^^^^^^^^^
 * ``$path``: Full file system path name of the file for this row
-
 .. code-block:: sql
 
     SELECT "$path", regionkey FROM "ctas_nation";
@@ -435,7 +434,6 @@ as part of a SQL query by including them in your SELECT statement.
 ``$data_sequence_number`` column
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
-
 .. code-block:: sql
 
     SELECT "$data_sequence_number", regionkey FROM "ctas_nation";
@@ -455,7 +453,6 @@ as a part of a SQL query by appending name to the table.
 ``$properties`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$properties`` : General properties of the given table
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$properties";
@@ -469,7 +466,6 @@ as a part of a SQL query by appending name to the table.
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
 * ``$history`` : History of table state changes
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$history";
@@ -483,7 +479,6 @@ as a part of a SQL query by appending name to the table.
 ``$snapshots`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$snapshots`` : Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$snapshots";
@@ -497,7 +492,6 @@ as a part of a SQL query by appending name to the table.
 ``$manifests`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$manifests`` : Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$manifests";
@@ -511,7 +505,6 @@ as a part of a SQL query by appending name to the table.
 ``$partitions`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$partitions`` : Detailed partition information for the table
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$partitions";
@@ -525,7 +518,6 @@ as a part of a SQL query by appending name to the table.
 ``$files`` Table
 ^^^^^^^^^^^^^^^^
 * ``$files`` : Overview of data files in the current snapshot of the table
-
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$files";
@@ -862,7 +854,7 @@ Drop the schema ``iceberg.web``::
     DROP SCHEMA iceberg.web
 
 Register table
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog using the ``register_table``
@@ -894,7 +886,7 @@ in the case where a specific metadata file contains the targeted table state::
     using the Hive connector will fail.
 
 Unregister table
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 Iceberg tables can be unregistered from the catalog using the ``unregister_table``
 procedure on the catalog's ``system`` schema::
@@ -1168,8 +1160,8 @@ Type mapping
 ------------
 
 PrestoDB and Iceberg have data types not supported by the other. When using Iceberg to read or write data, Presto changes
-each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type. 
-The following tables detail the specific type maps between PrestoDB and Iceberg. 
+each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type.
+The following tables detail the specific type maps between PrestoDB and Iceberg.
 
 Iceberg to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1257,3 +1249,45 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``TIMESTAMP WITH ZONE``
 
 No other types are supported.
+
+
+Sorted Tables
+^^^^^^^^^^^^^
+
+The Iceberg connector supports the creation of sorted tables.
+Data in the Iceberg table is sorted during the writing process within each file.
+
+Sorted Iceberg tables can provide a huge increase in performance in query times.
+Sorting is particularly beneficial when the sorted columns show a
+high cardinality and are used as a filter for selective reads.
+
+Configure sort order with the ``sorted_by`` table property to specify an array of
+one or more columns to use for sorting.
+The following example creates the table with the ``sorted_by`` property, and sorts the file based
+on the field ``join_date``.
+
+.. code-block:: text
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date']
+    )
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(join_date)'],
+        sorted_by = ARRAY['join_date']
+    )
+
+To disable the sorted writing, set the session property
+``sorted_writing_enabled`` to ``false``.
