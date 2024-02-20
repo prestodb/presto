@@ -165,7 +165,10 @@ public class IcebergPageSink
                     context.getPath().toString(),
                     context.writer.getFileSizeInBytes(),
                     new MetricsWrapper(context.writer.getMetrics()),
-                    context.getPartitionData().map(PartitionData::toJson));
+                    partitionSpec.specId(),
+                    context.getPartitionData().map(PartitionData::toJson),
+                    fileFormat,
+                    null);
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
         }

@@ -298,6 +298,8 @@ public class IcebergEqualityDeleteAsJoin
                             Optional.empty()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getPredicate(),
+                    icebergTableHandle.getOutputPath(),
+                    icebergTableHandle.getStorageProperties(),
                     Optional.of(SchemaParser.toJson(new Schema(deleteFields))),
                     Optional.of(deleteInfo.partitionFields.keySet()),                // Enforce reading only delete files that match this schema
                     Optional.of(deleteInfo.equalityFieldIds));
@@ -324,6 +326,8 @@ public class IcebergEqualityDeleteAsJoin
                             tableName.getChangelogEndSnapshot()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getPredicate(),
+                    icebergTableHandle.getOutputPath(),
+                    icebergTableHandle.getStorageProperties(),
                     icebergTableHandle.getTableSchemaJson(),
                     icebergTableHandle.getPartitionSpecId(),
                     icebergTableHandle.getEqualityFieldIds());

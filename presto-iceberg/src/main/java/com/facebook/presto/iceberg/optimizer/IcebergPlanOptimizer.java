@@ -196,6 +196,8 @@ public class IcebergPlanOptimizer
                     oldTableHandle.getIcebergTableName(),
                     oldTableHandle.isSnapshotSpecified(),
                     simplifiedColumnDomain.intersect(oldTableHandle.getPredicate()),
+                    oldTableHandle.getOutputPath(),
+                    oldTableHandle.getStorageProperties(),
                     oldTableHandle.getTableSchemaJson(),
                     oldTableHandle.getPartitionSpecId(),
                     oldTableHandle.getEqualityFieldIds());
