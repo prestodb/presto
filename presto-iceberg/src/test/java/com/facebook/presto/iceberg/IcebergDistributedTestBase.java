@@ -190,12 +190,14 @@ public class IcebergDistributedTestBase
         assertEquals(totalCount - countPart1F - countPart2O - countPartOther, newTotalCount);
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
 
-        // Do not support delete with filters about non-identity partition column
-        String errorMessage1 = "This connector only supports delete where one or more partitions are deleted entirely";
+        // Support delete with filters on non-identity partition column
         assertUpdate("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE orderkey = 1", errorMessage1);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE partkey > 100", errorMessage1);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", errorMessage1);
+        long countOrder1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where orderkey = 1").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE orderkey = 1", countOrder1);
+        long countPartKey100 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where partkey > 100").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE partkey > 100", countPartKey100);
+        long countLine1Order1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and orderkey = 1").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", countLine1Order1);
 
         // Do not allow delete data at specified snapshot
         String errorMessage2 = "This connector do not allow delete data at specified snapshot";
@@ -230,17 +232,16 @@ public class IcebergDistributedTestBase
 
         // Add a new partition column, and insert some value
         assertQuerySucceeds("alter table test_delete add column d bigint with(partitioning = 'identity')");
-        assertQuerySucceeds("insert into test_delete values(1, '1001', 10001), (2, '1003', 10001), (3, '1004', 10003)");
+        assertQuerySucceeds("insert into test_delete values(1, '1001', 10001), (2, '1003', 10002), (3, '1004', 10003)");
         assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 5L);
 
-        // Deletion fails, because column 'd' do not exists in older partition specs
-        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely";
-        assertQueryFails("delete from test_delete where d = 1001", errorMessage);
-        assertQueryFails("delete from test_delete where d = 1001 and c = 2", errorMessage);
+        // Deletion succeeds for merge-on-read mode even though column 'd' does not exist in older partition specs
+        assertUpdate("delete from test_delete where d = 10003", 1);
+        assertUpdate("delete from test_delete where d = 10002 and c = 2", 1);
 
         // Deletion succeeds, because column 'c' exists in all partition specs
         assertUpdate("DELETE FROM test_delete WHERE c = 1", 3);
-        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 0L);
 
         assertQuerySucceeds("DROP TABLE test_delete");
     }

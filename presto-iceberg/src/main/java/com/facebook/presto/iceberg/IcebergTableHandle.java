@@ -18,6 +18,7 @@ import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +31,8 @@ public class IcebergTableHandle
     private final IcebergTableName icebergTableName;
     private final TupleDomain<IcebergColumnHandle> predicate;
     private final boolean snapshotSpecified;
+    private final Optional<String> outputPath;
+    private final Optional<Map<String, String>> storageProperties;
     private final Optional<String> tableSchemaJson;
     private final Optional<Set<Integer>> partitionFieldIds;
     private final Optional<Set<Integer>> equalityFieldIds;
@@ -40,6 +43,8 @@ public class IcebergTableHandle
             @JsonProperty("icebergTableName") IcebergTableName icebergTableName,
             @JsonProperty("snapshotSpecified") boolean snapshotSpecified,
             @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
+            @JsonProperty("outputPath") Optional<String> outputPath,
+            @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds)
@@ -49,6 +54,8 @@ public class IcebergTableHandle
         this.icebergTableName = requireNonNull(icebergTableName, "tableName is null");
         this.snapshotSpecified = snapshotSpecified;
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.outputPath = requireNonNull(outputPath, "filePrefix is null");
+        this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
@@ -76,6 +83,18 @@ public class IcebergTableHandle
     public Optional<String> getTableSchemaJson()
     {
         return tableSchemaJson;
+    }
+
+    @JsonProperty
+    public Optional<String> getOutputPath()
+    {
+        return outputPath;
+    }
+
+    @JsonProperty
+    public Optional<Map<String, String>> getStorageProperties()
+    {
+        return storageProperties;
     }
 
     @JsonProperty

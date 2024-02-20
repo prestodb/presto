@@ -22,6 +22,8 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -38,6 +40,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -101,6 +104,9 @@ public class IcebergSplitSource
 
     private ConnectorSplit toIcebergSplit(FileScanTask task)
     {
+        PartitionSpec spec = task.spec();
+        Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, task.file().partition());
+
         // TODO: We should leverage residual expression and convert that to TupleDomain.
         //       The predicate here is used by readers for predicate push down at reader level,
         //       so when we do not use residual expression, we are just wasting CPU cycles
@@ -113,6 +119,8 @@ public class IcebergSplitSource
                 fromIcebergFileFormat(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task),
+                PartitionSpecParser.toJson(spec),
+                partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
