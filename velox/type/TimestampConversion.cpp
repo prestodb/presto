@@ -671,7 +671,7 @@ Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight) {
 
 namespace {
 
-void parserError(const char* str, size_t len) {
+[[noreturn]] void parserError(const char* str, size_t len) {
   VELOX_USER_FAIL(
       "Unable to parse timestamp value: \"{}\", "
       "expected format is (YYYY-MM-DD HH:MM:SS[.MS])",
