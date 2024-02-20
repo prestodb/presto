@@ -130,7 +130,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
@@ -499,6 +498,20 @@ public final class IcebergUtil
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
+        }
+    }
+
+    public static List<SortField> getSortFields(Table table)
+    {
+        try {
+            return table.sortOrder().fields().stream()
+                    .filter(field -> field.transform().isIdentity())
+                    .map(SortField::fromIceberg)
+                    .collect(toImmutableList());
+        }
+        catch (Exception e) {
+            log.warn(String.format("Unable to fetch sort fields for table %s: %s", table.name(), e.getMessage()));
+            return ImmutableList.of();
         }
     }
 

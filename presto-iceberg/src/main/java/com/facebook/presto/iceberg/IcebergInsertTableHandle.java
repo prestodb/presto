@@ -35,7 +35,8 @@ public class IcebergInsertTableHandle
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("sortOrder") List<SortField> sortOrder)
     {
         super(
                 schemaName,
@@ -46,6 +47,7 @@ public class IcebergInsertTableHandle
                 outputPath,
                 fileFormat,
                 compressionCodec,
-                storageProperties);
+                storageProperties,
+                sortOrder);
     }
 }
