@@ -37,6 +37,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.TestIcebergRegisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -130,6 +131,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = 'merge-on-read',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s'\n" +
@@ -379,6 +381,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = 'merge-on-read',\n" +
                         "   format = '" + fileFormat + "',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s',\n" +
@@ -437,6 +440,7 @@ public class IcebergDistributedSmokeTestBase
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -524,6 +528,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -537,6 +542,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -545,6 +551,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -553,6 +560,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -564,6 +572,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -582,7 +591,7 @@ public class IcebergDistributedSmokeTestBase
         testWithAllFormatVersions(this::testCreateTableWithFormatVersion);
     }
 
-    private void testCreateTableWithFormatVersion(Session session, String formatVersion)
+    private void testCreateTableWithFormatVersion(String formatVersion, String defaultDeleteMode)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_table_with_format_version_" + formatVersion + " " +
@@ -594,6 +603,8 @@ public class IcebergDistributedSmokeTestBase
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders";
 
+        Session session = getSession();
+
         assertUpdate(session, createTable, "SELECT count(*) from orders");
 
         String createTableSql = format("" +
@@ -603,6 +614,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = '%s',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '%s',\n" +
                         "   location = '%s'\n" +
@@ -610,6 +622,7 @@ public class IcebergDistributedSmokeTestBase
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
+                defaultDeleteMode,
                 formatVersion,
                 getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
 
@@ -619,10 +632,10 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, "test_create_table_with_format_version_" + formatVersion);
     }
 
-    private void testWithAllFormatVersions(BiConsumer<Session, String> test)
+    private void testWithAllFormatVersions(BiConsumer<String, String> test)
     {
-        test.accept(getSession(), "1");
-        test.accept(getSession(), "2");
+        test.accept("1", "copy-on-write");
+        test.accept("2", "merge-on-read");
     }
 
     private String getTablePropertiesString(String tableName)
@@ -1231,5 +1244,131 @@ public class IcebergDistributedSmokeTestBase
         // Unregister table with procedure
         assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + tableName + "')");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testDeleteUnPartitionedTable()
+    {
+        Session session = getSession();
+
+        // Test with default delete_mode i.e. merge-on-read
+        String tableNameMor = "test_delete_mor";
+
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2')");
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (1, 10), (2, 13), (3, 5)");
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (2, 13), (3, 5)");
+
+        dropTable(session, tableNameMor);
+
+        // Test with delete_mode set to copy-on-write
+        String tableNameCow = "test_delete_cow";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', delete_mode = 'copy-on-write')");
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameCow, "VALUES (1, 5)");
+        assertQueryFails("DELETE FROM " + tableNameCow + " WHERE value = 5", errorMessage);
+
+        dropTable(session, tableNameCow);
+    }
+
+    @Test
+    public void testDeletePartitionedTable()
+    {
+        Session session = getSession();
+
+        // Test with default delete_mode i.e. merge-on-read:
+        String tableNameMor = "test_delete_partitioned_mor";
+
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'])");
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (4, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (5, 1)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (6, 1)", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (1, 10), (2, 13), (3, 5), (4, 13), (5, 1), (6, 1)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (2, 13), (3, 5), (4, 13), (5, 1), (6, 1)");
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE value = 13", 2);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (3, 5), (5, 1), (6, 1)");
+
+        dropTable(session, tableNameMor);
+
+        // Test with delete_mode set to copy-on-write
+        String tableNameCow = "test_delete_partitioned_cow";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'], delete_mode = 'copy-on-write')");
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (2, 1)", 1);
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameCow, "VALUES (1, 10), (2, 1), (3, 5)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate(session, "DELETE FROM " + tableNameCow + " WHERE id = 3", 1);
+        assertQuery(session, "SELECT * FROM " + tableNameCow, "VALUES (1, 10), (2, 1)");
+        assertQueryFails(session, "DELETE FROM " + tableNameCow + " WHERE value = 1", errorMessage);
+
+        dropTable(session, tableNameCow);
+    }
+
+    @Test
+    public void testDeleteOnTableWithPartitionEvolution()
+    {
+        String tableName = "test_delete_on_table_with_partition_evolution";
+
+        Session session = getSession();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a integer, b varchar) WITH (format_version = '2')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001'), (2, '1002'), (3, '1003')");
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1001'", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002'), (3, '1003')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c integer WITH (partitioning = 'identity')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1), (2, '1002', 1), (3, '1003', 2)", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', NULL), (1, '1001', 1), (2, '1002', 1), (3, '1003', 2)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1002'", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', NULL), (1, '1001', 1), (3, '1003', 2)");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN d integer WITH (partitioning = 'identity')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1, 1), (2, '1002', 1, 2), (3, '1003', 2, 1)", 3);
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1003'", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', 1, NULL), (1, '1001', 1, 1), (2, '1002', 1, 2)");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDeleteOnPartitionedV1Table()
+    {
+        String tableName = "test_delete_on_partitioned_v1_table";
+
+        Session session = getSession();
+
+        String errorMessage = format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE);
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '1', partitioning = Array['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1), (3, 5)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate(session, "DELETE FROM " + tableName + " WHERE id = 3", 1);
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1)");
+        assertQueryFails(session, "DELETE FROM " + tableName + " WHERE value = 1", errorMessage);
+
+        dropTable(session, tableName);
     }
 }

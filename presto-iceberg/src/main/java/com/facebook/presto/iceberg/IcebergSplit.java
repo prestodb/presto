@@ -44,6 +44,8 @@ public class IcebergSplit
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, HivePartitionKey> partitionKeys;
+    private final String partitionSpecAsJson;
+    private final Optional<String> partitionDataJson;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final SplitWeight splitWeight;
     private final List<DeleteFile> deletes;
@@ -58,6 +60,8 @@ public class IcebergSplit
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, HivePartitionKey> partitionKeys,
+            @JsonProperty("partitionSpecAsJson") String partitionSpecAsJson,
+            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("deletes") List<DeleteFile> deletes,
@@ -71,6 +75,8 @@ public class IcebergSplit
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
+        this.partitionDataJson = partitionDataJson;
         this.nodeSelectionStrategy = nodeSelectionStrategy;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
@@ -112,6 +118,18 @@ public class IcebergSplit
     public Map<Integer, HivePartitionKey> getPartitionKeys()
     {
         return partitionKeys;
+    }
+
+    @JsonProperty
+    public String getPartitionSpecAsJson()
+    {
+        return partitionSpecAsJson;
+    }
+
+    @JsonProperty
+    public Optional<String> getPartitionDataJson()
+    {
+        return partitionDataJson;
     }
 
     @JsonProperty

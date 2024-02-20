@@ -238,11 +238,11 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-========================================= ===============================================================
-Property Name                             Description
-========================================= ===============================================================
-``format``                                 Optionally specifies the format of table data files,
-                                           either ``PARQUET`` or ``ORC``. Defaults to ``PARQUET``.
+=======================================   ===============================================================   ============
+Property Name                             Description                                                       Default
+=======================================   ===============================================================   ============
+``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
+                                           either ``PARQUET`` or ``ORC``.
 
 ``partitioning``                           Optionally specifies table partitioning. If a table
                                            is partitioned by columns ``c1`` and ``c2``, the partitioning
@@ -251,14 +251,16 @@ Property Name                             Description
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
-``format_version``                         Optionally specifies the format version of the Iceberg
+``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
                                            specification to use for new tables, either ``1`` or ``2``.
-                                           Defaults to ``1``.
 
-``commit_retries``                         Determines the number of attempts for committing the metadata
-                                           in case of concurrent upsert requests, before failing. The
-                                           default value is 4.
-========================================= ===============================================================
+``commit_retries``                         Determines the number of attempts for committing the metadata    ``4``
+                                           in case of concurrent upsert requests, before failing.
+
+``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
+                                           specification to use for new tables, either ``copy-on-write``
+                                           or ``merge-on-read``.
+=======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -791,7 +793,7 @@ dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
 DELETE
 ^^^^^^^^
 
-The Iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
+The Iceberg connector can delete data from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
 
      DELETE FROM lineitem;
 
@@ -801,11 +803,13 @@ The Iceberg connector can delete data in one or more entire partitions from tabl
 
 .. note::
 
-    Columns in the filter must all be identity transformed partition columns of the target table.
-
     Filtered columns only support comparison operators, such as EQUALS, LESS THAN, or LESS THAN EQUALS.
 
     Deletes must only occur on the latest snapshot.
+
+    For V1 tables, the Iceberg connector can only delete data in one or more entire
+    partitions. Columns in the filter must all be identity transformed partition
+    columns of the target table.
 
 DROP TABLE
 ^^^^^^^^^^^
