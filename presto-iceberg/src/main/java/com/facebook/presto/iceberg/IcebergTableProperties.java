@@ -37,6 +37,8 @@ public class IcebergTableProperties
 {
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
+
+    public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION = "format_version";
     public static final String COMMIT_RETRIES = "commit_retries";
@@ -78,6 +80,15 @@ public class IcebergTableProperties
                         "File system location URI for the table",
                         null,
                         false))
+                .add(new PropertyMetadata<>(
+                        SORTED_BY_PROPERTY,
+                        "Sorted columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> (List<?>) value,
+                        value -> value))
                 .add(stringProperty(
                         FORMAT_VERSION,
                         "Format version for the table",
@@ -141,6 +152,13 @@ public class IcebergTableProperties
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<String> getSortOrder(Map<String, Object> tableProperties)
+    {
+        List<String> sortedBy = (List<String>) tableProperties.get(SORTED_BY_PROPERTY);
+        return sortedBy == null ? ImmutableList.of() : ImmutableList.copyOf(sortedBy);
     }
 
     public static String getTableLocation(Map<String, Object> tableProperties)

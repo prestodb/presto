@@ -34,8 +34,11 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
@@ -56,9 +59,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
@@ -70,6 +75,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
+import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPrestoSchemaName;
@@ -334,6 +340,25 @@ public class IcebergNativeMetadata
         }
 
         Table icebergTable = transaction.table();
+        ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
+        List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
+        for (SortField sortField : sortFields) {
+            if (sortField.getSortOrder().isAscending()) {
+                replaceSortOrder.asc(schema.findColumnName(sortField.getSourceColumnId()), sortField.getSortOrder().isNullsFirst() ? NullOrder.NULLS_FIRST : NullOrder.NULLS_LAST);
+            }
+            else {
+                replaceSortOrder.desc(schema.findColumnName(sortField.getSourceColumnId()), sortField.getSortOrder().isNullsFirst() ? NullOrder.NULLS_FIRST : NullOrder.NULLS_LAST);
+            }
+        }
+
+        try {
+            replaceSortOrder.commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to set the sorted_by property", e);
+        }
+
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
@@ -343,7 +368,8 @@ public class IcebergNativeMetadata
                 icebergTable.location(),
                 fileFormat,
                 getCompressionCodec(session),
-                icebergTable.properties());
+                icebergTable.properties(),
+                sortFields);
     }
 
     @Override
