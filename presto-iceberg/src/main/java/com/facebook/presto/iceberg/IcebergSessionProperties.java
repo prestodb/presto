@@ -66,6 +66,7 @@ public final class IcebergSessionProperties
     public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
+    private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
 
     @Inject
     public IcebergSessionProperties(
@@ -184,6 +185,11 @@ public final class IcebergSessionProperties
                                 "of an Iceberg table exceeds this threshold, metadata optimization would be skipped for " +
                                 "the table. A value of 0 means skip metadata optimization directly.",
                         icebergConfig.getRowsForMetadataOptimizationThreshold(),
+                        false))
+                .add(booleanProperty(
+                        SORTED_WRITING_ENABLED,
+                        "Enable sorted writing to tables with a specified sort order",
+                        icebergConfig.isSortedWritingEnabled(),
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -312,5 +318,10 @@ public final class IcebergSessionProperties
     public static String getNessieReferenceHash(ConnectorSession session)
     {
         return session.getProperty(NESSIE_REFERENCE_HASH, String.class);
+    }
+
+    public static boolean isSortedWritingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
     }
 }

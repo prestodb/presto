@@ -60,7 +60,8 @@ public class TestIcebergConfig
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
                 .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
-                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors()));
+                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors())
+                .setSortedWritingEnabled(true));
     }
 
     @Test
@@ -88,6 +89,7 @@ public class TestIcebergConfig
                 .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
                 .put("iceberg.io.manifest.cache.max-content-length", "10485760")
                 .put("iceberg.split-manager-threads", "42")
+                .put("iceberg.sorted-writing-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -111,7 +113,8 @@ public class TestIcebergConfig
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
                 .setManifestCacheMaxContentLength(10485760)
-                .setSplitManagerThreads(42);
+                .setSplitManagerThreads(42)
+                .setSortedWritingEnabled(false);
 
         assertFullMapping(properties, expected);
     }
