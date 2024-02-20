@@ -509,6 +509,19 @@ public final class IcebergUtil
         }
     }
 
+    public static List<SortField> getSortFields(Table table)
+    {
+        try {
+            return table.sortOrder().fields().stream()
+                    .filter(field -> field.transform().isIdentity())
+                    .map(SortField::fromIceberg)
+                    .collect(toImmutableList());
+        }
+        catch (Exception e) {
+            log.warn(String.format("Unable to fetch sort fields for table %s: %s", table.name(), e.getMessage()));
+            return ImmutableList.of();
+        }
+    }
     private static boolean isValidPartitionType(FileFormat fileFormat, Type type)
     {
         return type instanceof DecimalType ||
