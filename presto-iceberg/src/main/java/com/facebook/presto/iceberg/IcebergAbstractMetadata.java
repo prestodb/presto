@@ -42,6 +42,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
@@ -83,6 +84,7 @@ import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
@@ -134,6 +136,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_DELETE
 import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -146,6 +149,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandl
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
+import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
@@ -159,6 +163,9 @@ import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
+import static com.facebook.presto.iceberg.SortField.fromIceberg;
+import static com.facebook.presto.iceberg.SortFieldUtils.getNonIdentityColumns;
+import static com.facebook.presto.iceberg.SortFieldUtils.toSortFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
@@ -167,6 +174,7 @@ import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnfo
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -412,7 +420,7 @@ public abstract class IcebergAbstractMetadata
                 columns.add(PATH_COLUMN_METADATA);
                 columns.add(DATA_SEQUENCE_NUMBER_COLUMN_METADATA);
             }
-            return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable), getTableComment(icebergTable));
+            return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable, session), getTableComment(icebergTable));
         }
         catch (NoSuchTableException noSuchTableException) {
             // Considering that the Iceberg library does not provide an efficient way to determine whether
@@ -489,7 +497,32 @@ public abstract class IcebergAbstractMetadata
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
-                icebergTable.properties());
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()));
+    }
+
+    public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
+    {
+        if (!sortOrder.isSorted()) {
+            return ImmutableList.of();
+        }
+        Set<Integer> baseColumnFieldIds = schema.columns().stream()
+                .map(Types.NestedField::fieldId)
+                .collect(toImmutableSet());
+
+        ImmutableList.Builder<SortField> sortFields = ImmutableList.<SortField>builder();
+        for (org.apache.iceberg.SortField sortField : sortOrder.fields()) {
+            if (!sortField.transform().isIdentity()) {
+                continue;
+            }
+            if (!baseColumnFieldIds.contains(sortField.sourceId())) {
+                continue;
+            }
+
+            sortFields.add(fromIceberg(sortField));
+        }
+
+        return sortFields.build();
     }
 
     @Override
@@ -591,7 +624,7 @@ public abstract class IcebergAbstractMetadata
         return "partition by " + partitionTransforms.stream().collect(Collectors.joining(", "));
     }
 
-    protected ImmutableMap<String, Object> createMetadataProperties(Table icebergTable)
+    protected ImmutableMap<String, Object> createMetadataProperties(Table icebergTable, ConnectorSession session)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
@@ -612,6 +645,16 @@ public abstract class IcebergAbstractMetadata
         properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
 
+        SortOrder sortOrder = icebergTable.sortOrder();
+        // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
+        if (sortOrder != null && sortOrder.isSorted()) {
+            List<String> nonIdentityColumns = getNonIdentityColumns(sortOrder);
+            if (!nonIdentityColumns.isEmpty()) {
+                session.getWarningCollector().add(new PrestoWarning(SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING, format("Iceberg table sort order has sort fields of %s which are not currently supported by Presto", nonIdentityColumns)));
+            }
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
+        }
         return properties.build();
     }
 
@@ -823,7 +866,8 @@ public abstract class IcebergAbstractMetadata
                 tryGetProperties(table),
                 tableSchemaJson,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                getSortFields(table));
     }
 
     @Override
