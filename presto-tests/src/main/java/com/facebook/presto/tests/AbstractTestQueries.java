@@ -2487,6 +2487,23 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainDeleteGraphvizFormat()
+    {
+        String query = "DELETE FROM orders WHERE orderkey = 1";
+        try {
+            getGraphvizExplainPlan("EXPLAIN (FORMAT GRAPHVIZ) ", query, LOGICAL);
+        }
+        catch (UnsupportedOperationException e) {
+            fail("DELETE event should be implemented for Graphviz printing");
+        }
+        catch (Exception e) {
+            if (!e.getMessage().contains("does not support deletes")) {
+                throw e;
+            }
+        }
+    }
+
+    @Test
     public void testLogicalExplain()
     {
         String query = "SELECT * FROM orders";
