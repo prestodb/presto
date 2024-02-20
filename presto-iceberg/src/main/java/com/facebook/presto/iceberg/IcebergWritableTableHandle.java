@@ -35,6 +35,7 @@ public class IcebergWritableTableHandle
     private final String outputPath;
     private final FileFormat fileFormat;
     private final Map<String, String> storageProperties;
+    private final List<SortField> sortOrder;
 
     @JsonCreator
     public IcebergWritableTableHandle(
@@ -45,7 +46,8 @@ public class IcebergWritableTableHandle
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") FileFormat fileFormat,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("sortOrder") List<SortField> sortOrder)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -55,6 +57,7 @@ public class IcebergWritableTableHandle
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
     }
 
     @JsonProperty
@@ -109,5 +112,11 @@ public class IcebergWritableTableHandle
     public String toString()
     {
         return schemaName + "." + tableName;
+    }
+
+    @JsonProperty
+    public List<SortField> getSortOrder()
+    {
+        return sortOrder;
     }
 }
