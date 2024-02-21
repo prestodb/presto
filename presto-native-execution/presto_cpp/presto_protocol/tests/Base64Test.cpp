@@ -409,7 +409,9 @@ TEST_F(Base64Test, mapSingleNullRow) {
   EXPECT_EQ(true, mapVector->isNullAt(0));
 }
 
-TEST_F(Base64Test, timestampWithTimezone) {
+// TODO: enable it later when we merged
+// https://github.com/facebookincubator/velox/pull/7480
+TEST_F(Base64Test, DISABLED_timestampWithTimezone) {
   // Base64 encoding + serialization of time stamp '2020-10-31 01:00 UTC' AT
   // TIME ZONE 'America/Los_Angeles' Serialization info see
   // https://prestodb.io/docs/current/develop/serialized-page.html
