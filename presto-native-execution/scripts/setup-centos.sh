@@ -23,17 +23,6 @@ export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
 python3 -m pip install regex pyyaml chevron black
 
-function install_gperf {
-  wget_and_untar http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz gperf
-  (
-   cd gperf &&
-   ./configure --prefix=/usr/local/gperf/3_1 &&
-   make "-j$(nproc)" &&
-   make install &&
-   ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
-  )
-}
-
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
   cmake_install -DBUILD_TESTS=OFF
@@ -42,7 +31,6 @@ function install_proxygen {
 function install_presto_deps {
   install_velox_deps
   run_and_time install_proxygen
-  run_and_time install_gperf
 }
 
 if [[ $# -ne 0 ]]; then
