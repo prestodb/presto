@@ -11,48 +11,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
-set -x
+set -eufx -o pipefail
 
+# source the velox setup script first.
+source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-centos8.sh"
 export FB_OS_VERSION=v2023.12.04.00
-export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
-
-dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
-
-python3 -m pip install regex pyyaml chevron black
-
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
-CPU_TARGET="${CPU_TARGET:-avx}"
-SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
-then
-  source "${SCRIPT_DIR}/setup-helper-functions.sh"
+dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
+python3 -m pip install regex pyyaml chevron black
+
+function install_gperf {
+  wget_and_untar http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz gperf
+  (
+   cd gperf &&
+   ./configure --prefix=/usr/local/gperf/3_1 &&
+   make "-j$(nproc)" &&
+   make install &&
+   ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
+  )
+}
+
+function install_proxygen {
+  github_checkout facebook/proxygen "${FB_OS_VERSION}"
+  cmake_install -DBUILD_TESTS=OFF
+}
+
+function install_presto_deps {
+  install_velox_deps
+  run_and_time install_proxygen
+  run_and_time install_gperf
+}
+
+if [[ $# -ne 0 ]]; then
+  for cmd in "$@"; do
+    run_and_time "${cmd}"
+  done
 else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
+  install_presto_deps
 fi
-
-export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
-
-(
-  wget http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
-  tar xvfz gperf-3.1.tar.gz &&
-  cd gperf-3.1 &&
-  ./configure --prefix=/usr/local/gperf/3_1 &&
-  make "-j$(nproc)" &&
-  make install &&
-  ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
-)
-
-
-(
-  git clone https://github.com/facebook/proxygen &&
-  cd proxygen &&
-  git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
-)
-
 
 dnf clean all
