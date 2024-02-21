@@ -398,6 +398,147 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testPartitionOnDecimalColumn()
+    {
+        testWithAllFileFormats(this::testPartitionedByShortDecimalType);
+        testWithAllFileFormats(this::testPartitionedByLongDecimalType);
+        testWithAllFileFormats(this::testTruncateShortDecimalTransform);
+        testWithAllFileFormats(this::testTruncateLongDecimalTransform);
+    }
+
+    public void testPartitionedByShortDecimalType(Session session, FileFormat format)
+    {
+        // create iceberg table partitioned by column of ShortDecimalType, and insert some data
+        assertUpdate(session, "drop table if exists test_partition_columns_short_decimal");
+        assertUpdate(session, format("create table test_partition_columns_short_decimal(a bigint, b decimal(9, 2))" +
+                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+        assertUpdate(session, "insert into test_partition_columns_short_decimal values(1, 12.31), (2, 133.28)", 2);
+        assertQuery(session, "select * from test_partition_columns_short_decimal", "values(1, 12.31), (2, 133.28)");
+
+        // validate column of ShortDecimalType exists in query filter
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 133.28", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 12.31", "values(1, 12.31)");
+
+        // validate column of ShortDecimalType in system table "partitions"
+        assertQuery(session, "select b, row_count from \"test_partition_columns_short_decimal$partitions\"", "values(12.31, 1), (133.28, 1)");
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate(session, "delete from test_partition_columns_short_decimal WHERE b = 12.31", 1);
+        assertQuery(session, "select * from test_partition_columns_short_decimal", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 133.28", "values(2, 133.28)");
+
+        assertQuery(session, "select b, row_count from \"test_partition_columns_short_decimal$partitions\"", "values(133.28, 1)");
+
+        assertUpdate(session, "drop table test_partition_columns_short_decimal");
+    }
+
+    public void testPartitionedByLongDecimalType(Session session, FileFormat format)
+    {
+        // create iceberg table partitioned by column of ShortDecimalType, and insert some data
+        assertUpdate(session, "drop table if exists test_partition_columns_long_decimal");
+        assertUpdate(session, format("create table test_partition_columns_long_decimal(a bigint, b decimal(20, 2))" +
+                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+        assertUpdate(session, "insert into test_partition_columns_long_decimal values(1, 11111111111111112.31), (2, 133.28)", 2);
+        assertQuery(session, "select * from test_partition_columns_long_decimal", "values(1, 11111111111111112.31), (2, 133.28)");
+
+        // validate column of ShortDecimalType exists in query filter
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 133.28", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 11111111111111112.31", "values(1, 11111111111111112.31)");
+
+        // validate column of ShortDecimalType in system table "partitions"
+        assertQuery(session, "select b, row_count from \"test_partition_columns_long_decimal$partitions\"",
+                "values(11111111111111112.31, 1), (133.28, 1)");
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate(session, "delete from test_partition_columns_long_decimal WHERE b = 11111111111111112.31", 1);
+        assertQuery(session, "select * from test_partition_columns_long_decimal", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 133.28", "values(2, 133.28)");
+
+        assertQuery(session, "select b, row_count from \"test_partition_columns_long_decimal$partitions\"",
+                "values(133.28, 1)");
+
+        assertUpdate(session, "drop table test_partition_columns_long_decimal");
+    }
+
+    public void testTruncateShortDecimalTransform(Session session, FileFormat format)
+    {
+        assertUpdate(session, format("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+        String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_decimal_transform$partitions\"";
+
+        assertUpdate(session, "INSERT INTO test_truncate_decimal_transform VALUES" +
+                "(NULL, 101)," +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(12.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 6);
+
+        assertQuery(session, "SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES NULL, 12.30, 12.20, 0.00, -0.10");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(session, select + " WHERE d_trunc = 12.30",
+                "VALUES (12.30, 2, 12.30, 12.34)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
+        assertQuery(session, select + " WHERE d_trunc = 12.20",
+                "VALUES (12.20, 1, 12.29, 12.29)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(session, select + " WHERE d_trunc = 0.00",
+                "VALUES (0.00, 1, 0.05, 0.05)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(session, select + " WHERE d_trunc = -0.10",
+                "VALUES (-0.10, 1, -0.05, -0.05)");
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(session, "SELECT * FROM test_truncate_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                "VALUES (12.29, 3)");
+
+        assertUpdate(session, "DROP TABLE test_truncate_decimal_transform");
+    }
+
+    public void testTruncateLongDecimalTransform(Session session, FileFormat format)
+    {
+        assertUpdate(session, format("CREATE TABLE test_truncate_long_decimal_transform (d DECIMAL(20, 2), b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+        String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_long_decimal_transform$partitions\"";
+
+        assertUpdate(session, "INSERT INTO test_truncate_long_decimal_transform VALUES" +
+                "(NULL, 101)," +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(11111111111111112.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 6);
+
+        assertQuery(session, "SELECT d_trunc FROM \"test_truncate_long_decimal_transform$partitions\"", "VALUES NULL, 12.30, 11111111111111112.20, 0.00, -0.10");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(session, select + " WHERE d_trunc = 12.30",
+                "VALUES (12.30, 2, 12.30, 12.34)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = 11111111111111112.29", "VALUES 3");
+        assertQuery(session, select + " WHERE d_trunc = 11111111111111112.20",
+                "VALUES (11111111111111112.20, 1, 11111111111111112.29, 11111111111111112.29)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(session, select + " WHERE d_trunc = 0.00",
+                "VALUES (0.00, 1, 0.05, 0.05)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(session, select + " WHERE d_trunc = -0.10",
+                "VALUES (-0.10, 1, -0.05, -0.05)");
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(session, "SELECT * FROM test_truncate_long_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                "VALUES (11111111111111112.29, 3)");
+
+        assertUpdate(session, "DROP TABLE test_truncate_long_decimal_transform");
+    }
+
+    @Test
     public void testColumnComments()
     {
         Session session = getSession();

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types.DecimalType;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -168,7 +169,7 @@ public class PartitionData
                     throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
                 }
             case DECIMAL:
-                return partitionValue.decimalValue();
+                return partitionValue.decimalValue().setScale(((DecimalType) type).scale());
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type);
     }
