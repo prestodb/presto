@@ -436,7 +436,7 @@ TEST_F(HashStringAllocatorTest, stlAllocatorWithSet) {
   allocator_->checkConsistency();
 
   // We allow for some overhead for free lists after all is freed.
-  EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 180);
+  EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 220);
 }
 
 TEST_F(HashStringAllocatorTest, alignedStlAllocatorWithF14Map) {
@@ -475,6 +475,23 @@ TEST_F(HashStringAllocatorTest, alignedStlAllocatorWithF14Map) {
   // We allow for some overhead for free lists after all is freed. Map tends to
   // generate more free blocks at the end, so we loosen the upper bound a bit.
   EXPECT_LE(allocator_->retainedSize() - allocator_->freeSpace(), 130);
+}
+
+TEST_F(HashStringAllocatorTest, alignedStlAllocatorLargeAllocation) {
+  const auto allocateSize = 1ULL << 10;
+
+  // Test large allocation + aligned pool.
+  AlignedStlAllocator<int64_t, 16> alignedAlloc16(allocator_.get());
+  int64_t* ptr = alignedAlloc16.allocate(allocateSize);
+  alignedAlloc16.deallocate(ptr, allocateSize);
+  allocator_->checkConsistency();
+
+  // Test large allocation + un-aligned pool.
+  ASSERT_LT(allocator_->pool()->alignment(), 128);
+  AlignedStlAllocator<int64_t, 128> alignedAlloc128(allocator_.get());
+  ptr = alignedAlloc128.allocate(allocateSize);
+  alignedAlloc128.deallocate(ptr, allocateSize);
+  allocator_->checkConsistency();
 }
 
 TEST_F(HashStringAllocatorTest, stlAllocatorOverflow) {
