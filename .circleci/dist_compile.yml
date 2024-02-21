@@ -300,12 +300,6 @@ jobs:
     steps:
       - pre-steps
       - run:
-          name: "Install Adapter Dependencies"
-          command: |
-            source /opt/rh/gcc-toolset-9/enable
-            set -xu
-            PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh abfs
-      - run:
           name: "Install Java for Hadoop"
           command: |
             set -xu
