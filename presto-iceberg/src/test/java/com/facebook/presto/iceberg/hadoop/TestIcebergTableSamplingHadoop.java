@@ -11,31 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.hadoop;
 
-public enum IcebergTableType
+import com.facebook.presto.iceberg.TestIcebergTableSampling;
+
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+
+public class TestIcebergTableSamplingHadoop
+        extends TestIcebergTableSampling
 {
-    DATA(true),
-    HISTORY(true),
-    SNAPSHOTS(true),
-    MANIFESTS(true),
-    PARTITIONS(true),
-    FILES(true),
-    PROPERTIES(true),
-    CHANGELOG(true),
-    SAMPLES(true),
-    EQUALITY_DELETES(true),
-    DATA_WITHOUT_EQUALITY_DELETES(false);
-
-    private final boolean isPublic;
-
-    IcebergTableType(boolean isPublic)
+    protected TestIcebergTableSamplingHadoop()
     {
-        this.isPublic = isPublic;
-    }
-
-    public boolean isPublic()
-    {
-        return isPublic;
+        super(HADOOP);
     }
 }

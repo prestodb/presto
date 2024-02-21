@@ -57,6 +57,8 @@ public class IcebergConfig
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+    private boolean useSampleStatistics = true;
+
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -315,5 +317,18 @@ public class IcebergConfig
     {
         this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
         return this;
+    }
+
+    @Config("iceberg.use-sample-statistics")
+    @ConfigDescription("Use a sample of the table rows for calculating table statistics")
+    public IcebergConfig setUseSampleStatistics(boolean useSampleStatistics)
+    {
+        this.useSampleStatistics = useSampleStatistics;
+        return this;
+    }
+
+    public boolean isUseSampleStatistics()
+    {
+        return useSampleStatistics;
     }
 }

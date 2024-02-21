@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
@@ -70,9 +71,11 @@ public class IcebergNativeMetadata
 
     private final IcebergResourceFactory resourceFactory;
     private final CatalogType catalogType;
+    private final HdfsEnvironment hdfsEnvironment;
 
     public IcebergNativeMetadata(
             IcebergResourceFactory resourceFactory,
+            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
@@ -80,9 +83,10 @@ public class IcebergNativeMetadata
             CatalogType catalogType,
             NodeVersion nodeVersion)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
+        super(typeManager, hdfsEnvironment, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override

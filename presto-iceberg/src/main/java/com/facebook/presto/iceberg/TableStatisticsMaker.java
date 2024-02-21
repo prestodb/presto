@@ -15,7 +15,10 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
@@ -29,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
+import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DeleteFile;
@@ -49,6 +53,9 @@ import org.apache.iceberg.puffin.PuffinWriter;
 import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.SnapshotUtil;
+
+import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -75,6 +82,8 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.useSampleStatistics;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
@@ -92,18 +101,170 @@ public class TableStatisticsMaker
     private static final Logger log = Logger.get(TableStatisticsMaker.class);
     private static final String ICEBERG_THETA_SKETCH_BLOB_TYPE_ID = "apache-datasketches-theta-v1";
     private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
+    private final TypeManager typeManager;
     private final Table icebergTable;
     private final ConnectorSession session;
 
-    private TableStatisticsMaker(Table icebergTable, ConnectorSession session)
+    private final HdfsEnvironment hdfsEnvironment;
+
+    private TableStatisticsMaker(TypeManager typeManager, Table icebergTable, ConnectorSession session, HdfsEnvironment hdfsEnvironment)
     {
         this.icebergTable = icebergTable;
         this.session = session;
+        this.hdfsEnvironment = hdfsEnvironment;
+        this.typeManager = typeManager;
     }
 
-    public static TableStatistics getTableStatistics(ConnectorSession session, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, HdfsEnvironment hdfsEnvironment, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session).makeTableStatistics(tableHandle, constraint, columns);
+        return new TableStatisticsMaker(typeManager, icebergTable, session, hdfsEnvironment).makeTableStatistics(tableHandle, constraint, columns);
+    }
+
+    private static class TableDiff
+            implements Comparable<TableDiff>
+    {
+        public long recordsAdded;
+        public long recordsDeleted;
+
+        @Override
+        public int compareTo(@NotNull TableStatisticsMaker.TableDiff o)
+        {
+            // this calculation may eventually be changes to weight added/deleted records unevenly
+            // due to the way the sample is created
+            return Long.compare(this.recordsAdded + this.recordsDeleted, o.recordsAdded + o.recordsDeleted);
+        }
+    }
+
+    private static TableDiff calculateDiff(Table table, long beginSnapshotId, long endSnapshotId)
+    {
+        TableDiff diff = new TableDiff();
+        try (CloseableIterable<ChangelogScanTask> tasks = table.newIncrementalChangelogScan().fromSnapshotExclusive(beginSnapshotId).toSnapshot(endSnapshotId).planFiles()) {
+            for (ChangelogScanTask task : tasks) {
+                switch (task.operation()) {
+                    case DELETE:
+                        diff.recordsDeleted += task.estimatedRowsCount();
+                        break;
+                    case INSERT:
+                        diff.recordsAdded += task.estimatedRowsCount();
+                        break;
+                }
+            }
+            return diff;
+        }
+        catch (IOException | IllegalArgumentException | IllegalStateException e) {
+            log.error("failed to calculate diff", e);
+            return diff;
+        }
+    }
+
+    /**
+     * There are two tables: "actual" and "sample" which have snapshots that occur at varying
+     * points. e.g.
+     * <br>
+     * <code>
+     * actual |------s1---------s2---------s3----------s4----s5--s6-s7------->
+     * <br>
+     * sample |---------s1-----------------------s2----------------------s3-->
+     * </code>
+     * <br>
+     * The goal here is to calculate the snapshot s[1-3] which has the smallest delta to the
+     * snapshot currently queried by the actual table.
+     * <br>
+     * For example, if the user queried "actual" at snapshot s5, which sample of the snapshot table
+     * is going to most accurately represent the table @ s5?
+     * If s4 added 10M rows, but s6 and s7 only added 10k rows, Sample s3 is likely going to
+     * be more representative.
+     * <br>
+     * The algorithm is as follows:
+     * <ol>
+     *     <li>Calculate time of the snapshot, defined as S,  being queried, defined as t1</li>
+     *     <li>
+     *         Lookup the snapshots on the timeline of sample table which immediately precede
+     *         and succeed t1 -- if either preceding or succeeding don't exist, return whichever one
+     *         does exist, or none if no snapshot could be found.
+     *         The preceding snapshot of the sample table, S2, occurs at t2.
+     *         The succeeding snapshot of the sample table, S3, occurs at t3.
+     *     </li>
+     *     <li>
+     *         Find the version of the actual table which occurs closest to time t2, Sa1. Calculate
+     *         the changelog diff between Sa1-->S, diff_before
+     *     </li>
+     *     <li>
+     *         Find the version of the actual table which occurs closest to time t3, Sa2.
+     *         Calculate the changelog diff between S-->Sa2, diff_after
+     *     </li>
+     *     <li>
+     *         Compare the delta size (number of records) between diff_before and diff_after. If
+     *         diff_before is smaller or equal to diff_after, choose sample @ S2,If diff_after is
+     *         smaller, choose sample @ S3,
+     *     </li>
+     *
+     * </ol>
+     *
+     * @param actualTable reference to the real iceberg table
+     * @param actualTableHandle the presto {@link IcebergTableHandle} reference to the "actual"
+     * iceberg table
+     * @param sampleTable the reference to the Sample {@link Table}.
+     * @return the snapshot id to use for the sample table.
+     */
+    public static Optional<Long> calculateSnapshotToUseFromSample(Table actualTable, IcebergTableHandle actualTableHandle, Table sampleTable)
+    {
+        return actualTableHandle.getIcebergTableName().getSnapshotId().flatMap((ssid) -> {
+            Snapshot actualSnap = actualTable.snapshot(ssid);
+            Snapshot samplePrevSnap;
+            try {
+                samplePrevSnap = sampleTable.snapshot(SnapshotUtil.snapshotIdAsOfTime(sampleTable, actualSnap.timestampMillis()));
+            }
+            catch (IllegalArgumentException | IllegalStateException e) {
+                // no snapshot exists before this time, use the first version of the sample table after the timestamp
+                try {
+                    return Optional.of(SnapshotUtil.oldestAncestorAfter(sampleTable, actualSnap.timestampMillis()).snapshotId());
+                }
+                catch (IllegalArgumentException | IllegalStateException e2) {
+                    log.warn("no sample table snapshots found before or after " + actualSnap.timestampMillis() + ". Did you create the samples table?", e);
+                    return Optional.empty();
+                }
+            }
+            Snapshot sampleNextSnap;
+            try {
+                sampleNextSnap = SnapshotUtil.snapshotAfter(sampleTable, samplePrevSnap.snapshotId());
+            }
+            catch (IllegalStateException | IllegalArgumentException | NullPointerException e) {
+                // no sample snapshot which after this.
+                return Optional.of(samplePrevSnap.snapshotId());
+            }
+            Snapshot actualPrevSnap;
+            try {
+                actualPrevSnap = actualTable.snapshot(SnapshotUtil.snapshotIdAsOfTime(actualTable, samplePrevSnap.timestampMillis()));
+            }
+            catch (IllegalArgumentException | IllegalStateException e) {
+                // there's no snapshot that exists which was created before this time. Does the table even exist?
+                // ideally this shouldn't happen, as it means the sample table was created before the actual table
+                // in the case it happens, just return nothing
+                log.warn("no actual table snapshots found before " + actualSnap.timestampMillis() + ". How did you get here. Please file a bug report?", e);
+                return Optional.empty();
+            }
+            Snapshot actualNextSnap;
+            try {
+                long actualSnapAsOfSampleSnapTime = SnapshotUtil.snapshotIdAsOfTime(actualTable, sampleNextSnap.timestampMillis());
+                actualNextSnap = SnapshotUtil.snapshotAfter(actualTable, actualSnapAsOfSampleSnapTime);
+            }
+            catch (IllegalArgumentException | IllegalStateException | NullPointerException e) {
+                // there is no snapshot in the actual table which exists after the sample was created.
+                // this could happen in the case where the sample table has been updated, but no new writes
+                // have occurred to the actual table after the time the sample was taken.
+                // in this case, we should just use the most recent actual table snapshot
+                actualNextSnap = actualTable.currentSnapshot();
+            }
+            TableDiff diffPrev = calculateDiff(actualTable, actualPrevSnap.snapshotId(), actualSnap.snapshotId());
+            TableDiff diffNext = calculateDiff(actualTable, actualSnap.snapshotId(), actualNextSnap.snapshotId());
+            if (diffPrev.compareTo(diffNext) <= 0) {
+                return Optional.of(samplePrevSnap.snapshotId());
+            }
+            else {
+                return Optional.of(sampleNextSnap.snapshotId());
+            }
+        });
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
@@ -112,6 +273,16 @@ public class TableStatisticsMaker
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
+        }
+        Table icebergTable = this.icebergTable;
+        Optional<Long> snapshotId = tableHandle.getIcebergTableName().getSnapshotId();
+        if (tableHandle.getIcebergTableName().getTableType() != SAMPLES && useSampleStatistics(session) &&
+                SampleUtil.sampleTableExists(icebergTable, tableHandle.getSchemaName(), hdfsEnvironment, session)) {
+            org.apache.iceberg.Table sampleTable = SampleUtil.getSampleTableFromActual(icebergTable, tableHandle.getSchemaName(), hdfsEnvironment, session);
+            snapshotId = calculateSnapshotToUseFromSample(icebergTable, tableHandle, sampleTable);
+            log.debug("using sample table statistics with snapshotID " + snapshotId);
+            icebergTable = sampleTable;
+            tableHandle = new IcebergTableHandle(tableHandle.getSchemaName(), tableHandle.getIcebergTableName(), tableHandle.isSnapshotSpecified(), tableHandle.getPredicate(), tableHandle.getTableSchemaJson(), Optional.empty(), tableHandle.getEqualityFieldIds());
         }
 
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
@@ -144,7 +315,7 @@ public class TableStatisticsMaker
             summary = getEqualityDeleteTableSummary(tableHandle, intersection, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
         }
         else {
-            summary = getDataTableSummary(tableHandle, selectedColumns, intersection, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
+            summary = getDataTableSummary(icebergTable, snapshotId, selectedColumns, intersection, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
         }
 
         if (summary == null) {
@@ -182,17 +353,18 @@ public class TableStatisticsMaker
         return result.build();
     }
 
-    private Partition getDataTableSummary(IcebergTableHandle tableHandle,
+    private static Partition getDataTableSummary(Table table,
+            Optional<Long> snapshotId,
             List<IcebergColumnHandle> selectedColumns,
             TupleDomain<IcebergColumnHandle> intersection,
             Map<Integer, Type.PrimitiveType> idToTypeMapping,
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
     {
-        TableScan tableScan = icebergTable.newScan()
+        TableScan tableScan = table.newScan()
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
+                .useSnapshot(snapshotId.get())
                 .includeColumnStats();
 
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
@@ -214,7 +386,7 @@ public class TableStatisticsMaker
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }
 
-    private Partition getSummaryFromFiles(CloseableIterable<ContentFile<?>> files,
+    private static Partition getSummaryFromFiles(CloseableIterable<ContentFile<?>> files,
             Map<Integer, Type.PrimitiveType> idToTypeMapping,
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
@@ -251,9 +423,9 @@ public class TableStatisticsMaker
         return summary;
     }
 
-    public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
+    public static void writeTableStatistics(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        new TableStatisticsMaker(icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
+        new TableStatisticsMaker(typeManager, icebergTable, session, hdfsEnvironment).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
     }
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
@@ -314,7 +486,7 @@ public class TableStatisticsMaker
         }
     }
 
-    public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
+    public static void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
     {
         Map<Integer, Long> columnSizes = summary.getColumnSizes();
         if (!summary.hasValidColumnMetrics() || columnSizes == null || addedColumnSizes == null) {
@@ -330,19 +502,19 @@ public class TableStatisticsMaker
         }
     }
 
-    private void updateSummaryMin(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)
+    private static void updateSummaryMin(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)
     {
         summary.updateStats(summary.getMinValues(), lowerBounds, nullCounts, recordCount, i -> (i > 0));
         updatePartitionedStats(summary, partitionFields, summary.getMinValues(), lowerBounds, i -> (i > 0));
     }
 
-    private void updateSummaryMax(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> upperBounds, Map<Integer, Long> nullCounts, long recordCount)
+    private static void updateSummaryMax(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> upperBounds, Map<Integer, Long> nullCounts, long recordCount)
     {
         summary.updateStats(summary.getMaxValues(), upperBounds, nullCounts, recordCount, i -> (i < 0));
         updatePartitionedStats(summary, partitionFields, summary.getMaxValues(), upperBounds, i -> (i < 0));
     }
 
-    private void updatePartitionedStats(
+    private static void updatePartitionedStats(
             Partition summary,
             List<PartitionField> partitionFields,
             Map<Integer, Object> current,

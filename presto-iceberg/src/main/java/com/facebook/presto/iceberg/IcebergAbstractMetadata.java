@@ -21,10 +21,12 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -122,6 +124,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PR
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
@@ -153,6 +156,7 @@ public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
 {
     protected final TypeManager typeManager;
+    protected final HdfsEnvironment hdfsEnvironment;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
@@ -164,12 +168,14 @@ public abstract class IcebergAbstractMetadata
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
+            HdfsEnvironment hdfsEnvironment,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -313,6 +319,7 @@ public abstract class IcebergAbstractMetadata
 
         switch (name.getTableType()) {
             case CHANGELOG:
+            case SAMPLES:
             case DATA:
                 break;
             case HISTORY:
@@ -410,9 +417,20 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(IcebergTableHandle table, Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
     {
-        transaction = icebergTable.newTransaction();
+        org.apache.iceberg.Table insertTable;
+        switch (table.getIcebergTableName().getTableType()) {
+            case DATA:
+                insertTable = icebergTable;
+                break;
+            case SAMPLES:
+                insertTable = SampleUtil.getSampleTableFromActual(icebergTable, table.getSchemaName(), hdfsEnvironment, session);
+                break;
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "can only write to data or samples table");
+        }
+        transaction = insertTable.newTransaction();
 
         return new IcebergWritableTableHandle(
                 table.getSchemaName(),
@@ -420,9 +438,9 @@ public abstract class IcebergAbstractMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                insertTable.location(),
                 getFileFormat(icebergTable),
-                icebergTable.properties());
+                insertTable.properties());
     }
 
     @Override
@@ -560,7 +578,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-        TableStatisticsMaker.writeTableStatistics(nodeVersion, icebergTableHandle, icebergTable, session, computedStatistics);
+        TableStatisticsMaker.writeTableStatistics(typeManager, hdfsEnvironment, nodeVersion, icebergTableHandle, icebergTable, session, computedStatistics);
     }
 
     public void rollback()
@@ -634,11 +652,11 @@ public abstract class IcebergAbstractMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
+        verify(table.getIcebergTableName().getTableType() == DATA || table.getIcebergTableName().getTableType() == SAMPLES, "only the data table can have data inserted");
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
 
-        return beginIcebergTableInsert(table, icebergTable);
+        return beginIcebergTableInsert(session, table, icebergTable);
     }
 
     @Override
@@ -670,7 +688,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        return TableStatisticsMaker.getTableStatistics(session, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        return TableStatisticsMaker.getTableStatistics(typeManager, session, hdfsEnvironment, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
     }
 
     @Override
@@ -683,7 +701,7 @@ public abstract class IcebergAbstractMetadata
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA || name.getTableType() == CHANGELOG || name.getTableType() == EQUALITY_DELETES || name.getTableType() == SAMPLES, "Wrong table type: " + name.getTableType());
 
         if (!tableExists(session, tableName)) {
             return null;

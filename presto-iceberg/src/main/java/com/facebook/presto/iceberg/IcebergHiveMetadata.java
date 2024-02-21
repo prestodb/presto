@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -34,6 +35,7 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.iceberg.samples.SampleUtil;
 import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -76,6 +78,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.InputFile;
 import org.joda.time.DateTimeZone;
 
@@ -108,6 +111,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedType
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyAndPopulateViews;
 import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.iceberg.HiveTableOperations.STORAGE_FORMAT;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSchemaProperties.getSchemaLocation;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getHiveStatisticsMergeStrategy;
@@ -115,6 +119,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergTableType.SAMPLES;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
@@ -123,6 +128,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
+import static com.facebook.presto.iceberg.samples.SampleUtil.SAMPLE_TABLE_ID;
+import static com.facebook.presto.iceberg.samples.SampleUtil.getCatalogForSampleTable;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -144,8 +151,8 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
+    private static final Logger LOG = Logger.get(IcebergHiveMetadata.class);
     private final ExtendedHiveMetastore metastore;
-    private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
@@ -160,9 +167,8 @@ public class IcebergHiveMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
+        super(typeManager, hdfsEnvironment, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
     }
 
@@ -329,7 +335,16 @@ public class IcebergHiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
-        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), true);
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        metastore.dropTable(metastoreContext, handle.getSchemaName(), handle.getIcebergTableName().getTableName(), true);
+        if (SampleUtil.sampleTableExists(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+            try (HadoopCatalog catalog = getCatalogForSampleTable(table, handle.getSchemaName(), hdfsEnvironment, session)) {
+                catalog.dropTable(SAMPLE_TABLE_ID, true);
+            }
+            catch (IOException e) {
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
+            }
+        }
     }
 
     @Override
@@ -441,8 +456,13 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        if (handle.getIcebergTableName().getTableType() == SAMPLES) {
+            icebergTable = SampleUtil.getSampleTableFromActual(icebergTable, handle.getSchemaName(), hdfsEnvironment, session);
+            return TableStatisticsMaker.getTableStatistics(typeManager, session, hdfsEnvironment, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
+        }
+        TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(typeManager, session, hdfsEnvironment, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
         HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
+        final org.apache.iceberg.Table finalTable = icebergTable;
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
                     .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
@@ -455,7 +475,7 @@ public class IcebergHiveMetadata
             });
             RowExpression translatedPredicate = rowExpressionService.getDomainTranslator().toPredicate(predicate);
             PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
-            TableStatistics mergedStatistics = mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeStrategy, icebergTable.spec());
+            TableStatistics mergedStatistics = mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeStrategy, finalTable.spec());
             TableStatistics.Builder filteredStatsBuilder = TableStatistics.builder()
                     .setRowCount(mergedStatistics.getRowCount());
             double totalSize = 0;
@@ -483,7 +503,7 @@ public class IcebergHiveMetadata
         }).orElseGet(() -> {
             if (!mergeStrategy.equals(HiveStatisticsMergeStrategy.NONE)) {
                 PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
-                return mergeHiveStatistics(icebergStatistics, hiveStats, mergeStrategy, icebergTable.spec());
+                return mergeHiveStatistics(icebergStatistics, hiveStats, mergeStrategy, finalTable.spec());
             }
             return icebergStatistics;
         });
