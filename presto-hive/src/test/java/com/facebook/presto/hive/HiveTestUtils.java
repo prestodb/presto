@@ -95,6 +95,8 @@ public final class HiveTestUtils
     {
     }
 
+    public static final DirectoryLister DO_NOTHING_DIRECTORY_LISTER = (fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext) -> null;
+
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
