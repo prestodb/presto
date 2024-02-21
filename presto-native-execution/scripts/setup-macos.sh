@@ -16,9 +16,7 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
-MACOS_DEPS="${MACOS_DEPS} bison"
 export FB_OS_VERSION=v2023.12.04.00
-
 export PATH=$(brew --prefix bison)/bin:$PATH
 
 function install_proxygen {
