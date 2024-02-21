@@ -180,6 +180,8 @@ class SystemConfig : public ConfigBase {
       "task.max-drivers-per-task"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
+  static constexpr std::string_view kTaskMaxPartialAggregationMemory{
+      "task.max-partial-aggregation-memory"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.
