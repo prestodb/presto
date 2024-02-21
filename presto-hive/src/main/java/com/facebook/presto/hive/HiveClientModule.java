@@ -41,6 +41,8 @@ import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.hive.s3select.S3SelectRecordCursorProvider;
+import com.facebook.presto.hive.statistics.ParquetQuickStatsBuilder;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;
@@ -72,6 +74,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -361,5 +364,24 @@ public class HiveClientModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_ParquetMetadata"), cacheStatsMBean);
         }
         return parquetMetadataSource;
+    }
+
+    @Singleton
+    @Provides
+    public QuickStatsProvider createQuickStatsProvider(HdfsEnvironment hdfsEnvironment,
+            DirectoryLister directoryLister,
+            HiveClientConfig hiveClientConfig,
+            NamenodeStats nameNodeStats,
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            MBeanExporter exporter)
+    {
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment,
+                directoryLister,
+                hiveClientConfig,
+                nameNodeStats,
+                // Ordered list of strategies to apply to decipher quick stats
+                ImmutableList.of(new ParquetQuickStatsBuilder(fileFormatDataSourceStats, hdfsEnvironment, hiveClientConfig)));
+        exporter.export(generatedNameOf(QuickStatsProvider.class, connectorId + "_QuickStatsProvider"), quickStatsProvider);
+        return quickStatsProvider;
     }
 }
