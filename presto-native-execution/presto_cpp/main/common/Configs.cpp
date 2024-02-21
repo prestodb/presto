@@ -148,6 +148,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
+          STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
           NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
@@ -765,6 +766,9 @@ void BaseVeloxQueryConfig::updateLoadedValues(
       {QueryConfig::kMaxPartitionedOutputBufferSize,
        systemConfig->capacityPropertyAsBytesString(
            SystemConfig::kDriverMaxPagePartitioningBufferSize)},
+      {QueryConfig::kMaxPartialAggregationMemory,
+       systemConfig->capacityPropertyAsBytesString(
+           SystemConfig::kTaskMaxPartialAggregationMemory)},
   };
 
   std::stringstream updated;
