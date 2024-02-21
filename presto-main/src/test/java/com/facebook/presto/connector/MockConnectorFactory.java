@@ -179,6 +179,10 @@ public class MockConnectorFactory
                 return listTables.apply(session, schemaNameOrNull);
             }
 
+            public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+            {
+            }
+
             @Override
             public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {

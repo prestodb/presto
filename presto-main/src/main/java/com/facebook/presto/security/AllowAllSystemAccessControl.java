@@ -122,6 +122,10 @@ public class AllowAllSystemAccessControl
     {
     }
 
+    public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
     @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
