@@ -145,6 +145,35 @@ class PrestoSerializerTest
     return ByteInputStream({byteRange});
   }
 
+  void validateLexer(
+      const std::string& input,
+      const serializer::presto::PrestoVectorSerde::PrestoOptions&
+          paramOptions) {
+    if (paramOptions.useLosslessTimestamp ||
+        paramOptions.compressionKind !=
+            common::CompressionKind::CompressionKind_NONE ||
+        paramOptions.nullsFirst) {
+      // Unsupported options
+      return;
+    }
+    auto byteStream = toByteStream(input);
+    auto tokens =
+        serializer::presto::PrestoVectorSerde::lex(&byteStream, &paramOptions);
+    size_t tokenLengthSum = 0;
+    for (auto const& token : tokens) {
+      tokenLengthSum += token.length;
+    }
+    for (auto const& token : tokens) {
+      // The lexer should not produce empty tokens
+      EXPECT_NE(token.length, 0);
+    }
+    for (size_t i = 1; i < tokens.size(); ++i) {
+      // The lexer should merge consecutive tokens of the same type
+      EXPECT_NE(tokens[i].tokenType, tokens[i - 1].tokenType);
+    }
+    EXPECT_EQ(tokenLengthSum, input.size());
+  }
+
   RowVectorPtr deserialize(
       const RowTypePtr& rowType,
       const std::string& input,
@@ -152,6 +181,7 @@ class PrestoSerializerTest
           serdeOptions) {
     auto byteStream = toByteStream(input);
     auto paramOptions = getParamSerdeOptions(serdeOptions);
+    validateLexer(input, paramOptions);
     RowVectorPtr result;
     serde_->deserialize(
         &byteStream, pool_.get(), rowType, &result, 0, &paramOptions);
@@ -232,6 +262,16 @@ class PrestoSerializerTest
     auto wrappedStats = testSerializeRows(wrappedRowVector, odd, serdeOptions);
     EXPECT_EQ(oddStats.estimatedSize, wrappedStats.estimatedSize);
     EXPECT_EQ(oddStats.actualSize, wrappedStats.actualSize);
+  }
+
+  void testLexer(
+      VectorPtr vector,
+      const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions =
+          nullptr) {
+    auto rowVector = makeRowVector({vector});
+    std::ostringstream out;
+    serialize(rowVector, &out, serdeOptions);
+    validateLexer(out.str(), getParamSerdeOptions(serdeOptions));
   }
 
   SerializeStats testSerializeRows(
@@ -972,6 +1012,29 @@ TEST_P(PrestoSerializerTest, typeMismatch) {
       "Expected LONG_ARRAY. Got VARIABLE_WIDTH.");
 }
 
+TEST_P(PrestoSerializerTest, lexer) {
+  VectorFuzzer::Options opts;
+  opts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  opts.nullRatio = 0.1;
+  VectorFuzzer fuzzer(opts, pool_.get());
+  VectorFuzzer::Options nonNullOpts;
+  nonNullOpts.timestampPrecision =
+      VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
+  nonNullOpts.nullRatio = 0;
+  VectorFuzzer nonNullFuzzer(nonNullOpts, pool_.get());
+
+  const size_t numRounds = 20;
+
+  for (size_t i = 0; i < numRounds; ++i) {
+    auto rowType = fuzzer.randRowType();
+
+    auto inputRowVector = (i % 2 == 0) ? fuzzer.fuzzInputRow(rowType)
+                                       : nonNullFuzzer.fuzzInputRow(rowType);
+    testLexer(inputRowVector);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     PrestoSerializerTest,
     PrestoSerializerTest,
@@ -1003,6 +1066,8 @@ TEST_F(PrestoSerializerTest, deserializeSingleColumn) {
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(&output, &listener);
     serializer->flush(&out);
+
+    validateLexer(output.str(), {});
 
     // Remove the PrestoPage header and Number of columns section from the
     // serialized data.
