@@ -126,6 +126,7 @@ uint8_t ByteInputStream::readByte() {
 }
 
 void ByteInputStream::readBytes(uint8_t* bytes, int32_t size) {
+  VELOX_CHECK_GE(size, 0, "Attempting to read negative number of bytes");
   int32_t offset = 0;
   for (;;) {
     int32_t available = current_->size - current_->position;
@@ -143,6 +144,7 @@ void ByteInputStream::readBytes(uint8_t* bytes, int32_t size) {
 }
 
 std::string_view ByteInputStream::nextView(int32_t size) {
+  VELOX_CHECK_GE(size, 0, "Attempting to view negative number of bytes");
   if (current_->position == current_->size) {
     if (current_ == &ranges_.back()) {
       return std::string_view(nullptr, 0);
@@ -158,6 +160,7 @@ std::string_view ByteInputStream::nextView(int32_t size) {
 }
 
 void ByteInputStream::skip(int32_t size) {
+  VELOX_CHECK_GE(size, 0, "Attempting to skip negative number of bytes");
   for (;;) {
     int32_t available = current_->size - current_->position;
     int32_t numUsed = std::min(available, size);
