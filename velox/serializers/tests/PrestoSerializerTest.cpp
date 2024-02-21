@@ -590,6 +590,79 @@ class PrestoSerializerTest
     });
   }
 
+  void testMinimalDictionaryEncoding(
+      vector_size_t numRows,
+      vector_size_t alphabetSize) {
+    auto base = makeFlatVector<int64_t>(
+        alphabetSize, [](vector_size_t row) { return row; });
+    auto allIndices = makeIndices(
+        numRows, [alphabetSize](auto row) { return row % alphabetSize; });
+    auto evenIndices = makeIndices(
+        numRows, [alphabetSize](auto row) { return (row * 2) % alphabetSize; });
+    auto oddIndices = makeIndices(numRows, [alphabetSize](auto row) {
+      return (row * 2 + 1) % alphabetSize;
+    });
+    auto prefixIndices = makeIndices(
+        numRows, [alphabetSize](auto row) { return row % (alphabetSize / 2); });
+    auto suffixIndices = makeIndices(numRows, [alphabetSize](auto row) {
+      return row % (alphabetSize / 2) + (alphabetSize / 2);
+    });
+
+    auto rows = makeRowVector({
+        BaseVector::wrapInDictionary(nullptr, allIndices, numRows, base),
+        BaseVector::wrapInDictionary(nullptr, evenIndices, numRows, base),
+        BaseVector::wrapInDictionary(nullptr, oddIndices, numRows, base),
+        BaseVector::wrapInDictionary(nullptr, prefixIndices, numRows, base),
+        BaseVector::wrapInDictionary(nullptr, suffixIndices, numRows, base),
+    });
+
+    std::ostringstream out;
+    serializeBatch(rows, &out, /*serdeOptions=*/nullptr);
+    const auto serialized = out.str();
+
+    auto rowType = asRowType(rows->type());
+    auto deserialized =
+        deserialize(rowType, serialized, /*serdeOptions=*/nullptr);
+
+    assertEqualVectors(rows, deserialized);
+    assertEqualEncoding(rows, deserialized);
+
+    // If the dictionary is larger than numRows, we'll still get distinct
+    // indices after applying modulus.
+    auto expectedSmallerAlphabetSize = std::min(alphabetSize / 2, numRows);
+
+    ASSERT_EQ(
+        deserialized->childAt(0)
+            ->as<DictionaryVector<int64_t>>()
+            ->valueVector()
+            ->size(),
+        std::min(alphabetSize, numRows));
+    ASSERT_EQ(
+        deserialized->childAt(1)
+            ->as<DictionaryVector<int64_t>>()
+            ->valueVector()
+            ->size(),
+        expectedSmallerAlphabetSize);
+    ASSERT_EQ(
+        deserialized->childAt(2)
+            ->as<DictionaryVector<int64_t>>()
+            ->valueVector()
+            ->size(),
+        expectedSmallerAlphabetSize);
+    ASSERT_EQ(
+        deserialized->childAt(3)
+            ->as<DictionaryVector<int64_t>>()
+            ->valueVector()
+            ->size(),
+        expectedSmallerAlphabetSize);
+    ASSERT_EQ(
+        deserialized->childAt(4)
+            ->as<DictionaryVector<int64_t>>()
+            ->valueVector()
+            ->size(),
+        expectedSmallerAlphabetSize);
+  }
+
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
 };
 
@@ -846,6 +919,17 @@ TEST_P(PrestoSerializerTest, encodingsArrayElementsBatchVectorSerializer) {
 // PrestoBatchVectorSerializer.
 TEST_P(PrestoSerializerTest, encodingsMapValuesBatchVectorSerializer) {
   testBatchVectorSerializerRoundTrip(encodingsMapValuesTestVector());
+}
+
+// Test that dictionary encoding is preserved and that only the minimum number
+// of entries from the alphabet are serialized.
+TEST_P(PrestoSerializerTest, minimalDictionaryEncodings) {
+  // Dictionary same size as rows.
+  testMinimalDictionaryEncoding(32, 32);
+  // Dictionary smaller than rows.
+  testMinimalDictionaryEncoding(32, 16);
+  // Dictionary larger than rows.
+  testMinimalDictionaryEncoding(32, 64);
 }
 
 TEST_P(PrestoSerializerTest, lazy) {
