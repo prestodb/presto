@@ -48,21 +48,29 @@ cpp_template = Template(
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace facebook::velox::util {
 
 const std::unordered_map<int64_t, std::string>& getTimeZoneDB() {
-  static std::unordered_map<int64_t, std::string> tzDB = {
+  static auto* tzDB = new std::unordered_map<int64_t, std::string>([] {
+    // Work around clang compiler bug causing multi-hour compilation
+    // with -fsanitize=fuzzer
+    // https://github.com/llvm/llvm-project/issues/75666
+    std::vector<std::pair<int64_t, std::string>> entries = {
 $entries
-  };
-  return tzDB;
+    };
+    return std::unordered_map<int64_t, std::string>(
+        entries.begin(), entries.end());
+  }());
+  return *tzDB;
 }
 
 } // namespace facebook::velox::util\
 """
 )
 
-entry_template = Template('      {$tz_id, "$tz_name"},')
+entry_template = Template('        {$tz_id, "$tz_name"},')
 
 
 def parse_arguments():
