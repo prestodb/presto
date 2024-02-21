@@ -599,6 +599,7 @@ NodeConfig::NodeConfig() {
           NONE_PROP(kNodeInternalAddress),
           NONE_PROP(kNodeLocation),
           NONE_PROP(kNodeMemoryGb),
+          NONE_PROP(KNodeMetricPort),
       };
 }
 
@@ -613,6 +614,16 @@ std::string NodeConfig::nodeEnvironment() const {
 
 std::string NodeConfig::nodeId() const {
   return requiredProperty(kNodeId);
+}
+
+std::string NodeConfig::nodeMetricPort(std::string& defaultPort) const {
+  auto resultOpt = optionalProperty(KNodeMetricPort);
+  if (resultOpt.has_value()) {
+    return resultOpt.value();
+  } else {
+    return defaultPort;
+  }
+  return requiredProperty(KNodeMetricPort);
 }
 
 std::string NodeConfig::nodeLocation() const {

@@ -654,6 +654,8 @@ class NodeConfig : public ConfigBase {
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
   static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
+  static constexpr std::string_view KNodeMetricPort{"node.prometheus_port"};
+
 
   NodeConfig();
 
@@ -664,6 +666,8 @@ class NodeConfig : public ConfigBase {
   std::string nodeEnvironment() const;
 
   std::string nodeId() const;
+
+  std::string nodeMetricPort(std::string& defaultPort) const;
 
   std::string nodeInternalAddress(
       const std::function<std::string()>& defaultIp = nullptr) const;

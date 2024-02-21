@@ -9,10 +9,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(main)
-add_subdirectory(presto_protocol)
+add_executable(presto_metrics_test PrometheusStatsReporterTest.cpp)
 
-if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
-    add_subdirectory(metrics)
-endif()
+add_test(
+        NAME presto_server_test
+        COMMAND presto_server_test
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_link_libraries(
+        presto_metrics_test
+        presto_metrics
+        velox_vector_fuzzer
+        velox_exec_test_lib
+        velox_hive_partition_function
+        velox_vector_test_lib
+        velox_type
+        velox_vector
+        velox_exec
+        velox_memory
+        velox_exec
+        gmock
+        gtest
+        gtest_main)

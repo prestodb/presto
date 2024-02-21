@@ -70,6 +70,10 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread)
 
+if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+  target_link_libraries(presto_server_lib presto_metrics)
+endif()
+
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Arrow Thrift from velox_hive_connector and
 # FBThrift libraries. The build issue is fixed by linking velox_hive_connector
