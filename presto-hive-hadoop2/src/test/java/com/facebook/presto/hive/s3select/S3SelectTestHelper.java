@@ -83,6 +83,7 @@ import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SER
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultS3HiveRecordCursorProvider;
@@ -199,6 +200,7 @@ public class S3SelectTestHelper
                 getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig),
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
     }

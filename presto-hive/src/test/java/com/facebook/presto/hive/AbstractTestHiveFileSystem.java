@@ -105,6 +105,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -262,14 +263,15 @@ public abstract class AbstractTestHiveFileSystem
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig),
                 columnConverterProvider);
         Set<HiveRecordCursorProvider> recordCursorProviderSet = s3SelectPushdownEnabled ?
-                                                                    getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
-                                                                    getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
+                getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig) :
+                getDefaultHiveRecordCursorProvider(config, metastoreClientConfig);
         pageSourceProvider = new HivePageSourceProvider(
                 config,
                 hdfsEnvironment,
                 recordCursorProviderSet,
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
     }
