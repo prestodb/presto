@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ConnectorId;
@@ -158,11 +157,5 @@ public class TestingSessionContext
     public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
     {
         return session.getSessionFunctions();
-    }
-
-    @Override
-    public RuntimeStats getRuntimeStats()
-    {
-        return session.getRuntimeStats();
     }
 }

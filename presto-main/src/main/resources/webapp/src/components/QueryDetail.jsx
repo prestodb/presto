@@ -277,74 +277,6 @@ const HISTOGRAM_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-class RuntimeStatsList extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            expanded: false
-        };
-    }
-
-    getExpandedIcon() {
-        return this.state.expanded ? "glyphicon-chevron-up" : "glyphicon-chevron-down";
-    }
-
-    getExpandedStyle() {
-        return this.state.expanded ? {} : {display: "none"};
-    }
-
-    toggleExpanded() {
-        this.setState({
-            expanded: !this.state.expanded,
-        })
-    }
-
-    renderMetricValue(unit, value) {
-      if (unit === "NANO") {
-          return formatDuration(parseDuration(value+ "ns"));
-      }
-      if (unit === "BYTE") {
-          return formatDataSize(value);
-      }
-      return formatCount(value); // NONE
-    }
-
-    render() {
-        return (
-             <table className="table" id="runtime-stats-table">
-                 <tbody>
-                 <tr>
-                     <th className="info-text">Metric Name</th>
-                     <th className="info-text">Sum</th>
-                     <th className="info-text">Count</th>
-                     <th className="info-text">Min</th>
-                     <th className="info-text">Max</th>
-                     <th className="expand-charts-container">
-                         <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                             <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="Show metrics" />
-                         </a>
-                     </th>
-                 </tr>
-                 {
-                   Object
-                     .values(this.props.stats)
-                     .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
-                     .map((metric) =>
-                         <tr style={this.getExpandedStyle()}>
-                             <td className="info-text">{metric.name}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
-                             <td className="info-text">{formatCount(metric.count)}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
-                         </tr>
-                     )
-                 }
-                 </tbody>
-             </table>
-        );
-    }
-}
-
 class StageSummary extends React.Component {
     constructor(props) {
         super(props);
@@ -1170,6 +1102,16 @@ export class QueryDetail extends React.Component {
         }
     }
 
+    renderMetricValue(unit, value) {
+      if (unit === "NANO") {
+          return formatDuration(parseDuration(value+ "ns"));
+      }
+      if (unit === "BYTE") {
+          return formatDataSize(value);
+      }
+      return formatCount(value); // NONE
+    }
+
     renderRuntimeStats() {
         const query = this.state.query;
         if (query.queryStats.runtimeStats === undefined) return null;
@@ -1177,9 +1119,33 @@ export class QueryDetail extends React.Component {
         return (
             <div className="row">
                 <div className="col-xs-6">
-                    <h3>Runtime Statistics</h3>
+                    <h3>RuntimeStats</h3>
                     <hr className="h3-hr"/>
-                    <RuntimeStatsList stats={query.queryStats.runtimeStats} />
+                     <table className="table" id="runtime-stats-table">
+                         <tbody>
+                         <tr>
+                             <th className="info-text">Metric Name</th>
+                             <th className="info-text">Sum</th>
+                             <th className="info-text">Count</th>
+                             <th className="info-text">Min</th>
+                             <th className="info-text">Max</th>
+                         </tr>
+                         {
+                           Object
+                             .values(query.queryStats.runtimeStats)
+                             .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
+                             .map((metric) =>
+                                 <tr>
+                                     <td className="info-text">{metric.name}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
+                                     <td className="info-text">{formatCount(metric.count)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
+                                     <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
+                                 </tr>
+                             )
+                         }
+                         </tbody>
+                     </table>
                 </div>
             </div>
         );

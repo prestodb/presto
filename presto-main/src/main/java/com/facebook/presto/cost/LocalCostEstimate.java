@@ -15,7 +15,6 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.plan.PlanNode;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -102,15 +101,6 @@ public class LocalCostEstimate
     public static LocalCostEstimate addPartialComponents(LocalCostEstimate one, LocalCostEstimate two, LocalCostEstimate... more)
     {
         return Stream.concat(Stream.of(one, two), Stream.of(more))
-                .reduce(zero(), (a, b) -> new LocalCostEstimate(
-                        a.cpuCost + b.cpuCost,
-                        a.maxMemory + b.maxMemory,
-                        a.networkCost + b.networkCost));
-    }
-
-    public static LocalCostEstimate addPartialComponents(List<LocalCostEstimate> planList)
-    {
-        return planList.stream()
                 .reduce(zero(), (a, b) -> new LocalCostEstimate(
                         a.cpuCost + b.cpuCost,
                         a.maxMemory + b.maxMemory,

@@ -152,9 +152,8 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    // velox.properties is optional.
     baseVeloxQueryConfig->initialize(
-        fmt::format("{}/velox.properties", configDirectoryPath_), true);
+        fmt::format("{}/velox.properties", configDirectoryPath_));
 
     if (systemConfig->enableRuntimeMetricsCollection()) {
       enableRuntimeMetricReporting();

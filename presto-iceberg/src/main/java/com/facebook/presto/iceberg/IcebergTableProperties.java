@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.TableProperties;
 
 import javax.inject.Inject;
 
@@ -26,7 +25,6 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
@@ -37,7 +35,6 @@ public class IcebergTableProperties
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION = "format_version";
-    public static final String COMMIT_RETRIES = "commit_retries";
 
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
@@ -75,11 +72,6 @@ public class IcebergTableProperties
                         FORMAT_VERSION,
                         "Format version for the table",
                         null,
-                        false))
-                .add(integerProperty(
-                        COMMIT_RETRIES,
-                        "Determines the number of attempts in case of concurrent upserts and deletes",
-                        TableProperties.COMMIT_NUM_RETRIES_DEFAULT,
                         false))
                 .build();
 
@@ -120,10 +112,5 @@ public class IcebergTableProperties
     public static String getFormatVersion(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(FORMAT_VERSION);
-    }
-
-    public static Integer getCommitRetries(Map<String, Object> tableProperties)
-    {
-        return (Integer) tableProperties.get(COMMIT_RETRIES);
     }
 }

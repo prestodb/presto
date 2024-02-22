@@ -50,7 +50,7 @@ import org.weakref.jmx.Nested;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,7 +142,7 @@ public class HivePartitionManager
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) threadPoolExecutor);
     }
 
-    public List<HivePartition> getPartitionsList(
+    public Iterable<HivePartition> getPartitionsIterator(
             SemiTransactionalHiveMetastore metastore,
             ConnectorTableHandle tableHandle,
             Constraint<ColumnHandle> constraint,
@@ -171,23 +171,25 @@ public class HivePartitionManager
             return ImmutableList.of(new HivePartition(tableName));
         }
         else {
-            List<String> partitionNames = partitionFilteringFromMetastoreEnabled ? getFilteredPartitionNames(session, metastore, hiveTableHandle, effectivePredicate) : getAllPartitionNames(session, metastore, hiveTableHandle, constraint);
+            return () -> {
+                List<String> partitionNames = partitionFilteringFromMetastoreEnabled ? getFilteredPartitionNames(session, metastore, hiveTableHandle, effectivePredicate) : getAllPartitionNames(session, metastore, hiveTableHandle, constraint);
 
-            if (isParallelParsingOfPartitionValuesEnabled(session) && partitionNames.size() > PARTITION_NAMES_BATCH_SIZE) {
-                List<List<String>> partitionNameBatches = Lists.partition(partitionNames, PARTITION_NAMES_BATCH_SIZE);
-                // Use ConcurrentLinkedQueue to prevent race condition when multiple threads try to add partitions to this list
-                ConcurrentLinkedQueue<HivePartition> result = new ConcurrentLinkedQueue<>();
-                List<ListenableFuture<?>> futures = new ArrayList<>();
-                try {
-                    partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint)))));
-                    Futures.transform(Futures.allAsList(futures), input -> result, directExecutor()).get();
-                    return Arrays.asList(result.toArray(new HivePartition[0]));
+                if (isParallelParsingOfPartitionValuesEnabled(session) && partitionNames.size() > PARTITION_NAMES_BATCH_SIZE) {
+                    List<List<String>> partitionNameBatches = Lists.partition(partitionNames, PARTITION_NAMES_BATCH_SIZE);
+                    // Use ConcurrentLinkedQueue to prevent race condition when multiple threads try to add partitions to this list
+                    ConcurrentLinkedQueue<HivePartition> result = new ConcurrentLinkedQueue<>();
+                    List<ListenableFuture<?>> futures = new ArrayList<>();
+                    try {
+                        partitionNameBatches.forEach(batch -> futures.add(executorService.submit(() -> result.addAll(getPartitionListFromPartitionNames(batch, tableName, partitionColumns, partitionTypes, constraint)))));
+                        Futures.transform(Futures.allAsList(futures), input -> result, directExecutor()).get();
+                        return result.iterator();
+                    }
+                    catch (InterruptedException | ExecutionException e) {
+                        log.error(e, "Parallel parsing of partition values failed");
+                    }
                 }
-                catch (InterruptedException | ExecutionException e) {
-                    log.error(e, "Parallel parsing of partition values failed");
-                }
-            }
-            return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint);
+                return getPartitionListFromPartitionNames(partitionNames, tableName, partitionColumns, partitionTypes, constraint).iterator();
+            };
         }
     }
 
@@ -217,7 +219,7 @@ public class HivePartitionManager
         if (domains.isPresent()) {
             Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
             ImmutableMap.Builder<Column, Domain> partitionPredicateBuilder = ImmutableMap.builder();
-            MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+            MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
             for (HiveColumnHandle partitionColumn : partitionColumns) {
                 Column key = new Column(
                         partitionColumn.getName(),
@@ -261,13 +263,7 @@ public class HivePartitionManager
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
 
-        List<HivePartition> partitions = getPartitionsList(metastore, tableHandle, constraint, session);
-        if (partitions.size() > maxPartitionsPerScan) {
-            throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
-                    "Query over table '%s' can potentially read more than %s partitions",
-                    hiveTableHandle.getSchemaTableName().toString(),
-                    maxPartitionsPerScan));
-        }
+        List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
 
         Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session, effectivePredicate);
         Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate));
@@ -364,6 +360,24 @@ public class HivePartitionManager
         return bucketsPerPartition * partitions.size() > getMaxBucketsForGroupedExecution(session);
     }
 
+    private List<HivePartition> getPartitionsAsList(Iterator<HivePartition> partitionsIterator)
+    {
+        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
+        int count = 0;
+        while (partitionsIterator.hasNext()) {
+            HivePartition partition = partitionsIterator.next();
+            if (count == maxPartitionsPerScan) {
+                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                        "Query over table '%s' can potentially read more than %s partitions",
+                        partition.getTableName(),
+                        maxPartitionsPerScan));
+            }
+            partitionList.add(partition);
+            count++;
+        }
+        return partitionList.build();
+    }
+
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, List<List<String>> partitionValuesList, ConnectorSession session)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
@@ -422,7 +436,7 @@ public class HivePartitionManager
 
     private Table getTable(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HiveTableHandle hiveTableHandle, boolean offlineDataDebugModeEnabled)
     {
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         Optional<Table> target = metastore.getTable(context, hiveTableHandle);
         if (!target.isPresent()) {
             throw new TableNotFoundException(hiveTableHandle.getSchemaTableName());
@@ -442,7 +456,7 @@ public class HivePartitionManager
             return ImmutableList.of();
         }
 
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         // fetch the partition names
         return metastore.getPartitionNamesByFilter(context, hiveTableHandle, partitionPredicates)
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
@@ -454,7 +468,7 @@ public class HivePartitionManager
             return ImmutableList.of();
         }
         // fetch the partition names
-        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
         return metastore.getPartitionNames(context, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
     }

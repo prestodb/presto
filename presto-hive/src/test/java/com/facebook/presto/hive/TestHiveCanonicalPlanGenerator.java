@@ -39,8 +39,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -113,37 +112,13 @@ public class TestHiveCanonicalPlanGenerator
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    IGNORE_SAFE_CONSTANTS);
+                    REMOVE_SAFE_CONSTANTS);
 
             assertSameCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
                     "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
-                    IGNORE_SAFE_CONSTANTS);
-
-            assertDifferentCanonicalLeafPlan(
-                    pushdownFilterEnabled(),
-                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey = 10",
-                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey = 20",
-                    IGNORE_SAFE_CONSTANTS);
-
-            assertDifferentCanonicalLeafPlan(
-                    pushdownFilterEnabled(),
-                    "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
-                    "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    IGNORE_SCAN_CONSTANTS);
-
-            assertSameCanonicalLeafPlan(
-                    pushdownFilterEnabled(),
-                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
-                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
-                    IGNORE_SCAN_CONSTANTS);
-
-            assertSameCanonicalLeafPlan(
-                    pushdownFilterEnabled(),
-                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey = 10",
-                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey = 20",
-                    IGNORE_SCAN_CONSTANTS);
+                    REMOVE_SAFE_CONSTANTS);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders");

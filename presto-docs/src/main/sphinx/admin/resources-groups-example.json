@@ -89,6 +89,10 @@
       "group": "admin"
     },
     {
+      "userGroup": "admin",
+      "group": "admin"
+    },
+    {
       "source": ".*pipeline.*",
       "queryType": "DATA_DEFINITION",
       "group": "global.data_definition"

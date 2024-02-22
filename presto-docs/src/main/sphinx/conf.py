@@ -76,9 +76,6 @@ master_doc = 'index'
 
 project = u'Presto'
 
-# Set Author blank to avoid default value of 'unknown'
-author = ''
-
 version = get_version()
 release = version
 
@@ -90,9 +87,6 @@ rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
 .. |presto_router_release| replace:: ``presto-router-{release}``
 """.replace('{release}', release)
-
-# 'xelatex' natively supports Unicode
-latex_engine = 'xelatex'
 
 # -- Options for HTML output ---------------------------------------------------
 

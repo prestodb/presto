@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
@@ -53,7 +52,6 @@ public class PrestoSparkSessionContext
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
-    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public static PrestoSparkSessionContext createFromSessionInfo(
             PrestoSparkSession prestoSparkSession,
@@ -240,11 +238,5 @@ public class PrestoSparkSessionContext
     {
         // presto on spark does not support session functions
         return ImmutableMap.of();
-    }
-
-    @Override
-    public RuntimeStats getRuntimeStats()
-    {
-        return runtimeStats;
     }
 }

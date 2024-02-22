@@ -226,24 +226,4 @@ public class TestSimplifyPlanWithEmptyInput
                         ImmutableList.of("custkey", "name", "acctbal", "sum"),
                         values("sum", "custkey", "name", "acctbal")));
     }
-
-    @Test
-    public void testRowNumberWithEmptyInput()
-    {
-        assertPlan("select orderkey, row_number() over (partition by orderpriority), orderpriority from (select orderkey, orderpriority from orders where false)",
-                enableOptimization(),
-                output(
-                        ImmutableList.of("orderkey", "rownumber", "orderpriority"),
-                        values(ImmutableList.of("orderkey", "orderpriority", "rownumber"), ImmutableList.of())));
-    }
-
-    @Test
-    public void testTopNRowNumberWithEmptyInput()
-    {
-        assertPlan("select * from (select orderkey, row_number() over (partition by orderpriority order by orderkey) row_number, orderpriority from (select orderkey, orderpriority from orders where false)) where row_number < 2",
-                enableOptimization(),
-                output(
-                        ImmutableList.of("orderkey", "row_number", "orderpriority"),
-                        values(ImmutableList.of("orderkey", "orderpriority", "row_number"), ImmutableList.of())));
-    }
 }

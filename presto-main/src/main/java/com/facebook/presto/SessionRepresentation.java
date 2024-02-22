@@ -17,7 +17,6 @@ import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -337,7 +336,6 @@ public final class SessionRepresentation
                 sessionFunctions,
                 Optional.empty(),
                 // we use NOOP to create a session from the representation as worker does not require warning collectors
-                WarningCollector.NOOP,
-                new RuntimeStats());
+                WarningCollector.NOOP);
     }
 }

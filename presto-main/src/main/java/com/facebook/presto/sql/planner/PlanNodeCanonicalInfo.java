@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +78,7 @@ public class PlanNodeCanonicalInfo
             PlanCanonicalInfoProvider planCanonicalInfoProvider)
     {
         ImmutableList.Builder<CanonicalPlanWithInfo> result = ImmutableList.builder();
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
             for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
                 if (!node.getStatsEquivalentPlanNode().isPresent()) {
                     continue;

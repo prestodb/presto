@@ -778,7 +778,7 @@ public class OrcWriteValidation
                 fieldBuilders = ImmutableList.of();
             }
             else if (TINYINT.equals(type)) {
-                statisticsBuilder = new IntegerStatisticsBuilder();
+                statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }

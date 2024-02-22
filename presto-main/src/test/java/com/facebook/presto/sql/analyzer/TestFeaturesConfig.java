@@ -86,7 +86,6 @@ public class TestFeaturesConfig
                 .setUsePerfectlyConsistentHistories(false)
                 .setHistoryCanonicalPlanNodeLimit(1000)
                 .setHistoryBasedOptimizerTimeout(new Duration(10, SECONDS))
-                .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS")
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -260,12 +259,11 @@ public class TestFeaturesConfig
                 .setHandleComplexEquiJoins(false)
                 .setSkipHashGenerationForJoinWithTableScanInput(false)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.NONE)
-                .setCteFilterAndProjectionPushdownEnabled(false)
+                .setCteFilterAndProjectionPushdownEnabled(true)
                 .setKHyperLogLogAggregationGroupNumberLimit(0)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
                 .setGenerateDomainFilters(false)
-                .setRewriteExpressionWithConstantVariable(true)
-                .setDefaultWriterReplicationCoefficient(3.0));
+                .setRewriteExpressionWithConstantVariable(true));
     }
 
     @Test
@@ -317,7 +315,6 @@ public class TestFeaturesConfig
                 .put("optimizer.track-partial-aggregation-history", "false")
                 .put("optimizer.use-perfectly-consistent-histories", "true")
                 .put("optimizer.history-canonical-plan-node-limit", "2")
-                .put("optimizer.history-based-optimizer-plan-canonicalization-strategies", "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
                 .put("optimizer.history-based-optimizer-timeout", "1s")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
@@ -469,14 +466,13 @@ public class TestFeaturesConfig
                 .put("optimizer.use-hbo-for-scaled-writers", "true")
                 .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
                 .put("cte-materialization-strategy", "ALL")
-                .put("cte-filter-and-projection-pushdown-enabled", "true")
+                .put("cte-filter-and-projection-pushdown-enabled", "false")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .put("optimizer.skip-hash-generation-for-join-with-table-scan-input", "true")
                 .put("khyperloglog-agg-group-limit", "1000")
                 .put("limit-khyperloglog-agg-group-number-enabled", "false")
                 .put("optimizer.generate-domain-filters", "true")
                 .put("optimizer.rewrite-expression-with-constant-variable", "false")
-                .put("optimizer.default-writer-replication-coefficient", "5.0")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -517,7 +513,6 @@ public class TestFeaturesConfig
                 .setUsePerfectlyConsistentHistories(true)
                 .setHistoryCanonicalPlanNodeLimit(2)
                 .setHistoryBasedOptimizerTimeout(new Duration(1, SECONDS))
-                .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
@@ -680,12 +675,11 @@ public class TestFeaturesConfig
                 .setHandleComplexEquiJoins(true)
                 .setSkipHashGenerationForJoinWithTableScanInput(true)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.ALL)
-                .setCteFilterAndProjectionPushdownEnabled(true)
+                .setCteFilterAndProjectionPushdownEnabled(false)
                 .setKHyperLogLogAggregationGroupNumberLimit(1000)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
                 .setGenerateDomainFilters(true)
-                .setRewriteExpressionWithConstantVariable(false)
-                .setDefaultWriterReplicationCoefficient(5.0);
+                .setRewriteExpressionWithConstantVariable(false);
         assertFullMapping(properties, expected);
     }
 

@@ -31,10 +31,6 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
-      - name: Install LaTeX dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra latexmk tex-gyre texlive-xetex fonts-freefont-otf xindy
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v2

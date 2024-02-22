@@ -41,8 +41,8 @@ import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanSta
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
-import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.graph.Traverser.forTree;
@@ -159,7 +159,7 @@ public class HistoryBasedPlanStatisticsCalculator
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
         ImmutableMap.Builder<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashesBuilder = ImmutableMap.builder();
 
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
             Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, cacheOnly);
             if (hash.isPresent()) {
                 allHashesBuilder.put(strategy, new PlanNodeWithHash(statsEquivalentPlanNode, hash));
@@ -189,7 +189,7 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         double historyMatchingThreshold = getHistoryInputTableStatisticsMatchingThreshold(session) > 0 ? getHistoryInputTableStatisticsMatchingThreshold(session) : config.getHistoryMatchingThreshold();
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
                     Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, true);

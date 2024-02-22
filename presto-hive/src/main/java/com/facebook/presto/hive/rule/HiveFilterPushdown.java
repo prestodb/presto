@@ -156,7 +156,7 @@ public class HiveFilterPushdown
 
             SemiTransactionalHiveMetastore metastore = ((HiveMetadata) metadata).getMetastore();
 
-            MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
+            MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
             Table table = metastore.getTable(context, hiveTableHandle)
                     .orElseThrow(() -> new TableNotFoundException(tableName));
 

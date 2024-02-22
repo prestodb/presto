@@ -38,8 +38,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlanFragment;
@@ -176,17 +175,14 @@ public class TestCanonicalPlanGenerator
         assertDifferentCanonicalLeafSubPlan("SELECT totalprice FROM orders", "SELECT orderkey, totalprice FROM orders");
         assertDifferentCanonicalLeafSubPlan("SELECT * FROM orders", "SELECT orderkey, totalprice FROM orders");
     }
-
     @Test
     public void testTableScanAndProjectWithStrategy()
             throws Exception
     {
         assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 1 from orders", CONNECTOR);
         assertDifferentCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", CONNECTOR);
-        assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", IGNORE_SAFE_CONSTANTS);
-        assertSameCanonicalLeafPlan("SELECT CAST(1 AS VARCHAR) from orders", "SELECT CAST(2 AS VARCHAR) from orders", IGNORE_SAFE_CONSTANTS);
-        assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", IGNORE_SCAN_CONSTANTS);
-        assertSameCanonicalLeafPlan("SELECT CAST(1 AS VARCHAR) from orders", "SELECT CAST(2 AS VARCHAR) from orders", IGNORE_SCAN_CONSTANTS);
+        assertSameCanonicalLeafPlan("SELECT 1 from orders", "SELECT 2 from orders", REMOVE_SAFE_CONSTANTS);
+        assertSameCanonicalLeafPlan("SELECT CAST(1 AS VARCHAR) from orders", "SELECT CAST(2 AS VARCHAR) from orders", REMOVE_SAFE_CONSTANTS);
 
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice, custkey + (totalprice / 10) from orders",
@@ -199,11 +195,7 @@ public class TestCanonicalPlanGenerator
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice, custkey + (totalprice / 10) from orders",
                 "SELECT custkey + (totalprice / 5), totalprice from orders",
-                IGNORE_SAFE_CONSTANTS);
-        assertSameCanonicalLeafPlan(
-                "SELECT totalprice, custkey + (totalprice / 10) from orders",
-                "SELECT custkey + (totalprice / 5), totalprice from orders",
-                IGNORE_SCAN_CONSTANTS);
+                REMOVE_SAFE_CONSTANTS);
     }
 
     @Test
@@ -221,11 +213,7 @@ public class TestCanonicalPlanGenerator
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
-                IGNORE_SAFE_CONSTANTS);
-        assertDifferentCanonicalLeafPlan(
-                "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 120",
-                "SELECT totalprice from orders WHERE custkey > 100 AND custkey < 110",
-                IGNORE_SCAN_CONSTANTS);
+                REMOVE_SAFE_CONSTANTS);
 
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey IN (10,20,30)",
@@ -234,19 +222,11 @@ public class TestCanonicalPlanGenerator
         assertDifferentCanonicalLeafPlan(
                 "SELECT totalprice from orders WHERE custkey IN (10,20,30)",
                 "SELECT totalprice from orders WHERE custkey IN (10,30,40)",
-                IGNORE_SAFE_CONSTANTS);
+                REMOVE_SAFE_CONSTANTS);
         assertSameCanonicalLeafPlan(
                 "SELECT totalprice, CAST(3 AS VARCHAR) from orders WHERE custkey > 100 AND custkey < 120",
                 "SELECT totalprice, CAST(2 AS VARCHAR) as x from orders WHERE custkey > 100 AND custkey < 120",
-                IGNORE_SAFE_CONSTANTS);
-        assertDifferentCanonicalLeafPlan(
-                "SELECT totalprice from orders WHERE custkey IN (10,20,30)",
-                "SELECT totalprice from orders WHERE custkey IN (10,30,40)",
-                IGNORE_SCAN_CONSTANTS);
-        assertSameCanonicalLeafPlan(
-                "SELECT totalprice, CAST(3 AS VARCHAR) from orders WHERE custkey > 100 AND custkey < 120",
-                "SELECT totalprice, CAST(2 AS VARCHAR) as x from orders WHERE custkey > 100 AND custkey < 120",
-                IGNORE_SCAN_CONSTANTS);
+                REMOVE_SAFE_CONSTANTS);
     }
 
     private static List<SubPlan> getLeafSubPlans(SubPlan subPlan)
