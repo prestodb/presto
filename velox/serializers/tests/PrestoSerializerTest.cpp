@@ -1001,7 +1001,7 @@ TEST_P(PrestoSerializerTest, encodedRoundtrip) {
     auto rowType = fuzzer.randRowType();
     auto inputRowVector = fuzzer.fuzzInputRow(rowType);
     serializer::presto::PrestoVectorSerde::PrestoOptions serdeOpts;
-    serdeOpts.nullsFirst = true;
+    serdeOpts.nullsFirst = i % 2 == 0;
     testEncodedRoundTrip(inputRowVector, &serdeOpts);
   }
 }
@@ -1050,7 +1050,7 @@ TEST_P(PrestoSerializerTest, encodedConcatenation) {
     makePermutations(vectors, 4, temp, permutations);
     for (auto i = 0; i < permutations.size(); ++i) {
       serializer::presto::PrestoVectorSerde::PrestoOptions opts;
-      opts.nullsFirst = true;
+      opts.nullsFirst = i % 2 == 0;
       testEncodedConcatenation(permutations[i], &opts);
     }
   }
