@@ -16,13 +16,7 @@ add_library(
   velox_hive_iceberg_splitreader IcebergSplitReader.cpp IcebergSplit.cpp
                                  PositionalDeleteFileReader.cpp)
 
-target_link_libraries(
-  velox_hive_iceberg_splitreader
-  Folly::folly
-  gflags::gflags
-  glog::glog
-  gtest
-  gtest_main
-  xsimd)
+target_link_libraries(velox_hive_iceberg_splitreader velox_connector
+                      Folly::folly)
 
 add_subdirectory(tests)
