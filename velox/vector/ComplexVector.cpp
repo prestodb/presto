@@ -1327,6 +1327,202 @@ void MapVector::copyRanges(
   copyRangesImpl(source, ranges, &values_, &keys_);
 }
 
+namespace {
+
+struct UpdateSource {
+  vector_size_t entryIndex;
+  int8_t sourceIndex;
+};
+
+template <typename T>
+class UpdateMapRow {
+ public:
+  void insert(
+      const DecodedVector* decoded,
+      vector_size_t entryIndex,
+      int8_t sourceIndex) {
+    values_[decoded->valueAt<T>(entryIndex)] = {entryIndex, sourceIndex};
+  }
+
+  template <typename F>
+  void forEachEntry(F&& func) {
+    for (auto& [_, source] : values_) {
+      func(source);
+    }
+  }
+
+  void clear() {
+    values_.clear();
+  }
+
+ private:
+  folly::F14FastMap<T, UpdateSource> values_;
+};
+
+template <>
+class UpdateMapRow<void> {
+ public:
+  void insert(
+      const DecodedVector* decoded,
+      vector_size_t entryIndex,
+      int8_t sourceIndex) {
+    references_[{decoded->base(), decoded->index(entryIndex)}] = {
+        entryIndex, sourceIndex};
+  }
+
+  template <typename F>
+  void forEachEntry(F&& func) {
+    for (auto& [_, source] : references_) {
+      func(source);
+    }
+  }
+
+  void clear() {
+    references_.clear();
+  }
+
+ private:
+  struct Reference {
+    const BaseVector* base;
+    vector_size_t index;
+
+    bool operator==(const Reference& other) const {
+      return base->equalValueAt(other.base, index, other.index);
+    }
+  };
+
+  struct ReferenceHasher {
+    uint64_t operator()(const Reference& key) const {
+      return key.base->hashValueAt(key.index);
+    }
+  };
+
+  folly::F14FastMap<Reference, UpdateSource, ReferenceHasher> references_;
+};
+
+} // namespace
+
+template <TypeKind kKeyTypeKind>
+MapVectorPtr MapVector::updateImpl(
+    const std::vector<MapVectorPtr>& others) const {
+  auto newNulls = nulls();
+  bool allocatedNewNulls = false;
+  for (auto& other : others) {
+    if (!other->nulls()) {
+      continue;
+    }
+    if (!newNulls) {
+      newNulls = other->nulls();
+      continue;
+    }
+    if (!allocatedNewNulls) {
+      auto* prevNewNulls = newNulls->as<uint64_t>();
+      newNulls = allocateNulls(size(), pool());
+      allocatedNewNulls = true;
+      bits::andBits(
+          newNulls->asMutable<uint64_t>(),
+          prevNewNulls,
+          other->rawNulls(),
+          0,
+          size());
+    } else {
+      bits::andBits(
+          newNulls->asMutable<uint64_t>(), other->rawNulls(), 0, size());
+    }
+  }
+
+  auto newOffsets = allocateIndices(size(), pool());
+  auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
+  auto newSizes = allocateIndices(size(), pool());
+  auto* rawNewSizes = newSizes->asMutable<vector_size_t>();
+
+  std::vector<DecodedVector> keys;
+  keys.reserve(1 + others.size());
+  keys.emplace_back(*keys_);
+  for (auto& other : others) {
+    VELOX_CHECK(*keys_->type() == *other->keys_->type());
+    keys.emplace_back(*other->keys_);
+  }
+  std::vector<std::vector<BaseVector::CopyRange>> ranges(1 + others.size());
+
+  // Subscript symbols in this function:
+  //
+  // i : Top level row index.
+  // j, jj : Key/value vector index.  `jj' is the offset version of `j'.
+  // k : Index into `others' and `ranges' for choosing a map vector.
+  UpdateMapRow<typename TypeTraits<kKeyTypeKind>::NativeType> mapRow;
+  vector_size_t numEntries = 0;
+  for (vector_size_t i = 0; i < size(); ++i) {
+    rawNewOffsets[i] = numEntries;
+    if (newNulls && bits::isBitNull(newNulls->as<uint64_t>(), i)) {
+      rawNewSizes[i] = 0;
+      continue;
+    }
+    bool needUpdate = false;
+    for (auto& other : others) {
+      if (other->sizeAt(i) > 0) {
+        needUpdate = true;
+        break;
+      }
+    }
+    if (!needUpdate) {
+      // Fast path for no update on current row.
+      rawNewSizes[i] = sizeAt(i);
+      if (sizeAt(i) > 0) {
+        ranges[0].push_back({offsetAt(i), numEntries, sizeAt(i)});
+        numEntries += sizeAt(i);
+      }
+      continue;
+    }
+    for (int k = 0; k < keys.size(); ++k) {
+      auto* vector = k == 0 ? this : others[k - 1].get();
+      auto offset = vector->offsetAt(i);
+      auto size = vector->sizeAt(i);
+      for (vector_size_t j = 0; j < size; ++j) {
+        auto jj = offset + j;
+        VELOX_DCHECK(!keys[k].isNullAt(jj));
+        mapRow.insert(&keys[k], jj, k);
+      }
+    }
+    vector_size_t newSize = 0;
+    mapRow.forEachEntry([&](UpdateSource source) {
+      ranges[source.sourceIndex].push_back(
+          {source.entryIndex, numEntries + newSize, 1});
+      ++newSize;
+    });
+    mapRow.clear();
+    rawNewSizes[i] = newSize;
+    numEntries += newSize;
+  }
+
+  auto newKeys = BaseVector::create(mapKeys()->type(), numEntries, pool());
+  auto newValues = BaseVector::create(mapValues()->type(), numEntries, pool());
+  for (int k = 0; k < ranges.size(); ++k) {
+    auto* vector = k == 0 ? this : others[k - 1].get();
+    newKeys->copyRanges(vector->mapKeys().get(), ranges[k]);
+    newValues->copyRanges(vector->mapValues().get(), ranges[k]);
+  }
+
+  return std::make_shared<MapVector>(
+      pool(),
+      type(),
+      std::move(newNulls),
+      size(),
+      std::move(newOffsets),
+      std::move(newSizes),
+      std::move(newKeys),
+      std::move(newValues));
+}
+
+MapVectorPtr MapVector::update(const std::vector<MapVectorPtr>& others) const {
+  VELOX_CHECK(!others.empty());
+  VELOX_CHECK(others.size() < std::numeric_limits<int8_t>::max());
+  for (auto& other : others) {
+    VELOX_CHECK_EQ(size(), other->size());
+  }
+  return VELOX_DYNAMIC_TYPE_DISPATCH(updateImpl, keys_->typeKind(), others);
+}
+
 void RowVector::appendNulls(vector_size_t numberOfRows) {
   VELOX_CHECK_GE(numberOfRows, 0);
   if (numberOfRows == 0) {

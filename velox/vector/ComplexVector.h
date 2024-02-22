@@ -614,6 +614,14 @@ class MapVector : public ArrayVectorBase {
 
   void validate(const VectorValidateOptions& options) const override;
 
+  /// Update this map vector (base) with a list of map vectors (updates) of same
+  /// size.  Maps are updated row-wise, i.e. for a certain key in each row, we
+  /// keep the entry from the last update map containing the key.  If no update
+  /// map contains the key, we use the entry from base.  Any null map in either
+  /// base or updates creates a null row in the result.
+  std::shared_ptr<MapVector> update(
+      const std::vector<std::shared_ptr<MapVector>>& others) const;
+
  protected:
   virtual void resetDataDependentFlags(const SelectivityVector* rows) override {
     BaseVector::resetDataDependentFlags(rows);
@@ -628,6 +636,10 @@ class MapVector : public ArrayVectorBase {
   // makes a Buffer with 0, 1, 2,... size-1. This is later sorted to
   // get elements in key order in each map.
   BufferPtr elementIndices() const;
+
+  template <TypeKind kKeyTypeKind>
+  std::shared_ptr<MapVector> updateImpl(
+      const std::vector<std::shared_ptr<MapVector>>& others) const;
 
   VectorPtr keys_;
   VectorPtr values_;
@@ -649,4 +661,5 @@ inline BufferPtr allocateOffsets(vector_size_t size, memory::MemoryPool* pool) {
 inline BufferPtr allocateSizes(vector_size_t size, memory::MemoryPool* pool) {
   return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
 }
+
 } // namespace facebook::velox

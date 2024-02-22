@@ -28,3 +28,7 @@ add_executable(copy_benchmark CopyBenchmark.cpp)
 
 target_link_libraries(copy_benchmark velox_vector_test_lib Folly::folly
                       ${FOLLY_BENCHMARK})
+
+add_executable(velox_vector_map_update_benchmark MapUpdateBenchmark.cpp)
+target_link_libraries(velox_vector_map_update_benchmark velox_vector_test_lib
+                      Folly::folly ${FOLLY_BENCHMARK} gflags::gflags glog::glog)

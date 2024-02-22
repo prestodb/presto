@@ -3647,5 +3647,118 @@ TEST_F(VectorTest, getLargeStringBuffer) {
   EXPECT_GE(buffer->capacity(), size);
 }
 
+TEST_F(VectorTest, mapUpdate) {
+  auto base = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 1}}},
+      {{}},
+      {{{3, 1}}},
+      std::nullopt,
+      {{{4, 1}}},
+  });
+  auto update = makeNullableMapVector<int64_t, int64_t>({
+      {{{2, 2}, {3, 2}}},
+      {{{4, 2}}},
+      {{}},
+      {{{5, 2}}},
+      std::nullopt,
+  });
+  auto expected = makeNullableMapVector<int64_t, int64_t>({
+      {{{2, 2}, {3, 2}, {1, 1}}},
+      {{{4, 2}}},
+      {{{3, 1}}},
+      std::nullopt,
+      std::nullopt,
+  });
+  auto actual = base->update({update});
+  ASSERT_EQ(actual->size(), expected->size());
+  for (int i = 0; i < actual->size(); ++i) {
+    ASSERT_TRUE(actual->equalValueAt(expected.get(), i, i));
+  }
+}
+
+TEST_F(VectorTest, mapUpdateRowKeyType) {
+  auto base = makeMapVector(
+      {0, 2},
+      makeRowVector({
+          makeFlatVector<int64_t>({1, 2}),
+          makeFlatVector<int64_t>({1, 2}),
+      }),
+      makeFlatVector<int64_t>({1, 1}));
+  auto update = makeMapVector(
+      {0, 2},
+      makeRowVector({
+          makeFlatVector<int64_t>({2, 3}),
+          makeFlatVector<int64_t>({2, 3}),
+      }),
+      makeFlatVector<int64_t>({2, 2}));
+  auto expected = makeMapVector(
+      {0, 3},
+      makeRowVector({
+          makeFlatVector<int64_t>({1, 2, 3}),
+          makeFlatVector<int64_t>({1, 2, 3}),
+      }),
+      makeFlatVector<int64_t>({1, 2, 2}));
+  auto actual = base->update({update});
+  ASSERT_EQ(actual->size(), expected->size());
+  for (int i = 0; i < actual->size(); ++i) {
+    ASSERT_TRUE(actual->equalValueAt(expected.get(), i, i));
+  }
+}
+
+TEST_F(VectorTest, mapUpdateNullMapValue) {
+  auto base = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 1}}},
+  });
+  auto update = makeNullableMapVector<int64_t, int64_t>({
+      {{{2, std::nullopt}, {3, 2}}},
+  });
+  auto expected = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, std::nullopt}, {3, 2}}},
+  });
+  auto actual = base->update({update});
+  ASSERT_EQ(actual->size(), expected->size());
+  for (int i = 0; i < actual->size(); ++i) {
+    ASSERT_TRUE(actual->equalValueAt(expected.get(), i, i));
+  }
+}
+
+TEST_F(VectorTest, mapUpdateMultipleUpdates) {
+  auto base = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 1}}},
+      {{}},
+      {{{3, 1}}},
+      std::nullopt,
+      {{{4, 1}}},
+  });
+  std::vector<MapVectorPtr> updates = {
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{2, 2}, {3, 2}}},
+          {{{4, 2}}},
+          {{}},
+          {{{5, 2}}},
+          std::nullopt,
+      }),
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{3, 3}, {4, 3}}},
+          std::nullopt,
+          {{}},
+          {{}},
+          {{}},
+      }),
+  };
+  auto expected = makeNullableMapVector<int64_t, int64_t>({
+      {{{1, 1}, {2, 2}, {3, 3}, {4, 3}}},
+      std::nullopt,
+      {{{3, 1}}},
+      std::nullopt,
+      std::nullopt,
+  });
+  auto actual = base->update(updates);
+  ASSERT_EQ(actual->size(), expected->size());
+  for (int i = 0; i < actual->size(); ++i) {
+    ASSERT_TRUE(actual->equalValueAt(expected.get(), i, i));
+  }
+}
+
 } // namespace
 } // namespace facebook::velox
