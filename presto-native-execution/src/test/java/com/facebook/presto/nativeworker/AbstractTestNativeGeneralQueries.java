@@ -728,6 +728,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
 
+        // Short decimal / long decimal -> long decimal.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('0.01' as decimal(17, 4)), CAST('5' as decimal(21, 19)))," +
+                "(CAST('0.02' as decimal(17, 4)), CAST('4' as decimal(21, 19)))" +
+                ") t(n,m)");
+
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
                 " t(n,m)", ".*Decimal.*");

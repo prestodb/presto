@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -1091,6 +1092,46 @@ public abstract class AbstractTestDistributedQueries
             // There is no clean exception message for authorization failure.  We simply get a 403
             Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
+    }
+
+    @Test
+    public void testViewAccessControlInvokerDefault()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty("default_view_security_mode", INVOKER.name())
+                .build();
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from columns.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
     }
 
     @Test

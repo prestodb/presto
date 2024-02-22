@@ -1388,6 +1388,18 @@ public class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testColumnNameWithSpace()
+    {
+        Session session = getSession();
+        String tableName = "test_column_name_with_space";
+        String columnName = "column a";
+        assertUpdate(format("CREATE TABLE %s (\"%s\" int)", tableName, columnName));
+        assertUpdate(format("INSERT INTO %s VALUES (123), (456)", tableName), 2);
+        assertQuery(format("SELECT \"%s\" FROM %s", columnName, tableName), "VALUES (123), (456)");
+        dropTable(session, tableName);
+    }
+
+    @Test
     public void testDeleteUnPartitionedTable()
     {
         Session session = getSession();

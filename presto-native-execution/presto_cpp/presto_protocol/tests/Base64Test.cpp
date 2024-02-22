@@ -507,3 +507,21 @@ TEST_F(Base64Test, rowWithNestedRow) {
       rowVector2->childAt(2)->as<SimpleVector<UnknownValue>>()->isNullAt(0),
       true);
 }
+
+TEST_F(Base64Test, rowWithIntermediateNulls) {
+  // Ensure that a ROW with intermediate nulls is handled correctly. Since only
+  // non-null values are serialized, we need to ensure that gaps in the child
+  // vectors are introduced for the null indices to ensure a valid vector.
+  // Vector used: ROW(c0: INTEGER) types with values [null, 2, null, 4]
+  const std::string data =
+      "AwAAAFJPVwEAAAAJAAAASU5UX0FSUkFZAgAAAAACAAAABAAAAAQAAAAAAAAAAAAAAAEAAAABAAAAAgAAAAGt";
+  auto resultVector = readBlock(ROW({"c0"}, {INTEGER()}), data, pool_.get());
+  auto resultRow = resultVector->as<RowVector>();
+  ASSERT_EQ(resultVector->as<RowVector>()->childrenSize(), 1);
+  auto child = resultRow->childAt(0)->asFlatVector<int32_t>();
+  ASSERT_EQ(child->size(), resultRow->size());
+  ASSERT_TRUE(resultVector->isNullAt(0));
+  ASSERT_EQ(child->valueAt(1), 2);
+  ASSERT_TRUE(resultVector->isNullAt(2));
+  ASSERT_EQ(child->valueAt(3), 4);
+}

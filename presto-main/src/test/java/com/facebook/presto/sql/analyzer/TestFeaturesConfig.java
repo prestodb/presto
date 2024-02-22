@@ -49,6 +49,8 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -265,7 +267,8 @@ public class TestFeaturesConfig
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
                 .setGenerateDomainFilters(false)
                 .setRewriteExpressionWithConstantVariable(true)
-                .setDefaultWriterReplicationCoefficient(3.0));
+                .setDefaultWriterReplicationCoefficient(3.0)
+                .setDefaultViewSecurityMode(DEFINER));
     }
 
     @Test
@@ -477,6 +480,7 @@ public class TestFeaturesConfig
                 .put("optimizer.generate-domain-filters", "true")
                 .put("optimizer.rewrite-expression-with-constant-variable", "false")
                 .put("optimizer.default-writer-replication-coefficient", "5.0")
+                .put("default-view-security-mode", INVOKER.name())
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -685,7 +689,8 @@ public class TestFeaturesConfig
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
                 .setGenerateDomainFilters(true)
                 .setRewriteExpressionWithConstantVariable(false)
-                .setDefaultWriterReplicationCoefficient(5.0);
+                .setDefaultWriterReplicationCoefficient(5.0)
+                .setDefaultViewSecurityMode(INVOKER);
         assertFullMapping(properties, expected);
     }
 
