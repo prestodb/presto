@@ -675,6 +675,9 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
       hiveConfig_->orcWriterMaxStripeSize(connectorSessionProperties));
   options.maxDictionaryMemory = std::optional(
       hiveConfig_->orcWriterMaxDictionaryMemory(connectorSessionProperties));
+  options.serdeParameters = std::map<std::string, std::string>(
+      insertTableHandle_->serdeParameters().begin(),
+      insertTableHandle_->serdeParameters().end());
   ioStats_.emplace_back(std::make_shared<io::IoStatistics>());
 
   // Prevents the memory allocation during the writer creation.
