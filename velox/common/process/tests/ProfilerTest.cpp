@@ -56,7 +56,6 @@ TEST(ProfilerTest, basic) {
   return;
 #endif
   filesystems::registerLocalFileSystem();
-  Profiler::start("/tmp/profilertest");
   // We have seconds of busy and idle activity. We set the profiler to
   // check every second and to trigger after 1s at 200%. A burst of
   // under 2s is not recorded and a new file is started after every 4s

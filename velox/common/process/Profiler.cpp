@@ -54,15 +54,15 @@ DEFINE_string(profiler_perf_flags, "", "Extra flags for Linux perf");
 
 namespace facebook::velox::process {
 
-bool Profiler::profileStarted_;
+tsan_atomic<bool> Profiler::profileStarted_;
 std::thread Profiler::profileThread_;
 std::mutex Profiler::profileMutex_;
 std::shared_ptr<velox::filesystems::FileSystem> Profiler::fileSystem_;
-bool Profiler::isSleeping_;
+tsan_atomic<bool> Profiler::isSleeping_;
 std::string Profiler::resultPath_;
-bool Profiler::shouldStop_;
+tsan_atomic<bool> Profiler::shouldStop_;
 folly::Promise<bool> Profiler::sleepPromise_;
-bool Profiler::shouldSaveResult_;
+tsan_atomic<bool> Profiler::shouldSaveResult_;
 int64_t Profiler::sampleStartTime_;
 int64_t Profiler::cpuAtSampleStart_;
 int64_t Profiler::cpuAtLastCheck_;

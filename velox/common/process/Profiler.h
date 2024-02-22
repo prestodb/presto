@@ -46,12 +46,12 @@ class Profiler {
   static void stopSample(std::thread thread);
   static void threadFunction();
 
-  static bool profileStarted_;
+  static tsan_atomic<bool> profileStarted_;
   static std::thread profileThread_;
   static std::mutex profileMutex_;
   static std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  static bool isSleeping_;
-  static bool shouldStop_;
+  static tsan_atomic<bool> isSleeping_;
+  static tsan_atomic<bool> shouldStop_;
   static folly::Promise<bool> sleepPromise_;
 
   // Directory where results are deposited. Results have unique names within
@@ -59,7 +59,7 @@ class Profiler {
   static std::string resultPath_;
 
   // indicates if the results of the the profile should be saved at stop.
-  static bool shouldSaveResult_;
+  static tsan_atomic<bool> shouldSaveResult_;
 
   // Time of starting the profile. Seconds from epoch.
   static int64_t sampleStartTime_;
