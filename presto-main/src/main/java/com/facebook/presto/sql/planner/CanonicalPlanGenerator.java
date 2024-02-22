@@ -86,8 +86,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.usePerfectlyConsistentHistories;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.DEFAULT;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
@@ -741,7 +740,7 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getOutputVariables().stream()
-                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == IGNORE_SAFE_CONSTANTS), variable))
+                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == REMOVE_SAFE_CONSTANTS), variable))
                 .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
 
@@ -949,7 +948,7 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getAssignments().entrySet().stream()
-                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == IGNORE_SAFE_CONSTANTS || strategy == IGNORE_SCAN_CONSTANTS), entry.getKey()))
+                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == REMOVE_SAFE_CONSTANTS), entry.getKey()))
                 .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();

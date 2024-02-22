@@ -254,10 +254,6 @@ Property Name                             Description
 ``format_version``                         Optionally specifies the format version of the Iceberg
                                            specification to use for new tables, either ``1`` or ``2``.
                                            Defaults to ``1``.
-
-``commit_retries``                         Determines the number of attempts for committing the metadata
-                                           in case of concurrent upsert requests, before failing. The
-                                           default value is 4.
 ========================================= ===============================================================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,

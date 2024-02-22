@@ -425,9 +425,9 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
   const auto type = typeParser_->parse(pexpr->type);
   switch (type->kind()) {
     case TypeKind::ROW:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case TypeKind::ARRAY:
-      [[fallthrough]];
+      FOLLY_FALLTHROUGH;
     case TypeKind::MAP: {
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);

@@ -2995,8 +2995,7 @@ public abstract class AbstractTestQueries
                 getSession().getPreparedStatements(),
                 ImmutableMap.of(),
                 getSession().getTracer(),
-                getSession().getWarningCollector(),
-                getSession().getRuntimeStats());
+                getSession().getWarningCollector());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -6675,8 +6674,6 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "WITH emptyorders as (select * from orders where false) SELECT p.name, l.orderkey, l.partkey, l.quantity, RANK() OVER (PARTITION BY p.name ORDER BY l.quantity DESC) AS rank_quantity " +
                 "FROM lineitem l JOIN emptyorders o ON l.orderkey = o.orderkey JOIN part p ON l.partkey = p.partkey WHERE o.orderdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' " +
                 "AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100");
-        assertQuery(enableOptimization, "select orderkey, row_number() over (partition by orderpriority), orderpriority from (select orderkey, orderpriority from orders where false)");
-        assertQuery(enableOptimization, "select * from (select orderkey, row_number() over (partition by orderpriority order by orderkey) row_number, orderpriority from (select orderkey, orderpriority from orders where false)) where row_number < 2");
 
         emptyJoinQueries(enableOptimization);
     }

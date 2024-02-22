@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
@@ -41,7 +40,6 @@ public class MetastoreContext
     // that only have a handle to the provider (e.g. SemiTransactionalHiveMetastore)
     private final ColumnConverterProvider columnConverterProvider;
     private final WarningCollector warningCollector;
-    private final RuntimeStats runtimeStats;
 
     public MetastoreContext(
             ConnectorIdentity identity,
@@ -51,10 +49,9 @@ public class MetastoreContext
             Optional<String> metastoreHeaders,
             boolean userDefinedTypeEncodingEnabled,
             ColumnConverterProvider columnConverterProvider,
-            WarningCollector warningCollector,
-            RuntimeStats runtimeStats)
+            WarningCollector warningCollector)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector);
     }
 
     public MetastoreContext(
@@ -65,10 +62,9 @@ public class MetastoreContext
             Optional<String> metastoreHeaders,
             boolean userDefinedTypeEncodingEnabled,
             ColumnConverterProvider columnConverterProvider,
-            WarningCollector warningCollector,
-            RuntimeStats runtimeStats)
+            WarningCollector warningCollector)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector);
     }
 
     public MetastoreContext(
@@ -80,8 +76,7 @@ public class MetastoreContext
             Optional<String> metastoreHeaders,
             boolean userDefinedTypeEncodingEnabled,
             ColumnConverterProvider columnConverterProvider,
-            WarningCollector warningCollector,
-            RuntimeStats runtimeStats)
+            WarningCollector warningCollector)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -98,7 +93,6 @@ public class MetastoreContext
             this.columnConverter = requireNonNull(HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER, "columnConverter is null");
         }
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     public ColumnConverterProvider getColumnConverterProvider()
@@ -149,11 +143,6 @@ public class MetastoreContext
     public WarningCollector getWarningCollector()
     {
         return warningCollector;
-    }
-
-    public RuntimeStats getRuntimeStats()
-    {
-        return runtimeStats;
     }
 
     @Override

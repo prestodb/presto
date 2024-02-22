@@ -75,26 +75,6 @@ public class TestCteProjectionAndPredicatePushdown
     }
 
     @Test
-    public void testComplexQueryFilterPushdown()
-    {
-        String testQuery = "WITH  nation_region AS ( " +
-                "                SELECT n.name, r.comment AS region_comment, n.comment AS nation_comment" +
-                "                FROM region r join nation n on (r.regionkey=n.regionkey)) " +
-                "select * from nation_region where name = 'abc' " +
-                "union all " +
-                "select * from nation_region where name = 'bcd'";
-
-        assertCtePlan(testQuery,
-                anyTree(
-                        sequence(
-                                cteProducer(addQueryScopeDelimiter("nation_region", 0),
-                                        project(// no projection pushdown but a project gets added to make sure columns are ordered the right way
-                                                filter("name = 'abc' or name = 'bcd'",
-                                                        join(tableScan("region"), tableScan("nation", identityMap("name", "comment", "regionkey")))))),
-                                anyTree(cteConsumer(addQueryScopeDelimiter("nation_region", 0))))));
-    }
-
-    @Test
     public void testNoFilterPushdown()
     {
         // one of the CTE consumers is used without a filter: no filter gets pushed to the producer as all rows are needed

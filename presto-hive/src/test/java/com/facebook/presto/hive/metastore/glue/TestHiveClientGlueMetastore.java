@@ -274,8 +274,7 @@ public class TestHiveClientGlueMetastore
                     getMetastoreHeaders(session),
                     false,
                     DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                    session.getWarningCollector(),
-                    session.getRuntimeStats());
+                    session.getWarningCollector());
             TableInput tableInput = new TableInput()
                     .withName(table.getTableName())
                     .withTableType(EXTERNAL_TABLE.name());

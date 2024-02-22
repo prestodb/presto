@@ -31,7 +31,6 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
-import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
@@ -846,16 +845,6 @@ public class PlanBuilder
                 emptyList(),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    public CteProducerNode cteProducerNode(String ctename,
-            VariableReferenceExpression rowCountVar, List<VariableReferenceExpression> outputVars, PlanNode source)
-    {
-        return new CteProducerNode(Optional.empty(),
-                idAllocator.getNextId(),
-                source,
-                ctename,
-                rowCountVar, outputVars);
     }
 
     public UnionNode union(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)

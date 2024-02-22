@@ -15,7 +15,6 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
@@ -69,7 +68,7 @@ public class TestFileBasedSystemAccessControl
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
-    private static final AccessControlContext context = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats());
+    private static final AccessControlContext context = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty(), WarningCollector.NOOP);
     @Test
     public void testCanSetUserOperations() throws IOException
     {

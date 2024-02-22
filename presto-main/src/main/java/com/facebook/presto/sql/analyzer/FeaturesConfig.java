@@ -92,14 +92,13 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
 
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
-    private boolean cteFilterAndProjectionPushdownEnabled;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
-    private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -164,7 +163,6 @@ public class FeaturesConfig
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
-    private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -953,19 +951,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @NotNull
-    public String getHistoryBasedOptimizerPlanCanonicalizationStrategies()
-    {
-        return historyBasedOptimizerPlanCanonicalizationStrategies;
-    }
-
-    @Config("optimizer.history-based-optimizer-plan-canonicalization-strategies")
-    public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
-    {
-        this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
-        return this;
-    }
-
     public AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy()
     {
         return aggregationPartitioningMergingStrategy;
@@ -1513,19 +1498,6 @@ public class FeaturesConfig
     public double getDefaultJoinSelectivityCoefficient()
     {
         return defaultJoinSelectivityCoefficient;
-    }
-
-    @Config("optimizer.default-writer-replication-coefficient")
-    @ConfigDescription("Replication coefficient for costing write operations")
-    public FeaturesConfig setDefaultWriterReplicationCoefficient(double defaultJoinSelectivityCoefficient)
-    {
-        this.defaultWriterReplicationCoefficient = defaultJoinSelectivityCoefficient;
-        return this;
-    }
-
-    public double getDefaultWriterReplicationCoefficient()
-    {
-        return defaultWriterReplicationCoefficient;
     }
 
     public DataSize getTopNOperatorUnspillMemoryLimit()

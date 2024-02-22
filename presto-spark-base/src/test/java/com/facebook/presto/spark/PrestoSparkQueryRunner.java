@@ -18,7 +18,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -171,7 +170,7 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {

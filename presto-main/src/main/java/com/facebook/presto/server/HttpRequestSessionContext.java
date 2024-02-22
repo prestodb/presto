@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -122,7 +121,6 @@ public final class HttpRequestSessionContext
 
     private final Optional<SessionPropertyManager> sessionPropertyManager;
     private final Optional<Tracer> tracer;
-    private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
@@ -516,12 +514,6 @@ public final class HttpRequestSessionContext
     public Optional<Tracer> getTracer()
     {
         return tracer;
-    }
-
-    @Override
-    public RuntimeStats getRuntimeStats()
-    {
-        return runtimeStats;
     }
 
     /**

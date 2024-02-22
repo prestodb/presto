@@ -81,9 +81,6 @@ public class StatsCalculatorModule
         rules.add(new SampleStatsRule(normalizer));
         rules.add(new IntersectStatsRule(normalizer));
         rules.add(new RemoteSourceStatsRule(fragmentStatsProvider, normalizer));
-        rules.add(new SequenceStatsRule());
-        rules.add(new CteProducerStatsRule());
-        rules.add(new CteConsumerStatsRule());
 
         return new ComposableStatsCalculator(rules.build());
     }

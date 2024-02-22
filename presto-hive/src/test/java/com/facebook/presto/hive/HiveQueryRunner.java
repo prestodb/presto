@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
@@ -79,7 +78,7 @@ public final class HiveQueryRunner
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     public static final String TPCDS_SCHEMA = "tpcds";
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 

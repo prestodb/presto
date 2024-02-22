@@ -191,18 +191,16 @@ public class TestIcebergSystemTables
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 3");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 2");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
 
-        assertThat(materializedRows).hasSize(3);
+        assertThat(materializedRows).hasSize(2);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")))
-                .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")));
     }
 
     @Test

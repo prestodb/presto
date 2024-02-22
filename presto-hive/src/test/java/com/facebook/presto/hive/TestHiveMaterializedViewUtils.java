@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -64,7 +63,7 @@ public class TestHiveMaterializedViewUtils
     private static final String SQL = "sql";
 
     private final LiteralEncoder literalEncoder = new LiteralEncoder(new TestingBlockEncodingSerde());
-    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    private final MetastoreContext metastoreContext = new MetastoreContext(USER_NAME, QUERY_ID, Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
 
     @Test
     public void testMaterializedDataPredicates()
