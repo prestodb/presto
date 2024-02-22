@@ -137,6 +137,12 @@ Presto committers are defined as [code owners](https://docs.github.com/en/reposi
 
 New committers are approved by majority vote of the TSC ([see TSC charter](https://github.com/prestodb/tsc/blob/master/CHARTER.md)).  To become a committer, reach out to an [existing TSC member](https://github.com/prestodb/tsc#members) and ask for their feedback on your eligibility (see: [How to become a Presto Committer?](https://github.com/prestodb/presto/wiki/How-to-become-a-Presto-committer%3F)).  Note: to expedite the process, consider creating a document that outlines your Github stats, such as the number of reviews, lines of code added, number of PRs, and outlines particularly outstanding code and review contributions.  If the TSC member believes you are eligible, they will submit your nomination to a vote by the TSC, typically in the form of a PR that adds your handle to the `CODEOWNERS` file.  The process is complete once the PR is merged.
 
+Committers are responsible for providing final approval of pull requests in a timely manner.  If the committer is unable to provide timely review, they should assign the pull request to another committer.
+
+The [CODEOWNERS](CODEOWNERS) file should list the backup committers, called the [committers](https://github.com/orgs/prestodb/teams/committers) team, alongside any file grouping, and as a general
+fallback for file groupings that don't exist.  The TSC may add additional backup committers as needed.  The requirement for addition to the backup committers group is two or more code owners responsibilities in the Presto repository
+and approval from the TSC.  To nominate someone (including yourself) to be included in the backup committers team, send an email requesting this to [operations@prestodb.io](mailto:operations@prestodb.io).
+
 ## Pull Request Checklist
 
 - Branch from the master branch and, if needed, rebase to the current master
