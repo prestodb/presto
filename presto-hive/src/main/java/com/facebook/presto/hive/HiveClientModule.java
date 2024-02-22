@@ -27,13 +27,16 @@ import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
+import com.facebook.presto.hive.orc.DwrfAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
+import com.facebook.presto.hive.orc.OrcAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
+import com.facebook.presto.hive.parquet.ParquetAggregatedPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetFileWriterFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetSelectivePageSourceFactory;
@@ -208,6 +211,11 @@ public class HiveClientModule
         selectivePageSourceFactoryBinder.addBinding().to(OrcSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(DwrfSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
         selectivePageSourceFactoryBinder.addBinding().to(ParquetSelectivePageSourceFactory.class).in(Scopes.SINGLETON);
+
+        Multibinder<HiveAggregatedPageSourceFactory> aggregatedPageSourceFactoryBinder = newSetBinder(binder, HiveAggregatedPageSourceFactory.class);
+        aggregatedPageSourceFactoryBinder.addBinding().to(OrcAggregatedPageSourceFactory.class).in(Scopes.SINGLETON);
+        aggregatedPageSourceFactoryBinder.addBinding().to(DwrfAggregatedPageSourceFactory.class).in(Scopes.SINGLETON);
+        aggregatedPageSourceFactoryBinder.addBinding().to(ParquetAggregatedPageSourceFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataSinkFactory.class).to(OutputStreamDataSinkFactory.class).in(Scopes.SINGLETON);
 
