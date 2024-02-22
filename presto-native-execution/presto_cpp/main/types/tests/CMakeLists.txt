@@ -63,10 +63,10 @@ target_link_libraries(
   velox_type
   velox_type_parser
   Boost::filesystem
-  ${RE2}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
+  re2::re2
+  Folly::folly
+  glog::glog
+  gflags::gflags
   pthread)
 
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK

@@ -20,7 +20,7 @@ target_link_libraries(
   presto_exception
   velox_exception
   velox_file
-  ${RE2}
+  re2::re2
   gtest
   gtest_main)
 

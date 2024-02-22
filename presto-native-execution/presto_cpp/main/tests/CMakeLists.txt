@@ -40,7 +40,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_aggregates
   velox_hive_partition_function
-  ${RE2}
+  re2::re2
   gmock
   gtest
   gtest_main)
