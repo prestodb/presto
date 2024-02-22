@@ -49,6 +49,7 @@ void DecodedVector::decode(
     const SelectivityVector* rows,
     bool loadLazy) {
   reset(end(vector.size(), rows));
+  partialRowsDecoded_ = rows != nullptr;
   loadLazy_ = loadLazy;
   bool isTopLevelLazyAndLoaded =
       vector.isLazy() && vector.asUnchecked<LazyVector>()->isLoaded();
@@ -413,7 +414,7 @@ VectorPtr DecodedVector::wrap(
       std::move(data));
 }
 
-const uint64_t* DecodedVector::nulls() {
+const uint64_t* DecodedVector::nulls(const SelectivityVector* rows) {
   if (allNulls_.has_value()) {
     return allNulls_.value();
   }
@@ -433,9 +434,19 @@ const uint64_t* DecodedVector::nulls() {
       // Copy base nulls.
       copiedNulls_.resize(bits::nwords(size_));
       auto* rawCopiedNulls = copiedNulls_.data();
-      for (auto i = 0; i < size_; ++i) {
-        bits::setNull(rawCopiedNulls, i, bits::isBitNull(nulls_, indices_[i]));
+      VELOX_CHECK(
+          partialRowsDecoded_ == (rows != nullptr),
+          "DecodedVector::nulls() must be called with the same rows as decode()");
+      if (rows != nullptr) {
+        // Partial consistency check: The end may be less than the decode time
+        // end but not greater.
+        VELOX_CHECK_LE(rows->end(), size_);
       }
+      auto baseSize = baseVector_->size();
+      applyToRows(rows, [&](auto i) {
+        VELOX_DCHECK_LT(indices_[i], baseSize);
+        bits::setNull(rawCopiedNulls, i, bits::isBitNull(nulls_, indices_[i]));
+      });
       allNulls_ = copiedNulls_.data();
     }
   }

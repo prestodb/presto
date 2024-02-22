@@ -243,7 +243,7 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       auto deselectNull = [&](const VectorPtr& arg) {
         if (arg->mayHaveNulls()) {
           exec::LocalDecodedVector decodedVector(context, *arg, rowsNotNull);
-          if (auto* rawNulls = decodedVector->nulls()) {
+          if (auto* rawNulls = decodedVector->nulls(&rowsNotNull)) {
             rowsNotNull.deselectNulls(rawNulls, rows.begin(), rows.end());
           }
         }

@@ -146,7 +146,7 @@ void deselectRowsWithNulls(
     auto& decoded = hashers[i]->decodedVector();
     if (decoded.mayHaveNulls()) {
       anyChange = true;
-      const auto* nulls = hashers[i]->decodedVector().nulls();
+      const auto* nulls = hashers[i]->decodedVector().nulls(&rows);
       bits::andBits(rows.asMutableRange().bits(), nulls, 0, rows.end());
     }
   }
@@ -219,7 +219,7 @@ vector_size_t processEncodedFilterResults(
   DecodedVector& decoded = filterEvalCtx.decodedResult;
   decoded.decode(*filterResult.get(), rows);
   auto values = decoded.data<uint64_t>();
-  auto nulls = decoded.nulls();
+  auto nulls = decoded.nulls(&rows);
   auto indices = decoded.indices();
 
   vector_size_t passed = 0;

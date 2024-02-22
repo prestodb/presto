@@ -56,7 +56,7 @@ class LeastGreatestFunction final : public exec::VectorFunction {
 
       // Only compare with non-null elements of each argument
       *cmpRows = rows;
-      if (auto* rawNulls = decodedVectorHolder->nulls()) {
+      if (auto* rawNulls = decodedVectorHolder->nulls(&rows)) {
         cmpRows->deselectNulls(rawNulls, 0, nrows);
       }
 

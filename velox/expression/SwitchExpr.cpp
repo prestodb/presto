@@ -77,9 +77,9 @@ void SwitchExpr::evalSpecialForm(
       const auto& vector = context.getField(field->index(context));
       if (vector->mayHaveNulls()) {
         LocalDecodedVector decoded(context, *vector, remaining);
-        addNulls(remaining, decoded->nulls(), context, localResult);
+        addNulls(remaining, decoded->nulls(&remaining), context, localResult);
         remaining.deselectNulls(
-            decoded->nulls(), remaining.begin(), remaining.end());
+            decoded->nulls(&remaining), remaining.begin(), remaining.end());
       }
     }
   }

@@ -402,7 +402,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     SelectivityVector allRows(sourceSize);
     DecodedVector decoded(*source, allRows);
     auto base = decoded.base();
-    auto nulls = decoded.nulls();
+    auto nulls = decoded.nulls(&allRows);
     auto indices = decoded.indices();
     for (int32_t i = 0; i < sourceSize; ++i) {
       if (i % 2 == 0) {

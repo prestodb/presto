@@ -144,9 +144,10 @@ class DecodedVector {
   ///
   ///  nulls() ? bits::isBitNull(nulls(), i) : false
   ///
-  /// returns the null flag for top-level row 'i' given that 'i' is one of the
-  /// rows specified for decoding.
-  const uint64_t* nulls();
+  /// Only bit positions for decoded rows are valid. If 'rows' were
+  /// specified with decode(), the same rows have to be specified
+  /// here.
+  const uint64_t* nulls(const SelectivityVector* rows = nullptr);
 
   /// Returns true if wrappings may have added nulls.
   bool hasExtraNulls() const {
@@ -403,6 +404,10 @@ class DecodedVector {
   bool isConstantMapping_ = false;
 
   bool loadLazy_ = false;
+
+  // True if decode() was called with rows != nullptr. If so, nulls() must also
+  // be called with the same 'rows'.
+  bool partialRowsDecoded_{true};
 
   // Index of an element of the baseVector_ that points to a constant value of
   // complex type. Applies only when isConstantMapping_ is true and baseVector_

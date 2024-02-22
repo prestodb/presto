@@ -104,7 +104,7 @@ BooleanMix getFlatBool(
       memset(valuesToSet, 0, bits::nbytes(size));
       DecodedVector decoded(*vector, activeRows);
       auto values = decoded.data<uint64_t>();
-      auto nulls = decoded.nulls();
+      auto nulls = decoded.nulls(&activeRows);
       auto indices = decoded.indices();
       activeRows.applyToSelected([&](int32_t i) {
         auto index = indices[i];

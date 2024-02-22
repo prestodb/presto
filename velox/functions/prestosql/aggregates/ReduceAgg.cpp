@@ -298,7 +298,7 @@ class ReduceAgg : public exec::Aggregate {
     SelectivityVector remainingRows = rows;
     if (input->mayHaveNulls()) {
       DecodedVector decoded(*input, rows);
-      if (auto* rawNulls = decoded.nulls()) {
+      if (auto* rawNulls = decoded.nulls(&rows)) {
         remainingRows.deselectNulls(rawNulls, rows.begin(), rows.end());
       }
     }

@@ -69,7 +69,7 @@ class IsNullFunction : public exec::VectorFunction {
       isNull = AlignedBuffer::allocate<bool>(rows.end(), pool);
       memcpy(
           isNull->asMutable<int64_t>(),
-          decodedArgs.at(0)->nulls(),
+          decodedArgs.at(0)->nulls(&rows),
           bits::nbytes(rows.end()));
 
       if (!IsNotNULL) {

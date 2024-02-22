@@ -40,7 +40,7 @@ BufferPtr extractNonNullIndices(const RowVectorPtr& data) {
 
   for (auto& child : data->children()) {
     decoded.decode(*child);
-    auto* rawNulls = decoded.nulls();
+    auto* rawNulls = decoded.nulls(nullptr);
     if (rawNulls) {
       nonNullRows.deselectNulls(rawNulls, 0, data->size());
     }

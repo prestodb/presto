@@ -671,7 +671,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         innerRows.updateBounds();
       } else {
         velox::translateToInnerRows(
-            rows, decoded.indices(), decoded.nulls(), innerRows);
+            rows, decoded.indices(), decoded.nulls(&rows), innerRows);
       }
       baseRows = &innerRows;
     }

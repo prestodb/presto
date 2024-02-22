@@ -224,7 +224,7 @@ void RowVector::copy(
       }
     }
   } else {
-    auto nulls = decodedSource.nulls();
+    auto nulls = decodedSource.nulls(nullptr);
 
     if (nulls) {
       rows.applyToSelected([&](auto row) {

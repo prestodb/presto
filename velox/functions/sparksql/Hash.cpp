@@ -51,7 +51,7 @@ void applyWithType(
     if (args[i]->mayHaveNulls()) {
       *selectedMinusNulls.get(rows.end()) = rows;
       selectedMinusNulls->deselectNulls(
-          decoded->nulls(), rows.begin(), rows.end());
+          decoded->nulls(&rows), rows.begin(), rows.end());
       selected = selectedMinusNulls.get();
     }
     switch (args[i]->type()->kind()) {

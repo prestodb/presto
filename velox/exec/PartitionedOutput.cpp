@@ -289,7 +289,7 @@ void PartitionedOutput::collectNullRows() {
     auto& keyVector = input_->childAt(i);
     if (keyVector->mayHaveNulls()) {
       decodedVectors_[i].decode(*keyVector, rows_);
-      if (auto* rawNulls = decodedVectors_[i].nulls()) {
+      if (auto* rawNulls = decodedVectors_[i].nulls(&rows_)) {
         bits::orWithNegatedBits(
             nullRows_.asMutableRange().bits(), rawNulls, 0, size);
       }

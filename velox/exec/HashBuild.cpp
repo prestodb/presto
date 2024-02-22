@@ -299,7 +299,8 @@ void HashBuild::removeInputRowsForAntiJoinFilter() {
       changed = true;
       // NOTE: the true value of a raw null bit indicates non-null so we AND
       // 'rawActiveRows' with the raw bit.
-      bits::andBits(rawActiveRows, decoded.nulls(), 0, activeRows_.end());
+      bits::andBits(
+          rawActiveRows, decoded.nulls(&activeRows_), 0, activeRows_.end());
     }
   };
   for (auto channel : keyFilterChannels_) {
@@ -358,7 +359,7 @@ void HashBuild::addInput(RowVectorPtr input) {
     for (auto& hasher : hashers) {
       auto& decoded = hasher->decodedVector();
       if (decoded.mayHaveNulls()) {
-        auto* nulls = decoded.nulls();
+        auto* nulls = decoded.nulls(&activeRows_);
         if (nulls && bits::countNulls(nulls, 0, activeRows_.end()) > 0) {
           joinHasNullKeys_ = true;
           break;

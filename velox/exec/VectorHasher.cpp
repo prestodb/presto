@@ -160,7 +160,7 @@ bool VectorHasher::makeValueIdsFlatWithNulls<bool>(
     const SelectivityVector& rows,
     uint64_t* result) {
   const auto* values = decoded_.data<uint64_t>();
-  const auto* nulls = decoded_.nulls();
+  const auto* nulls = decoded_.nulls(&rows);
   rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {
     if (bits::isBitNull(nulls, row)) {
       if (multiplier_ == 1) {
@@ -210,7 +210,7 @@ bool VectorHasher::makeValueIdsFlatWithNulls(
     const SelectivityVector& rows,
     uint64_t* result) {
   const auto* values = decoded_.data<T>();
-  const auto* nulls = decoded_.nulls();
+  const auto* nulls = decoded_.nulls(&rows);
 
   bool success = true;
   rows.applyToSelected([&](vector_size_t row) INLINE_LAMBDA {

@@ -71,7 +71,7 @@ void CoalesceExpr::evalSpecialForm(
     }
 
     decodedVector.get()->decode(*result, *activeRows);
-    const uint64_t* rawNulls = decodedVector->nulls();
+    const uint64_t* rawNulls = decodedVector->nulls(activeRows);
     if (!rawNulls) {
       // No nulls left.
       return;

@@ -998,15 +998,15 @@ VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(
       [&](auto row) { rawIndices[row] = decodedIndices[row]; });
 
   BufferPtr nulls = nullptr;
-  if (decoded.nulls() || vectorSize > rows.end()) {
+  if (decoded.nulls(&rows) || vectorSize > rows.end()) {
     // We fill [rows.end(), vectorSize) with nulls then copy nulls for selected
     // baseRows.
     nulls = allocateNulls(vectorSize, vector_->pool(), bits::kNull);
     if (baseRows.hasSelections()) {
-      if (decoded.nulls()) {
+      if (decoded.nulls(&rows)) {
         std::memcpy(
             nulls->asMutable<uint64_t>(),
-            decoded.nulls(),
+            decoded.nulls(&rows),
             bits::nbytes(rows.end()));
       } else {
         bits::fillBits(
