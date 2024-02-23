@@ -1292,14 +1292,12 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
   }
 
  private:
-  template <typename F>
-  void testArrowRoundTrip(const arrow::Array& array, F validateVector) {
+  void toVeloxVector(const arrow::Array& array, VectorPtr& outVector) {
     ArrowSchema schema;
     ArrowArray data;
     ASSERT_OK(arrow::ExportType(*array.type(), &schema));
     ASSERT_OK(arrow::ExportArray(array, &data));
-    auto vec = importFromArrow(schema, data, pool_.get());
-    validateVector(*vec);
+    outVector = importFromArrow(schema, data, pool_.get());
     if (isViewer()) {
       // These release calls just decrease the refcount; there are still
       // references to keep the data alive from the original Arrow array.
@@ -1309,6 +1307,16 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       EXPECT_FALSE(schema.release);
       EXPECT_FALSE(data.release);
     }
+  }
+
+  template <typename F>
+  void testArrowRoundTrip(const arrow::Array& array, F validateVector) {
+    VectorPtr vec;
+    toVeloxVector(array, vec);
+    validateVector(*vec);
+
+    ArrowSchema schema;
+    ArrowArray data;
     velox::exportToArrow(vec, schema);
     velox::exportToArrow(vec, data, pool_.get());
     ASSERT_OK_AND_ASSIGN(auto arrowType, arrow::ImportType(&schema));
@@ -1371,6 +1379,124 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
       EXPECT_EQ(vec.encoding(), VectorEncoding::Simple::DICTIONARY);
       EXPECT_EQ(vec.size(), 60);
     });
+  }
+
+  void testImportREE() {
+    testImportREENoRuns();
+    testImportREESingleRun();
+    testImportREEMultipleRuns();
+  }
+
+  void testImportREENoRuns() {
+    auto pool = arrow::default_memory_pool();
+
+    arrow::RunEndEncodedBuilder reeInt32(
+        pool,
+        std::make_shared<arrow::Int32Builder>(pool),
+        std::make_shared<arrow::Int32Builder>(pool),
+        run_end_encoded(arrow::int32(), arrow::int32()));
+    ASSERT_OK_AND_ASSIGN(auto array, reeInt32.Finish());
+
+    VectorPtr vector;
+    toVeloxVector(*array, vector);
+
+    ASSERT_EQ(*vector->type(), *INTEGER());
+    EXPECT_EQ(vector->encoding(), VectorEncoding::Simple::CONSTANT);
+    EXPECT_EQ(vector->size(), 0);
+  }
+
+  void testImportREESingleRun() {
+    auto pool = arrow::default_memory_pool();
+
+    // Simple integer column.
+    arrow::RunEndEncodedBuilder reeInt32(
+        pool,
+        std::make_shared<arrow::Int32Builder>(pool),
+        std::make_shared<arrow::Int32Builder>(pool),
+        run_end_encoded(arrow::int32(), arrow::int32()));
+    ASSERT_OK(reeInt32.AppendScalar(*arrow::MakeScalar<int32_t>(123), 20));
+    ASSERT_OK_AND_ASSIGN(auto array, reeInt32.Finish());
+
+    validateImportREESingleRun(*array, INTEGER(), 20);
+
+    // String column.
+    arrow::RunEndEncodedBuilder reeString(
+        pool,
+        std::make_shared<arrow::Int32Builder>(pool),
+        std::make_shared<arrow::StringBuilder>(pool),
+        run_end_encoded(arrow::int32(), arrow::utf8()));
+    ASSERT_OK(reeString.AppendScalar(*arrow::MakeScalar("bla"), 199));
+    ASSERT_OK_AND_ASSIGN(array, reeString.Finish());
+
+    validateImportREESingleRun(*array, VARCHAR(), 199);
+
+    // Array/List.
+    auto valuesBuilder = std::make_shared<arrow::FloatBuilder>(pool);
+    auto listBuilder =
+        std::make_shared<arrow::ListBuilder>(pool, valuesBuilder);
+    ASSERT_OK(listBuilder->Append());
+    ASSERT_OK(valuesBuilder->Append(1.1));
+    ASSERT_OK(valuesBuilder->Append(2.2));
+    ASSERT_OK(valuesBuilder->Append(3.3));
+    ASSERT_OK(valuesBuilder->Append(4.4));
+    ASSERT_OK_AND_ASSIGN(auto listArray, listBuilder->Finish());
+
+    auto runEndBuilder = std::make_shared<arrow::Int32Builder>(pool);
+    ASSERT_OK(runEndBuilder->Append(123));
+    ASSERT_OK_AND_ASSIGN(auto runEndsArray, runEndBuilder->Finish());
+
+    // Create a list containing [1.1, 2.2, 3.3, 4.4] and repeat it 123 times.
+    ASSERT_OK_AND_ASSIGN(
+        array, arrow::RunEndEncodedArray::Make(123, runEndsArray, listArray));
+    validateImportREESingleRun(*array, ARRAY(REAL()), 123);
+  }
+
+  void validateImportREESingleRun(
+      const arrow::Array& array,
+      const TypePtr& expectedType,
+      size_t expectedSize) {
+    testArrowRoundTrip(array, [&](const BaseVector& vec) {
+      ASSERT_EQ(*vec.type(), *expectedType);
+      EXPECT_EQ(vec.encoding(), VectorEncoding::Simple::CONSTANT);
+      EXPECT_EQ(vec.size(), expectedSize);
+    });
+  }
+
+  void testImportREEMultipleRuns() {
+    auto pool = arrow::default_memory_pool();
+
+    // Simple integer column.
+    arrow::RunEndEncodedBuilder reeInt32(
+        pool,
+        std::make_shared<arrow::Int32Builder>(pool),
+        std::make_shared<arrow::Int32Builder>(pool),
+        run_end_encoded(arrow::int32(), arrow::int32()));
+    ASSERT_OK(reeInt32.AppendScalar(*arrow::MakeScalar<int32_t>(123), 20));
+    ASSERT_OK(reeInt32.AppendScalar(*arrow::MakeScalar<int32_t>(321), 2));
+    ASSERT_OK(reeInt32.AppendNulls(10));
+    ASSERT_OK(reeInt32.AppendScalar(*arrow::MakeScalar<int32_t>(50), 30));
+    ASSERT_OK_AND_ASSIGN(auto array, reeInt32.Finish());
+
+    VectorPtr vector;
+    toVeloxVector(*array, vector);
+
+    ASSERT_EQ(*vector->type(), *INTEGER());
+    EXPECT_EQ(vector->encoding(), VectorEncoding::Simple::DICTIONARY);
+    EXPECT_EQ(vector->size(), 62);
+
+    DecodedVector decoded(*vector);
+    EXPECT_TRUE(decoded.mayHaveNulls());
+    EXPECT_FALSE(decoded.isNullAt(0));
+    EXPECT_EQ(decoded.valueAt<int32_t>(0), 123);
+    EXPECT_EQ(decoded.valueAt<int32_t>(1), 123);
+    EXPECT_EQ(decoded.valueAt<int32_t>(19), 123);
+    EXPECT_EQ(decoded.valueAt<int32_t>(20), 321);
+    EXPECT_EQ(decoded.valueAt<int32_t>(21), 321);
+    EXPECT_TRUE(decoded.isNullAt(22));
+    EXPECT_TRUE(decoded.isNullAt(31));
+    EXPECT_EQ(decoded.valueAt<int32_t>(32), 50);
+    EXPECT_EQ(decoded.valueAt<int32_t>(33), 50);
+    EXPECT_EQ(decoded.valueAt<int32_t>(61), 50);
   }
 
   void testImportFailures() {
@@ -1477,6 +1603,10 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, dictionary) {
   testImportDictionary();
 }
 
+TEST_F(ArrowBridgeArrayImportAsViewerTest, ree) {
+  testImportREE();
+}
+
 TEST_F(ArrowBridgeArrayImportAsViewerTest, failures) {
   testImportFailures();
 }
@@ -1522,6 +1652,10 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, map) {
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, dictionary) {
   testImportDictionary();
+}
+
+TEST_F(ArrowBridgeArrayImportAsOwnerTest, ree) {
+  testImportREE();
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, failures) {

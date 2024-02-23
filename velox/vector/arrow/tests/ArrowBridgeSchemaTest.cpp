@@ -268,6 +268,20 @@ class ArrowBridgeSchemaImportTest : public ArrowBridgeSchemaExportTest {
     return type;
   }
 
+  TypePtr testSchemaReeImport(const char* valuesFmt) {
+    auto reeSchema = makeArrowSchema("+r");
+    auto runsSchema = makeArrowSchema("i");
+    auto valuesSchema = makeArrowSchema(valuesFmt);
+
+    std::vector<ArrowSchema*> schemas{&runsSchema, &valuesSchema};
+    reeSchema.n_children = 2;
+    reeSchema.children = schemas.data();
+
+    auto type = importFromArrow(reeSchema);
+    reeSchema.release(&reeSchema);
+    return type;
+  }
+
   ArrowSchema makeComplexArrowSchema(
       std::vector<ArrowSchema>& schemas,
       std::vector<ArrowSchema*>& schemaPtrs,
@@ -567,6 +581,13 @@ TEST_F(ArrowBridgeSchemaImportTest, dictionaryTypeTest) {
               "+s",
               {"s", "f"},
               {"col1", "col2"})));
+}
+
+TEST_F(ArrowBridgeSchemaImportTest, reeTypeTest) {
+  // Ensure REE just returns the type of the inner `values` child.
+  EXPECT_EQ(DOUBLE(), testSchemaReeImport("g"));
+  EXPECT_EQ(INTEGER(), testSchemaReeImport("i"));
+  EXPECT_EQ(BIGINT(), testSchemaReeImport("l"));
 }
 
 } // namespace

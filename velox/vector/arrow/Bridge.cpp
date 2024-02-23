@@ -1023,6 +1023,13 @@ TypePtr importFromArrowImpl(
           return ROW(std::move(childNames), std::move(childTypes));
         }
 
+        // Run-end-encoding (REE).
+        case 'r':
+          VELOX_CHECK_EQ(arrowSchema.n_children, 2);
+          VELOX_CHECK_NOT_NULL(arrowSchema.children[1]);
+          // The Velox type is the type of the `values` child.
+          return importFromArrow(*arrowSchema.children[1]);
+
         default:
           break;
       }
@@ -1328,6 +1335,58 @@ VectorPtr createDictionaryVector(
       std::move(wrapped));
 }
 
+VectorPtr createVectorFromReeArray(
+    memory::MemoryPool* pool,
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    bool isViewer) {
+  VELOX_CHECK_EQ(arrowArray.n_children, 2);
+  VELOX_CHECK_EQ(arrowSchema.n_children, 2);
+
+  // REE cannot have top level nulls.
+  VELOX_CHECK_EQ(arrowArray.null_count, 0);
+
+  auto values = importFromArrowImpl(
+      *arrowSchema.children[1], *arrowArray.children[1], pool, isViewer);
+
+  const auto& runEndSchema = *arrowSchema.children[0];
+  auto runEndType = importFromArrowImpl(runEndSchema.format, runEndSchema);
+  VELOX_CHECK_EQ(
+      runEndType->kind(),
+      TypeKind::INTEGER,
+      "Only int32 run lengths are supported for REE arrow conversion.");
+
+  // If there is more than one run, we turn it into a dictionary.
+  if (values->size() > 1) {
+    const auto& runsArray = *arrowArray.children[0];
+    VELOX_CHECK_EQ(runsArray.n_buffers, 2);
+
+    // REE runs cannot be null.
+    VELOX_CHECK_EQ(runsArray.null_count, 0);
+
+    const auto* runsBuffer = static_cast<const int32_t*>(runsArray.buffers[1]);
+    VELOX_CHECK_NOT_NULL(runsBuffer);
+
+    auto indices = allocateIndices(arrowArray.length, pool);
+    auto rawIndices = indices->asMutable<vector_size_t>();
+
+    size_t cursor = 0;
+    for (size_t i = 0; i < runsArray.length; ++i) {
+      while (cursor < runsBuffer[i]) {
+        rawIndices[cursor++] = i;
+      }
+    }
+    return BaseVector::wrapInDictionary(
+        nullptr, indices, arrowArray.length, values);
+  }
+  // Otherwise (single or zero runs), turn it into a constant.
+  else if (values->size() == 1) {
+    return BaseVector::wrapInConstant(arrowArray.length, 0, values);
+  } else {
+    return BaseVector::createNullConstant(values->type(), 0, pool);
+  }
+}
+
 VectorPtr createTimestampVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
@@ -1356,6 +1415,10 @@ VectorPtr createTimestampVector(
       SimpleVectorStats<Timestamp>{},
       std::nullopt,
       optionalNullCount(nullCount));
+}
+
+bool isREE(const ArrowSchema& arrowSchema) {
+  return arrowSchema.format[0] == '+' && arrowSchema.format[1] == 'r';
 }
 
 VectorPtr importFromArrowImpl(
@@ -1403,6 +1466,10 @@ VectorPtr importFromArrowImpl(
         arrowArray,
         isViewer,
         wrapInBufferView);
+  }
+
+  if (isREE(arrowSchema)) {
+    return createVectorFromReeArray(pool, arrowSchema, arrowArray, isViewer);
   }
 
   // String data types (VARCHAR and VARBINARY).
