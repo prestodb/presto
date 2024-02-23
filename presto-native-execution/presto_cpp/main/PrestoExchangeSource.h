@@ -132,6 +132,11 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;
 
+  folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWaitSeconds) override {
+    return request(0, maxWaitSeconds);
+  }
+
   // Create an exchange source using pooled connections.
   static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,

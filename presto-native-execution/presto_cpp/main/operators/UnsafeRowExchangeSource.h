@@ -38,6 +38,9 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;
 
+  folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWaitSeconds) override;
+
   void close() override {
     shuffle_->noMoreData(true);
   }
