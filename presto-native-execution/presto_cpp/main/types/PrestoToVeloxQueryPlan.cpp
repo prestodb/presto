@@ -948,12 +948,28 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>&
-        partitionColumns) {
+        assignments) {
+  auto addSynthesizedColumn = [&](const std::string& name,
+                                  protocol::ColumnType columnType,
+                                  const protocol::ColumnHandle& column) {
+    if (toHiveColumnType(columnType) ==
+        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
+      if (assignments.count(name) == 0) {
+        assignments.emplace(name, toColumnHandle(&column, typeParser));
+      }
+    }
+  };
+
   if (auto hiveLayout =
           std::dynamic_pointer_cast<const protocol::HiveTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
     for (const auto& entry : hiveLayout->partitionColumns) {
-      partitionColumns.emplace(entry.name, toColumnHandle(&entry, typeParser));
+      assignments.emplace(entry.name, toColumnHandle(&entry, typeParser));
+    }
+
+    // Add synthesized columns to the TableScanNode columnHandles as well.
+    for (const auto& entry : hiveLayout->predicateColumns) {
+      addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
     }
 
     auto hiveTableHandle =
@@ -983,8 +999,13 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
           std::dynamic_pointer_cast<const protocol::IcebergTableLayoutHandle>(
               tableHandle.connectorTableLayout)) {
     for (const auto& entry : icebergLayout->partitionColumns) {
-      partitionColumns.emplace(
+      assignments.emplace(
           entry.columnIdentity.name, toColumnHandle(&entry, typeParser));
+    }
+
+    // Add synthesized columns to the TableScanNode columnHandles as well.
+    for (const auto& entry : icebergLayout->predicateColumns) {
+      addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
     }
 
     auto icebergTableHandle =
