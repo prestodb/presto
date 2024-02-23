@@ -73,6 +73,18 @@ UnsafeRowExchangeSource::request(
   CALL_SHUFFLE(return nextBatch(), "next");
 }
 
+folly::SemiFuture<UnsafeRowExchangeSource::Response>
+UnsafeRowExchangeSource::requestDataSizes(uint32_t /*maxWaitSeconds*/) {
+  std::vector<int64_t> remainingBytes;
+  if (!atEnd_) {
+    // Use default value of ExchangeClient::getAveragePageSize() for now.
+    //
+    // TODO: Change ShuffleReader to return the next batch size.
+    remainingBytes.push_back(1 << 20);
+  }
+  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+}
+
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
   return shuffle_->stats();
 }

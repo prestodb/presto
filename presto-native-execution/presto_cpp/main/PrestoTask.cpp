@@ -480,6 +480,8 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     taskRuntimeStats.insert(
         {"averageOutputBufferWallNanos",
          fromMillis(outputBufferStats.averageBufferTimeMs)});
+    taskRuntimeStats["numTopOutputBuffers"].addValue(
+        outputBufferStats.numTopBuffers);
   }
 
   if (taskStats.memoryReclaimCount > 0) {
