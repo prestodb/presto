@@ -97,6 +97,15 @@ velox::exec::Split toVeloxSplit(
     for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
       serdeParameters[key] = value;
     }
+
+    std::unordered_map<std::string, std::string> infoColumns;
+    infoColumns.reserve(2);
+    infoColumns.insert(
+        {"$file_size", std::to_string(hiveSplit->fileSplit.fileSize)});
+    infoColumns.insert(
+        {"$file_modified_time",
+         std::to_string(hiveSplit->fileSplit.fileModifiedTime)});
+
     return velox::exec::Split(
         std::make_shared<connector::hive::HiveConnectorSplit>(
             scheduledSplit.split.connectorId,
@@ -111,7 +120,8 @@ velox::exec::Split toVeloxSplit(
             customSplitInfo,
             extraFileInfo,
             serdeParameters,
-            hiveSplit->splitWeight),
+            hiveSplit->splitWeight,
+            infoColumns),
         splitGroupId);
   }
 
