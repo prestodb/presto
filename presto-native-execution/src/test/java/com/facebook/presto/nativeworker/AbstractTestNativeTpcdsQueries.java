@@ -111,14 +111,14 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsCatalogReturns(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "catalog_returns")) {
-            queryRunner.execute(session, "CREATE TABLE catalog_returns AS SELECT * FROM tpcds.tiny.catalog_returns");
+            queryRunner.execute(session, "CREATE TABLE catalog_returns WITH (partitioned_by = ARRAY['cr_returned_date_sk']) AS SELECT * FROM tpcds.tiny.catalog_returns");
         }
     }
 
     private static void createTpcdsCatalogSales(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "catalog_sales")) {
-            queryRunner.execute(session, "CREATE TABLE catalog_sales AS SELECT * FROM tpcds.tiny.catalog_sales");
+            queryRunner.execute(session, "CREATE TABLE catalog_sales WITH (partitioned_by = ARRAY['cr_sold_date_sk']) AS SELECT * FROM tpcds.tiny.catalog_sales");
         }
     }
 
@@ -211,7 +211,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsInventory(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "inventory")) {
-            queryRunner.execute(session, "CREATE TABLE inventory AS " +
+            queryRunner.execute(session, "CREATE TABLE inventory WITH (partitioned_by = ARRAY['inv_date_sk']) AS " +
                     "SELECT * FROM tpcds.tiny.inventory");
         }
     }
@@ -312,7 +312,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsStoreReturns(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "store_returns")) {
-            queryRunner.execute(session, "CREATE TABLE store_returns AS " +
+            queryRunner.execute(session, "CREATE TABLE store_returns WITH (partitioned_by = ARRAY['sr_returned_date_sk']) AS " +
                     "SELECT * FROM tpcds.tiny.store_returns");
         }
     }
@@ -320,7 +320,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsStoreSales(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "store_sales")) {
-            queryRunner.execute(session, "CREATE TABLE store_sales AS " +
+            queryRunner.execute(session, "CREATE TABLE store_sales WITH (partitioned_by = ARRAY['ss_sold_date_sk']) AS " +
                     "SELECT * FROM tpcds.tiny.store_sales");
         }
     }
@@ -374,7 +374,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsWebReturns(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "web_returns")) {
-            queryRunner.execute(session, "CREATE TABLE web_returns AS " +
+            queryRunner.execute(session, "CREATE TABLE web_returns WITH (partitioned_by = ARRAY['wr_returned_date_sk']) AS " +
                     "SELECT * FROM tpcds.tiny.web_returns");
         }
     }
@@ -382,7 +382,7 @@ public abstract class AbstractTestNativeTpcdsQueries
     private static void createTpcdsWebSales(QueryRunner queryRunner, Session session)
     {
         if (!queryRunner.tableExists(session, "web_sales")) {
-            queryRunner.execute(session, "CREATE TABLE web_sales AS " +
+            queryRunner.execute(session, "CREATE TABLE web_sales WITH (partitioned_by = ARRAY['ws_sold_date_sk']) AS " +
                     "SELECT * FROM tpcds.tiny.web_sales");
         }
     }
