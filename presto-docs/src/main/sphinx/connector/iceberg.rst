@@ -1136,3 +1136,98 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             20 | canada        |         2 | comment
             30 | mexico        |         3 | comment
     (3 rows)
+
+
+Type mapping
+------------
+
+PrestoDB and Iceberg have data types not supported by the other. When using Iceberg to read or write data, Presto changes
+each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type. 
+The following tables detail the specific type maps between PrestoDB and Iceberg. 
+
+Iceberg to PrestoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Map of Iceberg types to the relevant PrestoDB types:
+
+.. list-table:: Iceberg to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Iceberg type
+    - PrestoDB type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``BINARY``, ``FIXED``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``LIST``
+    - ``ARRAY``
+  * - ``MAP``
+    - ``MAP``
+  * - ``STRUCT``
+    - ``ROW``
+
+
+No other types are supported.
+
+PrestoDB to Iceberg type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Map of PrestoDB types to the relevant Iceberg types:
+
+.. list-table:: PrestoDB to Iceberg type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - Iceberg type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``LONG``
+  * - ``REAL``
+    - ``FLOAT``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``VARCHAR``
+    - ``STRING``
+  * - ``VARBINARY``
+    - ``BINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``ROW``
+    - ``STRUCT``
+  * - ``ARRAY``
+    - ``LIST``
+  * - ``MAP``
+    - ``MAP``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP WITHOUT ZONE``
+  * - ``TIMESTAMP WITH TIMEZONE``
+    - ``TIMESTAMP WITH ZONE``
+
+No other types are supported.
