@@ -122,11 +122,13 @@ class TypedDistinctAggregations : public DistinctAggregations {
           accumulator->extractValues(*(data->template as<FlatVector<T>>()), 0);
         }
 
-        rows.resize(data->size());
-        std::vector<VectorPtr> inputForAggregation_ =
-            makeInputForAggregation(data);
-        aggregate.function->addSingleGroupRawInput(
-            group, rows, inputForAggregation_, false);
+        if (data->size() > 0) {
+          rows.resize(data->size());
+          std::vector<VectorPtr> inputForAggregation =
+              makeInputForAggregation(data);
+          aggregate.function->addSingleGroupRawInput(
+              group, rows, inputForAggregation, false);
+        }
       }
 
       aggregate.function->extractValues(

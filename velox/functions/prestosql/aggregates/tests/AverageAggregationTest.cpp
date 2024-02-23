@@ -707,5 +707,28 @@ TEST_F(AverageAggregationTest, companionFunctionsWithNonFlatAndLazyInputs) {
   testFunction("simple_avg");
 }
 
+/// We can get 0 as the count of a group when
+/// try and do a single aggregation over distinct values.
+///  In this case presto returns null as avg and not 'NaN'.
+TEST_F(AverageAggregationTest, zeroCounts) {
+  auto data = makeRowVector(
+      {makeNullableFlatVector<int64_t>({std::nullopt, 1}),
+       makeNullableFlatVector<int64_t>({2, 1}),
+       makeFlatVector<bool>({true, false})});
+
+  auto expected = makeRowVector({
+      makeNullableFlatVector<int64_t>({std::nullopt, 1}),
+      makeNullableFlatVector<double>({2.0, std::nullopt}),
+  });
+
+  auto op = PlanBuilder()
+                .values({data})
+                .project({"c0", "c1", "c2"})
+                .singleAggregation({"c0"}, {"avg(distinct c1)"}, {{"c2"}})
+                .planNode();
+
+  assertQuery(op, expected);
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
