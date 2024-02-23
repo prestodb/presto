@@ -204,6 +204,7 @@ public class HiveClientConfig
 
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
+    private boolean orcUseVectorFilter;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1678,5 +1679,18 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
+    }
+
+    @Config("hive.orc-use-vector-filter")
+    @ConfigDescription("Experimental: enable vector path for orc filters")
+    public HiveClientConfig setOrcUseVectorFilter(boolean orcUseVectorFilter)
+    {
+        this.orcUseVectorFilter = orcUseVectorFilter;
+        return this;
+    }
+
+    public boolean getOrcUseVectorFilter()
+    {
+        return orcUseVectorFilter;
     }
 }
