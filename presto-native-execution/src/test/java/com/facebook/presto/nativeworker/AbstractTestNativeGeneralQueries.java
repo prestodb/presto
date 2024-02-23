@@ -957,8 +957,19 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Fetch one of the file paths and use it in a filter
         String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
-
         assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+
+        assertQuery("SELECT \"$file_size\", * from orders");
+
+        // Fetch one of the file sizes and use it in a filter
+        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+
+        assertQuery("SELECT \"$file_modified_time\", * from orders");
+
+        // Fetch one of the file modified times and use it as a filter.
+        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from orders LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT *, \"$file_modified_time\" from orders WHERE \"$file_modified_time\"=%d", fileModifiedTime));
     }
 
     @Test
