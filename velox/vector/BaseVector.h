@@ -198,12 +198,21 @@ class BaseVector {
   /**
    * Returns a smart pointer to the null bitmap data for this
    * vector. May hold nullptr if there are no nulls. Not const because
-   * some vectors may generate this on first access.
+   * some vectors may generate this on first access. For ConstantVector, this
+   * method returns a BufferPtr of only size 1. For DictionaryVector, this
+   * method returns a BufferPtr for only nulls in the top-level layer.
    */
   const BufferPtr& nulls() const {
     return nulls_;
   }
 
+  // Returns a pointer to the raw null bitmap buffer of this vector. Notice that
+  // users should not used this API to access nulls directly of a ConstantVector
+  // or DictionaryVector. If the vector is a ConstantVector, rawNulls_ is only
+  // of size 1. If the vector is a DictionaryVector, rawNulls_ points to a raw
+  // buffer of only nulls in the top-level layer. Nulls of a ConstantVector or
+  // DictionaryVector can be accessed through the isNullAt() API or
+  // DecodedVector.
   const uint64_t* rawNulls() const {
     return rawNulls_;
   }
@@ -382,7 +391,8 @@ class BaseVector {
     return index;
   }
 
-  /// Sets the null indicator at 'idx'.
+  /// Sets the null indicator at 'idx'. This API throws if the vector is a
+  /// ConstantVector.
   FOLLY_ALWAYS_INLINE virtual void setNull(vector_size_t idx, bool isNull) {
     VELOX_DCHECK(idx >= 0 && idx < length_);
     if (!nulls_ && !isNull) {
@@ -428,13 +438,14 @@ class BaseVector {
   }
 
   // Sets null when 'nulls' has a null value for active rows in 'rows'.
-  // Is a no-op 'nulls' is a nullptr or 'rows' has no selections.
+  // Is a no-op 'nulls' is a nullptr or 'rows' has no selections. This API
+  // throws if the vector is a ConstantVector.
   virtual void addNulls(
       const uint64_t* FOLLY_NULLABLE nulls,
       const SelectivityVector& rows);
 
   // Sets nulls for all active row in 'nullRows'. Is a no-op if nullRows has no
-  // selections.
+  // selections. This API throws if the vector is a ConstantVector.
   virtual void addNulls(const SelectivityVector& nullRows);
 
   // Clears nulls for all active rows in 'nonNullRows'
@@ -643,8 +654,12 @@ class BaseVector {
     return vector ? vector : create(type, 0, pool);
   }
 
+  // Set 'nulls' to be the nulls buffer of this vector. This API should not be
+  // used on ConstantVector.
   void setNulls(const BufferPtr& nulls);
 
+  // Reset the nulls buffer of this vector to be empty. This API should not be
+  // used on ConstantVector.
   void resetNulls() {
     setNulls(nullptr);
   }
