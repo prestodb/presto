@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
@@ -22,6 +23,7 @@ import com.facebook.presto.common.block.UncheckedBlock;
 import io.airlift.slice.Slice;
 
 import static java.lang.Long.rotateLeft;
+import static java.lang.String.format;
 
 public abstract class AbstractIntType
         extends AbstractPrimitiveType
@@ -140,5 +142,15 @@ public abstract class AbstractIntType
     {
         // xxhash64 mix
         return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+    }
+
+    protected static void checkValueValid(long value)
+    {
+        if (value > Integer.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_INT", value));
+        }
+        if (value < Integer.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_INT", value));
+        }
     }
 }

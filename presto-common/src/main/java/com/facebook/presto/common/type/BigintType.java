@@ -16,6 +16,8 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public final class BigintType
@@ -36,6 +38,26 @@ public final class BigintType
         }
 
         return block.getLong(position);
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        if (value == Long.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        if (value == Long.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
     }
 
     @Override

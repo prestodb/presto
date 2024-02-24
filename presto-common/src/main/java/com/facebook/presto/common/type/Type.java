@@ -22,6 +22,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public interface Type
 {
@@ -186,4 +189,36 @@ public interface Type
      * Compare the values in the specified block at the specified positions equal.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
+     * Returns the maximum value that compares less than {@code value}.
+     * <p>
+     * The type of the value must match {@link #getJavaType}.
+     *
+     * @throws IllegalStateException if this type is not {@link #isOrderable() orderable}
+     */
+    default Optional<Object> getPreviousValue(Object value)
+    {
+        if (!isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + this);
+        }
+        requireNonNull(value, "value is null");
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the minimum value that compares greater than {@code value}.
+     * <p>
+     * The type of the value must match {@link #getJavaType}.
+     *
+     * @throws IllegalStateException if this type is not {@link #isOrderable() orderable}
+     */
+    default Optional<Object> getNextValue(Object value)
+    {
+        if (!isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + this);
+        }
+        requireNonNull(value, "value is null");
+        return Optional.empty();
+    }
 }

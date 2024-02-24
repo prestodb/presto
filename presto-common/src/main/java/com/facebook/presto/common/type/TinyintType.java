@@ -22,6 +22,8 @@ import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
@@ -153,6 +155,28 @@ public final class TinyintType
     }
 
     @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Byte.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Byte.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
+    }
+
+    @Override
     public boolean equals(Object other)
     {
         return other == TINYINT;
@@ -168,5 +192,15 @@ public final class TinyintType
     {
         // xxhash64 mix
         return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+    }
+
+    private static void checkValueValid(long value)
+    {
+        if (value > Byte.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+        }
+        if (value < Byte.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
+        }
     }
 }
