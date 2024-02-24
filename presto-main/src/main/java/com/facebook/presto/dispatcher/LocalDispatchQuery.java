@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -46,13 +47,18 @@ import java.util.function.Consumer;
 import static com.facebook.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -78,6 +84,8 @@ public class LocalDispatchQuery
     private final QueryPrerequisites queryPrerequisites;
     private final WarningCollector warningCollector;
 
+    private final NodeScheduler nodeScheduler;
+
     /**
      * Local dispatch query encapsulates QueryExecution and submit to the ResourceGroupManager waiting for resource to get executed.
      *
@@ -100,7 +108,8 @@ public class LocalDispatchQuery
             Consumer<DispatchQuery> queryQueuer,
             Consumer<QueryExecution> querySubmitter,
             boolean retry,
-            QueryPrerequisites queryPrerequisites)
+            QueryPrerequisites queryPrerequisites,
+            NodeScheduler nodeScheduler)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -112,6 +121,7 @@ public class LocalDispatchQuery
         this.retry = retry;
         this.queryPrerequisites = requireNonNull(queryPrerequisites, "queryPrerequisites is null");
         this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
+        this.nodeScheduler = nodeScheduler;
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
                 queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
@@ -191,17 +201,47 @@ public class LocalDispatchQuery
 
     private void waitForMinimumWorkers()
     {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
+        int nodesToAcquire = computeNodesToAcquire();
+        CompletableFuture<?> waitForNodesFuture =
+                nodeScheduler.acquireNodes(stateMachine.getQueryId(), nodesToAcquire, stateMachine::getQueryState);
+
+        // Listener to release nodes after query execution completes
+        stateMachine.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                nodeScheduler.releaseNodes(stateMachine.getQueryId(), nodesToAcquire);
+            }
+        });
+
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> {
+        waitForNodesFuture.thenApply((Object o) -> {
             // It's the time to end waiting for resources
             boolean isDispatching = stateMachine.transitionToDispatching();
             addSuccessCallback(queryExecutionFuture, queryExecution -> startExecution(queryExecution, isDispatching));
+            return null;
+        }).exceptionally((Throwable throwable) -> {
+            if (throwable != null) {
+                queryExecutor.execute(() -> fail(throwable));
+            }
+            return null;
         });
-
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
+    private int computeNodesToAcquire()
+    {
+        if (ALL.equals(getExchangeMaterializationStrategy(getSession()))) {
+            // TODO (shrinidhijoshi): Fix node count logic for LBM
+            // For LBM, the query.hash-partition-count represents buckets and not
+            // number of nodes. So for experiment we cap it at 600
+            return Math.min(600, getHashPartitionCount(getSession()));
+        }
+        else {
+            int hashPartitionCount = getHashPartitionCount(getSession());
+            if (hashPartitionCount > 4900) {
+                fail(new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, format("Cannot provision nodes %s>4900", hashPartitionCount)));
+            }
+            return getHashPartitionCount(getSession());
+        }
+    }
     private void startExecution(QueryExecution queryExecution, boolean isDispatching)
     {
         queryExecutor.execute(() -> {

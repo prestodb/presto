@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
@@ -29,6 +30,7 @@ import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
@@ -139,15 +141,18 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        InternalNodeManager nodeManager = new InMemoryNodeManager();
         nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
+                networkTopology,
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
@@ -288,7 +293,9 @@ public class TestNodeScheduler
                 }
             }
         };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(5, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                locationCache, topology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(5, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(topology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
@@ -429,25 +436,28 @@ public class TestNodeScheduler
         nodeTtlFetcherManager.refreshTtlInfo();
 
         TestingQueryManager queryManager = new TestingQueryManager();
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
         NodeScheduler fallbackEnabledNodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
+                networkTopology,
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 nodeTtlFetcherManager,
                 queryManager,
-                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(true));
+                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(true),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
 
         NodeScheduler fallbackDisabledNodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
+                networkTopology,
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
                 nodeTaskMap,
                 nodeTtlFetcherManager,
                 queryManager,
-                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(false));
+                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(false),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
 
         // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 mins left
         // So only node2 and node3 have enough TTL to run additional work
@@ -572,7 +582,8 @@ public class TestNodeScheduler
                 .setMaxPendingSplitsPerTask(10);
 
         LegacyNetworkTopology legacyNetworkTopology = new LegacyNetworkTopology();
-        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(legacyNetworkTopology), legacyNetworkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(legacyNetworkTopology), legacyNetworkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new Duration(0, SECONDS), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(legacyNetworkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
@@ -595,7 +606,17 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                networkTopology,
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -635,7 +656,17 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                networkTopology,
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -686,7 +717,17 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                networkTopology,
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -772,7 +813,17 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                networkTopology,
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 3);
 
         Set<Split> splits = new HashSet<>();
@@ -1134,7 +1185,17 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                networkTopology,
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();
@@ -1172,7 +1233,17 @@ public class TestNodeScheduler
 
         LegacyNetworkTopology networkTopology = new LegacyNetworkTopology();
         // refresh interval is 1 nanosecond
-        NodeScheduler nodeScheduler = new NodeScheduler(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, new NodeSelectionStats(), nodeSchedulerConfig, nodeTaskMap, Duration.valueOf("0s"), new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new NetworkLocationCache(networkTopology),
+                networkTopology, nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                Duration.valueOf("0s"),
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID, 2);
 
         Set<Split> splits = new HashSet<>();

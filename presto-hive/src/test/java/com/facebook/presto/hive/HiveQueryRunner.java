@@ -192,12 +192,13 @@ public final class HiveQueryRunner
                 .put("task.partitioned-writer-count", "4")
                 .put("tracing.tracer-type", "simple")
                 .put("tracing.enable-distributed-tracing", "simple")
+                .put("query.hash-partition-count", "5")
                 .putAll(extraProperties)
                 .build();
 
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
-                        .setNodeCount(workerCount.orElse(4))
+                        .setNodeCount(workerCount.orElse(10))
                         .setExtraProperties(systemProperties)
                         .setCoordinatorProperties(extraCoordinatorProperties)
                         .setDataDirectory(dataDirectory)

@@ -68,12 +68,16 @@ import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
+import com.facebook.presto.execution.scheduler.FixedSubsetNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
+import com.facebook.presto.execution.scheduler.ForNodeScheduler;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
+import com.facebook.presto.execution.scheduler.NodeSetSupplier;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
@@ -370,7 +374,18 @@ public class ServerMainModule
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         configBinder(binder).bindConfig(SimpleTtlNodeSelectorConfig.class);
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForNodeScheduler.class)
+            .toInstance(newScheduledThreadPool(1, daemonThreadsNamed("node-scheduler-%s")));
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
+        if (serverConfig.isCoordinator()) {
+            binder.bind(FixedSubsetNodeSetSupplier.class).in(Scopes.SINGLETON);
+            binder.bind(NodeSetSupplier.class).to(FixedSubsetNodeSetSupplier.class).in(Scopes.SINGLETON);
+            // node-maps statistics
+            jaxrsBinder(binder).bind(NodeMapsResource.class);
+        }
+        else {
+            binder.bind(NodeSetSupplier.class).to(DefaultNodeSetSupplier.class).in(Scopes.SINGLETON);
+        }
         binder.bind(NodeSelectionStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeSelectionStats.class).withGeneratedName();
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);

@@ -34,6 +34,7 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
@@ -155,7 +156,8 @@ public class TestIterativePlanFragmenter
                 new NodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(new InMemoryNodeManager(), new LegacyNetworkTopology()));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());

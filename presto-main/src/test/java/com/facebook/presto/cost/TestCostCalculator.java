@@ -19,13 +19,17 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -138,15 +142,18 @@ public class TestCostCalculator
 
         finalizerService = new FinalizerService();
         finalizerService.start();
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        InternalNodeManager nodeManager = new InMemoryNodeManager();
         nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
-                new InMemoryNodeManager(),
+                networkTopology,
+                nodeManager,
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());

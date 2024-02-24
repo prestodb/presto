@@ -34,7 +34,7 @@ public final class NodeAssignmentStats
     private final Map<InternalNode, PartitionedSplitsInfo> nodeTotalSplitsInfo;
     private final Map<String, PendingSplitInfo> stageQueuedSplitInfo;
 
-    public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
+    public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeSet nodeMap, List<RemoteTask> existingTasks)
     {
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getActiveNodes().size();

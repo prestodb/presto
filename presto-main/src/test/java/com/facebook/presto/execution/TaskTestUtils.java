@@ -22,7 +22,10 @@ import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.DefaultNodeSetSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NetworkLocationCache;
+import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -32,6 +35,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.LookupJoinOperators;
@@ -141,15 +145,18 @@ public final class TaskTestUtils
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
+        NetworkTopology networkTopology = new LegacyNetworkTopology();
+        InternalNodeManager nodeManager = new InMemoryNodeManager();
         NodeScheduler nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
-                new InMemoryNodeManager(),
+                networkTopology,
+                nodeManager,
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService),
                 new ThrowingNodeTtlFetcherManager(),
                 new NoOpQueryManager(),
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig(),
+                new DefaultNodeSetSupplier(nodeManager, new NetworkLocationCache(networkTopology)));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
 

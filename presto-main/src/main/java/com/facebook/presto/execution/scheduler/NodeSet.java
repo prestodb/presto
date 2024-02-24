@@ -23,24 +23,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
-public class NodeMap
+public class NodeSet
 {
     private final Map<String, InternalNode> activeNodesByNodeId;
     private final SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath;
-    private final Set<String> coordinatorNodeIds;
+    private final Set<InternalNode> coordinators;
     private final List<InternalNode> activeNodes;
     private final List<InternalNode> allNodes;
     private final SetMultimap<InetAddress, InternalNode> allNodesByHost;
     private final SetMultimap<HostAddress, InternalNode> allNodesByHostAndPort;
     private final Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider;
 
-    public NodeMap(
+    public NodeSet(
             Map<String, InternalNode> activeNodesByNodeId,
             SetMultimap<NetworkLocation, InternalNode> activeWorkersByNetworkPath,
-            Set<String> coordinatorNodeIds,
+            Set<InternalNode> coordinators,
             List<InternalNode> activeNodes,
             List<InternalNode> allNodes,
             SetMultimap<InetAddress, InternalNode> allNodesByHost,
@@ -49,7 +50,7 @@ public class NodeMap
     {
         this.activeNodesByNodeId = activeNodesByNodeId;
         this.activeWorkersByNetworkPath = activeWorkersByNetworkPath;
-        this.coordinatorNodeIds = coordinatorNodeIds;
+        this.coordinators = coordinators;
         this.activeNodes = activeNodes;
         this.allNodes = allNodes;
         this.allNodesByHost = allNodesByHost;
@@ -69,9 +70,13 @@ public class NodeMap
 
     public Set<String> getCoordinatorNodeIds()
     {
-        return coordinatorNodeIds;
+        return coordinators.stream().map(InternalNode::getNodeIdentifier).collect(Collectors.toSet());
     }
 
+    public Set<InternalNode> getCoordinators()
+    {
+        return coordinators;
+    }
     public List<InternalNode> getActiveNodes()
     {
         return activeNodes;

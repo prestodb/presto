@@ -1,0 +1,340 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.execution.scheduler;
+
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.QueryId;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
+
+import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.PriorityQueue;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.CONSISTENT_HASHING;
+import static com.facebook.presto.metadata.InternalNode.NodeStatus.ALIVE;
+import static com.facebook.presto.spi.NodeState.ACTIVE;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.Math.ceil;
+import static java.lang.String.format;
+
+/**
+ * This WIP class is responsible for assigning a subset of the cluster nodes
+ * to a requesting query.
+ * The size of the subset is currently static, but it can by defined by configuration
+ * or can be driven by fairness algorithm depending on query metadata.
+ */
+public class FixedSubsetNodeSetSupplier
+        implements NodeSetSupplier, Closeable
+{
+    private static final Logger log = Logger.get(FixedSubsetNodeSetSupplier.class);
+    private final PriorityQueue<NodeSetAcquireRequest> pendingRequests;
+    private final InternalNodeManager nodeManager;
+    private final NetworkLocationCache networkLocationCache;
+    // TODO: Use Set<InternalNode>
+    private final Map<QueryId, List<InternalNode>> queryNodesMap;
+
+    private final Map<QueryId, Supplier<QueryState>> queryStateMap;
+
+    private final ScheduledFuture<?> scheduledFuture;
+
+    @Inject
+    public FixedSubsetNodeSetSupplier(
+            InternalNodeManager nodeManager,
+            NetworkTopology networkTopology,
+            @ForNodeScheduler ScheduledExecutorService scheduledExecutorService)
+    {
+        this.nodeManager = nodeManager;
+        this.networkLocationCache = new NetworkLocationCache(networkTopology);
+        this.queryNodesMap = new ConcurrentHashMap<>();
+        this.queryStateMap = new ConcurrentHashMap<>();
+        this.pendingRequests = new PriorityQueue<>();
+        // start loop to check pending node requests every second
+        scheduledFuture = scheduledExecutorService.scheduleAtFixedRate(this::fulfillPendingRequests, 0, 100, TimeUnit.MILLISECONDS);
+    }
+
+    private void fulfillPendingRequests()
+    {
+        if (pendingRequests.size() == 0) {
+            return;
+        }
+
+        // In case we have not released nodes on finished queries.
+        // This is to prevent leaking nodes over time as falsely occupied
+        for (Map.Entry<QueryId, List<InternalNode>> entry : queryNodesMap.entrySet()) {
+            if (queryStateMap.containsKey(entry.getKey()) && queryStateMap.get(entry.getKey()).get().isDone()) {
+                releaseNodes(entry.getKey(), entry.getValue().size());
+            }
+        }
+
+        List<InternalNode> freeNodes = computeFreeNodesInCluster();
+
+        NodeSetAcquireRequest nodeSetAcquireRequest = pendingRequests.peek();
+        while (nodeSetAcquireRequest != null && nodeSetAcquireRequest.getCount() <= freeNodes.size()) {
+            try {
+                List<InternalNode> nodesForQuery = new ArrayList<>();
+                for (int i = 0; i < nodeSetAcquireRequest.getCount(); i++) {
+                    nodesForQuery.add(freeNodes.remove(i));
+                }
+                // assign the nodes to this query
+                queryNodesMap.put(nodeSetAcquireRequest.getQueryId(), nodesForQuery);
+                // register the state supplier (used for bookeeping/cleanup)
+                queryStateMap.put(nodeSetAcquireRequest.getQueryId(), nodeSetAcquireRequest.getQueryStateSupplier());
+                // Let the query scheduler know that query can now execute
+                nodeSetAcquireRequest.getCompletableFuture().complete(null);
+                log.info("Successfully fulfilled nodeAcquireRequest=%s", nodeSetAcquireRequest);
+
+                // Move to the next request
+                pendingRequests.poll();
+                nodeSetAcquireRequest = pendingRequests.peek();
+            }
+            catch (Exception ex) {
+                log.error("Exception in satisfying nodeAcquireRequest=%s, ex=%s", nodeSetAcquireRequest, ex);
+            }
+        }
+    }
+
+    public List<InternalNode> computeFreeNodesInCluster()
+    {
+        Set<InternalNode> allocatedNodes = queryNodesMap.values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        return nodeManager.getNodes(ACTIVE).stream()
+                .filter(node -> !node.isResourceManager() && !node.isCoordinator() && !node.isCatalogServer())
+                .filter(node -> !allocatedNodes.contains(node))
+                .collect(Collectors.toList());
+    }
+    @Override
+    public CompletableFuture<?> acquireNodes(QueryId queryId, int count, Supplier<QueryState> queryStateSupplier)
+    {
+        CompletableFuture<?> completableFuture = new CompletableFuture<>();
+        NodeSetAcquireRequest nodeSetAcquireRequest = new NodeSetAcquireRequest(queryId, count, queryStateSupplier);
+        nodeSetAcquireRequest.setCompletableFuture(completableFuture);
+        pendingRequests.add(nodeSetAcquireRequest);
+
+        return completableFuture;
+    }
+
+    @Override
+    public CompletableFuture<?> releaseNodes(QueryId queryId, int count)
+    {
+        queryNodesMap.remove(queryId);
+        queryStateMap.remove(queryId);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public synchronized Supplier<NodeSet> createNodeSetSupplierForQuery(
+            QueryId queryId,
+            ConnectorId connectorId,
+            Optional<Predicate<Node>> nodeFilterPredicate,
+            NodeSelectionHashStrategy nodeSelectionHashStrategy,
+            boolean useNetworkTopology,
+            int minVirtualNodeCount,
+            boolean includeCoordinator)
+    {
+        return () -> {
+            ImmutableMap.Builder<String, InternalNode> activeNodesByNodeId = ImmutableMap.builder();
+
+            ImmutableSetMultimap.Builder<NetworkLocation, InternalNode> activeWorkersByNetworkPath = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
+            ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
+            Predicate<Node> resourceManagerFilterPredicate = node -> !node.isResourceManager();
+            Predicate<Node> finalNodeFilterPredicate = resourceManagerFilterPredicate.and(nodeFilterPredicate.orElse(node -> true));
+            List<InternalNode> activeNodes;
+            List<InternalNode> allNodes;
+            if (connectorId != null) {
+                activeNodes = nodeManager.getActiveConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
+                // TODO: Uncomment this functionality
+                // allNodes = nodeManager.getAllConnectorNodes(connectorId).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
+            }
+            else {
+                activeNodes = nodeManager.getNodes(ACTIVE).stream().filter(finalNodeFilterPredicate).collect(toImmutableList());
+                // allNodes = activeNodes;
+            }
+
+            // Here we want to assign a subset of the active nodes to this query
+            if (queryNodesMap.containsKey(queryId)) {
+                activeNodes = activeNodes.stream().filter(internalNode -> queryNodesMap.get(queryId)
+                        .contains(internalNode)).collect(Collectors.toList());
+            }
+            // TODO: Remove this after enabling commented allNode computation in L93
+            allNodes = activeNodes;
+
+            Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
+                    .map(InternalNode::getNodeIdentifier)
+                    .collect(toImmutableSet());
+
+            Optional<ConsistentHashingNodeProvider> consistentHashingNodeProvider = Optional.empty();
+            if (nodeSelectionHashStrategy == CONSISTENT_HASHING) {
+                int weight = (int) ceil(1.0 * minVirtualNodeCount / activeNodes.size());
+                consistentHashingNodeProvider = Optional.of(ConsistentHashingNodeProvider.create(activeNodes, weight));
+            }
+
+            for (InternalNode node : allNodes) {
+                if (node.getNodeStatus() == ALIVE) {
+                    activeNodesByNodeId.put(node.getNodeIdentifier(), node);
+                    if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
+                        NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
+                        for (int i = 0; i <= location.getSegments().size(); i++) {
+                            activeWorkersByNetworkPath.put(location.subLocation(0, i), node);
+                        }
+                    }
+                }
+                try {
+                    allNodesByHostAndPort.put(node.getHostAndPort(), node);
+                    InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
+                    allNodesByHost.put(host, node);
+                }
+                catch (UnknownHostException e) {
+                    // ignore
+                }
+            }
+
+            return new NodeSet(
+                    activeNodesByNodeId.build(),
+                    activeWorkersByNetworkPath.build(),
+                    nodeManager.getCoordinators(),
+                    activeNodes,
+                    allNodes,
+                    allNodesByHost.build(),
+                    allNodesByHostAndPort.build(),
+                    consistentHashingNodeProvider);
+        };
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        scheduledFuture.cancel(true);
+    }
+
+    public PriorityQueue<NodeSetAcquireRequest> getPendingRequests()
+    {
+        return pendingRequests;
+    }
+
+    public Map<QueryId, List<InternalNode>> getQueryNodesMap()
+    {
+        return queryNodesMap;
+    }
+
+    public Map<QueryId, Supplier<QueryState>> getQueryStateMap()
+    {
+        return queryStateMap;
+    }
+
+    public static class NodeSetAcquireRequest
+            implements Comparable
+    {
+        private QueryId queryId;
+        private int count;
+
+        private Supplier<QueryState> queryStateSupplier;
+        public CompletableFuture<?> getCompletableFuture()
+        {
+            return completableFuture;
+        }
+
+        public void setCompletableFuture(CompletableFuture<?> completableFuture)
+        {
+            this.completableFuture = completableFuture;
+        }
+
+        private CompletableFuture<?> completableFuture;
+        public NodeSetAcquireRequest(
+                QueryId queryId,
+                int count,
+                Supplier<QueryState> queryStateSupplier)
+        {
+            this.queryId = queryId;
+            this.count = count;
+            this.queryStateSupplier = queryStateSupplier;
+        }
+
+        public Supplier<QueryState> getQueryStateSupplier()
+        {
+            return queryStateSupplier;
+        }
+
+        public void setQueryStateSupplier(Supplier<QueryState> queryStateSupplier)
+        {
+            this.queryStateSupplier = queryStateSupplier;
+        }
+
+        public QueryId getQueryId()
+        {
+            return queryId;
+        }
+
+        public void setQueryId(QueryId queryId)
+        {
+            this.queryId = queryId;
+        }
+
+        public int getCount()
+        {
+            return count;
+        }
+
+        public void setCount(int count)
+        {
+            this.count = count;
+        }
+
+        @Override
+        public int compareTo(@NotNull Object other)
+        {
+            NodeSetAcquireRequest otherRequest = (NodeSetAcquireRequest) other;
+            if (otherRequest.getCount() == this.getCount()) {
+                return 0;
+            }
+            return this.getCount() < otherRequest.getCount() ? -1 : 1;
+        }
+
+        @Override
+        public String toString()
+        {
+            return format("[%s,%s]", queryId, count);
+        }
+    }
+}
