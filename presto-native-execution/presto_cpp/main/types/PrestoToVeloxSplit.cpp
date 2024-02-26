@@ -98,7 +98,8 @@ velox::exec::Split toVeloxSplit(
                 : std::nullopt,
             customSplitInfo,
             extraFileInfo,
-            serdeParameters),
+            serdeParameters,
+            hiveSplit->splitWeight),
         splitGroupId);
   }
 

@@ -329,9 +329,16 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
-  // processed/queued splits as Drivers for Presto.
-  info.taskStatus.queuedPartitionedDrivers = taskStats.numQueuedSplits;
-  info.taskStatus.runningPartitionedDrivers = taskStats.numRunningSplits;
+  // running/queued table scan splits as partitioned drivers for Presto.
+  info.taskStatus.queuedPartitionedDrivers = taskStats.numQueuedTableScanSplits;
+  info.taskStatus.runningPartitionedDrivers =
+      taskStats.numRunningTableScanSplits;
+  // Return weights if they were supplied in the table scan splits. Coordinator
+  // uses these for split scheduling.
+  info.taskStatus.queuedPartitionedSplitsWeight =
+      taskStats.queuedTableScanSplitWeights;
+  info.taskStatus.runningPartitionedSplitsWeight =
+      taskStats.runningTableScanSplitWeights;
 
   // TODO(spershin): Note, we dont' clean the stats.completedSplitGroups
   // and it seems not required now, but we might want to do it one day.
