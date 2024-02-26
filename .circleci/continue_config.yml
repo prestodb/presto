@@ -54,7 +54,7 @@ commands:
           name: "Maven Install"
           command: |
             export MAVEN_OPTS=<< parameters.maven_install_opts>>
-            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-relelated CI failures.
+            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-related CI failures.
             for i in $(seq 1 3); do ./mvnw clean install << parameters.maven_fast_install>> -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
 executors:
