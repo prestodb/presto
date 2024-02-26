@@ -642,7 +642,7 @@ void Operator::MemoryReclaimer::abort(
       driver->state().isTerminated);
   VELOX_CHECK(driver->task()->isCancelled());
 
-  // Calls operator abort to free up major memory usage.
-  op_->abort();
+  // Calls operator close to free up major memory usage.
+  op_->close();
 }
 } // namespace facebook::velox::exec

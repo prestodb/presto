@@ -85,7 +85,7 @@ class HashBuild final : public Operator {
   void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
       override;
 
-  void abort() override;
+  void close() override;
 
  private:
   void setState(State state);
@@ -123,6 +123,7 @@ class HashBuild final : public Operator {
   }
 
   void recordSpillStats();
+  void recordSpillStats(Spiller* spiller);
 
   // Indicates if the input is read from spill data or not.
   bool isInputFromSpill() const;
@@ -267,6 +268,19 @@ class HashBuild final : public Operator {
   // The row type used for hash table build and disk spilling.
   RowTypePtr tableType_;
 
+  // Used to serialize access to intermediate state variables (like 'table_' and
+  // 'spiller_'). This is only required when variables are accessed
+  // concurrently, that is, when a thread tries to close the operator while
+  // another thread is building the hash table. Refer to 'close()' and
+  // finishHashBuild()' for more details.
+  std::mutex intermediateStateMutex_;
+
+  // Indicates if the intermediate state ('table_' and 'spiller_') has
+  // been cleared. This can happen either when the operator is closed or when
+  // the last hash build operator transfers ownership of them to itself while
+  // building the final hash table.
+  bool intermediateStateCleared_{false};
+
   // Container for the rows being accumulated.
   std::unique_ptr<BaseHashTable> table_;
 
@@ -305,6 +319,9 @@ class HashBuild final : public Operator {
   uint64_t numSpillRows_{0};
   uint64_t numSpillBytes_{0};
 
+  // This can be nullptr if either spilling is not allowed or it has been
+  // trsnaferred to the last hash build operator while in kWaitForBuild state or
+  // it has been cleared to setup a new one for recursive spilling.
   std::unique_ptr<Spiller> spiller_;
 
   // Used to read input from previously spilled data for restoring.

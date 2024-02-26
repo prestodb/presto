@@ -450,10 +450,6 @@ void HashAggregation::close() {
   groupingSet_.reset();
 }
 
-void HashAggregation::abort() {
-  close();
-}
-
 void HashAggregation::updateEstimatedOutputRowSize() {
   const auto optionalRowSize = groupingSet_->estimateOutputRowSize();
   if (!optionalRowSize.has_value()) {

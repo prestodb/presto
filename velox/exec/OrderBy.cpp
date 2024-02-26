@@ -104,8 +104,8 @@ RowVectorPtr OrderBy::getOutput() {
   return output;
 }
 
-void OrderBy::abort() {
-  Operator::abort();
+void OrderBy::close() {
+  Operator::close();
   sortBuffer_.reset();
 }
 

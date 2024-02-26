@@ -60,7 +60,7 @@ class OrderBy : public Operator {
   void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
       override;
 
-  void abort() override;
+  void close() override;
 
  private:
   // Invoked to record the spilling stats in operator stats after processing all

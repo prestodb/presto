@@ -50,8 +50,6 @@ class HashAggregation : public Operator {
 
   void close() override;
 
-  void abort() override;
-
  private:
   void updateRuntimeStats();
 
