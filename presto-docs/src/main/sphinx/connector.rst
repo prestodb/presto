@@ -44,3 +44,4 @@ from different data sources.
     connector/thrift
     connector/tpcds
     connector/tpch
+    connector/sang-test
