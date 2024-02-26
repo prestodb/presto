@@ -394,14 +394,12 @@ TEST_F(PrestoHasherTest, timestampWithTimezone) {
   const auto toUnixtimeWithTimeZone =
       [&](const std::vector<std::optional<std::pair<int64_t, std::string>>>&
               timestampWithTimeZones) {
-        std::vector<std::optional<int64_t>> timestamps;
-        std::vector<std::optional<int16_t>> timeZoneIds;
+        std::vector<std::optional<int64_t>> timestampWithTimeZoneVector;
         auto size = timestampWithTimeZones.size();
         BufferPtr nulls =
             AlignedBuffer::allocate<uint64_t>(bits::nwords(size), pool());
         auto rawNulls = nulls->asMutable<uint64_t>();
-        timestamps.reserve(size);
-        timeZoneIds.reserve(size);
+        timestampWithTimeZoneVector.reserve(size);
 
         for (auto i = 0; i < size; i++) {
           auto timestampWithTimeZone = timestampWithTimeZones[i];
@@ -409,24 +407,17 @@ TEST_F(PrestoHasherTest, timestampWithTimezone) {
             auto timestamp = timestampWithTimeZone.value().first;
             auto tz = timestampWithTimeZone.value().second;
             const int16_t tzid = util::getTimeZoneID(tz);
-            timeZoneIds.push_back(tzid);
-            timestamps.push_back(timestamp);
+            auto timestampWithTimezone = pack(timestamp, tzid);
+            timestampWithTimeZoneVector.push_back(timestampWithTimezone);
             bits::clearNull(rawNulls, i);
           } else {
-            timeZoneIds.push_back(std::nullopt);
-            timestamps.push_back(std::nullopt);
+            timestampWithTimeZoneVector.push_back(std::nullopt);
             bits::setNull(rawNulls, i);
           }
         }
 
-        return std::make_shared<RowVector>(
-            pool(),
-            TIMESTAMP_WITH_TIME_ZONE(),
-            nulls,
-            size,
-            std::vector<VectorPtr>{
-                makeNullableFlatVector(timestamps),
-                makeNullableFlatVector(timeZoneIds)});
+        return makeNullableFlatVector(
+            timestampWithTimeZoneVector, TIMESTAMP_WITH_TIME_ZONE());
       };
 
   auto timestampWithTimeZones = toUnixtimeWithTimeZone(

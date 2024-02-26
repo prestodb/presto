@@ -66,7 +66,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
       "November",
       "December"};
 
-  std::string padNumber(int number) {
+  static std::string padNumber(int number) {
     return number < 10 ? "0" + std::to_string(number) : std::to_string(number);
   }
 
@@ -114,10 +114,11 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
       return std::nullopt;
     }
 
-    auto rowVector = resultVector->as<RowVector>();
+    auto timestampWithTimezone =
+        resultVector->as<FlatVector<int64_t>>()->valueAt(0);
     return TimestampWithTimezone{
-        rowVector->children()[0]->as<SimpleVector<int64_t>>()->valueAt(0),
-        rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
+        unpackMillisUtc(timestampWithTimezone),
+        unpackZoneKeyId(timestampWithTimezone)};
   }
 
   std::optional<Timestamp> dateParse(
@@ -206,35 +207,28 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
             timestamp.value(), timeZoneName.value().c_str())}));
   }
 
-  int32_t parseDate(const std::string& dateStr) {
+  static int32_t parseDate(const std::string& dateStr) {
     return DATE()->toDays(dateStr);
   }
 
-  RowVectorPtr makeTimestampWithTimeZoneVector(
-      int64_t timestamp,
-      const char* tz) {
-    const int64_t tzid = util::getTimeZoneID(tz);
+  VectorPtr makeTimestampWithTimeZoneVector(int64_t timestamp, const char* tz) {
+    auto tzid = util::getTimeZoneID(tz);
 
-    return std::make_shared<RowVector>(
-        pool(),
-        TIMESTAMP_WITH_TIME_ZONE(),
-        nullptr,
-        1,
-        std::vector<VectorPtr>(
-            {makeNullableFlatVector<int64_t>({timestamp}),
-             makeNullableFlatVector<int16_t>({tzid})}));
+    return makeNullableFlatVector<int64_t>(
+        {pack(timestamp, tzid)}, TIMESTAMP_WITH_TIME_ZONE());
   }
 
-  RowVectorPtr makeTimestampWithTimeZoneVector(
-      const VectorPtr& timestamps,
-      const VectorPtr& timezones) {
-    VELOX_CHECK_EQ(timestamps->size(), timezones->size());
-    return std::make_shared<RowVector>(
-        pool(),
-        TIMESTAMP_WITH_TIME_ZONE(),
+  VectorPtr makeTimestampWithTimeZoneVector(
+      vector_size_t size,
+      const std::function<int64_t(int32_t row)>& timestampAt,
+      const std::function<int16_t(int32_t row)>& timezoneAt) {
+    return makeFlatVector<int64_t>(
+        size,
+        [&](int32_t index) {
+          return pack(timestampAt(index), timezoneAt(index));
+        },
         nullptr,
-        timestamps->size(),
-        std::vector<VectorPtr>({timestamps, timezones}));
+        TIMESTAMP_WITH_TIME_ZONE());
   }
 
   int32_t getCurrentDate(const std::optional<std::string>& timeZone) {
@@ -363,9 +357,9 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
         evaluate("from_unixtime(c0, '+01:00')", makeRowVector({unixtimes}));
 
     auto expected = makeTimestampWithTimeZoneVector(
-        makeFlatVector<int64_t>(
-            size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
-        makeConstant((int16_t)900, size));
+        size,
+        [&](auto row) { return unixtimeAt(row) * 1'000; },
+        [](auto /*row*/) { return 900; });
     assertEqualVectors(expected, result);
 
     // NaN timestamp.
@@ -373,13 +367,13 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
         "from_unixtime(c0, '+01:00')",
         makeRowVector({makeFlatVector<double>({kNan, kNan})}));
     expected = makeTimestampWithTimeZoneVector(
-        makeFlatVector<int64_t>({0, 0}), makeFlatVector<int16_t>({900, 900}));
+        2, [](auto /*row*/) { return 0; }, [](auto /*row*/) { return 900; });
     assertEqualVectors(expected, result);
   }
 
   // Variable timezone parameter.
   {
-    std::vector<int16_t> timezoneIds = {900, 960, 1020, 1080, 1140};
+    std::vector<TimeZoneKey> timezoneIds = {900, 960, 1020, 1080, 1140};
     std::vector<std::string> timezoneNames = {
         "+01:00", "+02:00", "+03:00", "+04:00", "+05:00"};
 
@@ -389,10 +383,9 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
     auto result = evaluate(
         "from_unixtime(c0, c1)", makeRowVector({unixtimes, timezones}));
     auto expected = makeTimestampWithTimeZoneVector(
-        makeFlatVector<int64_t>(
-            size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
-        makeFlatVector<int16_t>(
-            size, [&](auto row) { return timezoneIds[row % 5]; }));
+        size,
+        [&](auto row) { return unixtimeAt(row) * 1'000; },
+        [&](auto row) { return timezoneIds[row % 5]; });
     assertEqualVectors(expected, result);
 
     // NaN timestamp.
@@ -402,8 +395,11 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
             makeFlatVector<double>({kNan, kNan}),
             makeNullableFlatVector<StringView>({"+01:00", "+02:00"}),
         }));
+    auto timezonesVector = std::vector<TimeZoneKey>{900, 960};
     expected = makeTimestampWithTimeZoneVector(
-        makeFlatVector<int64_t>({0, 0}), makeFlatVector<int16_t>({900, 960}));
+        timezonesVector.size(),
+        [](auto /*row*/) { return 0; },
+        [&](auto row) { return timezonesVector[row]; });
     assertEqualVectors(expected, result);
   }
 }
@@ -1599,11 +1595,11 @@ TEST_F(DateTimeFunctionsTest, dateTruncTimeStampWithTimezoneStringForWeek) {
                                                 const std::string&
                                                     expectedTimestamp) {
     assertEqualVectors(
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
             makeRowVector({makeNullableFlatVector<StringView>(
                 {StringView{expectedTimestamp}})})),
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             fmt::format(
                 "date_trunc('{}', parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
                 truncUnit),
@@ -1691,11 +1687,11 @@ TEST_F(DateTimeFunctionsTest, dateTruncTimestampWithTimezone) {
                                                 const std::string&
                                                     expectedTimestamp) {
     assertEqualVectors(
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
             makeRowVector({makeNullableFlatVector<StringView>(
                 {StringView{expectedTimestamp}})})),
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             fmt::format(
                 "date_trunc('{}', parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
                 truncUnit),
@@ -2105,11 +2101,11 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestampWithTimeZone) {
                                               const std::string&
                                                   expectedTimestamp) {
     assertEqualVectors(
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
             makeRowVector({makeNullableFlatVector<StringView>(
                 {StringView{expectedTimestamp}})})),
-        evaluate<RowVector>(
+        evaluate<FlatVector<int64_t>>(
             fmt::format(
                 "date_add('{}', {}, parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
                 unit,
@@ -3642,12 +3638,17 @@ TEST_F(DateTimeFunctionsTest, timestampWithTimezoneComparisons) {
     test::assertEqualVectors(expectedResult, actual);
   };
 
-  RowVectorPtr timestampWithTimezoneLhs = makeTimestampWithTimeZoneVector(
-      makeFlatVector<int64_t>({0, 0, 0}),
-      makeFlatVector<int16_t>({900, 900, 800}));
-  RowVectorPtr timestampWithTimezoneRhs = makeTimestampWithTimeZoneVector(
-      makeFlatVector<int64_t>({0, 1000, 0}),
-      makeFlatVector<int16_t>({900, 900, 900}));
+  auto timezones = std::vector<TimeZoneKey>{900, 900, 800};
+  VectorPtr timestampWithTimezoneLhs = makeTimestampWithTimeZoneVector(
+      timezones.size(),
+      [](auto /*row*/) { return 0; },
+      [&](auto row) { return timezones[row]; });
+
+  auto timestamps = std::vector<int64_t>{0, 1000, 0};
+  VectorPtr timestampWithTimezoneRhs = makeTimestampWithTimeZoneVector(
+      timestamps.size(),
+      [&](auto row) { return timestamps[row]; },
+      [](auto /*row*/) { return 900; });
   auto inputs =
       makeRowVector({timestampWithTimezoneLhs, timestampWithTimezoneRhs});
 

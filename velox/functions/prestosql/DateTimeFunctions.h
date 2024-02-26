@@ -40,7 +40,7 @@ struct ToUnixtimeFunction {
   FOLLY_ALWAYS_INLINE bool call(
       double& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
-    const auto milliseconds = *timestampWithTimezone.template at<0>();
+    const auto milliseconds = unpackMillisUtc(timestampWithTimezone);
     result = (double)milliseconds / kMillisecondsInSecond;
     return true;
   }
@@ -75,11 +75,9 @@ struct TimestampWithTimezoneSupport {
   Timestamp toTimestamp(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       bool asGMT = false) {
-    const auto milliseconds = *timestampWithTimezone.template at<0>();
-    auto tz = *timestampWithTimezone.template at<1>();
-    Timestamp timestamp = Timestamp::fromMillis(milliseconds);
+    auto timestamp = unpackTimestampUtc(timestampWithTimezone);
     if (!asGMT) {
-      timestamp.toTimezone(*timestampWithTimezone.template at<1>());
+      timestamp.toTimezone(unpackZoneKeyId(timestampWithTimezone));
     }
 
     return timestamp;
@@ -90,10 +88,9 @@ struct TimestampWithTimezoneSupport {
   int64_t getGMTOffsetSec(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     Timestamp inputTimeStamp = this->toTimestamp(timestampWithTimezone);
-
     // Create a copy of inputTimeStamp and convert it to GMT
     auto gmtTimeStamp = inputTimeStamp;
-    gmtTimeStamp.toGMT(*timestampWithTimezone.template at<1>());
+    gmtTimeStamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
 
     // Get offset in seconds with GMT and convert to hour
     return (inputTimeStamp.getSeconds() - gmtTimeStamp.getSeconds());
@@ -908,11 +905,10 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     }
 
     if (unit == DateTimeUnit::kSecond) {
-      auto utcTimestamp =
-          Timestamp::fromMillis(*timestampWithTimezone.template at<0>());
-      result.template get_writer_at<0>() = utcTimestamp.getSeconds() * 1000;
-      result.template get_writer_at<1>() =
-          *timestampWithTimezone.template at<1>();
+      auto utcTimestamp = unpackTimestampUtc(timestampWithTimezone);
+      result = pack(
+          utcTimestamp.getSeconds() * 1000,
+          unpackZoneKeyId(timestampWithTimezone));
       return;
     }
 
@@ -920,11 +916,9 @@ struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
     auto dateTime = getDateTime(timestamp, nullptr);
     adjustDateTime(dateTime, unit);
     timestamp = Timestamp::fromMillis(timegm(&dateTime) * 1000);
-    timestamp.toGMT(*timestampWithTimezone.template at<1>());
+    timestamp.toGMT(unpackZoneKeyId(timestampWithTimezone));
 
-    result.template get_writer_at<0>() = timestamp.toMillis();
-    result.template get_writer_at<1>() =
-        *timestampWithTimezone.template at<1>();
+    result = pack(timestamp.toMillis(), unpackZoneKeyId(timestampWithTimezone));
   }
 };
 
@@ -1009,9 +1003,9 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
 
     auto finalTimeStamp = addToTimestamp(
         this->toTimestamp(timestampWithTimezone), unit, (int32_t)value);
-    finalTimeStamp.toGMT(*timestampWithTimezone.template at<1>());
-    result = std::make_tuple(
-        finalTimeStamp.toMillis(), *timestampWithTimezone.template at<1>());
+    auto tzID = unpackZoneKeyId(timestampWithTimezone);
+    finalTimeStamp.toGMT(tzID);
+    result = pack(finalTimeStamp.toMillis(), tzID);
 
     return true;
   }
@@ -1278,9 +1272,8 @@ struct FormatDateTimeFunction {
       const arg_type<Varchar>& formatString) {
     ensureFormatter(formatString);
 
-    const auto milliseconds = *timestampWithTimezone.template at<0>();
-    Timestamp timestamp = Timestamp::fromMillis(milliseconds);
-    int16_t timeZoneId = *timestampWithTimezone.template at<1>();
+    const auto timestamp = unpackTimestampUtc(timestampWithTimezone);
+    const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
     auto* timezonePtr = date::locate_zone(util::getTimeZoneName(timeZoneId));
 
     auto maxResultSize = jodaDateTime_->maxResultSize(timezonePtr);
@@ -1345,7 +1338,7 @@ struct ParseDateTimeFunction {
         ? dateTimeResult.timezoneId
         : sessionTzID_.value_or(0);
     dateTimeResult.timestamp.toGMT(timezoneId);
-    result = std::make_tuple(dateTimeResult.timestamp.toMillis(), timezoneId);
+    result = pack(dateTimeResult.timestamp.toMillis(), timezoneId);
     return true;
   }
 };

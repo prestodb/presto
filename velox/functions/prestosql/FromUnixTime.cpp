@@ -15,6 +15,7 @@
  */
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions {
@@ -43,43 +44,36 @@ class FromUnixtimeFunction : public exec::VectorFunction {
     const auto size = rows.end();
     auto* pool = context.pool();
 
-    auto timestamps = BaseVector::create(BIGINT(), size, pool);
-    auto* rawTimestamps =
-        timestamps->asFlatVector<int64_t>()->mutableRawValues();
+    auto timestamps = AlignedBuffer::allocate<int64_t>(size, pool);
+    auto* rawTimestamps = timestamps->asMutable<int64_t>();
 
-    VectorPtr timezones;
     if (timezoneNames->isConstantMapping()) {
       auto timezoneName = timezoneNames->valueAt<StringView>(rows.begin());
 
       int16_t timezoneId = util::getTimeZoneID(
           std::string_view(timezoneName.data(), timezoneName.size()));
-      timezones = std::make_shared<ConstantVector<int16_t>>(
-          pool, size, false /*isNull*/, SMALLINT(), std::move(timezoneId));
 
       rows.applyToSelected([&](auto row) {
-        rawTimestamps[row] = toMillis(unixtimes->valueAt<double>(row));
+        rawTimestamps[row] =
+            pack(toMillis(unixtimes->valueAt<double>(row)), timezoneId);
       });
     } else {
-      timezones = BaseVector::create(SMALLINT(), size, pool);
-      auto* rawTimezones =
-          timezones->asFlatVector<int16_t>()->mutableRawValues();
-
       rows.applyToSelected([&](auto row) {
-        rawTimestamps[row] = toMillis(unixtimes->valueAt<double>(row));
-
         auto timezoneName = timezoneNames->valueAt<StringView>(row);
-        rawTimezones[row] = util::getTimeZoneID(
+        auto timezone = util::getTimeZoneID(
             std::string_view(timezoneName.data(), timezoneName.size()));
+        rawTimestamps[row] =
+            pack(toMillis(unixtimes->valueAt<double>(row)), timezone);
       });
     }
 
-    auto localResult = std::make_shared<RowVector>(
+    auto localResult = std::make_shared<FlatVector<int64_t>>(
         pool,
         outputType,
         BufferPtr(nullptr),
-        rows.end(),
-        std::vector<VectorPtr>{timestamps, timezones},
-        0 /*nullCount*/);
+        size,
+        std::move(timestamps),
+        std::vector<BufferPtr>());
 
     context.moveOrCopyResult(localResult, rows, result);
   }

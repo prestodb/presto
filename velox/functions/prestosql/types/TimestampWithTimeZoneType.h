@@ -54,9 +54,8 @@ class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
 
 /// Represents timestamp with time zone as a number of milliseconds since epoch
 /// and time zone ID.
-class TimestampWithTimeZoneType : public RowType {
-  TimestampWithTimeZoneType()
-      : RowType({"timestamp", "timezone"}, {BIGINT(), SMALLINT()}) {}
+class TimestampWithTimeZoneType : public BigintType {
+  TimestampWithTimeZoneType() = default;
 
  public:
   static const std::shared_ptr<const TimestampWithTimeZoneType>& get() {
@@ -105,7 +104,7 @@ TIMESTAMP_WITH_TIME_ZONE() {
 
 // Type used for function registration.
 struct TimestampWithTimezoneT {
-  using type = Row<int64_t, int16_t>;
+  using type = int64_t;
   static constexpr const char* typeName = "timestamp with time zone";
 };
 
@@ -125,4 +124,24 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
 
 void registerTimestampWithTimeZoneType();
 
+using TimeZoneKey = int16_t;
+
+constexpr int32_t kTimezoneMask = 0xFFF;
+constexpr int32_t kMillisShift = 12;
+
+inline int64_t unpackMillisUtc(int64_t dateTimeWithTimeZone) {
+  return dateTimeWithTimeZone >> kMillisShift;
+}
+
+inline TimeZoneKey unpackZoneKeyId(int64_t dateTimeWithTimeZone) {
+  return dateTimeWithTimeZone & kTimezoneMask;
+}
+
+inline int64_t pack(int64_t millisUtc, int16_t timeZoneKey) {
+  return (millisUtc << kMillisShift) | (timeZoneKey & kTimezoneMask);
+}
+
+inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
+  return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
+}
 } // namespace facebook::velox

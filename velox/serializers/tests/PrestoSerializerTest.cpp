@@ -728,25 +728,19 @@ TEST_P(PrestoSerializerTest, emptyMap) {
 }
 
 TEST_P(PrestoSerializerTest, timestampWithTimeZone) {
-  auto timestamp =
-      makeFlatVector<int64_t>(100, [](auto row) { return 10'000 + row; });
-  auto timezone =
-      makeFlatVector<int16_t>(100, [](auto row) { return row % 37; });
-
-  auto vector = std::make_shared<RowVector>(
-      pool_.get(),
-      TIMESTAMP_WITH_TIME_ZONE(),
-      BufferPtr(nullptr),
+  auto timestamp = makeFlatVector<int64_t>(
       100,
-      std::vector<VectorPtr>{timestamp, timezone});
+      [](auto row) { return pack(10'000 + row, row % 37); },
+      /* isNullAt */ nullptr,
+      TIMESTAMP_WITH_TIME_ZONE());
 
-  testRoundTrip(vector);
+  testRoundTrip(timestamp);
 
   // Add some nulls.
   for (auto i = 0; i < 100; i += 7) {
-    vector->setNull(i, true);
+    timestamp->setNull(i, true);
   }
-  testRoundTrip(vector);
+  testRoundTrip(timestamp);
 }
 
 TEST_P(PrestoSerializerTest, intervalDayTime) {

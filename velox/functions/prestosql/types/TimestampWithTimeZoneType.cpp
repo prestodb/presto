@@ -23,7 +23,7 @@ void castFromTimestamp(
     const SimpleVector<Timestamp>& inputVector,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
-    RowVector& rowResult) {
+    VectorPtr& result) {
   const auto& config = context.execCtx()->queryCtx()->queryConfig();
   const auto& sessionTzName = config.sessionTimezone();
   int64_t sessionTzID = 0;
@@ -32,16 +32,14 @@ void castFromTimestamp(
   }
   const auto adjustTimestampToTimezone = config.adjustTimestampToTimezone();
 
-  auto timestampVector = rowResult.childAt(0)->asFlatVector<int64_t>();
-  auto timezoneVector = rowResult.childAt(1)->asFlatVector<int16_t>();
-  auto rawTsValues = timestampVector->values()->asMutable<int64_t>();
-  auto rawTzValues = timezoneVector->values()->asMutable<int16_t>();
-  timestampVector->clearNulls(rows);
-  timezoneVector->clearNulls(rows);
+  auto timestampWithTzVector = result->asFlatVector<int64_t>();
+  auto rawTimestampWithTzValues =
+      timestampWithTzVector->values()->asMutable<int64_t>();
+  timestampWithTzVector->clearNulls(rows);
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
     if (inputVector.isNullAt(row)) {
-      rowResult.setNull(row, true);
+      result->setNull(row, true);
     } else {
       auto ts = inputVector.valueAt(row);
       if (!adjustTimestampToTimezone) {
@@ -50,8 +48,7 @@ void castFromTimestamp(
         // offset of the time zone.
         ts.toGMT(sessionTzID);
       }
-      rawTsValues[row] = ts.toMillis();
-      rawTzValues[row] = sessionTzID;
+      rawTimestampWithTzValues[row] = pack(ts.toMillis(), sessionTzID);
     }
   });
 }
@@ -61,32 +58,30 @@ void castToTimestampWithTimeZone(
     const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
-    RowVector& rowResult) {
+    VectorPtr& result) {
   VELOX_CHECK_EQ(kind, TypeKind::TIMESTAMP)
   const auto inputVector = input.as<SimpleVector<Timestamp>>();
-  castFromTimestamp(*inputVector, context, rows, rowResult);
+  castFromTimestamp(*inputVector, context, rows, result);
 }
 
 void castToTimestamp(
-    const RowVector& inputVector,
+    const BaseVector& input,
     exec::EvalCtx& context,
     const SelectivityVector& rows,
     FlatVector<Timestamp>& flatResult) {
   const auto& config = context.execCtx()->queryCtx()->queryConfig();
   const auto adjustTimestampToTimezone = config.adjustTimestampToTimezone();
-  const auto timestampVector =
-      inputVector.childAt(0)->as<SimpleVector<int64_t>>();
-  const auto timezoneVector =
-      inputVector.childAt(1)->as<SimpleVector<int16_t>>();
+  const auto timestampVector = input.as<SimpleVector<int64_t>>();
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
-    if (inputVector.isNullAt(row)) {
+    if (input.isNullAt(row)) {
       flatResult.setNull(row, true);
     } else {
-      Timestamp ts = Timestamp::fromMillis(timestampVector->valueAt(row));
+      auto timestampWithTimezone = timestampVector->valueAt(row);
+      auto ts = unpackTimestampUtc(timestampWithTimezone);
       if (!adjustTimestampToTimezone) {
         // Convert UTC to the given time zone.
-        ts.toTimezone(timezoneVector->valueAt(row));
+        ts.toTimezone(unpackZoneKeyId(timestampWithTimezone));
       }
       flatResult.set(row, ts);
     }
@@ -101,9 +96,8 @@ void castFromTimestampWithTimeZone(
     BaseVector& result) {
   VELOX_CHECK_EQ(kind, TypeKind::TIMESTAMP)
 
-  const auto inputVector = input.as<RowVector>();
   auto flatResult = result.as<FlatVector<Timestamp>>();
-  castToTimestamp(*inputVector, context, rows, *flatResult);
+  castToTimestamp(input, context, rows, *flatResult);
 }
 } // namespace
 
@@ -142,18 +136,13 @@ void TimestampWithTimeZoneCastOperator::castTo(
     const TypePtr& resultType,
     VectorPtr& result) const {
   context.ensureWritable(rows, resultType, result);
-  auto rowResult = result->as<RowVector>();
-  for (const auto& child : rowResult->children()) {
-    child->resize(rowResult->size());
-  }
-
   VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
       castToTimestampWithTimeZone,
       input.typeKind(),
       input,
       context,
       rows,
-      *rowResult);
+      result);
 }
 
 void TimestampWithTimeZoneCastOperator::castFrom(

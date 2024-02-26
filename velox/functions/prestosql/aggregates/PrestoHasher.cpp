@@ -135,6 +135,11 @@ FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::BIGINT>(
       // returns the corresponding value directly.
       return vector_->valueAt<int64_t>(row);
     });
+  } else if (isTimestampWithTimeZoneType(vector_->base()->type())) {
+    // Hash only timestamp value.
+    applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
+      return hashInteger(unpackMillisUtc(vector_->valueAt<int64_t>(row)));
+    });
   } else {
     applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) {
       return hashInteger(vector_->valueAt<int64_t>(row));
@@ -318,20 +323,6 @@ void PrestoHasher::hash<TypeKind::ROW>(
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseRow->pool());
 
   auto rawHashes = hashes->asMutable<int64_t>();
-
-  if (isTimestampWithTimeZoneType(vector_->base()->type())) {
-    // Hash only timestamp value.
-    children_[0]->hash(baseRow->childAt(0), elementRows, childHashes);
-    auto rawChildHashes = childHashes->as<int64_t>();
-    rows.applyToSelected([&](auto row) {
-      if (!baseRow->isNullAt(indices[row])) {
-        rawHashes[row] = rawChildHashes[indices[row]];
-      } else {
-        rawHashes[row] = 0;
-      }
-    });
-    return;
-  }
 
   BufferPtr combinedChildHashes =
       AlignedBuffer::allocate<int64_t>(elementRows.end(), baseRow->pool());
