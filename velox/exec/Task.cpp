@@ -1171,6 +1171,8 @@ bool Task::addSplitWithSequence(
   }
 
   if (!isTaskRunning) {
+    // Safe because 'split' is moved away above only if 'isTaskRunning'.
+    // @lint-ignore CLANGTIDY bugprone-use-after-move
     addRemoteSplit(planNodeId, split);
   }
 
@@ -1195,6 +1197,7 @@ void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
 
   if (!isTaskRunning) {
     // Safe because 'split' is moved away above only if 'isTaskRunning'.
+    // @lint-ignore CLANGTIDY bugprone-use-after-move
     addRemoteSplit(planNodeId, split);
   }
 }
@@ -1365,8 +1368,7 @@ BlockingReason Task::getSplitOrFuture(
     exec::Split& split,
     ContinueFuture& future,
     int32_t maxPreloadSplits,
-    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-        preload) {
+    const ConnectorSplitPreloadFunc& preload) {
   std::lock_guard<std::timed_mutex> l(mutex_);
   auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
   return getSplitOrFutureLocked(
@@ -1384,8 +1386,7 @@ BlockingReason Task::getSplitOrFutureLocked(
     exec::Split& split,
     ContinueFuture& future,
     int32_t maxPreloadSplits,
-    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-        preload) {
+    const ConnectorSplitPreloadFunc& preload) {
   if (splitsStore.splits.empty()) {
     if (splitsStore.noMoreSplits) {
       return BlockingReason::kNotBlocked;
@@ -1405,8 +1406,7 @@ exec::Split Task::getSplitLocked(
     bool forTableScan,
     SplitsStore& splitsStore,
     int32_t maxPreloadSplits,
-    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-        preload) {
+    const ConnectorSplitPreloadFunc& preload) {
   int32_t readySplitIndex = -1;
   if (maxPreloadSplits) {
     for (auto i = 0; i < splitsStore.splits.size() && i < maxPreloadSplits;

@@ -321,12 +321,14 @@ void TableScan::checkPreload() {
         maxSplitPreloadPerDriver_;
     if (!splitPreloader_) {
       splitPreloader_ =
-          [executor, this](std::shared_ptr<connector::ConnectorSplit> split) {
+          [executor,
+           this](const std::shared_ptr<connector::ConnectorSplit>& split) {
             preload(split);
 
-            executor->add([taskHolder = operatorCtx_->task(), split]() mutable {
-              split->dataSource->prepare();
-              split.reset();
+            executor->add([taskHolder = operatorCtx_->task(),
+                           connectorSplit = split]() mutable {
+              connectorSplit->dataSource->prepare();
+              connectorSplit.reset();
             });
           };
     }

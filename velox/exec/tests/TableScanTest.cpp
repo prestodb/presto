@@ -1381,7 +1381,7 @@ TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   const auto filePaths = makeFilePaths(numSplits);
   auto vectors = makeVectors(numSplits, 100);
   for (auto i = 0; i < numSplits; i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths.at(i)->path, vectors.at(i));
   }
 
   // Set the table scan operators wait twice:
@@ -1462,7 +1462,7 @@ TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   for (auto fileIndex = 0; fileIndex < numSplits; ++fileIndex) {
     const int64_t splitWeight = fileIndex * 10 + 1;
     totalSplitWeights += splitWeight;
-    auto split = makeHiveSplit(filePaths[fileIndex]->path, splitWeight);
+    auto split = makeHiveSplit(filePaths.at(fileIndex)->path, splitWeight);
     task->addSplit(scanNodeId, std::move(split));
   }
   task->noMoreSplits(scanNodeId);

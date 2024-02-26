@@ -31,6 +31,10 @@ class OutputBufferManager;
 
 class HashJoinBridge;
 class NestedLoopJoinBridge;
+
+using ConnectorSplitPreloadFunc =
+    std::function<void(const std::shared_ptr<connector::ConnectorSplit>&)>;
+
 class Task : public std::enable_shared_from_this<Task> {
  public:
   /// Creates a task to execute a plan fragment, but doesn't start execution
@@ -360,8 +364,7 @@ class Task : public std::enable_shared_from_this<Task> {
       exec::Split& split,
       ContinueFuture& future,
       int32_t maxPreloadSplits = 0,
-      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-          preload = nullptr);
+      const ConnectorSplitPreloadFunc& preload = nullptr);
 
   void splitFinished(bool fromTableScan, int64_t splitWeight);
 
@@ -791,9 +794,8 @@ class Task : public std::enable_shared_from_this<Task> {
       SplitsStore& splitsStore,
       exec::Split& split,
       ContinueFuture& future,
-      int32_t maxPreloadSplits = 0,
-      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-          preload = nullptr);
+      int32_t maxPreloadSplits,
+      const ConnectorSplitPreloadFunc& preload);
 
   /// Returns next split from the store. The caller must ensure the store is not
   /// empty.
@@ -801,8 +803,7 @@ class Task : public std::enable_shared_from_this<Task> {
       bool forTableScan,
       SplitsStore& splitsStore,
       int32_t maxPreloadSplits,
-      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
-          preload);
+      const ConnectorSplitPreloadFunc& preload);
 
   // Creates for the given split group and fills up the 'SplitGroupState'
   // structure, which stores inter-operator state (local exchange, bridges).
