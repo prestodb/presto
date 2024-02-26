@@ -803,6 +803,15 @@ Optimizer Properties
 
     Plan canonicalization strategies used to canonicalize a query plan for history based optimization.
 
+``optimizer.exploit-constraints``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Enable analysis and propagation of logical properties (distinct keys, cardinality, etc.) among the nodes of
+    a query plan. The optimizer may then use these properties to perform various optimizations.
+
 
 Planner Properties
 --------------------------------------
