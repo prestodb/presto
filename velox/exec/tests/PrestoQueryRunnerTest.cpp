@@ -174,7 +174,18 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
             .planNode();
     EXPECT_EQ(
         queryRunner->toSql(plan),
-        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 order by c2 ASC NULLS LAST) FROM tmp");
+        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 ASC NULLS LAST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM tmp");
+
+    plan =
+        PlanBuilder()
+            .tableScan("tmp", dataType)
+            .window(
+                {"first_value(c0) over (partition by c1 order by c2 desc nulls first rows between 1 following and unbounded following)",
+                 "last_value(c0) over (partition by c1 order by c2 desc nulls first)"})
+            .planNode();
+    EXPECT_EQ(
+        queryRunner->toSql(plan),
+        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING), last_value(c0) OVER (PARTITION BY c1 ORDER BY c2 DESC NULLS FIRST RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM tmp");
   }
 
   // Test aggregation queries.

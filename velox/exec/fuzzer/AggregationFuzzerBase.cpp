@@ -20,6 +20,8 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/fuzzer/DuckQueryRunner.h"
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/expression/tests/utils/ArgumentTypeFuzzer.h"
@@ -536,6 +538,34 @@ std::vector<exec::Split> AggregationFuzzerBase::makeSplits(
   return splits;
 }
 
+void AggregationFuzzerBase::Stats::updateReferenceQueryStats(
+    AggregationFuzzerBase::ReferenceQueryErrorCode errorCode) {
+  if (errorCode == ReferenceQueryErrorCode::kReferenceQueryFail) {
+    ++numReferenceQueryFailed;
+  } else if (errorCode == ReferenceQueryErrorCode::kReferenceQueryUnsupported) {
+    ++numReferenceQueryNotSupported;
+  } else {
+    VELOX_CHECK(
+        errorCode == ReferenceQueryErrorCode::kSuccess,
+        "Error should be handled by branches above.");
+  }
+}
+
+void AggregationFuzzerBase::Stats::print(size_t numIterations) const {
+  LOG(INFO) << "Total functions tested: " << functionNames.size();
+  LOG(INFO) << "Total iterations requiring sorted inputs: "
+            << printPercentageStat(numSortedInputs, numIterations);
+  LOG(INFO) << "Total iterations verified against reference DB: "
+            << printPercentageStat(numVerified, numIterations);
+  LOG(INFO)
+      << "Total functions not verified (verification skipped / not supported by reference DB / reference DB failed): "
+      << printPercentageStat(numVerificationSkipped, numIterations) << " / "
+      << printPercentageStat(numReferenceQueryNotSupported, numIterations)
+      << " / " << printPercentageStat(numReferenceQueryFailed, numIterations);
+  LOG(INFO) << "Total failed functions: "
+            << printPercentageStat(numFailed, numIterations);
+}
+
 std::string printPercentageStat(size_t n, size_t total) {
   return fmt::format("{} ({:.2f}%)", n, (double)n / total * 100);
 }
@@ -657,6 +687,37 @@ void persistReproInfo(
     LOG(ERROR) << "Failed to store aggregation plans to " << planPath << ": "
                << e.what();
   }
+}
+
+std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
+    const std::string& prestoUrl,
+    const std::string& runnerName) {
+  if (prestoUrl.empty()) {
+    auto duckQueryRunner = std::make_unique<DuckQueryRunner>();
+    duckQueryRunner->disableAggregateFunctions({
+        "skewness",
+        // DuckDB results on constant inputs are incorrect. Should be NaN,
+        // but DuckDB returns some random value.
+        "kurtosis",
+        "entropy",
+    });
+    LOG(INFO) << "Using DuckDB as the reference DB.";
+    return duckQueryRunner;
+  } else {
+    return std::make_unique<PrestoQueryRunner>(prestoUrl, runnerName);
+    LOG(INFO) << "Using Presto as the reference DB.";
+  }
+}
+
+std::vector<std::string> retrieveWindowFunctionName(
+    const core::PlanNodePtr& node) {
+  auto windowNode = std::dynamic_pointer_cast<const core::WindowNode>(node);
+  VELOX_CHECK_NOT_NULL(windowNode);
+  std::vector<std::string> functionNames;
+  for (const auto& function : windowNode->windowFunctions()) {
+    functionNames.push_back(function.functionCall->name());
+  }
+  return functionNames;
 }
 
 } // namespace facebook::velox::exec::test

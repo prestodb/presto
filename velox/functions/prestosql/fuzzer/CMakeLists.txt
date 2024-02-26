@@ -22,3 +22,16 @@ target_link_libraries(
   velox_window
   gtest
   gtest_main)
+
+# Window Fuzzer
+add_executable(velox_window_fuzzer_test WindowFuzzerTest.cpp)
+
+target_link_libraries(
+  velox_window_fuzzer_test
+  velox_window_fuzzer
+  velox_fuzzer_util
+  velox_aggregates
+  velox_window
+  velox_expression_test_utility
+  gtest
+  gtest_main)

@@ -65,10 +65,7 @@ class AggregationFuzzer : public AggregationFuzzerBase {
   void go(const std::string& planPath);
 
  private:
-  struct Stats {
-    // Names of functions that were tested.
-    std::unordered_set<std::string> functionNames;
-
+  struct Stats : public AggregationFuzzerBase::Stats {
     // Number of iterations using masked aggregation.
     size_t numMask{0};
 
@@ -86,32 +83,8 @@ class AggregationFuzzer : public AggregationFuzzerBase {
     // Number of iterations using window expressions.
     size_t numWindow{0};
 
-    // Number of iterations using aggregations over sorted inputs.
-    size_t numSortedInputs{0};
-
-    // Number of iterations where results were verified against reference DB,
-    size_t numVerified{0};
-
-    // Number of iterations where results verification was skipped because
-    // function results are non-determinisic.
-    size_t numVerificationSkipped{0};
-
-    // Number of iterations where results verification was skipped because
-    // reference DB doesn't support the function.
-    size_t numVerificationNotSupported{0};
-
-    // Number of iterations where results verification was skipped because
-    // reference DB failed to execute the query.
-    size_t numReferenceQueryFailed{0};
-
-    // Number of iterations where aggregation failed.
-    size_t numFailed{0};
-
     void print(size_t numIterations) const;
   };
-
-  void updateReferenceQueryStats(
-      AggregationFuzzerBase::ReferenceQueryErrorCode errorCode);
 
   // Return 'true' if query plans failed.
   bool verifyWindow(
@@ -670,15 +643,6 @@ void makeStreamingPlansWithTableScan(
           .planNode());
 }
 
-void AggregationFuzzer::updateReferenceQueryStats(
-    AggregationFuzzerBase::ReferenceQueryErrorCode errorCode) {
-  if (errorCode == ReferenceQueryErrorCode::kReferenceQueryFail) {
-    ++stats_.numReferenceQueryFailed;
-  } else if (errorCode == ReferenceQueryErrorCode::kReferenceQueryUnsupported) {
-    ++stats_.numVerificationNotSupported;
-  }
-}
-
 bool AggregationFuzzer::verifyWindow(
     const std::vector<std::string>& partitionKeys,
     const std::vector<std::string>& sortingKeys,
@@ -711,7 +675,7 @@ bool AggregationFuzzer::verifyWindow(
     if (!customVerification && enableWindowVerification) {
       if (resultOrError.result) {
         auto referenceResult = computeReferenceResults(plan, input);
-        updateReferenceQueryStats(referenceResult.second);
+        stats_.updateReferenceQueryStats(referenceResult.second);
         if (auto expectedResult = referenceResult.first) {
           ++stats_.numVerified;
           VELOX_CHECK(
@@ -872,7 +836,7 @@ bool AggregationFuzzer::verifySortedAggregation(
   }
 
   auto referenceResult = computeReferenceResults(firstPlan, input);
-  updateReferenceQueryStats(referenceResult.second);
+  stats_.updateReferenceQueryStats(referenceResult.second);
   auto expectedResult = referenceResult.first;
   if (expectedResult && resultOrError.result) {
     ++stats_.numVerified;
@@ -1007,7 +971,7 @@ void AggregationFuzzer::verifyAggregation(
   std::optional<MaterializedRowMultiset> expectedResult;
   if (!customVerification) {
     auto referenceResult = computeReferenceResults(plan, input);
-    updateReferenceQueryStats(referenceResult.second);
+    stats_.updateReferenceQueryStats(referenceResult.second);
     expectedResult = referenceResult.first;
   }
 
@@ -1025,7 +989,6 @@ void AggregationFuzzer::verifyAggregation(
 }
 
 void AggregationFuzzer::Stats::print(size_t numIterations) const {
-  LOG(INFO) << "Total functions tested: " << functionNames.size();
   LOG(INFO) << "Total masked aggregations: "
             << printPercentageStat(numMask, numIterations);
   LOG(INFO) << "Total global aggregations: "
@@ -1036,19 +999,9 @@ void AggregationFuzzer::Stats::print(size_t numIterations) const {
             << printPercentageStat(numDistinct, numIterations);
   LOG(INFO) << "Total aggregations over distinct inputs: "
             << printPercentageStat(numDistinctInputs, numIterations);
-  LOG(INFO) << "Total aggregations over sorted inputs: "
-            << printPercentageStat(numSortedInputs, numIterations);
   LOG(INFO) << "Total window expressions: "
             << printPercentageStat(numWindow, numIterations);
-  LOG(INFO) << "Total aggregations verified against reference DB: "
-            << printPercentageStat(numVerified, numIterations);
-  LOG(INFO)
-      << "Total aggregations not verified (non-deterministic function / not supported by reference DB / reference DB failed): "
-      << printPercentageStat(numVerificationSkipped, numIterations) << " / "
-      << printPercentageStat(numVerificationNotSupported, numIterations)
-      << " / " << printPercentageStat(numReferenceQueryFailed, numIterations);
-  LOG(INFO) << "Total failed aggregations: "
-            << printPercentageStat(numFailed, numIterations);
+  AggregationFuzzerBase::Stats::print(numIterations);
 }
 
 bool AggregationFuzzer::compareEquivalentPlanResults(
@@ -1072,7 +1025,7 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
     if (resultOrError.result != nullptr) {
       if (!customVerification) {
         auto referenceResult = computeReferenceResults(firstPlan, input);
-        updateReferenceQueryStats(referenceResult.second);
+        stats_.updateReferenceQueryStats(referenceResult.second);
         expectedResult = referenceResult.first;
       } else {
         ++stats_.numVerificationSkipped;

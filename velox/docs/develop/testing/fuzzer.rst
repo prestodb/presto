@@ -1,6 +1,9 @@
-=================================
-Expression and Aggregation Fuzzer
-=================================
+==========================================
+Expression, Aggregation, and Window Fuzzer
+==========================================
+
+Expression Fuzzer
+-----------------
 
 Velox allows users to define UDFs (user-defined functions) and UDAFs
 (user-defined aggregate functions) and provides a fuzzer tools to test the
@@ -17,6 +20,9 @@ To ensure that evaluation engine and UDFs handle vector encodings correctly, the
 expression fuzzer evaluates each expression twice and asserts the results to be
 the same: using regular evaluation path and using simplified evaluation that
 flattens all input vectors before evaluating an expression.
+
+Aggregation Fuzzer
+------------------
 
 The Aggregation Fuzzer tests the HashAggregation operator, the StreamingAggregation
 operator and UDAFs by generating random aggregations and evaluating these on
@@ -71,6 +77,25 @@ tested:
     Total aggregations verified against DuckDB: 2537 (44.63%)
     Total failed aggregations: 1061 (18.67%)
 
+Window Fuzzer
+-------------
+
+The Window fuzzer tests the Window operator with window and aggregation
+functions by generating random window queries and evaluating them on
+random input vectors. Results of the window queries can be compared to
+Presto as the source of truth.
+
+For each window operation, fuzzer generates multiple logically equivalent
+plans and verifies that results match. These plans include
+
+- Values -> Window
+- TableScan -> PartitionBy -> Window
+- Values -> OrderBy -> Window (streaming)
+- TableScan -> OrderBy -> Window (streaming)
+
+Window fuzzer currently doesn't use any custom result verifiers. Functions
+that require custom result verifiers are left unverified.
+
 How to integrate
 ---------------------------------------
 
@@ -105,7 +130,7 @@ correctness by ensuring that results of logically equivalent plans match.
 How to run
 ----------------------------
 
-Fuzzers support a number of powerful command line arguments.
+All fuzzers support a number of powerful command line arguments.
 
 * ``–-steps``: How many iterations to run. Each iteration generates and evaluates one expression or aggregation. Default is 10.
 
@@ -119,7 +144,11 @@ Fuzzers support a number of powerful command line arguments.
 
 * ``–-batch_size``: The size of input vectors to generate. Default is 100.
 
-There are also arguments that toggle certain fuzzer features:
+* ``--null_ratio``: Chance of adding a null constant to the plan, or null value in a vector (expressed as double from 0 to 1). Default is 0.1.
+
+* ``--max_num_varargs``: The maximum number of variadic arguments fuzzer will generate for functions that accept variadic arguments. Fuzzer will generate up to max_num_varargs arguments for the variadic list in addition to the required arguments by the function. Default is 10.
+
+Below are arguments that toggle certain fuzzer features in Expression Fuzzer:
 
 * ``--retry_with_try``: Retry failed expressions by wrapping it using a try() statement. Default is false.
 
@@ -141,21 +170,19 @@ There are also arguments that toggle certain fuzzer features:
 
 * ``--max_expression_trees_per_step``: This sets an upper limit on the number of expression trees to generate per step. These trees would be executed in the same ExprSet and can re-use already generated columns and subexpressions (if re-use is enabled). Default is 1.
 
-In addition, Aggregation Fuzzer also supports tuning parameters:
-
-* ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
-
-* ``--max_num_varargs``: The maximum number of variadic arguments fuzzer will generate for functions that accept variadic arguments. Fuzzer will generate up to max_num_varargs arguments for the variadic list in addition to the required arguments by the function. Default is 10.
-
-* ``--null_ratio``: Chance of adding a null constant to the plan, or null value in a vector (expressed as double from 0 to 1). Default is 0.1.
-
 * ``--velox_fuzzer_max_level_of_nesting``: Max levels of expression nesting. Default is 10 and minimum is 1.
 
+In addition, Aggregation Fuzzer supports the tuning parameter:
+
 * ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
+
+Window Fuzzer supports verifiering window query results against reference DB:
+
+* ``--enable_window_reference_verification``: When true, the results of the window aggregation are compared to reference DB results. Default is false.
 
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
 
-An example set of arguments to run the fuzzer with all features enabled is as follows:
+An example set of arguments to run the expression fuzzer with all features enabled is as follows:
 ``--duration_sec 60
 --enable_variadic_signatures
 --lazy_vector_generation_ratio 0.2

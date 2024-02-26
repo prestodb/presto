@@ -19,18 +19,12 @@
 #include <gtest/gtest.h>
 #include <unordered_set>
 
-#include "velox/exec/fuzzer/AggregationFuzzerOptions.h"
-#include "velox/exec/fuzzer/AggregationFuzzerRunner.h"
 #include "velox/exec/fuzzer/DuckQueryRunner.h"
-#include "velox/exec/fuzzer/PrestoQueryRunner.h"
-#include "velox/exec/fuzzer/TransformResultVerifier.h"
+#include "velox/exec/fuzzer/WindowFuzzerRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctInputGenerator.h"
-#include "velox/functions/prestosql/fuzzer/ApproxDistinctResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
-#include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 DEFINE_int64(
@@ -73,19 +67,9 @@ getCustomInputGenerators() {
 } // namespace facebook::velox::exec::test
 
 int main(int argc, char** argv) {
-  // Register only presto supported signatures if we are verifying against
-  // Presto.
-  if (FLAGS_presto_url.empty()) {
-    facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "", false);
-  } else {
-    facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
-        "", false, true);
-  }
-
-  facebook::velox::functions::prestosql::registerAllScalarFunctions();
+  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
+      "", false);
   facebook::velox::window::prestosql::registerAllWindowFunctions();
-  facebook::velox::functions::prestosql::registerInternalFunctions();
   facebook::velox::memory::MemoryManager::initialize({});
 
   ::testing::InitGoogleTest(&argc, argv);
@@ -105,49 +89,20 @@ int main(int argc, char** argv) {
       "reduce_agg",
   };
 
-  using facebook::velox::exec::test::ApproxDistinctResultVerifier;
-  using facebook::velox::exec::test::ApproxPercentileResultVerifier;
-  using facebook::velox::exec::test::setupReferenceQueryRunner;
-  using facebook::velox::exec::test::TransformResultVerifier;
-
-  auto makeArrayVerifier = []() {
-    return TransformResultVerifier::create("\"$internal$canonicalize\"({})");
-  };
-
-  auto makeMapVerifier = []() {
-    return TransformResultVerifier::create(
-        "\"$internal$canonicalize\"(map_keys({}))");
-  };
-
   // Functions whose results verification should be skipped. These can be
-  // order-dependent functions whose results depend on the order of input rows,
-  // or functions that return complex-typed results containing floating-point
-  // fields. For some functions, the result can be transformed to a value that
-  // can be verified. If such transformation exists, it can be specified to be
-  // used for results verification. If no transformation is specified, results
-  // are not verified.
+  // functions that return complex-typed results containing floating-point
+  // fields.
+  // TODO: allow custom result verifiers.
   static const std::unordered_map<
       std::string,
       std::shared_ptr<facebook::velox::exec::test::ResultVerifier>>
       customVerificationFunctions = {
-          // Order-dependent functions.
-          {"approx_distinct", std::make_shared<ApproxDistinctResultVerifier>()},
+          // Approx functions.
+          {"approx_distinct", nullptr},
           {"approx_set", nullptr},
-          {"approx_percentile",
-           std::make_shared<ApproxPercentileResultVerifier>()},
-          {"arbitrary", nullptr},
-          {"any_value", nullptr},
-          {"array_agg", makeArrayVerifier()},
-          {"set_agg", makeArrayVerifier()},
-          {"set_union", makeArrayVerifier()},
-          {"map_agg", makeMapVerifier()},
-          {"map_union", makeMapVerifier()},
-          {"map_union_sum", makeMapVerifier()},
-          {"max_by", nullptr},
-          {"min_by", nullptr},
-          {"multimap_agg",
-           TransformResultVerifier::create(
-               "transform_values({}, (k, v) -> \"$internal$canonicalize\"(v))")},
+          {"approx_percentile", nullptr},
+          {"approx_most_frequent", nullptr},
+          {"merge", nullptr},
           // Semantically inconsistent functions
           {"skewness", nullptr},
           {"kurtosis", nullptr},
@@ -157,8 +112,36 @@ int main(int argc, char** argv) {
           {"sum_data_size_for_stats", nullptr},
       };
 
-  using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
+  static const std::unordered_set<std::string> orderDependentFunctions = {
+      // Window functions.
+      "first_value",
+      "last_value",
+      "nth_value",
+      "ntile",
+      "lag",
+      "lead",
+      "row_number",
+      "cume_dist",
+      "rank",
+      "dense_rank",
+      "percent_rank",
+      // Aggregation functions.
+      "any_value",
+      "arbitrary",
+      "array_agg",
+      "set_agg",
+      "set_union",
+      "map_agg",
+      "map_union",
+      "map_union_sum",
+      "max_by",
+      "min_by",
+      "multimap_agg",
+  };
+
+  using Runner = facebook::velox::exec::test::WindowFuzzerRunner;
   using Options = facebook::velox::exec::test::AggregationFuzzerOptions;
+  using facebook::velox::exec::test::setupReferenceQueryRunner;
 
   Options options;
   options.onlyFunctions = FLAGS_only;
@@ -166,10 +149,11 @@ int main(int argc, char** argv) {
   options.customVerificationFunctions = customVerificationFunctions;
   options.customInputGenerators =
       facebook::velox::exec::test::getCustomInputGenerators();
+  options.orderDependentFunctions = orderDependentFunctions;
   options.timestampPrecision =
       facebook::velox::VectorFuzzer::Options::TimestampPrecision::kMilliSeconds;
   return Runner::run(
       initialSeed,
-      setupReferenceQueryRunner(FLAGS_presto_url, "aggregation_fuzzer"),
+      setupReferenceQueryRunner(FLAGS_presto_url, "window_fuzzer"),
       options);
 }

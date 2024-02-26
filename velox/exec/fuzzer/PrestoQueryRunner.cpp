@@ -384,6 +384,56 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   return sql.str();
 }
 
+namespace {
+
+void appendWindowFrame(
+    const core::WindowNode::Frame& frame,
+    std::stringstream& sql) {
+  // TODO: Add support for k Range Frames by retrieving the original range bound
+  // from WindowNode.
+  switch (frame.type) {
+    case core::WindowNode::WindowType::kRange:
+      sql << " RANGE";
+      break;
+    case core::WindowNode::WindowType::kRows:
+      sql << " ROWS";
+      break;
+    default:
+      VELOX_UNREACHABLE();
+  }
+  sql << " BETWEEN";
+
+  auto appendBound = [&sql](
+                         const core::WindowNode::BoundType& bound,
+                         const core::TypedExprPtr& value) {
+    switch (bound) {
+      case core::WindowNode::BoundType::kUnboundedPreceding:
+        sql << " UNBOUNDED PRECEDING";
+        break;
+      case core::WindowNode::BoundType::kUnboundedFollowing:
+        sql << " UNBOUNDED FOLLOWING";
+        break;
+      case core::WindowNode::BoundType::kCurrentRow:
+        sql << " CURRENT ROW";
+        break;
+      case core::WindowNode::BoundType::kPreceding:
+        sql << " " << value->toString() << " PRECEDING";
+        break;
+      case core::WindowNode::BoundType::kFollowing:
+        sql << " " << value->toString() << " FOLLOWING";
+        break;
+      default:
+        VELOX_UNREACHABLE();
+    }
+  };
+
+  appendBound(frame.startType, frame.startValue);
+  sql << " AND";
+  appendBound(frame.endType, frame.endValue);
+}
+
+} // namespace
+
 std::optional<std::string> PrestoQueryRunner::toSql(
     const std::shared_ptr<const core::WindowNode>& windowNode) {
   if (!isSupportedDwrfType(windowNode->sources()[0]->outputType())) {
@@ -405,30 +455,34 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   for (auto i = 0; i < functions.size(); ++i) {
     appendComma(i, sql);
     sql << toCallSql(functions[i].functionCall);
-  }
-  sql << " OVER (";
 
-  const auto& partitionKeys = windowNode->partitionKeys();
-  if (!partitionKeys.empty()) {
-    sql << "PARTITION BY ";
-    for (auto i = 0; i < partitionKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << partitionKeys[i]->name();
+    sql << " OVER (";
+
+    const auto& partitionKeys = windowNode->partitionKeys();
+    if (!partitionKeys.empty()) {
+      sql << "PARTITION BY ";
+      for (auto j = 0; j < partitionKeys.size(); ++j) {
+        appendComma(j, sql);
+        sql << partitionKeys[j]->name();
+      }
     }
-  }
 
-  const auto& sortingKeys = windowNode->sortingKeys();
-  const auto& sortingOrders = windowNode->sortingOrders();
+    const auto& sortingKeys = windowNode->sortingKeys();
+    const auto& sortingOrders = windowNode->sortingOrders();
 
-  if (!sortingKeys.empty()) {
-    sql << " order by ";
-    for (auto i = 0; i < sortingKeys.size(); ++i) {
-      appendComma(i, sql);
-      sql << sortingKeys[i]->name() << " " << sortingOrders[i].toString();
+    if (!sortingKeys.empty()) {
+      sql << " ORDER BY ";
+      for (auto j = 0; j < sortingKeys.size(); ++j) {
+        appendComma(j, sql);
+        sql << sortingKeys[j]->name() << " " << sortingOrders[j].toString();
+      }
     }
+
+    appendWindowFrame(functions[i].frame, sql);
+    sql << ")";
   }
 
-  sql << ") FROM tmp";
+  sql << " FROM tmp";
 
   return sql.str();
 }
