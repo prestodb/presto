@@ -22,6 +22,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -39,6 +40,7 @@ class PrestoQueryRunnerTest : public ::testing::Test,
 
   void SetUp() override {
     velox::functions::prestosql::registerAllScalarFunctions();
+    facebook::velox::window::prestosql::registerAllWindowFunctions();
     velox::aggregate::prestosql::registerAllAggregateFunctions();
     velox::parse::registerTypeResolver();
   }
@@ -157,4 +159,51 @@ TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
   ASSERT_TRUE(sql.has_value());
   ASSERT_EQ("SELECT array_agg(distinct c0) as a0 FROM tmp", sql.value());
 }
+
+TEST_F(PrestoQueryRunnerTest, toSql) {
+  auto queryRunner =
+      std::make_unique<PrestoQueryRunner>("http://unused", "hive");
+  auto dataType = ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BOOLEAN()});
+
+  // Test window queries.
+  {
+    auto plan =
+        PlanBuilder()
+            .tableScan("tmp", dataType)
+            .window({"first_value(c0) over (partition by c1 order by c2)"})
+            .planNode();
+    EXPECT_EQ(
+        queryRunner->toSql(plan),
+        "SELECT c0, c1, c2, first_value(c0) OVER (PARTITION BY c1 order by c2 ASC NULLS LAST) FROM tmp");
+  }
+
+  // Test aggregation queries.
+  {
+    auto plan = PlanBuilder()
+                    .tableScan("tmp", dataType)
+                    .singleAggregation({"c1"}, {"avg(c0)"})
+                    .planNode();
+    EXPECT_EQ(
+        queryRunner->toSql(plan),
+        "SELECT c1, avg(c0) as a0 FROM tmp GROUP BY c1");
+
+    plan = PlanBuilder()
+               .tableScan("tmp", dataType)
+               .singleAggregation({"c1"}, {"sum(c0)"})
+               .project({"a0 + c1"})
+               .planNode();
+    EXPECT_EQ(
+        queryRunner->toSql(plan),
+        "SELECT plus(a0, c1) as p0 FROM (SELECT c1, sum(c0) as a0 FROM tmp GROUP BY c1)");
+
+    plan = PlanBuilder()
+               .tableScan("tmp", dataType)
+               .singleAggregation({}, {"avg(c0)", "avg(c1)"}, {"c2"})
+               .planNode();
+    EXPECT_EQ(
+        queryRunner->toSql(plan),
+        "SELECT avg(c0) filter (where c2) as a0, avg(c1) as a1 FROM tmp");
+  }
+}
+
 } // namespace facebook::velox::exec::test

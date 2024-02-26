@@ -161,6 +161,7 @@ target_link_libraries(
   velox_functions_lib
   velox_functions_prestosql
   velox_functions_test_lib
+  velox_window
   velox_hive_connector
   velox_memory
   velox_serialization
