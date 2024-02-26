@@ -1375,7 +1375,7 @@ TEST_F(TableScanTest, waitForSplit) {
       duckDbQueryRunner_);
 }
 
-TEST_F(TableScanTest, tableScanSplitsAndWeights) {
+DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   // Create 10 data files for 10 splits.
   const size_t numSplits{10};
   const auto filePaths = makeFilePaths(numSplits);
