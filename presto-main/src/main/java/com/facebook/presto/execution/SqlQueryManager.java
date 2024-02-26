@@ -117,7 +117,7 @@ public class SqlQueryManager
         this.maxQueryOutputPositions = queryManagerConfig.getQueryMaxOutputPositions();
         this.maxQueryOutputSize = queryManagerConfig.getQueryMaxOutputSize();
 
-        this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
+        this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%d"));
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor, clusterQueryTrackerService);

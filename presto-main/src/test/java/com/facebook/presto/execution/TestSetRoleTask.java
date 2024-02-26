@@ -66,7 +66,7 @@ public class TestSetRoleTask
         metadata = MetadataManager.createTestMetadataManager(transactionManager, new FeaturesConfig());
 
         catalogManager.registerCatalog(createBogusTestingCatalog(CATALOG_NAME));
-        executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%d"));
         parser = new SqlParser();
     }
 

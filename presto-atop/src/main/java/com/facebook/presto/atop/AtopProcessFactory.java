@@ -56,7 +56,7 @@ public class AtopProcessFactory
         this.executablePath = config.getExecutablePath();
         this.timeZone = config.getTimeZoneId();
         this.readTimeout = config.getReadTimeout();
-        this.executor = newFixedThreadPool(config.getConcurrentReadersPerNode(), daemonThreadsNamed("atop-" + connectorId + "executable-reader-%s"));
+        this.executor = newFixedThreadPool(config.getConcurrentReadersPerNode(), daemonThreadsNamed("atop-" + connectorId + "executable-reader-%d"));
     }
 
     @Override

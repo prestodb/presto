@@ -83,8 +83,8 @@ public class TestHighMemoryTaskKiller
         taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
         taskExecutor.start();
 
-        taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
-        driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%d"));
+        driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%d"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 

@@ -777,7 +777,7 @@ public abstract class AbstractTestHiveClient
     @BeforeClass
     public void setupClass()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%d"));
     }
 
     @AfterClass(alwaysRun = true)

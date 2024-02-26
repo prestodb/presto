@@ -382,16 +382,16 @@ public class PrestoSparkModule
 
         // Metadata Extractor
         binder.bind(ExecutorService.class).annotatedWith(ForMetadataExtractor.class)
-                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%s")));
+                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%d")));
         binder.bind(MetadataExtractorMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MetadataExtractorMBean.class).as(generatedNameOf(MetadataExtractor.class));
 
         // executors
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%s"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%d"));
         binder.bind(Executor.class).toInstance(executor);
         binder.bind(ExecutorService.class).toInstance(executor);
         // Set the initial thread pool size to 1 (instead of 0) to avoid the thread pool hogging CPU due to JDK8 bug: https://bugs.openjdk.org/browse/JDK-8129861
-        binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(5, daemonThreadsNamed("presto-spark-scheduled-executor-%s")));
+        binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(5, daemonThreadsNamed("presto-spark-scheduled-executor-%d")));
 
         // task executor
         binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
@@ -558,8 +558,8 @@ public class PrestoSparkModule
                     config,
                     blockEncodingSerde,
                     fragmentCacheStats,
-                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
-                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%d")),
+                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%d")));
         }
         return new NoOpFragmentResultCacheManager();
     }

@@ -98,7 +98,7 @@ public class ConfidenceBasedNodeTtlFetcherManager
         periodicTtlRefresher = new PeriodicTaskExecutor(
                 ttlFetcher.get().getRefreshInterval().toMillis(),
                 nodeTtlFetcherManagerConfig.getInitialDelayBeforeRefresh().toMillis(),
-                newSingleThreadScheduledExecutor(threadsNamed("refresh-node-ttl-executor-%s")),
+                newSingleThreadScheduledExecutor(threadsNamed("refresh-node-ttl-executor-%d")),
                 this::refreshTtlInfo,
                 ConfidenceBasedNodeTtlFetcherManager::jitterForPeriodicRefresh);
         periodicTtlRefresher.start();

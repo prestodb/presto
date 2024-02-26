@@ -114,7 +114,7 @@ public class QuickStatsProvider
         this.reaperExpiryMillis = hiveClientConfig.getQuickStatsReaperExpiry().toMillis();
         this.nameNodeStats = nameNodeStats;
         this.statsBuilderStrategies = statsBuilderStrategies;
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("quick-stats-bg-fetch-%s"));
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("quick-stats-bg-fetch-%d"));
         this.backgroundFetchExecutor = new BoundedExecutor(coreExecutor, hiveClientConfig.getMaxConcurrentQuickStatsCalls());
         this.backgroundFetchExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }

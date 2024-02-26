@@ -37,7 +37,7 @@ public class JmxPeriodicSampler
 
     private final JmxHistoricalData jmxHistoricalData;
     private final JmxRecordSetProvider jmxRecordSetProvider;
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%s"));
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%d"));
     private final long period;
     private final List<JmxTableHandle> tableHandles;
     private long lastDumpTimestamp;

@@ -123,7 +123,7 @@ public class TestHiveCommitHandleOutput
     {
         TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore();
         HiveClientConfig hiveClientConfig = new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true);
-        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-commit-handle-%s")));
+        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-commit-handle-%d")));
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
                         new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true),
@@ -154,7 +154,7 @@ public class TestHiveCommitHandleOutput
     {
         TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore();
         HiveClientConfig hiveClientConfig = new HiveClientConfig().setPartitionStatisticsBasedOptimizationEnabled(true);
-        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-commit-handle-%s")));
+        ListeningExecutorService listeningExecutor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-commit-handle-%d")));
         HiveMetadata hiveMeta = getHiveMetadata(metastore, hiveClientConfig, listeningExecutor);
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(

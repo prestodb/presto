@@ -381,8 +381,8 @@ public class TestOrcBatchPageSourceMemoryTracking
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
         private final List<HivePartitionKey> partitionKeys;
-        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+        private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
 
         public TestPreparer(String tempFilePath)
                 throws Exception

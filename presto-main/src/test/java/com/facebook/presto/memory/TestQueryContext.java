@@ -51,7 +51,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestQueryContext
 {
-    private static final ScheduledExecutorService TEST_EXECUTOR = newScheduledThreadPool(1, threadsNamed("test-executor-%s"));
+    private static final ScheduledExecutorService TEST_EXECUTOR = newScheduledThreadPool(1, threadsNamed("test-executor-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

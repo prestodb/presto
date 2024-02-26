@@ -152,7 +152,7 @@ public abstract class AbstractTestHiveFileSystem
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%d"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -184,7 +184,7 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%d"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 
         HdfsConfiguration hdfsConfiguration = hdfsConfigurationProvider.apply(config, metastoreClientConfig);

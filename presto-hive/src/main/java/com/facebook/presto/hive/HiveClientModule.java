@@ -238,7 +238,7 @@ public class HiveClientModule
     @Provides
     public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
     {
-        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%d"));
     }
 
     @ForCachingHiveMetastore
@@ -248,7 +248,7 @@ public class HiveClientModule
     {
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
+                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%d"));
     }
 
     @ForUpdatingHiveMetadata
@@ -256,7 +256,7 @@ public class HiveClientModule
     @Provides
     public ExecutorService createUpdatingHiveMetadataExecutor(HiveConnectorId hiveClientId)
     {
-        return newCachedThreadPool(daemonThreadsNamed("hive-metadata-updater-" + hiveClientId + "-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("hive-metadata-updater-" + hiveClientId + "-%d"));
     }
 
     @ForFileRename
@@ -267,7 +267,7 @@ public class HiveClientModule
         return listeningDecorator(
                 new ExecutorServiceAdapter(
                         new BoundedExecutor(
-                                newCachedThreadPool(daemonThreadsNamed("hive-rename-" + hiveClientId + "-%s")),
+                                newCachedThreadPool(daemonThreadsNamed("hive-rename-" + hiveClientId + "-%d")),
                                 hiveClientConfig.getMaxConcurrentFileRenames())));
     }
 
@@ -279,7 +279,7 @@ public class HiveClientModule
         return listeningDecorator(
                 new ExecutorServiceAdapter(
                         new BoundedExecutor(
-                                newCachedThreadPool(daemonThreadsNamed("hive-create-zero-row-file-" + hiveClientId + "-%s")),
+                                newCachedThreadPool(daemonThreadsNamed("hive-create-zero-row-file-" + hiveClientId + "-%d")),
                                 hiveClientConfig.getMaxConcurrentZeroRowFileCreations())));
     }
 

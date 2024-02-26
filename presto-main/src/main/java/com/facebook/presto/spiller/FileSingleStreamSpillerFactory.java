@@ -74,7 +74,7 @@ public class FileSingleStreamSpillerFactory
         this(
                 listeningDecorator(newFixedThreadPool(
                         requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
-                        daemonThreadsNamed("binary-spiller-%s"))),
+                        daemonThreadsNamed("binary-spiller-%d"))),
                 blockEncodingSerde,
                 spillerStats,
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),

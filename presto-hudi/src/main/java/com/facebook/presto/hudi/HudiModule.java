@@ -136,7 +136,7 @@ public class HudiModule
     {
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-hudi-%s"));
+                daemonThreadsNamed("hive-metastore-hudi-%d"));
     }
 
     @ForHudiSplitAsyncQueue
@@ -144,7 +144,7 @@ public class HudiModule
     @Provides
     public ExecutorService createHudiSplitManagerExecutor()
     {
-        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%d"));
     }
 
     @ForHudiSplitSource
@@ -154,7 +154,7 @@ public class HudiModule
     {
         return newScheduledThreadPool(
                 hudiConfig.getSplitLoaderParallelism(),
-                daemonThreadsNamed("hudi-split-loader-%s"));
+                daemonThreadsNamed("hudi-split-loader-%d"));
     }
 
     @ForHudiBackgroundSplitLoader
@@ -164,7 +164,7 @@ public class HudiModule
     {
         return newFixedThreadPool(
                 hudiConfig.getSplitGeneratorParallelism(),
-                daemonThreadsNamed("hudi-split-generator-%s"));
+                daemonThreadsNamed("hudi-split-generator-%d"));
     }
 
     @Singleton

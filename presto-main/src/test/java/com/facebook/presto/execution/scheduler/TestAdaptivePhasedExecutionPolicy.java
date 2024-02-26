@@ -81,7 +81,7 @@ public class TestAdaptivePhasedExecutionPolicy
     private static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
 
-    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("testAdaptivePhasedExecutionPolicy-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("testAdaptivePhasedExecutionPolicy-%d"));
 
     @AfterClass
     public void tearDownExecutor()

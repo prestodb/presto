@@ -59,9 +59,9 @@ public class CachingModule
                     cacheConfig,
                     fileMergeCacheConfig,
                     cacheStats,
-                    newScheduledThreadPool(5, daemonThreadsNamed("hive-cache-flusher-%s")),
-                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-remover-%s")),
-                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s")));
+                    newScheduledThreadPool(5, daemonThreadsNamed("hive-cache-flusher-%d")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-remover-%d")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%d")));
         }
         return new NoOpCacheManager();
     }

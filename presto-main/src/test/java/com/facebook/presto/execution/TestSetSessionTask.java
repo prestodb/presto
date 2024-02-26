@@ -111,7 +111,7 @@ public class TestSetSessionTask
         return intValue;
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

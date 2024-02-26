@@ -104,8 +104,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOptimizedPartitionedOutputOperator
 {
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
-    private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%d"));
+    private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%d"));
     private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
     private static final PagesSerde PAGES_SERDE = new PagesSerdeFactory(new BlockEncodingManager(), false).createPagesSerde(); //testingPagesSerde();
 

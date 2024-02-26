@@ -43,7 +43,7 @@ public class TestAsyncQueue
     @BeforeClass
     public void setUpClass()
     {
-        executor = Executors.newFixedThreadPool(8, Threads.daemonThreadsNamed("test-async-queue-%s"));
+        executor = Executors.newFixedThreadPool(8, Threads.daemonThreadsNamed("test-async-queue-%d"));
     }
 
     @AfterClass(alwaysRun = true)

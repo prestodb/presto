@@ -48,7 +48,7 @@ public class JdbcMetadataCache
     public JdbcMetadataCache(JdbcClient jdbcClient, JdbcMetadataConfig config, JdbcMetadataCacheStats stats)
     {
         this(
-                newCachedThreadPool(daemonThreadsNamed("jdbc-metadata-cache" + "-%s")),
+                newCachedThreadPool(daemonThreadsNamed("jdbc-metadata-cache" + "-%d")),
                 jdbcClient,
                 stats,
                 OptionalLong.of(config.getMetadataCacheTtl().toMillis()),

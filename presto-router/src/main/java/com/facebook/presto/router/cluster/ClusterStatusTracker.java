@@ -53,7 +53,7 @@ public class ClusterStatusTracker
     {
         this.clusterManager = requireNonNull(clusterManager, "clusterManager is null");
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
-        this.queryInfoUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("query-info-poller-%s"));
+        this.queryInfoUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("query-info-poller-%d"));
     }
 
     @PostConstruct

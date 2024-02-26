@@ -59,8 +59,8 @@ import static org.testng.Assert.fail;
 public class TestStartTransactionTask
 {
     private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
-    private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("scheduled-executor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%d"));
+    private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("scheduled-executor-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

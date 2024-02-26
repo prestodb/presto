@@ -137,7 +137,7 @@ public class HivePartitionManager
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
         ExecutorService threadPoolExecutor = new ThreadPoolExecutor(0, maxParallelParsingConcurrency,
-                60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), daemonThreadsNamed("partition-value-parser-%s"));
+                60L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), daemonThreadsNamed("partition-value-parser-%d"));
         this.executorService = listeningDecorator(threadPoolExecutor);
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) threadPoolExecutor);
     }

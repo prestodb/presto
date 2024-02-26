@@ -58,7 +58,7 @@ public class TempStorageSingleStreamSpillerFactory
                 tempStorageManager,
                 listeningDecorator(newFixedThreadPool(
                         requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
-                        daemonThreadsNamed("binary-spiller-%s"))),
+                        daemonThreadsNamed("binary-spiller-%d"))),
                 blockEncodingSerde,
                 spillerStats,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),

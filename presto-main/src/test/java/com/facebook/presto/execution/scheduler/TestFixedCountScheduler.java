@@ -40,8 +40,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestFixedCountScheduler
 {
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
-    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%d"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%d"));
     private final MockRemoteTaskFactory taskFactory;
 
     public TestFixedCountScheduler()

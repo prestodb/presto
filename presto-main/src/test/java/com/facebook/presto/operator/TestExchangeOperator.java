@@ -80,8 +80,8 @@ public class TestExchangeOperator
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 

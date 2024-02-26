@@ -68,8 +68,8 @@ public class TestPartitionedOutputOperator
     private static final DataSize PARTITION_MAX_MEMORY = new DataSize(5, MEGABYTE);
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> REPLICATION_TYPES = ImmutableList.of(BIGINT, BIGINT);
-    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
-    private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
+    private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%d"));
+    private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%d"));
 
     private static final Block NULL_BLOCK = new RunLengthEncodedBlock(BIGINT.createBlockBuilder(null, 1).appendNull().build(), POSITIONS_PER_PAGE);
     private static final Block TESTING_BLOCK = createLongSequenceBlock(0, POSITIONS_PER_PAGE);

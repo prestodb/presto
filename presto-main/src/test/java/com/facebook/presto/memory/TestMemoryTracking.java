@@ -80,8 +80,8 @@ public class TestMemoryTracking
     @BeforeClass
     public void setUp()
     {
-        notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
-        yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+        notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%d"));
+        yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%d"));
     }
 
     @AfterClass(alwaysRun = true)

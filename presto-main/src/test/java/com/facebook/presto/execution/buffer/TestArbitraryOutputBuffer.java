@@ -75,7 +75,7 @@ public class TestArbitraryOutputBuffer
     @BeforeClass
     public void setUp()
     {
-        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
+        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%d"));
     }
 
     @AfterClass(alwaysRun = true)

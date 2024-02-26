@@ -80,9 +80,9 @@ public class TestExchangeClient
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%d"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        testingHttpClientExecutor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        testingHttpClientExecutor = newCachedThreadPool(daemonThreadsNamed("test-%d"));
     }
 
     @AfterClass(alwaysRun = true)

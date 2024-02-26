@@ -115,9 +115,9 @@ public class TestMemoryRevokingScheduler
         taskExecutor.start();
 
         // Must be single threaded
-        singleThreadedExecutor = newSingleThreadExecutor(threadsNamed("task-notification-%s"));
-        singleThreadedScheduledExecutor = newScheduledThreadPool(1, threadsNamed("task-notification-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, threadsNamed("task-notification-%s"));
+        singleThreadedExecutor = newSingleThreadExecutor(threadsNamed("task-notification-%d"));
+        singleThreadedScheduledExecutor = newScheduledThreadPool(1, threadsNamed("task-notification-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, threadsNamed("task-notification-%d"));
 
         LocalExecutionPlanner planner = createTestingPlanner();
 

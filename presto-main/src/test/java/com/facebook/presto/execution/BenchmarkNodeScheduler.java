@@ -160,8 +160,8 @@ public class BenchmarkNodeScheduler
             }
             List<InternalNode> nodes = nodeBuilder.build();
             MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(
-                    newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s")),
-                    newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s")));
+                    newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%d")),
+                    newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%d")));
             for (int i = 0; i < nodes.size(); i++) {
                 InternalNode node = nodes.get(i);
                 ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();

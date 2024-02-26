@@ -83,7 +83,7 @@ public class CatalogServerModule
     @ForTransactionManager
     public static ExecutorService createTransactionFinishingExecutor()
     {
-        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%d"));
     }
 
     @Provides

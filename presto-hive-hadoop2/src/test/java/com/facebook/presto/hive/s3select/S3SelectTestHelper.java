@@ -133,7 +133,7 @@ public class S3SelectTestHelper
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
-        executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-%d"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 
         S3ConfigurationUpdater s3Config = new PrestoS3ConfigurationUpdater(new HiveS3Config()

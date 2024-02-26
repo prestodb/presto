@@ -89,7 +89,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessor
 {
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%d"));
 
     @Test
     public void testProjectNoColumns()

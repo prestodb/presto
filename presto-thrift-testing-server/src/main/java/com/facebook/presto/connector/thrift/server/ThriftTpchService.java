@@ -72,7 +72,7 @@ public class ThriftTpchService
     protected static final JsonCodec<SplitInfo> SPLIT_INFO_CODEC = jsonCodec(SplitInfo.class);
 
     private final ListeningExecutorService executor = listeningDecorator(
-            newFixedThreadPool(Runtime.getRuntime().availableProcessors(), threadsNamed("thrift-tpch-%s")));
+            newFixedThreadPool(Runtime.getRuntime().availableProcessors(), threadsNamed("thrift-tpch-%d")));
 
     @Override
     public final List<String> listSchemaNames()

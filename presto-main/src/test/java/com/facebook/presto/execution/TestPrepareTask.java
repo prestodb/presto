@@ -51,7 +51,7 @@ import static org.testng.Assert.fail;
 public class TestPrepareTask
 {
     private final MetadataManager metadata = createTestMetadataManager();
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

@@ -115,7 +115,7 @@ public class TestCreateMaterializedViewTask
 
         accessControl = new AllowAllAccessControl();
 
-        executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executorService = newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
         metadata = new MockMetadata(
                 functionAndTypeManager,

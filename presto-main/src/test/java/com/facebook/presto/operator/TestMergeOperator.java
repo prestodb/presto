@@ -79,7 +79,7 @@ public class TestMergeOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-merge-operator-%s"));
+        executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-merge-operator-%d"));
         serdeFactory = new TestingPagesSerdeFactory();
 
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));

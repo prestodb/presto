@@ -113,7 +113,7 @@ public class ClusterSizeMonitor
         this.coordinatorMaxWait = requireNonNull(coordinatorMaxWait, "coordinatorMaxWait is null");
         checkArgument(resourceManagerMinCountActive >= 0, "resourceManagerMinCountActive is negative");
         this.resourceManagerMinCountActive = resourceManagerMinCountActive;
-        this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
+        this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%d"));
     }
 
     @PostConstruct

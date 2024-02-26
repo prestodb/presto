@@ -79,8 +79,8 @@ public class TestPrestoSparkTaskExecution
     @BeforeMethod
     public void setUp()
     {
-        taskNotificationExecutor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        taskNotificationExecutor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
 
         nativeTestSession = testSessionBuilder()

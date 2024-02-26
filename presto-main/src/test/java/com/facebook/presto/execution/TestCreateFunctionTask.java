@@ -37,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 public class TestCreateFunctionTask
 {
     private final MetadataManager metadataManager = createTestMetadataManager();
-    private final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

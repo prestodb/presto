@@ -130,7 +130,7 @@ public class TestJdbcWarnings
     public void testLongRunningStatement()
             throws SQLException, InterruptedException
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
+        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%d"));
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
         queryExecutor.submit(() -> {
             try {
@@ -164,7 +164,7 @@ public class TestJdbcWarnings
     public void testLongRunningQuery()
             throws SQLException, InterruptedException
     {
-        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
+        ExecutorService queryExecutor = newSingleThreadExecutor(daemonThreadsNamed("test-%d"));
         QueryCreationFuture queryCreationFuture = new QueryCreationFuture();
         queryExecutor.submit(() -> {
             try {

@@ -160,7 +160,7 @@ public class TestHiveSplitManager
     @BeforeClass
     public void setUp()
     {
-        executor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-split-manager-%s")));
+        executor = MoreExecutors.listeningDecorator(newFixedThreadPool(10, daemonThreadsNamed("test-hive-split-manager-%d")));
     }
 
     @AfterClass(alwaysRun = true)

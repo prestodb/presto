@@ -94,7 +94,7 @@ public class ProxyResource
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%d"));
     private final HttpClient httpClient;
     private final JsonWebTokenHandler jwtHandler;
     private final URI remoteUri;

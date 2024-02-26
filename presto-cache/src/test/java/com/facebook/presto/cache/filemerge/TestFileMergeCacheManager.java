@@ -57,9 +57,9 @@ public class TestFileMergeCacheManager
 {
     private static final int DATA_LENGTH = (int) new DataSize(20, KILOBYTE).toBytes();
     private final byte[] data = new byte[DATA_LENGTH];
-    private final ExecutorService flushExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-flusher-%s"));
-    private final ExecutorService removeExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%s"));
-    private final ScheduledExecutorService cacheSizeCalculator = newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s"));
+    private final ExecutorService flushExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-flusher-%d"));
+    private final ExecutorService removeExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%d"));
+    private final ScheduledExecutorService cacheSizeCalculator = newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%d"));
 
     private URI cacheDirectory;
     private URI fileDirectory;

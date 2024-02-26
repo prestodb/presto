@@ -340,7 +340,7 @@ public class LocalQueryRunner
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
 
-    private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
+    private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%d"));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -371,8 +371,8 @@ public class LocalQueryRunner
 
         this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
-        this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
-        this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+        this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%d"));
+        this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%d"));
         this.finalizerService = new FinalizerService();
         finalizerService.start();
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");

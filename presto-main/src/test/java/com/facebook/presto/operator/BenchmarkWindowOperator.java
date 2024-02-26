@@ -95,8 +95,8 @@ public class BenchmarkWindowOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
 
             createOperatorFactoryAndGenerateTestData(numberOfPregroupedColumns);
         }

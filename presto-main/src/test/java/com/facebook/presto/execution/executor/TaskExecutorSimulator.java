@@ -68,7 +68,7 @@ public class TaskExecutorSimulator
         }
     }
 
-    private final ListeningExecutorService submissionExecutor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%s")));
+    private final ListeningExecutorService submissionExecutor = listeningDecorator(newCachedThreadPool(threadsNamed(getClass().getSimpleName() + "-%d")));
     private final ScheduledExecutorService overallStatusPrintExecutor = newSingleThreadScheduledExecutor();
     private final ScheduledExecutorService runningSplitsPrintExecutor = newSingleThreadScheduledExecutor();
     private final ScheduledExecutorService wakeupExecutor = newScheduledThreadPool(32);

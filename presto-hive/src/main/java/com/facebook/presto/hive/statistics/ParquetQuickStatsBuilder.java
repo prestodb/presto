@@ -104,7 +104,7 @@ public class ParquetQuickStatsBuilder
         this.stats = stats;
         this.hdfsEnvironment = hdfsEnvironment;
         this.footerFetchTimeoutMillis = hiveClientConfig.getParquetQuickStatsFileMetadataFetchTimeout().roundTo(MILLISECONDS);
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("parquet-quick-stats-bg-fetch-%s"));
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("parquet-quick-stats-bg-fetch-%d"));
         this.footerFetchExecutor = new BoundedExecutor(coreExecutor, hiveClientConfig.getMaxConcurrentParquetQuickStatsCalls());
         this.footerFetchExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }

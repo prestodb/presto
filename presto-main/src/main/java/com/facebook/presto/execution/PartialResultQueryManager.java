@@ -41,7 +41,7 @@ public class PartialResultQueryManager
     private void startExecutor()
     {
         // Start the executor if not already started
-        if (executor.compareAndSet(null, newSingleThreadScheduledExecutor(threadsNamed("partial-result-query-manager-%s")))) {
+        if (executor.compareAndSet(null, newSingleThreadScheduledExecutor(threadsNamed("partial-result-query-manager-%d")))) {
             executor.get().scheduleWithFixedDelay(this::checkAndCancelTasks, 1, 1, TimeUnit.SECONDS);
         }
     }

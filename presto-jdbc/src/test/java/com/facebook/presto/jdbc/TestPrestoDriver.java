@@ -133,7 +133,7 @@ public class TestPrestoDriver
         sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         waitForNodeRefresh(server);
         setupTestTables();
-        executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executorService = newCachedThreadPool(daemonThreadsNamed("test-%d"));
     }
 
     static void waitForNodeRefresh(TestingPrestoServer server)

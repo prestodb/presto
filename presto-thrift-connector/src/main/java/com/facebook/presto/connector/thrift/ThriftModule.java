@@ -84,6 +84,6 @@ public class ThriftModule
     @ForMetadataRefresh
     public Executor createMetadataRefreshExecutor(ThriftConnectorConfig config)
     {
-        return newFixedThreadPool(config.getMetadataRefreshThreads(), daemonThreadsNamed("metadata-refresh-%s"));
+        return newFixedThreadPool(config.getMetadataRefreshThreads(), daemonThreadsNamed("metadata-refresh-%d"));
     }
 }

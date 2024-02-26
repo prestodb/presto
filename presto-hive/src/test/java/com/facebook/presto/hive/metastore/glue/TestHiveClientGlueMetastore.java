@@ -151,7 +151,7 @@ public class TestHiveClientGlueMetastore
     @BeforeClass
     public void setUp()
     {
-        executorService = newCachedThreadPool(daemonThreadsNamed("hive-glue-%s"));
+        executorService = newCachedThreadPool(daemonThreadsNamed("hive-glue-%d"));
     }
 
     @AfterClass(alwaysRun = true)

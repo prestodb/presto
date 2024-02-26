@@ -70,7 +70,7 @@ public class TestPageBufferClient
     @BeforeClass
     public void setUp()
     {
-        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%s"));
+        scheduler = newScheduledThreadPool(4, daemonThreadsNamed("test-%d"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 

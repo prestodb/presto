@@ -48,7 +48,7 @@ import static org.testng.Assert.fail;
 
 public class TestDictionaryAwarePageProjection
 {
-    private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+    private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%d"));
 
     @DataProvider(name = "forceYield")
     public static Object[][] forceYield()

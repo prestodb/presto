@@ -93,7 +93,7 @@ public class ColumnCardinalityCache
         Duration expireDuration = config.getCardinalityCacheExpiration();
 
         // Create a bounded executor with a pool size at 4x number of processors
-        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%s"));
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%d"));
         this.executorService = new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors());
 
         LOG.debug("Created new cache size %d expiry %s", size, expireDuration);

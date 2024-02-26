@@ -42,8 +42,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestPartialResultQueryTaskTracker
 {
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
-    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%d"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%d"));
     private final PartialResultQueryManager partialResultQueryManager = new PartialResultQueryManager();
     private final WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), NORMAL);
     private final MockRemoteTaskFactory taskFactory;

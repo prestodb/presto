@@ -167,7 +167,7 @@ public class IcebergCommonModule
     {
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-iceberg-%s"));
+                daemonThreadsNamed("hive-metastore-iceberg-%d"));
     }
 
     @Singleton

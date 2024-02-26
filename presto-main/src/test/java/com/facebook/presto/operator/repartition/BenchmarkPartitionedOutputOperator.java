@@ -148,8 +148,8 @@ public class BenchmarkPartitionedOutputOperator
         private static final int POSITION_COUNT = 8192;
         private static final DataSize MAX_MEMORY = new DataSize(4, GIGABYTE);
         private static final DataSize MAX_PARTITION_BUFFER_SIZE = new DataSize(256, MEGABYTE);
-        private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
-        private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
+        private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%d"));
+        private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%d"));
 
         @SuppressWarnings("unused")
         @Param({"true", "false"})

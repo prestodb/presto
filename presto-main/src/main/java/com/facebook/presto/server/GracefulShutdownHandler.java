@@ -48,8 +48,8 @@ public class GracefulShutdownHandler
     private static final Logger log = Logger.get(GracefulShutdownHandler.class);
     private static final Duration LIFECYCLE_STOP_TIMEOUT = new Duration(30, SECONDS);
 
-    private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
-    private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%s"));
+    private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%d"));
+    private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%d"));
     private final LifeCycleManager lifeCycleManager;
     private final QueryManager queryManager;
     private final TaskManager sqlTaskManager;

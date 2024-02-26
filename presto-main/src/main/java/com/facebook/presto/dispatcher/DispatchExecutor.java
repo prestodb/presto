@@ -49,12 +49,12 @@ public class DispatchExecutor
     @Inject
     public DispatchExecutor(QueryManagerConfig config)
     {
-        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("dispatcher-query-%s"));
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("dispatcher-query-%d"));
         closer.register(coreExecutor::shutdownNow);
         executor = listeningDecorator(coreExecutor);
         boundedExecutor = new BoundedExecutor(coreExecutor, config.getQuerySubmissionMaxThreads());
 
-        ScheduledExecutorService coreScheduledExecutor = newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), daemonThreadsNamed("dispatch-executor-%s"));
+        ScheduledExecutorService coreScheduledExecutor = newScheduledThreadPool(config.getQueryManagerExecutorPoolSize(), daemonThreadsNamed("dispatch-executor-%d"));
         closer.register(coreScheduledExecutor::shutdownNow);
         scheduledExecutor = listeningDecorator(coreScheduledExecutor);
 

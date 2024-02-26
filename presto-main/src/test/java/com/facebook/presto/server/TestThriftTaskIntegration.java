@@ -154,7 +154,7 @@ public class TestThriftTaskIntegration
         @ForAsyncRpc
         public static ExecutorService createAsyncHttpResponseCoreExecutor()
         {
-            return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
+            return newCachedThreadPool(daemonThreadsNamed("async-http-response-%d"));
         }
 
         @Provides
@@ -170,7 +170,7 @@ public class TestThriftTaskIntegration
         @ForAsyncRpc
         public static ScheduledExecutorService createAsyncHttpTimeoutExecutor()
         {
-            return newScheduledThreadPool(10, daemonThreadsNamed("async-http-timeout-%s"));
+            return newScheduledThreadPool(10, daemonThreadsNamed("async-http-timeout-%d"));
         }
 
         @Provides

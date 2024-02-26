@@ -141,8 +141,8 @@ public class BenchmarkUnnestOperator
         @Setup
         public void setup()
         {
-            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+            executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+            scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
             Metadata metadata = createTestMetadataManager();
 
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();

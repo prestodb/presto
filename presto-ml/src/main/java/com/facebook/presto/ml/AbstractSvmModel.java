@@ -81,7 +81,7 @@ public abstract class AbstractSvmModel
 
         svm_problem problem = toSvmProblem(dataset);
 
-        ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%s"));
+        ExecutorService service = newCachedThreadPool(threadsNamed("libsvm-trainer-" + System.identityHashCode(this) + "-%d"));
         try {
             TimeLimiter limiter = SimpleTimeLimiter.create(service);
             //TODO: this time limit should be configurable

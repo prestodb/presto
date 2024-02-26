@@ -137,9 +137,9 @@ public class TestHashJoinOperator
                 60L,
                 SECONDS,
                 new SynchronousQueue<>(),
-                daemonThreadsNamed("test-executor-%s"),
+                daemonThreadsNamed("test-executor-%d"),
                 new ThreadPoolExecutor.DiscardPolicy());
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         partitioningProviderManager = new PartitioningProviderManager();
         session = testSessionBuilder().build();
     }

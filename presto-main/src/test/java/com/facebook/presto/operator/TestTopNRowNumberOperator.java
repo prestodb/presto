@@ -67,8 +67,8 @@ public class TestTopNRowNumberOperator
     @BeforeMethod
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
@@ -252,8 +252,8 @@ public class TestTopNRowNumberOperator
     {
         List<Page> input = createSequentialInputPages(1000, ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), 200, 300, 42);
 
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
                 .setQueryMaxTotalMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
@@ -289,8 +289,8 @@ public class TestTopNRowNumberOperator
     {
         List<Page> input = createSequentialInputPages(1000, ImmutableList.of(BIGINT, DOUBLE, DOUBLE, VARCHAR, DOUBLE), 200, 300, 42);
 
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%d"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%d"));
         driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                 .setQueryMaxMemory(new DataSize(200, DataSize.Unit.KILOBYTE))
                 .setQueryMaxTotalMemory(new DataSize(200, DataSize.Unit.KILOBYTE))

@@ -107,7 +107,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     {
         baseDirectory = new File(Files.createTempDir(), "metastore");
         metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory), new HivePartitionMutator());
-        executor = newCachedThreadPool(daemonThreadsNamed("hive-encryption-test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("hive-encryption-test-%d"));
         transactionManager = new HiveTransactionManager();
         metadataFactory = new HiveMetadataFactory(
                 metastore,

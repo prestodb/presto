@@ -58,7 +58,7 @@ public class TestTransactionManager
     private static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_NAME);
     private static final ConnectorId SYSTEM_TABLES_ID = createSystemTablesConnectorId(CONNECTOR_ID);
     private static final ConnectorId INFORMATION_SCHEMA_ID = createInformationSchemaConnectorId(CONNECTOR_ID);
-    private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%s"));
+    private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

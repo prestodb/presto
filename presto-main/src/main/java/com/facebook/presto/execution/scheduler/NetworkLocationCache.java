@@ -39,7 +39,7 @@ public class NetworkLocationCache
 
     private static final Logger log = Logger.get(NetworkLocationCache.class);
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("network-location-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("network-location-%d"));
     private final NetworkTopology networkTopology;
     private final LoadingCache<HostAddress, NetworkLocation> cache;
     private final Cache<HostAddress, Boolean> negativeCache;

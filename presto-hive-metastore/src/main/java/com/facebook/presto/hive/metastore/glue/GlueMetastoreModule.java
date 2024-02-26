@@ -65,7 +65,7 @@ public class GlueMetastoreModule
             return directExecutor();
         }
         return new BoundedExecutor(
-            newCachedThreadPool(daemonThreadsNamed("hive-glue-%s")),
+            newCachedThreadPool(daemonThreadsNamed("hive-glue-%d")),
             hiveConfig.getGetPartitionThreads());
     }
 }

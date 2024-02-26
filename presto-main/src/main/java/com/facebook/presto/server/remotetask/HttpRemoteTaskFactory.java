@@ -135,7 +135,7 @@ public class HttpRemoteTaskFactory
         this.handleResolver = handleResolver;
         this.connectorTypeSerdeManager = connectorTypeSerdeManager;
 
-        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%d"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
@@ -180,8 +180,8 @@ public class HttpRemoteTaskFactory
         this.metadataManager = metadataManager;
         this.queryManager = queryManager;
 
-        this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
-        this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
+        this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%d"));
+        this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%d"));
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
     }
 

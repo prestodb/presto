@@ -80,7 +80,7 @@ public class TestingSemiTransactionalHiveMetastore
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, HOST, PORT);
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
         ExtendedHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, hdfsEnvironment), new HivePartitionMutator());
-        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("hive-%d"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
         return new TestingSemiTransactionalHiveMetastore(hdfsEnvironment, delegate, renameExecutor, false, false, true, columnConverterProvider);

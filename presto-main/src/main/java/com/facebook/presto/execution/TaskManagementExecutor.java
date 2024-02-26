@@ -36,7 +36,7 @@ public final class TaskManagementExecutor
 
     public TaskManagementExecutor()
     {
-        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%s"));
+        taskManagementExecutor = newScheduledThreadPool(5, threadsNamed("task-management-%d"));
         taskManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskManagementExecutor);
     }
 

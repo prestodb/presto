@@ -311,7 +311,7 @@ public class ServerMainModule
 
         // Metadata Extractor
         binder.bind(ExecutorService.class).annotatedWith(ForMetadataExtractor.class)
-                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%s")));
+                .toInstance(newCachedThreadPool(threadsNamed("metadata-extractor-%d")));
         binder.bind(MetadataExtractorMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MetadataExtractorMBean.class).as(generatedNameOf(MetadataExtractor.class));
 
@@ -465,7 +465,7 @@ public class ServerMainModule
                                 60,
                                 SECONDS,
                                 new LinkedBlockingQueue<>(),
-                                daemonThreadsNamed("resource-manager-executor-%s"));
+                                daemonThreadsNamed("resource-manager-executor-%d"));
                         return listeningDecorator(executor);
                     }
                 },
@@ -786,7 +786,7 @@ public class ServerMainModule
     @ForExchange
     public static ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
     {
-        return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
+        return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%d"));
     }
 
     @Provides
@@ -794,7 +794,7 @@ public class ServerMainModule
     @ForAsyncRpc
     public static ExecutorService createAsyncHttpResponseCoreExecutor()
     {
-        return newCachedThreadPool(daemonThreadsNamed("async-http-response-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("async-http-response-%d"));
     }
 
     @Provides
@@ -822,8 +822,8 @@ public class ServerMainModule
                     config,
                     blockEncodingSerde,
                     fragmentCacheStats,
-                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
-                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%d")),
+                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%d")));
         }
         return new NoOpFragmentResultCacheManager();
     }

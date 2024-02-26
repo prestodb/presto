@@ -37,7 +37,7 @@ public class TestStateMachine
         BREAKFAST, LUNCH, DINNER
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%d"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()

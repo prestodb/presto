@@ -267,7 +267,7 @@ public class TaskExecutor
         checkArgument(interruptSplitInterval.getValue(SECONDS) >= 1.0, "interruptSplitInterval must be at least 1 second");
 
         // we manage thread pool size directly, so create an unlimited pool
-        this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
+        this.executor = newCachedThreadPool(threadsNamed("task-processor-%d"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");

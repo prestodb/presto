@@ -94,7 +94,7 @@ public class IndexLookup
         this.cardinalityCache = requireNonNull(cardinalityCache, "cardinalityCache is null");
 
         // Create a bounded executor with a pool size at 4x number of processors
-        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%s"));
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("cardinality-lookup-%d"));
         this.executorService = new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors());
     }
 

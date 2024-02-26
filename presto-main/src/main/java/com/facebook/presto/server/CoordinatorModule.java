@@ -255,7 +255,7 @@ public class CoordinatorModule
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)
-                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
+                .toInstance(newCachedThreadPool(threadsNamed("query-execution-%d")));
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
@@ -314,7 +314,7 @@ public class CoordinatorModule
     @ForStatementResource
     public static ExecutorService createStatementResponseCoreExecutor()
     {
-        return newCachedThreadPool(daemonThreadsNamed("statement-response-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("statement-response-%d"));
     }
 
     @Provides
@@ -330,7 +330,7 @@ public class CoordinatorModule
     @ForStatementResource
     public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
     {
-        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
+        return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%d"));
     }
 
     @Provides
@@ -346,7 +346,7 @@ public class CoordinatorModule
     @ForTransactionManager
     public static ExecutorService createTransactionFinishingExecutor()
     {
-        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("transaction-finishing-%d"));
     }
 
     @Provides

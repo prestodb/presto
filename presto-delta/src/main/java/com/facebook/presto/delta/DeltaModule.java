@@ -148,6 +148,6 @@ public class DeltaModule
     {
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-delta-%s"));
+                daemonThreadsNamed("hive-metastore-delta-%d"));
     }
 }

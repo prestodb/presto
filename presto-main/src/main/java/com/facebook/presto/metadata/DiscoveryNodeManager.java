@@ -147,8 +147,8 @@ public final class DiscoveryNodeManager
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.driftClient = requireNonNull(driftClient, "driftClient is null");
-        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
-        this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
+        this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%d"));
+        this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%d"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
 
         this.currentNode = findCurrentNode(
