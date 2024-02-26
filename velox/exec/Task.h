@@ -360,12 +360,15 @@ class Task : public std::enable_shared_from_this<Task> {
       exec::Split& split,
       ContinueFuture& future,
       int32_t maxPreloadSplits = 0,
-      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload =
-          nullptr);
+      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+          preload = nullptr);
 
-  void splitFinished();
+  void splitFinished(bool fromTableScan, int64_t splitWeight);
 
-  void multipleSplitsFinished(int32_t numSplits);
+  void multipleSplitsFinished(
+      bool fromTableScan,
+      int32_t numSplits,
+      int64_t splitsWeight);
 
   /// Adds a MergeSource for the specified splitGroupId and planNodeId.
   std::shared_ptr<MergeSource> addLocalMergeSource(
@@ -784,19 +787,22 @@ class Task : public std::enable_shared_from_this<Task> {
 
   /// Retrieve a split or split future from the given split store structure.
   BlockingReason getSplitOrFutureLocked(
+      bool forTableScan,
       SplitsStore& splitsStore,
       exec::Split& split,
       ContinueFuture& future,
       int32_t maxPreloadSplits = 0,
-      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload =
-          nullptr);
+      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+          preload = nullptr);
 
   /// Returns next split from the store. The caller must ensure the store is not
   /// empty.
   exec::Split getSplitLocked(
+      bool forTableScan,
       SplitsStore& splitsStore,
       int32_t maxPreloadSplits,
-      std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload);
+      const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+          preload);
 
   // Creates for the given split group and fills up the 'SplitGroupState'
   // structure, which stores inter-operator state (local exchange, bridges).

@@ -64,6 +64,9 @@ struct SplitsStore {
 
 /// Structure contains the current info on splits for a particular plan node.
 struct SplitsState {
+  /// True if the source node is a table scan.
+  bool sourceIsTableScan{false};
+
   /// Plan node-wide 'no more splits'.
   bool noMoreSplits{false};
 

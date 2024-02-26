@@ -355,7 +355,7 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
         }
         // TODO Delay this call until all input data has been processed.
         operatorCtx_->task()->multipleSplitsFinished(
-            remoteSourceTaskIds_.size());
+            false, remoteSourceTaskIds_.size(), 0);
         return BlockingReason::kNotBlocked;
       }
     } else {

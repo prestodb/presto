@@ -180,10 +180,12 @@ std::shared_ptr<connector::ConnectorSplit>
 HiveConnectorTestBase::makeHiveConnectorSplit(
     const std::string& filePath,
     uint64_t start,
-    uint64_t length) {
+    uint64_t length,
+    int64_t splitWeight) {
   return HiveConnectorSplitBuilder(filePath)
       .start(start)
       .length(length)
+      .splitWeight(splitWeight)
       .build();
 }
 

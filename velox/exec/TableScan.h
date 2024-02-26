@@ -80,6 +80,7 @@ class TableScan : public SourceOperator {
   memory::MemoryPool* const connectorPool_;
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   BlockingReason blockingReason_;
+  int64_t currentSplitWeight_{0};
   bool needNewSplit_ = true;
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;

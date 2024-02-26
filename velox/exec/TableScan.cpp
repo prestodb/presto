@@ -127,7 +127,12 @@ RowVectorPtr TableScan::getOutput() {
       }
 
       const auto& connectorSplit = split.connectorSplit;
+      currentSplitWeight_ = connectorSplit->splitWeight;
       needNewSplit_ = false;
+
+      // A point for test code injection.
+      TestValue::adjust(
+          "facebook::velox::exec::TableScan::getOutput::gotSplit", this);
 
       VELOX_CHECK_EQ(
           connector_->connectorId(),
@@ -261,7 +266,7 @@ RowVectorPtr TableScan::getOutput() {
     }
 
     curStatus_ = "getOutput: task->splitFinished";
-    driverCtx_->task->splitFinished();
+    driverCtx_->task->splitFinished(true, currentSplitWeight_);
     needNewSplit_ = true;
   }
 }

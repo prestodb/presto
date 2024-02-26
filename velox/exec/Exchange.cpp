@@ -50,7 +50,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
         noMoreSplits_ = true;
         if (atEnd_) {
           operatorCtx_->task()->multipleSplitsFinished(
-              stats_.rlock()->numSplits);
+              false, stats_.rlock()->numSplits, 0);
           recordExchangeClientStats();
         }
         return false;
@@ -83,7 +83,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   if (!currentPages_.empty() || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
-      operatorCtx_->task()->multipleSplitsFinished(numSplits);
+      operatorCtx_->task()->multipleSplitsFinished(false, numSplits, 0);
     }
     recordExchangeClientStats();
     return BlockingReason::kNotBlocked;

@@ -134,7 +134,8 @@ void buildSplitStates(
     // Not all leaf nodes require splits. ValuesNode doesn't. Check if this plan
     // node requires splits.
     if (planNode->requiresSplits()) {
-      splitStateMap[planNode->id()];
+      splitStateMap[planNode->id()].sourceIsTableScan =
+          (dynamic_cast<const core::TableScanNode*>(planNode) != nullptr);
     }
     return;
   }
@@ -1220,6 +1221,11 @@ std::unique_ptr<ContinuePromise> Task::addSplitLocked(
 
   if (split.connectorSplit) {
     VELOX_CHECK_NULL(split.connectorSplit->dataSource);
+    if (splitsState.sourceIsTableScan) {
+      ++taskStats_.numQueuedTableScanSplits;
+      taskStats_.queuedTableScanSplitWeights +=
+          split.connectorSplit->splitWeight;
+    }
   }
 
   if (!split.hasGroup()) {
@@ -1359,10 +1365,13 @@ BlockingReason Task::getSplitOrFuture(
     exec::Split& split,
     ContinueFuture& future,
     int32_t maxPreloadSplits,
-    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
+    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+        preload) {
   std::lock_guard<std::timed_mutex> l(mutex_);
+  auto& splitsState = getPlanNodeSplitsStateLocked(planNodeId);
   return getSplitOrFutureLocked(
-      getPlanNodeSplitsStateLocked(planNodeId).groupSplitsStores[splitGroupId],
+      splitsState.sourceIsTableScan,
+      splitsState.groupSplitsStores[splitGroupId],
       split,
       future,
       maxPreloadSplits,
@@ -1370,11 +1379,13 @@ BlockingReason Task::getSplitOrFuture(
 }
 
 BlockingReason Task::getSplitOrFutureLocked(
+    bool forTableScan,
     SplitsStore& splitsStore,
     exec::Split& split,
     ContinueFuture& future,
     int32_t maxPreloadSplits,
-    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
+    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+        preload) {
   if (splitsStore.splits.empty()) {
     if (splitsStore.noMoreSplits) {
       return BlockingReason::kNotBlocked;
@@ -1386,23 +1397,26 @@ BlockingReason Task::getSplitOrFutureLocked(
     return BlockingReason::kWaitForSplit;
   }
 
-  split = getSplitLocked(splitsStore, maxPreloadSplits, preload);
+  split = getSplitLocked(forTableScan, splitsStore, maxPreloadSplits, preload);
   return BlockingReason::kNotBlocked;
 }
 
 exec::Split Task::getSplitLocked(
+    bool forTableScan,
     SplitsStore& splitsStore,
     int32_t maxPreloadSplits,
-    std::function<void(std::shared_ptr<connector::ConnectorSplit>)> preload) {
+    const std::function<void(std::shared_ptr<connector::ConnectorSplit>)>&
+        preload) {
   int32_t readySplitIndex = -1;
   if (maxPreloadSplits) {
     for (auto i = 0; i < splitsStore.splits.size() && i < maxPreloadSplits;
          ++i) {
-      auto& split = splitsStore.splits[i].connectorSplit;
-      if (!split->dataSource) {
+      auto& connectorSplit = splitsStore.splits[i].connectorSplit;
+      if (!connectorSplit->dataSource) {
         // Initializes split->dataSource
-        preload(split);
-      } else if (readySplitIndex == -1 && split->dataSource->hasValue()) {
+        preload(connectorSplit);
+      } else if (
+          readySplitIndex == -1 && connectorSplit->dataSource->hasValue()) {
         readySplitIndex = i;
       }
     }
@@ -1416,6 +1430,13 @@ exec::Split Task::getSplitLocked(
 
   --taskStats_.numQueuedSplits;
   ++taskStats_.numRunningSplits;
+  if (forTableScan && split.connectorSplit) {
+    --taskStats_.numQueuedTableScanSplits;
+    ++taskStats_.numRunningTableScanSplits;
+    taskStats_.queuedTableScanSplitWeights -= split.connectorSplit->splitWeight;
+    taskStats_.runningTableScanSplitWeights +=
+        split.connectorSplit->splitWeight;
+  }
   taskStats_.lastSplitStartTimeMs = getCurrentTimeMs();
   if (taskStats_.firstSplitStartTimeMs == 0) {
     taskStats_.firstSplitStartTimeMs = taskStats_.lastSplitStartTimeMs;
@@ -1424,19 +1445,30 @@ exec::Split Task::getSplitLocked(
   return split;
 }
 
-void Task::splitFinished() {
+void Task::splitFinished(bool fromTableScan, int64_t splitWeight) {
   std::lock_guard<std::timed_mutex> l(mutex_);
   ++taskStats_.numFinishedSplits;
   --taskStats_.numRunningSplits;
+  if (fromTableScan) {
+    --taskStats_.numRunningTableScanSplits;
+    taskStats_.runningTableScanSplitWeights -= splitWeight;
+  }
   if (isAllSplitsFinishedLocked()) {
     taskStats_.executionEndTimeMs = getCurrentTimeMs();
   }
 }
 
-void Task::multipleSplitsFinished(int32_t numSplits) {
+void Task::multipleSplitsFinished(
+    bool fromTableScan,
+    int32_t numSplits,
+    int64_t splitsWeight) {
   std::lock_guard<std::timed_mutex> l(mutex_);
   taskStats_.numFinishedSplits += numSplits;
   taskStats_.numRunningSplits -= numSplits;
+  if (fromTableScan) {
+    taskStats_.numRunningTableScanSplits -= numSplits;
+    taskStats_.runningTableScanSplitWeights -= splitsWeight;
+  }
   if (isAllSplitsFinishedLocked()) {
     taskStats_.executionEndTimeMs = getCurrentTimeMs();
   }
@@ -1847,7 +1879,8 @@ ContinueFuture Task::terminate(TaskState terminalState) {
         std::vector<exec::Split> splits;
         for (auto& [groupId, store] : splitState.groupSplitsStores) {
           while (!store.splits.empty()) {
-            splits.emplace_back(getSplitLocked(store, 0, nullptr));
+            splits.emplace_back(getSplitLocked(
+                splitState.sourceIsTableScan, store, 0, nullptr));
           }
         }
         if (!splits.empty()) {

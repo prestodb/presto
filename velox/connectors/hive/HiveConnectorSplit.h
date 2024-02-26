@@ -50,8 +50,9 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       std::optional<int32_t> _tableBucketNumber = std::nullopt,
       const std::unordered_map<std::string, std::string>& _customSplitInfo = {},
       const std::shared_ptr<std::string>& _extraFileInfo = {},
-      const std::unordered_map<std::string, std::string>& _serdeParameters = {})
-      : ConnectorSplit(connectorId),
+      const std::unordered_map<std::string, std::string>& _serdeParameters = {},
+      int64_t _splitWeight = 0)
+      : ConnectorSplit(connectorId, _splitWeight),
         filePath(_filePath),
         fileFormat(_fileFormat),
         start(_start),

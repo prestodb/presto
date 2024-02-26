@@ -43,11 +43,14 @@ class DataSource;
 // as a RowVectorPtr, potentially after processing pushdowns.
 struct ConnectorSplit {
   const std::string connectorId;
+  const int64_t splitWeight{0};
 
   std::unique_ptr<AsyncSource<DataSource>> dataSource;
 
-  explicit ConnectorSplit(const std::string& _connectorId)
-      : connectorId(_connectorId) {}
+  explicit ConnectorSplit(
+      const std::string& _connectorId,
+      int64_t _splitWeight = 0)
+      : connectorId(_connectorId), splitWeight(_splitWeight) {}
 
   virtual ~ConnectorSplit() {}
 
