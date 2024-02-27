@@ -378,6 +378,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public DataSize getWrittenIntermediateDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getWrittenIntermediatePhysicalDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getWrittenIntermediateDataSize();
+    }
+
+    @Override
     public long getOutputPositions()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();

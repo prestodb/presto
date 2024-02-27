@@ -116,6 +116,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public DataSize getWrittenIntermediateDataSize()
+    {
+        return null;
+    }
+
+    @Override
     public long getOutputPositions()
     {
         return 0;
