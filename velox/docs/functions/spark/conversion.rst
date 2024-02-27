@@ -2,6 +2,8 @@
 Conversion Functions
 ====================
 
+Casting from UNKNOWN type to all other scalar types is supported, e.g., cast(NULL as int).
+
 Cast to Integral Types
 ----------------------
 

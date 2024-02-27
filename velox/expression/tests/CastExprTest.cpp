@@ -371,6 +371,33 @@ TEST_F(CastExprTest, basics) {
       {"1.888", "2.5", "3.6", "100.44", "-100.101", "1", "-2"});
 }
 
+TEST_F(CastExprTest, fromUnknownType) {
+  testCast<UnknownValue, int8_t>(
+      "tinyint", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, int16_t>(
+      "smallint", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, int32_t>(
+      "int", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, int64_t>(
+      "bigint", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, float>(
+      "float", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, double>(
+      "double", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, std::string>(
+      "string", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, bool>(
+      "boolean", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, Timestamp>(
+      "timestamp", {std::nullopt, std::nullopt}, {std::nullopt, std::nullopt});
+  testCast<UnknownValue, int32_t>(
+      "date",
+      {std::nullopt, std::nullopt},
+      {std::nullopt, std::nullopt},
+      UNKNOWN(),
+      DATE());
+}
+
 TEST_F(CastExprTest, realAndDoubleToString) {
   setLegacyCast(false);
   testCast<double, std::string>(

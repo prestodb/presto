@@ -86,6 +86,27 @@ class VectorMakerStats {
   std::unordered_set<T> distinctSet_;
 };
 
+template <>
+class VectorMakerStats<UnknownValue> {
+ public:
+  void addElement(const UnknownValue& val) {
+    VELOX_UNREACHABLE();
+  }
+
+  size_t distinctCount() const {
+    return 1;
+  }
+
+  SimpleVectorStats<UnknownValue> asSimpleVectorStats() {
+    return {min, max};
+  }
+
+  std::optional<UnknownValue> min;
+  std::optional<UnknownValue> max;
+  size_t nullCount{0};
+  bool isSorted{false};
+};
+
 // Generates VectorMakerStats for a given vector of nullable elements.
 template <typename T>
 VectorMakerStats<EvalType<T>> genVectorMakerStats(
