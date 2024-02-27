@@ -405,7 +405,7 @@ After the computation by the ExpandNode, each row will generate 2 rows of data. 
   38        null      1
   null      22        2
 
-Aggregation operator that follows, groups these rows by (l_suppkey, l_partkey, grouping_id_0) and produces::
+Aggregation operator that follows, groups these rows by (l_suppkey, l_partkey, grouping_id_0) and produces:
 
 .. code-block::
 
