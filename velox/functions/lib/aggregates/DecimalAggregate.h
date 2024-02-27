@@ -74,7 +74,7 @@ class DecimalAggregate : public exec::Aggregate {
   explicit DecimalAggregate(TypePtr resultType) : exec::Aggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(DecimalAggregate);
+    return sizeof(LongDecimalWithOverflowState);
   }
 
   int32_t accumulatorAlignmentSize() const override {
