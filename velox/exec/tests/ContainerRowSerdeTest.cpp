@@ -36,11 +36,14 @@ class ContainerRowSerdeTest : public testing::Test,
 
   // Writes all rows together and returns a position at the start of this
   // combined write.
-  HashStringAllocator::Position serialize(const VectorPtr& data) {
+  HashStringAllocator::Position serialize(
+      const VectorPtr& data,
+      bool isKey = true) {
     ByteOutputStream out(&allocator_);
     auto position = allocator_.newWrite(out);
+    exec::ContainerRowSerdeOptions options{.isKey = isKey};
     for (auto i = 0; i < data->size(); ++i) {
-      ContainerRowSerde::serialize(*data, i, out);
+      ContainerRowSerde::serialize(*data, i, out, options);
     }
     allocator_.finishWrite(out, 0);
     return position;
@@ -48,15 +51,17 @@ class ContainerRowSerdeTest : public testing::Test,
 
   // Writes each row individually and returns positions for individual rows.
   std::vector<HashStringAllocator::Position> serializeWithPositions(
-      const VectorPtr& data) {
+      const VectorPtr& data,
+      bool isKey = true) {
     std::vector<HashStringAllocator::Position> positions;
     auto size = data->size();
     positions.reserve(size);
+    exec::ContainerRowSerdeOptions options{.isKey = isKey};
 
     for (auto i = 0; i < size; ++i) {
       ByteOutputStream out(&allocator_);
       auto position = allocator_.newWrite(out);
-      ContainerRowSerde::serialize(*data, i, out);
+      ContainerRowSerde::serialize(*data, i, out, options);
       allocator_.finishWrite(out, 0);
       positions.emplace_back(position);
     }
@@ -176,6 +181,21 @@ class ContainerRowSerdeTest : public testing::Test,
     }
   }
 
+  void assertNotEqualVectors(
+      const VectorPtr& actual,
+      const VectorPtr& expected) {
+    ASSERT_EQ(actual->size(), expected->size());
+    ASSERT_TRUE(actual->type()->equivalent(*expected->type()))
+        << "Expected " << expected->type()->toString() << ", but got "
+        << actual->type()->toString();
+    for (auto i = 0; i < expected->size(); i++) {
+      if (!actual->equalValueAt(expected.get(), i, i)) {
+        return;
+      }
+    }
+    FAIL() << "Expect two vectors are not equal.";
+  }
+
   HashStringAllocator allocator_{pool()};
 };
 
@@ -235,6 +255,33 @@ TEST_F(ContainerRowSerdeTest, arrayOfString) {
   });
 
   testRoundTrip(data);
+}
+
+TEST_F(ContainerRowSerdeTest, map) {
+  auto data = makeMapVector<int64_t, int64_t>({
+      {{2, 20}, {3, 30}, {1, 10}},
+      {{4, 40}},
+  });
+
+  testRoundTrip(data);
+
+  // When sortMap is not set, serialized Map has the same order of map entries
+  // as the input.
+  {
+    auto position = serialize(data, false);
+    auto deserialized = deserialize(position, data->type(), data->size());
+    test::assertEqualVectors(
+        data->mapKeys(), deserialized->as<MapVector>()->mapKeys());
+  }
+
+  // When sortMap is set, serialized Map has map entries sorted and thus in a
+  // different order than the input.
+  {
+    auto position = serialize(data, true);
+    auto deserialized = deserialize(position, data->type(), data->size());
+    assertNotEqualVectors(
+        data->mapKeys(), deserialized->as<MapVector>()->mapKeys());
+  }
 }
 
 TEST_F(ContainerRowSerdeTest, nested) {

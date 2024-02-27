@@ -414,22 +414,25 @@ void RowContainer::store(
     char* row,
     int32_t column) {
   auto numKeys = keyTypes_.size();
-  if (column < numKeys && !nullableKeys_) {
+  bool isKey = column < numKeys;
+  if (isKey && !nullableKeys_) {
     VELOX_DYNAMIC_TYPE_DISPATCH(
         storeNoNulls,
         typeKinds_[column],
         decoded,
         index,
+        isKey,
         row,
         offsets_[column]);
   } else {
-    VELOX_DCHECK(column < keyTypes_.size() || accumulators_.empty());
+    VELOX_DCHECK(isKey || accumulators_.empty());
     auto rowColumn = rowColumns_[column];
     VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
         storeWithNulls,
         typeKinds_[column],
         decoded,
         index,
+        isKey,
         row,
         rowColumn.offset(),
         rowColumn.nullByte(),
@@ -653,6 +656,7 @@ void RowContainer::extractString(
 void RowContainer::storeComplexType(
     const DecodedVector& decoded,
     vector_size_t index,
+    bool isKey,
     char* row,
     int32_t offset,
     int32_t nullByte,
@@ -665,7 +669,9 @@ void RowContainer::storeComplexType(
   RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
   ByteOutputStream stream(stringAllocator_.get(), false, false);
   auto position = stringAllocator_->newWrite(stream);
-  ContainerRowSerde::serialize(*decoded.base(), decoded.index(index), stream);
+  ContainerRowSerdeOptions options{.isKey = isKey};
+  ContainerRowSerde::serialize(
+      *decoded.base(), decoded.index(index), stream, options);
   stringAllocator_->finishWrite(stream, 0);
 
   valueAt<std::string_view>(row, offset) = std::string_view(

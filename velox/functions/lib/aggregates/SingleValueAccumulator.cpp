@@ -32,7 +32,8 @@ void SingleValueAccumulator::write(
     allocator->extendWrite(start_, stream);
   }
 
-  exec::ContainerRowSerde::serialize(*vector, index, stream);
+  static const exec::ContainerRowSerdeOptions options{};
+  exec::ContainerRowSerde::serialize(*vector, index, stream, options);
   allocator->finishWrite(stream, 0);
 }
 

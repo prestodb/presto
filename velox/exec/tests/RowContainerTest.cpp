@@ -797,9 +797,13 @@ TEST_F(RowContainerTest, types) {
       if (column < keys.size()) {
         EXPECT_TRUE(
             data->equals<false>(rows[i], data->columnAt(column), decoded, i));
-      } else {
+      } else if (!columnType->isMap()) {
         EXPECT_TRUE(
             data->equals<true>(rows[i], data->columnAt(column), decoded, i));
+      }
+      // Non-key map columns are not comparable, as the map keys are not sorted.
+      if (columnType->isMap() && column >= keys.size()) {
+        continue;
       }
       if (i > 0) {
         // We compare the values on consecutive rows.

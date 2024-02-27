@@ -21,6 +21,11 @@
 
 namespace facebook::velox::exec {
 
+struct ContainerRowSerdeOptions {
+  /// Used for ex., sorting maps by map keys, when occurring as key.
+  bool isKey = true;
+};
+
 /// Row-wise serialization for use in hash tables and order by.
 class ContainerRowSerde {
  public:
@@ -29,7 +34,8 @@ class ContainerRowSerde {
   static void serialize(
       const BaseVector& source,
       vector_size_t index,
-      ByteOutputStream& out);
+      ByteOutputStream& out,
+      const ContainerRowSerdeOptions& options);
 
   static void
   deserialize(ByteInputStream& in, vector_size_t index, BaseVector* result);
@@ -37,7 +43,8 @@ class ContainerRowSerde {
   /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
   /// equal and > 0 otherwise. flags.nullHandlingMode can be only NullAsValue
   /// and support null-safe equal. Top level rows in right are not allowed to be
-  /// null.
+  /// null. Note that the assumption for Map is the serialized map entries are
+  /// sorted in the order of key to be comparable.
   static int32_t compare(
       ByteInputStream& left,
       const DecodedVector& right,
@@ -46,7 +53,8 @@ class ContainerRowSerde {
 
   /// Returns < 0 if 'left' is less than 'right' at 'index', 0 if
   /// equal and > 0 otherwise. flags.nullHandlingMode can be only NullAsValue
-  /// and support null-safe equal.
+  /// and support null-safe equal. Note that the assumption for Map is the
+  /// serialized map entries are sorted in the order of key to be comparable.
   static int32_t compare(
       ByteInputStream& left,
       ByteInputStream& right,
@@ -57,7 +65,9 @@ class ContainerRowSerde {
   /// equal and > 0 otherwise. If flags.nullHandlingMode is StopAtNull,
   /// returns std::nullopt if either 'left' or 'right' value is null or contains
   /// a null. If flags.nullHandlingMode is NullAsValue then NULL is considered
-  /// equal to NULL. Top level rows in right are not allowed to be null.
+  /// equal to NULL. Top level rows in right are not allowed to be null. Note
+  /// that the assumption for Map is the serialized map entries are
+  /// sorted in the order of key to be comparable.
   static std::optional<int32_t> compareWithNulls(
       ByteInputStream& left,
       const DecodedVector& right,
@@ -68,7 +78,8 @@ class ContainerRowSerde {
   /// equal and > 0 otherwise. If flags.nullHandlingMode is StopAtNull,
   /// returns std::nullopt if either 'left' or 'right' value is null or contains
   /// a null. If flags.nullHandlingMode is NullAsValue then NULL is considered
-  /// equal to NULL.
+  /// equal to NULL. Note that the assumption for Map is the serialized map
+  /// entries are sorted in the order of key to be comparable.
   static std::optional<int32_t> compareWithNulls(
       ByteInputStream& left,
       ByteInputStream& right,
