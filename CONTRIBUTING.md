@@ -128,8 +128,8 @@ To commit code, you should:
 * [Sign the Presto CLA](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#contributor-license-agreement-cla)
 * [Join the Presto Slack](https://communityinviter.com/apps/prestodb/prestodb)
 * [File an issue](https://github.com/prestodb/presto/issues/new/choose)
-* Self-verify new code matches [codestyle](https://github.com/prestodb/presto#code-style) for Presto
-* Follow the [commit standards](https://github.com/prestodb/presto#commit-standards)
+* Self-verify new code matches [codestyle](#code-style) for Presto
+* Follow the [commit standards](#commit-standards)
 * Add or modify existing tests related to code changes being submitted
 * Run and ensure that local tests pass before submitting a merge request
 
