@@ -1512,6 +1512,17 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
+    @Test
+    public void testSessionPropertyDecode()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "abc" /*number is expected*/)
+                        .build(),
+                "SELECT 1",
+                ".*task_writer_count is invalid.*");
+    }
+
     private void checkCTEInfo(String explain, String name, int frequency, boolean isView)
     {
         String regex = "CTEInfo.*";
