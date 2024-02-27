@@ -176,6 +176,12 @@ public class AccessControlCheckerExecution
     }
 
     @Override
+    public DataSize getWrittenIntermediateDataSize()
+    {
+        return DataSize.succinctBytes(0);
+    }
+
+    @Override
     public long getOutputPositions()
     {
         return 0;

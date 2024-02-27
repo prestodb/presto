@@ -27,6 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -1098,6 +1099,18 @@ public class TestCteExecution
                 "SELECT * FROM (select orderkey from temp where orderkey > 20) t UNION ALL select orderkey from temp";
         compareResults(queryRunner.execute(getMaterializedSession(), query),
                 queryRunner.execute(getSession(), query));
+    }
+
+    @Test
+    public void testWrittenIntemediateByteLimit()
+            throws Exception
+    {
+        String testQuery = "WITH  cte1 AS (SELECT * FROM ORDERS JOIN ORDERS ON TRUE) " +
+                "SELECT * FROM cte1";
+        Session session = Session.builder(getMaterializedSession())
+                .setSystemProperty(QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES, "0MB")
+                .build();
+        assertQueryFails(session, testQuery, "Query has exceeded WrittenIntermediate Limit of 0MB.*");
     }
 
     private void compareResults(MaterializedResult actual, MaterializedResult expected)
