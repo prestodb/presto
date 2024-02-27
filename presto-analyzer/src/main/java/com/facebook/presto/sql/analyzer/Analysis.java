@@ -183,8 +183,6 @@ public class Analysis
     // for materialized view analysis state detection, state is used to identify if materialized view has been expanded or in-process.
     private final Map<Table, MaterializedViewAnalysisState> materializedViewAnalysisStateMap = new HashMap<>();
 
-    private final HashSet<QualifiedObjectName> views = new HashSet<>();
-
     private final Map<QualifiedObjectName, String> materializedViews = new LinkedHashMap<>();
 
     private Optional<String> expandedQuery = Optional.empty();
