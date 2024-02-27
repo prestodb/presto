@@ -387,7 +387,7 @@ public class TestQuickStatsProvider
             assertEquals(quickStats.get("p6"), empty());
 
             // Subsequent queries for the same partitions will fetch the cached stats though
-            Thread.sleep(20); // Sleep to allow futures to complete
+            Thread.sleep(250); // Sleep to allow futures to complete
 
             quickStats = quickStatsProvider.getQuickStats(session, metastoreMock,
                     new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, ImmutableList.of("p5", "p6"));
