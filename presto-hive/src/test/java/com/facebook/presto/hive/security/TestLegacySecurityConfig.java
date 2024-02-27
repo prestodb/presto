@@ -32,7 +32,9 @@ public class TestLegacySecurityConfig
                 .setAllowDropColumn(false)
                 .setAllowDropTable(false)
                 .setAllowRenameTable(false)
-                .setAllowRenameColumn(false));
+                .setAllowRenameColumn(false)
+                .setAllowDropConstraint(false)
+                .setAllowAddConstraint(false));
     }
 
     @Test
@@ -44,6 +46,8 @@ public class TestLegacySecurityConfig
                 .put("hive.allow-drop-table", "true")
                 .put("hive.allow-rename-table", "true")
                 .put("hive.allow-rename-column", "true")
+                .put("hive.allow-drop-constraint", "true")
+                .put("hive.allow-add-constraint", "true")
                 .build();
 
         LegacySecurityConfig expected = new LegacySecurityConfig()
@@ -51,7 +55,9 @@ public class TestLegacySecurityConfig
                 .setAllowDropColumn(true)
                 .setAllowDropTable(true)
                 .setAllowRenameTable(true)
-                .setAllowRenameColumn(true);
+                .setAllowRenameColumn(true)
+                .setAllowDropConstraint(true)
+                .setAllowAddConstraint(true);
 
         assertFullMapping(properties, expected);
     }

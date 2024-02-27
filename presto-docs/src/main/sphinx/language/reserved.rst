@@ -63,6 +63,7 @@ Keyword                        SQL:2016      SQL-92
 ``ORDER``                      reserved      reserved
 ``OUTER``                      reserved      reserved
 ``PREPARE``                    reserved      reserved
+``PRIMARY``                    reserved      reserved
 ``RECURSIVE``                  reserved
 ``RIGHT``                      reserved      reserved
 ``ROLLUP``                     reserved
