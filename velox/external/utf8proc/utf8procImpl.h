@@ -384,7 +384,7 @@ UTF8PROC_DLLEXPORT utf8proc_bool utf8proc_grapheme_break_stateful(
 
 UTF8PROC_DLLEXPORT utf8proc_bool
 utf8proc_grapheme_break(utf8proc_int32_t c1, utf8proc_int32_t c2) {
-  return utf8proc_grapheme_break_stateful(c1, c2, NULL);
+  return utf8proc_grapheme_break_stateful(c1, c2, nullptr);
 }
 
 static utf8proc_int32_t seqindex_decode_entry(const utf8proc_uint16_t** entry) {
@@ -589,7 +589,7 @@ UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_decompose(
     utf8proc_ssize_t bufsize,
     utf8proc_int16_t options) {
   return utf8proc_decompose_custom(
-      str, strlen, buffer, bufsize, options, NULL, NULL);
+      str, strlen, buffer, bufsize, options, nullptr, nullptr);
 }
 
 UTF8PROC_DLLEXPORT utf8proc_ssize_t utf8proc_decompose_custom(

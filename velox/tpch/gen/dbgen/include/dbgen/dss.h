@@ -543,9 +543,9 @@ struct DBGenContext {
   static constexpr double dM = 2147483647.0;
 
   tdef tdefs[10] = {
-      {"part.tbl", "part table", 200000, NULL, NULL, PSUPP, 0},
-      {"partsupp.tbl", "partsupplier table", 200000, NULL, NULL, NONE, 0},
-      {"supplier.tbl", "suppliers table", 10000, NULL, NULL, NONE, 0},
+      {"part.tbl", "part table", 200000, nullptr, nullptr, PSUPP, 0},
+      {"partsupp.tbl", "partsupplier table", 200000, nullptr, nullptr, NONE, 0},
+      {"supplier.tbl", "suppliers table", 10000, nullptr, nullptr, NONE, 0},
       {"customer.tbl", "customers table", 150000, NULL, NULL, NONE, 0},
       {"orders.tbl", "order table", 150000, NULL, NULL, LINE, 0},
       {"lineitem.tbl", "lineitem table", 150000, NULL, NULL, NONE, 0},
