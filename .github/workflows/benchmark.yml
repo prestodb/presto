@@ -35,7 +35,7 @@ concurrency:
 defaults:
   run:
     shell: bash
-#TODO  concurrency groups?
+
 jobs:
   benchmark:
     if: github.repository == 'facebookincubator/velox'
@@ -198,7 +198,7 @@ jobs:
           echo "::endgroup::"
 
       - name: "Save PR number"
-        run: echo "${{ github.event.pull_request.number }}" > pr_number.txt
+        run: echo "${{ github.event.pull_request.number || 0 }}" > pr_number.txt
 
       - name: "Upload PR number"
         uses: actions/upload-artifact@v3
