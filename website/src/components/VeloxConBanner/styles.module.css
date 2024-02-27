@@ -1,0 +1,20 @@
+.banner {
+  display: flex;
+  align-items: center;
+  padding: 1rem 0;
+  width: 100%;
+  background: url("/static/img/banner-pattern.svg") center center #143d99;
+  color: #fff;
+}
+
+.banner >div>div {
+  max-width: 600px;
+  justify-content: space-around;
+  align-items: center;
+  margin: 0 auto;
+  text-align:center;
+}
+
+.banner h2, .banner p {
+  margin-bottom: 5px;
+}
