@@ -826,6 +826,15 @@ public class SqlQueryScheduler
     }
 
     @Override
+    public DataSize getWrittenIntermediateDataSize()
+    {
+        long datasize = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getWrittenIntermediateDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
+    }
+
+    @Override
     public long getOutputPositions()
     {
         return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputPositions();
