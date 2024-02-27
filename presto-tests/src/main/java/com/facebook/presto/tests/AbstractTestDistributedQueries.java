@@ -1132,6 +1132,8 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(
                 "SELECT * FROM test_view_access1",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access1");
     }
 
     @Test
