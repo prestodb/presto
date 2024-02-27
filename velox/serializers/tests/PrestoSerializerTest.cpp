@@ -298,15 +298,27 @@ class PrestoSerializerTest
 
   void assertEqualEncoding(
       const RowVectorPtr& expected,
-      const RowVectorPtr& actual) {
+      const RowVectorPtr& actual,
+      // If true, we allow the encodings of actual and expected to differ if a
+      // dictionary was flattened.
+      bool allowFlatteningDictionaries = false) {
     for (auto i = 0; i < expected->childrenSize(); ++i) {
-      VELOX_CHECK_EQ(
-          actual->childAt(i)->encoding(), expected->childAt(i)->encoding());
+      auto expectedEncoding = expected->childAt(i)->encoding();
+      auto actualEncoding = actual->childAt(i)->encoding();
 
-      if (expected->childAt(i)->encoding() == VectorEncoding::Simple::ROW) {
+      if (allowFlatteningDictionaries &&
+          actualEncoding == VectorEncoding::Simple::FLAT &&
+          expectedEncoding == VectorEncoding::Simple::DICTIONARY) {
+        continue;
+      }
+
+      VELOX_CHECK_EQ(actualEncoding, expectedEncoding);
+
+      if (expectedEncoding == VectorEncoding::Simple::ROW) {
         assertEqualEncoding(
             std::dynamic_pointer_cast<RowVector>(expected->childAt(i)),
-            std::dynamic_pointer_cast<RowVector>(actual->childAt(i)));
+            std::dynamic_pointer_cast<RowVector>(actual->childAt(i)),
+            allowFlatteningDictionaries);
       }
     }
   }
@@ -314,13 +326,15 @@ class PrestoSerializerTest
   void verifySerializedEncodedData(
       const RowVectorPtr& original,
       const std::string& serialized,
+      bool allowFlatteningDictionaries,
       const serializer::presto::PrestoVectorSerde::PrestoOptions*
           serdeOptions) {
     auto rowType = asRowType(original->type());
     auto deserialized = deserialize(rowType, serialized, serdeOptions);
 
     assertEqualVectors(original, deserialized);
-    assertEqualEncoding(original, deserialized);
+    // Dictionaries may get flattened depending on the nature of the data.
+    assertEqualEncoding(original, deserialized, allowFlatteningDictionaries);
 
     // Deserialize 3 times while appending to a single vector.
     auto paramOptions = getParamSerdeOptions(serdeOptions);
@@ -402,17 +416,6 @@ class PrestoSerializerTest
     assertEqualVectors(concatenation, deserialized);
   }
 
-  void testEncodedRoundTrip(
-      const RowVectorPtr& data,
-      const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions =
-          nullptr) {
-    std::ostringstream out;
-    serializeBatch(data, &out, serdeOptions);
-    const auto serialized = out.str();
-
-    verifySerializedEncodedData(data, serialized, serdeOptions);
-  }
-
   void serializeBatch(
       const RowVectorPtr& rowVector,
       std::ostream* output,
@@ -428,19 +431,22 @@ class PrestoSerializerTest
 
   void testBatchVectorSerializerRoundTrip(
       const RowVectorPtr& data,
+      bool allowFlatteningDictionaries = false,
       const serializer::presto::PrestoVectorSerde::PrestoOptions* serdeOptions =
           nullptr) {
     std::ostringstream out;
     serializeBatch(data, &out, serdeOptions);
     const auto serialized = out.str();
 
-    verifySerializedEncodedData(data, serialized, serdeOptions);
+    verifySerializedEncodedData(
+        data, serialized, allowFlatteningDictionaries, serdeOptions);
   }
 
   RowVectorPtr encodingsTestVector() {
-    auto baseNoNulls = makeFlatVector<int64_t>({1, 2, 3, 4});
+    // String is variable length, so this ensures the data isn't flattened.
+    auto baseNoNulls = makeFlatVector<std::string>({"a", "b", "c", "d"});
     auto baseWithNulls =
-        makeNullableFlatVector<int32_t>({1, std::nullopt, 2, 3});
+        makeNullableFlatVector<std::string>({"a", std::nullopt, "b", "c"});
     auto baseArray =
         makeArrayVector<int32_t>({{1, 2, 3}, {}, {4, 5}, {6, 7, 8, 9, 10}});
     auto indices = makeIndices(8, [](auto row) { return row / 2; });
@@ -593,23 +599,27 @@ class PrestoSerializerTest
   void testMinimalDictionaryEncoding(
       vector_size_t numRows,
       vector_size_t alphabetSize) {
-    auto base = makeFlatVector<int64_t>(
-        alphabetSize, [](vector_size_t row) { return row; });
-    auto allIndices = makeIndices(
-        numRows, [alphabetSize](auto row) { return row % alphabetSize; });
-    auto evenIndices = makeIndices(
-        numRows, [alphabetSize](auto row) { return (row * 2) % alphabetSize; });
-    auto oddIndices = makeIndices(numRows, [alphabetSize](auto row) {
-      return (row * 2 + 1) % alphabetSize;
+    // This factor is used to ensure we have some repetition in the dictionary
+    // in each of the cases to ensure the serializer doesn't flatten the data.
+    auto factor = alphabetSize <= numRows ? 2 : alphabetSize / numRows * 2;
+    // String is variable length, so this ensures the data isn't flattened.
+    auto base = makeFlatVector<std::string>(
+        alphabetSize, [](vector_size_t row) { return fmt::format("{}", row); });
+    auto evenIndices = makeIndices(numRows, [alphabetSize, factor](auto row) {
+      return (row * factor) % alphabetSize;
     });
-    auto prefixIndices = makeIndices(
-        numRows, [alphabetSize](auto row) { return row % (alphabetSize / 2); });
-    auto suffixIndices = makeIndices(numRows, [alphabetSize](auto row) {
-      return row % (alphabetSize / 2) + (alphabetSize / 2);
+    auto oddIndices = makeIndices(numRows, [alphabetSize, factor](auto row) {
+      return (row * factor + 1) % alphabetSize;
+    });
+    auto prefixIndices = makeIndices(numRows, [alphabetSize, factor](auto row) {
+      return row % (alphabetSize / factor);
+    });
+    auto suffixIndices = makeIndices(numRows, [alphabetSize, factor](auto row) {
+      return row % (alphabetSize / factor) +
+          (factor - 1) * (alphabetSize / factor);
     });
 
     auto rows = makeRowVector({
-        BaseVector::wrapInDictionary(nullptr, allIndices, numRows, base),
         BaseVector::wrapInDictionary(nullptr, evenIndices, numRows, base),
         BaseVector::wrapInDictionary(nullptr, oddIndices, numRows, base),
         BaseVector::wrapInDictionary(nullptr, prefixIndices, numRows, base),
@@ -627,40 +637,30 @@ class PrestoSerializerTest
     assertEqualVectors(rows, deserialized);
     assertEqualEncoding(rows, deserialized);
 
-    // If the dictionary is larger than numRows, we'll still get distinct
-    // indices after applying modulus.
-    auto expectedSmallerAlphabetSize = std::min(alphabetSize / 2, numRows);
-
     ASSERT_EQ(
         deserialized->childAt(0)
-            ->as<DictionaryVector<int64_t>>()
+            ->as<DictionaryVector<StringView>>()
             ->valueVector()
             ->size(),
-        std::min(alphabetSize, numRows));
+        alphabetSize / factor);
     ASSERT_EQ(
         deserialized->childAt(1)
-            ->as<DictionaryVector<int64_t>>()
+            ->as<DictionaryVector<StringView>>()
             ->valueVector()
             ->size(),
-        expectedSmallerAlphabetSize);
+        alphabetSize / factor);
     ASSERT_EQ(
         deserialized->childAt(2)
-            ->as<DictionaryVector<int64_t>>()
+            ->as<DictionaryVector<StringView>>()
             ->valueVector()
             ->size(),
-        expectedSmallerAlphabetSize);
+        alphabetSize / factor);
     ASSERT_EQ(
         deserialized->childAt(3)
-            ->as<DictionaryVector<int64_t>>()
+            ->as<DictionaryVector<StringView>>()
             ->valueVector()
             ->size(),
-        expectedSmallerAlphabetSize);
-    ASSERT_EQ(
-        deserialized->childAt(4)
-            ->as<DictionaryVector<int64_t>>()
-            ->valueVector()
-            ->size(),
-        expectedSmallerAlphabetSize);
+        alphabetSize / factor);
   }
 
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
@@ -926,6 +926,81 @@ TEST_P(PrestoSerializerTest, minimalDictionaryEncodings) {
   testMinimalDictionaryEncoding(32, 64);
 }
 
+// Test that dictionary encoded inputs are flattened in cases where it doesn't
+// help.
+TEST_P(PrestoSerializerTest, dictionaryEncodingTurnedOff) {
+  auto smallIntBase =
+      makeFlatVector<int16_t>(32, [](vector_size_t row) { return row; });
+  auto intBase =
+      makeFlatVector<int32_t>(32, [](vector_size_t row) { return row; });
+  auto bigintBase =
+      makeFlatVector<int64_t>(32, [](vector_size_t row) { return row; });
+  auto stringBase = makeFlatVector<std::string>(
+      32, [](vector_size_t row) { return fmt::format("{}", row); });
+  auto oneIndex = makeIndices(32, [](auto) { return 0; });
+  auto quarterIndices = makeIndices(32, [](auto row) { return row % 8; });
+  auto allButOneIndices = makeIndices(32, [](auto row) { return row % 31; });
+  auto allIndices = makeIndices(32, [](auto row) { return row; });
+
+  auto rows = makeRowVector({
+      // Even though these have very effective dictionary encoding, they should
+      // be flattened because their types are too small.
+      BaseVector::wrapInDictionary(nullptr, oneIndex, 32, smallIntBase),
+      BaseVector::wrapInDictionary(nullptr, oneIndex, 32, intBase),
+      // These should keep dictionary encoding.
+      BaseVector::wrapInDictionary(nullptr, oneIndex, 32, bigintBase),
+      BaseVector::wrapInDictionary(nullptr, quarterIndices, 32, bigintBase),
+      // These should be flattened because dictionary encoding isn't giving
+      // enough benefit to outweigh the cost.
+      BaseVector::wrapInDictionary(nullptr, allButOneIndices, 32, bigintBase),
+      BaseVector::wrapInDictionary(nullptr, allIndices, 32, bigintBase),
+      // These should keep dictionary encoding because strings are variable
+      // length.
+      BaseVector::wrapInDictionary(nullptr, oneIndex, 32, stringBase),
+      BaseVector::wrapInDictionary(nullptr, quarterIndices, 32, stringBase),
+      BaseVector::wrapInDictionary(nullptr, allButOneIndices, 32, stringBase),
+      // This should be flattened because the alphabet is the same as the
+      // flattened vector.
+      BaseVector::wrapInDictionary(nullptr, allIndices, 32, stringBase),
+  });
+
+  std::ostringstream out;
+  serializeBatch(rows, &out, /*serdeOptions=*/nullptr);
+  const auto serialized = out.str();
+
+  auto rowType = asRowType(rows->type());
+  auto deserialized =
+      deserialize(rowType, serialized, /*serdeOptions=*/nullptr);
+
+  assertEqualVectors(rows, deserialized);
+
+  // smallInt + one index
+  ASSERT_EQ(deserialized->childAt(0)->encoding(), VectorEncoding::Simple::FLAT);
+  // int + one index
+  ASSERT_EQ(deserialized->childAt(1)->encoding(), VectorEncoding::Simple::FLAT);
+  // bigint + one index
+  ASSERT_EQ(
+      deserialized->childAt(2)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  // bigint + quarter indices
+  ASSERT_EQ(
+      deserialized->childAt(3)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  // bigint + all but one indices
+  ASSERT_EQ(deserialized->childAt(4)->encoding(), VectorEncoding::Simple::FLAT);
+  // bigint + all indices
+  ASSERT_EQ(deserialized->childAt(5)->encoding(), VectorEncoding::Simple::FLAT);
+  // string + one index
+  ASSERT_EQ(
+      deserialized->childAt(6)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  // string + quarter indices
+  ASSERT_EQ(
+      deserialized->childAt(7)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  // string + all but one indices
+  ASSERT_EQ(
+      deserialized->childAt(8)->encoding(), VectorEncoding::Simple::DICTIONARY);
+  // string + all indices
+  ASSERT_EQ(deserialized->childAt(9)->encoding(), VectorEncoding::Simple::FLAT);
+}
+
 TEST_P(PrestoSerializerTest, lazy) {
   constexpr int kSize = 1000;
   auto rowVector = makeTestVector(kSize);
@@ -996,7 +1071,7 @@ TEST_P(PrestoSerializerTest, encodedRoundtrip) {
     auto inputRowVector = fuzzer.fuzzInputRow(rowType);
     serializer::presto::PrestoVectorSerde::PrestoOptions serdeOpts;
     serdeOpts.nullsFirst = i % 2 == 0;
-    testEncodedRoundTrip(inputRowVector, &serdeOpts);
+    testBatchVectorSerializerRoundTrip(inputRowVector, true, &serdeOpts);
   }
 }
 

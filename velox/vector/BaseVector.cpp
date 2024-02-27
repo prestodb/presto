@@ -24,6 +24,7 @@
 #include "velox/vector/LazyVector.h"
 #include "velox/vector/SequenceVector.h"
 #include "velox/vector/TypeAliases.h"
+#include "velox/vector/VectorEncoding.h"
 #include "velox/vector/VectorPool.h"
 #include "velox/vector/VectorTypeUtils.h"
 
@@ -763,6 +764,21 @@ VectorPtr BaseVector::transpose(BufferPtr indices, VectorPtr&& source) {
   vector_size_t size = indices->size() / sizeof(vector_size_t);
   return wrapInDictionary(
       BufferPtr(nullptr), std::move(indices), size, std::move(source));
+}
+
+// static
+const VectorPtr& BaseVector::wrappedVectorShared(const VectorPtr& vector) {
+  switch (vector->encoding()) {
+    case VectorEncoding::Simple::CONSTANT:
+    case VectorEncoding::Simple::DICTIONARY:
+    case VectorEncoding::Simple::SEQUENCE:
+      return vector->valueVector() ? wrappedVectorShared(vector->valueVector())
+                                   : vector;
+    case VectorEncoding::Simple::LAZY:
+      return wrappedVectorShared(loadedVectorShared(vector));
+    default:
+      return vector;
+  }
 }
 
 bool isLazyNotLoaded(const BaseVector& vector) {

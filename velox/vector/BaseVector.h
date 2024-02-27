@@ -384,6 +384,8 @@ class BaseVector {
     return this;
   }
 
+  static const VectorPtr& wrappedVectorShared(const VectorPtr& vector);
+
   // Returns the index to apply for 'index' in the vector returned by
   // wrappedVector(). Translates the index over any nesting of
   // dictionaries, sequences and constants.
