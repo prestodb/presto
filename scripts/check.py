@@ -189,9 +189,12 @@ def get_files(commit, path):
         )
         filelist = stdout.splitlines()
     else:
-        for root, dirs, files in os.walk(path):
-            for name in files:
-                filelist.append(os.path.join(root, name))
+        if os.path.isfile(path):
+            filelist.append(path)
+        else:
+            for root, dirs, files in os.walk(path):
+                for name in files:
+                    filelist.append(os.path.join(root, name))
 
     return [
         file
