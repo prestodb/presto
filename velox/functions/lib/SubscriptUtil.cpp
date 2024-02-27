@@ -172,9 +172,24 @@ struct MapKey {
   const vector_size_t baseIndex;
   const vector_size_t index;
 
+  size_t hash() const {
+    return baseVector->hashValueAt(baseIndex);
+  }
+
+  bool operator==(const MapKey& other) const {
+    return baseVector->equalValueAt(
+        other.baseVector, baseIndex, other.baseIndex);
+  }
+
   bool operator<(const MapKey& other) const {
     return baseVector->compare(other.baseVector, baseIndex, other.baseIndex) <
         0;
+  }
+};
+
+struct MapKeyHasher {
+  size_t operator()(const MapKey& key) const {
+    return key.hash();
   }
 };
 
@@ -219,37 +234,24 @@ VectorPtr applyMapComplexType(
   // Fast path for the case of a single map. It may be constant or dictionary
   // encoded. Sort map keys, then use binary search.
   if (baseMap->size() == 1) {
-    auto sortedKeyIndices = baseMap->sortedKeyIndices(0);
-
-    std::vector<MapKey> sortedKeys;
-    sortedKeys.reserve(sortedKeyIndices.size());
-    for (const auto& index : sortedKeyIndices) {
-      sortedKeys.emplace_back(
-          MapKey{mapKeysBase, mapKeysIndices[index], index});
+    folly::F14FastSet<MapKey, MapKeyHasher> set;
+    auto numKeys = rawSizes[0];
+    set.reserve(numKeys * 1.3);
+    for (auto i = 0; i < numKeys; ++i) {
+      set.insert(MapKey{mapKeysBase, mapKeysIndices[i], i});
     }
-
     rows.applyToSelected([&](vector_size_t row) {
       VELOX_CHECK_EQ(0, mapIndices[row]);
 
-      bool found = false;
       auto searchIndex = searchIndices[row];
-
-      auto it = std::lower_bound(
-          sortedKeys.begin(),
-          sortedKeys.end(),
-          MapKey{searchBase, searchIndex, row});
-
-      if (it != sortedKeys.end()) {
-        if (mapKeysBase->equalValueAt(searchBase, it->baseIndex, searchIndex)) {
-          rawIndices[row] = it->index;
-          found = true;
-        }
-      }
-
-      if (!found) {
+      auto it = set.find(MapKey{searchBase, searchIndex, row});
+      if (it != set.end()) {
+        rawIndices[row] = it->index;
+      } else {
         nullsBuilder.setNull(row);
       }
     });
+
   } else {
     // Search the key in each row.
     rows.applyToSelected([&](vector_size_t row) {
