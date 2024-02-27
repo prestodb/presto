@@ -1052,7 +1052,7 @@ std::string PrestoServer::getLocalIp() const {
     }
   }
   VELOX_FAIL(
-      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
+      "Could not infer Node IP. Please specify node.internal-address in the node.properties file.");
 }
 
 std::string PrestoServer::getBaseSpillDirectory() const {
