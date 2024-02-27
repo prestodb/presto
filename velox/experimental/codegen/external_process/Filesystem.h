@@ -77,4 +77,4 @@ class PathGenerator {
 } // namespace compiler_utils
 } // namespace codegen
 } // namespace velox
-}; // namespace facebook
+} // namespace facebook

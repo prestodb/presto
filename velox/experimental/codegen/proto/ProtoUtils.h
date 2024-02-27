@@ -60,6 +60,6 @@ struct ProtoUtils {
   }
 };
 
-}; // namespace proto_utils
+} // namespace proto_utils
 
 } // namespace facebook::velox::codegen::proto

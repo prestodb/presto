@@ -182,5 +182,4 @@ TEST_F(WindowTest, duplicateOrOverlappingKeys) {
 }
 
 } // namespace
-
 } // namespace facebook::velox::exec

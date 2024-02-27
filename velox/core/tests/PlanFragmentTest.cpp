@@ -81,7 +81,7 @@ class PlanFragmentTest : public testing::Test {
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::memoryManager()->addLeafPool()};
 };
-}; // namespace
+} // namespace
 
 TEST_F(PlanFragmentTest, orderByCanSpill) {
   struct {

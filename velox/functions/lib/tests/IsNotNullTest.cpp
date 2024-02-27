@@ -26,7 +26,7 @@ void registerIsNotNull() {
   registerIsNotNullFunction("isnotnull");
 }
 
-}; // namespace facebook::velox::functions
+} // namespace facebook::velox::functions
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;

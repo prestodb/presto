@@ -212,4 +212,4 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const RangeFrameBound& startBound,
       const RangeFrameBound& endBound);
 };
-}; // namespace facebook::velox::window::test
+} // namespace facebook::velox::window::test

@@ -347,7 +347,7 @@ class Re2SearchAndExtractConstantPattern final : public exec::VectorFunction {
  private:
   RE2 re_;
   const bool emptyNoMatch_;
-}; // namespace
+};
 
 // The factory function we provide returns a unique instance for each call, so
 // this is safe.

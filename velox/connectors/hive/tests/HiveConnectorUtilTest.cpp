@@ -202,4 +202,4 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
       hiveConfig->filePreloadThreshold());
 }
 
-}; // namespace facebook::velox::connector
+} // namespace facebook::velox::connector

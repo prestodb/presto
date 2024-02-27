@@ -440,4 +440,4 @@ TEST_F(ComparisonsTest, notSupportedTypes) {
   }
 }
 } // namespace
-}; // namespace facebook::velox::functions::sparksql::test
+} // namespace facebook::velox::functions::sparksql::test

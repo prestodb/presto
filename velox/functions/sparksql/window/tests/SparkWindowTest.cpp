@@ -106,5 +106,5 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     SparkWindowTest,
     testing::ValuesIn(getSparkWindowTestParams()));
 
-}; // namespace
-}; // namespace facebook::velox::window::test
+} // namespace
+} // namespace facebook::velox::window::test

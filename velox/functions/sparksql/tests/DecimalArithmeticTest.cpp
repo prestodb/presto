@@ -76,7 +76,7 @@ class DecimalArithmeticTest : public SparkFunctionBaseTest {
     }
     return makeNullableFlatVector<int128_t>(numbers, type);
   }
-}; // namespace
+};
 
 TEST_F(DecimalArithmeticTest, add) {
   // Precision < 38.

@@ -778,7 +778,7 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
     }
   }
 }
-}; // namespace
+} // namespace
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_add,
@@ -799,4 +799,4 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_div,
     decimalDivideSignature(),
     createDecimalFunction<Divide>);
-}; // namespace facebook::velox::functions::sparksql
+} // namespace facebook::velox::functions::sparksql

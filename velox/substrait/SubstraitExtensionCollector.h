@@ -114,4 +114,4 @@ struct hash<facebook::velox::substrait::ExtensionFunctionId> {
   }
 };
 
-}; // namespace std
+} // namespace std

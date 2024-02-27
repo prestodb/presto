@@ -98,7 +98,7 @@ void setValid_normal(bool setToValue) {
   }
 }
 
-}; // namespace
+} // namespace
 
 TEST(SelectivityVectorTest, setValid_true_normal) {
   setValid_normal(true);

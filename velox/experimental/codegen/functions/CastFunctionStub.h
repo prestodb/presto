@@ -41,4 +41,4 @@ struct CodegenConversionStub {
   }
 };
 
-}; // namespace facebook::velox::codegen
+} // namespace facebook::velox::codegen

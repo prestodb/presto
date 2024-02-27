@@ -141,7 +141,7 @@ class ConstantExpression final : public ASTNode {
  private:
   /// Child expression
   const std::optional<T> value_;
-}; // namespace codegen
+};
 
 using Int8Literal = ConstantExpression<int8_t>;
 using Int16Literal = ConstantExpression<int16_t>;

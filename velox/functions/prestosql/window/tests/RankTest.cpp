@@ -103,5 +103,5 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     RankTest,
     testing::ValuesIn(getRankTestParams()));
 
-}; // namespace
-}; // namespace facebook::velox::window::test
+} // namespace
+} // namespace facebook::velox::window::test

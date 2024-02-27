@@ -46,4 +46,4 @@ FOLLY_ALWAYS_INLINE int64_t computeHashStub(const T& arg) {
   }
 }
 
-}; // namespace facebook::velox::codegen
+} // namespace facebook::velox::codegen
