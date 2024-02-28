@@ -159,7 +159,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
     }
 
-    //@Test(timeOut = 90_000)
+    @Test(timeOut = 10_000)
     public void testTooManyQueries()
             throws Exception
     {
