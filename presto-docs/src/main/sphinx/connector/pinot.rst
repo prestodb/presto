@@ -6,6 +6,15 @@ The Apache Pinot connector allows querying and creating tables in an external Ap
 Pinot database. This can be used to query pinot data or join pinot data with
 something else.
 
+Requirements
+------------
+
+To connect to Pinot, you need:
+
+* Pinot 0.1.0 or higher.
+* Network access from the Trino coordinator and workers to the Pinot controller
+  nodes. Port 8098 is the default port.
+
 Configuration
 -------------
 
@@ -18,7 +27,7 @@ connection properties as appropriate for your setup:
 .. code-block:: none
 
     connector.name=pinot
-    pinot.controller-urls=controller_host1:9000,controller_host2:9000
+    pinot.controller-urls=controller_host1:8098,controller_host2:8098
 
 Where the ``pinot.controller-urls`` property allows you to specify a
 comma separated list of the pinot controller host/port pairs.
