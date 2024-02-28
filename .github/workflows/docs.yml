@@ -1,0 +1,85 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Update Documentation
+
+on:
+  push:
+    paths:
+      - "velox/docs/**"
+      - ".github/workflows/docs.yml"
+
+  pull_request:
+    paths:
+      - "velox/docs/**"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build_docs:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git User
+        run: |
+          git config --global user.email "velox@users.noreply.github.com"
+          git config --global user.name "velox"
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y pandoc
+          pip install sphinx sphinx-tabs breathe sphinx_rtd_theme chardet
+
+      - name: Build Documentation
+        run: |
+          cd velox/docs
+          make clean
+          # pyvelox
+          mkdir -p bindings/python
+          pandoc ../../pyvelox/README.md --from markdown --to rst -s -o bindings/python/README_generated_pyvelox.rst
+          # velox
+          make html
+
+      - name: Push Documentation
+        if: ${{ github.event_name == 'push' && github.repository == 'facebookincubator/velox'}}
+        run: |
+          git checkout gh-pages
+          cp -R velox/docs/_build/html/* docs
+          git add docs
+
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]
+          then
+            git commit -m "Update documentation"
+            git push
+          fi
+
+      - name: Upload Documentation
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          path: velox/docs/_build/html
+          retention-days: 3
