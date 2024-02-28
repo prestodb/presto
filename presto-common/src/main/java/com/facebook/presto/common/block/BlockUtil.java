@@ -110,6 +110,9 @@ public final class BlockUtil
 
     static int calculateNestedStructureResetSize(int currentNestedStructureSize, int currentNestedStructurePositionCount, int expectedPositionCount)
     {
+        if (currentNestedStructureSize > (1 >> 12)) {
+            expectedPositionCount = currentNestedStructurePositionCount;
+        }
         long newSize = max(
                 (long) ceil(currentNestedStructureSize * BLOCK_RESET_SKEW),
                 currentNestedStructurePositionCount == 0 ? currentNestedStructureSize : (long) currentNestedStructureSize * expectedPositionCount / currentNestedStructurePositionCount);
