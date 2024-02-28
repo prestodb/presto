@@ -76,7 +76,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toMap;
@@ -238,10 +237,13 @@ public class QuickStatsProvider
             CompletableFuture<PartitionStatistics> fetchFuture = supplyAsync(() -> buildQuickStats(partitionKey, partitionId, session, metastore, table, metastoreContext), backgroundFetchExecutor);
             partitionStatisticsCompletableFuture.set(fetchFuture);
 
+            // Add a hook to stop tracking the in-progress build for this partition once the future finishes (successfully or exceptionally)
+            fetchFuture.whenComplete((r, e) -> inProgressBuilds.remove(partitionKey));
+
             // Also add a hook to reap this in-progress thread if it doesn't finish in reaperExpiry seconds
             inProgressReaperExecutor.schedule(() -> {
                 inProgressBuilds.remove(key);
-                partitionStatisticsCompletableFuture.get().cancel(true);
+                fetchFuture.cancel(true);
             }, reaperExpiryMillis, MILLISECONDS);
 
             return new InProgressBuildInfo(fetchFuture, Instant.now());
@@ -250,9 +252,9 @@ public class QuickStatsProvider
         CompletableFuture<PartitionStatistics> future = partitionStatisticsCompletableFuture.get();
         if (future != null) {
             long inlineBuildTimeoutMillis = getQuickStatsInlineBuildTimeoutMillis(session);
-            // A background call to build quick stats was started, and we want to wait for quick stats to be built
-            // Note : Only the first query that initiated the quick stats call for this partition will have to wait for the stats to be built
             if (inlineBuildTimeoutMillis > 0) {
+                // A background call to build quick stats was started, and we want to wait for quick stats to be built
+                // Note : Only the first query that initiated the quick stats call for this partition will have to wait for the stats to be built
                 try {
                     PartitionStatistics partitionStatistics = future.get(inlineBuildTimeoutMillis, MILLISECONDS);
                     succesfulResolveFromProviderCount.incrementAndGet(); // successfully resolved quick stats for the partition
@@ -268,15 +270,6 @@ public class QuickStatsProvider
                     session.getRuntimeStats().addMetricValue("QuickStatsProvider/QuickStatsBuildTimeout", RuntimeUnit.NONE, 1L);
                     // Return empty PartitionStats for this partition
                     return empty();
-                }
-                finally {
-                    if (future.isDone()) {
-                        inProgressBuilds.remove(partitionKey);
-                    }
-                    else {
-                        // Remove the in-progress flag when the background fetch finishes
-                        future.whenCompleteAsync((r, e) -> inProgressBuilds.remove(partitionKey), commonPool());
-                    }
                 }
             }
             else {
