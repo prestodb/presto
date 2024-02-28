@@ -269,7 +269,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(true)
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
-                .setCteHeuristicReplicationThreshold(4));
+                .setCteHeuristicReplicationThreshold(4)
+                .setUseHistograms(false));
     }
 
     @Test
@@ -483,6 +484,7 @@ public class TestFeaturesConfig
                 .put("optimizer.default-writer-replication-coefficient", "5.0")
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
+                .put("optimizer.use-histograms", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -693,7 +695,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(false)
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
-                .setCteHeuristicReplicationThreshold(2);
+                .setCteHeuristicReplicationThreshold(2)
+                .setUseHistograms(true);
         assertFullMapping(properties, expected);
     }
 
