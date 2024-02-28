@@ -7463,4 +7463,17 @@ public abstract class AbstractTestQueries
                 "select cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
                         "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2)");
     }
+
+    @Test
+    public void testLargeRow()
+    {
+        // We create 2000 element struct which is the max that works for now
+        StringBuilder query = new StringBuilder("ROW(");
+        for (int i = 0; i < 200; i++) {
+            query.append("ROW(obj.name, obj.value, obj.version, obj.matched_content_count, " + (i % 2 == 0 ? "1" : "false") + "),");
+        }
+        query.append("null, 1) AS x,");
+        query.append("1 FROM (SELECT 1) CROSS JOIN (SELECT CAST (NULL AS ROW(name VARCHAR, value VARCHAR, version ROW(x int, y double), matched_content_count BIGINT)) ) AS t1(obj)");
+        assertQuery("SELECT if(random() >= 0, x is not null) FROM (SELECT  " + query.toString() + ")", "select true");
+    }
 }
