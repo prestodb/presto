@@ -33,6 +33,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
@@ -98,6 +99,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 
 import java.util.IdentityHashMap;
@@ -105,7 +107,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Stack;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -510,12 +514,52 @@ public final class SqlToRowExpressionTranslator
                     right);
         }
 
+        private List<RowExpression> flattenConcatArguments(List<RowExpression> argumentExpressions)
+        {
+            ImmutableList.Builder<RowExpression> argumentExpressonsBuilder = ImmutableList.builder();
+            Stack<RowExpression> argumentStack = new Stack<>();
+            for (RowExpression argument : Lists.reverse(argumentExpressions)) {
+                argumentStack.push(argument);
+            }
+
+            do {
+                RowExpression expression = argumentStack.pop();
+                if (expression instanceof CallExpression) {
+                    CallExpression nestedCall = (CallExpression) expression;
+                    if (nestedCall.getFunctionHandle().getName().equalsIgnoreCase("CONCAT")) {
+                        for (RowExpression nestedArgument : Lists.reverse(nestedCall.getArguments())) {
+                            argumentStack.push(nestedArgument);
+                        }
+                        continue;
+                    }
+                }
+
+                argumentExpressonsBuilder.add(expression);
+            } while (!argumentStack.empty());
+
+            // In java, we can have only 254 args to concat
+            List<RowExpression> flattenedArguments = argumentExpressonsBuilder.build();
+            if (flattenedArguments.size() > 254) {
+                return argumentExpressions;
+            }
+
+            // Let's make sure all arguments are varchar type as chartype(x) is not implicitly converted to varchar
+            return flattenedArguments.stream().map(x -> x.getType() == VARCHAR
+                    ? x
+                    : call(Optional.empty(), CAST.name(), functionAndTypeResolver.lookupCast("CAST", x.getType(), VARCHAR), VARCHAR, x)).collect(Collectors.toList());
+        }
+
         @Override
         protected RowExpression visitFunctionCall(FunctionCall node, Context context)
         {
             List<RowExpression> arguments = node.getArguments().stream()
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
+
+            if (node.getName().toString().equalsIgnoreCase("concat") && getType(node) == VARCHAR) {
+                // We flatten all nested concats into one
+                arguments = flattenConcatArguments(arguments);
+            }
 
             List<TypeSignatureProvider> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
