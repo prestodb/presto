@@ -190,6 +190,7 @@ public class HiveClientConfig
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean dynamicSplitSizesEnabled;
 
     private boolean userDefinedTypeEncodingEnabled;
 
@@ -1557,6 +1558,18 @@ public class HiveClientConfig
     public boolean isSizeBasedSplitWeightsEnabled()
     {
         return sizeBasedSplitWeightsEnabled;
+    }
+
+    @Config("hive.dynamic-split-sizes-enabled")
+    public HiveClientConfig setDynamicSplitSizesEnabled(boolean dynamicSplitSizesEnabled)
+    {
+        this.dynamicSplitSizesEnabled = dynamicSplitSizesEnabled;
+        return this;
+    }
+
+    public boolean isDynamicSplitSizesEnabled()
+    {
+        return dynamicSplitSizesEnabled;
     }
 
     @Config("hive.minimum-assigned-split-weight")

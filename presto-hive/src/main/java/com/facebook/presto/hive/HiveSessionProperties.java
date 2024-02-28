@@ -129,6 +129,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
     public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
+    public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -557,6 +558,11 @@ public final class HiveSessionProperties
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
                         "Enable estimating split weights based on size in bytes",
                         hiveClientConfig.isSizeBasedSplitWeightsEnabled(),
+                        false),
+                booleanProperty(
+                        DYNAMIC_SPLIT_SIZES_ENABLED,
+                        "Enable dynamic sizing of splits based on column statistics",
+                        hiveClientConfig.isDynamicSplitSizesEnabled(),
                         false),
                 new PropertyMetadata<>(
                         MINIMUM_ASSIGNED_SPLIT_WEIGHT,
@@ -1030,6 +1036,11 @@ public final class HiveSessionProperties
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
     {
         return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDynamicSplitSizesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_SPLIT_SIZES_ENABLED, Boolean.class);
     }
 
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
