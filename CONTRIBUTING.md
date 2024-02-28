@@ -372,7 +372,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
     * **Body**
         * Wrap the body at 72 characters
         * Use the body to explain what and why versus how
-        * Use the imperative mood in the body\
+        * Use the indicative mood in the body\
           For example, “If applied, this commit will ___________”
         * Communicate only context (why) for the commit in the subject line
         * Use the body for What and Why
