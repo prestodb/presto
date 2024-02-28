@@ -3720,6 +3720,15 @@ void PrestoVectorSerde::deserialize(
       common::compressionKindToCodec(prestoOptions.compressionKind);
   auto const header = PrestoHeader::read(source);
 
+  int64_t actualCheckSum = 0;
+  if (isChecksumBitSet(header.pageCodecMarker)) {
+    actualCheckSum = computeChecksum(
+        source, header.pageCodecMarker, header.numRows, header.compressedSize);
+  }
+
+  VELOX_CHECK_EQ(
+      header.checksum, actualCheckSum, "Received corrupted serialized page.");
+
   if (resultOffset > 0) {
     VELOX_CHECK_NOT_NULL(*result);
     VELOX_CHECK(result->unique());
@@ -3735,15 +3744,6 @@ void PrestoVectorSerde::deserialize(
   } else {
     *result = BaseVector::create<RowVector>(type, header.numRows, pool);
   }
-
-  int64_t actualCheckSum = 0;
-  if (isChecksumBitSet(header.pageCodecMarker)) {
-    actualCheckSum = computeChecksum(
-        source, header.pageCodecMarker, header.numRows, header.compressedSize);
-  }
-
-  VELOX_CHECK_EQ(
-      header.checksum, actualCheckSum, "Received corrupted serialized page.");
 
   VELOX_CHECK_EQ(
       needCompression(*codec),
