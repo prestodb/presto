@@ -94,8 +94,8 @@ target_link_libraries(
   velox_core
   velox_vector
   velox_connector
+  velox_expression
   velox_time
-  velox_codegen
   velox_common_base
   velox_test_util
   velox_arrow_bridge

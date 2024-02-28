@@ -55,18 +55,12 @@ endif()
 add_subdirectory(functions) # depends on md5 (postgresql)
 add_subdirectory(connectors)
 
-# exec depends on codegen
 if(${VELOX_ENABLE_EXEC})
   add_subdirectory(exec)
-  add_subdirectory(codegen)
 endif()
 
 if(${VELOX_ENABLE_DUCKDB})
   add_subdirectory(duckdb)
-endif()
-
-if(${VELOX_ENABLE_CODEGEN_SUPPORT})
-  add_subdirectory(experimental/codegen)
 endif()
 
 if(${VELOX_ENABLE_GPU})

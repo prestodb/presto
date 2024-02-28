@@ -128,7 +128,6 @@ class CMakeBuild(build_ext):
             "-DCMAKE_VERBOSE_MAKEFILE=ON",
             "-DVELOX_BUILD_PYTHON_PACKAGE=ON",
             f"-DPYTHON_EXECUTABLE={exec_path} ",
-            "-DVELOX_CODEGEN_SUPPORT=OFF",
         ]
         build_args = []
 
