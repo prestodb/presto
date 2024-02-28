@@ -681,29 +681,29 @@ TEST_F(MemoryReclaimerTest, arbitrationContext) {
   ASSERT_FALSE(isSpillMemoryPool(leafChild2.get()));
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   {
-    ScopedMemoryArbitrationContext arbitrationContext(*leafChild1);
+    ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-    ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild1.get());
+    ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild1.get());
   }
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   {
-    ScopedMemoryArbitrationContext arbitrationContext(*leafChild2);
+    ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
     ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-    ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild2.get());
+    ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild2.get());
   }
   ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   std::thread nonAbitrationThread([&]() {
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
-      ScopedMemoryArbitrationContext arbitrationContext(*leafChild1);
+      ScopedMemoryArbitrationContext arbitrationContext(leafChild1.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-      ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild1.get());
+      ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild1.get());
     }
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
     {
-      ScopedMemoryArbitrationContext arbitrationContext(*leafChild2);
+      ScopedMemoryArbitrationContext arbitrationContext(leafChild2.get());
       ASSERT_TRUE(memoryArbitrationContext() != nullptr);
-      ASSERT_EQ(&memoryArbitrationContext()->requestor, leafChild2.get());
+      ASSERT_EQ(memoryArbitrationContext()->requestor, leafChild2.get());
     }
     ASSERT_TRUE(memoryArbitrationContext() == nullptr);
   });

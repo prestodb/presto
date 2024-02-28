@@ -591,8 +591,30 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
 }
 
 TEST_F(MockSharedArbitrationTest, shrinkMemory) {
-  std::vector<std::shared_ptr<MemoryPool>> pools;
-  ASSERT_THROW(arbitrator_->shrinkCapacity(pools, 128), VeloxException);
+  auto task1 = addTask(64 * MB);
+  auto op1 = addMemoryOp(task1);
+  auto task2 = addTask(64 * MB);
+  auto op2 = addMemoryOp(task2);
+
+  op1->allocate(64 * MB);
+  op1->freeAll();
+  auto bufOp11 = op1->allocate(32 * MB);
+  auto bufOp12 = op1->allocate(32 * MB);
+  op1->free(bufOp11);
+  ASSERT_EQ(op1->pool()->root()->capacity(), 64 * MB);
+  ASSERT_EQ(op1->pool()->root()->currentBytes(), 32 * MB);
+
+  op2->allocate(64 * MB);
+  op2->freeAll();
+  auto bufOp21 = op2->allocate(32 * MB);
+  auto bufOp22 = op2->allocate(32 * MB);
+  op2->free(bufOp21);
+  ASSERT_EQ(op2->pool()->root()->capacity(), 64 * MB);
+  ASSERT_EQ(op2->pool()->root()->currentBytes(), 32 * MB);
+
+  ASSERT_EQ(manager_->shrinkPools(kMaxMemory), 128 * MB);
+  ASSERT_EQ(op1->capacity(), 0);
+  ASSERT_EQ(op2->capacity(), 0);
 }
 
 TEST_F(MockSharedArbitrationTest, singlePoolGrowWithoutArbitration) {

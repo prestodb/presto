@@ -205,6 +205,22 @@ uint64_t SharedArbitrator::shrinkCapacity(
   return freedBytes;
 }
 
+uint64_t SharedArbitrator::shrinkCapacity(
+    const std::vector<std::shared_ptr<MemoryPool>>& pools,
+    uint64_t targetBytes) {
+  ScopedArbitration scopedArbitration(this);
+  targetBytes = std::max(memoryPoolTransferCapacity_, targetBytes);
+  std::vector<Candidate> candidates = getCandidateStats(pools);
+  auto freedBytes = reclaimFreeMemoryFromCandidates(candidates, targetBytes);
+  if (freedBytes >= targetBytes) {
+    return freedBytes;
+  }
+  freedBytes += reclaimUsedMemoryFromCandidates(
+      nullptr, candidates, targetBytes - freedBytes);
+  incrementFreeCapacity(freedBytes);
+  return freedBytes;
+}
+
 std::vector<SharedArbitrator::Candidate> SharedArbitrator::getCandidateStats(
     const std::vector<std::shared_ptr<MemoryPool>>& pools) {
   std::vector<SharedArbitrator::Candidate> candidates;
@@ -437,7 +453,8 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidates(
         targetBytes - freedBytes, memoryPoolTransferCapacity_);
     VELOX_CHECK_GT(bytesToReclaim, 0);
     freedBytes += reclaim(candidate.pool, bytesToReclaim);
-    if ((freedBytes >= targetBytes) || requestor->aborted()) {
+    if ((freedBytes >= targetBytes) ||
+        (requestor != nullptr && requestor->aborted())) {
       break;
     }
   }
@@ -581,21 +598,38 @@ std::string SharedArbitrator::toStringLocked() const {
 }
 
 SharedArbitrator::ScopedArbitration::ScopedArbitration(
+    SharedArbitrator* arbitrator)
+    : requestor_(nullptr),
+      arbitrator_(arbitrator),
+      startTime_(std::chrono::steady_clock::now()),
+      arbitrationCtx_(requestor_) {
+  VELOX_CHECK_NOT_NULL(arbitrator_);
+  arbitrator_->startArbitration("Wait for arbitration");
+}
+
+SharedArbitrator::ScopedArbitration::ScopedArbitration(
     MemoryPool* requestor,
     SharedArbitrator* arbitrator)
     : requestor_(requestor),
       arbitrator_(arbitrator),
       startTime_(std::chrono::steady_clock::now()),
-      arbitrationCtx_(*requestor_) {
+      arbitrationCtx_(requestor_) {
   VELOX_CHECK_NOT_NULL(arbitrator_);
-  arbitrator_->startArbitration(requestor);
-  if (arbitrator_->arbitrationStateCheckCb_ != nullptr) {
-    arbitrator_->arbitrationStateCheckCb_(*requestor);
+  requestor_->enterArbitration();
+  arbitrator_->startArbitration(fmt::format(
+      "Wait for arbitration, requestor: {}[{}]",
+      requestor_->name(),
+      requestor_->root()->name()));
+  if (arbitrator_->arbitrationStateCheckCb_ != nullptr &&
+      requestor_ != nullptr) {
+    arbitrator_->arbitrationStateCheckCb_(*requestor_);
   }
 }
 
 SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
-  requestor_->leaveArbitration();
+  if (requestor_ != nullptr) {
+    requestor_->leaveArbitration();
+  }
   const auto arbitrationTimeUs =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::steady_clock::now() - startTime_)
@@ -609,18 +643,14 @@ SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
   arbitrator_->finishArbitration();
 }
 
-void SharedArbitrator::startArbitration(MemoryPool* requestor) {
-  requestor->enterArbitration();
+void SharedArbitrator::startArbitration(const std::string& arbitrationContext) {
   ContinueFuture waitPromise{ContinueFuture::makeEmpty()};
   {
     std::lock_guard<std::mutex> l(mutex_);
     RECORD_METRIC_VALUE(kMetricArbitratorRequestsCount);
     ++numRequests_;
     if (running_) {
-      waitPromises_.emplace_back(fmt::format(
-          "Wait for arbitration, requestor: {}[{}]",
-          requestor->name(),
-          requestor->root()->name()));
+      waitPromises_.emplace_back(arbitrationContext);
       waitPromise = waitPromises_.back().getSemiFuture();
     } else {
       VELOX_CHECK(waitPromises_.empty());
@@ -629,7 +659,7 @@ void SharedArbitrator::startArbitration(MemoryPool* requestor) {
   }
 
   TestValue::adjust(
-      "facebook::velox::memory::SharedArbitrator::startArbitration", requestor);
+      "facebook::velox::memory::SharedArbitrator::startArbitration", nullptr);
 
   if (waitPromise.valid()) {
     uint64_t waitTimeUs{0};

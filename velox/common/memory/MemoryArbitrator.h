@@ -148,9 +148,9 @@ class MemoryArbitrator {
   virtual uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) = 0;
 
   /// Invoked by the memory manager to shrink memory capacity from a given list
-  /// of memory pools by reclaiming used memory. The freed memory capacity is
-  /// given back to the arbitrator. The function returns the actual freed memory
-  /// capacity in bytes.
+  /// of memory pools by reclaiming free and used memory. The freed memory
+  /// capacity is given back to the arbitrator. The function returns the actual
+  /// freed memory capacity in bytes.
   virtual uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
       uint64_t targetBytes) = 0;
@@ -361,14 +361,14 @@ class MemoryReclaimer {
 /// the memory reservations during memory arbitration should come from the
 /// spilling memory pool.
 struct MemoryArbitrationContext {
-  const MemoryPool& requestor;
+  const MemoryPool* requestor;
 };
 
 /// Object used to set/restore the memory arbitration context when a thread is
 /// under memory arbitration processing.
 class ScopedMemoryArbitrationContext {
  public:
-  explicit ScopedMemoryArbitrationContext(const MemoryPool& requestor);
+  explicit ScopedMemoryArbitrationContext(const MemoryPool* requestor);
   ~ScopedMemoryArbitrationContext();
 
  private:

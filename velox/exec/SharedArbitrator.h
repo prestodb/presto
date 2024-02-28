@@ -53,10 +53,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   uint64_t shrinkCapacity(MemoryPool* pool, uint64_t freedBytes) final;
 
   uint64_t shrinkCapacity(
-      const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/) override final {
-    VELOX_NYI("shrinkCapacity is not supported by SharedArbitrator");
-  }
+      const std::vector<std::shared_ptr<MemoryPool>>& pools,
+      uint64_t targetBytes) override final;
 
   Stats stats() const final;
 
@@ -80,7 +78,14 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   class ScopedArbitration {
    public:
-    ScopedArbitration(MemoryPool* requestor, SharedArbitrator* arbitrator);
+    // Used by arbitration request NOT initiated from memory pool, e.g. through
+    // shrinkPools() API.
+    explicit ScopedArbitration(SharedArbitrator* arbitrator);
+
+    // Used by arbitration request initiated from a memory pool.
+    explicit ScopedArbitration(
+        MemoryPool* requestor,
+        SharedArbitrator* arbitrator);
 
     ~ScopedArbitration();
 
@@ -129,7 +134,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Invoked to start next memory arbitration request, and it will wait for the
   // serialized execution if there is a running or other waiting arbitration
   // requests.
-  void startArbitration(MemoryPool* requestor);
+  void startArbitration(const std::string& arbitrationContext);
 
   // Invoked by a finished memory arbitration request to kick off the next
   // arbitration request execution if there are any ones waiting.
