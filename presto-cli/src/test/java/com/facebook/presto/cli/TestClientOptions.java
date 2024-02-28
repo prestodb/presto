@@ -80,6 +80,33 @@ public class TestClientOptions
         assertEquals(session.getServer().toString(), "https://localhost/foo");
     }
 
+    @Test
+    public void testServer443Port()
+    {
+        ClientOptions options = new ClientOptions();
+        options.server = "test:443";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getServer().toString(), "https://test:443");
+    }
+
+    @Test
+    public void testServerHttpsHostPort()
+    {
+        ClientOptions options = new ClientOptions();
+        options.server = "https://test:443";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getServer().toString(), "https://test:443");
+    }
+
+    @Test
+    public void testServerHttpWithPort443()
+    {
+        ClientOptions options = new ClientOptions();
+        options.server = "http://test:443";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getServer().toString(), "http://test:443");
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidServer()
     {
