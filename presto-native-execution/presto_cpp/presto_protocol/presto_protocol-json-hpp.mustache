@@ -163,12 +163,12 @@ void from_json_key(const json &j, const char *key, T &value, const char *classNa
 struct KeyedSubclass {
   std::string _type;      // This member holds the subtype that was serialized.
 
-  std::string getSubclassKey(const json j);
+  std::string getSubclassKey(const json& j);
   virtual ~KeyedSubclass() {}
 };
 
 struct JsonEncodedSubclass : public KeyedSubclass {
-    std::string getSubclassKey(const json j);
+    std::string getSubclassKey(const json& j);
 };
 
 struct Base64EncodedSubclass : public KeyedSubclass {

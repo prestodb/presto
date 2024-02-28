@@ -36,7 +36,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/Connectors.h"
+#include "presto_cpp/presto_protocol/ConnectorProtocol.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -233,8 +233,15 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
-  protocol::registerHiveConnectors();
-  protocol::registerTpchConnector();
+
+  protocol::registerConnectorProtocol(
+      "hive", std::make_unique<protocol::HiveConnectorProtocol>());
+  protocol::registerConnectorProtocol(
+      "hive-hadoop2", std::make_unique<protocol::HiveConnectorProtocol>());
+  protocol::registerConnectorProtocol(
+      "iceberg", std::make_unique<protocol::IcebergConnectorProtocol>());
+  protocol::registerConnectorProtocol(
+      "tpch", std::make_unique<protocol::TpchConnectorProtocol>());
 
   initializeVeloxMemory();
   initializeThreadPools();
