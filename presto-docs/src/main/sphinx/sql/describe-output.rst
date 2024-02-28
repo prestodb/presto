@@ -22,7 +22,7 @@ Examples
 Prepare and describe a query with four output columns::
 
     PREPARE my_select1 FROM
-    SELECT * FROM nation
+    SELECT * FROM nation;
 
 .. code-block:: sql
 
@@ -41,7 +41,7 @@ Prepare and describe a query with four output columns::
 Prepare and describe a query whose output columns are expressions::
 
    PREPARE my_select2 FROM
-   SELECT count(*) as my_count, 1+2 FROM nation
+   SELECT count(*) as my_count, 1+2 FROM nation;
 
 .. code-block:: sql
 
@@ -58,7 +58,7 @@ Prepare and describe a query whose output columns are expressions::
 Prepare and describe a row count query::
 
     PREPARE my_create FROM
-    CREATE TABLE foo AS SELECT * FROM nation
+    CREATE TABLE foo AS SELECT * FROM nation;
 
 .. code-block:: sql
 
