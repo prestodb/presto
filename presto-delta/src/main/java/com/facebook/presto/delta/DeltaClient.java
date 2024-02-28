@@ -24,6 +24,7 @@ import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.data.CloseableIterator;
+import io.delta.standalone.expressions.Expression;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -116,7 +117,7 @@ public class DeltaClient
      *
      * @return Closeable iterator of files. It is responsibility of the caller to close the iterator.
      */
-    public CloseableIterator<AddFile> listFiles(ConnectorSession session, DeltaTable deltaTable)
+    public CloseableIterator<AddFile> listFiles(ConnectorSession session, DeltaTable deltaTable, Optional<Expression> expr)
     {
         checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
         Optional<DeltaLog> deltaLog = loadDeltaTableLog(
@@ -129,10 +130,17 @@ public class DeltaClient
                     format("Delta table (%s.%s) no longer exists.", deltaTable.getSchemaName(), deltaTable.getTableName()));
         }
 
-        return deltaLog.get()
-                .getSnapshotForVersionAsOf(deltaTable.getSnapshotId().get())
-                .scan()
-                .getFiles();
+        if (expr.isPresent()) {
+            return deltaLog.get()
+                    .getSnapshotForVersionAsOf(deltaTable.getSnapshotId().get())
+                    .scan(expr.get())
+                    .getFiles();
+        } else {
+            return deltaLog.get()
+                    .getSnapshotForVersionAsOf(deltaTable.getSnapshotId().get())
+                    .scan()
+                    .getFiles();
+        }
     }
 
     private Optional<DeltaLog> loadDeltaTableLog(ConnectorSession session, Path tableLocation, SchemaTableName schemaTableName)
