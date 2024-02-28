@@ -38,6 +38,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Properties;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -61,7 +62,17 @@ public class SingleStoreClient
     @Inject
     public SingleStoreClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
-        super(connectorId, config, "`", new DriverConnectionFactory(new Driver(), config));
+        super(connectorId, config, "`",
+                new DriverConnectionFactory(new Driver(), config.getConnectionUrl(), Optional.ofNullable(config.getUserCredentialName()),
+                        Optional.ofNullable(config.getPasswordCredentialName()), connectionProperties(config)));
+    }
+
+    private static Properties connectionProperties(BaseJdbcConfig config)
+    {
+        Properties connectionProperties = DriverConnectionFactory.basicConnectionProperties(config);
+        String connectionAttributes = String.format("_connector_name:%s", "SingleStore Presto Connector");
+        connectionProperties.setProperty("connectionAttributes", connectionAttributes);
+        return connectionProperties;
     }
 
     @Override
