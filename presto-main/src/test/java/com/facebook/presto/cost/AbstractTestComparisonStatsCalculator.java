@@ -37,6 +37,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -51,7 +52,8 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
-public class TestComparisonStatsCalculator
+@Test
+public abstract class AbstractTestComparisonStatsCalculator
 {
     private FilterStatsCalculator filterStatsCalculator;
     private Session session;
@@ -68,11 +70,17 @@ public class TestComparisonStatsCalculator
     private VariableStatsEstimate emptyRangeStats;
     private VariableStatsEstimate varcharStats;
 
+    public AbstractTestComparisonStatsCalculator(boolean withHistograms)
+    {
+        session = testSessionBuilder()
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.toString(withHistograms))
+                .build();
+    }
+
     @BeforeClass
     public void setUp()
             throws Exception
     {
-        session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
 

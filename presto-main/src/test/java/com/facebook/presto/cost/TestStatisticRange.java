@@ -20,6 +20,8 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatisticRange
 {
@@ -104,9 +106,64 @@ public class TestStatisticRange
         assertEquals(range(0, 3, 3).addAndCollapseDistinctValues(range(2, 6, 4)), range(0, 6, 6));
     }
 
+    @Test
+    public void testIntersectOpenness()
+    {
+        StatisticRange first = range(0, true, 10, true, 10);
+        StatisticRange second = range(0, true, 5, true, 5);
+        StatisticRange intersect = first.intersect(second);
+        assertTrue(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+        intersect = second.intersect(first);
+        assertTrue(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+
+        // second range bounds only on high
+        second = range(-1, true, 5, false, 5);
+        intersect = first.intersect(second);
+        assertTrue(intersect.getOpenLow());
+        assertFalse(intersect.getOpenHigh());
+        intersect = second.intersect(first);
+        assertTrue(intersect.getOpenLow());
+        assertFalse(intersect.getOpenHigh());
+
+        // second range bounds on low and high
+        second = range(1, false, 5, false, 5);
+        intersect = first.intersect(second);
+        assertFalse(intersect.getOpenLow());
+        assertFalse(intersect.getOpenHigh());
+        intersect = second.intersect(first);
+        assertFalse(intersect.getOpenLow());
+        assertFalse(intersect.getOpenHigh());
+
+        // second range bounds only on low
+        second = range(1, false, 5, true, 5);
+        intersect = first.intersect(second);
+        assertFalse(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+        intersect = second.intersect(first);
+        assertFalse(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+
+        // same bounds but one is open and one is closed
+        first = range(0, false, 5, false, 5);
+        second = range(0, true, 5, true, 5);
+        intersect = first.intersect(second);
+        assertTrue(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+        intersect = second.intersect(first);
+        assertTrue(intersect.getOpenLow());
+        assertTrue(intersect.getOpenHigh());
+    }
+
     private static StatisticRange range(double low, double high, double distinctValues)
     {
         return new StatisticRange(low, high, distinctValues);
+    }
+
+    private static StatisticRange range(double low, boolean openLow, double high, boolean openHigh, double distinctValues)
+    {
+        return new StatisticRange(low, openLow, high, openHigh, distinctValues);
     }
 
     private static StatisticRange unboundedRange(double distinctValues)

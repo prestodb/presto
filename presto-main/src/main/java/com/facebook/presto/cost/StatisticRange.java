@@ -13,11 +13,19 @@
  */
 package com.facebook.presto.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.BoundType;
+import com.google.common.collect.Range;
+
 import java.util.Objects;
 
+import static com.facebook.presto.util.MoreMath.nearlyEqual;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
@@ -28,22 +36,36 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticRange
 {
-    private static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
-    private static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
+    protected static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
+    protected static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
 
     // TODO unify field and method names with SymbolStatsEstimate
     /**
      * {@code NaN} represents empty range ({@code high} must be {@code NaN} too)
      */
     private final double low;
+
+    /**
+     * Whether the low side of the range is open. e.g. The value is *not* included in the range.
+     */
+    private final boolean openLow;
     /**
      * {@code NaN} represents empty range ({@code low} must be {@code NaN} too)
      */
     private final double high;
+    /**
+     * Whether the high side of the range is open. e.g. the value is *not* included in the range.
+     */
+    private final boolean openHigh;
 
     private final double distinctValues;
 
-    public StatisticRange(double low, double high, double distinctValues)
+    @JsonCreator
+    public StatisticRange(@JsonProperty("low") double low,
+            @JsonProperty("openLow") boolean openLow,
+            @JsonProperty("high") double high,
+            @JsonProperty("openHigh") boolean openHigh,
+            @JsonProperty("distinctValuesCount") double distinctValues)
     {
         checkArgument(
                 low <= high || (isNaN(low) && isNaN(high)),
@@ -52,34 +74,56 @@ public class StatisticRange
                 high);
         this.low = low;
         this.high = high;
+        this.openLow = openLow;
+        this.openHigh = openHigh;
 
         checkArgument(distinctValues >= 0 || isNaN(distinctValues), "Distinct values count should be non-negative, got: %s", distinctValues);
         this.distinctValues = distinctValues;
     }
 
+    public StatisticRange(double low, double high, double distinctValues)
+    {
+        this(low, false, high, false, distinctValues);
+    }
+
     public static StatisticRange empty()
     {
-        return new StatisticRange(NaN, NaN, 0);
+        return new StatisticRange(NaN, false, NaN, false, 0);
     }
 
     public static StatisticRange from(VariableStatsEstimate estimate)
     {
-        return new StatisticRange(estimate.getLowValue(), estimate.getHighValue(), estimate.getDistinctValuesCount());
+        return new StatisticRange(estimate.getLowValue(), false, estimate.getHighValue(), false, estimate.getDistinctValuesCount());
     }
 
+    @JsonProperty
     public double getLow()
     {
         return low;
     }
 
+    @JsonProperty
     public double getHigh()
     {
         return high;
     }
 
+    @JsonProperty
     public double getDistinctValuesCount()
     {
         return distinctValues;
+    }
+
+    @JsonProperty
+    public boolean getOpenLow()
+    {
+        return openLow;
+    }
+
+    @JsonProperty
+    public boolean getOpenHigh()
+    {
+        return openHigh;
     }
 
     public double length()
@@ -142,9 +186,14 @@ public class StatisticRange
     public StatisticRange intersect(StatisticRange other)
     {
         double newLow = max(low, other.low);
+        boolean newOpenLow = newLow == low ? openLow : other.openLow;
+        // epsilon is an arbitrary choice
+        newOpenLow = nearlyEqual(low, other.low, 1E-10) ? openLow || other.openLow : newOpenLow;
         double newHigh = min(high, other.high);
+        boolean newOpenHigh = newHigh == high ? openHigh : other.openHigh;
+        newOpenHigh = nearlyEqual(high, other.high, 1E-10) ? openHigh || other.openHigh : newOpenHigh;
         if (newLow <= newHigh) {
-            return new StatisticRange(newLow, newHigh, overlappingDistinctValues(other));
+            return new StatisticRange(newLow, newOpenLow, newHigh, newOpenHigh, overlappingDistinctValues(other));
         }
         return empty();
     }
@@ -152,13 +201,13 @@ public class StatisticRange
     public StatisticRange addAndSumDistinctValues(StatisticRange other)
     {
         double newDistinctValues = distinctValues + other.distinctValues;
-        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+        return expandRangeWithNewDistinct(newDistinctValues, other);
     }
 
     public StatisticRange addAndMaxDistinctValues(StatisticRange other)
     {
         double newDistinctValues = max(distinctValues, other.distinctValues);
-        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+        return expandRangeWithNewDistinct(newDistinctValues, other);
     }
 
     public StatisticRange addAndCollapseDistinctValues(StatisticRange other)
@@ -170,7 +219,41 @@ public class StatisticRange
         double maxOverlappingValues = max(overlapDistinctValuesThis, overlapDistinctValuesOther);
         double newDistinctValues = maxOverlappingValues + (1 - overlapPercentOfThis) * distinctValues + (1 - overlapPercentOfOther) * other.distinctValues;
 
-        return new StatisticRange(minExcludeNaN(low, other.low), maxExcludeNaN(high, other.high), newDistinctValues);
+        return expandRangeWithNewDistinct(newDistinctValues, other);
+    }
+
+    public Range<Double> toRange()
+    {
+        return Range.range(low, openLow ? BoundType.OPEN : BoundType.CLOSED, high, openHigh ? BoundType.OPEN : BoundType.CLOSED);
+    }
+
+    public static StatisticRange fromRange(Range<Double> range)
+    {
+        return new StatisticRange(
+                range.hasLowerBound() ? range.lowerEndpoint() : NEGATIVE_INFINITY,
+                !range.hasLowerBound() || range.lowerBoundType() == BoundType.OPEN,
+                range.hasUpperBound() ? range.upperEndpoint() : POSITIVE_INFINITY,
+                !range.hasUpperBound() || range.upperBoundType() == BoundType.OPEN,
+                NaN);
+    }
+
+    private StatisticRange expandRangeWithNewDistinct(double newDistinctValues, StatisticRange other)
+    {
+        double newLow = minExcludeNaN(low, other.low);
+        boolean newOpenLow = getNewEndpointOpennessLow(this, other, newLow);
+        double newHigh = maxExcludeNaN(high, other.high);
+        boolean newOpenHigh = getNewEndpointOpennessHigh(this, other, newHigh);
+        return new StatisticRange(newLow, newOpenLow, newHigh, newOpenHigh, newDistinctValues);
+    }
+
+    private static boolean getNewEndpointOpennessLow(StatisticRange first, StatisticRange second, double newLow)
+    {
+        return newLow == first.low ? first.openLow : second.openLow;
+    }
+
+    private static boolean getNewEndpointOpennessHigh(StatisticRange first, StatisticRange second, double newHigh)
+    {
+        return newHigh == first.high ? first.openHigh : second.openHigh;
     }
 
     private static double minExcludeNaN(double v1, double v2)
@@ -206,21 +289,23 @@ public class StatisticRange
         }
         StatisticRange that = (StatisticRange) o;
         return Double.compare(that.low, low) == 0 &&
+                that.openLow == openLow &&
                 Double.compare(that.high, high) == 0 &&
+                that.openHigh == openHigh &&
                 Double.compare(that.distinctValues, distinctValues) == 0;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(low, high, distinctValues);
+        return Objects.hash(low, openLow, high, openHigh, distinctValues);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("range", format("[%s-%s]", low, high))
+                .add("range", format("%s%s..%s%s", openLow ? "(" : "[", low, high, openHigh ? ")" : "]"))
                 .add("ndv", distinctValues)
                 .toString();
     }
