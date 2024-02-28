@@ -138,7 +138,7 @@ public class DoubleSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions);
+        return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions) + (filter != null ? filter.getRetainedSizeInBytes() : 0);
     }
 
     private void openRowGroup()
