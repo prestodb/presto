@@ -15,10 +15,12 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.util.Failures;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.util.Locale;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -76,6 +78,7 @@ public class TestDeltaTypeUtils
             fail("expected to fail");
         }
         catch (PrestoException e) {
+            e = (PrestoException) Failures.toLocalisedPrestoException(e, Locale.US);
             assertEquals(e.getErrorCode(), DELTA_INVALID_PARTITION_VALUE.toErrorCode());
             assertTrue(e.getMessage().matches("Can not parse partition value .* of type .* for partition column 'p1'"));
         }

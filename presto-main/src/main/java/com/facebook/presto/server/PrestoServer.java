@@ -45,6 +45,7 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spi.error.ErrorRetriever;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
@@ -177,6 +178,9 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
+
+            ErrorRetriever.preloadErrorBundles(serverConfig.isErrorI18nEnabled());
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

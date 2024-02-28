@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.util.Failures;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -256,6 +257,7 @@ public abstract class DataDefinitionExecution<T extends Statement>
     @Override
     public void fail(Throwable cause)
     {
+        cause = Failures.toLocalisedPrestoException(cause, getSession().getLocale());
         stateMachine.transitionToFailed(cause);
         stateMachine.updateQueryInfo(Optional.empty());
     }

@@ -99,8 +99,8 @@ public class DeltaClient
         Metadata metadata = snapshot.getMetadata();
         String format = metadata.getFormat().getProvider();
         if (!PARQUET.name().equalsIgnoreCase(format)) {
-            throw new PrestoException(DELTA_UNSUPPORTED_DATA_FORMAT,
-                    format("Delta table %s has unsupported data format: %s. Currently only Parquet data format is supported", schemaTableName, format));
+            throw new PrestoException("DELTA_UNSUPPORTED_DATA_FORMAT_HAS_UNSUPPORTED_DATA_FORMAT",
+                    DELTA_UNSUPPORTED_DATA_FORMAT, schemaTableName, format);
         }
 
         return Optional.of(new DeltaTable(

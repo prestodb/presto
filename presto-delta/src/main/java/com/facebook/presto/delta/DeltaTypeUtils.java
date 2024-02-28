@@ -78,7 +78,6 @@ import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 
 /**
  * Contains utility methods to convert Delta data types (and data values) to Presto data types (and data values)
@@ -184,14 +183,12 @@ public class DeltaTypeUtils
                 // Delta partition serialized value contains up to the second precision
                 return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000;
             }
-            throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                    format("Unsupported data type '%s' for partition column %s", type, columnName));
+            throw new PrestoException("DELTA_UNSUPPORTED_COLUMN_TYPE_UNSUPPORTED_DATATYPE_FOR_PARTITION_COLUMN",
+                    DELTA_UNSUPPORTED_COLUMN_TYPE, type, columnName);
         }
         catch (IllegalArgumentException | DateTimeParseException e) {
-            throw new PrestoException(
-                    DELTA_INVALID_PARTITION_VALUE,
-                    format("Can not parse partition value '%s' of type '%s' for partition column '%s'", valueString, type, columnName),
-                    e);
+            throw new PrestoException("DELTA_INVALID_PARTITION_VALUE_CANNOT_PARSE_PARTITION_VALUE",
+                    DELTA_INVALID_PARTITION_VALUE, e, valueString, type, columnName);
         }
     }
 
@@ -235,7 +232,7 @@ public class DeltaTypeUtils
             return TIMESTAMP;
         }
 
-        throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                format("Column '%s' in Delta table %s contains unsupported data type: %s", columnName, tableName, deltaType.getCatalogString()));
+        throw new PrestoException("DELTA_UNSUPPORTED_COLUMN_TYPE_COLUMN_CONTAINS_UNSUPPORTED_DATATYPE",
+                DELTA_UNSUPPORTED_COLUMN_TYPE, columnName, tableName, deltaType.getCatalogString());
     }
 }

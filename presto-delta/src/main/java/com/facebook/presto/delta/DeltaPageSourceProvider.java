@@ -348,9 +348,10 @@ public class DeltaPageSourceProvider
             }
             String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, exception.getMessage());
             if (exception.getClass().getSimpleName().equals("BlockMissingException")) {
-                throw new PrestoException(DELTA_MISSING_DATA, message, exception);
+                throw new PrestoException("DELTA_MISSING_DATA_ERROR_OPENING_HIVE_SPLIT",
+                        DELTA_MISSING_DATA, exception, path, start, length, exception.getMessage());
             }
-            throw new PrestoException(DELTA_CANNOT_OPEN_SPLIT, message, exception);
+            throw new PrestoException("DELTA_CANNOT_OPEN_SPLIT_OPENING_HIVE_SPLIT", DELTA_CANNOT_OPEN_SPLIT, exception, path, start, length, exception.getMessage());
         }
     }
 
@@ -405,14 +406,13 @@ public class DeltaPageSourceProvider
                 group.writeToStringBuilder(builder, "");
                 parquetTypeName = builder.toString();
             }
-            throw new PrestoException(
+            throw new PrestoException("DELTA_PARQUET_SCHEMA_MISMATCH_COLUMN_TYPE_DECLARED_MISMATCH",
                     DELTA_PARQUET_SCHEMA_MISMATCH,
-                    format("The column %s of table %s is declared as type %s, but the Parquet file (%s) declares the column as type %s",
-                            column.getName(),
-                            tableName.toString(),
-                            column.getDataType(),
-                            path.toString(),
-                            parquetTypeName));
+                    column.getName(),
+                    tableName.toString(),
+                    column.getDataType(),
+                    path.toString(),
+                    parquetTypeName);
         }
         return Optional.of(type);
     }

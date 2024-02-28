@@ -145,7 +145,7 @@ public final class MetadataUtil
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
         if (name.getParts().size() > 3) {
-            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+            throw new PrestoException("SYNTAX_ERROR_TOO_MANY_DOTS_IN_TABLE_NAME", SYNTAX_ERROR, name);
         }
 
         List<String> parts = Lists.reverse(name.getParts());

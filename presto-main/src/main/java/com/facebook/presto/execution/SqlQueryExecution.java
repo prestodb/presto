@@ -62,6 +62,7 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -681,6 +682,7 @@ public class SqlQueryExecution
     {
         requireNonNull(cause, "cause is null");
 
+        cause = Failures.toLocalisedPrestoException(cause, getSession().getLocale());
         stateMachine.transitionToFailed(cause);
 
         // acquire reference to scheduler before checking finalQueryInfo, because
