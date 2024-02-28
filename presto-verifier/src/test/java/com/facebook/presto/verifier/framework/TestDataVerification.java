@@ -38,6 +38,7 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.POSSIBLE_INVALID_FUNCTION_SUBSTITUTE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.DOTALL;
@@ -176,6 +177,26 @@ public class TestDataVerification
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
                 Optional.of("Test state NOT_RUN, Control state NOT_RUN.\n\n" +
                         "REWRITE query failed on CONTROL cluster:\n.*"));
+    }
+
+    @Test
+    public void testInvalidFunctionCallSubstitutes()
+    {
+        VerificationSettings settings = new VerificationSettings();
+        settings.nonDeterministicFunctionSubstitutes = Optional.of("/ARRAY_AGG(c)/MIN(c)/");
+        String sourceQuery = "SELECT ARRAY_AGG(c)[1] FROM (VALUES (10), (100)) AS t(c)";
+
+        Optional<VerifierQueryEvent> event = runVerification(sourceQuery, sourceQuery, settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getSkippedReason(), POSSIBLE_INVALID_FUNCTION_SUBSTITUTE.name());
+        assertEvent(
+                event.get(),
+                SKIPPED,
+                Optional.empty(),
+                Optional.of("PRESTO(SYNTAX_ERROR)"),
+                Optional.of("Test state NOT_RUN, Control state NOT_RUN.\n\n" +
+                        "REWRITE query failed on CONTROL cluster:\n.*" +
+                        "com.facebook.presto.sql.analyzer.SemanticException.*"));
     }
 
     @Test

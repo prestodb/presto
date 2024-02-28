@@ -188,6 +188,7 @@ public abstract class AbstractVerificationTest
             settings.skipControl.ifPresent(verifierConfig::setSkipControl);
             settings.runningMode.ifPresent(verifierConfig::setRunningMode);
             settings.saveSnapshot.ifPresent(verifierConfig::setSaveSnapshot);
+            settings.nonDeterministicFunctionSubstitutes.ifPresent(verifierConfig::setNonDeterministicFunctionSubstitutes);
         });
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
@@ -195,7 +196,8 @@ public abstract class AbstractVerificationTest
                 sqlParser,
                 typeManager,
                 new QueryRewriteConfig().setTablePrefix(CONTROL_TABLE_PREFIX),
-                new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX));
+                new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX),
+                verifierConfig);
 
         VerificationFactory verificationFactory = new VerificationFactory(
                 sqlParser,
@@ -221,12 +223,15 @@ public abstract class AbstractVerificationTest
             skipControl = Optional.empty();
             runningMode = Optional.empty();
             saveSnapshot = Optional.empty();
+            nonDeterministicFunctionSubstitutes = Optional.empty();
         }
 
         Optional<Boolean> concurrentControlAndTest;
         Optional<Boolean> skipControl;
         Optional<String> runningMode;
         Optional<Boolean> saveSnapshot;
+
+        Optional<String> nonDeterministicFunctionSubstitutes;
     }
 
     public static class MockSnapshotSupplierAndConsumer

@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.verifier.rewrite.FunctionCallRewriter;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 
@@ -60,6 +61,8 @@ public class VerifierConfig
     private boolean explain;
     private boolean saveSnapshot;
     private String runningMode = CONTROL_TEST_MODE;
+
+    private Optional<String> nonDeterministicFunctionSubstitutes = Optional.empty();
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -376,6 +379,22 @@ public class VerifierConfig
         if (QUERY_BANK_MODE.toLowerCase(ENGLISH).equals(runningMode)) {
             skipControl = true;
         }
+        return this;
+    }
+
+    public Optional<String> getNonDeterministicFunctionSubstitutes()
+    {
+        return nonDeterministicFunctionSubstitutes;
+    }
+
+    @ConfigDescription("A comma-separated list of nondeterministic functions substituted by deterministic functions, " +
+            "in the format of /foo(c0,c1)/bar(c0)/,/fred(c0,c1)/baz(qux(c1,c0))/,... " +
+            "where foo would be substituted by bar with arguments applied to the corresponding positions.")
+    @Config("nondeterministic-function-substitutes")
+    public VerifierConfig setNonDeterministicFunctionSubstitutes(String nonDeterministicFunctionSubstitutes)
+    {
+        this.nonDeterministicFunctionSubstitutes = Optional.ofNullable(nonDeterministicFunctionSubstitutes);
+        this.nonDeterministicFunctionSubstitutes.ifPresent(FunctionCallRewriter::validateAndConstructFunctionCallSubstituteMap);
         return this;
     }
 }

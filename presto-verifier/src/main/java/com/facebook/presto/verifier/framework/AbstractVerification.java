@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +58,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
+import static com.facebook.presto.verifier.framework.SkippedReason.POSSIBLE_INVALID_FUNCTION_SUBSTITUTE;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
 import static com.facebook.presto.verifier.framework.VerifierConfig.QUERY_BANK_MODE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
@@ -131,7 +134,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.isExplain = verifierConfig.isExplain();
     }
 
-    protected abstract B getQueryRewrite(ClusterType clusterType);
+    protected abstract B getQueryRewrite(ClusterType clusterType, QueryContext queryContext);
 
     protected abstract R verify(
             B control,
@@ -152,9 +155,9 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
     protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<V>> queryResult) {}
 
-    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<B> queryBundle)
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<B> queryBundle, QueryContext queryContext)
     {
-        queryInfo.setQuery(queryBundle.map(B::getQuery).map(AbstractVerification::formatSql))
+        queryInfo.setQuery(queryBundle.map(B::getQuery).map(query -> formatSql(query, queryContext.getRewrittenFunctionCalls())))
                 .setSetupQueries(queryBundle.map(B::getSetupQueries).map(AbstractVerification::formatSqls))
                 .setTeardownQueries(queryBundle.map(B::getTeardownQueries).map(AbstractVerification::formatSqls));
     }
@@ -201,9 +204,9 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         try {
             // Rewrite queries
             if (isControlEnabled()) {
-                control = Optional.of(getQueryRewrite(CONTROL));
+                control = Optional.of(getQueryRewrite(CONTROL, controlQueryContext));
             }
-            test = Optional.of(getQueryRewrite(TEST));
+            test = Optional.of(getQueryRewrite(TEST, testQueryContext));
 
             // First run setup queries
             if (isControlEnabled()) {
@@ -373,7 +376,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
-        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
+        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext, determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
         Optional<String> resolveMessage = resolveFailure(control, test, controlQueryContext, matchResult, throwable);
         EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult, controlQueryContext, testQueryContext);
         return new PartialVerificationResult(skippedReason, resolveMessage, status);
@@ -450,7 +453,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
                 .setQueryActionStats(queryContext.getMainQueryStats());
-        updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        updateQueryInfoWithQueryBundle(queryInfo, queryBundle, queryContext);
         updateQueryInfo(queryInfo, queryResult);
         return queryInfo.build();
     }
@@ -460,6 +463,11 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         return SqlFormatter.formatSql(statement, Optional.empty());
     }
 
+    protected static String formatSql(Statement statement, Optional<String> comment)
+    {
+        return comment.isPresent() ? formatSql(statement) + "\n-- " + comment.get() : formatSql(statement);
+    }
+
     protected static List<String> formatSqls(List<Statement> statements)
     {
         return statements.stream()
@@ -467,13 +475,22 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .collect(toImmutableList());
     }
 
-    private Optional<SkippedReason> getSkippedReason(Optional<Throwable> throwable, QueryState controlState, Optional<DeterminismAnalysis> determinismAnalysis)
+    private Optional<SkippedReason> getSkippedReason(Optional<Throwable> throwable, QueryContext controlQueryContext, Optional<DeterminismAnalysis> determinismAnalysis)
     {
         if (throwable.isPresent() && !(throwable.get() instanceof QueryException)) {
             return Optional.of(VERIFIER_INTERNAL_ERROR);
         }
         if (skipControl && !QUERY_BANK_MODE.equals(runningMode)) {
             return Optional.empty();
+        }
+
+        QueryState controlState = controlQueryContext.getState();
+        if (controlQueryContext.getRewrittenFunctionCalls().isPresent() && Arrays.asList(NOT_RUN, FAILED_TO_SETUP, QueryState.FAILED).contains(controlState) && throwable
+                .filter(PrestoQueryException.class::isInstance)
+                .map(PrestoQueryException.class::cast)
+                .flatMap(PrestoQueryException::getErrorCode)
+                .filter(StandardErrorCode.SYNTAX_ERROR::equals).isPresent()) {
+            return Optional.of(POSSIBLE_INVALID_FUNCTION_SUBSTITUTE);
         }
         switch (controlState) {
             case FAILED:
@@ -539,6 +556,8 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         private ImmutableList.Builder<String> setupQueryIds = ImmutableList.builder();
         private ImmutableList.Builder<String> teardownQueryIds = ImmutableList.builder();
 
+        private Optional<String> rewrittenFunctionCalls = Optional.empty();
+
         public Optional<QueryActionStats> getMainQueryStats()
         {
             return mainQueryStats;
@@ -584,6 +603,16 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         public void addTeardownQuery(QueryActionStats queryActionStats)
         {
             queryActionStats.getQueryStats().map(QueryStats::getQueryId).ifPresent(teardownQueryIds::add);
+        }
+
+        public Optional<String> getRewrittenFunctionCalls()
+        {
+            return rewrittenFunctionCalls;
+        }
+
+        public void setRewrittenFunctionCalls(String rewrittenFunctionCalls)
+        {
+            this.rewrittenFunctionCalls = Optional.ofNullable(rewrittenFunctionCalls);
         }
     }
 
