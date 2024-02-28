@@ -113,7 +113,6 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectN
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -473,7 +472,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(getQualifiedName(node, objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -499,7 +498,7 @@ final class ShowQueriesRewrite
 
                 CreateMaterializedView createMaterializedView = new CreateMaterializedView(
                         Optional.empty(),
-                        createQualifiedName(objectName),
+                        getQualifiedName(node, objectName),
                         query,
                         false,
                         propertyNodes,
@@ -629,6 +628,16 @@ final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
                     ordering(ascending("argument_types")));
+        }
+
+        private QualifiedName getQualifiedName(ShowCreate node, QualifiedObjectName objectName)
+        {
+            List<Identifier> parts = node.getName().getOriginalParts();
+            Identifier tableName = (parts.size() > 2) ? parts.get(2) : ((parts.size() > 1) ? parts.get(1) : parts.get(0));
+            Identifier schemaName = (parts.size() > 2) ? parts.get(1) : ((parts.size() > 1) ? parts.get(0) : new Identifier(objectName.getSchemaName()));
+            Identifier catalogName = (parts.size() > 2) ? parts.get(0) : new Identifier(objectName.getCatalogName());
+
+            return QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName));
         }
 
         private List<Property> buildProperties(
