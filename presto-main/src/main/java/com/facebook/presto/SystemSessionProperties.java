@@ -347,6 +347,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1910,7 +1911,7 @@ public final class SystemSessionProperties
                         GENERATE_DOMAIN_FILTERS,
                         "Infer predicates from column domains during predicate pushdown",
                         featuresConfig.getGenerateDomainFilters(),
-                                false),
+                        false),
                 booleanProperty(
                         REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION,
                         "Rewrite left join with is null check to semi join",
@@ -1938,6 +1939,10 @@ public final class SystemSessionProperties
                         JOIN_PREFILTER_BUILD_SIDE,
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
+                        false),
+                booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
+                        "whether or not to use histograms in the CBO",
+                        featuresConfig.isUseHistograms(),
                         false));
     }
 
@@ -3229,5 +3234,10 @@ public final class SystemSessionProperties
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
     {
         return session.getSystemProperty(PRINT_ESTIMATED_STATS_FROM_CACHE, Boolean.class);
+    }
+
+    public static boolean shouldOptimizerUseHistograms(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
     }
 }
