@@ -25,7 +25,7 @@ namespace facebook::velox {
 namespace {
 
 #define VELOX_BENCHMARK(_type, _name, ...) \
-  FOLLY_MAYBE_UNUSED _type _name(FOLLY_PP_STRINGIZE(_name), __VA_ARGS__)
+  [[maybe_unused]] _type _name(FOLLY_PP_STRINGIZE(_name), __VA_ARGS__)
 
 template <typename T>
 class LeadingMask {
