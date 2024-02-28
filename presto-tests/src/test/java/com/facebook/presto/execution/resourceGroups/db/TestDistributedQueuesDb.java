@@ -57,7 +57,7 @@ public class TestDistributedQueuesDb
         ImmutableMap.Builder<String, String> coordinatorProperties = new ImmutableMap.Builder<>();
         coordinatorProperties.put("query-manager.experimental.required-coordinators", "2");
         coordinatorProperties.put("resource-manager.query-heartbeat-interval", "10ms");
-        coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "500ms");
+        coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "1000ms");
         coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
 
         queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2);
@@ -170,8 +170,7 @@ public class TestDistributedQueuesDb
         waitForQueryState(queryRunner, 0, firstDashboardQuery, RUNNING);
     }
 
-    // Temporarily disabling flaky test
-    @Test(timeOut = 2_000, enabled = false)
+    @Test(timeOut = 10_000)
     public void testDistributedQueue_burstTraffic()
             throws Exception
     {
