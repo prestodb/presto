@@ -153,6 +153,9 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
+``hive.dynamic-split-sizes-enabled``               Enable dynamic sizing of splits based on data scanned by     ``false``
+                                                   the query.
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 

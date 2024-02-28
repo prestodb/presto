@@ -634,7 +634,8 @@ public class TestBackgroundHiveSplitLoader
                 new DataSize(32, MEGABYTE),
                 backgroundHiveSplitLoader,
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
     }
 
     private static Table table(
