@@ -120,22 +120,22 @@ public class TestDruidQueryGenerator
                         getRowExpression("secondssinceepoch between 200 and 300 and \"region.id\" >= 40", defaultSessionHolder)));
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).globalGrouping())),
-                "SELECT count(*) FROM \"realtimeOnly\"");
+                "SELECT count(*) AS \"agg\" FROM \"realtimeOnly\"");
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).globalGrouping())),
-                "SELECT count(*) FROM \"realtimeOnly\" WHERE (\"fare\" > 3)");
+                "SELECT count(*) AS \"agg\" FROM \"realtimeOnly\" WHERE (\"fare\" > 3)");
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(variable("region.id")))),
-                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" WHERE (\"fare\" > 3) GROUP BY \"region.Id\"");
+                "SELECT \"region.Id\", count(*) AS \"agg\" FROM \"realtimeOnly\" WHERE (\"fare\" > 3) GROUP BY \"region.Id\"");
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("region.id")))),
-                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" GROUP BY \"region.Id\"");
+                "SELECT \"region.Id\", count(*) AS \"agg\" FROM \"realtimeOnly\" GROUP BY \"region.Id\"");
         testDQL(
                 planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("region.id"))))),
-                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" GROUP BY \"region.Id\" LIMIT 5");
+                "SELECT \"region.Id\", count(*) AS \"agg\" FROM \"realtimeOnly\" GROUP BY \"region.Id\" LIMIT 5");
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(variable("region.id"), variable("city")))),
-                "SELECT \"region.Id\", \"city\", count(*) FROM \"realtimeOnly\" WHERE ((\"secondsSinceEpoch\" BETWEEN 200 AND 300) AND (\"region.Id\" >= 40)) GROUP BY \"region.Id\", \"city\"");
+                "SELECT \"region.Id\", \"city\", count(*) AS \"agg\" FROM \"realtimeOnly\" WHERE ((\"secondsSinceEpoch\" BETWEEN 200 AND 300) AND (\"region.Id\" >= 40)) GROUP BY \"region.Id\", \"city\"");
     }
 
     @Test
@@ -156,7 +156,7 @@ public class TestDruidQueryGenerator
                 planBuilder -> planBuilder.aggregation(
                         aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("region.id"),
                                 getRowExpression("count(\"region.id\")", defaultSessionHolder))),
-                "SELECT count ( distinct \"region.Id\") FROM \"realtimeOnly\"");
+                "SELECT count ( distinct \"region.Id\") AS \"region.id\" FROM \"realtimeOnly\"");
     }
 
     @Test
@@ -167,7 +167,7 @@ public class TestDruidQueryGenerator
                 planBuilder -> planBuilder.aggregation(
                         aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("region.id"), variable("secondssinceepoch"))
                                 .addAggregation(variable("totalfare"), getRowExpression("sum(\"fare\")", defaultSessionHolder))),
-                "SELECT \"city\", \"region.Id\", \"secondsSinceEpoch\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\", \"region.Id\", \"secondsSinceEpoch\"");
+                "SELECT \"city\", \"region.Id\", \"secondsSinceEpoch\", sum(fare) AS \"totalfare\" FROM \"realtimeOnly\" GROUP BY \"city\", \"region.Id\", \"secondsSinceEpoch\"");
     }
 
     @Test
@@ -180,7 +180,7 @@ public class TestDruidQueryGenerator
                 planBuilder -> planBuilder.aggregation(
                         aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city"))
                                 .addAggregation(variable("region.id"), getRowExpression("count(\"region.id\")", defaultSessionHolder))),
-                "SELECT \"city\", count ( distinct \"region.Id\") FROM \"realtimeOnly\" GROUP BY \"city\"");
+                "SELECT \"city\", count ( distinct \"region.Id\") AS \"region.id\" FROM \"realtimeOnly\" GROUP BY \"city\"");
     }
 
     @Test
