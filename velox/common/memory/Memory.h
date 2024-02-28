@@ -205,12 +205,12 @@ class MemoryManager {
   /// Returns the memory allocation alignment of this memory manager.
   uint16_t alignment() const;
 
-  /// Creates a root memory pool with specified 'name' and 'capacity'. If 'name'
-  /// is missing, the memory manager generates a default name internally to
-  /// ensure uniqueness.
+  /// Creates a root memory pool with specified 'name' and 'maxCapacity'. If
+  /// 'name' is missing, the memory manager generates a default name internally
+  /// to ensure uniqueness.
   std::shared_ptr<MemoryPool> addRootPool(
       const std::string& name = "",
-      int64_t capacity = kMaxMemory,
+      int64_t maxCapacity = kMaxMemory,
       std::unique_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Creates a leaf memory pool for direct memory allocation use with specified

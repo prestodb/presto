@@ -398,11 +398,11 @@ Memory Pool Management
 
 .. code-block:: c++
 
-  /// Creates a root memory pool with specified 'name' and 'capacity'.
+  /// Creates a root memory pool with specified 'name' and 'maxCapacity'.
   /// 'reclaimer' is provided for memory arbitration process.
   std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
      const std::string& name = "",
-     int64_t capacity = kMaxMemory,
+     int64_t maxCapacity = kMaxMemory,
      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Create an aggregate child memory pool which allows to create child memory

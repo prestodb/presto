@@ -175,7 +175,7 @@ uint16_t MemoryManager::alignment() const {
 
 std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
     const std::string& name,
-    int64_t capacity,
+    int64_t maxCapacity,
     std::unique_ptr<MemoryReclaimer> reclaimer) {
   std::string poolName = name;
   if (poolName.empty()) {
@@ -185,7 +185,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
 
   MemoryPool::Options options;
   options.alignment = alignment_;
-  options.maxCapacity = capacity;
+  options.maxCapacity = maxCapacity;
   options.trackUsage = true;
   options.debugEnabled = debugEnabled_;
   options.coreOnAllocationFailureEnabled = coreOnAllocationFailureEnabled_;
@@ -206,7 +206,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   pools_.emplace(poolName, pool);
   VELOX_CHECK_EQ(pool->capacity(), 0);
   arbitrator_->growCapacity(
-      pool.get(), std::min<uint64_t>(poolInitCapacity_, capacity));
+      pool.get(), std::min<uint64_t>(poolInitCapacity_, maxCapacity));
   return pool;
 }
 
