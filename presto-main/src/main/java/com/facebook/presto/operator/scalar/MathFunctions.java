@@ -1190,7 +1190,7 @@ public final class MathFunctions
                 @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
-            if (num == 0 || numPrecision - numScale + decimals <= 0) {
+            if (num == 0 || numPrecision - numScale + decimals < 0) {
                 return 0;
             }
             if (decimals >= numScale) {

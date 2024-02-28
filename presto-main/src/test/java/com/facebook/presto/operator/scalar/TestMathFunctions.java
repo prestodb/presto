@@ -884,6 +884,18 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("10.00"));
         assertFunction("round(DECIMAL '-9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("-10.00"));
 
+        assertFunction("round(DECIMAL '0.3', 0)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '0.7', 0)", createDecimalType(2, 1), SqlDecimal.of("1.0"));
+        assertFunction("round(DECIMAL '1.7', 0)", createDecimalType(3, 1), SqlDecimal.of("2.0"));
+        assertFunction("round(DECIMAL '-0.3', 0)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '-0.7', 0)", createDecimalType(2, 1), SqlDecimal.of("-1.0"));
+        assertFunction("round(DECIMAL '-1.7', 0)", createDecimalType(3, 1), SqlDecimal.of("-2.0"));
+        assertFunction("round(DECIMAL '0.7', -1)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '1.7', -1)", createDecimalType(3, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '7.1', -1)", createDecimalType(3, 1), SqlDecimal.of("10.0"));
+        assertFunction("round(DECIMAL '0.3', -1)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '33.3', -2)", createDecimalType(4, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(CAST(DECIMAL '0.7' AS decimal(20, 1)), -19)", createDecimalType(21, 1), SqlDecimal.of("0.0"));
         assertFunction("round(DECIMAL '0.00', 1)", createDecimalType(3, 2), SqlDecimal.of("0.00"));
         assertFunction("round(DECIMAL '1234', 7)", createDecimalType(5, 0), SqlDecimal.of("1234"));
         assertFunction("round(DECIMAL '-1234', 7)", createDecimalType(5, 0), SqlDecimal.of("-1234"));
