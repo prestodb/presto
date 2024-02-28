@@ -19,7 +19,7 @@ USE_ENV_PARAMS=${USE_ENV_PARAMS:-0}
 
 source "${SCRIPT_DIR}/common.sh"
 
-trap 'exit 2' SIGSTOP SIGINT SIGTERM SIGQUIT
+trap 'exit 2' SIGINT SIGTERM SIGQUIT
 trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"; [ -z "${DEBUG}" ] && exit 1 || sleep 3600' ERR
 
 if [[ "${DEBUG}" == "0" || "${DEBUG}" == "false" || "${DEBUG}" == "False" ]]; then DEBUG=""; fi
@@ -36,12 +36,12 @@ while getopts ':-:' optchar; do
         node-memory-gb=*) NODE_MEMORY_GB="${OPTARG#*=}" ;;
         use-env-params) USE_ENV_PARAMS=1 ;;
         *)
-          presto_args+=($optchar)
+          presto_args+=("$optchar")
           ;;
       esac
       ;;
     *)
-      presto_args+=($optchar)
+      presto_args+=("$optchar")
       ;;
   esac
 done
@@ -64,7 +64,7 @@ function node_configuration()
 {
   render_node_configuration_files
 
-  [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return -2
+  [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return 12
 
   if [[ -z "$(grep -E '^ *node\.id=' "${PRESTO_HOME}/node.properties" | cut -d'=' -f2)" ]]; then
     printf "node.id=${NODE_UUID}\n" >> "${PRESTO_HOME}/node.properties"
@@ -81,4 +81,5 @@ NODE_MEMORY_GB="$(memory_gb_preflight_check ${NODE_MEMORY_GB})"
 [ $USE_ENV_PARAMS == "1" ] && node_command_line_config || node_configuration
 
 cd "${PRESTO_HOME}"
+[ -d "${PRESTO_HOME}/catalog" ] || mkdir -p "${PRESTO_HOME}/catalog"
 "${PRESTO_HOME}/presto_server" --logtostderr=1 --v=1 "${presto_args[@]}"
