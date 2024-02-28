@@ -84,6 +84,7 @@ public class TestOperatorStats
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
             new DataSize(25, BYTE),
+            new DataSize(25, BYTE),
 
             Optional.empty(),
             NON_MERGEABLE_INFO,
@@ -136,6 +137,7 @@ public class TestOperatorStats
             new DataSize(22, BYTE),
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
             new DataSize(25, BYTE),
             Optional.empty(),
             MERGEABLE_INFO,

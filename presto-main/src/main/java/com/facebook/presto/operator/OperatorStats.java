@@ -85,6 +85,7 @@ public class OperatorStats
     private final DataSize peakTotalMemoryReservation;
 
     private final DataSize spilledDataSize;
+    private final DataSize unSpilledDataSize;
 
     private final Optional<BlockedReason> blockedReason;
 
@@ -146,6 +147,7 @@ public class OperatorStats
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
 
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
+            @JsonProperty("unSpilledDataSize") DataSize unspilledDataSize,
 
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
@@ -206,6 +208,7 @@ public class OperatorStats
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+        this.unSpilledDataSize = requireNonNull(unspilledDataSize, "unspilledDataSize is null");
 
         this.runtimeStats = runtimeStats;
 
@@ -265,6 +268,7 @@ public class OperatorStats
             DataSize peakTotalMemoryReservation,
 
             DataSize spilledDataSize,
+            DataSize unspilledDataSize,
 
             Optional<BlockedReason> blockedReason,
 
@@ -325,6 +329,7 @@ public class OperatorStats
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+        this.unSpilledDataSize = requireNonNull(unspilledDataSize, "unspilledDataSize is null");
 
         this.runtimeStats = runtimeStats;
 
@@ -590,16 +595,23 @@ public class OperatorStats
         return spilledDataSize;
     }
 
-    @Nullable
     @JsonProperty
     @ThriftField(37)
+    public DataSize getUnSpilledDataSize()
+    {
+        return unSpilledDataSize;
+    }
+
+    @Nullable
+    @JsonProperty
+    @ThriftField(38)
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
     }
 
     @JsonProperty
-    @ThriftField(38)
+    @ThriftField(39)
     public Optional<BlockedReason> getBlockedReason()
     {
         return blockedReason;
@@ -613,7 +625,7 @@ public class OperatorStats
     }
 
     @Nullable
-    @ThriftField(39)
+    @ThriftField(40)
     public OperatorInfoUnion getInfoUnion()
     {
         return infoUnion;
@@ -691,6 +703,7 @@ public class OperatorStats
         long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
         long spilledDataSize = this.spilledDataSize.toBytes();
+        long unSpilledDataSize = this.unSpilledDataSize.toBytes();
 
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
@@ -743,6 +756,7 @@ public class OperatorStats
             peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
 
             spilledDataSize += operator.getSpilledDataSize().toBytes();
+            unSpilledDataSize += operator.getUnSpilledDataSize().toBytes();
 
             if (operator.getBlockedReason().isPresent()) {
                 blockedReason = operator.getBlockedReason();
@@ -806,6 +820,7 @@ public class OperatorStats
                 succinctBytes(peakTotalMemory),
 
                 succinctBytes(spilledDataSize),
+                succinctBytes(unSpilledDataSize),
 
                 blockedReason,
 
@@ -876,6 +891,7 @@ public class OperatorStats
                 peakSystemMemoryReservation,
                 peakTotalMemoryReservation,
                 spilledDataSize,
+                unSpilledDataSize,
                 blockedReason,
                 info,
                 runtimeStats,

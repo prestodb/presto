@@ -99,6 +99,7 @@ public class OperatorContext
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
+
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
     private final AtomicLong currentTotalMemoryReservationInBytes = new AtomicLong();
@@ -571,6 +572,7 @@ public class OperatorContext
                 succinctBytes(peakTotalMemoryReservation.get()),
 
                 succinctBytes(spillContext.getSpilledBytes()),
+                succinctBytes(spillContext.getUnSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
@@ -622,6 +624,8 @@ public class OperatorContext
         private final AtomicLong reservedBytes = new AtomicLong();
         private final AtomicLong spilledBytes = new AtomicLong();
 
+        private final AtomicLong spilledBytesRead = new AtomicLong();
+
         public OperatorSpillContext(DriverContext driverContext)
         {
             this.driverContext = driverContext;
@@ -642,6 +646,12 @@ public class OperatorContext
         }
 
         @Override
+        public void updateBytesRead(long bytes)
+        {
+            spilledBytesRead.addAndGet(bytes);
+        }
+
+        @Override
         public Session getSession()
         {
             return driverContext.getSession();
@@ -650,6 +660,11 @@ public class OperatorContext
         public long getSpilledBytes()
         {
             return spilledBytes.longValue();
+        }
+
+        public long getUnSpilledBytes()
+        {
+            return spilledBytesRead.longValue();
         }
 
         private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
