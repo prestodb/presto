@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_gcsread_benchmark GCSReadBenchmark.cpp
-                                       GCSReadBenchmarkMain.cpp)
+add_library(velox_read_benchmark_lib ReadBenchmark.cpp)
 
-target_link_libraries(
-  velox_gcsread_benchmark
-  velox_read_benchmark_lib
-  velox_gcs
-  velox_exception
-  velox_exec_test_lib
-  fmt::fmt
-  Folly::folly)
+target_link_libraries(velox_read_benchmark_lib
+                      PUBLIC velox_file velox_time Folly::folly gflags::gflags)
+
+add_executable(velox_read_benchmark ReadBenchmarkMain.cpp)
+
+target_link_libraries(velox_read_benchmark PRIVATE velox_read_benchmark_lib velox_hive_config velox_s3fs velox_hdfs velox_abfs velox_gcs)

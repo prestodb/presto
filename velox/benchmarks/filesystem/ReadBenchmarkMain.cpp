@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-#include "velox/connectors/hive/storage_adapters/gcs/benchmark/GCSReadBenchmark.h"
+#include "velox/benchmarks/filesystem/ReadBenchmark.h"
 
 using namespace facebook::velox;
 
-// This benchmark measures the throughput of an GCS compatible FileSystem for
+// This benchmark measures the throughput of a Linux compatible FileSystem for
 // various ReadFile APIs. The output helps us understand the maximum possible
 // gains for queries. Example: If a single thread requires reading 1GB of data
 // and the IO throughput is 100 MBps, then it takes 10 seconds to just read the
 // data.
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv, false};
-  GCSReadBenchmark bm;
+  ReadBenchmark bm;
   bm.initialize();
   bm.run();
+  bm.finalize();
 }

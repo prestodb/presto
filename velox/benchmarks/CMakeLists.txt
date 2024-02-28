@@ -35,4 +35,5 @@ target_link_libraries(velox_benchmark_builder gtest)
 
 if(${VELOX_ENABLE_BENCHMARKS})
   add_subdirectory(tpch)
+  add_subdirectory(filesystem)
 endif()

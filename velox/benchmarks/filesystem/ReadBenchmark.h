@@ -43,6 +43,7 @@ DECLARE_int32(gap);
 DECLARE_int32(num_in_run);
 
 DECLARE_int32(measurement_size);
+DECLARE_string(config);
 
 namespace facebook::velox {
 
@@ -62,46 +63,9 @@ class ReadBenchmark {
  public:
   virtual ~ReadBenchmark() = default;
 
-  // Initialize a LocalReadFile instance for the specified 'path'.
-  virtual void initialize() {
-    executor_ =
-        std::make_unique<folly::IOThreadPoolExecutor>(FLAGS_num_threads);
-    if (FLAGS_odirect) {
-      int32_t o_direct =
-#ifdef linux
-          O_DIRECT;
-#else
-          0;
-#endif
-      fd_ = open(
-          FLAGS_path.c_str(),
-          O_CREAT | O_RDWR | (FLAGS_odirect ? o_direct : 0),
-          S_IRUSR | S_IWUSR);
-      if (fd_ < 0) {
-        LOG(ERROR) << "Could not open " << FLAGS_path;
-        exit(1);
-      }
-      readFile_ = std::make_unique<LocalReadFile>(fd_);
+  virtual void initialize();
 
-    } else {
-      filesystems::registerLocalFileSystem();
-      auto lfs = filesystems::getFileSystem(FLAGS_path, nullptr);
-      readFile_ = lfs->openFileForRead(FLAGS_path);
-    }
-    fileSize_ = readFile_->size();
-    if (FLAGS_file_size_gb) {
-      fileSize_ = std::min<uint64_t>(FLAGS_file_size_gb << 30, fileSize_);
-    }
-
-    if (fileSize_ <= FLAGS_measurement_size) {
-      LOG(ERROR) << "File size " << fileSize_
-                 << " is <= then --measurement_size " << FLAGS_measurement_size;
-      exit(1);
-    }
-    if (FLAGS_seed) {
-      rng_.seed(FLAGS_seed);
-    }
-  }
+  virtual void finalize();
 
   void clearCache() {
 #ifdef linux
