@@ -78,7 +78,8 @@ public class TestMongoIntegrationSmokeTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", ObjectId('ffffffffffffffffffffffff') _objectid" +
-                ", cast(ObjectId('ffffffffffffffffffffffff') as varchar) _objectid_string";
+                ", cast(ObjectId('ffffffffffffffffffffffff') as varchar) _objectid_string" +
+                ", JSON '{\"name\":\"alice\"}' _json";
 
         assertUpdate(query, 1);
 
@@ -93,6 +94,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), "ffffffffffffffffffffffff");
+        assertEquals(row.getField(9), "{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE test_types_table");
 
         assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
@@ -114,6 +116,7 @@ public class TestMongoIntegrationSmokeTest
                 ", ts  timestamp" +
                 ", tm time" +
                 ", objid objectid" +
+                ", _json json" +
                 ")";
         getQueryRunner().execute(getSession(), createSql);
 
@@ -128,7 +131,8 @@ public class TestMongoIntegrationSmokeTest
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
                 ", TIME '11:22:33.456' _time" +
-                ", ObjectId('ffffffffffffffffffffffff') _objectid";
+                ", ObjectId('ffffffffffffffffffffffff') _objectid" +
+                ", JSON '{\"name\":\"alice\"}' _json";
         getQueryRunner().execute(getSession(), insertSql);
 
         MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_insert_types_table").toTestTypes();
@@ -142,8 +146,34 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(7), LocalTime.of(11, 22, 33, 456_000_000));
+        assertEquals(row.getField(9), "{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE test_insert_types_table");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
+    }
+
+    @Test
+    public void testJson()
+    {
+        assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
+
+        assertUpdate("INSERT INTO test_json VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
+        assertQuery("SELECT json_extract_scalar(col, '$.name') FROM test_json WHERE id = 1", "SELECT 'alice'");
+
+        assertUpdate("INSERT INTO test_json VALUES (2, JSON '{\"numbers\":[1, 2, 3]}')", 1);
+        assertQuery("SELECT json_extract(col, '$.numbers[0]') FROM test_json WHERE id = 2", "SELECT 1");
+
+        assertUpdate("INSERT INTO test_json VALUES (3, NULL)", 1);
+        assertQuery("SELECT col FROM test_json WHERE id = 3", "SELECT NULL");
+
+        assertQueryFails(
+                "CREATE TABLE test_json_scalar AS SELECT JSON '1' AS col",
+                "Can't convert json to MongoDB Document.*");
+
+        assertQueryFails(
+                "CREATE TABLE test_json_array AS SELECT JSON '[\"a\", \"b\", \"c\"]' AS col",
+                "Can't convert json to MongoDB Document.*");
+
+        assertUpdate("DROP TABLE test_json");
     }
 
     @Test
