@@ -71,8 +71,7 @@ class Spiller {
       Type type,
       RowTypePtr rowType,
       HashBitRange bits,
-      const common::SpillConfig* spillConfig,
-      uint64_t targetFileSize);
+      const common::SpillConfig* spillConfig);
 
   /// type == Type::kHashJoinBuild
   Spiller(
@@ -80,8 +79,7 @@ class Spiller {
       RowContainer* container,
       RowTypePtr rowType,
       HashBitRange bits,
-      const common::SpillConfig* spillConfig,
-      uint64_t targetFileSize);
+      const common::SpillConfig* spillConfig);
 
   Type type() const {
     return type_;

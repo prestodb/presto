@@ -96,8 +96,7 @@ Spiller::Spiller(
     Type type,
     RowTypePtr rowType,
     HashBitRange bits,
-    const common::SpillConfig* spillConfig,
-    uint64_t targetFileSize)
+    const common::SpillConfig* spillConfig)
     : Spiller(
           type,
           nullptr,
@@ -108,7 +107,7 @@ Spiller::Spiller(
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
-          targetFileSize,
+          spillConfig->maxFileSize,
           spillConfig->writeBufferSize,
           spillConfig->compressionKind,
           spillConfig->executor,
@@ -126,8 +125,7 @@ Spiller::Spiller(
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
-    const common::SpillConfig* spillConfig,
-    uint64_t targetFileSize)
+    const common::SpillConfig* spillConfig)
     : Spiller(
           type,
           container,
@@ -138,7 +136,7 @@ Spiller::Spiller(
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
-          targetFileSize,
+          spillConfig->maxFileSize,
           spillConfig->writeBufferSize,
           spillConfig->compressionKind,
           spillConfig->executor,

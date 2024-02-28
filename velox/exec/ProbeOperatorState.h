@@ -36,7 +36,7 @@ enum class ProbeOperatorState {
   kWaitForBuild = 0,
   /// The running state that join the probe input with the build table.
   kRunning = 1,
-  /// This state has different handlings for hash and nested loop join probe.
+  /// This state has different handling for hash and nested loop join probe.
   /// For hash probe, wait for all the peer probe operators to finish processing
   /// inputs.
   /// This state only applies when disk spilling is enabled. The last finished

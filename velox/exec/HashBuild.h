@@ -118,10 +118,6 @@ class HashBuild final : public Operator {
     return spillConfig_.has_value();
   }
 
-  const common::SpillConfig* spillConfig() const {
-    return spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
-  }
-
   void recordSpillStats();
   void recordSpillStats(Spiller* spiller);
 

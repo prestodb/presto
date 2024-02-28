@@ -486,12 +486,13 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     spillConfig.executor = executor();
     spillConfig.compressionKind = compressionKind_;
     spillConfig.maxSpillRunRows = maxSpillRunRows;
+    spillConfig.maxFileSize = targetFileSize;
     spillConfig.fileCreateConfig = {};
 
     if (type_ == Spiller::Type::kHashJoinProbe) {
       // kHashJoinProbe doesn't have associated row container.
-      spiller_ = std::make_unique<Spiller>(
-          type_, rowType_, hashBits_, &spillConfig, targetFileSize);
+      spiller_ =
+          std::make_unique<Spiller>(type_, rowType_, hashBits_, &spillConfig);
     } else if (
         type_ == Spiller::Type::kOrderByInput ||
         type_ == Spiller::Type::kAggregateInput) {
@@ -512,12 +513,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     } else {
       VELOX_CHECK_EQ(type_, Spiller::Type::kHashJoinBuild);
       spiller_ = std::make_unique<Spiller>(
-          type_,
-          rowContainer_.get(),
-          rowType_,
-          hashBits_,
-          &spillConfig,
-          targetFileSize);
+          type_, rowContainer_.get(), rowType_, hashBits_, &spillConfig);
     }
     ASSERT_EQ(spiller_->state().maxPartitions(), numPartitions_);
     ASSERT_FALSE(spiller_->isAllSpilled());

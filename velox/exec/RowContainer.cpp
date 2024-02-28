@@ -861,7 +861,7 @@ void RowContainer::extractProbedFlags(
     if (nullResult) {
       flatResult->setNull(i, true);
     } else {
-      bool probed = bits::isBitSet(rows[i], probedFlagOffset_);
+      const bool probed = bits::isBitSet(rows[i], probedFlagOffset_);
       if (setNullForNonProbedRow && !probed) {
         flatResult->setNull(i, true);
       } else {

@@ -661,6 +661,10 @@ class Operator : public BaseRuntimeStatWriter {
     return spillConfig_.has_value();
   }
 
+  const common::SpillConfig* spillConfig() const {
+    return spillConfig_.has_value() ? &spillConfig_.value() : nullptr;
+  }
+
   /// Creates output vector from 'input_' and 'results' according to
   /// 'identityProjections_' and 'resultProjections_'. If 'mapping' is set to
   /// nullptr, the children of the output vector will be identical to their
