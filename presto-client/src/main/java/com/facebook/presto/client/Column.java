@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -23,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class Column
 {
     private final String name;
@@ -40,6 +44,7 @@ public class Column
     }
 
     @JsonCreator
+    @ThriftConstructor
     public Column(
             @JsonProperty("name") String name,
             @JsonProperty("type") String type,
@@ -51,18 +56,21 @@ public class Column
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public String getType()
     {
         return type;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public ClientTypeSignature getTypeSignature()
     {
         return typeSignature;
