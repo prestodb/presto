@@ -129,6 +129,13 @@ class VectorTestBase {
     return vectorMaker_.rowVector(rowType, size);
   }
 
+  RowVectorPtr makeRowVector(
+      const RowTypePtr& type,
+      const VectorFuzzer::Options& fuzzerOpts) {
+    VectorFuzzer fuzzer(fuzzerOpts, pool());
+    return fuzzer.fuzzRow(type);
+  }
+
   std::vector<RowVectorPtr> createVectors(
       const RowTypePtr& type,
       uint64_t byteSize,
