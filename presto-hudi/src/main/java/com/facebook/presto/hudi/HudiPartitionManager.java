@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import javax.inject.Inject;
 
 import java.time.ZoneId;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,7 +71,7 @@ public class HudiPartitionManager
             return ImmutableList.of("");
         }
 
-        Map<Column, Domain> partitionPredicate = new HashMap<>();
+        Map<Column, Domain> partitionPredicate = new LinkedHashMap<>();
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseGet(ImmutableMap::of);
         List<HudiColumnHandle> hudiColumnHandles = fromPartitionColumns(partitionColumns);
         for (int i = 0; i < hudiColumnHandles.size(); i++) {
