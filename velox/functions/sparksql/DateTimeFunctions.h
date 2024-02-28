@@ -580,4 +580,26 @@ struct HourFunction : public InitSessionTimezone<T> {
     result = getDateTime(timestamp, this->timeZone_).tm_hour;
   }
 };
+
+template <typename T>
+struct MinuteFunction : public InitSessionTimezone<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int32_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDateTime(timestamp, this->timeZone_).tm_min;
+  }
+};
+
+template <typename T>
+struct SecondFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int32_t& result,
+      const arg_type<Timestamp>& timestamp) {
+    result = getDateTime(timestamp, nullptr).tm_sec;
+  }
+};
 } // namespace facebook::velox::functions::sparksql

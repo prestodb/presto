@@ -696,6 +696,48 @@ TEST_F(DateTimeFunctionsTest, hour) {
   EXPECT_EQ(2, hour("1969-01-01 13:23:00.001"));
 }
 
+TEST_F(DateTimeFunctionsTest, minute) {
+  const auto minute = [&](std::string_view timestampStr) {
+    const auto timeStamp = std::make_optional(
+        util::fromTimestampString(timestampStr.data(), timestampStr.length()));
+    return evaluateOnce<int32_t>("minute(c0)", timeStamp);
+  };
+
+  EXPECT_EQ(23, minute("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(59, minute("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(10, minute("2015-04-08 13:10:15"));
+  EXPECT_EQ(43, minute("1969-01-01 13:43:00.001"));
+
+  // Set time zone to Pacific/Apia (13 hours ahead of UTC).
+  setQueryTimeZone("Pacific/Apia");
+
+  EXPECT_EQ(23, minute("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(59, minute("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(10, minute("2015-04-08 13:10:15"));
+  EXPECT_EQ(43, minute("1969-01-01 13:43:00.001"));
+
+  // Set time zone to Asia/Kolkata (5.5 hours ahead of UTC).
+  setQueryTimeZone("Asia/Kolkata");
+
+  EXPECT_EQ(53, minute("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(29, minute("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(40, minute("2015-04-08 13:10:15"));
+  EXPECT_EQ(13, minute("1969-01-01 13:43:00.001"));
+}
+
+TEST_F(DateTimeFunctionsTest, second) {
+  const auto second = [&](std::string_view timestampStr) {
+    const auto timeStamp = std::make_optional(
+        util::fromTimestampString(timestampStr.data(), timestampStr.length()));
+    return evaluateOnce<int32_t>("second(c0)", timeStamp);
+  };
+
+  EXPECT_EQ(0, second("2024-01-08 00:23:00.001"));
+  EXPECT_EQ(59, second("2024-01-08 00:59:59.999"));
+  EXPECT_EQ(15, second("2015-04-08 13:10:15"));
+  EXPECT_EQ(0, second("1969-01-01 13:43:00.001"));
+}
+
 TEST_F(DateTimeFunctionsTest, fromUnixtime) {
   const auto getUnixTime = [&](const StringView& str) {
     Timestamp t = util::fromTimestampString(str);

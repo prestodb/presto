@@ -319,6 +319,10 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<HourFunction, int32_t, Timestamp>({prefix + "hour"});
 
+  registerFunction<MinuteFunction, int32_t, Timestamp>({prefix + "minute"});
+
+  registerFunction<SecondFunction, int32_t, Timestamp>({prefix + "second"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
