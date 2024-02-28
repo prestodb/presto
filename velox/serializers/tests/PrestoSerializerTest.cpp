@@ -383,8 +383,8 @@ class PrestoSerializerTest
     auto concatenation = BaseVector::create(rowType, 0, pool_.get());
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto paramOptions = getParamSerdeOptions(serdeOptions);
-    auto serializer =
-        serde_->createSerializer(rowType, 10, arena.get(), &paramOptions);
+    auto serializer = serde_->createIterativeSerializer(
+        rowType, 10, arena.get(), &paramOptions);
 
     for (const auto& vector : vectors) {
       auto data = makeRowVector({"f"}, {vector});
@@ -1253,8 +1253,8 @@ TEST_F(PrestoSerializerTest, deserializeSingleColumn) {
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = asRowType(rowVector->type());
     auto numRows = rowVector->size();
-    auto serializer =
-        serde_->createSerializer(rowType, numRows, arena.get(), nullptr);
+    auto serializer = serde_->createIterativeSerializer(
+        rowType, numRows, arena.get(), nullptr);
     serializer->append(rowVector);
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(&output, &listener);

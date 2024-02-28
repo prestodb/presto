@@ -159,18 +159,6 @@ class VectorSerde {
   ///
   /// This is more appropriate if the use case involves many small writes, e.g.
   /// partitioning a RowVector across multiple destinations.
-  ///
-  /// TODO: Remove createSerializer once Presto is updated to call
-  /// createIterativeSerializer.
-  virtual std::unique_ptr<IterativeVectorSerializer> createSerializer(
-      RowTypePtr type,
-      int32_t numRows,
-      StreamArena* streamArena,
-      const Options* options = nullptr) {
-    return createIterativeSerializer(
-        std::move(type), numRows, streamArena, options);
-  }
-
   virtual std::unique_ptr<IterativeVectorSerializer> createIterativeSerializer(
       RowTypePtr type,
       int32_t numRows,
