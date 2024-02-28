@@ -13,14 +13,14 @@ The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`
     :depth: 1
 
 
-Compatibility
--------------
+Requirements
+------------
 
-Connector is compatible with all Apache Kudu versions starting from 1.0.
+To connect to Kudu, you need:
 
-If the connector uses features that are not available on the target server, an error will be returned.
-Apache Kudu 1.8.0 is currently used for testing.
-
+* Kudu version 1.10 or higher.
+* Network access from the Presto coordinator and workers to Kudu. Port 7051 is
+  the default port.
 
 Configuration
 -------------
