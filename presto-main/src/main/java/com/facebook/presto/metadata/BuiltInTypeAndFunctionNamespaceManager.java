@@ -254,6 +254,7 @@ import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
 import com.facebook.presto.type.RealOperators;
+import com.facebook.presto.type.RowIdOperators;
 import com.facebook.presto.type.SfmSketchOperators;
 import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TDigestOperators;
@@ -317,6 +318,7 @@ import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.RowIdType.ROW_ID;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
@@ -642,6 +644,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(GEOMETRY);
         addType(BING_TILE);
         addType(KDB_TREE);
+        addType(ROW_ID);
         addType(SPHERICAL_GEOGRAPHY);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
@@ -811,6 +814,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(IpPrefixFunctions.class)
                 .scalars(IpPrefixOperators.class)
                 .scalar(IpPrefixOperators.IpPrefixDistinctFromOperator.class)
+                .scalars(RowIdOperators.class)
                 .scalars(UuidOperators.class)
                 .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
