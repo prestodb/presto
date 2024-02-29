@@ -58,6 +58,8 @@ jobs:
         with:
           submodules: recursive
       - name: Install Dependencies
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
         run: |
           brew install \
             bison boost ccache double-conversion flex fmt gflags glog \
