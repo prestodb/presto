@@ -174,6 +174,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       Varchar>({prefix + "parse_datetime"});
   registerFunction<DateParseFunction, Timestamp, Varchar, Varchar>(
       {prefix + "date_parse"});
+  registerFunction<FromIso8601Date, Date, Varchar>(
+      {prefix + "from_iso8601_date"});
   registerFunction<CurrentDateFunction, Date>({prefix + "current_date"});
 }
 } // namespace

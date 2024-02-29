@@ -92,6 +92,10 @@ Date and Time Functions
 
     This is an alias for ``CAST(x AS date)``.
 
+.. function:: from_iso8601_date(string) -> date
+
+    Parses the ISO 8601 formatted ``string`` into a ``date``.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.
@@ -368,6 +372,6 @@ It can be interpreted as `2014-11-02 01:30:00 PDT`, or `2014-11-02 01:30:00 PST`
 `2014-11-02 08:30:00 UTC` or `2014-11-02 09:30:00 UTC` respectively. The former one is
 picked to be consistent with Presto.
 
-**Timezone Name Parsing**: When parsing strings that contain timezone names, the 
+**Timezone Name Parsing**: When parsing strings that contain timezone names, the
 list of supported timezones follow the definition `here
 <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_.

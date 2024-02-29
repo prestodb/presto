@@ -1185,6 +1185,17 @@ struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
 };
 
 template <typename T>
+struct FromIso8601Date {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Date>& result,
+      const arg_type<Varchar>& input) {
+    result = util::fromDateString(input.data(), input.size());
+  }
+};
+
+template <typename T>
 struct DateParseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

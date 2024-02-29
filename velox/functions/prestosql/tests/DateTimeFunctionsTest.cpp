@@ -3263,6 +3263,18 @@ TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
       testDateFormat("%y-%M-%e %T %p", -20220915000, "-03:00"));
 }
 
+TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
+  const auto fromIso = [&](const std::string& input) {
+    return evaluateOnce<int32_t, std::string>("from_iso8601_date(c0)", input);
+  };
+
+  EXPECT_EQ(0, fromIso("1970-01-01"));
+  EXPECT_EQ(9, fromIso("1970-01-10"));
+  EXPECT_EQ(-1, fromIso("1969-12-31"));
+
+  VELOX_ASSERT_THROW(fromIso("2024-01-xx"), "Unable to parse date value");
+}
+
 TEST_F(DateTimeFunctionsTest, dateParse) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, dateParse("1970-01-01", std::nullopt));
