@@ -2638,6 +2638,21 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(
       TimestampWithTimezone(-66600000, util::getTimeZoneID("+02:00")),
       parseDatetime("1969-12-31+07:30+02:00", "YYYY-MM-dd+HH:mmZZ"));
+
+  // Joda also lets 'Z' to be UTC|UCT|GMT|GMT0.
+  auto ts = TimestampWithTimezone(1708840800000, util::getTimeZoneID("GMT"));
+  EXPECT_EQ(
+      ts, parseDatetime("2024-02-25+06:00:99 GMT", "yyyy-MM-dd+HH:mm:99 ZZZ"));
+  EXPECT_EQ(
+      ts, parseDatetime("2024-02-25+06:00:99 GMT0", "yyyy-MM-dd+HH:mm:99 ZZZ"));
+  EXPECT_EQ(
+      ts, parseDatetime("2024-02-25+06:00:99 UTC", "yyyy-MM-dd+HH:mm:99 ZZZ"));
+  EXPECT_EQ(
+      ts, parseDatetime("2024-02-25+06:00:99 UTC", "yyyy-MM-dd+HH:mm:99 ZZZ"));
+
+  VELOX_ASSERT_THROW(
+      parseDatetime("2024-02-25+06:00:99 PST", "yyyy-MM-dd+HH:mm:99 ZZZ"),
+      "Invalid format: \"2024-02-25+06:00:99 PST\" is malformed at \"PST\"");
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {

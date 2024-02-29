@@ -410,10 +410,24 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
         return 3;
       }
     }
-    // Single 'Z' character maps to GMT
+    // Single 'Z' character maps to GMT.
     else if (*cur == 'Z') {
       date.timezoneId = 0;
       return 1;
+    }
+    // "UTC", "UCT", "GMT" and "GMT0" are also acceptable by joda.
+    else if ((end - cur) >= 3) {
+      if (std::strncmp(cur, "UTC", 3) == 0 ||
+          std::strncmp(cur, "UCT", 3) == 0) {
+        date.timezoneId = 0;
+        return 3;
+      } else if (std::strncmp(cur, "GMT", 3) == 0) {
+        date.timezoneId = 0;
+        if ((end - cur) >= 4 && *(cur + 3) == '0') {
+          return 4;
+        }
+        return 3;
+      }
     }
   }
   return -1;

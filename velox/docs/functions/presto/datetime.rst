@@ -227,7 +227,12 @@ The functions in this section leverage a native cpp implementation that follows
 a format string compatible with JodaTime’s `DateTimeFormat
 <http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html>`_
 pattern format. The symbols currently supported are ``y``, ``Y``, ``M`` , ``d``,
-``H``, ``m``, ``s``, ``S``, and ``Z``.
+``H``, ``m``, ``s``, ``S``, ``z`` and ``Z``.
+
+``z`` represents a timezone name (3-letter format), and ``Z`` a timezone offset
+specified using the format ``+00``, ``+00:00`` or ``+0000`` (or ``-``). ``Z``
+also accepts ``UTC``,  ``UCT``, ``GMT``, and ``GMT0`` as valid representations
+of GMT.
 
 .. function:: parse_datetime(string, format) -> timestamp with time zone
 
