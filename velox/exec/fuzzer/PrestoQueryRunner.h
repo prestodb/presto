@@ -60,6 +60,13 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   /// the query must already exist.
   std::vector<velox::RowVectorPtr> execute(const std::string& sql);
 
+  bool supportsVeloxVectorResults() const override;
+
+  std::vector<RowVectorPtr> executeVector(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& input,
+      const RowTypePtr& resultType) override;
+
  private:
   velox::memory::MemoryPool* rootPool() {
     return rootPool_.get();

@@ -491,6 +491,13 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
     const std::string& sql,
     const std::vector<RowVectorPtr>& input,
     const RowTypePtr& resultType) {
+  return exec::test::materialize(executeVector(sql, input, resultType));
+}
+
+std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
+    const std::string& sql,
+    const std::vector<velox::RowVectorPtr>& input,
+    const velox::RowTypePtr& resultType) {
   auto inputType = asRowType(input[0]->type());
   if (inputType->size() == 0) {
     // The query doesn't need to read any columns, but it needs to see a
@@ -509,7 +516,7 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
         nullptr,
         numInput,
         std::vector<VectorPtr>{column});
-    return execute(sql, {rowVector}, resultType);
+    return executeVector(sql, {rowVector}, resultType);
   }
 
   // Create tmp table in Presto using DWRF file format and add a single
@@ -548,9 +555,7 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
   writeToFile(newFilePath, input, writerPool.get());
 
   // Run the query.
-  results = execute(sql);
-
-  return exec::test::materialize(results);
+  return execute(sql);
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {
@@ -609,6 +614,10 @@ std::string PrestoQueryRunner::fetchNext(const std::string& nextUri) {
       nextUri,
       response.error.message);
   return response.text;
+}
+
+bool PrestoQueryRunner::supportsVeloxVectorResults() const {
+  return true;
 }
 
 } // namespace facebook::velox::exec::test

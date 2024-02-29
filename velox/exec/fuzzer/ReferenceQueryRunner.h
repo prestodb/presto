@@ -35,6 +35,21 @@ class ReferenceQueryRunner {
       const std::string& sql,
       const std::vector<RowVectorPtr>& input,
       const RowTypePtr& resultType) = 0;
+
+  /// Returns true if 'executeVector' can be called to get results as Velox
+  /// Vector.
+  virtual bool supportsVeloxVectorResults() const {
+    return false;
+  }
+
+  /// Similar to 'execute' but returns results in RowVector format.
+  /// Caller should ensure 'supportsVeloxVectorResults' returns true.
+  virtual std::vector<RowVectorPtr> executeVector(
+      const std::string& sql,
+      const std::vector<RowVectorPtr>& input,
+      const RowTypePtr& resultType) {
+    VELOX_UNSUPPORTED();
+  }
 };
 
 } // namespace facebook::velox::exec::test
