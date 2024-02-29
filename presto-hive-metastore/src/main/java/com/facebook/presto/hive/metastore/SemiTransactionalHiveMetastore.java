@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ColumnConverterProvider;
@@ -56,7 +57,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -97,6 +97,7 @@ import static com.facebook.presto.hive.metastore.Statistics.reduce;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.facebook.presto.spi.WarningCollector.NOOP;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -107,6 +108,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -217,7 +219,7 @@ public class SemiTransactionalHiveMetastore
         if (tableAction == null) {
             return delegate.getTableConstraints(metastoreContext, databaseName, tableName);
         }
-        return Collections.emptyList();
+        return emptyList();
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
@@ -406,13 +408,14 @@ public class SemiTransactionalHiveMetastore
             PrincipalPrivileges principalPrivileges,
             Optional<Path> currentPath,
             boolean ignoreExisting,
-            PartitionStatistics statistics)
+            PartitionStatistics statistics,
+            List<TableConstraint<String>> constraints)
     {
         setShared();
         // When creating a table, it should never have partition actions. This is just a sanity check.
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
         Action<TableAndMore> oldTableAction = tableActions.get(table.getSchemaTableName());
-        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
+        TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics, constraints);
         if (oldTableAction == null) {
             HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, context));
@@ -512,7 +515,7 @@ public class SemiTransactionalHiveMetastore
         setShared();
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector(), session.getRuntimeStats());
         if (oldTableAction == null || oldTableAction.getData().getTable().getTableType().equals(TEMPORARY_TABLE)) {
             Table table = getTable(metastoreContext, databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -530,7 +533,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(fileNames),
                                     false,
                                     merge(currentStatistics, statisticsUpdate),
-                                    statisticsUpdate),
+                                    statisticsUpdate,
+                                    emptyList()),
                             context));
             return;
         }
@@ -558,7 +562,9 @@ public class SemiTransactionalHiveMetastore
                         session.getSource(),
                         getMetastoreHeaders(session),
                         isUserDefinedTypeEncodingEnabled(session),
-                        columnConverterProvider),
+                        columnConverterProvider,
+                        session.getWarningCollector(),
+                        session.getRuntimeStats()),
                 databaseName,
                 tableName);
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
@@ -902,7 +908,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(schemaTableName, k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider);
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector(), session.getRuntimeStats());
 
         if (oldPartitionAction == null) {
             Partition partition = delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues)
@@ -1046,6 +1052,22 @@ public class SemiTransactionalHiveMetastore
         });
     }
 
+    public synchronized void dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            MetastoreOperationResult operationResult = delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
+            return buildCommitHandle(new SchemaTableName(databaseName, tableName), operationResult);
+        });
+    }
+
+    public synchronized void addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            MetastoreOperationResult operationResult = delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
+            return buildCommitHandle(new SchemaTableName(databaseName, tableName), operationResult);
+        });
+    }
+
     public synchronized void declareIntentionToWrite(
             HdfsContext context,
             MetastoreContext metastoreContext,
@@ -1129,7 +1151,9 @@ public class SemiTransactionalHiveMetastore
                         hdfsContext.getSource(),
                         hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                         hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                        columnConverterProvider);
+                        columnConverterProvider,
+                        hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
+                        hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElse(new RuntimeStats()));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1160,7 +1184,9 @@ public class SemiTransactionalHiveMetastore
                             hdfsContext.getSource(),
                             hdfsContext.getSession().flatMap(MetastoreUtil::getMetastoreHeaders),
                             hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
-                            columnConverterProvider);
+                            columnConverterProvider,
+                            hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
+                            hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElse(new RuntimeStats()));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);
@@ -1350,7 +1376,7 @@ public class SemiTransactionalHiveMetastore
                     }
                 }
             }
-            addTableOperations.add(new CreateTableOperation(metastoreContext, table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
+            addTableOperations.add(new CreateTableOperation(metastoreContext, table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting(), tableAndMore.getConstraints()));
             if (!isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(metastoreContext,
                         table.getSchemaTableName(),
@@ -2312,6 +2338,7 @@ public class SemiTransactionalHiveMetastore
         private final boolean ignoreExisting;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
+        private final List<TableConstraint<String>> constraints;
 
         public TableAndMore(
                 Table table,
@@ -2320,7 +2347,8 @@ public class SemiTransactionalHiveMetastore
                 Optional<List<String>> fileNames,
                 boolean ignoreExisting,
                 PartitionStatistics statistics,
-                PartitionStatistics statisticsUpdate)
+                PartitionStatistics statisticsUpdate,
+                List<TableConstraint<String>> constraints)
         {
             this.table = requireNonNull(table, "table is null");
             this.principalPrivileges = requireNonNull(principalPrivileges, "principalPrivileges is null");
@@ -2329,6 +2357,7 @@ public class SemiTransactionalHiveMetastore
             this.ignoreExisting = ignoreExisting;
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            this.constraints = requireNonNull(constraints, "constraints is null");
 
             checkArgument(!table.getTableType().equals(VIRTUAL_VIEW) || !currentLocation.isPresent(), "currentLocation can not be supplied for view");
             checkArgument(!fileNames.isPresent() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
@@ -2370,6 +2399,11 @@ public class SemiTransactionalHiveMetastore
             return statisticsUpdate;
         }
 
+        public List<TableConstraint<String>> getConstraints()
+        {
+            return constraints;
+        }
+
         public Table getAugmentedTableForInTransactionRead()
         {
             // Don't augment the location for partitioned tables,
@@ -2407,6 +2441,7 @@ public class SemiTransactionalHiveMetastore
                     .add("ignoreExisting", ignoreExisting)
                     .add("statistics", statistics)
                     .add("statisticsUpdate", statisticsUpdate)
+                    .add("constraints", constraints)
                     .toString();
         }
     }
@@ -2703,17 +2738,19 @@ public class SemiTransactionalHiveMetastore
         private final PrincipalPrivileges privileges;
         private boolean tableCreated;
         private final boolean ignoreExisting;
+        private final List<TableConstraint<String>> constraints;
         private final String queryId;
         private final MetastoreContext metastoreContext;
         private Optional<MetastoreOperationResult> operationResult;
 
-        public CreateTableOperation(MetastoreContext metastoreContext, Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting)
+        public CreateTableOperation(MetastoreContext metastoreContext, Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, List<TableConstraint<String>> constraints)
         {
             requireNonNull(newTable, "newTable is null");
             this.metastoreContext = requireNonNull(metastoreContext, "identity is null");
             this.newTable = newTable;
             this.privileges = requireNonNull(privileges, "privileges is null");
             this.ignoreExisting = ignoreExisting;
+            this.constraints = requireNonNull(constraints, "constraints is null");
             this.queryId = getPrestoQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
             this.operationResult = Optional.empty();
         }
@@ -2737,7 +2774,7 @@ public class SemiTransactionalHiveMetastore
         {
             boolean done = false;
             try {
-                operationResult = Optional.of(metastore.createTable(metastoreContext, newTable, privileges));
+                operationResult = Optional.of(metastore.createTable(metastoreContext, newTable, privileges, constraints));
                 done = true;
             }
             catch (RuntimeException e) {

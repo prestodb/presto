@@ -29,7 +29,8 @@ class ConfigBase {
   /// Reads configuration properties from the specified file. Must be called
   /// before calling any of the getters below.
   /// @param filePath Path to configuration file.
-  void initialize(const std::string& filePath);
+  /// @param optionalConfig Specify if the configuration file is optional.
+  void initialize(const std::string& filePath, bool optionalConfig = false);
 
   /// Allows individual config to manipulate just-loaded-from-file key-value map
   /// before it is used to initialize the config.
@@ -168,11 +169,19 @@ class SystemConfig : public ConfigBase {
   /// startup.
   static constexpr std::string_view kHttpServerReusePort{
       "http-server.reuse-port"};
+  /// By default the server binds to 0.0.0.0
+  /// With this option enabled the server will bind strictly to the
+  /// address set in node.internal-address property
+  static constexpr std::string_view
+      kHttpServerBindToNodeInternalAddressOnlyEnabled{
+          "http-server.bind-to-node-internal-address-only-enabled"};
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
+  static constexpr std::string_view kTaskMaxPartialAggregationMemory{
+      "task.max-partial-aggregation-memory"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for HTTP IO executor: hw_concurrency x multiplier. 1.0 is default.
@@ -188,10 +197,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
+  // List of comma separated ciphers the client can use.
+  ///
+  /// NOTE: the client needs to have at least one cipher shared with server
+  // to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
+  // Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
@@ -207,6 +221,13 @@ class SystemConfig : public ConfigBase {
   /// for Driver CPU executor: hw_concurrency x multiplier. 4.0 is default.
   static constexpr std::string_view kDriverNumCpuThreadsHwMultiplier{
       "driver.num-cpu-threads-hw-multiplier"};
+
+  /// Time duration threshold used to detect if an operator call in driver is
+  /// stuck or not.  If any of the driver thread is detected as stuck by this
+  /// standard, we take the worker offline and further investigation on the
+  /// worker is required.
+  static constexpr std::string_view kDriverStuckOperatorThresholdMs{
+      "driver.stuck-operator-threshold-ms"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for Spiller CPU executor: hw_concurrency x multiplier.
@@ -293,11 +314,10 @@ class SystemConfig : public ConfigBase {
   /// cache entries.
   static constexpr std::string_view kCacheVeloxTtlCheckInterval{
       "cache.velox.ttl-check-interval"};
-
-  static constexpr std::string_view kUseMmapArena{"use-mmap-arena"};
-  static constexpr std::string_view kMmapArenaCapacityRatio{
-      "mmap-arena-capacity-ratio"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
+
+  static constexpr std::string_view kEnableRuntimeMetricsCollection{
+      "runtime-metrics-collection-enabled"};
 
   /// Specifies the memory arbitrator kind. If it is empty, then there is no
   /// memory arbitration.
@@ -316,6 +336,15 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolTransferCapacity{
       "memory-pool-transfer-capacity"};
+
+  /// Specifies the max time to wait for memory reclaim by arbitration. The
+  /// memory reclaim might fail if the max wait time has exceeded. If it is
+  /// zero, then there is no timeout.
+  ///
+  /// NOTE: this config only applies if the memory arbitration has been enabled.
+  static constexpr std::string_view kMemoryReclaimWaitMs{
+      "memory-reclaim-wait-ms"};
+
   /// Enables the memory usage tracking for the system memory pool used for
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
@@ -347,6 +376,10 @@ class SystemConfig : public ConfigBase {
   /// leak is detected. The check should be disabled in production cluster.
   static constexpr std::string_view kEnableMemoryLeakCheck{
       "enable-memory-leak-check"};
+
+  /// Terminates the process and generates a core file on an allocation failure
+  static constexpr std::string_view kCoreOnAllocationFailureEnabled{
+      "core-on-allocation-failure-enabled"};
 
   /// Do not include runtime stats in the returned task info if the task is
   /// in running state.
@@ -470,6 +503,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerReusePort() const;
 
+  bool httpServerBindToNodeInternalAddressOnlyEnabled() const;
+
   bool httpServerHttpsEnabled() const;
 
   int httpServerHttpsPort() const;
@@ -526,6 +561,8 @@ class SystemConfig : public ConfigBase {
 
   double driverNumCpuThreadsHwMultiplier() const;
 
+  size_t driverStuckOperatorThresholdMs() const;
+
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
@@ -570,10 +607,6 @@ class SystemConfig : public ConfigBase {
 
   bool enableVeloxExprSetLogging() const;
 
-  bool useMmapArena() const;
-
-  int32_t mmapArenaCapacityRatio() const;
-
   bool useMmapAllocator() const;
 
   std::string memoryArbitratorKind() const;
@@ -583,6 +616,8 @@ class SystemConfig : public ConfigBase {
   uint64_t memoryPoolInitCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
+
+  uint64_t memoryReclaimWaitMs() const;
 
   bool enableSystemMemoryPoolUsageTracking() const;
 
@@ -599,6 +634,8 @@ class SystemConfig : public ConfigBase {
   uint64_t queryMaxMemoryPerNode() const;
 
   bool enableMemoryLeakCheck() const;
+
+  bool coreOnAllocationFailureEnabled() const;
 
   bool skipRuntimeStatsInRunningTaskInfo() const;
 
@@ -641,6 +678,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlThreshold() const;
 
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+
+  bool enableRuntimeMetricsCollection() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -653,9 +692,7 @@ class NodeConfig : public ConfigBase {
   static constexpr std::string_view kNodeInternalAddress{
       "node.internal-address"};
   static constexpr std::string_view kNodeLocation{"node.location"};
-  static constexpr std::string_view kNodeMemoryGb{"node.memory_gb"};
   static constexpr std::string_view KNodeMetricPort{"node.prometheus_port"};
-
 
   NodeConfig();
 
@@ -673,9 +710,6 @@ class NodeConfig : public ConfigBase {
       const std::function<std::string()>& defaultIp = nullptr) const;
 
   std::string nodeLocation() const;
-
-  uint64_t nodeMemoryGb(
-      const std::function<uint64_t()>& defaultNodeMemoryGb = nullptr) const;
 };
 
 /// Used only in the single instance as the source of the initial properties for

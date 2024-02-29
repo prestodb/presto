@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -409,17 +408,17 @@ public class TestRowOperators
                         "\"array2\": [1, 2, null, 3], " +
                         "\"array1\": [], " +
                         "\"array3\": null, " +
-                        "\"map3\": {\"a\": 1, \"b\": 2, \"none\": null, \"Three\": 3}, " +
+                        "\"map3\": {\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, " +
                         "\"map1\": {}, " +
                         "\"map2\": null, " +
                         "\"rowAsJsonArray1\": [1, 2, null, 3], " +
                         "\"rowAsJsonArray2\": null, " +
-                        "\"rowAsJsonObject2\": {\"a\": 1, \"b\": 2, \"none\": null, \"Three\": 3}, " +
+                        "\"rowAsJsonObject2\": {\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, " +
                         "\"rowAsJsonObject1\": null}' " +
-                        "AS ROW(array1 array<BIGINT>, array2 ARRAY<bigint>, array3 ARRAY<BIGINT>, " +
-                        "map1 MAP<VARCHAR, BIGINT>, map2 map<varchar, BIGINT>, map3 MAP<VARCHAR, BIGINT>, " +
-                        "\"rowAsJsonArray1\" row(BIGINT, bigint, BIGINT, BIGINT), \"rowAsJsonArray2\" ROW(BIGINT)," +
-                        "\"rowAsJsonObject1\" ROW(nothing BIGINT), \"rowAsJsonObject2\" ROW(a BIGINT, b BIGINT, \"Three\" BIGINT, none BIGINT)))",
+                        "AS ROW(array1 ARRAY<BIGINT>, array2 ARRAY<BIGINT>, array3 ARRAY<BIGINT>, " +
+                        "map1 MAP<VARCHAR, BIGINT>, map2 MAP<VARCHAR, BIGINT>, map3 MAP<VARCHAR, BIGINT>, " +
+                        "rowAsJsonArray1 ROW(BIGINT, BIGINT, BIGINT, BIGINT), rowAsJsonArray2 ROW(BIGINT)," +
+                        "rowAsJsonObject1 ROW(nothing BIGINT), rowAsJsonObject2 ROW(a BIGINT, b BIGINT, three BIGINT, none BIGINT)))",
                 RowType.from(ImmutableList.of(
                         RowType.field("array1", new ArrayType(BIGINT)),
                         RowType.field("array2", new ArrayType(BIGINT)),
@@ -427,17 +426,17 @@ public class TestRowOperators
                         RowType.field("map1", mapType(VARCHAR, BIGINT)),
                         RowType.field("map2", mapType(VARCHAR, BIGINT)),
                         RowType.field("map3", mapType(VARCHAR, BIGINT)),
-                        RowType.field("rowAsJsonArray1", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT)), true),
-                        RowType.field("rowAsJsonArray2", RowType.anonymous(ImmutableList.of(BIGINT)), true),
-                        RowType.field("rowAsJsonObject1", RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT))), true),
-                        RowType.field("rowAsJsonObject2", RowType.from(ImmutableList.of(
+                        RowType.field("rowasjsonarray1", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT))),
+                        RowType.field("rowasjsonarray2", RowType.anonymous(ImmutableList.of(BIGINT))),
+                        RowType.field("rowasjsonobject1", RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT)))),
+                        RowType.field("rowasjsonobject2", RowType.from(ImmutableList.of(
                                 RowType.field("a", BIGINT),
                                 RowType.field("b", BIGINT),
-                                RowType.field("Three", BIGINT, true),
-                                RowType.field("none", BIGINT))), true))),
+                                RowType.field("three", BIGINT),
+                                RowType.field("none", BIGINT)))))),
                 asList(
                         emptyList(), asList(1L, 2L, null, 3L), null,
-                        ImmutableMap.of(), null, asMap(ImmutableList.of("a", "b", "none", "Three"), asList(1L, 2L, null, 3L)),
+                        ImmutableMap.of(), null, asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
                         asList(1L, 2L, null, 3L), null,
                         null, asList(1L, 2L, 3L, null)));
 
@@ -526,14 +525,6 @@ public class TestRowOperators
                         RowType.field("d", VARCHAR),
                         RowType.field("e", new ArrayType(BIGINT)))),
                 asList(2L, 1.5, true, "abc", ImmutableList.of(1L, 2L)));
-
-        assertFunction(
-                "MAP(ARRAY['myFirstRow', 'mySecondRow'], ARRAY[cast(row('row1FieldValue1', 'row1FieldValue2') as row(\"firstField\" varchar, \"secondField\" varchar)), cast(row('row2FieldValue1', 'row2FieldValue2') as row(\"firstField\" varchar, \"secondField\" varchar))])",
-                mapType(VarcharType.createVarcharType(11), RowType.from(ImmutableList.of(
-                        RowType.field("firstField", VARCHAR, true),
-                        RowType.field("secondField", VARCHAR, true)))),
-                ImmutableMap.of("myFirstRow", asList("row1FieldValue1", "row1FieldValue2"),
-                        "mySecondRow", asList("row2FieldValue1", "row2FieldValue2")));
     }
 
     @Test

@@ -76,14 +76,12 @@ PrestoExchangeSource::PrestoExchangeSource(
     folly::CPUThreadPoolExecutor* driverExecutor,
     folly::EventBase* ioEventBase,
     proxygen::SessionPool* sessionPool,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers)
+    folly::SSLContextPtr sslContext)
     : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
       port_(baseUri.port()),
-      clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers),
+      sslContext_(std::move(sslContext)),
       immediateBufferTransfer_(
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
       driverExecutor_(driverExecutor) {
@@ -109,8 +107,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      clientCertAndKeyPath_,
-      ciphers_,
+      sslContext_,
       [](size_t bufferBytes) {
         RECORD_METRIC_VALUE(kCounterHttpClientPrestoExchangeNumOnBody);
         RECORD_HISTOGRAM_METRIC_VALUE(
@@ -144,9 +141,15 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // calls that mutate promise_ can be called concurrently.
   auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::PrestoExchangeSource::request", this);
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    if (closed_.load()) {
+      promise.setValue(Response{0, false});
+      return future;
+    }
     promise_ = std::move(promise);
   }
 
@@ -172,9 +175,17 @@ void PrestoExchangeSource::doRequest(
   auto path = fmt::format("{}/{}", basePath_, sequence_);
   VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  http::RequestBuilder()
-      .method(proxygen::HTTPMethod::GET)
-      .url(path)
+  auto requestBuilder =
+      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
+
+  if (maxBytes == 0) {
+    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
+    // Coordinator ignores the header and always sends back data.  There is only
+    // one coordinator to fetch data from, so a limit of 1MB is enough.
+    maxBytes = 1 << 20;
+  }
+
+  requestBuilder
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
           protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
@@ -247,6 +258,13 @@ void PrestoExchangeSource::processDataResponse(
   if (complete) {
     VLOG(1) << "Received buffer-complete header for " << basePath_ << "/"
             << sequence_;
+  }
+
+  std::vector<int64_t> remainingBytes;
+  auto remainingBytesString = headers->getHeaders().getSingleOrEmpty(
+      protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
+  if (!remainingBytesString.empty()) {
+    folly::split(',', remainingBytesString, remainingBytes);
   }
 
   int64_t ackSequence =
@@ -322,7 +340,8 @@ void PrestoExchangeSource::processDataResponse(
     }
 
     if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue(Response{pageSize, complete});
+      requestPromise.setValue(
+          Response{pageSize, complete, std::move(remainingBytes)});
     } else {
       // The source must have been closed.
       VELOX_CHECK(closed_.load());
@@ -516,9 +535,11 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     velox::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
-    ConnectionPools* connectionPools) {
+    ConnectionPools* connectionPools,
+    folly::SSLContextPtr sslContext) {
   folly::Uri uri(url);
   if (uri.scheme() == "http") {
+    VELOX_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
     auto [eventBase, sessionPool] =
         getSessionPool(connectionPools, ioExecutor, ep);
@@ -529,16 +550,14 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         memoryPool,
         cpuExecutor,
         eventBase,
-        sessionPool);
+        sessionPool,
+        sslContext);
   }
   if (uri.scheme() == "https") {
+    VELOX_CHECK_NOT_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
     auto [eventBase, sessionPool] =
         getSessionPool(connectionPools, ioExecutor, ep);
-    const auto* systemConfig = SystemConfig::instance();
-    const auto clientCertAndKeyPath =
-        systemConfig->httpsClientCertAndKeyPath().value_or("");
-    const auto ciphers = systemConfig->httpsSupportedCiphers();
     return std::make_shared<PrestoExchangeSource>(
         uri,
         destination,
@@ -547,8 +566,7 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         cpuExecutor,
         eventBase,
         sessionPool,
-        clientCertAndKeyPath,
-        ciphers);
+        std::move(sslContext));
   }
   return nullptr;
 }

@@ -37,8 +37,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -111,13 +113,37 @@ public class TestHiveCanonicalPlanGenerator
                     pushdownFilterEnabled(),
                     "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    REMOVE_SAFE_CONSTANTS);
+                    IGNORE_SAFE_CONSTANTS);
 
             assertSameCanonicalLeafPlan(
                     pushdownFilterEnabled(),
                     "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
                     "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
-                    REMOVE_SAFE_CONSTANTS);
+                    IGNORE_SAFE_CONSTANTS);
+
+            assertDifferentCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey = 10",
+                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey = 20",
+                    IGNORE_SAFE_CONSTANTS);
+
+            assertDifferentCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey from test_orders where ds = '2020-09-02' AND orderkey < 20",
+                    IGNORE_SCAN_CONSTANTS);
+
+            assertSameCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10 AND ts >= '00:01'",
+                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10 AND ts >= '00:02'",
+                    IGNORE_SCAN_CONSTANTS);
+
+            assertSameCanonicalLeafPlan(
+                    pushdownFilterEnabled(),
+                    "SELECT orderkey, CAST('1' AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey = 10",
+                    "SELECT orderkey, CAST('11' AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey = 20",
+                    IGNORE_SCAN_CONSTANTS);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders");
@@ -148,7 +174,7 @@ public class TestHiveCanonicalPlanGenerator
                     "SELECT * FROM test_column_predicates WHERE ds IN ('2020-09-01', '2020-09-02')",
                     "SELECT * FROM test_column_predicates");
             assertSameCanonicalLeafSubPlan(
-                    pushdownFilterEnabled(),
+                    pushdownFilterEnabledConstantPullUpDisabled(),
                     "SELECT * FROM test_column_predicates WHERE ds = '2020-09-01'",
                     "SELECT * FROM test_column_predicates WHERE ds = '2020-09-02'");
             assertSameCanonicalLeafSubPlan(
@@ -203,6 +229,14 @@ public class TestHiveCanonicalPlanGenerator
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
+    private Session pushdownFilterEnabledConstantPullUpDisabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "false")
                 .build();
     }
 

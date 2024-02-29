@@ -14,8 +14,12 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -44,7 +48,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
-import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -62,6 +65,7 @@ import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -74,6 +78,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -81,11 +87,19 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -96,8 +110,6 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
-import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.testng.Assert.assertTrue;
 
 public class IcebergDistributedTestBase
@@ -181,12 +193,14 @@ public class IcebergDistributedTestBase
         assertEquals(totalCount - countPart1F - countPart2O - countPartOther, newTotalCount);
         assertQuerySucceeds("DROP TABLE test_partitioned_drop");
 
-        // Do not support delete with filters about non-identity partition column
-        String errorMessage1 = "This connector only supports delete where one or more partitions are deleted entirely";
+        // Support delete with filters on non-identity partition column
         assertUpdate("CREATE TABLE test_partitioned_drop WITH (partitioning = ARRAY['bucket(orderkey, 2)', 'linenumber', 'linestatus']) as select * from lineitem", totalCount);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE orderkey = 1", errorMessage1);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE partkey > 100", errorMessage1);
-        assertQueryFails("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", errorMessage1);
+        long countOrder1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where orderkey = 1").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE orderkey = 1", countOrder1);
+        long countPartKey100 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where partkey > 100").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE partkey > 100", countPartKey100);
+        long countLine1Order1 = (long) getQueryRunner().execute("SELECT count(*) FROM test_partitioned_drop where linenumber = 1 and orderkey = 1").getOnlyValue();
+        assertUpdate("DELETE FROM test_partitioned_drop WHERE linenumber = 1 and orderkey = 1", countLine1Order1);
 
         // Do not allow delete data at specified snapshot
         String errorMessage2 = "This connector do not allow delete data at specified snapshot";
@@ -221,17 +235,16 @@ public class IcebergDistributedTestBase
 
         // Add a new partition column, and insert some value
         assertQuerySucceeds("alter table test_delete add column d bigint with(partitioning = 'identity')");
-        assertQuerySucceeds("insert into test_delete values(1, '1001', 10001), (2, '1003', 10001), (3, '1004', 10003)");
+        assertQuerySucceeds("insert into test_delete values(1, '1001', 10001), (2, '1003', 10002), (3, '1004', 10003)");
         assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 5L);
 
-        // Deletion fails, because column 'd' do not exists in older partition specs
-        String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely";
-        assertQueryFails("delete from test_delete where d = 1001", errorMessage);
-        assertQueryFails("delete from test_delete where d = 1001 and c = 2", errorMessage);
+        // Deletion succeeds for merge-on-read mode even though column 'd' does not exist in older partition specs
+        assertUpdate("delete from test_delete where d = 10003", 1);
+        assertUpdate("delete from test_delete where d = 10002 and c = 2", 1);
 
         // Deletion succeeds, because column 'c' exists in all partition specs
         assertUpdate("DELETE FROM test_delete WHERE c = 1", 3);
-        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("SELECT count(*) FROM test_delete").getOnlyValue(), 0L);
 
         assertQuerySucceeds("DROP TABLE test_delete");
     }
@@ -460,41 +473,56 @@ public class IcebergDistributedTestBase
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @Test
-    public void testPartitionedByTimestampType()
+    @DataProvider(name = "timezones")
+    public Object[][] timezones()
     {
-        // create iceberg table partitioned by column of TimestampType, and insert some data
-        assertQuerySucceeds("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
-        assertQuerySucceeds("insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
+        return new Object[][] {
+                {"UTC", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", true},
+                {"None", false}};
+    }
 
-        // validate return data of TimestampType
-        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-        assertEquals(timestampColumnDatas.size(), 2);
-        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    @Test(dataProvider = "timezones")
+    public void testPartitionedByTimestampType(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
 
-        // validate column of TimestampType exists in query filter
-        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
-                LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        try {
+            // create iceberg table partitioned by column of TimestampType, and insert some data
+            assertQuerySucceeds(session, "create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+            assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
-        // validate column of TimestampType in system table "partitions"
-        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
+            // validate return data of TimestampType
+            List<Object> timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+            assertEquals(timestampColumnDatas.size(), 2);
+            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        // validate column of TimestampType exists in delete filter
-        assertUpdate("delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
-        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-        assertEquals(timestampColumnDatas.size(), 1);
-        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+            // validate column of TimestampType exists in query filter
+            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
+                    LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        assertQuerySucceeds("drop table test_partition_columns");
+            // validate column of TimestampType in system table "partitions"
+            assertEquals(getQueryRunner().execute(session, "select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
+
+            // validate column of TimestampType exists in delete filter
+            assertUpdate(session, "delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
+            timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+            assertEquals(timestampColumnDatas.size(), 1);
+            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+        }
+        finally {
+            assertQuerySucceeds(session, "drop table test_partition_columns");
+        }
     }
 
     @Test
@@ -859,24 +887,59 @@ public class IcebergDistributedTestBase
         assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey not in (0 ,8)");
     }
 
-    @Test(dataProvider = "fileFormat")
-    public void testTableWithEqualityDelete(String fileFormat)
+    @DataProvider(name = "equalityDeleteOptions")
+    public Object[][] equalityDeleteDataProvider()
+    {
+        return new Object[][] {
+                {"PARQUET", false},
+                {"PARQUET", true},
+                {"ORC", false},
+                {"ORC", true}};
+    }
+
+    private Session deleteAsJoinEnabled(boolean joinRewriteEnabled)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, DELETE_AS_JOIN_REWRITE_ENABLED, String.valueOf(joinRewriteEnabled))
+                .build();
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_equality_delete" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = updateTable(tableName);
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
         testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(EQUALITY_DELETES));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
     }
 
-    @Test(dataProvider = "fileFormat")
-    public void testTableWithPositionDeleteAndEqualityDelete(String fileFormat)
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithEqualityDeleteDifferentColumnOrder(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        // Specify equality delete filter with different column order from table definition
+        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery(session, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE name != 'ARGENTINA'");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithPositionDeleteAndEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
@@ -884,43 +947,157 @@ public class IcebergDistributedTestBase
 
         writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
         testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
+        assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
         testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 AND nationkey != 0");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 AND nationkey != 0");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
     }
 
-    @Test(dataProvider = "fileFormat")
-    public void testTableWithPositionDeletesAndEqualityDeletes(String fileFormat)
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithPartitions(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "', partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+
+        List<Long> partitions = Arrays.asList(1L, 2L, 3L, 17L, 24L);
+        for (long nationKey : partitions) {
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L), ImmutableMap.of("nationkey", nationKey));
+        }
+        testCheckDeleteFiles(icebergTable, partitions.size(), partitions.stream().map(i -> EQUALITY_DELETES).collect(Collectors.toList()));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT name FROM " + tableName, "SELECT name FROM nation WHERE regionkey != 1");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithHiddenPartitions(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "', partitioning = ARRAY['bucket(nationkey,100)']) AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+
+        PartitionTransforms.ColumnTransform columnTransform = PartitionTransforms.getColumnTransform(icebergTable.spec().fields().get(0), BIGINT);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);
+        List<Long> partitions = Arrays.asList(1L, 2L, 3L, 17L, 24L);
+        partitions.forEach(p -> BIGINT.writeLong(builder, p));
+        Block partitionsBlock = columnTransform.getTransform().apply(builder.build());
+        for (int i = 0; i < partitionsBlock.getPositionCount(); i++) {
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L), ImmutableMap.of("nationkey_bucket", partitionsBlock.getInt(i)));
+            String updatedPartitions = partitions.stream().limit(i + 1).map(Object::toString).collect(Collectors.joining(",", "(", ")"));
+            assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT(regionkey = 1 AND nationkey IN " + updatedPartitions + ")");
+        }
+        testCheckDeleteFiles(icebergTable, partitions.size(), partitions.stream().map(i -> EQUALITY_DELETES).collect(Collectors.toList()));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1");
+        assertQuery(session, "SELECT name FROM " + tableName, "SELECT name FROM nation WHERE regionkey != 1");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithCompositeKey(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 0L, "name", "ALGERIA"));
+        testCheckDeleteFiles(icebergTable, 1, Stream.generate(() -> EQUALITY_DELETES).limit(1).collect(Collectors.toList()));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT(regionkey = 0 AND name = 'ALGERIA')");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE NOT(regionkey = 0 AND name = 'ALGERIA')");
+        assertQuery(session, "SELECT name FROM " + tableName, "SELECT name FROM nation WHERE NOT(regionkey = 0 AND name = 'ALGERIA')");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithMultipleDeleteSchemas(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("nationkey", 10L));
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 2L, "nationkey", 9L));
+        testCheckDeleteFiles(icebergTable, 3, Stream.generate(() -> EQUALITY_DELETES).limit(3).collect(Collectors.toList()));
+        assertQuery(session, "SELECT \"$data_sequence_number\", regionkey, nationkey FROM \"" + tableName + "$equality_deletes\"", "VALUES (2, 1, null), (3, null, 10), (4, 2, 9)");
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT(regionkey = 2 AND nationkey = 9) AND nationkey <> 10 AND regionkey <> 1");
+        assertQuery(session, "SELECT regionkey FROM " + tableName, "SELECT regionkey FROM nation WHERE NOT(regionkey = 2 AND nationkey = 9) AND nationkey <> 10 AND regionkey <> 1");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE NOT(regionkey = 2 AND nationkey = 9) AND nationkey <> 10 AND regionkey <> 1");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithPositionDeletesAndEqualityDeletes(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
         Table icebergTable = updateTable(tableName);
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
         writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
         testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
+        assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 24");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L));
         testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 19");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+        assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 19");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
 
         writePositionDeleteToNationTable(icebergTable, dataFilePath, 7);
         testCheckDeleteFiles(icebergTable, 3, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES));
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 18");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey NOT IN (0, 7)");
+        assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 18");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey NOT IN (0, 7)");
 
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 2L));
         testCheckDeleteFiles(icebergTable, 4, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 13");
-        assertQuery("SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey NOT IN (1, 2) AND nationkey NOT IN (0, 7)");
+        assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 13");
+        assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey NOT IN (1, 2) AND nationkey NOT IN (0, 7)");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeletesWithHiddenPartitionsEvolution(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 2));
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001'), (3, '1003')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c int WITH (partitioning = 'bucket(2)')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, '1004', 1), (6, '1006', 2)", 2);
+        icebergTable = updateTable(tableName);
+        PartitionTransforms.ColumnTransform columnTransform = PartitionTransforms.getColumnTransform(icebergTable.spec().fields().get(0), INTEGER);
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(1);
+        List<Integer> partitions = Arrays.asList(1, 2);
+        partitions.forEach(p -> BIGINT.writeLong(builder, p));
+        Block partitionsBlock = columnTransform.getTransform().apply(builder.build());
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 6, "c", 2),
+                ImmutableMap.of("c_bucket", partitionsBlock.getInt(0)));
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001', NULL), (3, '1003', NULL), (6, '1004', 1)");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN d varchar WITH (partitioning = 'truncate(2)')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, '1004', 1, 'th001'), (6, '1006', 2, 'th002')", 2);
+        icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 6, "c", 1),
+                ImmutableMap.of("c_bucket", partitionsBlock.getInt(0), "d_trunc", "th"));
+        testCheckDeleteFiles(icebergTable, 3, ImmutableList.of(EQUALITY_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001', NULL, NULL), (3, '1003', NULL, NULL), (6, '1004', 1, NULL), (6, '1006', 2, 'th002')");
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
@@ -968,18 +1145,30 @@ public class IcebergDistributedTestBase
     private void writeEqualityDeleteToNationTable(Table icebergTable, Map<String, Object> overwriteValues)
             throws Exception
     {
+        writeEqualityDeleteToNationTable(icebergTable, overwriteValues, Collections.emptyMap());
+    }
+
+    private void writeEqualityDeleteToNationTable(Table icebergTable, Map<String, Object> overwriteValues, Map<String, Object> partitionValues)
+            throws Exception
+    {
         File metastoreDir = getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile();
         org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
-        Schema deleteRowSchema = icebergTable.schema().select("regionkey");
-        EqualityDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(new org.apache.hadoop.fs.Path(metadataDir, deleteFileName), fs))
+        Schema deleteRowSchema = icebergTable.schema().select(overwriteValues.keySet());
+        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new org.apache.hadoop.fs.Path(metadataDir, deleteFileName), fs))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)
-                .equalityFieldIds(deleteRowSchema.findField("regionkey").fieldId())
-                .overwrite()
-                .buildEqualityWriter();
+                .equalityFieldIds(deleteRowSchema.columns().stream().map(Types.NestedField::fieldId).collect(Collectors.toList()))
+                .overwrite();
+
+        if (!partitionValues.isEmpty()) {
+            GenericRecord partitionData = GenericRecord.create(icebergTable.spec().partitionType());
+            writerBuilder.withPartition(partitionData.copy(partitionValues));
+        }
+
+        EqualityDeleteWriter<Object> writer = writerBuilder.buildEqualityWriter();
 
         Record dataDelete = GenericRecord.create(deleteRowSchema);
         try (Closeable ignored = writer) {
@@ -1036,5 +1225,15 @@ public class IcebergDistributedTestBase
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
+    }
+
+    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
+    {
+        SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
+        if (legacyTimestamp) {
+            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
+        }
+        return sessionBuilder.build();
     }
 }

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -227,7 +228,7 @@ public class KeyBasedSampler
 
                 // Find the best equijoin clause so we sample both sides the same way optimally
                 // First see if there is a int/bigint key
-                Optional<JoinNode.EquiJoinClause> equiJoinClause = node.getCriteria().stream()
+                Optional<EquiJoinClause> equiJoinClause = node.getCriteria().stream()
                         .filter(x -> TypeUtils.isIntegralType(x.getLeft().getType().getTypeSignature(), functionAndTypeManager))
                         .findFirst();
                 if (!equiJoinClause.isPresent()) {

@@ -57,6 +57,7 @@ public class TableWriterNode
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final List<VariableReferenceExpression> outputs;
     private final Optional<Integer> taskCountIfScaledWriter;
+    private final Optional<Boolean> isTemporaryTableWriter;
 
     @JsonCreator
     public TableWriterNode(
@@ -73,9 +74,10 @@ public class TableWriterNode
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
-            @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter)
+            @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter,
+            @JsonProperty("isTemporaryTableWriter") Optional<Boolean> isTemporaryTableWriter)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     public TableWriterNode(
@@ -93,7 +95,8 @@ public class TableWriterNode
             Optional<PartitioningScheme> tablePartitioningScheme,
             Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             Optional<StatisticAggregations> statisticsAggregation,
-            Optional<Integer> taskCountIfScaledWriter)
+            Optional<Integer> taskCountIfScaledWriter,
+            Optional<Boolean> isTemporaryTableWriter)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
@@ -126,6 +129,7 @@ public class TableWriterNode
         });
         this.outputs = outputs.build();
         this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
+        this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter, "isTemporaryTableWriter is null");
     }
 
     @JsonProperty
@@ -212,6 +216,12 @@ public class TableWriterNode
         return taskCountIfScaledWriter;
     }
 
+    @JsonProperty
+    public Optional<Boolean> getIsTemporaryTableWriter()
+    {
+        return isTemporaryTableWriter;
+    }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
@@ -236,7 +246,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter);
+                taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     @Override
@@ -257,7 +267,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter);
+                taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     // only used during planning -- will not be serialized

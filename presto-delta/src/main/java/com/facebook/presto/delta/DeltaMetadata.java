@@ -122,7 +122,8 @@ public class DeltaMetadata
         metastore.createTable(
                 metastoreContext(session),
                 table,
-                principalPrivileges);
+                principalPrivileges,
+                emptyList());
     }
 
     @Override
@@ -370,7 +371,9 @@ public class DeltaMetadata
                 session.getSource(),
                 Optional.empty(),
                 false,
-                DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                session.getWarningCollector(),
+                session.getRuntimeStats());
     }
 
     private void checkConnectorId(DeltaTableHandle tableHandle)

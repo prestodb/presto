@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.ColumnConverter;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
@@ -38,18 +40,48 @@ public class MetastoreContext
     // a new MetastoreContext from either an existing MetastoreContext or callers
     // that only have a handle to the provider (e.g. SemiTransactionalHiveMetastore)
     private final ColumnConverterProvider columnConverterProvider;
+    private final WarningCollector warningCollector;
+    private final RuntimeStats runtimeStats;
 
-    public MetastoreContext(ConnectorIdentity identity, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            ConnectorIdentity identity,
+            String queryId,
+            Optional<String> clientInfo,
+            Optional<String> source,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            String username,
+            String queryId,
+            Optional<String> clientInfo,
+            Optional<String> source,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
-        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider);
+        this(username, queryId, clientInfo, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
-    public MetastoreContext(String username, String queryId, Optional<String> clientInfo, Optional<String> source, boolean impersonationEnabled, Optional<String> metastoreHeaders, boolean userDefinedTypeEncodingEnabled, ColumnConverterProvider columnConverterProvider)
+    public MetastoreContext(
+            String username,
+            String queryId,
+            Optional<String> clientInfo,
+            Optional<String> source,
+            boolean impersonationEnabled,
+            Optional<String> metastoreHeaders,
+            boolean userDefinedTypeEncodingEnabled,
+            ColumnConverterProvider columnConverterProvider,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats)
     {
         this.username = requireNonNull(username, "username is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -65,6 +97,8 @@ public class MetastoreContext
         else {
             this.columnConverter = requireNonNull(HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER, "columnConverter is null");
         }
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     public ColumnConverterProvider getColumnConverterProvider()
@@ -110,6 +144,16 @@ public class MetastoreContext
     public Optional<String> getMetastoreHeaders()
     {
         return metastoreHeaders;
+    }
+
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
+    }
+
+    public RuntimeStats getRuntimeStats()
+    {
+        return runtimeStats;
     }
 
     @Override

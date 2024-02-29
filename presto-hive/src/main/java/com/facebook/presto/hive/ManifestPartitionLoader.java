@@ -191,7 +191,8 @@ public class ManifestPartitionLoader
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 false,
                 hdfsContext.getIdentity(),
-                buildDirectoryContextProperties(session));
+                buildDirectoryContextProperties(session),
+                session.getRuntimeStats());
 
         Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;

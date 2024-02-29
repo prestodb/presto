@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -83,6 +84,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropSchema;
@@ -970,6 +972,18 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropColumn(DropColumn node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropConstraint(DropConstraint node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitAddConstraint(AddConstraint node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
@@ -2803,7 +2817,8 @@ class StatementAnalyzer
                 Identity identity;
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = new Identity(owner.get(), Optional.empty());
+                    // definer mode
+                    identity = new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
                     viewAccessControl = new ViewAccessControl(accessControl);
                 }
                 else {

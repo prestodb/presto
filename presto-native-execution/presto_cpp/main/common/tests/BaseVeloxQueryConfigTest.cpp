@@ -121,7 +121,7 @@ TEST_F(BaseVeloxQueryConfigTest, fromSystemConfig) {
   cfg->initialize(configFilePath);
 
   ASSERT_EQ("true", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
-  ASSERT_EQ("17825792", GET_VAL(QueryConfig::kMaxArbitraryBufferSize));
+  ASSERT_EQ("17825792", GET_VAL(QueryConfig::kMaxOutputBufferSize));
   ASSERT_EQ("6291456", GET_VAL(QueryConfig::kMaxPartitionedOutputBufferSize));
 
 #undef GET_VAL

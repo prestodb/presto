@@ -16,13 +16,17 @@ package com.facebook.presto.sql.planner.plan;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.matching.Property;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -119,6 +123,21 @@ public class Patterns
     public static Pattern<OutputNode> output()
     {
         return typeOf(OutputNode.class);
+    }
+
+    public static Pattern<CteProducerNode> cteProducer()
+    {
+        return typeOf(CteProducerNode.class);
+    }
+
+    public static Pattern<CteConsumerNode> cteConsumer()
+    {
+        return typeOf(CteConsumerNode.class);
+    }
+
+    public static Pattern<SequenceNode> sequenceNode()
+    {
+        return typeOf(SequenceNode.class);
     }
 
     public static Pattern<ProjectNode> project()
@@ -236,7 +255,7 @@ public class Patterns
 
     public static class Join
     {
-        public static Property<JoinNode, JoinNode.Type> type()
+        public static Property<JoinNode, JoinType> type()
         {
             return property("type", JoinNode::getType);
         }

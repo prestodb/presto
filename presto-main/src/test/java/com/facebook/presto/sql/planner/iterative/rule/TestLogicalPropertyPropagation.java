@@ -23,7 +23,9 @@ import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -56,11 +58,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -217,9 +218,9 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // add an additional unique constraint on customer (comment, nationkey)column
-        Set<ColumnHandle> commentcolumnSet = new HashSet<>();
+        LinkedHashSet<ColumnHandle> commentcolumnSet = new LinkedHashSet<>();
         commentcolumnSet.add(customerCommentColumn);
-        UniqueConstraint<ColumnHandle> commentConstraint = new UniqueConstraint<>(commentcolumnSet, true, true);
+        UniqueConstraint<ColumnHandle> commentConstraint = new UniqueConstraint<>(commentcolumnSet, true, true, false);
         List<TableConstraint<ColumnHandle>> customerConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
         customerConstraints.add(commentConstraint);
 
@@ -252,10 +253,10 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TEST: add a superfulous unique constraint on the (custkey, comment) combination
-        Set<ColumnHandle> custkeyCommentColumnSet = new HashSet<>();
+        LinkedHashSet<ColumnHandle> custkeyCommentColumnSet = new LinkedHashSet<>();
         custkeyCommentColumnSet.add(customerCustKeyColumn);
         custkeyCommentColumnSet.add(customerCommentColumn);
-        UniqueConstraint<ColumnHandle> custkeyCommentConstraint = new UniqueConstraint<>(custkeyCommentColumnSet, true, true);
+        UniqueConstraint<ColumnHandle> custkeyCommentConstraint = new UniqueConstraint<>(custkeyCommentColumnSet, true, true, false);
         customerConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
         customerConstraints.add(custkeyCommentConstraint);
 
@@ -305,8 +306,8 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // INVARIANT: define a table with primary key (A,B) and unique key (A) and ensure that the table scan key property only has key (A) (both A and B should have mappings)
-        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>("primarykey", custkeyCommentColumnSet, true, true);
-        UniqueConstraint<ColumnHandle> custkeyUniqueConstraint = new UniqueConstraint<>(ImmutableSet.of(customerCustKeyColumn), true, true);
+        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>(Optional.of("primarykey"), custkeyCommentColumnSet, true, true, false);
+        UniqueConstraint<ColumnHandle> custkeyUniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(customerCustKeyColumn)), true, true, false);
 
         expectedLogicalProperties = new LogicalPropertiesImpl(new EquivalenceClassProperty(),
                 new MaxCardProperty(),
@@ -358,8 +359,8 @@ public class TestLogicalPropertyPropagation
         ColumnHandle colB = new TpchColumnHandle("B", BIGINT);
         ColumnHandle colC = new TpchColumnHandle("C", BIGINT);
 
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA), true, true);
-        UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(ImmutableSet.of(colB, colC), true, true);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false);
+        UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
         List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(primaryKeyConstraint, uniqueConstraint);
 
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
@@ -390,8 +391,8 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //INVARIANT: define a table with keys (A,C) and (B,C) and apply predicate A=constant and ensure that the filter key property has only has one key (C)
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colC), true, true);
-        UniqueConstraint<ColumnHandle> uniqueConstraint1 = new UniqueConstraint<>(ImmutableSet.of(colB, colC), true, true);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colC)), true, true, false);
+        UniqueConstraint<ColumnHandle> uniqueConstraint1 = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
         List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(primaryKeyConstraint1, uniqueConstraint1);
 
         equivalenceClasses = new EquivalenceClassProperty();
@@ -419,7 +420,7 @@ public class TestLogicalPropertyPropagation
 
         //INVARIANT: define a table with key (A,B) and apply predicates A=constant1 and B=constant2 ensure that the filter has maxcard=1 and key property is empty
 
-        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colB), true, true));
+        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
 
         equivalenceClasses = new EquivalenceClassProperty();
         equivalenceClasses = equivalenceClasses.combineWith(varA, constant(100L, BIGINT));
@@ -498,7 +499,7 @@ public class TestLogicalPropertyPropagation
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
         VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "B", BIGINT);
         VariableReferenceExpression projectedVarA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
-        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colB), true, true));
+        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
         Assignments assignments1 = Assignments.builder().put(projectedVarA, varA).build();
 
         expectedLogicalProperties = new LogicalPropertiesImpl(
@@ -521,7 +522,7 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TableScan key property has key (A), Filter applies predicate A=B, Project only has a mapping B->B'. Project should have key property with (B').
-        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA), true, true));
+        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false));
         VariableReferenceExpression projectedA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
         Assignments assignments2 = Assignments.builder().put(projectedA, varA).build();
 
@@ -758,11 +759,11 @@ public class TestLogicalPropertyPropagation
 
                     p.variable(shipPriorityVariable);
                     p.variable(mktSegmentVariable);
-                    return p.join(JoinNode.Type.INNER,
+                    return p.join(JoinType.INNER,
                             p.limit(5, ordersTableScan),
                             p.filter(p.rowExpression("c_mktsegment = 'BUILDING'"), customerTableScan),
                             p.rowExpression("o_shippriority = 10"),
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -795,11 +796,11 @@ public class TestLogicalPropertyPropagation
 
                     p.variable(shipPriorityVariable);
                     p.variable(mktSegmentVariable);
-                    return p.join(JoinNode.Type.INNER,
+                    return p.join(JoinType.INNER,
                             p.limit(1, ordersTableScan),
                             p.filter(p.rowExpression("c_mktsegment = 'BUILDING'"), customerTableScan),
                             p.rowExpression("o_shippriority = 10"),
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -833,11 +834,11 @@ public class TestLogicalPropertyPropagation
 
                     p.variable(shipPriorityVariable);
                     p.variable(mktSegmentVariable);
-                    return p.join(JoinNode.Type.INNER,
+                    return p.join(JoinType.INNER,
                             p.filter(p.rowExpression("c_mktsegment = 'BUILDING'"), customerTableScan),
                             p.limit(6, ordersTableScan),
                             p.rowExpression("o_shippriority = 10"),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -870,11 +871,11 @@ public class TestLogicalPropertyPropagation
 
                     p.variable(shipPriorityVariable);
                     p.variable(mktSegmentVariable);
-                    return p.join(JoinNode.Type.INNER,
+                    return p.join(JoinType.INNER,
                             p.filter(p.rowExpression("c_mktsegment = 'BUILDING'"), customerTableScan),
                             p.limit(1, ordersTableScan),
                             p.rowExpression("o_shippriority = 10"),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -903,8 +904,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.LEFT, p.limit(7, ordersTableScan), customerTableScan,
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    return p.join(JoinType.LEFT, p.limit(7, ordersTableScan), customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -933,8 +934,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.LEFT, ordersTableScan, p.limit(8, customerTableScan),
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    return p.join(JoinType.LEFT, ordersTableScan, p.limit(8, customerTableScan),
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -963,8 +964,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.RIGHT, customerTableScan, p.limit(9, ordersTableScan),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                    return p.join(JoinType.RIGHT, customerTableScan, p.limit(9, ordersTableScan),
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -993,8 +994,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.RIGHT, p.limit(10, customerTableScan), ordersTableScan,
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                    return p.join(JoinType.RIGHT, p.limit(10, customerTableScan), ordersTableScan,
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1022,8 +1023,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.LEFT, customerTableScan, ordersTableScan,
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                    return p.join(JoinType.LEFT, customerTableScan, ordersTableScan,
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1051,7 +1052,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
+                    return p.join(JoinType.INNER, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1080,16 +1081,16 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, p.limit(11, customerTableScan), p.limit(12, ordersTableScan), emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
+                    return p.join(JoinType.INNER, p.limit(11, customerTableScan), p.limit(12, ordersTableScan), emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
         //test m to n cases where there are multiple keys in the left and right tables to concatenate e.g. add unique keys customer.comment and orders.comment
         List<TableConstraint<ColumnHandle>> customerTableConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
-        customerTableConstraints.add(new UniqueConstraint<>(ImmutableSet.of(customerCommentColumn), true, true));
+        customerTableConstraints.add(new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(customerCommentColumn)), true, true, false));
 
         List<TableConstraint<ColumnHandle>> orderTableConstraints = new ArrayList<>(tester().getTableConstraints(ordersTableHandle));
-        orderTableConstraints.add(new UniqueConstraint<>(ImmutableSet.of(ordersCommentColumn), true, true));
+        orderTableConstraints.add(new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(ordersCommentColumn)), true, true, false));
 
         expectedLogicalProperties = new LogicalPropertiesImpl(
                 new EquivalenceClassProperty(),
@@ -1119,7 +1120,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             orderTableConstraints);
 
-                    return p.join(JoinNode.Type.INNER, customerTableScan, ordersTableScan, emptyList(),
+                    return p.join(JoinType.INNER, customerTableScan, ordersTableScan, emptyList(),
                             ImmutableList.of(customerCustKeyVariable, customerCommentVariable, ordersOrderKeyVariable, ordersCustKeyVariable, ordersCommentVariable),
                             Optional.empty());
                 })
@@ -1138,7 +1139,7 @@ public class TestLogicalPropertyPropagation
                 .on(p -> {
                     ValuesNode values1 = p.values(1, c1);
                     ValuesNode values2 = p.values(1, c2);
-                    return p.join(JoinNode.Type.INNER, values1, values2, emptyList(), ImmutableList.of(c1, c2), Optional.empty());
+                    return p.join(JoinType.INNER, values1, values2, emptyList(), ImmutableList.of(c1, c2), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1155,7 +1156,7 @@ public class TestLogicalPropertyPropagation
                 .on(p -> {
                     ValuesNode values1 = p.values(1, c3);
                     ValuesNode values2 = p.values(1, c4);
-                    return p.join(JoinNode.Type.FULL, values1, values2, emptyList(), ImmutableList.of(c3, c4), Optional.empty());
+                    return p.join(JoinType.FULL, values1, values2, emptyList(), ImmutableList.of(c3, c4), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1183,7 +1184,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.FULL, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable), Optional.empty());
+                    return p.join(JoinType.FULL, customerTableScan, ordersTableScan, emptyList(), ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable), Optional.empty());
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1212,8 +1213,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.FULL, p.limit(12, customerTableScan), p.limit(10, ordersTableScan),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable)),
+                    return p.join(JoinType.FULL, p.limit(12, customerTableScan), p.limit(10, ordersTableScan),
+                            ImmutableList.of(new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable)),
                             ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable),
                             Optional.empty());
                 })
@@ -1244,7 +1245,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, p.limit(2, customerTableScan), ordersTableScan, emptyList(),
+                    return p.join(JoinType.INNER, p.limit(2, customerTableScan), ordersTableScan, emptyList(),
                             ImmutableList.of(customerCustKeyVariable, ordersOrderKeyVariable, ordersCustKeyVariable),
                             Optional.empty());
                 })
@@ -1275,7 +1276,7 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, ordersTableScan, p.limit(2, customerTableScan), emptyList(),
+                    return p.join(JoinType.INNER, ordersTableScan, p.limit(2, customerTableScan), emptyList(),
                             ImmutableList.of(ordersOrderKeyVariable, ordersCustKeyVariable, customerCustKeyVariable),
                             Optional.empty());
                 })
@@ -1303,8 +1304,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(customerTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, values, customerTableScan,
-                            new JoinNode.EquiJoinClause(finalC1, customerCustKeyVariable));
+                    return p.join(JoinType.INNER, values, customerTableScan,
+                            new EquiJoinClause(finalC1, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1330,8 +1331,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(customerTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, customerTableScan, values,
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, finalC));
+                    return p.join(JoinType.INNER, customerTableScan, values,
+                            new EquiJoinClause(customerCustKeyVariable, finalC));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1354,8 +1355,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(customerTableHandle));
 
-                    return p.join(JoinNode.Type.FULL, customerTableScan, values,
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, finalC2));
+                    return p.join(JoinType.FULL, customerTableScan, values,
+                            new EquiJoinClause(customerCustKeyVariable, finalC2));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1377,8 +1378,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(customerTableHandle));
 
-                    return p.join(JoinNode.Type.FULL, values, customerTableScan,
-                            new JoinNode.EquiJoinClause(finalC3, customerCustKeyVariable));
+                    return p.join(JoinType.FULL, values, customerTableScan,
+                            new EquiJoinClause(finalC3, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1422,15 +1423,15 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(lineitemTableHandle));
 
-                    JoinNode customerOrderJoin = p.join(JoinNode.Type.INNER,
+                    JoinNode customerOrderJoin = p.join(JoinType.INNER,
                             customerTableScan,
                             p.limit(6, ordersTableScan),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
 
-                    return p.join(JoinNode.Type.INNER,
+                    return p.join(JoinType.INNER,
                             customerOrderJoin,
                             lineitemTableScan,
-                            new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable));
+                            new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable));
                 })
                 .matches(expectedLogicalProperties);
     }
@@ -1692,19 +1693,19 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(lineitemTableHandle));
 
-                    JoinNode customerOrderJoin = p.join(JoinNode.Type.INNER,
+                    JoinNode customerOrderJoin = p.join(JoinType.INNER,
                             customerTableScan,
                             p.limit(6, ordersTableScan),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
 
                     p.variable(lineitemExtendedPriceVariable);
                     return p.aggregation(builder -> builder
                             .addAggregation(p.variable("sum_price", DOUBLE), p.rowExpression("sum(l_extendedprice)"))
                             .singleGroupingSet(lineitemLinenumberVariable, shipPriorityVariable)
-                            .source(p.join(JoinNode.Type.INNER,
+                            .source(p.join(JoinType.INNER,
                                     customerOrderJoin,
                                     lineitemTableScan,
-                                    new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable))));
+                                    new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable))));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -1744,19 +1745,19 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(lineitemTableHandle));
 
-                    JoinNode customerOrderJoin = p.join(JoinNode.Type.INNER,
+                    JoinNode customerOrderJoin = p.join(JoinType.INNER,
                             customerTableScan,
                             p.limit(6, ordersTableScan),
-                            new JoinNode.EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
+                            new EquiJoinClause(customerCustKeyVariable, ordersCustKeyVariable));
 
                     p.variable(lineitemExtendedPriceVariable);
                     return p.aggregation(builder -> builder
                             .addAggregation(p.variable("sum_price", DOUBLE), p.rowExpression("sum(l_extendedprice)"))
                             .singleGroupingSet(lineitemLinenumberVariable, ordersOrderKeyVariable, shipPriorityVariable)
-                            .source(p.join(JoinNode.Type.INNER,
+                            .source(p.join(JoinType.INNER,
                                     customerOrderJoin,
                                     lineitemTableScan,
-                                    new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable))));
+                                    new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderkeyVariable))));
                 })
                 .matches(expectedLogicalProperties);
     }
@@ -1939,8 +1940,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    JoinNode ordersCustomerJoin = p.join(JoinNode.Type.INNER, ordersTableScan, customerTableScan,
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    JoinNode ordersCustomerJoin = p.join(JoinType.INNER, ordersTableScan, customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
 
                     return p.limit(6, ordersCustomerJoin);
                 })
@@ -1970,8 +1971,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, p.limit(5, ordersTableScan), customerTableScan,
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    return p.join(JoinType.INNER, p.limit(5, ordersTableScan), customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 
@@ -2047,8 +2048,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    JoinNode ordersCustomerJoin = p.join(JoinNode.Type.INNER, ordersTableScan, customerTableScan,
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    JoinNode ordersCustomerJoin = p.join(JoinType.INNER, ordersTableScan, customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
 
                     return p.topN(6, ImmutableList.of(ordersCustKeyVariable, ordersOrderKeyVariable),
                             ordersCustomerJoin);
@@ -2079,8 +2080,8 @@ public class TestLogicalPropertyPropagation
                             TupleDomain.none(),
                             tester().getTableConstraints(ordersTableHandle));
 
-                    return p.join(JoinNode.Type.INNER, p.topN(5, ImmutableList.of(ordersCustKeyVariable), ordersTableScan), customerTableScan,
-                            new JoinNode.EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+                    return p.join(JoinType.INNER, p.topN(5, ImmutableList.of(ordersCustKeyVariable), ordersTableScan), customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
                 })
                 .matches(expectedLogicalProperties);
 

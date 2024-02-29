@@ -28,9 +28,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -47,12 +45,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
-import static com.facebook.presto.iceberg.TableType.DATA;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergNamespace;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -62,8 +60,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
-import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
@@ -90,7 +86,7 @@ public class IcebergNativeMetadata
     }
 
     @Override
-    protected Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getNativeIcebergTable(resourceFactory, session, schemaTableName);
     }
@@ -99,10 +95,8 @@ public class IcebergNativeMetadata
     protected boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName.getSchemaName(), name.getTableName());
-
         try {
-            resourceFactory.getCatalog(session).loadTable(tableIdentifier);
+            getIcebergTable(session, new SchemaTableName(schemaTableName.getSchemaName(), name.getTableName()));
         }
         catch (NoSuchTableException e) {
             // return null to throw
@@ -171,21 +165,11 @@ public class IcebergNativeMetadata
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
-        String formatVersion = getFormatVersion(tableMetadata.getProperties());
-        if (formatVersion != null) {
-            propertiesBuilder.put(FORMAT_VERSION, formatVersion);
-        }
 
         try {
             transaction = resourceFactory.getCatalog(session).newCreateTableTransaction(
-                    toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, propertiesBuilder.build());
+                    toIcebergTableIdentifier(schemaTableName), schema, partitionSpec, populateTableProperties(tableMetadata, fileFormat));
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(schemaTableName);
@@ -207,7 +191,7 @@ public class IcebergNativeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be dropped");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
         TableIdentifier tableIdentifier = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         resourceFactory.getCatalog(session).dropTable(tableIdentifier);
     }
@@ -216,7 +200,7 @@ public class IcebergNativeMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        verify(icebergTableHandle.getTableName().getTableType() == DATA, "only the data table can be renamed");
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
         TableIdentifier from = toIcebergTableIdentifier(icebergTableHandle.getSchemaTableName());
         TableIdentifier to = toIcebergTableIdentifier(newTable);
         resourceFactory.getCatalog(session).renameTable(from, to);

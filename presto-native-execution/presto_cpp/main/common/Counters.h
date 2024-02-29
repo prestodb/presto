@@ -68,10 +68,16 @@ constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
 constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
+constexpr folly::StringPiece kCounterNumTasksDeadlock{
+    "presto_cpp.num_tasks_deadlock"};
+constexpr folly::StringPiece kCounterNumTaskManagerLockTimeOut{
+    "presto_cpp.num_tasks_manager_lock_timeout"};
 constexpr folly::StringPiece kCounterNumRunningDrivers{
     "presto_cpp.num_running_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedDrivers{
     "presto_cpp.num_blocked_drivers"};
+constexpr folly::StringPiece kCounterNumStuckDrivers{
+    "presto_cpp.num_stuck_drivers"};
 
 /// Number of total OutputBuffer managed by all
 /// OutputBufferManager
@@ -192,8 +198,8 @@ constexpr folly::StringPiece kCounterSpillSortTimeUs{
 constexpr folly::StringPiece kCounterSpillSerializationTimeUs{
     "presto_cpp.spill_serialization_time_us"};
 /// The number of disk writes to spill rows.
-constexpr folly::StringPiece kCounterSpillDiskWrites{
-    "presto_cpp.spill_disk_write_count"};
+constexpr folly::StringPiece kCounterSpillWrites{
+    "presto_cpp.spill_write_count"};
 /// The time spent on copy out serialized rows for disk write. If compression
 /// is enabled, this includes the compression time.
 constexpr folly::StringPiece kCounterSpillFlushTimeUs{

@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -57,6 +58,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.security.PrincipalType;
@@ -169,7 +171,7 @@ public class PrestoSparkQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {

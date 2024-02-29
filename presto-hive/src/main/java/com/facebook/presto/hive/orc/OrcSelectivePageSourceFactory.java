@@ -103,9 +103,9 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
@@ -315,6 +315,9 @@ public class OrcSelectivePageSourceFactory
                     lazyReadSmallRanges,
                     inputStream,
                     stats);
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||

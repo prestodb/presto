@@ -48,6 +48,14 @@ std::string toVeloxConfig(const std::string& name) {
           {"native_spill_file_create_config",
            QueryConfig::kSpillFileCreateConfig},
           {"native_join_spill_enabled", QueryConfig::kJoinSpillEnabled},
+          {"native_window_spill_enabled", QueryConfig::kWindowSpillEnabled},
+          {"native_writer_spill_enabled", QueryConfig::kWriterSpillEnabled},
+          {"native_row_number_spill_enabled",
+           QueryConfig::kRowNumberSpillEnabled},
+          {"native_join_spiller_partition_bits",
+           QueryConfig::kJoinSpillPartitionBits},
+          {"native_topn_row_number_spill_enabled",
+           QueryConfig::kTopNRowNumberSpillEnabled},
           {"native_debug_validate_output_from_operators",
            QueryConfig::kValidateOutputFromOperators}};
   auto it = kPrestoToVeloxMapping.find(name);
@@ -84,7 +92,7 @@ void updateFromSystemConfigs(
   }
 }
 
-std::unordered_map<std::string, std::string> toConfigs(
+std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
@@ -117,6 +125,27 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
 
   return connectorConfigs;
 }
+
+void updateVeloxConfigs(
+    std::unordered_map<std::string, std::string>& configStrings) {
+  // If `legacy_timestamp` is true, the coordinator expects timestamp
+  // conversions without a timezone to be converted to the user's
+  // session_timezone.
+  auto it = configStrings.find("legacy_timestamp");
+  // `legacy_timestamp` default value is true in the coordinator.
+  if ((it == configStrings.end()) || (folly::to<bool>(it->second))) {
+    configStrings.emplace(
+        core::QueryConfig::kAdjustTimestampToTimezone, "true");
+  }
+  // TODO: remove this once cpu driver slicing config is turned on by default in
+  // Velox.
+  it = configStrings.find(core::QueryConfig::kDriverCpuTimeSliceLimitMs);
+  if (it == configStrings.end()) {
+    // Set it to 1 second to be aligned with Presto Java.
+    configStrings.emplace(
+        core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
+  }
+}
 } // namespace
 
 QueryContextManager::QueryContextManager(
@@ -129,7 +158,7 @@ QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::SessionRepresentation& session) {
   return findOrCreateQueryCtx(
-      taskId, toConfigs(session), toConnectorConfigs(session));
+      taskId, toVeloxConfigs(session), toConnectorConfigs(session));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
@@ -146,16 +175,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
     return queryCtx;
   }
 
-  // If `legacy_timestamp` is true, the coordinator expects timestamp
-  // conversions without a timezone to be converted to the user's
-  // session_timezone.
-  auto it = configStrings.find("legacy_timestamp");
-
-  // `legacy_timestamp` default value is true in the coordinator.
-  if ((it == configStrings.end()) || (folly::to<bool>(it->second))) {
-    configStrings.emplace(
-        core::QueryConfig::kAdjustTimestampToTimezone, "true");
-  }
+  updateVeloxConfigs(configStrings);
 
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs;
   for (auto& entry : connectorConfigStrings) {

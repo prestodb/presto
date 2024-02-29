@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
@@ -41,6 +42,7 @@ import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
+import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -86,9 +88,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
@@ -107,6 +109,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -118,9 +121,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
@@ -135,12 +139,15 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
+import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
+import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
@@ -170,8 +177,6 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
-import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -188,6 +193,8 @@ public class IcebergPageSourceProvider
     private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
     private final HiveClientConfig hiveClientConfig;
+    private final IcebergFileWriterFactory fileWriterFactory;
+    private final JsonCodec<CommitTaskData> jsonCodec;
 
     private final ParquetMetadataSource parquetMetadataSource;
 
@@ -200,7 +207,9 @@ public class IcebergPageSourceProvider
             StripeMetadataSourceFactory stripeMetadataSourceFactory,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider,
             HiveClientConfig hiveClientConfig,
-            ParquetMetadataSource parquetMetadataSource)
+            ParquetMetadataSource parquetMetadataSource,
+            IcebergFileWriterFactory fileWriterFactory,
+            JsonCodec<CommitTaskData> jsonCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -210,6 +219,8 @@ public class IcebergPageSourceProvider
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
         this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
     }
 
     private static ConnectorPageSourceWithRowPositions createParquetPageSource(
@@ -724,20 +735,24 @@ public class IcebergPageSourceProvider
 
         List<IcebergColumnHandle> regularColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
-                .filter(column -> !partitionKeys.containsKey(column.getId()))
+                .filter(column -> column.getColumnType() != PARTITION_KEY &&
+                        !partitionKeys.containsKey(column.getId()) &&
+                        !IcebergMetadataColumn.isMetadataColumnId(column.getId()))
                 .collect(Collectors.toList());
 
         Optional<String> tableSchemaJson = table.getTableSchemaJson();
         verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
         Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes());
+
+        boolean equalityDeletesRequired = table.getIcebergTableName().getTableType() == IcebergTableType.DATA;
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes(), equalityDeletesRequired);
 
         deleteFilterRequiredColumns.stream()
                 .filter(not(icebergColumns::contains))
                 .forEach(regularColumns::add);
 
         // TODO: pushdownFilter for icebergLayout
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName().getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getIcebergTableName().getTableName());
         ConnectorPageSourceWithRowPositions connectorPageSourceWithRowPositions = createDataPageSource(
                 session,
                 hdfsContext,
@@ -750,12 +765,36 @@ public class IcebergPageSourceProvider
                 splitContext.isCacheable());
         ConnectorPageSource dataPageSource = connectorPageSourceWithRowPositions.getConnectorPageSource();
 
+        Optional<String> outputPath = table.getOutputPath();
+        Optional<Map<String, String>> storageProperties = table.getStorageProperties();
+        verify(outputPath.isPresent(), "outputPath is null");
+        verify(storageProperties.isPresent(), "storageProperties are null");
+
+        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
+        Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
+                tableSchema,
+                split.getPartitionSpecAsJson(),
+                split.getPartitionDataJson(),
+                locationProvider,
+                fileWriterFactory,
+                hdfsEnvironment,
+                hdfsContext,
+                jsonCodec,
+                session,
+                split.getPath(),
+                split.getFileFormat());
         Supplier<Optional<RowPredicate>> deletePredicate = Suppliers.memoize(() -> {
+            // If equality deletes are optimized into a join they don't need to be applied here
+            List<DeleteFile> deletesToApply = split
+                    .getDeletes()
+                    .stream()
+                    .filter(deleteFile -> deleteFile.content() == POSITION_DELETES || equalityDeletesRequired)
+                    .collect(toImmutableList());
             List<DeleteFilter> deleteFilters = readDeletes(
                     session,
                     tableSchema,
                     split.getPath(),
-                    split.getDeletes(),
+                    deletesToApply,
                     connectorPageSourceWithRowPositions.getStartRowPosition(),
                     connectorPageSourceWithRowPositions.getEndRowPosition());
             return deleteFilters.stream()
@@ -763,21 +802,31 @@ public class IcebergPageSourceProvider
                     .reduce(RowPredicate::and);
         });
 
-        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, deletePredicate);
+        HashMap<Integer, Object> metadataValues = new HashMap<>();
+        for (IcebergColumnHandle icebergColumn : icebergColumns) {
+            if (icebergColumn.isPathColumn()) {
+                metadataValues.put(icebergColumn.getColumnIdentity().getId(), utf8Slice(split.getPath()));
+            }
+            else if (icebergColumn.isDataSequenceNumberColumn()) {
+                metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
+            }
+        }
+
+        ConnectorPageSource dataSource = new IcebergUpdateablePageSource(icebergColumns, metadataValues, partitionKeys, dataPageSource, deleteSinkSupplier, deletePredicate);
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
         }
         return dataSource;
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes, boolean equalityDeletesRequired)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
             if (deleteFile.content() == POSITION_DELETES) {
                 requiredColumns.add(IcebergColumnHandle.create(ROW_POSITION, typeManager, IcebergColumnHandle.ColumnType.REGULAR));
             }
-            else if (deleteFile.content() == EQUALITY_DELETES) {
+            else if (deleteFile.content() == EQUALITY_DELETES && equalityDeletesRequired) {
                 deleteFile.equalityFieldIds().stream()
                         .map(id -> IcebergColumnHandle.create(schema.findField(id), typeManager, IcebergColumnHandle.ColumnType.REGULAR))
                         .forEach(requiredColumns::add);

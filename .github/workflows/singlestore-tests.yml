@@ -40,6 +40,17 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v2
+      - name: Remove unnecessary pre-installed toolchains for free disk spaces
+        run: |
+          echo "=== BEFORE ==="
+          df -h
+          # Source: https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo "=== AFTER ==="
+          df -h
       - uses: actions/setup-java@v1
         with:
           java-version: 8

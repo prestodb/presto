@@ -3,10 +3,10 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, [i_item_sk, s_store_name, s_zip])
-                    final aggregation over (ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip)
+                    final aggregation over (ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip])
-                                partial aggregation over (ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip)
+                            remote exchange (REPARTITION, HASH, [ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip])
+                                partial aggregation over (ca_city, ca_city_98, ca_street_name, ca_street_name_95, ca_street_number, ca_street_number_94, ca_zip, ca_zip_101, d_year_28, d_year_56, i_item_sk, i_product_name, s_store_name, s_zip)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
@@ -90,10 +90,10 @@ remote exchange (GATHER, SINGLE, [])
                                                 scan item
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [i_item_sk_573, s_store_name_452, s_zip_472])
-                        final aggregation over (ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_369, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472)
+                        final aggregation over (ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_369, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472])
-                                    partial aggregation over (ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_369, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472)
+                                remote exchange (REPARTITION, HASH, [ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472])
+                                    partial aggregation over (ca_city_547, ca_city_560, ca_street_name_544, ca_street_name_557, ca_street_number_543, ca_street_number_556, ca_zip_550, ca_zip_563, d_year_397, d_year_425, i_item_sk_573, i_product_name_594, s_store_name_452, s_zip_472)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):

@@ -100,6 +100,7 @@ public final class HiveSessionProperties
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
+    private static final String BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON = "bucket_function_type_for_cte_materialization";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
@@ -125,6 +126,10 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
+    public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
+    public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
+    public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -445,6 +450,15 @@ public final class HiveSessionProperties
                         false,
                         value -> BucketFunctionType.valueOf((String) value),
                         BucketFunctionType::toString),
+                new PropertyMetadata<>(
+                        BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON,
+                        "hash function type for bucketed table for cte materialization",
+                        VARCHAR,
+                        BucketFunctionType.class,
+                        hiveClientConfig.getBucketFunctionTypeForCteMaterialization(),
+                        false,
+                        value -> BucketFunctionType.valueOf((String) value),
+                        BucketFunctionType::toString),
                 booleanProperty(
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
@@ -583,7 +597,33 @@ public final class HiveSessionProperties
                         PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
                         "Enables parallel parsing of partition values from partition names using thread pool",
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
-                        false));
+                        false),
+                booleanProperty(
+                        QUICK_STATS_ENABLED,
+                        "Use quick stats to resolve stats",
+                        hiveClientConfig.isQuickStatsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        QUICK_STATS_INLINE_BUILD_TIMEOUT,
+                        "Duration that the first query that initiated a quick stats call should wait before failing and returning EMPTY stats. " +
+                                "If set to 0, quick stats builds are pushed to the background, and EMPTY stats are returned",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getQuickStatsInlineBuildTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUICK_STATS_BACKGROUND_BUILD_TIMEOUT,
+                        "If a quick stats build is already in-progress by another query, this property controls the duration the current query should wait " +
+                                "for the in-progress build to finish, before failing and returning EMPTY stats. If set to 0, EMTPY stats are returned whenever an " +
+                                "in-progress build is observed",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getQuickStatsBackgroundBuildTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -902,6 +942,11 @@ public final class HiveSessionProperties
         return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
     }
 
+    public static BucketFunctionType getBucketFunctionTypeForCteMaterialization(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_CTE_MATERIALIZATON, BucketFunctionType.class);
+    }
+
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
@@ -1020,5 +1065,20 @@ public final class HiveSessionProperties
     public static boolean isParallelParsingOfPartitionValuesEnabled(ConnectorSession session)
     {
         return session.getProperty(PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQuickStatsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_ENABLED, Boolean.class);
+    }
+
+    public static Duration getQuickStatsInlineBuildTimeout(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_INLINE_BUILD_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getQuickStatsBackgroundBuildTimeout(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, Duration.class);
     }
 }

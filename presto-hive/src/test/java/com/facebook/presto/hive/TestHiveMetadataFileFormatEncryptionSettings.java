@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -140,7 +141,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new QuickStatsProvider(HDFS_ENVIRONMENT, HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
 
         metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)

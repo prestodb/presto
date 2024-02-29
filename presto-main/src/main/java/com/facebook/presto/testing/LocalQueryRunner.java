@@ -18,6 +18,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -450,6 +451,7 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         NodeInfo nodeInfo = new NodeInfo("test");
+        NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
                 metadata,
                 catalogManager,
@@ -501,7 +503,7 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 new TestingTempStorageManager(),
                 new QueryPrerequisitesManager(),
-                new SessionPropertyDefaults(nodeInfo),
+                new SessionPropertyDefaults(nodeInfo, nodeVersion),
                 new ThrowingNodeTtlFetcherManager(),
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
@@ -539,7 +541,8 @@ public class LocalQueryRunner
                 defaultSession.getPreparedStatements(),
                 defaultSession.getSessionFunctions(),
                 defaultSession.getTracer(),
-                defaultSession.getWarningCollector());
+                defaultSession.getWarningCollector(),
+                defaultSession.getRuntimeStats());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())

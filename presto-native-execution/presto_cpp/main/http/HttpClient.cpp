@@ -28,23 +28,17 @@ HttpClient::HttpClient(
     std::chrono::milliseconds transactionTimeout,
     std::chrono::milliseconds connectTimeout,
     std::shared_ptr<velox::memory::MemoryPool> pool,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers,
+    folly::SSLContextPtr sslContext,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       address_(address),
       transactionTimer_(transactionTimeout, eventBase),
       connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
-      clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers),
+      sslContext_(sslContext),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
       maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()),
       sessionPool_(sessionPool) {
-  // clientCertAndKeyPath_ and ciphers_ both needed to be set for https. For
-  // http, both need to be unset. One set and another is not set is not a valid
-  // configuration.
-  VELOX_CHECK_EQ(clientCertAndKeyPath_.empty(), ciphers_.empty());
   if (!sessionPool_) {
     sessionPoolHolder_ = std::make_unique<proxygen::SessionPool>();
     sessionPool_ = sessionPoolHolder_.get();
@@ -305,31 +299,25 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       std::chrono::milliseconds connectTimeout,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
-      const std::string& clientCertAndKeyPath,
-      const std::string& ciphers)
+      folly::SSLContextPtr sslContext)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
         transactionTimer_(transactionTimeout),
         connectTimeout_(connectTimeout),
         eventBase_(eventBase),
         address_(address),
-        clientCertAndKeyPath_(clientCertAndKeyPath),
-        ciphers_(ciphers) {}
+        sslContext_(std::move(sslContext)) {}
 
-  bool useHttps() {
-    return !(clientCertAndKeyPath_.empty() && ciphers_.empty());
+  bool useHttps() const {
+    return sslContext_ != nullptr;
   }
 
   void connect() {
     connector_ =
         std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
     if (useHttps()) {
-      auto context = std::make_shared<folly::SSLContext>();
-      context->loadCertKeyPairFromFiles(
-          clientCertAndKeyPath_.c_str(), clientCertAndKeyPath_.c_str());
-      context->setCiphersOrThrow(ciphers_);
       connector_->connectSSL(
-          eventBase_, address_, context, nullptr, connectTimeout_);
+          eventBase_, address_, sslContext_, nullptr, connectTimeout_);
     } else {
       connector_->connect(eventBase_, address_, connectTimeout_);
     }
@@ -360,9 +348,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   const std::chrono::milliseconds connectTimeout_;
   folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
-
+  const folly::SSLContextPtr sslContext_;
   std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
@@ -392,8 +378,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
         connectTimeout_,
         eventBase_,
         address_,
-        clientCertAndKeyPath_,
-        ciphers_);
+        sslContext_);
 
     connectionHandler->connect();
   };

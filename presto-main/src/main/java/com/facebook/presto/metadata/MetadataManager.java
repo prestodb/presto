@@ -60,6 +60,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -449,6 +450,18 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorPartitioningHandle connectorPartitioningHandle = metadata.getPartitioningHandleForExchange(session.toConnectorSession(connectorId), partitionCount, partitionTypes);
+        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
+        return new PartitioningHandle(Optional.of(connectorId), Optional.of(transaction), connectorPartitioningHandle);
+    }
+
+    @Override
+    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
+    {
+        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName)));
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        ConnectorPartitioningHandle connectorPartitioningHandle = metadata.getPartitioningHandleForCteMaterialization(session.toConnectorSession(connectorId), partitionCount, partitionTypes);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
         return new PartitioningHandle(Optional.of(connectorId), Optional.of(transaction), connectorPartitioningHandle);
     }
@@ -1441,6 +1454,22 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         return metadata.getTableLayoutFilterCoverage(tableHandle.getLayout().get(), relevantPartitionColumns);
+    }
+
+    @Override
+    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.dropConstraint(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), constraintName);
+    }
+
+    @Override
+    public void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.addConstraint(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableConstraint);
     }
 
     private ViewDefinition deserializeView(String data)

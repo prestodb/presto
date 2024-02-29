@@ -42,6 +42,7 @@ target_link_libraries(
   velox_encode
   velox_exception
   velox_vector
+  velox_presto_serializer
   Boost::filesystem
   ${RE2}
   ${FOLLY_LIBRARIES}

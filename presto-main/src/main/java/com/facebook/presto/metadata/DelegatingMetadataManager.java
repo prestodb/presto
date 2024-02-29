@@ -35,6 +35,7 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -151,6 +152,12 @@ public abstract class DelegatingMetadataManager
     public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
     {
         return delegate.getPartitioningHandleForExchange(session, catalogName, partitionCount, partitionTypes);
+    }
+
+    @Override
+    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
+    {
+        return delegate.getPartitioningHandleForCteMaterialization(session, catalogName, partitionCount, partitionTypes);
     }
 
     @Override
@@ -628,5 +635,17 @@ public abstract class DelegatingMetadataManager
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
     {
         return delegate.getConnectorCapabilities(session, catalogName);
+    }
+
+    @Override
+    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    {
+        delegate.dropConstraint(session, tableHandle, constraintName);
+    }
+
+    @Override
+    public void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint)
+    {
+        delegate.addConstraint(session, tableHandle, tableConstraint);
     }
 }

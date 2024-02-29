@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.geospatial;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
@@ -27,6 +28,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -104,7 +106,7 @@ public class TestSpatialJoins
 
         FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, dataDirectory.toURI().toString(), "test");
         ColumnConverterProvider columnConverterProvider = HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
-        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, columnConverterProvider), Database.builder()
+        metastore.createDatabase(new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, columnConverterProvider, WarningCollector.NOOP, new RuntimeStats()), Database.builder()
                 .setDatabaseName("default")
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)

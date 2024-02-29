@@ -23,6 +23,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -54,6 +55,10 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
@@ -63,10 +68,6 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoin
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.DISABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
@@ -288,7 +289,7 @@ public class RandomizeNullKeyInOuterJoin
             PlanNode rewrittenRight = context.rewrite(joinNode.getRight(), context.get());
 
             boolean enabledByCostModel = strategy.equals(COST_BASED) && hasNullSkew(statsProvider.getStats(joinNode).getJoinNodeStatsEstimate());
-            List<JoinNode.EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
+            List<EquiJoinClause> candidateEquiJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> isSupportedType(x.getLeft()) && isSupportedType(x.getRight()))
                     .filter(x -> enabledByCostModel || strategy.equals(ALWAYS) || enabledForJoinKeyFromOuterJoin(context.get(), x))
                     .collect(toImmutableList());
@@ -313,14 +314,14 @@ public class RandomizeNullKeyInOuterJoin
                     .collect(toImmutableList());
             Map<VariableReferenceExpression, RowExpression> rightKeyRandomVariableMap = generateRandomKeyMap(rightJoinKeys, RIGHT_PREFIX);
 
-            ImmutableList.Builder<JoinNode.EquiJoinClause> joinClauseBuilder = ImmutableList.builder();
+            ImmutableList.Builder<EquiJoinClause> joinClauseBuilder = ImmutableList.builder();
             // Rewrite supported join clauses
-            List<JoinNode.EquiJoinClause> rewrittenJoinClauses = candidateEquiJoinClauses.stream()
-                    .map(x -> new JoinNode.EquiJoinClause(keyToRandomKeyMap.get(LEFT_PREFIX).get(x.getLeft()), keyToRandomKeyMap.get(RIGHT_PREFIX).get(x.getRight())))
+            List<EquiJoinClause> rewrittenJoinClauses = candidateEquiJoinClauses.stream()
+                    .map(x -> new EquiJoinClause(keyToRandomKeyMap.get(LEFT_PREFIX).get(x.getLeft()), keyToRandomKeyMap.get(RIGHT_PREFIX).get(x.getRight())))
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(rewrittenJoinClauses);
             // Add the join clauses which are not supported back
-            List<JoinNode.EquiJoinClause> unchangedJoinClauses = joinNode.getCriteria().stream()
+            List<EquiJoinClause> unchangedJoinClauses = joinNode.getCriteria().stream()
                     .filter(x -> !candidateEquiJoinClauses.contains(x))
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(unchangedJoinClauses);
@@ -333,9 +334,9 @@ public class RandomizeNullKeyInOuterJoin
                     .filter(x -> x.getRight().getType() instanceof VarcharType).map(x -> x.getRight()).distinct().collect(toImmutableMap(identity(), x -> specialForm(IS_NULL, BOOLEAN, x)));
             Map<RowExpression, VariableReferenceExpression> rightIsNullCheckAssignment = rightIsNullCheckExpression.values().stream().collect(toImmutableMap(identity(), x -> planVariableAllocator.newVariable(x)));
 
-            List<JoinNode.EquiJoinClause> isNullCheck = candidateEquiJoinClauses.stream()
+            List<EquiJoinClause> isNullCheck = candidateEquiJoinClauses.stream()
                     .filter(x -> x.getLeft().getType() instanceof VarcharType && x.getRight().getType() instanceof VarcharType)
-                    .map(x -> new JoinNode.EquiJoinClause(leftIsNullCheckAssignment.get(leftIsNullCheckExpression.get(x.getLeft())), rightIsNullCheckAssignment.get(rightIsNullCheckExpression.get(x.getRight()))))
+                    .map(x -> new EquiJoinClause(leftIsNullCheckAssignment.get(leftIsNullCheckExpression.get(x.getLeft())), rightIsNullCheckAssignment.get(rightIsNullCheckExpression.get(x.getRight()))))
                     .collect(toImmutableList());
             joinClauseBuilder.addAll(isNullCheck);
 
@@ -417,7 +418,7 @@ public class RandomizeNullKeyInOuterJoin
             return keyToRandomKeyMap.containsKey(prefix) && keyToRandomKeyMap.get(prefix).containsKey(joinKey) && source.getOutputVariables().contains(keyToRandomKeyMap.get(prefix).get(joinKey));
         }
 
-        private boolean enabledForJoinKeyFromOuterJoin(Set<VariableReferenceExpression> variablesFromOuterJoin, JoinNode.EquiJoinClause joinClause)
+        private boolean enabledForJoinKeyFromOuterJoin(Set<VariableReferenceExpression> variablesFromOuterJoin, EquiJoinClause joinClause)
         {
             return strategy.equals(KEY_FROM_OUTER_JOIN) && (variablesFromOuterJoin.contains(joinClause.getLeft()) || variablesFromOuterJoin.contains(joinClause.getRight()));
         }

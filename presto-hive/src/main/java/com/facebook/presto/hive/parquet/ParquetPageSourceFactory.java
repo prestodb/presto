@@ -96,9 +96,9 @@ import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
@@ -150,7 +150,7 @@ public class ParquetPageSourceFactory
             Optional.empty(),
             Optional.empty());
 
-    private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
+    public static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
@@ -509,7 +509,7 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
-        if (useParquetColumnNames && isPushedDownSubfield(column)) {
+        if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }

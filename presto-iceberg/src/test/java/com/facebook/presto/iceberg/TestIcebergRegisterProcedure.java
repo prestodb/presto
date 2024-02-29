@@ -508,7 +508,7 @@ public class TestIcebergRegisterProcedure
     {
         ExtendedHiveMetastore metastore = getFileHiveMetastore();
         ConnectorSession connectorSession = session.toConnectorSession();
-        MetastoreContext metastoreContext = new MetastoreContext(connectorSession.getIdentity(), connectorSession.getQueryId(), connectorSession.getClientInfo(), connectorSession.getSource(), getMetastoreHeaders(connectorSession), isUserDefinedTypeEncodingEnabled(connectorSession), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+        MetastoreContext metastoreContext = new MetastoreContext(connectorSession.getIdentity(), connectorSession.getQueryId(), connectorSession.getClientInfo(), connectorSession.getSource(), getMetastoreHeaders(connectorSession), isUserDefinedTypeEncodingEnabled(connectorSession), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, connectorSession.getWarningCollector(), connectorSession.getRuntimeStats());
 
         metastore.dropTableFromMetastore(metastoreContext, schemaName, tableName);
     }

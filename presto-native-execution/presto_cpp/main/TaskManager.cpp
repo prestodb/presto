@@ -98,6 +98,7 @@ std::unique_ptr<Result> createCompleteResult(long token) {
 
 void getData(
     PromiseHolderPtr<std::unique_ptr<Result>> promiseHolder,
+    std::weak_ptr<http::CallbackRequestHandlerState> stateHolder,
     const TaskId& taskId,
     long destination,
     long token,
@@ -116,8 +117,9 @@ void getData(
       token,
       [taskId = taskId, bufferId = destination, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
-          int64_t sequence) mutable {
-        bool complete = pages.empty();
+          int64_t sequence,
+          std::vector<int64_t> remainingBytes) mutable {
+        bool complete = false;
         int64_t nextSequence = sequence;
         std::unique_ptr<folly::IOBuf> iobuf;
         int64_t bytes = 0;
@@ -141,6 +143,7 @@ void getData(
         VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
                 << sequence << " Results size: " << bytes
                 << ", page count: " << pages.size()
+                << ", remaining: " << folly::join(',', remainingBytes)
                 << ", complete: " << std::boolalpha << complete;
 
         auto result = std::make_unique<Result>();
@@ -148,12 +151,20 @@ void getData(
         result->nextSequence = nextSequence;
         result->complete = complete;
         result->data = std::move(iobuf);
+        result->remainingBytes = std::move(remainingBytes);
 
         promiseHolder->promise.setValue(std::move(result));
 
         RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
             getCurrentTimeMs() - startMs);
+      },
+      [stateHolder]() {
+        auto state = stateHolder.lock();
+        if (state == nullptr) {
+          return false;
+        }
+        return !state->requestExpired();
       });
 
   if (!bufferFound) {
@@ -382,6 +393,7 @@ void TaskManager::getDataForResultRequests(
             << ", sequence " << resultRequest->token;
     getData(
         resultRequest->promise.lock(),
+        resultRequest->state,
         resultRequest->taskId,
         resultRequest->bufferId,
         resultRequest->token,
@@ -810,7 +822,6 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
     // If the task is aborted or failed, then return an error.
     if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
-      LOG(WARNING) << "Calling getResult() on a aborted task: " << taskId;
       promiseHolder->promise.setValue(createEmptyResult(token));
       return std::move(future).via(httpSrvCpuExecutor_);
     }
@@ -832,6 +843,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         if (prestoTask->task->state() == exec::kRunning) {
           getData(
               promiseHolder,
+              folly::to_weak_ptr(state),
               taskId,
               destination,
               token,
@@ -853,12 +865,13 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
 
       keepPromiseAlive(promiseHolder, state);
 
-      auto request = std::make_unique<ResultRequest>();
-      request->promise = folly::to_weak_ptr(promiseHolder);
-      request->taskId = taskId;
-      request->bufferId = destination;
-      request->token = token;
-      request->maxSize = maxSize;
+      auto request = std::make_unique<ResultRequest>(
+          folly::to_weak_ptr(promiseHolder),
+          folly::to_weak_ptr(state),
+          taskId,
+          destination,
+          token,
+          maxSize);
       prestoTask->resultRequests.insert({destination, std::move(request)});
       return std::move(future)
           .via(httpSrvCpuExecutor_)
@@ -1029,6 +1042,26 @@ DriverCountStats TaskManager::getDriverCountStats() const {
   driverCountStats.numBlockedDrivers =
       velox::exec::BlockingState::numBlockedDrivers();
   return driverCountStats;
+}
+
+bool TaskManager::getStuckOpCalls(
+    std::vector<std::string>& deadlockTasks,
+    std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const {
+  const auto thresholdDurationMs =
+      SystemConfig::instance()->driverStuckOperatorThresholdMs();
+  const std::chrono::milliseconds lockTimeoutMs(thresholdDurationMs);
+  auto taskMap = taskMap_.rlock(lockTimeoutMs);
+  if (!taskMap) {
+    return false;
+  }
+  for (const auto& [_, prestoTask] : *taskMap) {
+    if (prestoTask->task != nullptr &&
+        !prestoTask->task->getLongRunningOpCalls(
+            lockTimeoutMs, thresholdDurationMs, stuckOpCalls)) {
+      deadlockTasks.push_back(prestoTask->task->taskId());
+    }
+  }
+  return true;
 }
 
 int32_t TaskManager::yieldTasks(

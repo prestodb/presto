@@ -186,20 +186,17 @@ class TestShuffleReader : public ShuffleReader {
           readyPartitions)
       : partition_(partition), readyPartitions_(readyPartitions) {}
 
-  bool hasNext() override {
-    TestValue::adjust(
-        "facebook::presto::operators::test::TestShuffleReader::hasNext", this);
-    return !(*readyPartitions_)[partition_].empty();
-  }
-
-  BufferPtr next() override {
+  folly::SemiFuture<BufferPtr> next() override {
     TestValue::adjust(
         "facebook::presto::operators::test::TestShuffleReader::next", this);
-    VELOX_CHECK(!(*readyPartitions_)[partition_].empty());
+    if ((*readyPartitions_)[partition_].empty()) {
+      BufferPtr buffer = nullptr;
+      return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
+    }
 
     auto buffer = (*readyPartitions_)[partition_].back();
     (*readyPartitions_)[partition_].pop_back();
-    return buffer;
+    return folly::makeSemiFuture<BufferPtr>(std::move(buffer));
   }
 
   void noMoreData(bool success) override {
@@ -811,14 +808,6 @@ TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   params.planNode = exec::test::PlanBuilder()
                         .addNode(addShuffleReadNode(asRowType(data->type())))
                         .planNode();
-  {
-    SCOPED_TESTVALUE_SET(
-        "facebook::presto::operators::test::TestShuffleReader::hasNext",
-        injectFailure);
-
-    VELOX_ASSERT_THROW(
-        runShuffleReadTask(params, info), "ShuffleReader::hasNext failed");
-  }
 
   {
     SCOPED_TESTVALUE_SET(
@@ -1188,6 +1177,6 @@ TEST_F(UnsafeRowShuffleTest, shuffleInterfaceRegistration) {
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  folly::init(&argc, &argv, false);
+  folly::Init init{&argc, &argv};
   return RUN_ALL_TESTS();
 }

@@ -29,7 +29,9 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -119,11 +121,11 @@ import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchange
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
-import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -133,7 +135,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pus
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
-import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
@@ -714,13 +715,6 @@ public class AddExchanges
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
 
-        private boolean containsSystemTableScan(PlanNode plan)
-        {
-            return searchFrom(plan)
-                    .where(planNode -> planNode instanceof TableScanNode && isInternalSystemConnector(((TableScanNode) planNode).getTable().getConnectorId()))
-                    .matches();
-        }
-
         @Override
         public PlanWithProperties visitValues(ValuesNode node, PreferredProperties preferredProperties)
         {
@@ -821,15 +815,15 @@ public class AddExchanges
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferredProperties)
         {
             List<VariableReferenceExpression> leftVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .map(EquiJoinClause::getLeft)
                     .collect(toImmutableList());
             List<VariableReferenceExpression> rightVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(EquiJoinClause::getRight)
                     .collect(toImmutableList());
 
-            JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
+            JoinDistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
 
-            if (distributionType == JoinNode.DistributionType.REPLICATED) {
+            if (distributionType == JoinDistributionType.REPLICATED) {
                 PlanWithProperties left = accept(node.getLeft(), PreferredProperties.any());
 
                 // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
@@ -922,7 +916,7 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.PARTITIONED);
+            return buildJoin(node, left, right, JoinDistributionType.PARTITIONED);
         }
 
         private PlanWithProperties planReplicatedJoin(JoinNode node, PlanWithProperties left)
@@ -944,10 +938,10 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
+            return buildJoin(node, left, right, JoinDistributionType.REPLICATED);
         }
 
-        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
+        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinDistributionType newDistributionType)
         {
             JoinNode result = new JoinNode(
                     node.getSourceLocation(),

@@ -262,6 +262,21 @@ public class TestStatementBuilder
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
+
+        // Table Constraints
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3)");
+        printStatement("alter table foo add constraint bar primary key (col1, col2)");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) disabled not rely not enforced");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) enforced");
+        printStatement("alter table foo add constraint bar primary key (col1, col2) disabled not rely");
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3) disabled");
+        printStatement("alter table foo add constraint bar unique (col1, col2, col3) not rely not enforced");
+        printStatement("alter table a.b.c add constraint bar unique (col1, col2, col3)");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2), unique (c4), unique (c3))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2), constraint uq1 unique (c4), unique (c3))");
+        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2) disabled not rely enforced , constraint uq1 unique (c4) not rely enforced, unique (c3) disabled)");
     }
 
     @Test

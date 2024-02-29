@@ -68,7 +68,7 @@ public interface ExtendedHiveMetastore
 
     void renameDatabase(MetastoreContext metastoreContext, String databaseName, String newDatabaseName);
 
-    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
@@ -161,4 +161,8 @@ public interface ExtendedHiveMetastore
     {
         return 10;
     }
+
+    MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName);
+
+    MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint);
 }

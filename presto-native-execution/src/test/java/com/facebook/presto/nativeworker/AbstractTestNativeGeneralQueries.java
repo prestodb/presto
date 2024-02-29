@@ -50,10 +50,18 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPrestoBenchTables;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -275,6 +283,7 @@ public abstract class AbstractTestNativeGeneralQueries
             dropTableIfExists(tmpTableName);
         }
     }
+
     @Test
     public void testTableSample()
     {
@@ -719,6 +728,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
 
+        // Short decimal / long decimal -> long decimal.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('0.01' as decimal(17, 4)), CAST('5' as decimal(21, 19)))," +
+                "(CAST('0.02' as decimal(17, 4)), CAST('4' as decimal(21, 19)))" +
+                ") t(n,m)");
+
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
                 " t(n,m)", ".*Decimal.*");
@@ -868,6 +883,14 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT to_ieee754_64(-3.14158999999999988261834005243E0)");
         assertQuery("SELECT to_ieee754_64(totalprice) FROM orders");
         assertQuery("SELECT to_ieee754_64(acctbal) FROM customer");
+
+        //from_ieee754_64
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(null))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(0.0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(-3.14158999999999988261834005243E0))");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(totalprice)) FROM orders");
+        assertQuery("SELECT from_ieee754_64(to_ieee754_64(acctbal)) FROM customer");
     }
 
     @Test
@@ -898,6 +921,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT quantity_by_linenumber[2] FROM orders_ex WHERE cardinality(quantities) >= 2");
         assertQuery("SELECT element_at(quantity_by_linenumber, 2) FROM orders_ex");
         assertQuery("SELECT cast(zip(quantities, map_values(quantity_by_linenumber)) as array(row(a double, b integer))) FROM orders_ex");
+
+        assertQuery("select ngrams(quantities, 2) from orders_ex where orderkey <= 10");
     }
 
     @Test
@@ -1051,6 +1076,7 @@ public abstract class AbstractTestNativeGeneralQueries
     {
         assertQuery("SELECT * FROM nation_text");
     }
+
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
@@ -1302,13 +1328,74 @@ public abstract class AbstractTestNativeGeneralQueries
                     "AS " +
                     "SELECT nationkey, name, comment, regionkey FROM nation", tableName));
 
+            String filter = format("SELECT regionkey FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filter,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    filter(
+                                            "REGION_KEY % 3 = 1",
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(filter);
+
+            String project = format("SELECT regionkey + 1 FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    project,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey"))))));
+            assertQuery(project);
+
+            String filterProject = format("SELECT regionkey + 1 FROM \"%s\" WHERE regionkey %% 3 = 1", partitionsTableName);
+            assertPlan(
+                    filterProject,
+                    anyTree(
+                            exchange(REMOTE_STREAMING, GATHER,
+                                    project(
+                                            ImmutableMap.of("EXPRESSION", expression("REGION_KEY + CAST(1 AS bigint)")),
+                                            filter(
+                                                    "REGION_KEY % 3 = 1",
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(filterProject);
+
+            String aggregation = format("SELECT count(*), sum(regionkey) FROM \"%s\"", partitionsTableName);
+            assertPlan(
+                    aggregation,
+                    anyTree(
+                            aggregation(
+                                    ImmutableMap.of(
+                                            "FINAL_COUNT", functionCall("count", ImmutableList.of()),
+                                            "FINAL_SUM", functionCall("sum", ImmutableList.of("REGION_KEY"))),
+                                    SINGLE,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(aggregation);
+
+            String groupBy = format("SELECT regionkey, count(*) FROM \"%s\" GROUP BY regionkey", partitionsTableName);
+            assertPlan(
+                    groupBy,
+                    anyTree(
+                            aggregation(
+                                    singleGroupingSet("REGION_KEY"),
+                                    ImmutableMap.of(
+                                            Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                    ImmutableMap.of(),
+                                    Optional.empty(),
+                                    SINGLE,
+                                    exchange(LOCAL, REPARTITION,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))));
+            assertQuery(groupBy);
+
             String join = format("SELECT * " +
                     "FROM " +
                     "   (SELECT DISTINCT regionkey FROM %s) t " +
                     "INNER JOIN " +
                     "   (SELECT regionkey FROM \"%s\") p " +
                     "ON t.regionkey = p.regionkey", tableName, partitionsTableName);
-
             Session session = Session.builder(getSession())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
                     .build();
@@ -1321,8 +1408,8 @@ public abstract class AbstractTestNativeGeneralQueries
                                     anyTree(
                                             exchange(REMOTE_STREAMING, REPARTITION,
                                                     exchange(REMOTE_STREAMING, GATHER,
-                                                            anyTree(
-                                                                    tableScan(partitionsTableName))))))));
+                                                            filter("REGION_KEY IN (0, 1, 2, 3, 4)",
+                                                                    tableScan(partitionsTableName, ImmutableMap.of("REGION_KEY", "regionkey")))))))));
             assertQuery(session, join);
         }
         finally {
@@ -1377,10 +1464,10 @@ public abstract class AbstractTestNativeGeneralQueries
                     .build();
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(table, ImmutableList.of(
                     new ColumnMetadata("col", RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("NationKey"), BIGINT),
-                        new RowType.Field(Optional.of("NAME"), VARCHAR),
-                        new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                        new RowType.Field(Optional.of("commenT"), VARCHAR))))),
+                            new RowType.Field(Optional.of("NationKey"), BIGINT),
+                            new RowType.Field(Optional.of("NAME"), VARCHAR),
+                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                            new RowType.Field(Optional.of("commenT"), VARCHAR))))),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .singleStatement()

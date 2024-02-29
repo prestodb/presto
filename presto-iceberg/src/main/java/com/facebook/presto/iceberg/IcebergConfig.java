@@ -19,7 +19,6 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
@@ -50,6 +49,7 @@ public class IcebergConfig
     private boolean mergeOnReadModeEnabled = true;
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
+    private boolean deleteAsJoinRewriteEnabled = true;
 
     private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -233,6 +233,19 @@ public class IcebergConfig
     public boolean isPushdownFilterEnabled()
     {
         return pushdownFilterEnabled;
+    }
+
+    @Config("iceberg.delete-as-join-rewrite-enabled")
+    @ConfigDescription("When enabled, equality delete row filtering will be implemented by rewriting the query plan to join with the delete keys.")
+    public IcebergConfig setDeleteAsJoinRewriteEnabled(boolean deleteAsJoinPushdownEnabled)
+    {
+        this.deleteAsJoinRewriteEnabled = deleteAsJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isDeleteAsJoinRewriteEnabled()
+    {
+        return deleteAsJoinRewriteEnabled;
     }
 
     public boolean getManifestCachingEnabled()

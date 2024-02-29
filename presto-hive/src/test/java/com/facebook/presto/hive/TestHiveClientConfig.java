@@ -126,6 +126,7 @@ public class TestHiveClientConfig
                 .setFileStatusCacheTables("")
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
+                .setBucketFunctionTypeForCteMaterialization(PRESTO_NATIVE)
                 .setParquetDereferencePushdownEnabled(false)
                 .setIgnoreUnreadablePartition(false)
                 .setMaxMetadataUpdaterThreads(100)
@@ -152,7 +153,15 @@ public class TestHiveClientConfig
                 .setCopyOnFirstWriteConfigurationEnabled(true)
                 .setPartitionFilteringFromMetastoreEnabled(true)
                 .setParallelParsingOfPartitionValuesEnabled(false)
-                .setMaxParallelParsingConcurrency(100));
+                .setMaxParallelParsingConcurrency(100)
+                .setQuickStatsEnabled(false)
+                .setQuickStatsInlineBuildTimeout(new Duration(60, TimeUnit.SECONDS))
+                .setQuickStatsBackgroundBuildTimeout(new Duration(0, TimeUnit.SECONDS))
+                .setQuickStatsCacheExpiry(new Duration(24, TimeUnit.HOURS))
+                .setQuickStatsReaperExpiry(new Duration(5, TimeUnit.MINUTES))
+                .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(60, TimeUnit.SECONDS))
+                .setMaxConcurrentQuickStatsCalls(100)
+                .setMaxConcurrentParquetQuickStatsCalls(500));
     }
 
     @Test
@@ -240,6 +249,7 @@ public class TestHiveClientConfig
                 .put("hive.file-status-cache-expire-time", "30m")
                 .put("hive.pagefile.writer.stripe-max-size", "1kB")
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
+                .put("hive.bucket-function-type-for-cte-materialization", "HIVE_COMPATIBLE")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.ignore-unreadable-partition", "true")
                 .put("hive.max-metadata-updater-threads", "1000")
@@ -267,6 +277,14 @@ public class TestHiveClientConfig
                 .put("hive.partition-filtering-from-metastore-enabled", "false")
                 .put("hive.parallel-parsing-of-partition-values-enabled", "true")
                 .put("hive.max-parallel-parsing-concurrency", "200")
+                .put("hive.quick-stats.enabled", "true")
+                .put("hive.quick-stats.inline-build-timeout", "61s")
+                .put("hive.quick-stats.background-build-timeout", "1s")
+                .put("hive.quick-stats.cache-expiry", "5h")
+                .put("hive.quick-stats.reaper-expiry", "15m")
+                .put("hive.quick-stats.parquet.file-metadata-fetch-timeout", "30s")
+                .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
+                .put("hive.quick-stats.max-concurrent-calls", "101")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -350,6 +368,7 @@ public class TestHiveClientConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
+                .setBucketFunctionTypeForCteMaterialization(HIVE_COMPATIBLE)
                 .setParquetDereferencePushdownEnabled(true)
                 .setIgnoreUnreadablePartition(true)
                 .setMaxMetadataUpdaterThreads(1000)
@@ -376,7 +395,15 @@ public class TestHiveClientConfig
                 .setCopyOnFirstWriteConfigurationEnabled(false)
                 .setPartitionFilteringFromMetastoreEnabled(false)
                 .setParallelParsingOfPartitionValuesEnabled(true)
-                .setMaxParallelParsingConcurrency(200);
+                .setMaxParallelParsingConcurrency(200)
+                .setQuickStatsEnabled(true)
+                .setQuickStatsInlineBuildTimeout(new Duration(61, TimeUnit.SECONDS))
+                .setQuickStatsBackgroundBuildTimeout(new Duration(1, TimeUnit.SECONDS))
+                .setQuickStatsCacheExpiry(new Duration(5, TimeUnit.HOURS))
+                .setQuickStatsReaperExpiry(new Duration(15, TimeUnit.MINUTES))
+                .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
+                .setMaxConcurrentParquetQuickStatsCalls(399)
+                .setMaxConcurrentQuickStatsCalls(101);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

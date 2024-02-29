@@ -80,6 +80,7 @@ public class ScaledWriterRule
                 node.getTablePartitioningScheme(),
                 node.getPreferredShufflePartitioningScheme(),
                 node.getStatisticsAggregation(),
-                Optional.of(initialTaskNumber)));
+                Optional.of(initialTaskNumber),
+                node.getIsTemporaryTableWriter()));
     }
 }

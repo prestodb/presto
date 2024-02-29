@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -369,35 +370,6 @@ public abstract class AbstractTestDistributedQueries
     public void testExplainAnalyzeDDL()
     {
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
-    }
-
-    private void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(getQueryRunner().tableExists(session, table));
     }
 
     // Flaky test: https://github.com/prestodb/presto/issues/20764
@@ -1120,6 +1092,46 @@ public abstract class AbstractTestDistributedQueries
             // There is no clean exception message for authorization failure.  We simply get a 403
             Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
+    }
+
+    @Test
+    public void testViewAccessControlInvokerDefault()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty("default_view_security_mode", INVOKER.name())
+                .build();
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from columns.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
     }
 
     @Test

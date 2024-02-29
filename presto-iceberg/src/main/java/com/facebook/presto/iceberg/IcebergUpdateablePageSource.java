@@ -21,17 +21,24 @@ import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.UpdatablePageSource;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -39,23 +46,28 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class IcebergPageSource
-        implements ConnectorPageSource
+public class IcebergUpdateablePageSource
+        implements UpdatablePageSource
 {
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
+    private final Supplier<IcebergDeletePageSink> deleteSinkSupplier;
+    private IcebergDeletePageSink deleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
 
-    public IcebergPageSource(
+    public IcebergUpdateablePageSource(
             List<IcebergColumnHandle> columns,
+            Map<Integer, Object> metadataValues,
             Map<Integer, HivePartitionKey> partitionKeys,
             ConnectorPageSource delegate,
+            Supplier<IcebergDeletePageSink> deleteSinkSupplier,
             Supplier<Optional<RowPredicate>> deletePredicate)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.deleteSinkSupplier = deleteSinkSupplier;
 
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
 
@@ -70,6 +82,16 @@ public class IcebergPageSource
                 Type type = column.getType();
                 Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName());
                 prefilledBlocks[outputIndex] = nativeValueToBlock(type, prefilledValue);
+                delegateIndexes[outputIndex] = -1;
+            }
+            else if (column.getColumnType() == PARTITION_KEY) {
+                // Partition key with no value. This can happen after partition evolution
+                Type type = column.getType();
+                prefilledBlocks[outputIndex] = nativeValueToBlock(type, null);
+                delegateIndexes[outputIndex] = -1;
+            }
+            else if (IcebergMetadataColumn.isMetadataColumnId(column.getId())) {
+                prefilledBlocks[outputIndex] = nativeValueToBlock(column.getType(), metadataValues.get(column.getColumnIdentity().getId()));
                 delegateIndexes[outputIndex] = -1;
             }
             else {
@@ -138,6 +160,32 @@ public class IcebergPageSource
     }
 
     @Override
+    public void deleteRows(Block rowIds)
+    {
+        if (deleteSink == null) {
+            deleteSink = deleteSinkSupplier.get();
+        }
+        deleteSink.appendPage(new Page(rowIds));
+    }
+
+    @Override
+    public CompletableFuture<Collection<Slice>> finish()
+    {
+        if (deleteSink == null) {
+            return CompletableFuture.completedFuture(ImmutableList.of());
+        }
+        return deleteSink.finish();
+    }
+
+    @Override
+    public void abort()
+    {
+        if (deleteSink != null) {
+            deleteSink.abort();
+        }
+    }
+
+    @Override
     public void close()
     {
         try {
@@ -157,7 +205,12 @@ public class IcebergPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        long totalMemUsage = delegate.getSystemMemoryUsage();
+        if (deleteSink != null) {
+            totalMemUsage += deleteSink.getSystemMemoryUsage();
+        }
+
+        return totalMemUsage;
     }
 
     protected void closeWithSuppression(Throwable throwable)

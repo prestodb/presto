@@ -17,7 +17,6 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
@@ -25,7 +24,6 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,9 +36,9 @@ public class DetachedNativeExecutionProcessFactory
         extends NativeExecutionProcessFactory
 {
     private final HttpClient httpClient;
+    private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     @Inject
@@ -49,40 +47,33 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, taskManagerConfig, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.coreExecutor = requireNonNull(coreExecutor, "ecoreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
     @Override
-    public NativeExecutionProcess getNativeExecutionProcess(
-            Session session,
-            URI location)
+    public NativeExecutionProcess getNativeExecutionProcess(Session session)
     {
-        return createNativeExecutionProcess(session, location, new Duration(2, TimeUnit.MINUTES));
+        return createNativeExecutionProcess(session, new Duration(2, TimeUnit.MINUTES));
     }
 
     @Override
-    public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location,
-            Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
     {
         try {
             return new DetachedNativeExecutionProcess(
                     session,
-                    location,
                     httpClient,
+                    coreExecutor,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    taskManagerConfig,
                     workerProperty);
         }
         catch (IOException e) {

@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -44,7 +44,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("left_k1+left_k2 = right_k1+right_k2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })
@@ -53,7 +53,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "add_1 = add_0",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 project(
                                                         ImmutableMap.of("add_1", expression("left_k1+left_k2")),
@@ -75,7 +75,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("left_k1+right_k1 = left_k2+right_k2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 }).doesNotFire();
@@ -91,7 +91,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("left_k1 = cardinality(right_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1")),
                                     p.values(p.variable("right_k1", new ArrayType(BIGINT)))));
                 })
@@ -100,7 +100,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "left_k1 = card",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 values("left_k1"),
                                                 project(
@@ -120,7 +120,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k2", VARCHAR);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or CAST(left_k2 AS BIGINT) = CAST(right_k2 AS BIGINT)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR), p.variable("left_k2", VARCHAR)),
                                     p.values(p.variable("right_k1", VARCHAR), p.variable("right_k2", VARCHAR))));
                 })
@@ -129,7 +129,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "left_k1 = right_k1 OR cast_1 = cast_0",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 project(
                                                         ImmutableMap.of("cast_1", expression("CAST(left_k2 AS bigint)")),
@@ -151,7 +151,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_k3", VARCHAR);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or CAST(left_k1 AS VARCHAR) = COALESCE(right_k2, right_k3)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2", VARCHAR), p.variable("right_k3", VARCHAR))));
                 })
@@ -160,7 +160,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "left_k1 = right_k1 OR cast_1 = expr",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 project(
                                                         ImmutableMap.of("cast_1", expression("CAST(left_k1 AS varchar)")),
@@ -180,7 +180,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, cast(left_k1 as BIGINT))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 })
@@ -189,7 +189,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "contains(right_array_k1, cast_l)",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 project(
                                                         ImmutableMap.of("cast_l", expression("CAST(left_k1 AS bigint)")),
@@ -207,7 +207,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(cast(right_array_k1 as array<varchar>), left_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 })
@@ -216,7 +216,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                                 filter(
                                         "contains(cast_arr, left_k1)",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(),
                                                 values("left_k1"),
                                                 project(
@@ -234,7 +234,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, cast(left_k1 as BIGINT)) or cast(left_k1 as BIGINT) > 2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 }).doesNotFire();
@@ -250,7 +250,7 @@ public class TestPushDownFilterExpressionEvaluationThroughCrossJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(cast(right_array_k1 as array<DOUBLE>), left_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", DOUBLE)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 }).doesNotFire();

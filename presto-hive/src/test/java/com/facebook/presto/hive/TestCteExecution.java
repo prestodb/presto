@@ -24,8 +24,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
@@ -48,7 +48,7 @@ public class TestCteExecution
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION, REGION, PART, SUPPLIER),
                 ImmutableMap.of(
-                        "query.partitioning-provider-catalog", "hive"),
+                        "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true"),
@@ -101,7 +101,9 @@ public class TestCteExecution
                         testQuery));
     }
 
-    @Test
+    // ToDo prestodb/21791: write with 0 length varchar fails in hive
+    // See reference - While Presto supports Varchar of length 0 (as discussed in trinodb/trino#1136
+    @Test(enabled = false)
     public void testCteWithZeroLengthVarchar()
     {
         String testQuery = "WITH temp AS (" +
@@ -189,6 +191,236 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), testQuery));
     }
 
+    @Test
+    public void testPersistentCteForVarbinaryType()
+    {
+        String testQuery = "WITH  dataset AS (\n" +
+                "    SELECT data FROM (VALUES \n" +
+                "        (1, ARRAY[ROW('John Doe', 30)], from_base64('Sm9obiBEb2U=')), " +
+                "        (2, ARRAY[ROW('Jane Smith', 25)], from_base64('SmFuZSBTbWl0aA=='))," +
+                "        (3, ARRAY[ROW('Bob Johnson', 40)], from_base64('Qm9iIEpvaG5zb24=')) -- 'Bob Johnson' in base64\n" +
+                "    ) AS t (id, people, data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithBigInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (1),\n" +
+                "        (2),\n" +
+                "        (3)\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithInteger()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (123456789),\n" +
+                "        (987654321),\n" +
+                "        (-2147483648)\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithSmallInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (CAST(32767 AS SMALLINT)),\n" +
+                "        (CAST(-32768 AS SMALLINT)),\n" +
+                "        (CAST(12345 AS SMALLINT))\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithTinyInt()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT id FROM (VALUES \n" +
+                "        (CAST(127 AS TINYINT)),\n" +
+                "        (CAST(-128 AS TINYINT)),\n" +
+                "        (CAST(0 AS TINYINT))\n" +
+                "    ) AS t (id)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithReal()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT value FROM (VALUES \n" +
+                "        (CAST(123.45 AS REAL)),\n" +
+                "        (CAST(-123.45 AS REAL)),\n" +
+                "        (CAST(0.0 AS REAL))\n" +
+                "    ) AS t (value)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithBoolean()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT flag FROM (VALUES \n" +
+                "        (true),\n" +
+                "        (false),\n" +
+                "        (true)\n" +
+                "    ) AS t (flag)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithDecimal()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT value FROM (VALUES \n" +
+                "        (DECIMAL '10.5'),\n" +
+                "        (DECIMAL '20.75'),\n" +
+                "        (DECIMAL '30.00')\n" +
+                "    ) AS t (value)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithChar()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT charColumn FROM (VALUES \n" +
+                "        (CAST('A' AS CHAR(1))),\n" + // Single character 'A'
+                "        (CAST('B' AS CHAR(1))),\n" + // Single character 'B'
+                "        (CAST('C' AS CHAR(1)))\n" +  // Single character 'C'
+                "    ) AS t (charColumn)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithArrayWhereInnerTypeSupported()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT arr FROM (VALUES \n" +
+                "        (ARRAY[1, 2, 3]),\n" +
+                "        (ARRAY[4, 5, 6]),\n" +
+                "        (ARRAY[7, 8, 9])\n" +
+                "    ) AS t (arr)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithArrayWhereInnerTypeIsNotSupported()
+    {
+        String testQuery = "WITH  dataset AS (\n" +
+                "    SELECT people FROM (VALUES \n" +
+                "        (1, ARRAY[ROW('John Doe', 30)], from_base64('Sm9obiBEb2U=')), -- 'John Doe' in base64\n" +
+                "        (2, ARRAY[ROW('Jane Smith', 25)], from_base64('SmFuZSBTbWl0aA==')), -- 'Jane Smith' in base64\n" +
+                "        (3, ARRAY[ROW('Bob Johnson', 40)], from_base64('Qm9iIEpvaG5zb24=')) -- 'Bob Johnson' in base64\n" +
+                "    ) AS t (id, people, data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithMap()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT map FROM (VALUES \n" +
+                "        (MAP(ARRAY['key1', 'key2'], ARRAY[1, 2])),\n" +
+                "        (MAP(ARRAY['key3', 'key4'], ARRAY[3, 4]))\n" +
+                "    ) AS t (map)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
+    }
+
+    @Test
+    public void testPersistentCteWithVarbinary()
+    {
+        String testQuery = "WITH dataset AS (\n" +
+                "    SELECT data FROM (VALUES \n" +
+                "        (from_base64('YmluYXJ5RGF0YTE=')),\n" + // 'binaryData1' in base64
+                "        (from_base64('YmluYXJ5RGF0YTJ='))\n" +  // 'binaryData2' in base64
+                "    ) AS t (data)\n" +
+                ")\n" +
+                "SELECT * FROM dataset";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(
+                queryRunner.execute(getMaterializedSession(), testQuery),
+                queryRunner.execute(getSession(), testQuery));
+    }
     @Test
     public void testComplexRefinedCtesOutsideScope()
     {
@@ -506,94 +738,129 @@ public class TestCteExecution
     }
 
     @Test
+    public void testComplexQuery3()
+    {
+        String testQuery = "WITH  supplier_region AS (" +
+                "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                "   FROM SUPPLIER s " +
+                "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                " supplier_parts AS (" +
+                "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                "   FROM supplier_region sr " +
+                "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                "parts_info AS (" +
+                "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                "   FROM supplier_parts sp " +
+                "   JOIN PART p ON sp.partkey = p.partkey), " +
+                " full_supplier_part_info AS (" +
+                "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                "   FROM parts_info pi " +
+                "JOIN REGION r ON pi.region_name = r.name" +
+                "   JOIN NATION n ON pi.nation_name = n.name) " +
+                "SELECT * FROM full_supplier_part_info " +
+                "WHERE part_type LIKE '%BRASS' " +
+                "ORDER BY region_name, supplier_name";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(
+                queryRunner.execute(getMaterializedSession(), testQuery),
+                queryRunner.execute(getSession(), testQuery));
+    }
+
+    @Test
     public void testSimplePersistentCteForCtasQueries()
     {
         QueryRunner queryRunner = getQueryRunner();
+        try {
+            // Create tables with Ctas
+            queryRunner.execute(getMaterializedSession(),
+                    "CREATE TABLE persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp t1 )");
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE non_persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp t1) ");
 
-        // Create tables with Ctas
-        queryRunner.execute(getMaterializedSession(),
-                "CREATE TABLE persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp t1 )");
-        queryRunner.execute(getSession(),
-                "CREATE TABLE non_persistent_table as (WITH  temp as (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp t1) ");
-
-        // Compare contents with a select
-        compareResults(queryRunner.execute(getSession(),
-                        "SELECT * FROM persistent_table"),
-                queryRunner.execute(getSession(),
-                        "SELECT * FROM non_persistent_table"));
-
-        // drop tables
-        queryRunner.execute(getSession(),
-                "DROP TABLE persistent_table");
-        queryRunner.execute(getSession(),
-                "DROP TABLE non_persistent_table");
+            // Compare contents with a select
+            compareResults(queryRunner.execute(getSession(),
+                            "SELECT * FROM persistent_table"),
+                    queryRunner.execute(getSession(),
+                            "SELECT * FROM non_persistent_table"));
+        }
+        finally {
+            // drop tables
+            queryRunner.execute(getSession(),
+                    "DROP TABLE persistent_table");
+            queryRunner.execute(getSession(),
+                    "DROP TABLE non_persistent_table");
+        }
     }
 
     @Test
     public void testComplexPersistentCteForCtasQueries()
     {
         QueryRunner queryRunner = getQueryRunner();
-        // Create tables with Ctas
-        queryRunner.execute(getMaterializedSession(),
-                "CREATE TABLE persistent_table as ( " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name)");
-        queryRunner.execute(getSession(),
-                "CREATE TABLE non_persistent_table as ( " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name)");
+        try {
+            // Create tables with Ctas
+            queryRunner.execute(getMaterializedSession(),
+                    "CREATE TABLE persistent_table as ( " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name)");
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE non_persistent_table as ( " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name)");
 
-        // Compare contents with a select
-        compareResults(queryRunner.execute(getSession(),
-                        "SELECT * FROM persistent_table"),
-                queryRunner.execute(getSession(),
-                        "SELECT * FROM non_persistent_table"));
-
-        // drop tables
-        queryRunner.execute(getSession(),
-                "DROP TABLE persistent_table");
-        queryRunner.execute(getSession(),
-                "DROP TABLE non_persistent_table");
+            // Compare contents with a select
+            compareResults(queryRunner.execute(getSession(),
+                            "SELECT * FROM persistent_table"),
+                    queryRunner.execute(getSession(),
+                            "SELECT * FROM non_persistent_table"));
+        }
+        finally {
+            // drop tables
+            queryRunner.execute(getSession(),
+                    "DROP TABLE persistent_table");
+            queryRunner.execute(getSession(),
+                    "DROP TABLE non_persistent_table");
+        }
     }
 
     @Test
@@ -601,33 +868,36 @@ public class TestCteExecution
     {
         QueryRunner queryRunner = getQueryRunner();
 
-        // Create tables without data
-        queryRunner.execute(getSession(),
-                "CREATE TABLE persistent_table (orderkey BIGINT)");
-        queryRunner.execute(getSession(),
-                "CREATE TABLE non_persistent_table (orderkey BIGINT)");
+        try {
+            // Create tables without data
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE persistent_table (orderkey BIGINT)");
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE non_persistent_table (orderkey BIGINT)");
 
-        // Insert data into tables using CTEs
-        queryRunner.execute(getMaterializedSession(),
-                "INSERT INTO persistent_table " +
-                        "WITH  temp AS (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp");
-        queryRunner.execute(getSession(),
-                "INSERT INTO non_persistent_table " +
-                        "WITH temp AS (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp");
+            // Insert data into tables using CTEs
+            queryRunner.execute(getMaterializedSession(),
+                    "INSERT INTO persistent_table " +
+                            "WITH  temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp");
+            queryRunner.execute(getSession(),
+                    "INSERT INTO non_persistent_table " +
+                            "WITH temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp");
 
-        // Compare contents with a select
-        compareResults(queryRunner.execute(getSession(),
-                        "SELECT * FROM persistent_table"),
-                queryRunner.execute(getSession(),
-                        "SELECT * FROM non_persistent_table"));
-
-        // drop tables
-        queryRunner.execute(getSession(),
-                "DROP TABLE persistent_table");
-        queryRunner.execute(getSession(),
-                "DROP TABLE non_persistent_table");
+            // Compare contents with a select
+            compareResults(queryRunner.execute(getSession(),
+                            "SELECT * FROM persistent_table"),
+                    queryRunner.execute(getSession(),
+                            "SELECT * FROM non_persistent_table"));
+        }
+        finally {
+            // drop tables
+            queryRunner.execute(getSession(),
+                    "DROP TABLE persistent_table");
+            queryRunner.execute(getSession(),
+                    "DROP TABLE non_persistent_table");
+        }
     }
 
     @Test
@@ -636,75 +906,78 @@ public class TestCteExecution
         QueryRunner queryRunner = getQueryRunner();
         // Create tables without data
         // Create tables
-        String createTableBase = " (suppkey BIGINT, supplier_name VARCHAR, nation_name VARCHAR, region_name VARCHAR, " +
-                "partkey BIGINT, availqty BIGINT, supplycost DOUBLE, " +
-                "part_name VARCHAR, part_type VARCHAR, part_size BIGINT, " +
-                "nation_comment VARCHAR, region_comment VARCHAR)";
+        try {
+            String createTableBase = " (suppkey BIGINT, supplier_name VARCHAR, nation_name VARCHAR, region_name VARCHAR, " +
+                    "partkey BIGINT, availqty BIGINT, supplycost DOUBLE, " +
+                    "part_name VARCHAR, part_type VARCHAR, part_size BIGINT, " +
+                    "nation_comment VARCHAR, region_comment VARCHAR)";
 
-        queryRunner.execute(getSession(),
-                "CREATE TABLE persistent_table" + createTableBase);
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE persistent_table" + createTableBase);
 
-        queryRunner.execute(getSession(),
-                "CREATE TABLE non_persistent_table" + createTableBase);
+            queryRunner.execute(getSession(),
+                    "CREATE TABLE non_persistent_table" + createTableBase);
 
-        queryRunner.execute(getMaterializedSession(),
-                "INSERT INTO persistent_table  " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name");
-        queryRunner.execute(getSession(),
-                "INSERT INTO non_persistent_table  " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name");
+            queryRunner.execute(getMaterializedSession(),
+                    "INSERT INTO persistent_table  " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name");
+            queryRunner.execute(getSession(),
+                    "INSERT INTO non_persistent_table  " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name");
 
-        // Compare contents with a select
-        compareResults(queryRunner.execute(getSession(),
-                        "SELECT * FROM persistent_table"),
-                queryRunner.execute(getSession(),
-                        "SELECT * FROM non_persistent_table"));
-
-        // drop tables
-        queryRunner.execute(getSession(),
-                "DROP TABLE persistent_table");
-        queryRunner.execute(getSession(),
-                "DROP TABLE non_persistent_table");
+            // Compare contents with a select
+            compareResults(queryRunner.execute(getSession(),
+                            "SELECT * FROM persistent_table"),
+                    queryRunner.execute(getSession(),
+                            "SELECT * FROM non_persistent_table"));
+        }
+        finally {
+            // drop tables
+            queryRunner.execute(getSession(),
+                    "DROP TABLE persistent_table");
+            queryRunner.execute(getSession(),
+                    "DROP TABLE non_persistent_table");
+        }
     }
 
     @Test
@@ -712,85 +985,119 @@ public class TestCteExecution
     {
         QueryRunner queryRunner = getQueryRunner();
 
-        // Create views
-        queryRunner.execute(getMaterializedSession(),
-                "CREATE VIEW persistent_view AS WITH  temp AS (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp");
-        queryRunner.execute(getSession(),
-                "CREATE VIEW non_persistent_view AS WITH temp AS (SELECT orderkey FROM ORDERS) " +
-                        "SELECT * FROM temp");
-        // Compare contents of views with a select
-        compareResults(queryRunner.execute(getMaterializedSession(), "SELECT * FROM persistent_view"),
-                queryRunner.execute(getSession(), "SELECT * FROM non_persistent_view"));
-
-        // Drop views
-        queryRunner.execute(getSession(), "DROP VIEW persistent_view");
-        queryRunner.execute(getSession(), "DROP VIEW non_persistent_view");
+        try {
+            // Create views
+            queryRunner.execute(getMaterializedSession(),
+                    "CREATE VIEW persistent_view AS WITH  temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp");
+            queryRunner.execute(getSession(),
+                    "CREATE VIEW non_persistent_view AS WITH temp AS (SELECT orderkey FROM ORDERS) " +
+                            "SELECT * FROM temp");
+            // Compare contents of views with a select
+            compareResults(queryRunner.execute(getMaterializedSession(), "SELECT * FROM persistent_view"),
+                    queryRunner.execute(getSession(), "SELECT * FROM non_persistent_view"));
+        }
+        finally {
+            // Drop views
+            queryRunner.execute(getSession(), "DROP VIEW persistent_view");
+            queryRunner.execute(getSession(), "DROP VIEW non_persistent_view");
+        }
     }
 
     @Test
     public void testComplexPersistentCteForViewQueries()
     {
         QueryRunner queryRunner = getQueryRunner();
-        // Create Views
-        queryRunner.execute(getMaterializedSession(),
-                "CREATE View persistent_view as " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name");
-        queryRunner.execute(getSession(),
-                "CREATE View non_persistent_view as " +
-                        "WITH  supplier_region AS (" +
-                        "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
-                        "   FROM SUPPLIER s " +
-                        "   JOIN NATION n ON s.nationkey = n.nationkey " +
-                        "   JOIN REGION r ON n.regionkey = r.regionkey), " +
-                        " supplier_parts AS (" +
-                        "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
-                        "   FROM supplier_region sr " +
-                        "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
-                        "parts_info AS (" +
-                        "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
-                        "   FROM supplier_parts sp " +
-                        "   JOIN PART p ON sp.partkey = p.partkey), " +
-                        " full_supplier_part_info AS (" +
-                        "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
-                        "   FROM parts_info pi " +
-                        "   JOIN NATION n ON pi.nation_name = n.name " +
-                        "   JOIN REGION r ON pi.region_name = r.name) " +
-                        "SELECT * FROM full_supplier_part_info " +
-                        "WHERE part_type LIKE '%BRASS' " +
-                        "ORDER BY region_name, supplier_name");
+        try {
+            // Create Views
+            queryRunner.execute(getMaterializedSession(),
+                    "CREATE View persistent_view as " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name");
+            queryRunner.execute(getSession(),
+                    "CREATE View non_persistent_view as " +
+                            "WITH  supplier_region AS (" +
+                            "   SELECT s.suppkey, s.name AS supplier_name, n.name AS nation_name, r.name AS region_name " +
+                            "   FROM SUPPLIER s " +
+                            "   JOIN NATION n ON s.nationkey = n.nationkey " +
+                            "   JOIN REGION r ON n.regionkey = r.regionkey), " +
+                            " supplier_parts AS (" +
+                            "   SELECT sr.*, ps.partkey, ps.availqty, ps.supplycost " +
+                            "   FROM supplier_region sr " +
+                            "   JOIN partsupp ps ON sr.suppkey = ps.suppkey), " +
+                            "parts_info AS (" +
+                            "   SELECT sp.*, p.name AS part_name, p.type AS part_type, p.size AS part_size " +
+                            "   FROM supplier_parts sp " +
+                            "   JOIN PART p ON sp.partkey = p.partkey), " +
+                            " full_supplier_part_info AS (" +
+                            "   SELECT pi.*, n.comment AS nation_comment, r.comment AS region_comment " +
+                            "   FROM parts_info pi " +
+                            "   JOIN NATION n ON pi.nation_name = n.name " +
+                            "   JOIN REGION r ON pi.region_name = r.name) " +
+                            "SELECT * FROM full_supplier_part_info " +
+                            "WHERE part_type LIKE '%BRASS' " +
+                            "ORDER BY region_name, supplier_name");
 
-        // Compare contents with a select
-        compareResults(queryRunner.execute(getMaterializedSession(),
-                        "SELECT * FROM persistent_view"),
-                queryRunner.execute(getSession(),
-                        "SELECT * FROM non_persistent_view"));
+            // Compare contents with a select
+            compareResults(queryRunner.execute(getMaterializedSession(),
+                            "SELECT * FROM persistent_view"),
+                    queryRunner.execute(getSession(),
+                            "SELECT * FROM non_persistent_view"));
+        }
+        finally {
+            // drop views
+            queryRunner.execute(getSession(),
+                    "DROP View persistent_view");
+            queryRunner.execute(getSession(),
+                    "DROP View non_persistent_view");
+        }
+    }
 
-        // drop views
-        queryRunner.execute(getSession(),
-                "DROP View persistent_view");
-        queryRunner.execute(getSession(),
-                "DROP View non_persistent_view");
+    public void testCteProjectionPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp) t JOIN (select custkey, orderkey as orderkey2 from temp) t2 ON t.orderkey=t2.orderkey2";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    public void testCteFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp where orderkey > 20) t JOIN (select custkey, orderkey as orderkey2 from temp where custkey < 1000) t2 ON t.orderkey=t2.orderkey2";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    public void testCteNoFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        // one CTE consumer used without a filter: no filter pushdown
+        String query = "WITH  temp as (SELECT * FROM ORDERS) " +
+                "SELECT * FROM (select orderkey from temp where orderkey > 20) t UNION ALL select orderkey from temp";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
     }
 
     private void compareResults(MaterializedResult actual, MaterializedResult expected)
@@ -823,7 +1130,7 @@ public class TestCteExecution
         return Session.builder(super.getSession())
                 .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
-                .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
+                .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
                 .build();
     }
 }

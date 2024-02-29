@@ -558,7 +558,6 @@ public class TestExchangeClient
                 1,
                 new Duration(1, MINUTES),
                 true,
-                false,
                 0.2,
                 new TestingHttpClient(processor, testingHttpClientExecutor),
                 new TestingDriftClient<>(),

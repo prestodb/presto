@@ -42,6 +42,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
@@ -300,7 +301,7 @@ public final class HiveWriteUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
+    public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled, List<TableConstraint<String>> constraints)
     {
         PrestoTableType tableType = table.getTableType();
         if (!writesToNonManagedTablesEnabled
@@ -308,6 +309,10 @@ public final class HiveWriteUtils
                 && !tableType.equals(MATERIALIZED_VIEW)
                 && !tableType.equals(TEMPORARY_TABLE)) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+        }
+
+        if (constraints.stream().anyMatch(TableConstraint::isEnforced)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot write to table %s since it has table constraints that are enforced", table.getSchemaTableName().toString()));
         }
 
         checkWritable(
@@ -356,7 +361,7 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
         Optional<String> location = getDatabase(session.getIdentity(), metastoreContext, metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));

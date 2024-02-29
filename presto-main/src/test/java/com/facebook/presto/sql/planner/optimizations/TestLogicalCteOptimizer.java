@@ -247,16 +247,6 @@ public class TestLogicalCteOptimizer
     }
 
     @Test
-    public void tesNoPersistentCteOnlyWithRowType()
-    {
-        assertUnitPlan("WITH temp AS " +
-                        "( SELECT CAST(ROW('example_status', 100) AS ROW(status VARCHAR, amount INTEGER)) AS order_details" +
-                        " FROM (VALUES (1))" +
-                        ") SELECT * FROM temp",
-                anyTree(values("1")));
-    }
-
-    @Test
     public void testSimplePersistentCteWithRowTypeAndNonRowType()
     {
         assertUnitPlan("WITH temp AS (" +
@@ -271,7 +261,9 @@ public class TestLogicalCteOptimizer
                                 anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))))));
     }
 
-    @Test
+    // ToDo prestodb/21791: write with 0 length varchar fails in hive
+    // See reference - While Presto supports Varchar of length 0 (as discussed in trinodb/trino#1136
+    @Test(enabled = false)
     public void testNoPersistentCteWithZeroLengthVarcharType()
     {
         assertUnitPlan("WITH temp AS (" +
@@ -282,7 +274,7 @@ public class TestLogicalCteOptimizer
                 anyTree(values("text_column", "number_column")));
     }
 
-    private String addQueryScopeDelimiter(String cteName, int scope)
+    public static String addQueryScopeDelimiter(String cteName, int scope)
     {
         return String.valueOf(scope) + delimiter + cteName;
     }

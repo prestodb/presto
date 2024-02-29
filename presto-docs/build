@@ -8,6 +8,10 @@ python3 -m venv presto-docs-venv
 source presto-docs-venv/bin/activate
 pip install -r requirements.txt
 
-make clean html
+if [[ "$1" == "--with-pdf" ]]; then
+  make clean html latexpdf
+else
+  make clean html
+fi
 
 deactivate

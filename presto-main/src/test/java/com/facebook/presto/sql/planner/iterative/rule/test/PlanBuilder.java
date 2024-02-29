@@ -31,10 +31,14 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -758,17 +762,17 @@ public class PlanBuilder
         }
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.empty(), criteria);
     }
 
-    public JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, RowExpression filter, JoinNode.EquiJoinClause... criteria)
+    public JoinNode join(JoinType joinType, PlanNode left, PlanNode right, RowExpression filter, EquiJoinClause... criteria)
     {
         return join(joinType, left, right, Optional.of(filter), criteria);
     }
 
-    private JoinNode join(JoinNode.Type joinType, PlanNode left, PlanNode right, Optional<RowExpression> filter, JoinNode.EquiJoinClause... criteria)
+    private JoinNode join(JoinType joinType, PlanNode left, PlanNode right, Optional<RowExpression> filter, EquiJoinClause... criteria)
     {
         return join(
                 joinType,
@@ -784,16 +788,16 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<VariableReferenceExpression> outputVariables, Optional<RowExpression> filter)
+    public JoinNode join(JoinType type, PlanNode left, PlanNode right, List<EquiJoinClause> criteria, List<VariableReferenceExpression> outputVariables, Optional<RowExpression> filter)
     {
         return join(type, left, right, criteria, outputVariables, filter, Optional.empty(), Optional.empty());
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
-            List<JoinNode.EquiJoinClause> criteria,
+            List<EquiJoinClause> criteria,
             List<VariableReferenceExpression> outputVariables,
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
@@ -803,10 +807,10 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
-            List<JoinNode.EquiJoinClause> criteria,
+            List<EquiJoinClause> criteria,
             List<VariableReferenceExpression> outputVariables,
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
@@ -817,15 +821,15 @@ public class PlanBuilder
     }
 
     public JoinNode join(
-            JoinNode.Type type,
+            JoinType type,
             PlanNode left,
             PlanNode right,
-            List<JoinNode.EquiJoinClause> criteria,
+            List<EquiJoinClause> criteria,
             List<VariableReferenceExpression> outputVariables,
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable,
-            Optional<JoinNode.DistributionType> distributionType,
+            Optional<JoinDistributionType> distributionType,
             Map<String, VariableReferenceExpression> dynamicFilters)
     {
         return new JoinNode(Optional.empty(), idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
@@ -842,6 +846,16 @@ public class PlanBuilder
                 emptyList(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public CteProducerNode cteProducerNode(String ctename,
+            VariableReferenceExpression rowCountVar, List<VariableReferenceExpression> outputVars, PlanNode source)
+    {
+        return new CteProducerNode(Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                ctename,
+                rowCountVar, outputVars);
     }
 
     public UnionNode union(ListMultimap<VariableReferenceExpression, VariableReferenceExpression> outputsToInputs, List<PlanNode> sources)
@@ -875,6 +889,7 @@ public class PlanBuilder
                 columns,
                 columnNames,
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

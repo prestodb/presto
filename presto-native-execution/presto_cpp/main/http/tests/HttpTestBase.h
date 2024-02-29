@@ -200,8 +200,11 @@ class HttpClientFactory {
     sessionPools_.push_back(
         std::make_unique<proxygen::SessionPool>(nullptr, 10));
     if (useHttps) {
-      std::string clientCaPath = getCertsPath("client_ca.pem");
-      std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+      const std::string keyPath = getCertsPath("client_ca.pem");
+      const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+      auto sslContext = std::make_shared<folly::SSLContext>();
+      sslContext->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
+      sslContext->setCiphersOrThrow(ciphers);
       return std::make_shared<http::HttpClient>(
           eventBase_.get(),
           sessionPools_.back().get(),
@@ -209,8 +212,7 @@ class HttpClientFactory {
           transactionTimeout,
           connectTimeout,
           pool,
-          clientCaPath,
-          ciphers,
+          std::move(sslContext),
           std::move(reportOnBodyStatsFunc));
     } else {
       return std::make_shared<http::HttpClient>(
@@ -220,8 +222,7 @@ class HttpClientFactory {
           transactionTimeout,
           connectTimeout,
           pool,
-          "",
-          "",
+          nullptr,
           std::move(reportOnBodyStatsFunc));
     }
   }
@@ -247,9 +248,9 @@ static std::unique_ptr<http::HttpServer> getHttpServer(
     bool useHttps,
     const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor) {
   if (useHttps) {
-    std::string certPath = getCertsPath("test_cert1.pem");
-    std::string keyPath = getCertsPath("test_key1.pem");
-    std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
+    const std::string certPath = getCertsPath("test_cert1.pem");
+    const std::string keyPath = getCertsPath("test_key1.pem");
+    const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
     auto httpsConfig = std::make_unique<http::HttpsConfig>(
         folly::SocketAddress("127.0.0.1", 0), certPath, keyPath, ciphers);
     return std::make_unique<http::HttpServer>(

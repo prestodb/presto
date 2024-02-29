@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +46,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 = right_k2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })
@@ -55,7 +55,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                                 filter(
                                         "case left_idx when 1 then left_k1 = right_k1 when 2 then not(coalesce(left_k1 = right_k1, false)) and left_k2 = right_k2 else null end",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(equiJoinClause("expr", "expr_2"), equiJoinClause("left_idx", "right_idx")),
                                                 project(
                                                         ImmutableMap.of("expr", expression("case left_idx when 1 then left_k1 when 2 then left_k2 else null end")),
@@ -87,7 +87,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k3", BIGINT);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 = right_k2 or left_k3 = right_k3"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2"), p.variable("left_k3")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"), p.variable("right_k3"))));
                 })
@@ -97,7 +97,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                                         "case left_idx when 1 then left_k1 = right_k1 when 2 then not(coalesce(left_k1 = right_k1, false)) and left_k2 = right_k2 " +
                                                 "when 3 then not(coalesce(left_k1 = right_k1, false)) and not(coalesce(left_k2 = right_k2, false)) and left_k3 = right_k3 else null end",
                                         join(
-                                                JoinNode.Type.INNER,
+                                                JoinType.INNER,
                                                 ImmutableList.of(equiJoinClause("expr", "expr_2"), equiJoinClause("left_idx", "right_idx")),
                                                 project(
                                                         ImmutableMap.of("expr", expression("case left_idx when 1 then left_k1 when 2 then left_k2 when 3 then left_k3 else null end")),
@@ -127,7 +127,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", DOUBLE);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 = right_k2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", DOUBLE), p.variable("left_k2", DOUBLE)),
                                     p.values(p.variable("right_k1", DOUBLE), p.variable("right_k2", DOUBLE))));
                 }).doesNotFire();
@@ -145,7 +145,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", VARCHAR);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or CAST(left_k2 AS DOUBLE) = CAST(right_k2 AS DOUBLE)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR), p.variable("left_k2", VARCHAR)),
                                     p.values(p.variable("right_k1", VARCHAR), p.variable("right_k2", VARCHAR))));
                 }).doesNotFire();
@@ -163,7 +163,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", VARCHAR);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 = CAST(right_k2 AS BIGINT)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2", VARCHAR))));
                 }).doesNotFire();
@@ -184,7 +184,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", VARCHAR);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 = CAST(right_k2 AS BIGINT)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2", VARCHAR))));
                 })
@@ -194,7 +194,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                                         filter(
                                                 "case left_idx when 1 then left_k1 = right_k1 when 2 then not(coalesce(left_k1 = right_k1, false)) and left_k2 = cast_0 else null end",
                                                 join(
-                                                        JoinNode.Type.INNER,
+                                                        JoinType.INNER,
                                                         ImmutableList.of(equiJoinClause("expr", "expr_2"), equiJoinClause("left_idx", "right_idx")),
                                                         project(
                                                                 ImmutableMap.of("expr", expression("case left_idx when 1 then left_k1 when 2 then left_k2 else null end")),
@@ -226,7 +226,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("(left_k1 = right_k1 or left_k2 = right_k2) and left_k1+right_k2 > 10"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })
@@ -237,7 +237,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                                         filter(
                                                 "case left_idx when 1 then left_k1 = right_k1 when 2 then not(coalesce(left_k1 = right_k1, false)) and left_k2 = right_k2 else null end",
                                                 join(
-                                                        JoinNode.Type.INNER,
+                                                        JoinType.INNER,
                                                         ImmutableList.of(equiJoinClause("expr", "expr_2"), equiJoinClause("left_idx", "right_idx")),
                                                         project(
                                                                 ImmutableMap.of("expr", expression("case left_idx when 1 then left_k1 when 2 then left_k2 else null end")),
@@ -267,7 +267,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("(left_k1 = right_k1 or left_k2 = right_k2) or left_k1+right_k2 > 10"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })
@@ -286,7 +286,7 @@ public class TestCrossJoinWithOrFilterToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("left_k1 = right_k1 or left_k2 > right_k2"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })

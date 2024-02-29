@@ -216,6 +216,9 @@ Property Name                                      Description                  
 
 ``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
                                                    updates.
+
+``iceberg.delete-as-join-rewrite-enabled``         When enabled, equality delete row filtering is applied        ``true``
+                                                   as a join with the data of the equality delete files.
 ================================================== ============================================================= ============
 
 Table Properties
@@ -235,11 +238,11 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-========================================= ===============================================================
-Property Name                             Description
-========================================= ===============================================================
-``format``                                 Optionally specifies the format of table data files,
-                                           either ``PARQUET`` or ``ORC``. Defaults to ``PARQUET``.
+=======================================   ===============================================================   ============
+Property Name                             Description                                                       Default
+=======================================   ===============================================================   ============
+``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
+                                           either ``PARQUET`` or ``ORC``.
 
 ``partitioning``                           Optionally specifies table partitioning. If a table
                                            is partitioned by columns ``c1`` and ``c2``, the partitioning
@@ -248,10 +251,16 @@ Property Name                             Description
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
-``format_version``                         Optionally specifies the format version of the Iceberg
+``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
                                            specification to use for new tables, either ``1`` or ``2``.
-                                           Defaults to ``1``.
-========================================= ===============================================================
+
+``commit_retries``                         Determines the number of attempts for committing the metadata    ``4``
+                                           in case of concurrent upsert requests, before failing.
+
+``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
+                                           specification to use for new tables, either ``copy-on-write``
+                                           or ``merge-on-read``.
+=======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -268,6 +277,18 @@ and a file system location of ``s3://test_bucket/test_schema/test_table``:
         partitioning = ARRAY['c1', 'c2'],
         location = 's3://test_bucket/test_schema/test_table')
     )
+
+Session Properties
+-------------------
+
+Session properties set behavior changes for queries executed within the given session.
+
+============================================= ======================================================================
+Property Name                                 Description
+============================================= ======================================================================
+``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
+                                              ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+============================================= ======================================================================
 
 Caching Support
 ----------------
@@ -303,6 +324,107 @@ Property Name                                          Description              
                                                        caching in bytes. Manifest files with a length exceeding
                                                        this size will not be cached.
 ====================================================   =============================================================   ============
+
+Alluxio Data Cache
+^^^^^^^^^^^^^^^^^^
+
+A Presto worker caches remote storage data in its original form (compressed and possibly encrypted) on local SSD upon read.
+
+The following configuration properties are required to set in the Iceberg catalog file (catalog/iceberg.properties):
+
+.. code-block:: none
+
+    cache.enabled=true
+    cache.base-directory=file:///mnt/flash/data
+    cache.type=ALLUXIO
+    cache.alluxio.max-cache-size=1600GB
+    hive.node-selection-strategy=SOFT_AFFINITY
+
+JMX queries to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.alluxio:name=client.cachehitrate,type=gauges";
+
+    SELECT * FROM jmx.current."com.facebook.alluxio:name=client.cachebytesreadcache,type=meters";
+
+    SHOW TABLES FROM jmx.current like '%alluxio%';
+
+File And Stripe Footer Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Caches open file descriptors and stripe or file footer information in leaf worker memory. These pieces of data are mostly frequently accessed when reading files.
+
+The following configuration properties are required to set in the Iceberg catalog file (catalog/iceberg.properties):
+
+.. code-block:: none
+
+    # scheduling
+    hive.node-selection-strategy=SOFT_AFFINITY
+
+    # orc
+    iceberg.orc.file-tail-cache-enabled=true
+    iceberg.orc.file-tail-cache-size=100MB
+    iceberg.orc.file-tail-cache-ttl-since-last-access=6h
+    iceberg.orc.stripe-metadata-cache-enabled=true
+    iceberg.orc.stripe-footer-cache-size=100MB
+    iceberg.orc.stripe-footer-cache-ttl-since-last-access=6h
+    iceberg.orc.stripe-stream-cache-size=300MB
+    iceberg.orc.stripe-stream-cache-ttl-since-last-access=6h
+
+    # parquet
+    iceberg.parquet.metadata-cache-enabled=true
+    iceberg.parquet.metadata-cache-size=100MB
+    iceberg.parquet.metadata-cache-ttl-since-last-access=6h
+
+JMX queries to get the metrics and verify the cache usage::
+
+    SELECT * FROM jmx.current."com.facebook.presto.hive:name=iceberg_parquetmetadata,type=cachestatsmbean";
+
+Metastore Versioned Cache
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Metastore cache only caches schema and table names. Other metadata would be fetched from the filesystem.
+
+.. note::
+
+    Metastore Versioned Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
+
+.. code-block:: none
+
+    hive.metastore-cache-ttl=2d
+    hive.metastore-refresh-interval=3d
+    hive.metastore-cache-maximum-size=10000000
+
+Extra Hidden Metadata Columns
+----------------------------
+
+The Iceberg connector exposes extra hidden metadata columns. You can query these
+as part of a SQL query by including them in your SELECT statement.
+
+``$path`` column
+^^^^^^^^^^^^^^^^
+* ``$path``: Full file system path name of the file for this row
+.. code-block:: sql
+
+    SELECT "$path", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+             $path                    |  regionkey
+     ---------------------------------+-----------
+      /full/path/to/file/file.parquet | 2
+
+``$data_sequence_number`` column
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
+.. code-block:: sql
+
+    SELECT "$data_sequence_number", regionkey FROM "ctas_nation";
+
+.. code-block:: text
+
+             $data_sequence_number     |  regionkey
+     ----------------------------------+------------
+                  2                    | 3
 
 Extra Hidden Metadata Tables
 ----------------------------
@@ -671,7 +793,7 @@ dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
 DELETE
 ^^^^^^^^
 
-The Iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
+The Iceberg connector can delete data from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
 
      DELETE FROM lineitem;
 
@@ -681,11 +803,13 @@ The Iceberg connector can delete data in one or more entire partitions from tabl
 
 .. note::
 
-    Columns in the filter must all be identity transformed partition columns of the target table.
-
     Filtered columns only support comparison operators, such as EQUALS, LESS THAN, or LESS THAN EQUALS.
 
     Deletes must only occur on the latest snapshot.
+
+    For V1 tables, the Iceberg connector can only delete data in one or more entire
+    partitions. Columns in the filter must all be identity transformed partition
+    columns of the target table.
 
 DROP TABLE
 ^^^^^^^^^^^

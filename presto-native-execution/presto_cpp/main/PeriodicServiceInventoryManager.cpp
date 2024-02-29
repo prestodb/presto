@@ -20,15 +20,13 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
     std::string address,
     int port,
     std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer,
-    std::string clientCertAndKeyPath,
-    std::string ciphers,
+    folly::SSLContextPtr sslContext,
     std::string id,
     uint64_t frequencyMs)
     : address_(std::move(address)),
       port_(port),
       coordinatorDiscoverer_(std::move(coordinatorDiscoverer)),
-      clientCertAndKeyPath_(std::move(clientCertAndKeyPath)),
-      ciphers_(std::move(ciphers)),
+      sslContext_(std::move(sslContext)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
       pool_(velox::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
@@ -46,6 +44,16 @@ void PeriodicServiceInventoryManager::start() {
 void PeriodicServiceInventoryManager::stop() {
   stopped_ = true;
   eventBaseThread_.stop();
+}
+
+void PeriodicServiceInventoryManager::setDetails(const std::string& details) {
+  *details_.wlock() = details;
+}
+
+void PeriodicServiceInventoryManager::enableRequest(bool enable) {
+  if (requestEnabled_.exchange(enable) != enable) {
+    LOG(INFO) << id_ << " has been " << (enable ? "enabled" : "disabled");
+  }
 }
 
 void PeriodicServiceInventoryManager::sendRequest() {
@@ -72,12 +80,17 @@ void PeriodicServiceInventoryManager::sendRequest() {
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),
           pool_,
-          clientCertAndKeyPath_,
-          ciphers_);
+          sslContext_);
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "
                  << ex.what();
+    scheduleNext();
+    return;
+  }
+
+  if (!requestEnabled_) {
+    LOG(INFO) << id_ << " skipped (it is disabled).";
     scheduleNext();
     return;
   }
@@ -99,7 +112,8 @@ void PeriodicServiceInventoryManager::sendRequest() {
           LOG(ERROR) << id_ << " failed: " << response->error();
         } else {
           failedAttempts_ = 0;
-          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode();
+          LOG(INFO) << id_ << " succeeded: HTTP " << message->getStatusCode()
+                    << ". " << *details_.rlock();
         }
       })
       .thenError(

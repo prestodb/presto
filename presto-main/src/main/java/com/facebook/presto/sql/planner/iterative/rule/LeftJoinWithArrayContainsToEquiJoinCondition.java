@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -70,7 +72,7 @@ import static java.util.Objects.requireNonNull;
 public class LeftJoinWithArrayContainsToEquiJoinCondition
         implements Rule<JoinNode>
 {
-    private static final Pattern<JoinNode> PATTERN = join().matching(x -> x.getType().equals(JoinNode.Type.LEFT) && x.getCriteria().isEmpty() && x.getFilter().isPresent());
+    private static final Pattern<JoinNode> PATTERN = join().matching(x -> x.getType().equals(JoinType.LEFT) && x.getCriteria().isEmpty() && x.getFilter().isPresent());
     private final FunctionAndTypeManager functionAndTypeManager;
     private final RowExpressionDeterminismEvaluator determinismEvaluator;
     private final FunctionResolution functionResolution;
@@ -136,7 +138,7 @@ public class LeftJoinWithArrayContainsToEquiJoinCondition
                 ImmutableMap.of(arrayFilterNullVariable, ImmutableList.of(unnestVariable)),
                 Optional.empty());
 
-        JoinNode.EquiJoinClause equiJoinClause = new JoinNode.EquiJoinClause(elementVariable, unnestVariable);
+        EquiJoinClause equiJoinClause = new EquiJoinClause(elementVariable, unnestVariable);
 
         return Result.ofPlanNode(new JoinNode(node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),

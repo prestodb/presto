@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
@@ -44,7 +45,6 @@ import java.util.Properties;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -164,8 +164,9 @@ public class MySqlClient
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
-        if (TIMESTAMP.equals(type)) {
-            return "datetime";
+        if (type instanceof TimestampType) {
+            // In order to preserve microsecond information for TIMESTAMP_MICROSECONDS
+            return "datetime(6)";
         }
         if (VARBINARY.equals(type)) {
             return "mediumblob";

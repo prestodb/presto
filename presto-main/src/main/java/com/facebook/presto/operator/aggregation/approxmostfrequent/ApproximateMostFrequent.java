@@ -16,7 +16,6 @@ package com.facebook.presto.operator.aggregation.approxmostfrequent;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.NullablePosition;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.stream.StreamSummary;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
@@ -46,7 +45,7 @@ import static java.lang.Math.toIntExact;
  * by Ahmed Metwally, Divyakant Agrawal, and Amr El Abbadi
  * </p>
  */
-@AggregationFunction(value = "approx_most_frequent", isCalledOnNullInput = true)
+@AggregationFunction(value = "approx_most_frequent")
 @Description("Computes the top frequent elements approximately")
 public final class ApproximateMostFrequent
 {
@@ -59,7 +58,7 @@ public final class ApproximateMostFrequent
             @TypeParameter("T") Type type,
             @AggregationState ApproximateMostFrequentState state,
             @SqlType(BIGINT) long buckets,
-            @BlockPosition @SqlType("T") @NullablePosition Block valueBlock,
+            @BlockPosition @SqlType("T") Block valueBlock,
             @BlockIndex int valueIndex,
             @SqlType(BIGINT) long capacity)
     {

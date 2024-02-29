@@ -35,6 +35,7 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -43,10 +44,12 @@ import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
@@ -62,6 +65,7 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -78,6 +82,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -86,6 +91,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -103,6 +109,8 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
@@ -122,18 +130,22 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMME
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
+import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -144,9 +156,11 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -156,9 +170,12 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES;
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.DELETE_MODE;
+import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -169,6 +186,7 @@ public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
+    public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
 
     private IcebergUtil() {}
 
@@ -189,7 +207,7 @@ public final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER),
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()),
                 hdfsEnvironment,
                 hdfsContext,
                 table.getSchemaName(),
@@ -227,7 +245,7 @@ public final class IcebergUtil
             return name.getSnapshotId();
         }
 
-        if (name.getTableType() == TableType.CHANGELOG) {
+        if (name.getTableType() == IcebergTableType.CHANGELOG) {
             return Optional.ofNullable(SnapshotUtil.oldestAncestor(table)).map(Snapshot::snapshotId);
         }
 
@@ -386,6 +404,17 @@ public final class IcebergUtil
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<String> tryGetLocation(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.location());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -549,7 +578,7 @@ public final class IcebergUtil
             Constraint<ColumnHandle> constraint,
             List<IcebergColumnHandle> partitionColumns)
     {
-        IcebergTableName name = ((IcebergTableHandle) tableHandle).getTableName();
+        IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
 
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
@@ -710,18 +739,24 @@ public final class IcebergUtil
     {
         StructLike partition = scanTask.file().partition();
         PartitionSpec spec = scanTask.spec();
-        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
+        return getPartitionKeys(spec, partition);
+    }
+
+    public static Map<Integer, HivePartitionKey> getPartitionKeys(PartitionSpec spec, StructLike partition)
+    {
         Map<Integer, HivePartitionKey> partitionKeys = new HashMap<>();
 
-        fieldToIndex.forEach((field, index) -> {
-            int id = field.sourceId();
+        int index = 0;
+        for (PartitionField field : spec.fields()) {
+            int sourceId = field.sourceId();
             String colName = field.name();
-            org.apache.iceberg.types.Type type = spec.schema().findType(id);
+            org.apache.iceberg.types.Type sourceType = spec.schema().findType(sourceId);
+            org.apache.iceberg.types.Type type = field.transform().getResultType(sourceType);
             Class<?> javaClass = type.typeId().javaClass();
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(id, new HivePartitionKey(colName, Optional.empty()));
+                partitionKeys.put(field.fieldId(), new HivePartitionKey(colName, Optional.empty()));
             }
             else {
                 HivePartitionKey partitionValue;
@@ -732,9 +767,13 @@ public final class IcebergUtil
                 else {
                     partitionValue = new HivePartitionKey(colName, Optional.of(value.toString()));
                 }
-                partitionKeys.put(id, partitionValue);
+                partitionKeys.put(field.fieldId(), partitionValue);
+                if (field.transform().isIdentity()) {
+                    partitionKeys.put(sourceId, partitionValue);
+                }
             }
-        });
+            index += 1;
+        }
 
         return Collections.unmodifiableMap(partitionKeys);
     }
@@ -745,5 +784,194 @@ public final class IcebergUtil
         properties.put(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES, String.valueOf(icebergConfig.getMaxManifestCacheSize()));
         properties.put(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH, String.valueOf(icebergConfig.getManifestCacheMaxContentLength()));
         properties.put(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS, String.valueOf(icebergConfig.getManifestCacheExpireDuration()));
+    }
+
+    public static long getDataSequenceNumber(ContentFile<?> file)
+    {
+        if (file.dataSequenceNumber() != null) {
+            return file.dataSequenceNumber();
+        }
+        return file.fileSequenceNumber();
+    }
+
+    /**
+     * Provides the delete files that need to be applied to the given table snapshot.
+     *
+     * @param table The table to provide deletes for
+     * @param snapshot The snapshot id to use
+     * @param filter Filters to apply during planning
+     * @param requestedPartitionSpec If provided, only delete files for this partition spec will be provided
+     * @param requestedSchema If provided, only delete files with this schema will be provided
+     */
+    public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
+            long snapshot,
+            TupleDomain<IcebergColumnHandle> filter,
+            Optional<Set<Integer>> requestedPartitionSpec,
+            Optional<Set<Integer>> requestedSchema)
+    {
+        Expression filterExpression = toIcebergExpression(filter);
+        CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
+
+        return new CloseableIterable<DeleteFile>()
+        {
+            @Override
+            public void close()
+                    throws IOException
+            {
+                fileTasks.close();
+            }
+
+            @Override
+            public CloseableIterator<DeleteFile> iterator()
+            {
+                return new DeleteFilesIterator(table.specs(), fileTasks.iterator(), requestedPartitionSpec, requestedSchema);
+            }
+        };
+    }
+
+    private static class DeleteFilesIterator
+            implements CloseableIterator<DeleteFile>
+    {
+        private final Set<String> seenFiles = new HashSet<>();
+        private final Map<Integer, PartitionSpec> partitionSpecsById;
+        private CloseableIterator<FileScanTask> fileTasks;
+        private final Optional<Set<Integer>> requestedPartitionSpec;
+        private final Optional<Set<Integer>> requestedSchema;
+        private Iterator<DeleteFile> currentDeletes = emptyIterator();
+        private DeleteFile currentFile;
+
+        private DeleteFilesIterator(Map<Integer, PartitionSpec> partitionSpecsById,
+                                    CloseableIterator<FileScanTask> fileTasks,
+                                    Optional<Set<Integer>> requestedPartitionSpec,
+                                    Optional<Set<Integer>> requestedSchema)
+        {
+            this.partitionSpecsById = partitionSpecsById;
+            this.fileTasks = fileTasks;
+            this.requestedPartitionSpec = requestedPartitionSpec;
+            this.requestedSchema = requestedSchema;
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return currentFile != null || advance();
+        }
+
+        private boolean advance()
+        {
+            currentFile = null;
+            while (currentFile == null && (currentDeletes.hasNext() || fileTasks.hasNext())) {
+                if (!currentDeletes.hasNext()) {
+                    currentDeletes = fileTasks.next().deletes().iterator();
+                }
+                while (currentDeletes.hasNext()) {
+                    DeleteFile deleteFile = currentDeletes.next();
+                    if (shouldIncludeFile(deleteFile)) {
+                        // If there is a requested schema only include files that match it
+                        if (seenFiles.add(deleteFile.path().toString())) {
+                            currentFile = deleteFile;
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public DeleteFile next()
+        {
+            DeleteFile result = currentFile;
+            advance();
+            return result;
+        }
+
+        private boolean shouldIncludeFile(DeleteFile file)
+        {
+            boolean matchesPartition = !requestedPartitionSpec.isPresent() ||
+                    requestedPartitionSpec.get().equals(partitionSpecsById.get(file.specId()).fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
+            return matchesPartition && (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
+                    !requestedSchema.isPresent() || requestedSchema.get().equals(ImmutableSet.copyOf(file.equalityFieldIds())));
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            fileTasks.close();
+            // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
+            // correct release resources holds by iterator.
+            // (and make it final)
+            fileTasks = CloseableIterator.empty();
+        }
+    }
+
+    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat)
+    {
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        String formatVersion = getFormatVersion(tableMetadata.getProperties());
+        verify(formatVersion != null, "Format version cannot be null");
+        propertiesBuilder.put(FORMAT_VERSION, formatVersion);
+
+        if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
+            propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
+        }
+        else {
+            RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
+            propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
+        }
+
+        return propertiesBuilder.build();
+    }
+
+    public static int parseFormatVersion(String formatVersion)
+    {
+        try {
+            return parseInt(formatVersion);
+        }
+        catch (NumberFormatException | IndexOutOfBoundsException e) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION, "Unable to parse user provided format version");
+        }
+    }
+
+    public static RowLevelOperationMode getDeleteMode(Table table)
+    {
+        return RowLevelOperationMode.fromName(table.properties()
+                .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
+                .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static Optional<PartitionData> partitionDataFromJson(PartitionSpec spec, Optional<String> partitionDataAsJson)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = spec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        spec.schema().findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        Optional<PartitionData> partitionData = Optional.empty();
+        if (spec.isPartitioned()) {
+            verify(partitionDataAsJson.isPresent(), "partitionDataJson is null");
+            partitionData = Optional.of(PartitionData.fromJson(partitionDataAsJson.get(), partitionColumnTypes));
+        }
+        return partitionData;
+    }
+
+    public static Optional<PartitionData> partitionDataFromStructLike(PartitionSpec spec, StructLike partition)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = spec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        spec.schema().findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        Optional<PartitionData> partitionData = Optional.empty();
+        if (spec.isPartitioned()) {
+            partitionData = Optional.of(PartitionData.fromStructLike(partition, partitionColumnTypes));
+        }
+        return partitionData;
     }
 }

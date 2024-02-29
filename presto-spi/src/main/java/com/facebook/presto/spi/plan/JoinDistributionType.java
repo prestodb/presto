@@ -11,16 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.spi.plan;
 
-public enum TableType
+public enum JoinDistributionType
 {
-    DATA,
-    HISTORY,
-    SNAPSHOTS,
-    MANIFESTS,
-    PARTITIONS,
-    FILES,
-    PROPERTIES,
-    CHANGELOG
+    PARTITIONED,
+    REPLICATED,
 }

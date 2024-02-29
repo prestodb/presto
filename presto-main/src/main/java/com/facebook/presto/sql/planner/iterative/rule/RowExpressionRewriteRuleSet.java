@@ -578,7 +578,8 @@ public class RowExpressionRewriteRuleSet
                         node.getTablePartitioningScheme(),
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation,
-                        node.getTaskCountIfScaledWriter()));
+                        node.getTaskCountIfScaledWriter(),
+                        node.getIsTemporaryTableWriter()));
             }
             return Result.empty();
         }

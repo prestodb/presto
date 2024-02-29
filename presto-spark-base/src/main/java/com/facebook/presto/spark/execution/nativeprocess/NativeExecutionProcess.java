@@ -19,7 +19,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException;
@@ -37,21 +36,32 @@ import org.apache.spark.SparkFiles;
 
 import javax.annotation.Nullable;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
@@ -60,7 +70,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class NativeExecutionProcess
         implements AutoCloseable
@@ -77,42 +89,45 @@ public class NativeExecutionProcess
     private final PrestoSparkHttpServerClient serverClient;
     private final URI location;
     private final int port;
-    private final TaskManagerConfig taskManagerConfig;
-    private final ScheduledExecutorService errorRetryScheduledExecutor;
+    private final Executor executor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
 
     private volatile Process process;
+    private volatile ProcessOutputPipe processOutputPipe;
 
     public NativeExecutionProcess(
             Session session,
-            URI uri,
             HttpClient httpClient,
-            ScheduledExecutorService errorRetryScheduledExecutor,
+            Executor executor,
+            ScheduledExecutorService scheduledExecutorService,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            TaskManagerConfig taskManagerConfig,
             WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
-        this.port = getAvailableTcpPort();
+        String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
+        this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
-        this.location = getBaseUriWithPort(requireNonNull(uri, "uri is null"), getPort());
+        this.location = uriBuilder()
+                .scheme("http")
+                .host(nodeInternalAddress)
+                .port(getPort())
+                .build();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.serverClient = new PrestoSparkHttpServerClient(
                 this.httpClient,
                 location,
                 serverInfoCodec);
-        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
-                uri,
+                location,
                 NATIVE_EXECUTION_TASK_ERROR,
                 NATIVE_EXECUTION_TASK_ERROR_MESSAGE,
                 maxErrorDuration,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 "getting native process status");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
@@ -123,15 +138,20 @@ public class NativeExecutionProcess
     public synchronized void start()
             throws ExecutionException, InterruptedException, IOException
     {
-        if (process != null && process.isAlive()) {
+        if (process != null) {
             return;
         }
 
         ProcessBuilder processBuilder = new ProcessBuilder(getLaunchCommand());
         processBuilder.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        processBuilder.redirectError(ProcessBuilder.Redirect.INHERIT);
+        processBuilder.environment().put("INIT_PRESTO_QUERY_ID", session.getQueryId().toString());
         try {
             process = processBuilder.start();
+            processOutputPipe = new ProcessOutputPipe(
+                    getPid(process),
+                    process.getErrorStream(),
+                    new FileOutputStream(FileDescriptor.err));
+            processOutputPipe.start();
         }
         catch (IOException e) {
             log.error(format("Cannot start %s, error message: %s", processBuilder.command(), e.getMessage()));
@@ -163,31 +183,51 @@ public class NativeExecutionProcess
     /**
      * Triggers coredump (also terminates the process)
      */
-    public void sendCoreSignal()
+    public void terminateWithCore(Duration timeout)
     {
         // chosen as the least likely core signal to occur naturally (invalid sys call)
         // https://man7.org/linux/man-pages/man7/signal.7.html
-        sendSignal(SIGSYS);
+        Process process = sendSignal(SIGSYS);
+        if (process == null) {
+            return;
+        }
+        try {
+            long pid = getPid(process);
+            log.info("Waiting %s for process %s to terminate", timeout, pid);
+            if (!process.waitFor(timeout.toMillis(), MILLISECONDS)) {
+                log.warn("Process %s did not terminate within %s", pid, timeout);
+                process.destroyForcibly();
+            }
+            else {
+                log.info("Process %s successfully terminated with status code %s", pid, process.exitValue());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
-    public void sendSignal(int signal)
+    private Process sendSignal(int signal)
     {
         Process process = this.process;
         if (process == null) {
             log.warn("Failure sending signal, process does not exist");
-            return;
+            return null;
         }
         long pid = getPid(process);
         if (!process.isAlive()) {
             log.warn("Failure sending signal, process is dead: %s", pid);
-            return;
+            return null;
         }
         try {
             log.info("Sending signal to process %s: %s", pid, signal);
             Runtime.getRuntime().exec(format("kill -%s %s", signal, pid));
+            return process;
         }
         catch (IOException e) {
             log.warn(e, "Failure sending signal to process %s", pid);
+            return null;
         }
     }
 
@@ -212,7 +252,12 @@ public class NativeExecutionProcess
     @Override
     public void close()
     {
-        if (process != null && process.isAlive()) {
+        Process process = this.process;
+        if (process == null) {
+            return;
+        }
+
+        if (process.isAlive()) {
             long pid = getPid(process);
             log.info("Destroying process: %s", pid);
             process.destroy();
@@ -234,15 +279,23 @@ public class NativeExecutionProcess
                 }
             }
         }
-        else if (process != null) {
+        else {
             log.info("Process is dead: %s", getPid(process));
-            process = null;
         }
     }
 
     public boolean isAlive()
     {
         return process != null && process.isAlive();
+    }
+
+    public String getCrashReport()
+    {
+        ProcessOutputPipe pipe = processOutputPipe;
+        if (pipe == null) {
+            return "";
+        }
+        return pipe.getAbortMessage();
     }
 
     public int getPort()
@@ -255,17 +308,11 @@ public class NativeExecutionProcess
         return location;
     }
 
-    private static URI getBaseUriWithPort(URI baseUri, int port)
-    {
-        return uriBuilderFrom(baseUri)
-                .port(port)
-                .build();
-    }
-
-    private static int getAvailableTcpPort()
+    private static int getAvailableTcpPort(String nodeInternalAddress)
     {
         try {
-            ServerSocket socket = new ServerSocket(0);
+            ServerSocket socket = new ServerSocket();
+            socket.bind(new InetSocketAddress(nodeInternalAddress, 0));
             int port = socket.getLocalPort();
             socket.close();
             return port;
@@ -333,7 +380,7 @@ public class NativeExecutionProcess
                     doGetServerInfo(future);
                 }
                 else {
-                    errorRateLimit.addListener(() -> doGetServerInfo(future), errorRetryScheduledExecutor);
+                    errorRateLimit.addListener(() -> doGetServerInfo(future), executor);
                 }
             }
         }, directExecutor());
@@ -380,7 +427,67 @@ public class NativeExecutionProcess
             populateConfigurationFiles(configPath);
         }
         ImmutableList<String> commandList = command.build();
-        log.info("Launching native process using command: %s %s", executablePath, String.join(" ", commandList));
+        log.info("Launching native process using command: %s", String.join(" ", commandList));
         return commandList;
+    }
+
+    private static class ProcessOutputPipe
+            implements Runnable
+    {
+        private final long pid;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+        private final StringBuilder abortMessage = new StringBuilder();
+        private final AtomicBoolean started = new AtomicBoolean();
+
+        public ProcessOutputPipe(long pid, InputStream inputStream, OutputStream outputStream)
+        {
+            this.pid = pid;
+            this.inputStream = requireNonNull(inputStream, "inputStream is null");
+            this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        }
+
+        public void start()
+        {
+            if (!started.compareAndSet(false, true)) {
+                return;
+            }
+            Thread t = new Thread(this, format("NativeExecutionProcess#ProcessOutputPipe[%s]", pid));
+            t.setDaemon(true);
+            t.start();
+        }
+
+        @Override
+        public void run()
+        {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8));
+                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8))) {
+                String line;
+                boolean aborted = false;
+                while ((line = reader.readLine()) != null) {
+                    if (!aborted && line.startsWith("*** Aborted")) {
+                        aborted = true;
+                    }
+                    if (aborted) {
+                        synchronized (abortMessage) {
+                            abortMessage.append(line).append("\n");
+                        }
+                    }
+                    writer.write(line);
+                    writer.newLine();
+                    writer.flush();
+                }
+            }
+            catch (IOException e) {
+                log.warn(e, "failure occurred when copying streams");
+            }
+        }
+
+        public String getAbortMessage()
+        {
+            synchronized (abortMessage) {
+                return abortMessage.toString();
+            }
+        }
     }
 }

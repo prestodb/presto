@@ -549,10 +549,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
     {
         try {
-            return delegate.createTable(metastoreContext, table, principalPrivileges);
+            return delegate.createTable(metastoreContext, table, principalPrivileges, constraints);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
@@ -1017,6 +1017,28 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        try {
+            return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        try {
+            return delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         tableCache.invalidate(getCachingKey(metastoreContext, new HiveTableHandle(databaseName, tableName)));
@@ -1096,8 +1118,20 @@ public class CachingHiveMetastore
 
     private <T> KeyAndContext<T> getCachingKey(MetastoreContext context, T key)
     {
-        MetastoreContext metastoreContext = metastoreImpersonationEnabled ? new MetastoreContext(context.getUsername(), context.getQueryId(), context.getClientInfo(), context.getSource(), true, context.getMetastoreHeaders(), context.isUserDefinedTypeEncodingEnabled(), context.getColumnConverterProvider()) : context;
-        return new KeyAndContext<>(metastoreContext, key);
+        if (metastoreImpersonationEnabled) {
+            context = new MetastoreContext(
+                    context.getUsername(),
+                    context.getQueryId(),
+                    context.getClientInfo(),
+                    context.getSource(),
+                    true,
+                    context.getMetastoreHeaders(),
+                    context.isUserDefinedTypeEncodingEnabled(),
+                    context.getColumnConverterProvider(),
+                    context.getWarningCollector(),
+                    context.getRuntimeStats());
+        }
+        return new KeyAndContext<>(context, key);
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)

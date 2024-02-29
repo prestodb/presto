@@ -22,6 +22,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.sql.tree.CreateView;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartiti
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -57,7 +59,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using"})
+        "deprecated.legacy-join-using",
+        "use-legacy-scheduler",
+        "max-stage-retries"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -79,7 +83,6 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
-    private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -92,12 +95,14 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
 
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
+    private boolean cteFilterAndProjectionPushdownEnabled;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
+    private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -162,6 +167,7 @@ public class FeaturesConfig
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
+    private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -205,7 +211,6 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
-    private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
@@ -284,6 +289,7 @@ public class FeaturesConfig
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
+    private boolean rewriteExpressionWithConstantVariable = true;
 
     private boolean preProcessMetadataCalls;
     private boolean handleComplexEquiJoins;
@@ -296,7 +302,9 @@ public class FeaturesConfig
     private boolean removeRedundantCastToVarcharInJoin = true;
     private boolean skipHashGenerationForJoinWithTableScanInput;
     private long kHyperLogLogAggregationGroupNumberLimit;
+    private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
+    private CreateView.Security defaultViewSecurityMode = DEFINER;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -596,6 +604,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean getCteFilterAndProjectionPushdownEnabled()
+    {
+        return cteFilterAndProjectionPushdownEnabled;
+    }
+
+    @Config("cte-filter-and-projection-pushdown-enabled")
+    @ConfigDescription("Enable pushing down filters and projections inside common table expressions")
+    public FeaturesConfig setCteFilterAndProjectionPushdownEnabled(boolean cteFilterAndProjectionPushdownEnabled)
+    {
+        this.cteFilterAndProjectionPushdownEnabled = cteFilterAndProjectionPushdownEnabled;
+        return this;
+    }
+
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
@@ -698,19 +719,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
     {
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
-        return this;
-    }
-
-    public int getMaxStageRetries()
-    {
-        return maxStageRetries;
-    }
-
-    @Config("max-stage-retries")
-    @ConfigDescription("Maximum number of times that stages can be retried")
-    public FeaturesConfig setMaxStageRetries(int maxStageRetries)
-    {
-        this.maxStageRetries = maxStageRetries;
         return this;
     }
 
@@ -932,6 +940,19 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
     {
         this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
+        return this;
+    }
+
+    @NotNull
+    public String getHistoryBasedOptimizerPlanCanonicalizationStrategies()
+    {
+        return historyBasedOptimizerPlanCanonicalizationStrategies;
+    }
+
+    @Config("optimizer.history-based-optimizer-plan-canonicalization-strategies")
+    public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
+    {
+        this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
         return this;
     }
 
@@ -1484,6 +1505,19 @@ public class FeaturesConfig
         return defaultJoinSelectivityCoefficient;
     }
 
+    @Config("optimizer.default-writer-replication-coefficient")
+    @ConfigDescription("Replication coefficient for costing write operations")
+    public FeaturesConfig setDefaultWriterReplicationCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultWriterReplicationCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    public double getDefaultWriterReplicationCoefficient()
+    {
+        return defaultWriterReplicationCoefficient;
+    }
+
     public DataSize getTopNOperatorUnspillMemoryLimit()
     {
         return topNOperatorUnspillMemoryLimit;
@@ -2006,19 +2040,6 @@ public class FeaturesConfig
     public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
     {
         this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
-        return this;
-    }
-
-    public boolean isUseLegacyScheduler()
-    {
-        return useLegacyScheduler;
-    }
-
-    @Config("use-legacy-scheduler")
-    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
-    public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
-    {
-        this.useLegacyScheduler = useLegacyScheduler;
         return this;
     }
 
@@ -2973,6 +2994,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean getLimitNumberOfGroupsForKHyperLogLogAggregations()
+    {
+        return limitNumberOfGroupsForKHyperLogLogAggregations;
+    }
+
+    @Config("limit-khyperloglog-agg-group-number-enabled")
+    @ConfigDescription("Enable limiting number of groups for khyperloglog_agg and merge of KHyperLogLog states")
+    public FeaturesConfig setLimitNumberOfGroupsForKHyperLogLogAggregations(boolean limitNumberOfGroupsForKHyperLogLogAggregations)
+    {
+        this.limitNumberOfGroupsForKHyperLogLogAggregations = limitNumberOfGroupsForKHyperLogLogAggregations;
+        return this;
+    }
+
     public boolean getGenerateDomainFilters()
     {
         return generateDomainFilters;
@@ -2983,6 +3017,32 @@ public class FeaturesConfig
     public FeaturesConfig setGenerateDomainFilters(boolean generateDomainFilters)
     {
         this.generateDomainFilters = generateDomainFilters;
+        return this;
+    }
+
+    public boolean isRewriteExpressionWithConstantVariable()
+    {
+        return this.rewriteExpressionWithConstantVariable;
+    }
+
+    @Config("optimizer.rewrite-expression-with-constant-variable")
+    @ConfigDescription("Rewrite expression with constant variables")
+    public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
+    {
+        this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public CreateView.Security getDefaultViewSecurityMode()
+    {
+        return this.defaultViewSecurityMode;
+    }
+
+    @Config("default-view-security-mode")
+    @ConfigDescription("Sets the default security mode for view creation. The options are definer/invoker.")
+    public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
+    {
+        this.defaultViewSecurityMode = securityMode;
         return this;
     }
 }

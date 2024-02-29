@@ -2,6 +2,10 @@
 Release 0.285
 =============
 
+.. warning::
+
+   There is a bug for LIKE pattern with multiple-byte characters. (:pr:`21578`)
+
 **Details**
 ===========
 

@@ -44,13 +44,13 @@ import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class HiveTableLayoutHandle
         extends BaseHiveTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
     private final String tablePath;
-    private final List<HiveColumnHandle> partitionColumns;
     private final List<Column> dataColumns;
     private final Map<String, String> tableParameters;
     private final Map<String, HiveColumnHandle> predicateColumns;
@@ -89,7 +89,7 @@ public class HiveTableLayoutHandle
         this(
                 schemaTableName,
                 tablePath,
-                partitionColumns,
+                partitionColumns.stream().map(BaseHiveColumnHandle.class::cast).collect(toList()),
                 dataColumns,
                 tableParameters,
                 domainPredicate,
@@ -111,7 +111,7 @@ public class HiveTableLayoutHandle
     protected HiveTableLayoutHandle(
             SchemaTableName schemaTableName,
             String tablePath,
-            List<HiveColumnHandle> partitionColumns,
+            List<BaseHiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             Map<String, String> tableParameters,
             TupleDomain<Subfield> domainPredicate,
@@ -129,11 +129,16 @@ public class HiveTableLayoutHandle
             boolean footerStatsUnreliable,
             Optional<HiveTableHandle> hiveTableHandle)
     {
-        super(domainPredicate, remainingPredicate, pushdownFilterEnabled, partitionColumnPredicate, partitions);
+        super(
+                partitionColumns,
+                domainPredicate,
+                remainingPredicate,
+                pushdownFilterEnabled,
+                partitionColumnPredicate,
+                partitions);
 
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
-        this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
@@ -158,12 +163,6 @@ public class HiveTableLayoutHandle
     public String getTablePath()
     {
         return tablePath;
-    }
-
-    @JsonProperty
-    public List<HiveColumnHandle> getPartitionColumns()
-    {
-        return partitionColumns;
     }
 
     @JsonProperty
@@ -284,14 +283,14 @@ public class HiveTableLayoutHandle
         // Constants are only removed from point checks, and not range checks. Example:
         // `x = 1` is equivalent to `x = 1000`
         // `x > 1` is NOT equivalent to `x > 1000`
-        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(partitionColumns), partitions.get());
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.get());
         constraint = getDomainPredicate()
                 .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                 .transform(getPredicateColumns()::get)
                 .transform(ColumnHandle.class::cast)
                 .intersect(constraint);
 
-        constraint = constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
+        constraint = canonicalizationStrategy.equals(PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS) ? constraint.canonicalize(x -> true) : constraint.canonicalize(HiveTableLayoutHandle::isPartitionKey);
         return constraint;
     }
 
@@ -306,7 +305,7 @@ public class HiveTableLayoutHandle
                     if (!subfield.getPath().isEmpty() || !predicateColumns.containsKey(subfield.getRootName())) {
                         return subfield;
                     }
-                    return isPartitionKey(predicateColumns.get(subfield.getRootName())) ? null : subfield;
+                    return isPartitionKey(predicateColumns.get(subfield.getRootName())) || strategy.equals(PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS) ? null : subfield;
                 })
                 .canonicalize(ignored -> false);
     }
@@ -356,7 +355,7 @@ public class HiveTableLayoutHandle
     {
         private SchemaTableName schemaTableName;
         private String tablePath;
-        private List<HiveColumnHandle> partitionColumns;
+        private List<BaseHiveColumnHandle> partitionColumns;
         private List<Column> dataColumns;
         private Map<String, String> tableParameters;
         private TupleDomain<Subfield> domainPredicate;
@@ -387,7 +386,7 @@ public class HiveTableLayoutHandle
             return this;
         }
 
-        public Builder setPartitionColumns(List<HiveColumnHandle> partitionColumns)
+        public Builder setPartitionColumns(List<BaseHiveColumnHandle> partitionColumns)
         {
             this.partitionColumns = partitionColumns;
             return this;

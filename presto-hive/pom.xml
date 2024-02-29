@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.286-SNAPSHOT</version>
+        <version>0.287-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -457,6 +457,32 @@
             <artifactId>presto-testing-docker</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>3.4.6</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.bytebuddy</groupId>
+                    <artifactId>byte-buddy-agent</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.objenesis</groupId>
+            <artifactId>objenesis</artifactId>
+            <version>2.6</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.bytebuddy</groupId>
+                    <artifactId>byte-buddy-agent</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>
@@ -469,12 +495,23 @@
                         <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>META-INF.versions.9.module-info</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                     </ignoredClassPatterns>
+                    <ignoredDependencies>
+                        <dependency>
+                            <groupId>net.bytebuddy</groupId>
+                            <artifactId>byte-buddy</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.alluxio</groupId>
+                            <artifactId>alluxio-shaded-client</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
 

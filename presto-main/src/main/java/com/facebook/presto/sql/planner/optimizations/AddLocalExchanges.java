@@ -23,6 +23,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -578,7 +579,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                    originalTableWriterNode.getIsTemporaryTableWriter()),
                             fixedParallelism(),
                             fixedParallelism());
                 }
@@ -603,7 +605,8 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                    originalTableWriterNode.getIsTemporaryTableWriter()),
                             exchange.getProperties());
                 }
             }
@@ -632,7 +635,8 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getTablePartitioningScheme(),
                                 originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                originalTableWriterNode.getTaskCountIfScaledWriter()),
+                                originalTableWriterNode.getTaskCountIfScaledWriter(),
+                                originalTableWriterNode.getIsTemporaryTableWriter()),
                         exchange.getProperties());
             }
 
@@ -773,7 +777,7 @@ public class AddLocalExchanges
 
             // this build consumes the input completely, so we do not pass through parent preferences
             List<VariableReferenceExpression> buildHashVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(EquiJoinClause::getRight)
                     .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
