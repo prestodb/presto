@@ -14,11 +14,17 @@
 package com.facebook.presto.verifier.checksum;
 
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupBy;
+import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.Column.Category;
@@ -29,8 +35,11 @@ import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
+import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ChecksumValidator
@@ -51,6 +60,31 @@ public class ChecksumValidator
             selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
         }
         return simpleQuery(new Select(false, selectItems.build()), new Table(tableName));
+    }
+
+    public Query generatePartitionChecksumQuery(QualifiedName tableName, List<Column> dataColumns, List<Column> partitionColumns)
+    {
+        ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
+        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        for (Column column : dataColumns) {
+            selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
+        }
+
+        ImmutableList.Builder<GroupingElement> groupByList = ImmutableList.builder();
+        ImmutableList.Builder<SortItem> orderByList = ImmutableList.builder();
+        for (Column partitionColumn : partitionColumns) {
+            orderByList.add(new SortItem(new Identifier(partitionColumn.getName()), ASCENDING, UNDEFINED));
+            groupByList.add(new SimpleGroupBy(ImmutableList.of(new Identifier(partitionColumn.getName()))));
+        }
+        return simpleQuery(
+                new Select(false, selectItems.build()),
+                new Table(tableName),
+                Optional.empty(),
+                Optional.of(new GroupBy(false, groupByList.build())),
+                Optional.empty(),
+                Optional.of(new OrderBy(orderByList.build())),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public List<ColumnMatchResult<?>> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
