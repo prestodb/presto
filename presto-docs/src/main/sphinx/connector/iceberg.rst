@@ -1141,9 +1141,9 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
 Type mapping
 ------------
 
-PrestoDB and Iceberg each support types that the other does not. When reading from or writing to Iceberg, Presto converts
-the data types from Iceberg to equivalent Presto data types, and from Presto to equivalent Iceberg data types.
-Refer to the following sections for type mapping in each direction.
+PrestoDB and Iceberg have data types not supported by the other. When using Iceberg to read or write data, Presto changes
+each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type. 
+The following tables detail the specific type maps between PrestoDB and Iceberg. 
 
 Iceberg to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1179,11 +1179,9 @@ The connector maps Iceberg types to the corresponding PrestoDB types:
   * - ``STRING``
     - ``VARCHAR``
   * - ``LIST``
-    - ``LIST``
+    - ``ARRAY``
   * - ``MAP``
     - ``MAP``
-  * - ``STRUCT``
-    - ``ROW``
 
 
 No other types are supported.
@@ -1220,7 +1218,7 @@ The connector maps PrestoDB types to the corresponding Iceberg types:
   * - ``ROW``
     - ``ROW``
   * - ``ARRAY``
-    - ``ARRAY``
+    - ``LIST``
   * - ``MAP``
     - ``MAP``
   * - ``TIME``
