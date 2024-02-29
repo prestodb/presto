@@ -383,4 +383,10 @@ TEST_F(ChecksumAggregateTest, timestampWithTimezone) {
 
   assertChecksum(timestampWithTimezone, "jwqENA0VLZY=");
 }
+
+TEST_F(ChecksumAggregateTest, unknown) {
+  auto data = makeAllNullFlatVector<UnknownValue>(100);
+  assertChecksum(data, "vBwbUFiJq80=");
+}
+
 } // namespace facebook::velox::aggregate::test

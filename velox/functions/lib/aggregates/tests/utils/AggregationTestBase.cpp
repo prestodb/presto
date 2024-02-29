@@ -539,6 +539,26 @@ class ScopedChange {
   T* value_;
 };
 
+bool isTableScanSupported(const TypePtr& type) {
+  if (type->kind() == TypeKind::ROW && type->size() == 0) {
+    return false;
+  }
+  if (type->kind() == TypeKind::UNKNOWN) {
+    return false;
+  }
+  if (type->kind() == TypeKind::HUGEINT) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!isTableScanSupported(type->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 } // namespace
 
 void AggregationTestBase::testReadFromFiles(
@@ -551,6 +571,11 @@ void AggregationTestBase::testReadFromFiles(
     const std::unordered_map<std::string, std::string>& config) {
   PlanBuilder builder(pool());
   makeSource(builder);
+
+  if (!isTableScanSupported(builder.planNode()->outputType())) {
+    return;
+  }
+
   auto input = AssertQueryBuilder(builder.planNode()).copyResults(pool());
   if (input->size() < 2) {
     return;
