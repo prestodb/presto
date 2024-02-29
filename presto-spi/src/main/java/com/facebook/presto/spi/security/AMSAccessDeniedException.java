@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_INSERT_INTO_T
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_RENAME_COLUMN_IN_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_RENAME_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_RENAME_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_RENAME_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_REVOKE_PRIVILEGE_ON_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_REVOKE_ROLES;
 import static com.facebook.presto.spi.StandardErrorCode.AMS_CANNOT_SELECT_FROM_COLUMNS_IN_TABLE;
@@ -295,6 +296,16 @@ public class AMSAccessDeniedException
     public static void denyDropView(String viewName, String extraInfo)
     {
         throw new AMSAccessDeniedException(AMS_CANNOT_DROP_VIEW, format("Cannot drop view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRenameView(String viewName, String newViewName)
+    {
+        denyRenameView(viewName, newViewName, null);
+    }
+
+    public static void denyRenameView(String viewName, String newViewName, String extraInfo)
+    {
+        throw new AMSAccessDeniedException(AMS_CANNOT_RENAME_VIEW, format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denySelectView(String viewName)
