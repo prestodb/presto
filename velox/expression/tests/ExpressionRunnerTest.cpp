@@ -86,6 +86,16 @@ DEFINE_string(
     "indices that specify which columns of the input row vector should "
     "be wrapped in lazy.");
 
+DEFINE_bool(
+    use_seperate_memory_pool_for_input_vector,
+    true,
+    "If true, expression evaluator and input vectors use different memory pools."
+    " This helps trigger code-paths that can depend on vectors having different"
+    " pools. For eg, when copying a flat string vector copies of the strings"
+    " stored in the string buffers need to be created. If however, the pools"
+    " were the same between the vectors then the buffers can simply be shared"
+    " between them instead.");
+
 static bool validateMode(const char* flagName, const std::string& value) {
   static const std::unordered_set<std::string> kModes = {
       "common", "simplified", "verify", "query"};
@@ -207,7 +217,7 @@ int main(int argc, char** argv) {
     sql = restoreStringFromFile(FLAGS_sql_path.c_str());
     VELOX_CHECK(!sql.empty());
   }
-
+  memory::initializeMemoryManager({});
   test::ExpressionRunner::run(
       FLAGS_input_path,
       sql,
@@ -217,5 +227,6 @@ int main(int argc, char** argv) {
       FLAGS_num_rows,
       FLAGS_store_result_path,
       FLAGS_lazy_column_list_path,
-      FLAGS_find_minimal_subexpression);
+      FLAGS_find_minimal_subexpression,
+      FLAGS_use_seperate_memory_pool_for_input_vector);
 }

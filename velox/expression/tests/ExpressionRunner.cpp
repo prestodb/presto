@@ -115,21 +115,26 @@ void ExpressionRunner::run(
     vector_size_t numRows,
     const std::string& storeResultPath,
     const std::string& lazyColumnListPath,
-    bool findMinimalSubExpression) {
+    bool findMinimalSubExpression,
+    bool useSeperatePoolForInput) {
   VELOX_CHECK(!sql.empty());
-
+  auto memoryManager = memory::memoryManager();
   std::shared_ptr<core::QueryCtx> queryCtx{std::make_shared<core::QueryCtx>()};
-  std::shared_ptr<memory::MemoryPool> pool{
-      memory::deprecatedAddDefaultLeafMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> deserializerPool{
+      memoryManager->addLeafPool()};
+  std::shared_ptr<memory::MemoryPool> pool = useSeperatePoolForInput
+      ? memoryManager->addLeafPool("exprEval")
+      : deserializerPool;
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   RowVectorPtr inputVector;
+
   if (inputPath.empty()) {
     inputVector = std::make_shared<RowVector>(
-        pool.get(), ROW({}), nullptr, 1, std::vector<VectorPtr>{});
+        deserializerPool.get(), ROW({}), nullptr, 1, std::vector<VectorPtr>{});
   } else {
     inputVector = std::dynamic_pointer_cast<RowVector>(
-        restoreVectorFromFile(inputPath.c_str(), pool.get()));
+        restoreVectorFromFile(inputPath.c_str(), deserializerPool.get()));
     VELOX_CHECK_NOT_NULL(
         inputVector,
         "Input vector is not a RowVector: {}",

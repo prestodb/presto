@@ -49,6 +49,15 @@ class ExpressionRunner {
   /// @param lazyColumnListPath The path to on-disk vector of column indices
   /// that specify which columns of the input row vector should be wrapped in
   /// lazy.
+  /// @param findMinimalSubExpression Whether to find minimum failing
+  ///        subexpression on result mismatch.
+  /// @param useSeperatePoolForInput Whether to use separate memory pools for
+  ///        input vector and expression evaluation. This helps trigger
+  ///        code-paths that can depend on vectors having different pools. For
+  ///        eg, when copying a flat string vector copies of the strings stored
+  ///        in the string buffers need to be created. If however, the pools
+  ///        were the same between the vectors then the buffers can simply be
+  ///        shared between them instead.
   ///
   /// User can refer to 'VectorSaver' class to see how to serialize/preserve
   /// vectors to disk.
@@ -61,7 +70,8 @@ class ExpressionRunner {
       vector_size_t numRows,
       const std::string& storeResultPath,
       const std::string& lazyColumnListPath,
-      bool findMinimalSubExpression = false);
+      bool findMinimalSubExpression = false,
+      bool useSeperatePoolForInput = true);
 
   /// Parse comma-separated SQL expressions. This should be treated as private
   /// except for tests.

@@ -284,6 +284,10 @@ ExpressionRunner supports the following flags:
 
 * ``--store_result_path`` optional directory path for storing the results of evaluating SQL expression or query in 'common', 'simplified' or 'query' modes.
 
+* ``--findMinimalSubExpression`` optional Whether to find minimum failing subexpression on result mismatch. Set to false by default.
+
+* ``--useSeperatePoolForInput`` optional If true (default), expression evaluator and input vectors use different memory pools. This helps trigger code-paths that can depend on vectors having different pools. For eg, when copying a flat string vector copies of the strings stored in the string buffers need to be created. If however, the pools were the same between the vectors then the buffers can simply be shared between them instead.
+
 Example command:
 
 ::

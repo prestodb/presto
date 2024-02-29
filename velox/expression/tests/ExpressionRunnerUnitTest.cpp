@@ -63,8 +63,20 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   saveVectorToFile(inputVector.get(), inputPath);
   saveVectorToFile(resultVector.get(), resultPath);
 
-  EXPECT_NO_THROW(ExpressionRunner::run(
-      inputPath, "length(c0)", "", resultPath, "verify", 0, "", ""));
+  for (bool useSeperatePoolForInput : {true, false}) {
+    LOG(INFO) << "Using useSeperatePoolForInput: " << useSeperatePoolForInput;
+    EXPECT_NO_THROW(ExpressionRunner::run(
+        inputPath,
+        "length(c0)",
+        "",
+        resultPath,
+        "verify",
+        0,
+        "",
+        "",
+        false,
+        useSeperatePoolForInput));
+  }
 }
 
 TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
