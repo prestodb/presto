@@ -30,6 +30,7 @@ public final class PropertyMetadata<T>
 {
     private final SessionPropertyMetadata sessionPropertyMetadata;
     private final Class<T> javaType;
+    private final Type sqlType;
     private final T defaultValue;
     private final Function<Object, T> decoder;
     private final Function<T, Object> encoder;
@@ -44,10 +45,11 @@ public final class PropertyMetadata<T>
             Function<Object, T> decoder,
             Function<T, Object> encoder)
     {
+        this.sqlType = requireNonNull(sqlType, "sqlType is null");
         this.sessionPropertyMetadata = new SessionPropertyMetadata(
                 name,
                 description,
-                sqlType,
+                sqlType.getTypeSignature(),
                 defaultValue == null ? "" : defaultValue.toString(),
                 hidden);
         this.javaType = requireNonNull(javaType, "javaType is null");
@@ -77,7 +79,7 @@ public final class PropertyMetadata<T>
      */
     public Type getSqlType()
     {
-        return sessionPropertyMetadata.getSqlType();
+        return sqlType;
     }
 
     /**

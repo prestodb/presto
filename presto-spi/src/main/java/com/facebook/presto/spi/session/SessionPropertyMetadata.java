@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.spi.session;
 
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.Objects;
 
@@ -32,9 +31,8 @@ public class SessionPropertyMetadata
     @JsonProperty("description")
     private final String description;
 
-    @JsonProperty("sqlType")
-    @JsonDeserialize(using = TypeDeserializer.class)
-    private final Type sqlType;
+    @JsonProperty("typeSignature")
+    private final TypeSignature typeSignature;
 
     @JsonProperty("defaultValue")
     private final String defaultValue;
@@ -46,13 +44,13 @@ public class SessionPropertyMetadata
     public SessionPropertyMetadata(
             String name,
             String description,
-            Type sqlType,
+            TypeSignature typeSignature,
             String defaultValue,
             boolean hidden)
     {
         this.name = requireNonNull(name, "name is null");
         this.description = requireNonNull(description, "description is null");
-        this.sqlType = requireNonNull(sqlType, "sqlType is null");
+        this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
         this.defaultValue = defaultValue;
         this.hidden = hidden;
 
@@ -86,9 +84,9 @@ public class SessionPropertyMetadata
      * SQL type of the property.
      */
     @JsonProperty
-    public Type getSqlType()
+    public TypeSignature getSqlTypeSignature()
     {
-        return sqlType;
+        return typeSignature;
     }
 
     /**
@@ -119,12 +117,12 @@ public class SessionPropertyMetadata
             return false;
         }
         SessionPropertyMetadata that = (SessionPropertyMetadata) o;
-        return hidden == that.hidden && Objects.equals(name, that.name) && Objects.equals(description, that.description) && Objects.equals(sqlType, that.sqlType) && Objects.equals(defaultValue, that.defaultValue);
+        return hidden == that.hidden && Objects.equals(name, that.name) && Objects.equals(description, that.description) && Objects.equals(typeSignature, that.typeSignature) && Objects.equals(defaultValue, that.defaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, description, sqlType, defaultValue, hidden);
+        return Objects.hash(name, description, typeSignature, defaultValue, hidden);
     }
 }

@@ -36,17 +36,17 @@ public class TestNativeSessionPropertyProvider
         URI uri = new URI("http://localhost:7777");
         String responseBody =
                 "[" +
-                        "{\"name\":\"sample1\",\"description\":\"Sample description 1\",\"sqlType\":\"integer\",\"defaultValue\":\"100\",\"hidden\":true}," +
-                        "{\"name\":\"sample2\",\"description\":\"Sample description 2\",\"sqlType\":\"boolean\",\"defaultValue\":\"true\",\"hidden\":false}," +
-                        "{\"name\":\"sample3\",\"description\":\"Sample description 3\",\"sqlType\":\"text\",\"defaultValue\":\"N/A\",\"hidden\":true}," +
-                        "{\"name\":\"sample4\",\"description\":\"Sample description 4\",\"sqlType\":\"double\",\"defaultValue\":\"3.14\",\"hidden\":false}" +
+                        "{\"name\":\"sample1\",\"description\":\"Sample description 1\",\"typeSignature\":\"integer\",\"defaultValue\":\"100\",\"hidden\":true}," +
+                        "{\"name\":\"sample2\",\"description\":\"Sample description 2\",\"typeSignature\":\"boolean\",\"defaultValue\":\"true\",\"hidden\":false}," +
+                        "{\"name\":\"sample3\",\"description\":\"Sample description 3\",\"typeSignature\":\"varchar\",\"defaultValue\":\"N/A\",\"hidden\":true}," +
+                        "{\"name\":\"sample4\",\"description\":\"Sample description 4\",\"typeSignature\":\"double\",\"defaultValue\":\"3.14\",\"hidden\":false}" +
                         "]";
 
         // Correct object creation to match responseBody
-        SessionPropertyMetadata s1 = new SessionPropertyMetadata("sample1", "Sample description 1", INTEGER, "100", true);
-        SessionPropertyMetadata s2 = new SessionPropertyMetadata("sample2", "Sample description 2", BOOLEAN, "true", false);
-        SessionPropertyMetadata s3 = new SessionPropertyMetadata("sample3", "Sample description 3", VARCHAR, "N/A", true);
-        SessionPropertyMetadata s4 = new SessionPropertyMetadata("sample4", "Sample description 4", DOUBLE, "3.14", false);
+        SessionPropertyMetadata s1 = new SessionPropertyMetadata("sample1", "Sample description 1", INTEGER.getTypeSignature(), "100", true);
+        SessionPropertyMetadata s2 = new SessionPropertyMetadata("sample2", "Sample description 2", BOOLEAN.getTypeSignature(), "true", false);
+        SessionPropertyMetadata s3 = new SessionPropertyMetadata("sample3", "Sample description 3", VARCHAR.getTypeSignature(), "N/A", true);
+        SessionPropertyMetadata s4 = new SessionPropertyMetadata("sample4", "Sample description 4", DOUBLE.getTypeSignature(), "3.14", false);
 
         List<SessionPropertyMetadata> expected = ImmutableList.of(s1, s2, s3, s4);
         new NativeSystemSessionPropertyProvider(uri);

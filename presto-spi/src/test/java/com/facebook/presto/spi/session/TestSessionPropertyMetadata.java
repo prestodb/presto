@@ -30,8 +30,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testBool()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"boolean\",\n  \"defaultValue\" : \"false\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BOOLEAN, "false", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"boolean\",\n  \"defaultValue\" : \"false\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BOOLEAN.getTypeSignature(), "false", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
@@ -40,8 +40,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testInteger()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"integer\",\n  \"defaultValue\" : \"0\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", INTEGER, "0", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"integer\",\n  \"defaultValue\" : \"0\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", INTEGER.getTypeSignature(), "0", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
@@ -50,8 +50,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testLong()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"bigint\",\n  \"defaultValue\" : \"987654321012345678\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BIGINT, "987654321012345678", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"bigint\",\n  \"defaultValue\" : \"987654321012345678\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", BIGINT.getTypeSignature(), "987654321012345678", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
@@ -60,8 +60,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testDouble()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"double\",\n  \"defaultValue\" : \"0.0\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", DOUBLE, "0.0", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"double\",\n  \"defaultValue\" : \"0.0\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", DOUBLE.getTypeSignature(), "0.0", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
@@ -70,8 +70,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testString()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"varchar\",\n  \"defaultValue\" : \"defaultValue\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR, "defaultValue", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"varchar\",\n  \"defaultValue\" : \"defaultValue\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR.getTypeSignature(), "defaultValue", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
@@ -80,8 +80,8 @@ public class TestSessionPropertyMetadata
     @Test
     public void testDataSize()
     {
-        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"sqlType\" : \"varchar\",\n  \"defaultValue\" : \"1MB\",\n  \"hidden\" : false\n}";
-        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR, "1MB", false);
+        String jsonString = "{\n  \"name\" : \"test\",\n  \"description\" : \"test description\",\n  \"typeSignature\" : \"varchar\",\n  \"defaultValue\" : \"1MB\",\n  \"hidden\" : false\n}";
+        SessionPropertyMetadata actual = new SessionPropertyMetadata("test", "test description", VARCHAR.getTypeSignature(), "1MB", false);
         SessionPropertyMetadata expected = CODEC.fromJson(CODEC.toJson(actual));
         assertEquals(expected, actual);
         assertEquals(CODEC.toJson(actual), jsonString);
