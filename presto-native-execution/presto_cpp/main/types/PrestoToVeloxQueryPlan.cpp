@@ -2683,7 +2683,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
-std::shared_ptr<const velox::core::TopNRowNumberNode>
+std::shared_ptr<const velox::core::PlanNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -2705,6 +2705,18 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (!node->partial) {
     rowNumberColumnName = node->rowNumberVariable.name;
   }
+
+  if (sortFields.empty()) {
+    // May happen if all sorting keys are also used as partition keys.
+
+    return std::make_shared<core::RowNumberNode>(
+        node->id,
+        partitionFields,
+        rowNumberColumnName,
+        node->maxRowCountPerPartition,
+        toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+  }
+
   return std::make_shared<core::TopNRowNumberNode>(
       node->id,
       partitionFields,
