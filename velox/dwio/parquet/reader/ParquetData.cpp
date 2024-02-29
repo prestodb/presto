@@ -42,18 +42,20 @@ void ParquetData::filterRowGroups(
     result.metadataFilterResults.emplace_back(
         scanSpec.metadataFilterNodeAt(i), std::vector<uint64_t>(nwords));
   }
-  for (auto i = 0; i < fileMetaDataPtr_.numRowGroups(); ++i) {
-    if (scanSpec.filter() && !rowGroupMatches(i, scanSpec.filter())) {
-      bits::setBit(result.filterResult.data(), i);
-      continue;
-    }
-    for (int j = 0; j < scanSpec.numMetadataFilters(); ++j) {
-      auto* metadataFilter = scanSpec.metadataFilterAt(j);
-      if (!rowGroupMatches(i, metadataFilter)) {
-        bits::setBit(
-            result.metadataFilterResults[metadataFiltersStartIndex + j]
-                .second.data(),
-            i);
+  if (scanSpec.filter() || scanSpec.numMetadataFilters() > 0) {
+    for (auto i = 0; i < fileMetaDataPtr_.numRowGroups(); ++i) {
+      if (scanSpec.filter() && !rowGroupMatches(i, scanSpec.filter())) {
+        bits::setBit(result.filterResult.data(), i);
+        continue;
+      }
+      for (int j = 0; j < scanSpec.numMetadataFilters(); ++j) {
+        auto* metadataFilter = scanSpec.metadataFilterAt(j);
+        if (!rowGroupMatches(i, metadataFilter)) {
+          bits::setBit(
+              result.metadataFilterResults[metadataFiltersStartIndex + j]
+                  .second.data(),
+              i);
+        }
       }
     }
   }
