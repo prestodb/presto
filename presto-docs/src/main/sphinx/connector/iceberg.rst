@@ -1148,7 +1148,7 @@ The following tables detail the specific type maps between PrestoDB and Iceberg.
 Iceberg to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps Iceberg types to the corresponding PrestoDB types:
+Map of Iceberg types to the relevant PrestoDB types:
 
 .. list-table:: Iceberg to PrestoDB type mapping
   :widths: 50, 50
@@ -1189,7 +1189,7 @@ No other types are supported.
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps PrestoDB types to the corresponding Iceberg types:
+Map of PrestoDB types to the relevant Iceberg types:
 
 .. list-table:: PrestoDB to Iceberg type mapping
   :widths: 50, 50
