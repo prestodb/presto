@@ -76,11 +76,15 @@ struct SplitToMapFunction {
       nextEntryPos = input.find(entryDelimiter, pos);
     }
 
-    processEntry(
-        out,
-        std::string_view(input.data() + pos, input.size() - pos),
-        keyValueDelimiter,
-        keys);
+    // Entry delimiter can be the last character in the input. In this case
+    // there is no last entry to process.
+    if (pos < input.size()) {
+      processEntry(
+          out,
+          std::string_view(input.data() + pos, input.size() - pos),
+          keyValueDelimiter,
+          keys);
+    }
   }
 
   void processEntry(

@@ -22,25 +22,52 @@ namespace {
 class SplitToMapTest : public test::FunctionBaseTest {};
 
 TEST_F(SplitToMapTest, basic) {
+  auto callFunc = [&](const RowVectorPtr& input) {
+    return evaluate("split_to_map(c0, ',', ':')", input);
+  };
+
+  // Valid string cases.
   auto data = makeRowVector({
       makeFlatVector<std::string>({
           "1:10,2:20,3:30,4:",
           "4:40",
           "",
           ":00,1:11,3:33,5:55,7:77",
+          ":",
+          "11:17,",
+          ":,",
       }),
   });
 
-  auto result = evaluate("split_to_map(c0, ',', ':')", data);
+  auto result = callFunc(data);
 
   auto expected = makeMapVector<std::string, std::string>({
       {{"1", "10"}, {"2", "20"}, {"3", "30"}, {"4", ""}},
       {{"4", "40"}},
       {},
       {{"", "00"}, {"1", "11"}, {"3", "33"}, {"5", "55"}, {"7", "77"}},
+      {{"", ""}},
+      {{"11", "17"}},
+      {{"", ""}},
   });
 
   velox::test::assertEqualVectors(expected, result);
+
+  // Invalid string cases.
+  const std::string errorMessage =
+      "Key-value delimiter must appear exactly once in each entry. Bad input:";
+
+  data = makeRowVector({makeFlatVector<std::string>({","})});
+  VELOX_ASSERT_THROW(callFunc(data), errorMessage);
+
+  data = makeRowVector({makeFlatVector<std::string>({",11:17"})});
+  VELOX_ASSERT_THROW(callFunc(data), errorMessage);
+
+  data = makeRowVector({makeFlatVector<std::string>({"11:17,,"})});
+  VELOX_ASSERT_THROW(callFunc(data), errorMessage);
+
+  data = makeRowVector({makeFlatVector<std::string>({"11"})});
+  VELOX_ASSERT_THROW(callFunc(data), errorMessage);
 }
 
 TEST_F(SplitToMapTest, invalidInput) {
