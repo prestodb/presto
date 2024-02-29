@@ -569,16 +569,28 @@ simdjson::simdjson_result<T> fromString(const std::string_view& s) {
 template <typename To, typename From>
 simdjson::error_code convertIfInRange(From x, exec::GenericWriter& writer) {
   static_assert(std::is_signed_v<From> && std::is_signed_v<To>);
-  static_assert(std::is_integral_v<To> || !std::is_integral_v<From>);
-  if constexpr (!std::is_same_v<To, From>) {
-    constexpr From kMin = std::numeric_limits<To>::lowest();
-    constexpr From kMax = std::numeric_limits<To>::max();
+  if constexpr (std::is_integral_v<To> == std::is_integral_v<From>) {
+    if constexpr (sizeof(To) < sizeof(From)) {
+      constexpr From kMin = std::numeric_limits<To>::lowest();
+      constexpr From kMax = std::numeric_limits<To>::max();
+      if (!(kMin <= x && x <= kMax)) {
+        return simdjson::NUMBER_OUT_OF_RANGE;
+      }
+    }
+    writer.castTo<To>() = x;
+    return simdjson::SUCCESS;
+  } else {
+    static_assert(std::is_integral_v<To> && !std::is_integral_v<From>);
+    // Upper/lower bound values that could be accurately represented in both
+    // int64_t and double types.  Same values are used by
+    // folly::constexpr_clamp_cast.
+    constexpr double kMin = -9223372036854774784.0;
+    constexpr double kMax = 9223372036854774784.0;
     if (!(kMin <= x && x <= kMax)) {
       return simdjson::NUMBER_OUT_OF_RANGE;
     }
+    return convertIfInRange<To, int64_t>(x, writer);
   }
-  writer.castTo<To>() = x;
-  return simdjson::SUCCESS;
 }
 
 template <TypeKind kind>
