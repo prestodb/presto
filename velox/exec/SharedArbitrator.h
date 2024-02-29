@@ -134,7 +134,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // Invoked to start next memory arbitration request, and it will wait for the
   // serialized execution if there is a running or other waiting arbitration
   // requests.
-  void startArbitration(const std::string& arbitrationContext);
+  void startArbitration(const std::string& contextMsg);
 
   // Invoked by a finished memory arbitration request to kick off the next
   // arbitration request execution if there are any ones waiting.

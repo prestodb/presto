@@ -614,14 +614,14 @@ SharedArbitrator::ScopedArbitration::ScopedArbitration(
       arbitrator_(arbitrator),
       startTime_(std::chrono::steady_clock::now()),
       arbitrationCtx_(requestor_) {
+  VELOX_CHECK_NOT_NULL(requestor_);
   VELOX_CHECK_NOT_NULL(arbitrator_);
   requestor_->enterArbitration();
   arbitrator_->startArbitration(fmt::format(
       "Wait for arbitration, requestor: {}[{}]",
       requestor_->name(),
       requestor_->root()->name()));
-  if (arbitrator_->arbitrationStateCheckCb_ != nullptr &&
-      requestor_ != nullptr) {
+  if (arbitrator_->arbitrationStateCheckCb_ != nullptr) {
     arbitrator_->arbitrationStateCheckCb_(*requestor_);
   }
 }
@@ -643,14 +643,14 @@ SharedArbitrator::ScopedArbitration::~ScopedArbitration() {
   arbitrator_->finishArbitration();
 }
 
-void SharedArbitrator::startArbitration(const std::string& arbitrationContext) {
+void SharedArbitrator::startArbitration(const std::string& contextMsg) {
   ContinueFuture waitPromise{ContinueFuture::makeEmpty()};
   {
     std::lock_guard<std::mutex> l(mutex_);
     RECORD_METRIC_VALUE(kMetricArbitratorRequestsCount);
     ++numRequests_;
     if (running_) {
-      waitPromises_.emplace_back(arbitrationContext);
+      waitPromises_.emplace_back(contextMsg);
       waitPromise = waitPromises_.back().getSemiFuture();
     } else {
       VELOX_CHECK(waitPromises_.empty());
