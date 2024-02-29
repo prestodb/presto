@@ -54,6 +54,9 @@ int main(int argc, char** argv) {
       "width_bucket",
       // Fuzzer cannot generate valid 'comparator' lambda.
       "array_sort(array(T),constant function(T,T,bigint)) -> array(T)",
+      // https://github.com/facebookincubator/velox/issues/8919
+      "plus(date,interval year to month) -> date",
+      "minus(date,interval year to month) -> date",
       // https://github.com/facebookincubator/velox/issues/8438#issuecomment-1907234044
       "regexp_extract",
       "regexp_extract_all",

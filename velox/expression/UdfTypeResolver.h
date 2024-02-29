@@ -129,6 +129,13 @@ struct resolver<IntervalDayTime> {
   using out_type = int64_t;
 };
 
+template <>
+struct resolver<IntervalYearMonth> {
+  using in_type = int32_t;
+  using null_free_in_type = in_type;
+  using out_type = int32_t;
+};
+
 template <typename T>
 struct resolver<std::shared_ptr<T>> {
   using in_type = std::shared_ptr<T>;
