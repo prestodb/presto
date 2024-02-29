@@ -379,6 +379,10 @@ void SortedAggregations::extractValues(
     // For each group, sort inputs, add them to aggregate.
     for (auto* group : groups) {
       auto* accumulator = reinterpret_cast<RowPointers*>(group + offset_);
+      if (accumulator->size == 0) {
+        continue;
+      }
+
       groupRows.resize(accumulator->size);
       accumulator->read(folly::Range(groupRows.data(), groupRows.size()));
 
