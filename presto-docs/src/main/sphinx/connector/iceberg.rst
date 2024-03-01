@@ -1182,6 +1182,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``ARRAY``
   * - ``MAP``
     - ``MAP``
+  * - ``STRUCT``
+    - ``ROW``
 
 
 No other types are supported.
@@ -1216,7 +1218,7 @@ Map of PrestoDB types to the relevant Iceberg types:
   * - ``DATE``
     - ``DATE``
   * - ``ROW``
-    - ``ROW``
+    - ``STRUCT``
   * - ``ARRAY``
     - ``LIST``
   * - ``MAP``
