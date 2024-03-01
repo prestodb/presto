@@ -22,7 +22,6 @@
 #include <functional>
 #include <optional>
 #include "folly/experimental/EventCount.h"
-#include "folly/futures/Barrier.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MallocAllocator.h"

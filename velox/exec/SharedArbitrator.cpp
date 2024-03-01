@@ -209,7 +209,11 @@ uint64_t SharedArbitrator::shrinkCapacity(
     const std::vector<std::shared_ptr<MemoryPool>>& pools,
     uint64_t targetBytes) {
   ScopedArbitration scopedArbitration(this);
-  targetBytes = std::max(memoryPoolTransferCapacity_, targetBytes);
+  if (targetBytes == 0) {
+    targetBytes = capacity_;
+  } else {
+    targetBytes = std::max(memoryPoolTransferCapacity_, targetBytes);
+  }
   std::vector<Candidate> candidates = getCandidateStats(pools);
   auto freedBytes = reclaimFreeMemoryFromCandidates(candidates, targetBytes);
   if (freedBytes >= targetBytes) {
