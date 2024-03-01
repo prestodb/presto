@@ -254,6 +254,9 @@ For aggregaiton functions of default-null behavior, the author defines an
     // Optional. Default is false.
     static constexpr bool use_external_memory_ = true;
 
+    // Optional. Default is false.
+    static constexpr bool aligned_accumulator_ = true;
+
     explicit AccumulatorType(HashStringAllocator* allocator);
 
     void addInput(HashStringAllocator* allocator, exec::arg_type<T1> value1, ...);
@@ -274,7 +277,9 @@ The author defines an optional flag `is_fixed_size_` indicating whether the
 every accumulator takes fixed amount of memory. This flag is true by default.
 Next, the author defines another optional flag `use_external_memory_`
 indicating whether the accumulator uses memory that is not tracked by Velox.
-This flag is false by default.
+This flag is false by default. Then, the author can define an optional flag
+`aligned_accumulator_` indicating whether the accumulator requires aligned
+access. This flag is false by default.
 
 The author defines a constructor that takes a single argument of
 `HashStringAllocator*`. This constructor is called before aggregation starts to
@@ -345,6 +350,9 @@ For aggregaiton functions of non-default-null behavior, the author defines an
     // Optional. Default is false.
     static constexpr bool use_external_memory_ = true;
 
+    // Optional. Default is false.
+    static constexpr bool aligned_accumulator_ = true;
+
     explicit AccumulatorType(HashStringAllocator* allocator);
 
     bool addInput(HashStringAllocator* allocator, exec::optional_arg_type<T1> value1, ...);
@@ -361,9 +369,9 @@ For aggregaiton functions of non-default-null behavior, the author defines an
     void destroy(HashStringAllocator* allocator);
   };
 
-The definition of `is_fixed_size_`, `use_external_memory_`, the constructor,
-and the `destroy` method are exactly the same as those for default-null
-behavior.
+The definition of `is_fixed_size_`, `use_external_memory_`,
+`aligned_accumulator_`, the constructor, and the `destroy` method are exactly
+the same as those for default-null behavior.
 
 On the other hand, the C++ function signatures of `addInput`, `combine`,
 `writeIntermediateResult`, and `writeFinalResult` are different.

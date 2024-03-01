@@ -145,6 +145,18 @@ class SimpleAggregateAdapter : public Aggregate {
   struct support_to_intermediate<T, std::void_t<decltype(&T::toIntermediate)>>
       : std::true_type {};
 
+  // Whether the accumulator requires aligned access. If it is defined,
+  // SimpleAggregateAdapter::accumulatorAlignmentSize() returns
+  // alignof(typename FUNC::AccumulatorType).
+  // Otherwise, SimpleAggregateAdapter::accumulatorAlignmentSize() returns
+  // Aggregate::accumulatorAlignmentSize(), with a default value of 1.
+  template <typename T, typename = void>
+  struct aligned_accumulator : std::false_type {};
+
+  template <typename T>
+  struct aligned_accumulator<T, std::void_t<decltype(T::aligned_accumulator_)>>
+      : std::integral_constant<bool, T::aligned_accumulator_> {};
+
   static constexpr bool aggregate_default_null_behavior_ =
       aggregate_default_null_behavior<FUNC>::value;
 
@@ -160,6 +172,8 @@ class SimpleAggregateAdapter : public Aggregate {
   static constexpr bool support_to_intermediate_ =
       support_to_intermediate<FUNC>::value;
 
+  static constexpr bool aligned_accumulator_ = aligned_accumulator<FUNC>::value;
+
   bool isFixedSize() const override {
     return accumulator_is_fixed_size_;
   }
@@ -170,6 +184,13 @@ class SimpleAggregateAdapter : public Aggregate {
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(typename FUNC::AccumulatorType);
+  }
+
+  int32_t accumulatorAlignmentSize() const override {
+    if constexpr (aligned_accumulator_) {
+      return alignof(typename FUNC::AccumulatorType);
+    }
+    return Aggregate::accumulatorAlignmentSize();
   }
 
   void initializeNewGroups(

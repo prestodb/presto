@@ -22,6 +22,8 @@
 
 namespace facebook::velox::functions::aggregate::sparksql {
 
-exec::AggregateRegistrationResult registerSum(const std::string& name);
+exec::AggregateRegistrationResult registerSum(
+    const std::string& name,
+    bool withCompanionFunctions);
 
 } // namespace facebook::velox::functions::aggregate::sparksql
