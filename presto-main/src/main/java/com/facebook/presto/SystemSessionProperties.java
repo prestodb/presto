@@ -315,6 +315,7 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_AGGREGATION_HISTORY = "use_partial_aggregation_history";
     public static final String TRACK_PARTIAL_AGGREGATION_HISTORY = "track_partial_aggregation_history";
     public static final String REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN = "remove_redundant_cast_to_varchar_in_join";
+    public static final String REMOVE_MAP_CAST = "remove_map_cast";
     public static final String HANDLE_COMPLEX_EQUI_JOINS = "handle_complex_equi_joins";
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
@@ -1908,6 +1909,11 @@ public final class SystemSessionProperties
                         featuresConfig.isRemoveRedundantCastToVarcharInJoin(),
                         false),
                 booleanProperty(
+                        REMOVE_MAP_CAST,
+                        "Remove map cast when possible",
+                        false,
+                        false),
+                booleanProperty(
                         HANDLE_COMPLEX_EQUI_JOINS,
                         "Handle complex equi-join conditions to open up join space for join reordering",
                         featuresConfig.getHandleComplexEquiJoins(),
@@ -3180,6 +3186,11 @@ public final class SystemSessionProperties
     public static boolean isRemoveRedundantCastToVarcharInJoinEnabled(Session session)
     {
         return session.getSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, Boolean.class);
+    }
+
+    public static boolean isRemoveMapCastEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_MAP_CAST, Boolean.class);
     }
 
     public static boolean shouldHandleComplexEquiJoins(Session session)
