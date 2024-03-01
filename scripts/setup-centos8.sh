@@ -80,7 +80,7 @@ function install_lzo {
 }
 
 function install_boost {
-  wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost
+  wget_and_untar https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.tar.gz boost
   (
    cd boost
    ./bootstrap.sh --prefix=/usr/local

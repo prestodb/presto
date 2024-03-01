@@ -21,14 +21,14 @@ add_compile_options(-w)
 # We need to use boost > 1.70 to build it with CMake 1.81 was the first to be
 # released as a github release INCLUDING the cmake files (which are not in the
 # officale releases for some reason)
-set(VELOX_BOOST_BUILD_VERSION 1.81.0)
+set(VELOX_BOOST_BUILD_VERSION 1.84.0)
 string(
   CONCAT VELOX_BOOST_SOURCE_URL
          "https://github.com/boostorg/boost/releases/download/"
          "boost-${VELOX_BOOST_BUILD_VERSION}/"
          "boost-${VELOX_BOOST_BUILD_VERSION}.tar.gz")
 set(VELOX_BOOST_BUILD_SHA256_CHECKSUM
-    121da556b718fd7bd700b5f2e734f8004f1cfa78b7d30145471c526ba75a151c)
+    4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95)
 
 resolve_dependency_url(BOOST)
 message(STATUS "Building boost from source")
@@ -65,8 +65,5 @@ list(REMOVE_ITEM BOOST_INCLUDE_LIBRARIES headers)
 set(BUILD_SHARED_LIBS ON)
 FetchContent_MakeAvailable(Boost)
 
-# To aling with Boost system install we create Boost::headers target
-add_library(boost_headers INTERFACE)
-add_library(Boost::headers ALIAS boost_headers)
 list(TRANSFORM BOOST_HEADER_ONLY PREPEND Boost::)
 target_link_libraries(boost_headers INTERFACE ${BOOST_HEADER_ONLY})

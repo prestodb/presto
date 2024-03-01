@@ -25,6 +25,7 @@ COMPILER_FLAGS=$(get_cxx_flags "$CPU_TARGET")
 export COMPILER_FLAGS
 FB_OS_VERSION=v2023.12.04.00
 FMT_VERSION=10.1.1
+BOOST_VERSION=boost-1.84.0
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 export CMAKE_BUILD_TYPE=Release
@@ -44,7 +45,6 @@ sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-d
   libc-ares-dev \
   libcurl4-openssl-dev \
   libssl-dev \
-  libboost-all-dev \
   libicu-dev \
   libdouble-conversion-dev \
   libgoogle-glog-dev \
@@ -70,6 +70,12 @@ sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-d
 function install_fmt {
   github_checkout fmtlib/fmt "${FMT_VERSION}"
   cmake_install -DFMT_TEST=OFF
+}
+
+function install_boost {
+  github_checkout boostorg/boost "${BOOST_VERSION}" --recursive
+  ./bootstrap.sh --prefix=/usr/local
+  ./b2 "-j$(nproc)" -d0 install threading=multi
 }
 
 function install_folly {
@@ -115,6 +121,7 @@ function install_conda {
 
 function install_velox_deps {
   run_and_time install_fmt
+  run_and_time install_boost
   run_and_time install_folly
   run_and_time install_fizz
   run_and_time install_wangle
