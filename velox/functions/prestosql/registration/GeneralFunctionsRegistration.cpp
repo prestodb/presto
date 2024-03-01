@@ -45,6 +45,8 @@ void registerGeneralFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_least, prefix + "least");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, prefix + "greatest");
 
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_typeof, prefix + "typeof");
+
   registerFunction<CardinalityFunction, int64_t, Array<Any>>(
       {prefix + "cardinality"});
   registerFunction<CardinalityFunction, int64_t, Map<Any, Any>>(

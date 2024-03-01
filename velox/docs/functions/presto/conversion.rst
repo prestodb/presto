@@ -809,3 +809,14 @@ Invalid example
   SELECT cast(' -3E+2' as decimal(12, 2)); -- Value is not a number
   SELECT cast('-3E+2.1' as decimal(12, 2)); -- Value is not a number
   SELECT cast('3E+' as decimal(12, 2)); -- Value is not a number
+
+Miscellaneous
+-------------
+
+.. function:: typeof(x) -> varchar
+
+    Returns the name of the type of x::
+
+        SELECT typeof(123); -- integer
+        SELECT typeof(1.5); -- double
+        SELECT typeof(array[1,2,3]); -- array(integer)

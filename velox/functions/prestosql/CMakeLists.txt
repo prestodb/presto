@@ -56,6 +56,7 @@ add_library(
   Transform.cpp
   TransformKeys.cpp
   TransformValues.cpp
+  TypeOf.cpp
   URLFunctions.cpp
   Utf8Utils.cpp
   VectorArithmetic.cpp
