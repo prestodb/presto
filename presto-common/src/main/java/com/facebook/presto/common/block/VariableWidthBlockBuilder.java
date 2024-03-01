@@ -35,6 +35,7 @@ import static com.facebook.presto.common.block.BlockUtil.checkArrayRange;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPosition;
 import static com.facebook.presto.common.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
+import static com.facebook.presto.common.block.BlockUtil.checkValidSliceRange;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.compactOffsets;
 import static com.facebook.presto.common.block.BlockUtil.compactSlice;
@@ -244,9 +245,12 @@ public class VariableWidthBlockBuilder
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
+        checkValidSliceRange(sourceIndex, length);
+
         if (!initialized) {
             initializeCapacity();
         }
+
         sliceOutput.writeBytes(source, sourceIndex, length);
         currentEntrySize += length;
         return this;
@@ -255,6 +259,8 @@ public class VariableWidthBlockBuilder
     @Override
     public AbstractVariableWidthBlockBuilder writeBytes(byte[] source, int sourceIndex, int length)
     {
+        checkValidSliceRange(sourceIndex, length);
+
         if (!initialized) {
             initializeCapacity();
         }
