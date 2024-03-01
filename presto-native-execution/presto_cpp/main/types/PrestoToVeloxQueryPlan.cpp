@@ -1625,6 +1625,14 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       }
     }
 
+    // No clear join type - fallback to the standard 'to velox expr'.
+    if (!joinType.has_value()) {
+      return std::make_shared<core::FilterNode>(
+          node->id,
+          exprConverter_.toVeloxExpr(node->predicate),
+          toVeloxQueryPlan(semiJoin, tableWriteInfo, taskId));
+    }
+
     std::vector<core::FieldAccessTypedExprPtr> leftKeys = {
         exprConverter_.toVeloxExpr(semiJoin->sourceJoinVariable)};
     std::vector<core::FieldAccessTypedExprPtr> rightKeys = {
@@ -1639,25 +1647,6 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
     auto names = leftNames;
     names.push_back(semiJoin->semiJoinOutput.name);
-
-    if (!joinType.has_value()) {
-      auto types = leftTypes;
-      types.push_back(BOOLEAN());
-
-      return std::make_shared<core::FilterNode>(
-          node->id,
-          exprConverter_.toVeloxExpr(node->predicate),
-          std::make_shared<core::HashJoinNode>(
-              semiJoin->id,
-              core::JoinType::kLeftSemiProject,
-              false,
-              leftKeys,
-              rightKeys,
-              nullptr, // filter
-              left,
-              right,
-              ROW(std::move(names), std::move(types))));
-    }
 
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
