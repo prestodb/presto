@@ -39,6 +39,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -96,6 +97,22 @@ class ClientBuffer
 
         PageBufferInfo pageBufferInfo = new PageBufferInfo(bufferId.getId(), bufferedPages, bufferedBytes.get(), rowsAdded.get(), pagesAdded.get());
         return new BufferInfo(bufferId, destroyed, bufferedPages, sequenceId, pageBufferInfo);
+    }
+
+    public List<Long> getBufferedPageBytes()
+    {
+        ImmutableList.Builder<Long> pageSizeInBytes = ImmutableList.builder();
+        synchronized (this) {
+            for (SerializedPageReference page : pages) {
+                pageSizeInBytes.add(page.getRetainedSizeInBytes());
+            }
+        }
+        return pageSizeInBytes.build();
+    }
+
+    public OutputBufferId getBufferId()
+    {
+        return bufferId;
     }
 
     public boolean isDestroyed()
@@ -347,13 +364,23 @@ class ClientBuffer
 
         // if request is for pages before the current position, just return an empty result
         if (sequenceId < currentSequenceId.get()) {
-            return emptyResults(taskInstanceId, sequenceId, bufferedBytes, false);
+            return emptyResults(
+                    taskInstanceId,
+                    sequenceId,
+                    pages.stream()
+                            .map(SerializedPageReference::getRetainedSizeInBytes)
+                            .collect(toImmutableList()),
+                    false);
         }
 
         // if this buffer is finished, notify the client of this, so the client
         // will destroy this buffer
         if (pages.isEmpty() && noMorePages) {
-            return emptyResults(taskInstanceId, currentSequenceId.get(), bufferedBytes, true);
+            return emptyResults(
+                    taskInstanceId,
+                    currentSequenceId.get(),
+                    ImmutableList.of(),
+                    true);
         }
 
         // if request is for pages after the current position, there is a bug somewhere
@@ -365,18 +392,26 @@ class ClientBuffer
 
         // read the new pages
         long maxBytes = maxSize.toBytes();
-        List<SerializedPage> result = new ArrayList<>();
+        List<SerializedPage> returnedPages = new ArrayList<>();
+        ImmutableList.Builder<Long> pageSizesInBytes = ImmutableList.builder();
         long bytesReturned = 0;
 
-        for (SerializedPageReference page : pages) {
+        int i = 0;
+        // Return the pages up to the maxBytes
+        for (; i < pages.size(); i++) {
+            SerializedPageReference page = pages.get(i);
             bytesReturned += page.getRetainedSizeInBytes();
-            // break (and don't add) if this page would exceed the limit
-            if (!result.isEmpty() && bytesReturned > maxBytes) {
+            if (!returnedPages.isEmpty() && bytesReturned > maxBytes) {
                 break;
             }
-            result.add(page.getSerializedPage());
+            returnedPages.add(page.getSerializedPage());
         }
-        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, Math.max(bufferedBytes - bytesReturned, 0), result);
+        // Return the sizes of the remaining buffered pages
+        for (; i < pages.size(); i++) {
+            SerializedPageReference page = pages.get(i);
+            pageSizesInBytes.add(page.getRetainedSizeInBytes());
+        }
+        return new BufferResult(taskInstanceId, sequenceId, sequenceId + returnedPages.size(), false, pageSizesInBytes.build(), returnedPages);
     }
 
     /**

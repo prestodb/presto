@@ -36,7 +36,7 @@ public class TestThriftBufferResult
     @Test
     public void testThriftBufferResult()
     {
-        BufferResult bufferResult = new BufferResult("task-instance-id", 0, 0, false, 0, ImmutableList.of());
+        BufferResult bufferResult = new BufferResult("task-instance-id", 0, 0, false, ImmutableList.of(), ImmutableList.of());
         ThriftBufferResult thriftBufferResult = fromBufferResult(bufferResult);
         BufferResult newBufferResult = thriftBufferResult.toBufferResult();
         assertEquals(bufferResult, newBufferResult);

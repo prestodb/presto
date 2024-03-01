@@ -17,12 +17,11 @@ import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -66,10 +65,7 @@ public class ThriftTaskService
                 () -> BufferResult.emptyResults(
                         taskManager.getTaskInstanceId(taskId),
                         token,
-                        taskManager.getTaskBufferInfo(taskId, bufferId)
-                                .map(BufferInfo::getPageBufferInfo)
-                                .map(PageBufferInfo::getBufferedBytes)
-                                .orElse(0L),
+                        taskManager.getBufferedPageBytes(taskId, bufferId).orElse(ImmutableList.of()),
                         false),
                 waitTime,
                 timeoutExecutor);

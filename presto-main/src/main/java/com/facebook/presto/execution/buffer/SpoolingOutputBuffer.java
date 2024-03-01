@@ -29,6 +29,7 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -47,6 +48,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -156,6 +158,12 @@ public class SpoolingOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 ImmutableList.of());
+    }
+
+    @Override
+    public Map<OutputBufferId, List<Long>> getBufferedPageBytes()
+    {
+        return ImmutableMap.of();
     }
 
     @Override
@@ -365,7 +373,7 @@ public class SpoolingOutputBuffer
 
         ListenableFuture<BufferResult> resultFuture = transform(memoryPages, input -> {
             long newSequenceId = startSequenceId + input.size();
-            return new BufferResult(taskInstanceId, startSequenceId, newSequenceId, false, 0, input);
+            return new BufferResult(taskInstanceId, startSequenceId, newSequenceId, false, ImmutableList.of(), input);
         }, executor);
 
         return catchingAsync(resultFuture, Exception.class, e -> {

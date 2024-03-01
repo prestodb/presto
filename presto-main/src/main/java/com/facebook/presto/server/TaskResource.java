@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -86,6 +87,8 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
+
+    private static final Joiner COMMA_SEPARATED_JOINER = Joiner.on(',');
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -300,10 +303,10 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        return taskManager.getTaskBufferInfo(taskId, bufferId)
-                .map(bufferInfo -> Response.ok()
-                        .header(PRESTO_BUFFER_REMAINING_BYTES, bufferInfo.getPageBufferInfo().getBufferedBytes())
-                        .header(PRESTO_BUFFER_COMPLETE, bufferInfo.isFinished())
+        return taskManager.getBufferedPageBytes(taskId, bufferId)
+                .map(bufferedPages -> Response.ok()
+                        .header(PRESTO_BUFFER_REMAINING_BYTES, COMMA_SEPARATED_JOINER.join(bufferedPages))
+                        .header(PRESTO_BUFFER_COMPLETE, false)
                         .build())
                 .orElse(Response.status(Response.Status.NOT_FOUND).build());
     }

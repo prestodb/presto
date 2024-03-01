@@ -34,7 +34,6 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -218,7 +217,7 @@ public class TestThriftServerInfoIntegration
                 }
 
                 @Override
-                public Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBufferId bufferId)
+                public Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBufferId bufferId)
                 {
                     throw new UnsupportedOperationException();
                 }

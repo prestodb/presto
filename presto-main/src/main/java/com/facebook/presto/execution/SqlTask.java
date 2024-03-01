@@ -18,7 +18,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
@@ -495,12 +494,10 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public Optional<BufferInfo> getTaskBufferInfo(OutputBufferId bufferId)
+    public Optional<List<Long>> getBufferedPageBytes(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
-        return outputBuffer.getInfo().getBuffers().stream()
-                .filter(bufferInfo -> bufferInfo.getBufferId().equals(bufferId))
-                .findFirst();
+        return Optional.ofNullable(outputBuffer.getBufferedPageBytes().get(bufferId));
     }
 
     public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)

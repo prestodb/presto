@@ -22,6 +22,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -32,6 +33,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
@@ -143,6 +145,16 @@ public class LazyOutputBuffer
                     ImmutableList.of());
         }
         return outputBuffer.getInfo();
+    }
+
+    @Override
+    public Map<OutputBufferId, List<Long>> getBufferedPageBytes()
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
+        if (outputBuffer == null) {
+            return ImmutableMap.of();
+        }
+        return outputBuffer.getBufferedPageBytes();
     }
 
     @Override

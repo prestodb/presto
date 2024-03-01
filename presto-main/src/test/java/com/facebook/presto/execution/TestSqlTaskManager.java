@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -50,6 +49,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -169,16 +169,16 @@ public class TestSqlTaskManager
 
             // Task results clear out all buffered data once ack is sent
             long retainedPageSize = results.getSerializedPages().get(0).getRetainedSizeInBytes();
-            assertEquals(results.getBufferedBytes(), 0);
-            Optional<BufferInfo> taskBufferInfo = sqlTaskManager.getTaskBufferInfo(TASK_ID, OUT);
-            assertTrue(taskBufferInfo.isPresent());
+            assertEquals(results.getBufferedPageBytes().size(), 0);
+            Optional<List<Long>> bufferedPageBytes = sqlTaskManager.getBufferedPageBytes(TASK_ID, OUT);
+            assertTrue(bufferedPageBytes.isPresent());
             // Buffer still remains as acknowledgement has not been received
-            assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), retainedPageSize);
+            assertEquals(bufferedPageBytes.get().stream().mapToLong(i -> i).sum(), retainedPageSize);
             // Once acknowledged, the retained size of the data page is removed from the buffer
             sqlTaskManager.acknowledgeTaskResults(taskId, OUT, results.getNextToken());
-            taskBufferInfo = sqlTaskManager.getTaskBufferInfo(TASK_ID, OUT);
-            assertTrue(taskBufferInfo.isPresent());
-            assertEquals(taskBufferInfo.get().getPageBufferInfo().getBufferedBytes(), 0);
+            bufferedPageBytes = sqlTaskManager.getBufferedPageBytes(TASK_ID, OUT);
+            assertTrue(bufferedPageBytes.isPresent());
+            assertEquals(bufferedPageBytes.get().size(), 0);
 
             sqlTaskManager.cancelTask(TASK_ID);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);

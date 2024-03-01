@@ -21,6 +21,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -143,6 +144,16 @@ public class BroadcastOutputBuffer
                 buffers.stream()
                         .map(ClientBuffer::getInfo)
                         .collect(toImmutableList()));
+    }
+
+    @Override
+    public Map<OutputBufferId, List<Long>> getBufferedPageBytes()
+    {
+        ImmutableMap.Builder<OutputBufferId, List<Long>> builder = ImmutableMap.builder();
+        for (Map.Entry<OutputBufferId, ClientBuffer> entry : buffers.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().getBufferedPageBytes());
+        }
+        return builder.build();
     }
 
     @Override

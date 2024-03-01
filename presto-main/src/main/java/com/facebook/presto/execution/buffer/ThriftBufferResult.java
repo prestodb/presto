@@ -36,7 +36,7 @@ public class ThriftBufferResult
     private final long token;
     private final long nextToken;
     private final boolean bufferComplete;
-    private final long bufferedBytes;
+    private final List<Long> bufferedPageSizesInBytes;
     private final List<ThriftSerializedPage> thriftSerializedPages;
 
     public static ThriftBufferResult fromBufferResult(BufferResult bufferResult)
@@ -51,7 +51,7 @@ public class ThriftBufferResult
                 bufferResult.getToken(),
                 bufferResult.getNextToken(),
                 bufferResult.isBufferComplete(),
-                bufferResult.getBufferedBytes(),
+                bufferResult.getBufferedPageBytes(),
                 thriftSerializedPages);
     }
 
@@ -64,7 +64,7 @@ public class ThriftBufferResult
             long token,
             long nextToken,
             boolean bufferComplete,
-            long bufferedBytes,
+            List<Long> bufferedPageSizesInBytes,
             List<ThriftSerializedPage> thriftSerializedPages)
     {
         checkArgument(!isNullOrEmpty(taskInstanceId), "taskInstanceId is null");
@@ -73,7 +73,7 @@ public class ThriftBufferResult
         this.token = token;
         this.nextToken = nextToken;
         this.bufferComplete = bufferComplete;
-        this.bufferedBytes = bufferedBytes;
+        this.bufferedPageSizesInBytes = bufferedPageSizesInBytes;
         this.thriftSerializedPages = ImmutableList.copyOf(requireNonNull(thriftSerializedPages, "thriftSerializedPages is null"));
     }
 
@@ -108,9 +108,9 @@ public class ThriftBufferResult
     }
 
     @ThriftField(6)
-    public long getBufferedBytes()
+    public List<Long> getBufferedPageSizesInBytes()
     {
-        return bufferedBytes;
+        return bufferedPageSizesInBytes;
     }
 
     public List<SerializedPage> getSerializedPages()
@@ -151,7 +151,7 @@ public class ThriftBufferResult
                 .add("nextToken", nextToken)
                 .add("taskInstanceId", taskInstanceId)
                 .add("bufferComplete", bufferComplete)
-                .add("bufferedBytes", bufferedBytes)
+                .add("bufferedPageSizesInBytes", bufferedPageSizesInBytes)
                 .add("thriftSerializedPages", thriftSerializedPages)
                 .toString();
     }
@@ -159,6 +159,6 @@ public class ThriftBufferResult
     @VisibleForTesting
     public BufferResult toBufferResult()
     {
-        return new BufferResult(taskInstanceId, token, nextToken, bufferComplete, bufferedBytes, getSerializedPages());
+        return new BufferResult(taskInstanceId, token, nextToken, bufferComplete, bufferedPageSizesInBytes, getSerializedPages());
     }
 }

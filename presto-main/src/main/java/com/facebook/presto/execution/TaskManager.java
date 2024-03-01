@@ -123,7 +123,7 @@ public interface TaskManager
      *
      * @return absent if the buffer is not present, otherwise the buffer info
      */
-    Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBufferId bufferId);
+    Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBufferId bufferId);
 
     /**
      * Acknowledges previously received results.

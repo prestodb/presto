@@ -17,10 +17,12 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -62,6 +64,12 @@ public class DiscardingOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 ImmutableList.of());
+    }
+
+    @Override
+    public Map<OutputBuffers.OutputBufferId, List<Long>> getBufferedPageBytes()
+    {
+        return ImmutableMap.of();
     }
 
     @Override

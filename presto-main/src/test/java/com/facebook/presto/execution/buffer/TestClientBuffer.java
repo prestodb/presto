@@ -183,23 +183,26 @@ public class TestClientBuffer
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
-        long totalSizeOfPagesInBytes = 0;
+        List<Long> pageSizesInBytes = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             Page page = createPage(i);
             SerializedPageReference pageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, Lifespan.taskWide());
-            totalSizeOfPagesInBytes = totalSizeOfPagesInBytes + pageReference.getSerializedPage().getRetainedSizeInBytes();
+            pageSizesInBytes.add(pageReference.getSerializedPage().getRetainedSizeInBytes());
             addPage(buffer, page);
         }
         // Everything buffered
-        assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
+        assertBufferInfo(buffer, 3, 0);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes);
 
         BufferResult bufferResult = getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT);
-        long remainingBytes = totalSizeOfPagesInBytes - bufferResult.getBufferedBytes();
-        assertEquals(bufferResult.getBufferedBytes(), sizeOfPages(1).toBytes());
-        assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
+        // Buffered page bytes includes only the pages that are not included in the buffer result
+        assertEquals(bufferResult.getBufferedPageBytes(), pageSizesInBytes.subList(1, pageSizesInBytes.size()));
+        assertBufferInfo(buffer, 3, 0);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes);
 
         buffer.acknowledgePages(bufferResult.getNextToken());
-        assertBufferInfo(buffer, 2, 1, remainingBytes);
+        assertBufferInfo(buffer, 2, 1);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes.subList(1, pageSizesInBytes.size()));
     }
 
     @Test
@@ -429,28 +432,6 @@ public class TestClientBuffer
             ClientBuffer buffer,
             int bufferedPages,
             int pagesSent)
-    {
-        assertEquals(
-                buffer.getInfo(),
-                new BufferInfo(
-                        BUFFER_ID,
-                        false,
-                        bufferedPages,
-                        pagesSent,
-                        new PageBufferInfo(
-                                BUFFER_ID.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
-        assertFalse(buffer.isDestroyed());
-    }
-
-    private static void assertBufferInfo(
-            ClientBuffer buffer,
-            int bufferedPages,
-            int pagesSent,
-            long bufferedBytes)
     {
         assertEquals(
                 buffer.getInfo(),
