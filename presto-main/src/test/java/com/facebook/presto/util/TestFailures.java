@@ -15,9 +15,11 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spi.PrestoException;
+import io.airlift.slice.SliceTooLargeException;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.SLICE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static org.testng.Assert.assertEquals;
@@ -71,5 +73,13 @@ public class TestFailures
         assertEquals(failure.getCause().getMessage(), "fake exception 1");
         assertEquals(failure.getSuppressed().size(), 0);
         assertEquals(failure.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+    }
+
+    @Test
+    public void testSliceTooLargeException()
+    {
+        Throwable exception = new SliceTooLargeException("test");
+        ExecutionFailureInfo failure = toFailure(exception);
+        assertEquals(failure.getErrorCode(), SLICE_TOO_LARGE.toErrorCode());
     }
 }
