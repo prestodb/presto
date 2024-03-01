@@ -94,6 +94,15 @@ struct WeekFunction : public InitSessionTimezone<T> {
 };
 
 template <typename T>
+struct UnixDateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
+    result = date;
+  }
+};
+
+template <typename T>
 struct UnixTimestampFunction {
   // unix_timestamp();
   // If no parameters, return the current unix timestamp without adjusting

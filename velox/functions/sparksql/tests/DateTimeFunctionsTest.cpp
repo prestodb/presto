@@ -114,6 +114,26 @@ TEST_F(DateTimeFunctionsTest, weekOfYear) {
   EXPECT_EQ(15, weekOfYear("2013-04-08"));
 }
 
+TEST_F(DateTimeFunctionsTest, unixDate) {
+  const auto unixDate = [&](std::string_view date) {
+    return evaluateOnce<int32_t, int32_t>(
+        "unix_date(c0)",
+        {util::fromDateString(date.data(), date.length())},
+        {DATE()});
+  };
+
+  EXPECT_EQ(unixDate("1970-01-01"), 0);
+  EXPECT_EQ(unixDate("1970-01-02"), 1);
+  EXPECT_EQ(unixDate("1969-12-31"), -1);
+  EXPECT_EQ(unixDate("1970-02-01"), 31);
+  EXPECT_EQ(unixDate("1971-01-31"), 395);
+  EXPECT_EQ(unixDate("1971-01-01"), 365);
+  EXPECT_EQ(unixDate("1972-02-29"), 365 + 365 + 30 + 29);
+  EXPECT_EQ(unixDate("1971-03-01"), 365 + 30 + 28 + 1);
+  EXPECT_EQ(unixDate("5881580-07-11"), kMax);
+  EXPECT_EQ(unixDate("-5877641-06-23"), kMin);
+}
+
 TEST_F(DateTimeFunctionsTest, unixTimestamp) {
   const auto unixTimestamp = [&](std::optional<StringView> dateStr) {
     return evaluateOnce<int64_t>("unix_timestamp(c0)", dateStr);
