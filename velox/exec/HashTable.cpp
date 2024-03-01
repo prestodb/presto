@@ -1480,6 +1480,17 @@ void HashTable<ignoreNullKeys>::decideHashMode(
 }
 
 template <bool ignoreNullKeys>
+std::vector<RowContainer*> HashTable<ignoreNullKeys>::allRows() const {
+  std::vector<RowContainer*> rowContainers;
+  rowContainers.reserve(otherTables_.size() + 1);
+  rowContainers.push_back(rows_.get());
+  for (auto& other : otherTables_) {
+    rowContainers.push_back(other->rows_.get());
+  }
+  return rowContainers;
+}
+
+template <bool ignoreNullKeys>
 std::string HashTable<ignoreNullKeys>::toString() {
   std::stringstream out;
   out << "[HashTable keys: " << hashers_.size()

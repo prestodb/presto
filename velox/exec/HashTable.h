@@ -327,8 +327,12 @@ class BaseHashTable {
     return rows_.get();
   }
 
-  // Static functions for processing internals. Public because used in
-  // structs that define probe and insert algorithms.
+  /// Returns all the row containers of a composed hash table such as for hash
+  /// join use.
+  virtual std::vector<RowContainer*> allRows() const = 0;
+
+  /// Static functions for processing internals. Public because used in
+  /// structs that define probe and insert algorithms.
 
   /// Extracts a 7 bit tag from a hash number. The high bit is always set.
   static uint8_t hashTag(uint64_t hash) {
@@ -576,6 +580,8 @@ class HashTable : public BaseHashTable {
   uint64_t rehashSize() const {
     return rehashSize(capacity_ - numTombstones_);
   }
+
+  std::vector<RowContainer*> allRows() const override;
 
   std::string toString() override;
 
