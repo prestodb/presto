@@ -13,11 +13,34 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.HiveTableHandle;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.security.RoleGrant;
+import com.google.common.cache.LoadingCache;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 /**
  * Guava Loading Cache implementation of Metastore Cache
  */
 public class InMemoryMetastoreCache
         implements MetastoreCache
 {
-    //TODO : Add interface implementations
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<String>, Optional<Database>> databaseCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<String>, List<String>> databaseNamesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HiveTableHandle>, Optional<Table>> tableCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<String>, Optional<List<String>>> tableNamesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HiveTableName>, PartitionStatistics> tableStatisticsCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HiveTableName>, List<TableConstraint<String>>> tableConstraintsCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HivePartitionName>, PartitionStatistics> partitionStatisticsCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<String>, Optional<List<String>>> viewNamesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HivePartitionName>, Optional<Partition>> partitionCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<PartitionFilter>, List<String>> partitionFilterCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<HiveTableName>, Optional<List<String>>> partitionNamesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<UserTableKey>, Set<HivePrivilegeInfo>> tablePrivilegesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<String>, Set<String>> rolesCache = null;
+    private final LoadingCache<CachingHiveMetastore.KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache = null;
 }

@@ -1056,7 +1056,7 @@ public class CachingHiveMetastore
         return delegate.listTablePrivileges(loadTablePrivilegesKey.getContext(), loadTablePrivilegesKey.getKey().getDatabase(), loadTablePrivilegesKey.getKey().getTable(), loadTablePrivilegesKey.getKey().getPrincipal());
     }
 
-    private static class KeyAndContext<T>
+    static class KeyAndContext<T>
     {
         private final MetastoreContext context;
         private final T key;
