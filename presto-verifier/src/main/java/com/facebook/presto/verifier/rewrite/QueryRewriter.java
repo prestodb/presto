@@ -253,6 +253,11 @@ public class QueryRewriter
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));
     }
 
+    public Optional<String> getRewrittenFunctionCalls()
+    {
+        return functionCallRewriter.map(FunctionCallRewriter::getProcessedFunctionCallSubstitutes);
+    }
+
     private QualifiedName generateTemporaryName(Optional<QualifiedName> originalName, QualifiedName prefix)
     {
         List<String> parts = new ArrayList<>();

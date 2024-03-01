@@ -79,7 +79,7 @@ public class ExplainVerification
     }
 
     @Override
-    protected QueryBundle getQueryRewrite(ClusterType clusterType)
+    protected QueryBundle getQueryRewrite(ClusterType clusterType, QueryContext queryContext)
     {
         Statement statement = sqlParser.createStatement(getSourceQuery().getQuery(clusterType), PARSING_OPTIONS);
         Explain explain = new Explain(statement, false, false, ImmutableList.of(new ExplainFormat(JSON)));
