@@ -576,8 +576,12 @@ VectorPtr CastExpr::applyDecimal(
       applyIntToDecimalCastKernel<int32_t, toDecimalType>(
           rows, input, context, toType, castResult);
       break;
+    case TypeKind::REAL:
+      applyFloatingPointToDecimalCastKernel<float, toDecimalType>(
+          rows, input, context, toType, castResult);
+      break;
     case TypeKind::DOUBLE:
-      applyDoubleToDecimalCastKernel<toDecimalType>(
+      applyFloatingPointToDecimalCastKernel<double, toDecimalType>(
           rows, input, context, toType, castResult);
       break;
     case TypeKind::BIGINT: {

@@ -206,8 +206,8 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& castResult);
 
-  template <typename TOutput>
-  void applyDoubleToDecimalCastKernel(
+  template <typename TInput, typename TOutput>
+  void applyFloatingPointToDecimalCastKernel(
       const SelectivityVector& rows,
       const BaseVector& input,
       exec::EvalCtx& context,

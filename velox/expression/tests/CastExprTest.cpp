@@ -296,6 +296,10 @@ class CastExprTest : public functions::test::CastBaseTest {
         fmt::format(
             "Cannot cast {} '100' to DECIMAL(17, 16)", CppToType<T>::name));
   }
+
+  std::string zeros(uint32_t numZeros) {
+    return std::string(numZeros, '0');
+  }
 };
 
 TEST_F(CastExprTest, basics) {
@@ -2019,29 +2023,54 @@ TEST_F(CastExprTest, castInTry) {
 
 TEST_F(CastExprTest, doubleToDecimal) {
   // Double to short decimal.
-  const auto input =
-      makeFlatVector<double>({-3333.03, -2222.02, -1.0, 0.00, 100, 99999.99});
+  const auto input = makeFlatVector<double>(
+      {-3333.03,
+       -2222.02,
+       -1.0,
+       0.00,
+       100,
+       99999.99,
+       10.03,
+       10.05,
+       9.95,
+       -2.123456789});
   testCast(
       input,
       makeFlatVector<int64_t>(
-          {-33'330'300, -22'220'200, -10'000, 0, 1'000'000, 999'999'900},
+          {-33'330'300,
+           -22'220'200,
+           -10'000,
+           0,
+           1'000'000,
+           999'999'900,
+           100'300,
+           100'500,
+           99'500,
+           -21'235},
           DECIMAL(10, 4)));
 
   // Double to long decimal.
   testCast(
       input,
       makeFlatVector<int128_t>(
-          {-33'330'300'000'000,
-           -22'220'200'000'000,
-           -10'000'000'000,
-           0,
-           1'000'000'000'000,
-           999'999'900'000'000},
-          DECIMAL(20, 10)));
+          {
+              HugeInt::parse("-333303" + zeros(16)),
+              HugeInt::parse("-222202" + zeros(16)),
+              -1'000'000'000'000'000'000,
+              0,
+              HugeInt::parse("100" + zeros(18)),
+              HugeInt::parse("9999999" + zeros(16)),
+              HugeInt::parse("1003" + zeros(16)),
+              HugeInt::parse("1005" + zeros(16)),
+              HugeInt::parse("995" + zeros(16)),
+              HugeInt::parse("-2123456789" + zeros(9)),
+          },
+          DECIMAL(38, 18)));
   testCast(
       input,
       makeFlatVector<int128_t>(
-          {-33'330, -22'220, -10, 0, 1'000, 1'000'000}, DECIMAL(20, 1)));
+          {-33'330, -22'220, -10, 0, 1'000, 1'000'000, 100, 101, 100, -21},
+          DECIMAL(20, 1)));
   testCast(
       makeNullableFlatVector<double>(
           {0.13456789,
@@ -2110,6 +2139,116 @@ TEST_F(CastExprTest, doubleToDecimal) {
       DECIMAL(38, 2),
       {NAN},
       "Cannot cast DOUBLE 'NaN' to DECIMAL(38, 2). The input value should be finite.");
+}
+
+TEST_F(CastExprTest, realToDecimal) {
+  // Real to short decimal.
+  const auto input = makeFlatVector<float>(
+      {-3333.03,
+       -2222.02,
+       -1.0,
+       0.00,
+       100,
+       99999.9,
+       10.03,
+       10.05,
+       9.95,
+       -2.12345});
+  testCast(
+      input,
+      makeFlatVector<int64_t>(
+          {-33'330'300,
+           -22'220'200,
+           -10'000,
+           0,
+           1'000'000,
+           999'999'000,
+           100'300,
+           100'500,
+           99'500,
+           -212'35},
+          DECIMAL(10, 4)));
+
+  // Real to long decimal.
+  testCast(
+      input,
+      makeFlatVector<int128_t>(
+          {HugeInt::parse("-333303" + zeros(16)),
+           HugeInt::parse("-222202" + zeros(16)),
+           -1'000'000'000'000'000'000,
+           0,
+           HugeInt::parse("100" + zeros(18)),
+           HugeInt::parse("999999" + zeros(17)),
+           HugeInt::parse("1003" + zeros(16)),
+           HugeInt::parse("1005" + zeros(16)),
+           HugeInt::parse("995" + zeros(16)),
+           -2'123'450'000'000'000'000},
+          DECIMAL(38, 18)));
+  testCast(
+      input,
+      makeFlatVector<int128_t>(
+          {-33'330, -22'220, -10, 0, 1'000, 999'999, 100, 101, 100, -21},
+          DECIMAL(20, 1)));
+  testCast(
+      makeNullableFlatVector<float>(
+          {0.134567, 0.000015, 0.000001, 0.999999, 0.123456, std::nullopt}),
+      makeNullableFlatVector<int128_t>(
+          {134'567'000'000'000'000,
+           15'000'000'000'000,
+           1'000'000'000'000,
+           999'999'000'000'000'000,
+           123'456'000'000'000'000,
+           std::nullopt},
+          DECIMAL(38, 18)));
+
+  testThrow<float>(
+      REAL(), DECIMAL(10, 2), {9999999999999999999999.99}, "Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(10, 2),
+      {static_cast<float>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::max()) + 1)},
+      "Cannot cast REAL '9223372036854776000' to DECIMAL(10, 2). Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(10, 2),
+      {static_cast<float>(
+          static_cast<int128_t>(std::numeric_limits<int64_t>::min()) - 1)},
+      "Cannot cast REAL '-9223372036854776000' to DECIMAL(10, 2). Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(20, 2),
+      {static_cast<float>(DecimalUtil::kLongDecimalMax)},
+      "Cannot cast REAL '9.999999680285692E37' to DECIMAL(20, 2). Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(20, 2),
+      {static_cast<float>(DecimalUtil::kLongDecimalMin)},
+      "Cannot cast REAL '-9.999999680285692E37' to DECIMAL(20, 2). Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(38, 2),
+      {std::numeric_limits<float>::max()},
+      "Cannot cast REAL '3.4028234663852886E38' to DECIMAL(38, 2). Result overflows.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(38, 2),
+      {std::numeric_limits<float>::lowest()},
+      "Cannot cast REAL '-3.4028234663852886E38' to DECIMAL(38, 2). Result overflows.");
+  testCast(
+      makeConstant<float>(std::numeric_limits<float>::min(), 1),
+      makeConstant<int128_t>(0, 1, DECIMAL(38, 2)));
+
+  testThrow<float>(
+      REAL(),
+      DECIMAL(38, 2),
+      {INFINITY},
+      "Cannot cast REAL 'Infinity' to DECIMAL(38, 2). The input value should be finite.");
+  testThrow<float>(
+      REAL(),
+      DECIMAL(38, 2),
+      {NAN},
+      "Cannot cast REAL 'NaN' to DECIMAL(38, 2). The input value should be finite.");
 }
 
 TEST_F(CastExprTest, primitiveNullConstant) {
