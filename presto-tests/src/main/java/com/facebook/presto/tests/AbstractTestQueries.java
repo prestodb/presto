@@ -2112,6 +2112,13 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT CAST(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
         assertQuery("SELECT try_cast(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
+
+        assertQueryWithSameQueryRunner("select cast(feature as map<bigint, double>) from (values (map(array[cast(1 as integer), 2, 3, 4], array[cast(0.4 as double), 0.5, 0.6, 0.7]))) t(feature)",
+                "values map(array[cast(1 as bigint), 2, 3, 4], array[cast(0.4 as double), 0.5, 0.6, 0.7])");
+        assertQueryWithSameQueryRunner("select cast(feature as map<varchar, double>) from (values (map(array[cast(1 as bigint), 2, 3, 4], array[cast(0.4 as double), 0.5, 0.6, 0.7]))) t(feature)",
+                "values map(array[cast(1 as varchar), '2', '3', '4'], array[cast(0.4 as double), 0.5, 0.6, 0.7])");
+        assertQueryWithSameQueryRunner("select cast(feature as map<varchar, double>) from (values (map(array[cast(1 as integer), 2, 3, 4], array[cast(0.4 as double), 0.5, 0.6, 0.7]))) t(feature)",
+                "values map(array[cast(1 as varchar), '2', '3', '4'], array[cast(0.4 as double), 0.5, 0.6, 0.7])");
     }
 
     @Test
