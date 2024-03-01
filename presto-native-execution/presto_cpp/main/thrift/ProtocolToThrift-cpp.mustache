@@ -1,0 +1,92 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+{{! Select all the comment items and expand them here }}
+{{#.}}
+{{#comment}}
+{{comment}}
+{{/comment}}
+{{/.}}
+
+#include "presto_cpp/main/thrift/ProtocolToThrift.h"
+
+namespace facebook::presto {
+
+// These could be covered by a more general template but this way only
+// conversions to supported Thrift data types can be generated.
+void toThrift(const std::string& proto, std::string& thrift) {
+  thrift = proto;
+}
+void toThrift(const bool& proto, bool& thrift) {
+  thrift = proto;
+}
+void toThrift(const int32_t& proto, int32_t& thrift) {
+  thrift = proto;
+}
+void toThrift(const int64_t& proto, int64_t& thrift) {
+  thrift = proto;
+}
+void toThrift(const double& proto, double& thrift) {
+  thrift = proto;
+}
+
+template <typename P, typename T>
+void toThrift(const std::shared_ptr<P>& proto, std::shared_ptr<T>& thrift) {
+  if (proto) {
+    thrift = std::make_shared<T>();
+    toThrift(*proto, *thrift);
+  }
+}
+
+template <typename V, typename S>
+void toThrift(const std::vector<V>& v, std::set<S>& s) {
+  S toItem;
+  for (const auto& fromItem : v) {
+    toThrift(fromItem, toItem);
+    s.insert(toItem);
+  }
+}
+
+template <typename P, typename T>
+void toThrift(const std::vector<P>& p, std::vector<T>& t) {
+  T toItem;
+  for (const auto& fromItem : p) {
+    toThrift(fromItem, toItem);
+    t.push_back(toItem);
+  }
+}
+
+{{! Select all the items and expand either the "hinc" member or the "struct", "enum" members }}
+{{#.}}
+{{#cinc}}
+{{&cinc}}
+{{/cinc}}
+{{^cinc}}
+{{#struct}}
+void toThrift(const protocol::{{class_name}}& proto, thrift::{{&class_name}}& thrift) {
+    {{#fields}}
+    toThrift(proto.{{proto_name}}, {{^optional}}*{{/optional}}thrift.{{field_name}}_ref());
+    {{/fields}}
+}
+{{/struct}}
+{{#enum}}
+void toThrift(const protocol::{{class_name}}& proto, thrift::{{class_name}}& thrift) {
+  thrift = (thrift::{{class_name}})((int)proto);
+}
+{{/enum}}
+{{/cinc}}
+{{/.}}
+
+}
+

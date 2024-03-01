@@ -1,0 +1,13 @@
+version: '2'
+services:
+
+  postgres:
+    hostname: postgres
+    image: 'postgres:10.3'
+    ports:
+      - '15432:15432'
+    environment:
+      POSTGRES_PASSWORD: swarm
+      POSTGRES_USER: swarm
+      POSTGRES_DB: test
+      PGPORT: 15432

@@ -1,0 +1,125 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.parquet;
+
+import io.airlift.slice.Slice;
+import org.apache.parquet.column.statistics.Statistics;
+import org.openjdk.jol.info.ClassLayout;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
+public class DataPageV2
+        extends DataPage
+{
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DataPageV2.class).instanceSize();
+
+    private final int rowCount;
+    private final int nullCount;
+    private final Slice repetitionLevels;
+    private final Slice definitionLevels;
+    private final ParquetEncoding dataEncoding;
+    private final Slice slice;
+    private final Statistics<?> statistics;
+    private final boolean isCompressed;
+
+    public DataPageV2(
+            int rowCount,
+            int nullCount,
+            int valueCount,
+            long firstRowIndex,
+            Slice repetitionLevels,
+            Slice definitionLevels,
+            ParquetEncoding dataEncoding,
+            Slice slice,
+            int uncompressedSize,
+            Statistics<?> statistics,
+            boolean isCompressed)
+    {
+        super(repetitionLevels.length() + definitionLevels.length() + slice.length(), uncompressedSize, valueCount, firstRowIndex);
+        this.rowCount = rowCount;
+        this.nullCount = nullCount;
+        this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels slice is null");
+        this.definitionLevels = requireNonNull(definitionLevels, "definitionLevels slice is null");
+        this.dataEncoding = dataEncoding;
+        this.slice = requireNonNull(slice, "slice is null");
+        this.statistics = statistics;
+        this.isCompressed = isCompressed;
+    }
+
+    public int getRowCount()
+    {
+        return rowCount;
+    }
+
+    public int getNullCount()
+    {
+        return nullCount;
+    }
+
+    public Slice getRepetitionLevels()
+    {
+        return repetitionLevels;
+    }
+
+    public Slice getDefinitionLevels()
+    {
+        return definitionLevels;
+    }
+
+    public ParquetEncoding getDataEncoding()
+    {
+        return dataEncoding;
+    }
+
+    @Override
+    public Slice getSlice()
+    {
+        return slice;
+    }
+
+    public Statistics<?> getStatistics()
+    {
+        return statistics;
+    }
+
+    public boolean isCompressed()
+    {
+        return isCompressed;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + repetitionLevels.getRetainedSize() + definitionLevels.getRetainedSize() + slice.getRetainedSize();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("rowCount", rowCount)
+                .add("nullCount", nullCount)
+                .add("repetitionLevels", repetitionLevels)
+                .add("definitionLevels", definitionLevels)
+                .add("dataEncoding", dataEncoding)
+                .add("slice", slice)
+                .add("statistics", statistics)
+                .add("isCompressed", isCompressed)
+                .add("valueCount", valueCount)
+                .add("compressedSize", compressedSize)
+                .add("uncompressedSize", uncompressedSize)
+                .add("firstRowIndex", getFirstRowIndex())
+                .toString();
+    }
+}

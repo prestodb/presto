@@ -1,0 +1,7 @@
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true;
+java.lang:type=classloading|
+java.lang:type=compilation|
+java.lang:type=memory|
+java.lang:type=operatingsystem|
+java.lang:type=runtime|
+java.lang:type=threading|

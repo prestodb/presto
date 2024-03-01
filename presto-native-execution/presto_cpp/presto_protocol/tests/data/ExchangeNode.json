@@ -1,0 +1,47 @@
+{
+  "@type": "com.facebook.presto.sql.planner.plan.ExchangeNode",
+  "id": "133",
+  "type": "REPARTITION",
+  "scope": "LOCAL",
+  "partitioningScheme": {
+    "partitioning": {
+      "handle": {
+        "connectorHandle": {
+          "@type": "$remote",
+          "partitioning": "FIXED",
+          "function": "ROUND_ROBIN"
+        }
+      },
+      "arguments": []
+    },
+    "outputLayout": [
+      {
+        "@type": "variable",
+        "name": "field",
+        "type": "integer"
+      },
+      {
+        "@type": "variable",
+        "name": "field_0",
+        "type": "varchar(1)"
+      }
+    ],
+    "replicateNullsAndAny": false
+  },
+  "sources": [],
+  "inputs": [
+    [
+      {
+        "@type": "variable",
+        "name": "field",
+        "type": "integer"
+      },
+      {
+        "@type": "variable",
+        "name": "field_0",
+        "type": "varchar(1)"
+      }
+    ]
+  ],
+  "ensureSourceOrdering": false
+}

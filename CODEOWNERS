@@ -1,0 +1,7 @@
+/** @prestodb/committers
+/presto-hudi @vinothchandar @7c00 @prestodb/committers
+/presto-native-execution @prestodb/team-velox
+/presto-parquet @shangxinli @prestodb/committers
+/presto-orc @sdruzkin @prestodb/committers
+/presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
+/presto-spark* @shrinidhijoshi @prestodb/committers

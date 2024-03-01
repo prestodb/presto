@@ -1,0 +1,201 @@
+{
+  "rowCount" : 73049,
+  "columns" : {
+    "d_date_sk" : {
+      "distinctValuesCount" : 73049,
+      "nullsCount" : 0,
+      "min" : 2415022,
+      "max" : 2488070,
+      "dataSize" : null
+    },
+    "d_date_id" : {
+      "distinctValuesCount" : 73049,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAAAAFCAA",
+      "max" : "AAAAAAAAPPPPECAA",
+      "dataSize" : 1168784
+    },
+    "d_date" : {
+      "distinctValuesCount" : 73049,
+      "nullsCount" : 0,
+      "min" : -25566,
+      "max" : 47482,
+      "dataSize" : null
+    },
+    "d_month_seq" : {
+      "distinctValuesCount" : 2401,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 2400,
+      "dataSize" : null
+    },
+    "d_week_seq" : {
+      "distinctValuesCount" : 10436,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 10436,
+      "dataSize" : null
+    },
+    "d_quarter_seq" : {
+      "distinctValuesCount" : 801,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 801,
+      "dataSize" : null
+    },
+    "d_year" : {
+      "distinctValuesCount" : 201,
+      "nullsCount" : 0,
+      "min" : 1900,
+      "max" : 2100,
+      "dataSize" : null
+    },
+    "d_dow" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "d_moy" : {
+      "distinctValuesCount" : 12,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 12,
+      "dataSize" : null
+    },
+    "d_dom" : {
+      "distinctValuesCount" : 31,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 31,
+      "dataSize" : null
+    },
+    "d_qoy" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 4,
+      "dataSize" : null
+    },
+    "d_fy_year" : {
+      "distinctValuesCount" : 201,
+      "nullsCount" : 0,
+      "min" : 1900,
+      "max" : 2100,
+      "dataSize" : null
+    },
+    "d_fy_quarter_seq" : {
+      "distinctValuesCount" : 801,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 801,
+      "dataSize" : null
+    },
+    "d_fy_week_seq" : {
+      "distinctValuesCount" : 10436,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 10436,
+      "dataSize" : null
+    },
+    "d_day_name" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : "Friday",
+      "max" : "Wednesday",
+      "dataSize" : 50
+    },
+    "d_quarter_name" : {
+      "distinctValuesCount" : 801,
+      "nullsCount" : 0,
+      "min" : "1900Q1",
+      "max" : "2100Q1",
+      "dataSize" : 4806
+    },
+    "d_holiday" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "d_weekend" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "d_following_holiday" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "d_first_dom" : {
+      "distinctValuesCount" : 2401,
+      "nullsCount" : 0,
+      "min" : 2415021,
+      "max" : 2488070,
+      "dataSize" : null
+    },
+    "d_last_dom" : {
+      "distinctValuesCount" : 2401,
+      "nullsCount" : 0,
+      "min" : 2415020,
+      "max" : 2488372,
+      "dataSize" : null
+    },
+    "d_same_day_ly" : {
+      "distinctValuesCount" : 73000,
+      "nullsCount" : 0,
+      "min" : 2414657,
+      "max" : 2487705,
+      "dataSize" : null
+    },
+    "d_same_day_lq" : {
+      "distinctValuesCount" : 72698,
+      "nullsCount" : 0,
+      "min" : 2414930,
+      "max" : 2487978,
+      "dataSize" : null
+    },
+    "d_current_day" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "d_current_week" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "d_current_month" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "d_current_quarter" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "d_current_year" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    }
+  }
+}

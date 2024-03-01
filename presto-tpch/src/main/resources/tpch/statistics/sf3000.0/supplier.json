@@ -1,0 +1,36 @@
+ {
+    "rowCount" : 3.0E7,
+     "columns" : {
+        "s_phone" : {
+             "dataSize" : 4.5E8,
+             "distinctValuesCount" : 3.9779123E7
+        },
+        "s_nationkey" : {
+             "distinctValuesCount" : 19.0,
+             "min" : 0,
+             "max" : 24
+        },
+        "s_comment" : {
+             "dataSize" : 1.874956852E9,
+             "distinctValuesCount" : 2.6935549E7
+        },
+        "s_name" : {
+             "dataSize" : 5.4E8,
+             "distinctValuesCount" : 4.1540295E7
+        },
+        "s_acctbal" : {
+             "distinctValuesCount" : 806049.0,
+             "min" : -999.99,
+             "max" : 9999.99
+        },
+        "s_address" : {
+             "dataSize" : 7.50004849E8,
+             "distinctValuesCount" : 2.579357E7
+        },
+        "s_suppkey" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "min" : 1,
+             "max" : 30000000
+        }
+    }
+}

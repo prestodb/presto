@@ -1,0 +1,75 @@
+{
+  "rowCount" : 86400,
+  "columns" : {
+    "t_time_sk" : {
+      "distinctValuesCount" : 86400,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 86399,
+      "dataSize" : null
+    },
+    "t_time_id" : {
+      "distinctValuesCount" : 86400,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAAAABAAA",
+      "max" : "AAAAAAAAPPPPAAAA",
+      "dataSize" : 1382400
+    },
+    "t_time" : {
+      "distinctValuesCount" : 86400,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 86399,
+      "dataSize" : null
+    },
+    "t_hour" : {
+      "distinctValuesCount" : 24,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 23,
+      "dataSize" : null
+    },
+    "t_minute" : {
+      "distinctValuesCount" : 60,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 59,
+      "dataSize" : null
+    },
+    "t_second" : {
+      "distinctValuesCount" : 60,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 59,
+      "dataSize" : null
+    },
+    "t_am_pm" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "AM",
+      "max" : "PM",
+      "dataSize" : 4
+    },
+    "t_shift" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "first",
+      "max" : "third",
+      "dataSize" : 16
+    },
+    "t_sub_shift" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "afternoon",
+      "max" : "night",
+      "dataSize" : 28
+    },
+    "t_meal_time" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "",
+      "max" : "lunch",
+      "dataSize" : 20
+    }
+  }
+}

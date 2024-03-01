@@ -1,0 +1,6 @@
+-- delimiter: |; ignoreOrder: true;
+catalogs|
+analyze_properties|
+schema_properties|
+table_properties|
+column_properties|

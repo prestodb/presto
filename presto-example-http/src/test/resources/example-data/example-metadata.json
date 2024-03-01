@@ -1,0 +1,128 @@
+{
+    "example": [
+        {
+            "name": "numbers",
+            "columns": [
+                {
+                    "name": "text",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "value",
+                    "type": "BIGINT"
+                }
+            ],
+            "sources": [ "numbers-1.csv", "numbers-2.csv" ]
+        }
+    ],
+    "tpch": [
+        {
+            "name": "orders",
+            "columns": [
+                {
+                    "name": "orderkey",
+                    "type": "BIGINT"
+                },
+                {
+                    "name": "custkey",
+                    "type": "BIGINT"
+                },
+                {
+                    "name": "orderstatus",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "totalprice",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "orderdate",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "orderpriority",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "clerk",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "shippriority",
+                    "type": "INTEGER"
+                },
+                {
+                    "name": "comment",
+                    "type": "VARCHAR"
+                }
+            ],
+            "sources": [ "orders-1.csv", "orders-2.csv" ]
+        },
+        {
+            "name": "lineitem",
+            "columns": [
+                {
+                    "name": "orderkey",
+                    "type": "BIGINT"
+                },
+                {
+                    "name": "partkey",
+                    "type": "BIGINT"
+                },
+                {
+                    "name": "suppkey",
+                    "type": "BIGINT"
+                },
+                {
+                    "name": "linenumber",
+                    "type": "INTEGER"
+                },
+                {
+                    "name": "quantity",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "discount",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "tax",
+                    "type": "DOUBLE"
+                },
+                {
+                    "name": "returnflag",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "linestatus",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "shipdate",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "commitdate",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "receiptdate",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "shipinstruct",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "shipmode",
+                    "type": "VARCHAR"
+                },
+                {
+                    "name": "comment",
+                    "type": "VARCHAR"
+                }
+            ],
+            "sources": [ "lineitem-1.csv", "lineitem-2.csv" ]
+        }
+    ]
+}

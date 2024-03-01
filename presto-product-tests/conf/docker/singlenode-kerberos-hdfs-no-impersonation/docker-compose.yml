@@ -1,0 +1,6 @@
+version: '2'
+services:
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties

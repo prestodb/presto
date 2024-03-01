@@ -1,0 +1,135 @@
+hdfs:
+  username: hdfs
+  webhdfs:
+    host: ${databases.hive.host}
+    port: 50070
+
+databases:
+  default:
+    alias: presto
+
+  hive:
+    host: hadoop-master
+    jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000
+    jdbc_user: hdfs
+    jdbc_password: na
+    jdbc_pooling: false
+    schema: default
+    prepare_statement: USE ${databases.hive.schema}
+    table_manager_type: hive
+    warehouse_directory_path: /user/hive/warehouse
+    path: /user/hive/warehouse
+    inject_stats_for_immutable_tables: true
+    inject_stats_for_mutable_tables: true
+    metastore:
+      host: ${databases.hive.host}
+      port: 9083
+
+  presto:
+    host: localhost
+    port: 8080
+    server_address: http://${databases.presto.host}:${databases.presto.port}
+    jdbc_driver_class: ${PRESTO_JDBC_DRIVER_CLASS:-com.facebook.presto.jdbc.PrestoDriver}
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
+    jdbc_user: hdfs
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+
+  presto_tpcds:
+    host: localhost
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/tpcds
+    jdbc_user: hdfs
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+
+  alice@presto:
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: ${databases.presto.jdbc_url}
+    jdbc_user: alice
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
+
+  bob@presto:
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: ${databases.presto.jdbc_url}
+    jdbc_user: bob
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
+
+  charlie@presto:
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: ${databases.presto.jdbc_url}
+    jdbc_user: charlie
+    jdbc_password: "***empty***"
+    jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
+
+  mysql:
+    jdbc_driver_class: com.mysql.jdbc.Driver
+    jdbc_url: jdbc:mysql://mysql:13306/test
+    jdbc_user: root
+    jdbc_password: swarm
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
+  postgres:
+    jdbc_driver_class: org.postgresql.Driver
+    jdbc_url: jdbc:postgresql://postgres:15432/test
+    jdbc_user: swarm
+    jdbc_password: swarm
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
+  cassandra:
+    host: cassandra
+    port: 9042
+    default_schema: test
+    skip_create_schema: false
+    table_manager_type: cassandra
+
+  sqlserver:
+    jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_user: sa
+    jdbc_password: SQLServerPass1
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
+  kafka:
+    broker:
+      host: kafka
+      port: 9092
+    zookeeper:
+      host: kafka
+      port: 2181
+    presto_database_name: presto
+    presto_kafka_catalog: kafka
+    table_manager_type: kafka
+
+tests:
+  hdfs:
+    path: /product-test
+  assert:
+    float_tolerance: 0.000001
+
+ldap:
+   admin:
+       dn: cn=admin,dc=presto,dc=testldap,dc=com
+       password: admin
+   url: ldap://ldapserver

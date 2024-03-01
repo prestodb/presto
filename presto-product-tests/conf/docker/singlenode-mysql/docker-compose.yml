@@ -1,0 +1,15 @@
+version: '2'
+services:
+
+  mysql:
+    hostname: mysql
+    image: 'mysql:5.7'
+    ports:
+      - '13306:13306'
+    command:
+      mysqld --port 13306
+    environment:
+      MYSQL_USER: swarm
+      MYSQL_PASSWORD: swarm
+      MYSQL_ROOT_PASSWORD: swarm
+      MYSQL_DATABASE: test
