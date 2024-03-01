@@ -1,0 +1,36 @@
+{
+    "tableName": "region",
+    "schemaName": "tpch",
+    "topicName": "tpch.region",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "kafka_key",
+                "dataFormat": "LONG",
+                "type": "BIGINT",
+                "hidden": "true"
+            }
+        ]
+    },
+    "message": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "regionkey",
+                "mapping": "regionkey",
+                "type": "BIGINT"
+            },
+            {
+                "name": "name",
+                "mapping": "name",
+                "type": "VARCHAR(25)"
+            },
+            {
+                "name": "comment",
+                "mapping": "comment",
+                "type": "VARCHAR(152)"
+            }
+        ]
+    }
+}

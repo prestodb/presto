@@ -1,0 +1,187 @@
+{
+  "rowCount" : 30,
+  "columns" : {
+    "web_site_sk" : {
+      "distinctValuesCount" : 30,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 30,
+      "dataSize" : null
+    },
+    "web_site_id" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAABAAAAAA",
+      "max" : "AAAAAAAAOAAAAAAA",
+      "dataSize" : 240
+    },
+    "web_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 10089,
+      "max" : 11550,
+      "dataSize" : null
+    },
+    "web_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 15,
+      "min" : 10819,
+      "max" : 11549,
+      "dataSize" : null
+    },
+    "web_name" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : "site_0",
+      "max" : "site_4",
+      "dataSize" : 30
+    },
+    "web_open_date_sk" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : 2450577,
+      "max" : 2450807,
+      "dataSize" : null
+    },
+    "web_close_date_sk" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 5,
+      "min" : 2446944,
+      "max" : 2448956,
+      "dataSize" : null
+    },
+    "web_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "web_manager" : {
+      "distinctValuesCount" : 22,
+      "nullsCount" : 0,
+      "min" : "Adam Stonge",
+      "max" : "William Carter",
+      "dataSize" : 271
+    },
+    "web_mkt_id" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "web_mkt_class" : {
+      "distinctValuesCount" : 22,
+      "nullsCount" : 0,
+      "min" : "About rural reasons shall no",
+      "max" : "Wide, final representat",
+      "dataSize" : 734
+    },
+    "web_mkt_desc" : {
+      "distinctValuesCount" : 18,
+      "nullsCount" : 0,
+      "min" : "Acres see else children. Mutual too",
+      "max" : "Well similar decisions used to keep hardly democratic, personal priorities.",
+      "dataSize" : 1180
+    },
+    "web_market_manager" : {
+      "distinctValuesCount" : 25,
+      "nullsCount" : 0,
+      "min" : "Albert Leung",
+      "max" : "Zachery Oneil",
+      "dataSize" : 315
+    },
+    "web_company_id" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "web_company_name" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri",
+      "dataSize" : 24
+    },
+    "web_street_number" : {
+      "distinctValuesCount" : 18,
+      "nullsCount" : 0,
+      "min" : "184",
+      "max" : "973",
+      "dataSize" : 52
+    },
+    "web_street_name" : {
+      "distinctValuesCount" : 30,
+      "nullsCount" : 0,
+      "min" : "11th ",
+      "max" : "Wilson Ridge",
+      "dataSize" : 272
+    },
+    "web_street_type" : {
+      "distinctValuesCount" : 15,
+      "nullsCount" : 0,
+      "min" : "Avenue",
+      "max" : "Wy",
+      "dataSize" : 63
+    },
+    "web_suite_number" : {
+      "distinctValuesCount" : 23,
+      "nullsCount" : 0,
+      "min" : "Suite 100",
+      "max" : "Suite U",
+      "dataSize" : 193
+    },
+    "web_city" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Fairview",
+      "max" : "Midway",
+      "dataSize" : 14
+    },
+    "web_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "web_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "web_zip" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "35709",
+      "dataSize" : 10
+    },
+    "web_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "web_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    },
+    "web_tax_percentage" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 12,
+      "dataSize" : null
+    }
+  }
+}

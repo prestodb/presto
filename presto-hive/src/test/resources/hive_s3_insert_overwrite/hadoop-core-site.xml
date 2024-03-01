@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop-master:9000</value>
+    </property>
+    <property>
+        <name>fs.s3a.endpoint</name>
+        <value>http://minio:4566</value>
+    </property>
+    <property>
+        <name>fs.s3a.access.key</name>
+        <value>accesskey</value>
+    </property>
+    <property>
+        <name>fs.s3a.secret.key</name>
+        <value>secretkey</value>
+    </property>
+    <property>
+        <name>fs.s3a.path.style.access</name>
+        <value>true</value>
+    </property>
+</configuration>

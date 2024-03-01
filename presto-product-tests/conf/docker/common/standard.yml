@@ -1,0 +1,59 @@
+version: '2'
+services:
+
+  java-8-base:
+    image: 'prestodb/centos6-oj8:${DOCKER_IMAGES_VERSION}'
+    volumes:
+      - ../..:/docker/volumes/conf
+      - ../../target:/docker/volumes/logs
+
+  hadoop-master:
+    extends:
+      service: java-8-base
+    image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
+    hostname: hadoop-master
+    ports:
+      - '${HIVE_PROXY_PORT}:1180'
+      - '5006:5006'
+      - '8020:8020'
+      - '8042:8042'
+      - '8088:8088'
+      - '9000:9000'
+      - '9083:9083'
+      - '10000:10000'
+      - '19888:19888'
+      - '50070:50070'
+      - '50075:50075'
+    volumes:
+       - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
+
+  presto-master:
+    extends:
+      service: java-8-base
+    hostname: presto-master
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode run
+    ports:
+      - '8080:8080'
+      - '5005:5005'
+    depends_on:
+       - hadoop-master
+    volumes:
+       - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
+       - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
+
+  application-runner:
+    extends:
+      service: java-8-base
+    hostname: application-runner
+    command: bash -c 'echo please provide command to application-runner >&2; exit 1'
+    volumes:
+      - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
+      - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
+      - ${PRESTO_JDBC_DRIVER_JAR}:/docker/volumes/jdbc/driver.jar
+      - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ../../../target/test-reports:/docker/volumes/test-reports
+      - /tmp/presto_history_docker:/root/.presto_history
+    environment:
+      - PRESTO_JDBC_DRIVER_CLASS
+      - TEMPTO_EXTRA_CONFIG_FILE
+      - CLI_ARGUMENTS=--server presto-master:8080

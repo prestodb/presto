@@ -1,0 +1,22 @@
+staleLabel: stale
+daysUntilClose: 7
+
+pulls:
+    daysUntilStale: 180 # ~6 months
+    markComment: >
+        This pull request has been automatically marked as stale because it has not had
+        recent activity. If you'd still like this PR merged, please comment on the task,
+        make sure you've addressed reviewer comments, and rebase on the latest master.
+        Thank you for your contributions!
+
+issues:
+    daysUntilStale: 730 # ~2 years
+    exemptLabels:
+        - bug
+    markComment: >
+        This issue has been automatically marked as stale because it has not had
+        any activity in the last 2 years. If you feel that this issue is important,
+        just comment and the stale tag will be removed; otherwise it will be
+        closed in 7 days. This is an attempt to ensure that our open issues remain
+        valuable and relevant so that we can keep track of what needs to be done and
+        prioritize the right things.

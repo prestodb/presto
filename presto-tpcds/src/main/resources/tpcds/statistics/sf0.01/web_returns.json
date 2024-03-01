@@ -1,0 +1,173 @@
+{
+  "rowCount" : 1152,
+  "columns" : {
+    "wr_returned_date_sk" : {
+      "distinctValuesCount" : 841,
+      "nullsCount" : 52,
+      "min" : 2450901,
+      "max" : 2452965,
+      "dataSize" : null
+    },
+    "wr_returned_time_sk" : {
+      "distinctValuesCount" : 1084,
+      "nullsCount" : 56,
+      "min" : 53,
+      "max" : 85275,
+      "dataSize" : null
+    },
+    "wr_item_sk" : {
+      "distinctValuesCount" : 840,
+      "nullsCount" : 0,
+      "min" : 5,
+      "max" : 2000,
+      "dataSize" : null
+    },
+    "wr_refunded_customer_sk" : {
+      "distinctValuesCount" : 672,
+      "nullsCount" : 61,
+      "min" : 4,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "wr_refunded_cdemo_sk" : {
+      "distinctValuesCount" : 1096,
+      "nullsCount" : 54,
+      "min" : 804,
+      "max" : 1917676,
+      "dataSize" : null
+    },
+    "wr_refunded_hdemo_sk" : {
+      "distinctValuesCount" : 1018,
+      "nullsCount" : 58,
+      "min" : 8,
+      "max" : 7198,
+      "dataSize" : null
+    },
+    "wr_refunded_addr_sk" : {
+      "distinctValuesCount" : 658,
+      "nullsCount" : 59,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "wr_returning_customer_sk" : {
+      "distinctValuesCount" : 671,
+      "nullsCount" : 56,
+      "min" : 4,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "wr_returning_cdemo_sk" : {
+      "distinctValuesCount" : 1093,
+      "nullsCount" : 57,
+      "min" : 804,
+      "max" : 1917676,
+      "dataSize" : null
+    },
+    "wr_returning_hdemo_sk" : {
+      "distinctValuesCount" : 1016,
+      "nullsCount" : 60,
+      "min" : 8,
+      "max" : 7198,
+      "dataSize" : null
+    },
+    "wr_returning_addr_sk" : {
+      "distinctValuesCount" : 660,
+      "nullsCount" : 59,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "wr_web_page_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 63,
+      "min" : 1,
+      "max" : 2,
+      "dataSize" : null
+    },
+    "wr_reason_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 46,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "wr_order_number" : {
+      "distinctValuesCount" : 713,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "wr_return_quantity" : {
+      "distinctValuesCount" : 93,
+      "nullsCount" : 62,
+      "min" : 1,
+      "max" : 97,
+      "dataSize" : null
+    },
+    "wr_return_amt" : {
+      "distinctValuesCount" : 1085,
+      "nullsCount" : 48,
+      "min" : 0,
+      "max" : 2032394,
+      "dataSize" : null
+    },
+    "wr_return_tax" : {
+      "distinctValuesCount" : 895,
+      "nullsCount" : 56,
+      "min" : 0,
+      "max" : 86017,
+      "dataSize" : null
+    },
+    "wr_return_amt_inc_tax" : {
+      "distinctValuesCount" : 1080,
+      "nullsCount" : 53,
+      "min" : 0,
+      "max" : 2032394,
+      "dataSize" : null
+    },
+    "wr_fee" : {
+      "distinctValuesCount" : 1049,
+      "nullsCount" : 55,
+      "min" : 57,
+      "max" : 9988,
+      "dataSize" : null
+    },
+    "wr_return_ship_cost" : {
+      "distinctValuesCount" : 1058,
+      "nullsCount" : 58,
+      "min" : 0,
+      "max" : 812903,
+      "dataSize" : null
+    },
+    "wr_refunded_cash" : {
+      "distinctValuesCount" : 1065,
+      "nullsCount" : 59,
+      "min" : 0,
+      "max" : 1727534,
+      "dataSize" : null
+    },
+    "wr_reversed_charge" : {
+      "distinctValuesCount" : 1028,
+      "nullsCount" : 65,
+      "min" : 0,
+      "max" : 802025,
+      "dataSize" : null
+    },
+    "wr_account_credit" : {
+      "distinctValuesCount" : 1021,
+      "nullsCount" : 56,
+      "min" : 0,
+      "max" : 869828,
+      "dataSize" : null
+    },
+    "wr_net_loss" : {
+      "distinctValuesCount" : 1093,
+      "nullsCount" : 56,
+      "min" : 787,
+      "max" : 870716,
+      "dataSize" : null
+    }
+  }
+}

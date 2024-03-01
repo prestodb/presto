@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE module PUBLIC
+        "-//Puppy Crawl//DTD Check Configuration 1.3//EN"
+        "http://checkstyle.sourceforge.net/dtds/configuration_1_3.dtd">
+<module name="Checker">
+    <module name="FileTabCharacter" />
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="\r" />
+        <property name="message" value="Line contains carriage return" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value=" \n" />
+        <property name="message" value="Line has trailing whitespace" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="\n\n\n" />
+        <property name="message" value="Multiple consecutive blank lines" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="\n\n\Z" />
+        <property name="message" value="Blank line before end of file" />
+    </module>
+
+    <module name="RegexpMultiline">
+        <property name="format" value="\{\n\n" />
+        <property name="message" value="Blank line after opening brace" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="\n\n\s*\}" />
+        <property name="message" value="Blank line before closing brace" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="[^;]\s\)+\s*[\{;,]?\s*\n" />
+        <property name="message" value="Whitespace character before closing parenthesis" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="->\s*\{\s+\}" />
+        <property name="message" value="Whitespace inside empty lambda body" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="(class|interface) ([a-zA-Z0-9_])+(&lt;.*&gt;)? (extends|implements)" />
+        <property name="message" value="No new line before extends/implements" />
+    </module>
+
+    <module name="RegexpSingleline">
+        <property name="format" value="^import static .*\.(of|copyOf|valueOf);$" />
+        <property name="message" value="The following methods may not be statically imported: of, copyOf, valueOf" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^import static .*\.(all|none);$" />
+        <property name="message" value="The following methods may not be statically imported: all, none" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^import static (?!java\.lang\.String\.format;).*\.format;" />
+        <property name="message" value="Only 'format' from java.lang.String may be statically imported" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^import static java\.util\.Optional\." />
+        <property name="message" value="Members of Optional may not be statically imported" />
+    </module>
+
+    <module name="RegexpSingleline">
+        <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Objects\.requireNonNull" />
+        <property name="message" value="Objects.requireNonNull should only be used with static imports" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Math\.toIntExact" />
+        <property name="message" value="Math.toIntExact should only be used with static imports" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org\.testng\.Assert;$" />
+        <property name="message" value="org.testng.Assert should only be used with static imports" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import com\.google\.common\.base\.MoreObjects;$" />
+        <property name="message" value="com.google.common.base.MoreObjects should only be used with static imports" />
+    </module>
+
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org\.jetbrains\.annotations\.NotNull;$" />
+        <property name="message" value="Not null is the default for the codebase and should not be annotated" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import org\.jetbrains\.annotations\.Nullable;$" />
+        <property name="message" value="Use javax.annotation.Nullable instead of org.jetbrains.annotations.Nullable" />
+    </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="^[ \t]*import static org\.testng\.AssertJUnit\." />
+        <property name="message" value="Use org.testng.Assert instead of org.testng.AssertJUnit" />
+    </module>
+
+    <module name="SuppressWarningsFilter" />
+
+    <module name="TreeWalker">
+        <module name="SuppressWarningsHolder" />
+
+        <module name="EmptyBlock">
+            <property name="option" value="text" />
+            <property name="tokens" value="
+                LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_IF,
+                LITERAL_FOR, LITERAL_TRY, LITERAL_WHILE, INSTANCE_INIT, STATIC_INIT" />
+        </module>
+        <module name="EmptyStatement" />
+        <module name="EmptyForInitializerPad" />
+        <module name="EmptyForIteratorPad">
+            <property name="option" value="space" />
+        </module>
+        <module name="MethodParamPad">
+            <property name="allowLineBreaks" value="true" />
+            <property name="option" value="nospace" />
+        </module>
+        <module name="ParenPad" />
+        <module name="TypecastParenPad" />
+        <module name="NeedBraces" />
+        <module name="LeftCurly">
+            <property name="option" value="nl" />
+            <property name="tokens" value="CLASS_DEF, CTOR_DEF, INTERFACE_DEF, METHOD_DEF" />
+        </module>
+        <module name="LeftCurly">
+            <property name="option" value="eol" />
+            <property name="tokens" value="
+                 LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE, LITERAL_FINALLY, LITERAL_FOR,
+                 LITERAL_IF, LITERAL_SWITCH, LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE" />
+        </module>
+        <module name="RightCurly">
+            <property name="option" value="alone" />
+        </module>
+        <module name="GenericWhitespace" />
+        <module name="WhitespaceAfter" />
+        <module name="NoWhitespaceAfter" />
+        <module name="NoWhitespaceBefore" />
+        <module name="SingleSpaceSeparator" />
+        <module name="Indentation">
+            <property name="throwsIndent" value="8" />
+            <property name="lineWrappingIndentation" value="8" />
+        </module>
+
+        <module name="UpperEll" />
+        <module name="DefaultComesLast" />
+        <module name="ArrayTypeStyle" />
+        <module name="MultipleVariableDeclarations" />
+        <module name="ModifierOrder" />
+        <module name="OneStatementPerLine" />
+        <module name="StringLiteralEquality" />
+        <module name="MutableException" />
+        <module name="EqualsHashCode" />
+        <module name="InnerAssignment" />
+        <module name="InterfaceIsType" />
+        <module name="HideUtilityClassConstructor" />
+        <module name="ExplicitInitialization" />
+        <module name="OneTopLevelClass" />
+
+        <module name="MemberName" />
+        <module name="LocalVariableName" />
+        <module name="LocalFinalVariableName" />
+        <module name="TypeName" />
+        <module name="PackageName" />
+        <module name="ParameterName" />
+        <module name="StaticVariableName" />
+        <module name="ClassTypeParameterName">
+            <property name="format" value="^[A-Z][0-9]?$" />
+        </module>
+        <module name="MethodTypeParameterName">
+            <property name="format" value="^[A-Z][0-9]?$" />
+        </module>
+
+        <module name="AnnotationUseStyle">
+            <property name="trailingArrayComma" value="ignore" />
+        </module>
+
+        <module name="AvoidStarImport" />
+        <module name="RedundantImport" />
+        <module name="UnusedImports" />
+        <module name="ImportOrder">
+            <property name="groups" value="*,javax,java" />
+            <property name="separated" value="true" />
+            <property name="option" value="bottom" />
+            <property name="sortStaticImportsAlphabetically" value="true" />
+        </module>
+
+        <module name="WhitespaceAround">
+            <property name="allowEmptyConstructors" value="true" />
+            <property name="allowEmptyMethods" value="true" />
+            <property name="allowEmptyLambdas" value="true" />
+            <property name="ignoreEnhancedForColon" value="false" />
+            <property name="tokens" value="
+                ASSIGN, BAND, BAND_ASSIGN, BOR, BOR_ASSIGN, BSR, BSR_ASSIGN,
+                BXOR, BXOR_ASSIGN, COLON, DIV, DIV_ASSIGN, DO_WHILE, EQUAL, GE, GT, LAND,
+                LAMBDA, LE, LITERAL_ASSERT, LITERAL_CATCH, LITERAL_DO, LITERAL_ELSE,
+                LITERAL_FINALLY, LITERAL_FOR, LITERAL_IF, LITERAL_RETURN, LITERAL_SWITCH,
+                LITERAL_SYNCHRONIZED, LITERAL_TRY, LITERAL_WHILE,
+                LOR, LT, MINUS, MINUS_ASSIGN, MOD, MOD_ASSIGN, NOT_EQUAL,
+                PLUS, PLUS_ASSIGN, QUESTION, SL, SLIST, SL_ASSIGN, SR, SR_ASSIGN,
+                STAR, STAR_ASSIGN, TYPE_EXTENSION_AND" />
+        </module>
+
+        <module name="WhitespaceAfter" />
+
+        <module name="NoWhitespaceAfter">
+            <property name="tokens" value="DOT" />
+            <property name="allowLineBreaks" value="false" />
+        </module>
+
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="org.weakref.jmx.internal" />
+            <property name="illegalPkgs" value="jersey.repackaged" />
+            <property name="illegalPkgs" value="jdk.nashorn.internal" />
+            <property name="illegalPkgs" value="jdk.internal" />
+            <!-- Added to avoid accidental imports of the Spark shaded guava library that lives under the org.spark_project.guava package -->
+            <!-- It seems unlikely that anything would need to be imported from the org.spark_project package, as it contains private or semi private API -->
+            <property name="illegalPkgs" value="org.spark_project" />
+        </module>
+
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value=".*\.\$internal" />
+            <property name="regexp" value="true" />
+        </module>
+    </module>
+</module>

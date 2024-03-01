@@ -1,0 +1,107 @@
+ {
+    "rowCount" : 1800.0,
+     "columns" : {
+        "p_item_sk" : {
+             "distinctValuesCount" : 1792.0,
+             "nullsCount" : 23.0,
+             "min" : 56,
+             "max" : 359779
+        },
+        "p_discount_active" : {
+             "dataSize" : 1773.0,
+             "nullsCount" : 27.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_channel_details" : {
+             "dataSize" : 71007.0,
+             "nullsCount" : 17.0,
+             "distinctValuesCount" : 1955.0
+        },
+        "p_end_date_sk" : {
+             "distinctValuesCount" : 1066.0,
+             "nullsCount" : 20.0,
+             "min" : 2450107,
+             "max" : 2450970
+        },
+        "p_promo_name" : {
+             "dataSize" : 7096.0,
+             "nullsCount" : 25.0,
+             "distinctValuesCount" : 11.0
+        },
+        "p_channel_email" : {
+             "dataSize" : 1778.0,
+             "nullsCount" : 22.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_channel_dmail" : {
+             "dataSize" : 1781.0,
+             "nullsCount" : 19.0,
+             "distinctValuesCount" : 2.0
+        },
+        "p_promo_id" : {
+             "dataSize" : 28800.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 2041.0
+        },
+        "p_channel_event" : {
+             "dataSize" : 1780.0,
+             "nullsCount" : 20.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_channel_demo" : {
+             "dataSize" : 1779.0,
+             "nullsCount" : 21.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_start_date_sk" : {
+             "distinctValuesCount" : 753.0,
+             "nullsCount" : 25.0,
+             "min" : 2450096,
+             "max" : 2450915
+        },
+        "p_cost" : {
+             "distinctValuesCount" : 2.0,
+             "nullsCount" : 22.0,
+             "min" : 100000,
+             "max" : 100000
+        },
+        "p_response_targe" : {
+             "distinctValuesCount" : 1.0,
+             "nullsCount" : 29.0,
+             "min" : 1,
+             "max" : 1
+        },
+        "p_channel_tv" : {
+             "dataSize" : 1779.0,
+             "nullsCount" : 21.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_channel_radio" : {
+             "dataSize" : 1776.0,
+             "nullsCount" : 24.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_purpose" : {
+             "dataSize" : 12460.0,
+             "nullsCount" : 20.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_promo_sk" : {
+             "distinctValuesCount" : 1507.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 1800
+        },
+        "p_channel_catalog" : {
+             "dataSize" : 1779.0,
+             "nullsCount" : 21.0,
+             "distinctValuesCount" : 1.0
+        },
+        "p_channel_press" : {
+             "dataSize" : 1779.0,
+             "nullsCount" : 21.0,
+             "distinctValuesCount" : 1.0
+        },
+        "dummyColumn" : {}
+    }
+}

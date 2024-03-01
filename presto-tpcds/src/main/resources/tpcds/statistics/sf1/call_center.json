@@ -1,0 +1,222 @@
+{
+  "rowCount" : 6,
+  "columns" : {
+    "cc_call_center_sk" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "cc_call_center_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAAEAAAAAAA",
+      "dataSize" : 48
+    },
+    "cc_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 10227,
+      "max" : 11688,
+      "dataSize" : null
+    },
+    "cc_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 3,
+      "min" : 10957,
+      "max" : 11687,
+      "dataSize" : null
+    },
+    "cc_closed_date_sk" : {
+      "distinctValuesCount" : 0,
+      "nullsCount" : 6,
+      "min" : null,
+      "max" : null,
+      "dataSize" : null
+    },
+    "cc_open_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450806,
+      "max" : 2451063,
+      "dataSize" : null
+    },
+    "cc_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Mid Atlantic",
+      "max" : "North Midwest",
+      "dataSize" : 33
+    },
+    "cc_class" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "large",
+      "max" : "small",
+      "dataSize" : 16
+    },
+    "cc_employees" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 7,
+      "dataSize" : null
+    },
+    "cc_sq_ft" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : 649,
+      "max" : 4134,
+      "dataSize" : null
+    },
+    "cc_hours" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "8AM-4PM",
+      "max" : "8AM-8AM",
+      "dataSize" : 14
+    },
+    "cc_manager" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Bob Belcher",
+      "max" : "Mark Hightower",
+      "dataSize" : 51
+    },
+    "cc_mkt_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "cc_mkt_class" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : "A bit narrow forms matter animals. Consist",
+      "max" : "Wrong troops shall work sometimes in a opti",
+      "dataSize" : 178
+    },
+    "cc_mkt_desc" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Blue, due beds come. Politicians would not make far thoughts. Specifically new horses partic",
+      "max" : "Shared others could not count fully dollars. New members ca",
+      "dataSize" : 260
+    },
+    "cc_market_manager" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "Gary Colburn",
+      "max" : "Matthew Clifton",
+      "dataSize" : 51
+    },
+    "cc_division" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 5,
+      "dataSize" : null
+    },
+    "cc_division_name" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "anti",
+      "max" : "pri",
+      "dataSize" : 15
+    },
+    "cc_company" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "cc_company_name" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri",
+      "dataSize" : 17
+    },
+    "cc_street_number" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "463",
+      "max" : "984",
+      "dataSize" : 9
+    },
+    "cc_street_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Ash Hill",
+      "max" : "Pine Ridge",
+      "dataSize" : 29
+    },
+    "cc_street_type" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Boulevard",
+      "max" : "Way",
+      "dataSize" : 14
+    },
+    "cc_suite_number" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Suite 0",
+      "max" : "Suite U",
+      "dataSize" : 22
+    },
+    "cc_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway",
+      "dataSize" : 6
+    },
+    "cc_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "cc_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "cc_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904",
+      "dataSize" : 5
+    },
+    "cc_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "cc_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    },
+    "cc_tax_percentage" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 12,
+      "dataSize" : null
+    }
+  }
+}

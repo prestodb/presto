@@ -1,0 +1,19 @@
+version: '2'
+services:
+
+  presto-master:
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-master run
+    volumes:
+      - ../../../conf/presto/etc/multinode-master-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
+
+  presto-worker:
+    extends:
+      file: ../common/standard.yml
+      service: java-8-base
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+    volumes:
+      - ../../../conf/presto/etc/multinode-worker-jvm.config:/docker/volumes/conf/presto/etc/jvm.config

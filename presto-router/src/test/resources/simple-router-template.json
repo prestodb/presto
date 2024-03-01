@@ -1,0 +1,14 @@
+{
+  "groups": [
+    {
+      "name": "all",
+      "members": ${SERVERS}
+    }
+  ],
+  "selectors": [
+    {
+      "targetGroup": "all"
+    }
+  ],
+  "scheduler": "RANDOM_CHOICE"
+}

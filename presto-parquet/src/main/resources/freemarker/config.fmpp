@@ -1,0 +1,6 @@
+data: {
+    parquetTypes:   tdd(../data/ParquetTypes.tdd)
+    simpleTypeTemplate: text(../../../java/com/facebook/presto/parquet/batchreader/Int32FlatBatchReader.java)
+    nestedTypeTemplate: text(../../../java/com/facebook/presto/parquet/batchreader/Int32NestedBatchReader.java)
+}
+

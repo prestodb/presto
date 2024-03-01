@@ -1,0 +1,50 @@
+version: '2'
+services:
+
+  presto-master:
+    domainname: docker.cluster
+    hostname: presto-master
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-master run
+    ports:
+      - '7778:7778'
+    networks:
+      default:
+        aliases:
+         - presto-master.docker.cluster
+
+  presto-worker-1:
+    domainname: docker.cluster
+    hostname: presto-worker-1
+    extends:
+      file: ../common/standard.yml
+      service: java-8-base
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-1.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  presto-worker-2:
+    domainname: docker.cluster
+    hostname: presto-worker-2
+    extends:
+      file: ../common/standard.yml
+      service: java-8-base
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    networks:
+      default:
+        aliases:
+         - presto-worker-2.docker.cluster
+    depends_on:
+      - presto-master
+    volumes_from:
+      - presto-master
+
+  application-runner:
+    environment:
+      - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-tls.yaml
+      - CLI_ARGUMENTS=--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456

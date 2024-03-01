@@ -1,0 +1,41 @@
+{
+  "partitionToWriteStats" : {
+    "testPartition" : [ {
+      "fileId" : "b3711ddf-8c11-4666-82ec-fbc952e1dc72-0",
+      "path" : "testPartition/b3711ddf-8c11-4666-82ec-fbc952e1dc72-0_1-61-24052_20210524095413.parquet",
+      "prevCommit" : "null",
+      "numWrites" : 2,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 2,
+      "totalWriteBytes" : 435165,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "testPartition",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 435165
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"hudi_part_mor_record\",\"namespace\":\"hoodie.hudi_part_mor\",\"fields\":[{\"name\":\"id\",\"type\":[\"string\",\"null\"]},{\"name\":\"creation_date\",\"type\":[\"string\",\"null\"]},{\"name\":\"last_update_month\",\"type\":[\"string\",\"null\"]},{\"name\":\"last_update_time\",\"type\":[\"string\",\"null\"]}]}"
+  },
+  "operationType" : "UPSERT",
+  "fileIdAndRelativePaths" : {
+    "b3711ddf-8c11-4666-82ec-fbc952e1dc72-0" : "testPartition/b3711ddf-8c11-4666-82ec-fbc952e1dc72-0_1-61-24052_20210524095413.parquet"
+  },
+  "totalRecordsDeleted" : 0,
+  "totalLogRecordsCompacted" : 0,
+  "totalLogFilesCompacted" : 0,
+  "totalCompactedRecordsUpdated" : 0,
+  "totalLogFilesSize" : 0,
+  "totalScanTime" : 0,
+  "totalCreateTime" : 1414,
+  "totalUpsertTime" : 0
+}

@@ -1,0 +1,210 @@
+ {
+    "rowCount" : 2.159968881E9,
+     "columns" : {
+        "ws_ext_sales_price" : {
+             "distinctValuesCount" : 1243097.0,
+             "nullsCount" : 540534.0,
+             "min" : 0,
+             "max" : 2997000
+        },
+        "ws_warehouse_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 540303.0,
+             "min" : 1,
+             "max" : 22
+        },
+        "ws_sold_date_sk" : {
+             "distinctValuesCount" : 2226.0,
+             "nullsCount" : 540293.0,
+             "min" : 2450816,
+             "max" : 2452642
+        },
+        "ws_sales_price" : {
+             "distinctValuesCount" : 25189.0,
+             "nullsCount" : 540390.0,
+             "min" : 0,
+             "max" : 30000
+        },
+        "ws_ship_addr_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 539862.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "ws_bill_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 540060.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "ws_ship_mode_sk" : {
+             "distinctValuesCount" : 18.0,
+             "nullsCount" : 540512.0,
+             "min" : 1,
+             "max" : 20
+        },
+        "ws_bill_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 539400.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "ws_bill_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 540153.0,
+             "min" : 1,
+             "max" : 7200
+        },
+        "ws_ship_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 540042.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "ws_net_paid_inc_ship" : {
+             "distinctValuesCount" : 3516010.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 4426300
+        },
+        "ws_web_site_sk" : {
+             "distinctValuesCount" : 45.0,
+             "nullsCount" : 540166.0,
+             "min" : 1,
+             "max" : 66
+        },
+        "ws_promo_sk" : {
+             "distinctValuesCount" : 1507.0,
+             "nullsCount" : 541047.0,
+             "min" : 1,
+             "max" : 1800
+        },
+        "ws_order_number" : {
+             "distinctValuesCount" : 1.52370476E8,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 180000000
+        },
+        "ws_coupon_amt" : {
+             "distinctValuesCount" : 2001996.0,
+             "nullsCount" : 539810.0,
+             "min" : 0,
+             "max" : 2882400
+        },
+        "ws_net_paid" : {
+             "distinctValuesCount" : 2090632.0,
+             "nullsCount" : 540425.0,
+             "min" : 0,
+             "max" : 2997000
+        },
+        "ws_list_price" : {
+             "distinctValuesCount" : 25189.0,
+             "nullsCount" : 540397.0,
+             "min" : 100,
+             "max" : 30000
+        },
+        "ws_ship_date_sk" : {
+             "distinctValuesCount" : 2324.0,
+             "nullsCount" : 540220.0,
+             "min" : 2450817,
+             "max" : 2452762
+        },
+        "ws_ship_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 540787.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "ws_ext_tax" : {
+             "distinctValuesCount" : 219750.0,
+             "nullsCount" : 539357.0,
+             "min" : 0,
+             "max" : 268290
+        },
+        "ws_ship_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 539449.0,
+             "min" : 1,
+             "max" : 7200
+        },
+        "ws_wholesale_cost" : {
+             "distinctValuesCount" : 10590.0,
+             "nullsCount" : 540191.0,
+             "min" : 100,
+             "max" : 10000
+        },
+        "ws_ext_discount_amt" : {
+             "distinctValuesCount" : 1243097.0,
+             "nullsCount" : 540249.0,
+             "min" : 0,
+             "max" : 2998200
+        },
+        "ws_item_sk" : {
+             "distinctValuesCount" : 385937.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 360000
+        },
+        "ws_sold_time_sk" : {
+             "distinctValuesCount" : 125124.0,
+             "nullsCount" : 540530.0,
+             "min" : 0,
+             "max" : 86399
+        },
+        "ws_ext_list_price" : {
+             "distinctValuesCount" : 1355607.0,
+             "nullsCount" : 539882.0,
+             "min" : 100,
+             "max" : 3000000
+        },
+        "ws_net_paid_inc_ship_tax" : {
+             "distinctValuesCount" : 3671678.0,
+             "nullsCount" : 0.0,
+             "min" : 0,
+             "max" : 4638984
+        },
+        "ws_quantity" : {
+             "distinctValuesCount" : 63.0,
+             "nullsCount" : 539966.0,
+             "min" : 1,
+             "max" : 100
+        },
+        "ws_ext_wholesale_cost" : {
+             "distinctValuesCount" : 545798.0,
+             "nullsCount" : 540678.0,
+             "min" : 100,
+             "max" : 1000000
+        },
+        "ws_net_paid_inc_tax" : {
+             "distinctValuesCount" : 2380788.0,
+             "nullsCount" : 540631.0,
+             "min" : 0,
+             "max" : 3249290
+        },
+        "ws_bill_addr_sk" : {
+             "distinctValuesCount" : 1.9889561E7,
+             "nullsCount" : 539531.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "ws_net_profit" : {
+             "distinctValuesCount" : 2596268.0,
+             "nullsCount" : 0.0,
+             "min" : -10000.00,
+             "max" : 1998000
+        },
+        "ws_web_page_sk" : {
+             "distinctValuesCount" : 4452.0,
+             "nullsCount" : 539709.0,
+             "min" : 1,
+             "max" : 3600
+        },
+        "ws_ext_ship_cost" : {
+             "distinctValuesCount" : 621548.0,
+             "nullsCount" : 540617.0,
+             "min" : 0,
+             "max" : 1495000
+        },
+        "dummyColumn" : {}
+    }
+}

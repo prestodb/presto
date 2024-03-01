@@ -1,0 +1,33 @@
+{
+  "rowCount" : 1,
+  "columns" : {
+    "dv_version" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "2.0.0",
+      "max" : "2.0.0",
+      "dataSize" : 5
+    },
+    "dv_create_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 17666,
+      "max" : 17666,
+      "dataSize" : null
+    },
+    "dv_create_time" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 57622000,
+      "max" : 57622000,
+      "dataSize" : null
+    },
+    "dv_cmdline_args" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "",
+      "max" : "",
+      "dataSize" : 0
+    }
+  }
+}

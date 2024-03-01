@@ -1,0 +1,145 @@
+ {
+    "rowCount" : 66.0,
+     "columns" : {
+        "web_suite_number" : {
+             "dataSize" : 523.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 49.0
+        },
+        "web_class" : {
+             "dataSize" : 455.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 1.0
+        },
+        "web_zip" : {
+             "dataSize" : 330.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 34.0
+        },
+        "web_mkt_class" : {
+             "dataSize" : 2255.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 66.0
+        },
+        "web_company_id" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 6
+        },
+        "web_street_name" : {
+             "dataSize" : 602.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 82.0
+        },
+        "web_street_number" : {
+             "dataSize" : 190.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 43.0
+        },
+        "web_company_name" : {
+             "dataSize" : 253.0,
+             "nullsCount" : 2.0,
+             "distinctValuesCount" : 7.0
+        },
+        "web_county" : {
+             "dataSize" : 874.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 28.0
+        },
+        "web_manager" : {
+             "dataSize" : 835.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 47.0
+        },
+        "web_market_manager" : {
+             "dataSize" : 829.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 49.0
+        },
+        "web_street_type" : {
+             "dataSize" : 252.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 23.0
+        },
+        "web_rec_end_date" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 33.0,
+             "min" : "1999-08-17",
+             "max" : "2001-08-16"
+        },
+        "web_close_date_sk" : {
+             "distinctValuesCount" : 25.0,
+             "nullsCount" : 12.0,
+             "min" : 2441163,
+             "max" : 2446218
+        },
+        "web_site_sk" : {
+             "distinctValuesCount" : 45.0,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 66
+        },
+        "web_state" : {
+             "dataSize" : 132.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 29.0
+        },
+        "web_name" : {
+             "dataSize" : 390.0,
+             "nullsCount" : 2.0,
+             "distinctValuesCount" : 12.0
+        },
+        "web_gmt_offset" : {
+             "distinctValuesCount" : 3.0,
+             "nullsCount" : 1.0,
+             "min" : -8.00,
+             "max" : -5.00
+        },
+        "web_tax_percentage" : {
+             "distinctValuesCount" : 15.0,
+             "nullsCount" : 1.0,
+             "min" : 0,
+             "max" : 12
+        },
+        "web_site_id" : {
+             "dataSize" : 1056.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 30.0
+        },
+        "web_country" : {
+             "dataSize" : 845.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 1.0
+        },
+        "web_mkt_desc" : {
+             "dataSize" : 4242.0,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 45.0
+        },
+        "web_rec_start_date" : {
+             "distinctValuesCount" : 4.0,
+             "nullsCount" : 2.0,
+             "min" : "1997-08-17",
+             "max" : "2001-08-17"
+        },
+        "web_mkt_id" : {
+             "distinctValuesCount" : 5.0,
+             "nullsCount" : 1.0,
+             "min" : 1,
+             "max" : 6
+        },
+        "web_open_date_sk" : {
+             "distinctValuesCount" : 26.0,
+             "nullsCount" : 1.0,
+             "min" : 2450271,
+             "max" : 2450807
+        },
+        "web_city" : {
+             "dataSize" : 621.0,
+             "nullsCount" : 1.0,
+             "distinctValuesCount" : 49.0
+        },
+        "dummyColumn" : {}
+    }
+}
