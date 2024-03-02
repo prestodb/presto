@@ -282,6 +282,7 @@ TEST_F(SortBufferTest, batchOutput) {
       {false, {1024, 1024, 1024}, 1000, {1000, 1000, 1000, 72}},
       {true, {1024, 1024, 1024}, 1000, {1000, 1000, 1000, 72}}};
 
+  TestScopedSpillInjection scopedSpillInjection(100);
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     auto spillDirectory = exec::test::TempDirectoryPath::create();

@@ -275,6 +275,7 @@ class TableWriteTest : public HiveConnectorTestBase {
           .assertResults(duckDbSql);
     }
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    TestScopedSpillInjection scopedSpillInjection(100);
     return AssertQueryBuilder(plan, duckDbQueryRunner_)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(
@@ -286,7 +287,6 @@ class TableWriteTest : public HiveConnectorTestBase {
             std::to_string(numPartitionedTableWriterCount_))
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(QueryConfig::kWriterSpillEnabled, "true")
-        .config(QueryConfig::kTestingSpillPct, "100")
         .splits(splits)
         .assertResults(duckDbSql);
   }
@@ -296,6 +296,7 @@ class TableWriteTest : public HiveConnectorTestBase {
       const std::string& duckDbSql,
       bool enableSpill = false) {
     if (!enableSpill) {
+      TestScopedSpillInjection scopedSpillInjection(100);
       return AssertQueryBuilder(plan, duckDbQueryRunner_)
           .maxDrivers(
               2 *
@@ -308,11 +309,11 @@ class TableWriteTest : public HiveConnectorTestBase {
               std::to_string(numPartitionedTableWriterCount_))
           .config(core::QueryConfig::kSpillEnabled, "true")
           .config(QueryConfig::kWriterSpillEnabled, "true")
-          .config(QueryConfig::kTestingSpillPct, "100")
           .assertResults(duckDbSql);
     }
 
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    TestScopedSpillInjection scopedSpillInjection(100);
     return AssertQueryBuilder(plan, duckDbQueryRunner_)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(
@@ -324,7 +325,6 @@ class TableWriteTest : public HiveConnectorTestBase {
             std::to_string(numPartitionedTableWriterCount_))
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(QueryConfig::kWriterSpillEnabled, "true")
-        .config(QueryConfig::kTestingSpillPct, "100")
         .assertResults(duckDbSql);
   }
 

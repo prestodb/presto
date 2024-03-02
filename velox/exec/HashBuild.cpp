@@ -1107,15 +1107,6 @@ std::string HashBuild::stateName(State state) {
   }
 }
 
-bool HashBuild::testingTriggerSpill() {
-  // Test-only spill path.
-  if (spillConfig()->testSpillPct == 0) {
-    return false;
-  }
-  return folly::hasher<uint64_t>()(++spillTestCounter_) % 100 <=
-      spillConfig()->testSpillPct;
-}
-
 void HashBuild::reclaim(
     uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {

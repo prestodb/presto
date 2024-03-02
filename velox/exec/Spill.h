@@ -434,6 +434,27 @@ class SpillState {
 /// Generate partition id set from given spill partition set.
 SpillPartitionIdSet toSpillPartitionIdSet(
     const SpillPartitionSet& partitionSet);
+
+/// Scoped spill percentage utility that allows user to set the behavior of
+/// triggered spill.
+/// 'spillPct' indicates the chance of triggering spilling. 100% means spill
+/// will always be triggered.
+/// 'maxInjections' indicates the max number of actual triggering. e.g. when
+/// 'spillPct' is 20 and 'maxInjections' is 10, continuous calls to
+/// testingTriggerSpill() will keep rolling the dice that has a chance of 20%
+/// triggering until 10 triggers have been invoked.
+class TestScopedSpillInjection {
+ public:
+  explicit TestScopedSpillInjection(
+      int32_t spillPct,
+      int32_t maxInjections = std::numeric_limits<int32_t>::max());
+
+  ~TestScopedSpillInjection();
+};
+
+/// Test utility that returns true if triggered spill is evaluated to happen,
+/// false otherwise.
+bool testingTriggerSpill();
 } // namespace facebook::velox::exec
 
 // Adding the custom hash for SpillPartitionId to std::hash to make it usable

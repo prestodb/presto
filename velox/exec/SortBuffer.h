@@ -124,8 +124,6 @@ class SortBuffer {
   // Records the source rows to copy to 'output_' in order.
   std::vector<const RowVector*> spillSources_;
   std::vector<vector_size_t> spillSourceRows_;
-  // Counts input batches to trigger spilling for test.
-  uint64_t spillTestCounter_{0};
 
   // Reusable output vector.
   RowVectorPtr output_;

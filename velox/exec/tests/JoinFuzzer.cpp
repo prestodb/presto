@@ -292,14 +292,16 @@ RowVectorPtr JoinFuzzer::execute(const PlanWithSplits& plan, bool injectSpill) {
   }
 
   std::shared_ptr<TempDirectoryPath> spillDirectory;
+  int32_t spillPct{0};
   if (injectSpill) {
     spillDirectory = exec::test::TempDirectoryPath::create();
     builder.config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-        .config(core::QueryConfig::kTestingSpillPct, "100")
         .spillDirectory(spillDirectory->path);
+    spillPct = 100;
   }
 
+  TestScopedSpillInjection scopedSpillInjection(spillPct);
   auto result = builder.maxDrivers(2).copyResults(pool_.get());
   LOG(INFO) << "Results: " << result->toString();
   if (VLOG_IS_ON(1)) {

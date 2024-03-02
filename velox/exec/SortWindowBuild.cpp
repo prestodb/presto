@@ -88,7 +88,7 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
   }
 
   // Test-only spill path.
-  if (spillConfig_->testSpillPct > 0) {
+  if (testingTriggerSpill()) {
     spill();
     return;
   }

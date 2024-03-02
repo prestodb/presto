@@ -206,7 +206,7 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
   const auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
 
   // Test-only spill path.
-  if (spillConfig_->testSpillPct > 0) {
+  if (testingTriggerSpill()) {
     spill();
     return;
   }

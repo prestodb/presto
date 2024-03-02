@@ -1372,7 +1372,6 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
       makeFlatVector<int64_t>(1'000, [](auto row) { return row % 300; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
   });
-
   core::PlanNodeId aggrNodeId;
   const auto plan = PlanBuilder()
                         .values({data})
@@ -1441,9 +1440,9 @@ TEST_F(TaskTest, spillDirNotCreated) {
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
-       {core::QueryConfig::kJoinSpillEnabled, "true"},
-       {core::QueryConfig::kTestingSpillPct, "0"}});
+       {core::QueryConfig::kJoinSpillEnabled, "true"}});
   params.maxDrivers = 1;
+  TestScopedSpillInjection scopedSpillInjection(100);
 
   auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();

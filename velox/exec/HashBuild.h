@@ -236,9 +236,6 @@ class HashBuild final : public Operator {
 
   void addRuntimeStats();
 
-  // Invoked to check if it needs to trigger spilling for test purpose only.
-  bool testingTriggerSpill();
-
   // Indicates if this hash build operator is under non-reclaimable state or
   // not.
   bool nonReclaimableState() const;
@@ -306,10 +303,6 @@ class HashBuild final : public Operator {
   // True if this is a build side of an anti or left semi project join and has
   // at least one entry with null join keys.
   bool joinHasNullKeys_{false};
-
-  // Counts input batches and triggers spilling if folly hash of this % 100 <=
-  // 'testSpillPct_';.
-  uint64_t spillTestCounter_{0};
 
   // The spill targets set by 'requestSpill()' to request group spill.
   uint64_t numSpillRows_{0};

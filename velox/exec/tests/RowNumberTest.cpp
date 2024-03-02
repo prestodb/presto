@@ -51,8 +51,8 @@ TEST_F(RowNumberTest, spill) {
         makeFlatVector<int64_t>({vectorSize, vectorSize, vectorSize}),
     });
 
+    TestScopedSpillInjection scopedSpillInjection(100);
     auto task = AssertQueryBuilder(plan)
-                    .config(core::QueryConfig::kTestingSpillPct, 100)
                     .config(core::QueryConfig::kSpillEnabled, true)
                     .config(core::QueryConfig::kRowNumberSpillEnabled, true)
                     .spillDirectory(spillDirectory->path)
@@ -242,12 +242,12 @@ TEST_F(RowNumberTest, maxSpillBytes) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     try {
+      TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kRowNumberSpillEnabled, true)
-          .config(core::QueryConfig::kTestingSpillPct, 100)
           .config(core::QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
@@ -284,12 +284,12 @@ TEST_F(RowNumberTest, memoryUsage) {
     const std::string spillEnableConfig = std::to_string(spillEnable);
 
     std::shared_ptr<Task> task;
+    TestScopedSpillInjection scopedSpillInjection(100);
     AssertQueryBuilder(plan)
         .spillDirectory(spillDirectory->path)
         .queryCtx(queryCtx)
         .config(core::QueryConfig::kSpillEnabled, spillEnableConfig)
         .config(core::QueryConfig::kRowNumberSpillEnabled, spillEnableConfig)
-        .config(core::QueryConfig::kTestingSpillPct, "100")
         .spillDirectory(spillDirectory->path)
         .copyResults(pool_.get(), task);
 

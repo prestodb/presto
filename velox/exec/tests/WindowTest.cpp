@@ -60,10 +60,10 @@ TEST_F(WindowTest, spill) {
                   .planNode();
 
   auto spillDirectory = TempDirectoryPath::create();
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(plan, duckDbQueryRunner_)
           .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
-          .config(core::QueryConfig::kTestingSpillPct, "100")
           .config(core::QueryConfig::kSpillEnabled, "true")
           .config(core::QueryConfig::kWindowSpillEnabled, "true")
           .spillDirectory(spillDirectory->path)

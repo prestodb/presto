@@ -279,4 +279,38 @@ SpillPartitionIdSet toSpillPartitionIdSet(
   }
   return partitionIdSet;
 }
+
+tsan_atomic<int32_t>& testingSpillPct() {
+  static tsan_atomic<int32_t> spillPct = 0;
+  return spillPct;
+}
+
+tsan_atomic<int32_t>& testingSpillCounter() {
+  static tsan_atomic<int32_t> spillCounter = 0;
+  return spillCounter;
+}
+
+TestScopedSpillInjection::TestScopedSpillInjection(
+    int32_t spillPct,
+    int32_t maxInjections) {
+  VELOX_CHECK_EQ(testingSpillCounter(), 0);
+  testingSpillPct() = spillPct;
+  testingSpillCounter() = maxInjections;
+}
+
+TestScopedSpillInjection::~TestScopedSpillInjection() {
+  testingSpillPct() = 0;
+  testingSpillCounter() = 0;
+}
+
+bool testingTriggerSpill() {
+  // Do not evaluate further if trigger is not set.
+  if (testingSpillCounter() <= 0 || testingSpillPct() <= 0) {
+    return false;
+  }
+  if (folly::Random::rand32() % 100 < testingSpillPct()) {
+    return testingSpillCounter()-- > 0;
+  }
+  return false;
+}
 } // namespace facebook::velox::exec

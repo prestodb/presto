@@ -196,8 +196,8 @@ class OrderByTest : public OperatorTestBase {
       SCOPED_TRACE("run with spilling");
       auto spillDirectory = exec::test::TempDirectoryPath::create();
       auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+      TestScopedSpillInjection scopedSpillInjection(100);
       queryCtx->testingOverrideConfigUnsafe({
-          {core::QueryConfig::kTestingSpillPct, "100"},
           {core::QueryConfig::kSpillEnabled, "true"},
           {core::QueryConfig::kOrderBySpillEnabled, "true"},
       });
