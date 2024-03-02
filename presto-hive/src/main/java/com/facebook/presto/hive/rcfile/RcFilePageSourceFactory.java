@@ -109,12 +109,6 @@ public class RcFilePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation)
     {
-        if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-            throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
-                    "Table " + tableName.toString() + " has file (" + fileSplit.getPath() + ") of format " + storage.getStorageFormat().getOutputFormat() +
-                    ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
-        }
-
         RcFileEncoding rcFileEncoding;
         if (LazyBinaryColumnarSerDe.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             rcFileEncoding = new BinaryRcFileEncoding();
@@ -128,6 +122,12 @@ public class RcFilePageSourceFactory
 
         if (fileSplit.getFileSize() == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + fileSplit.getPath());
+        }
+
+        if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
+            throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
+                    "Table " + tableName.toString() + " has file (" + fileSplit.getPath() + ") of format " + storage.getStorageFormat().getOutputFormat() +
+                    ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
         }
 
         FSDataInputStream inputStream;
