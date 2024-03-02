@@ -51,6 +51,7 @@ import com.facebook.presto.orc.OrcSelectiveRecordReader;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.TupleDomainOrcPredicate;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
+import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
@@ -347,7 +348,9 @@ public class OrcSelectivePageSourceFactory
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
 
             if (!footerStatsUnreliable && !physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-                return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
+                Footer footer = reader.getFooter();
+                orcDataSource.close();
+                return new AggregatedOrcPageSource(physicalColumns, footer, typeManager, functionResolution);
             }
 
             Map<Integer, Integer> indexMapping = IntStream.range(0, columns.size())
