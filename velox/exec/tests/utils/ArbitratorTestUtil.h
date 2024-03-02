@@ -179,15 +179,4 @@ QueryTestResult runWriteTask(
     const std::string& kHiveConnectorId,
     bool enableSpilling,
     const RowVectorPtr& expectedResult = nullptr);
-
-/// The function triggers memory arbitration by shrinking memory pools from
-/// 'manager' by invoking shrinkPools API. If 'manager' is not set, then it
-/// shrinks from the process wide memory manager. If 'pool' is provided, the
-/// function puts 'pool' in arbitration state before the arbitration to ease
-/// test use. If 'targetBytes' is zero, then reclaims all the memory from
-/// 'manager' if possible.
-void testingRunArbitration(
-    memory::MemoryPool* pool = nullptr,
-    uint64_t targetBytes = 0,
-    memory::MemoryManager* manager = nullptr);
 } // namespace facebook::velox::exec::test

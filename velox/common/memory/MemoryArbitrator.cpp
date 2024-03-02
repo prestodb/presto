@@ -457,4 +457,18 @@ MemoryArbitrationContext* memoryArbitrationContext() {
 bool underMemoryArbitration() {
   return memoryArbitrationContext() != nullptr;
 }
+
+void testingRunArbitration(uint64_t targetBytes, MemoryManager* manager) {
+  if (manager == nullptr) {
+    manager = memory::memoryManager();
+  }
+  manager->shrinkPools(targetBytes);
+}
+
+void testingRunArbitration(MemoryPool* pool, uint64_t targetBytes) {
+  pool->enterArbitration();
+  static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
+      targetBytes);
+  pool->leaveArbitration();
+}
 } // namespace facebook::velox::memory

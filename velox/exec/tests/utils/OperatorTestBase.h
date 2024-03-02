@@ -28,6 +28,8 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+DECLARE_bool(velox_testing_enable_arbitration);
+
 namespace facebook::velox::exec::test {
 class OperatorTestBase : public testing::Test,
                          public velox::test::VectorTestBase {

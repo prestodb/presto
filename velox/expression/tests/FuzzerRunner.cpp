@@ -210,6 +210,7 @@ int FuzzerRunner::run(
 void FuzzerRunner::runFromGtest(
     size_t seed,
     const std::unordered_set<std::string>& skipFunctions) {
+  memory::MemoryManager::testingSetInstance({});
   auto signatures = facebook::velox::getFunctionSignatures();
   ExpressionFuzzerVerifier(
       signatures, seed, getExpressionFuzzerVerifierOptions(skipFunctions))

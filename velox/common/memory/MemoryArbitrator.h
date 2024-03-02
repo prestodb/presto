@@ -383,4 +383,18 @@ MemoryArbitrationContext* memoryArbitrationContext();
 
 /// Returns true if the running thread is under memory arbitration or not.
 bool underMemoryArbitration();
+
+/// The function triggers memory arbitration by shrinking memory pools from
+/// 'manager' by invoking shrinkPools API. If 'manager' is not set, then it
+/// shrinks from the process wide memory manager. If 'targetBytes' is zero, then
+/// reclaims all the memory from 'manager' if possible.
+class MemoryManager;
+void testingRunArbitration(
+    uint64_t targetBytes = 0,
+    MemoryManager* manager = nullptr);
+
+/// The function triggers memory arbitration by shrinking memory pools from
+/// 'manager' of 'pool' by invoking its shrinkPools API. If 'targetBytes' is
+/// zero, then reclaims all the memory from 'manager' if possible.
+void testingRunArbitration(MemoryPool* pool, uint64_t targetBytes = 0);
 } // namespace facebook::velox::memory
