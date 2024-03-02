@@ -41,10 +41,10 @@ namespace {
 constexpr const char* kHiveConnectorId = "test-hive";
 
 void enableAbandonPartialAggregation(AssertQueryBuilder& queryBuilder) {
-  queryBuilder.config(core::QueryConfig::kAbandonPartialAggregationMinRows, "1")
-      .config(core::QueryConfig::kAbandonPartialAggregationMinPct, "0")
-      .config(core::QueryConfig::kMaxPartialAggregationMemory, "0")
-      .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, "0")
+  queryBuilder.config(core::QueryConfig::kAbandonPartialAggregationMinRows, 1)
+      .config(core::QueryConfig::kAbandonPartialAggregationMinPct, 0)
+      .config(core::QueryConfig::kMaxPartialAggregationMemory, 0)
+      .config(core::QueryConfig::kMaxExtendedPartialAggregationMemory, 0)
       .maxDrivers(1);
 }
 
@@ -376,9 +376,9 @@ void AggregationTestBase::testAggregationsWithCompanion(
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
-        .config(core::QueryConfig::kTestingSpillPct, "100")
-        .config(core::QueryConfig::kSpillEnabled, "true")
-        .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+        .config(core::QueryConfig::kTestingSpillPct, 100)
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kAggregationSpillEnabled, true)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(4);
 
@@ -785,9 +785,9 @@ void AggregationTestBase::testAggregationsImpl(
         memory::spillMemoryPool()->stats().peakBytes;
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
-        .config(core::QueryConfig::kTestingSpillPct, "100")
-        .config(core::QueryConfig::kSpillEnabled, "true")
-        .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+        .config(core::QueryConfig::kTestingSpillPct, 100)
+        .config(core::QueryConfig::kSpillEnabled, true)
+        .config(core::QueryConfig::kAggregationSpillEnabled, true)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(4);
 
@@ -959,6 +959,70 @@ void AggregationTestBase::testAggregationsImpl(
   }
 }
 
+void AggregationTestBase::testStreamingAggregationsImpl(
+    std::function<void(PlanBuilder&)> makeSource,
+    const std::vector<std::string>& groupingKeys,
+    const std::vector<std::string>& aggregates,
+    const std::vector<std::string>& postAggregationProjections,
+    std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder&)>
+        assertResults,
+    const std::unordered_map<std::string, std::string>& config) {
+  {
+    SCOPED_TRACE("Test StreamingAggregation: run single");
+    PlanBuilder builder(pool());
+    makeSource(builder);
+    builder.orderBy(groupingKeys, false)
+        .streamingAggregation(
+            groupingKeys,
+            aggregates,
+            {},
+            core::AggregationNode::Step::kSingle,
+            false);
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE(
+        "Test StreamingAggregation: run partial + final StreamingAggregation");
+    PlanBuilder builder(pool());
+    makeSource(builder);
+    builder.orderBy(groupingKeys, false)
+        .partialStreamingAggregation(groupingKeys, aggregates)
+        .finalAggregation();
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+
+  {
+    SCOPED_TRACE(
+        "Test StreamingAggregation: run partial + intermediate + final");
+    PlanBuilder builder(pool());
+    makeSource(builder);
+    builder.orderBy(groupingKeys, false)
+        .partialStreamingAggregation(groupingKeys, aggregates)
+        .intermediateAggregation()
+        .finalAggregation();
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.configs(config);
+    assertResults(queryBuilder);
+  }
+}
+
 void AggregationTestBase::testAggregations(
     std::function<void(PlanBuilder&)> makeSource,
     const std::vector<std::string>& groupingKeys,
@@ -979,6 +1043,16 @@ void AggregationTestBase::testAggregations(
   if (testIncremental_) {
     SCOPED_TRACE("testIncrementalAggregation");
     testIncrementalAggregation(makeSource, aggregates, config);
+  }
+
+  if (allowInputShuffle_ && !groupingKeys.empty()) {
+    testStreamingAggregationsImpl(
+        makeSource,
+        groupingKeys,
+        aggregates,
+        postAggregationProjections,
+        assertResults,
+        config);
   }
 
   if (testWithTableScan) {

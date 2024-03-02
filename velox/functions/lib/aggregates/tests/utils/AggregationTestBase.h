@@ -294,6 +294,15 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
           exec::test::AssertQueryBuilder&)> assertResults,
       const std::unordered_map<std::string, std::string>& config);
 
+  void testStreamingAggregationsImpl(
+      std::function<void(exec::test::PlanBuilder&)> makeSource,
+      const std::vector<std::string>& groupingKeys,
+      const std::vector<std::string>& aggregates,
+      const std::vector<std::string>& postAggregationProjections,
+      std::function<std::shared_ptr<exec::Task>(
+          exec::test::AssertQueryBuilder&)> assertResults,
+      const std::unordered_map<std::string, std::string>& config);
+
   bool allowInputShuffle_{false};
 };
 
