@@ -178,7 +178,9 @@ class BoolOrAggregate final : public BoolAndOrAggregate {
 };
 
 template <class T>
-exec::AggregateRegistrationResult registerBool(const std::string& name) {
+exec::AggregateRegistrationResult registerBool(
+    const std::string& name,
+    bool withCompanionFunctions) {
   // TODO Fix signature to match Presto.
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures = {
       exec::AggregateFunctionSignatureBuilder()
@@ -205,15 +207,18 @@ exec::AggregateRegistrationResult registerBool(const std::string& name) {
             name,
             inputType->kindName());
         return std::make_unique<T>();
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace
 
-void registerBoolAggregates(const std::string& prefix) {
-  registerBool<BoolAndAggregate>(prefix + kBoolAnd);
-  registerBool<BoolAndAggregate>(prefix + kEvery);
-  registerBool<BoolOrAggregate>(prefix + kBoolOr);
+void registerBoolAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
+  registerBool<BoolAndAggregate>(prefix + kBoolAnd, withCompanionFunctions);
+  registerBool<BoolAndAggregate>(prefix + kEvery, withCompanionFunctions);
+  registerBool<BoolOrAggregate>(prefix + kBoolOr, withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

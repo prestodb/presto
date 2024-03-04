@@ -347,7 +347,9 @@ std::unique_ptr<exec::Aggregate> createMapUnionSumAggregate(
 
 } // namespace
 
-void registerMapUnionSumAggregate(const std::string& prefix) {
+void registerMapUnionSumAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   const std::vector<std::string> keyTypes = {
       "tinyint",
       "smallint",
@@ -417,7 +419,8 @@ void registerMapUnionSumAggregate(const std::string& prefix) {
           default:
             VELOX_UNREACHABLE();
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

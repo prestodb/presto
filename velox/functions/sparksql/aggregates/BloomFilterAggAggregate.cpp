@@ -288,7 +288,8 @@ class BloomFilterAggAggregate : public exec::Aggregate {
 } // namespace
 
 exec::AggregateRegistrationResult registerBloomFilterAggAggregate(
-    const std::string& name) {
+    const std::string& name,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .argumentType("bigint")
@@ -318,6 +319,7 @@ exec::AggregateRegistrationResult registerBloomFilterAggAggregate(
           const TypePtr& resultType,
           const core::QueryConfig& config) -> std::unique_ptr<exec::Aggregate> {
         return std::make_unique<BloomFilterAggAggregate>(resultType, config);
-      });
+      },
+      withCompanionFunctions);
 }
 } // namespace facebook::velox::functions::aggregate::sparksql

@@ -66,9 +66,10 @@ class BitwiseXorAggregate : public BitwiseAggregateBase<T> {
 } // namespace
 
 exec::AggregateRegistrationResult registerBitwiseXorAggregate(
-    const std::string& prefix) {
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   return functions::aggregate::registerBitwise<BitwiseXorAggregate>(
-      prefix + "bit_xor", false);
+      prefix + "bit_xor", withCompanionFunctions, false);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

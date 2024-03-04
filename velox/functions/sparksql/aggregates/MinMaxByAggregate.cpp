@@ -86,7 +86,9 @@ template <
         class C>
     class Aggregate,
     bool isMaxFunc>
-exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
+exec::AggregateRegistrationResult registerMinMaxBy(
+    const std::string& name,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   // V, C -> row(V, C) -> V.
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -137,14 +139,19 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
           return create<Aggregate, SparkComparator, isMaxFunc>(
               resultType, valueType, compareType, errorMessage);
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace
 
-void registerMinMaxByAggregates(const std::string& prefix) {
-  registerMinMaxBy<MinMaxByAggregateBase, true>(prefix + "max_by");
-  registerMinMaxBy<MinMaxByAggregateBase, false>(prefix + "min_by");
+void registerMinMaxByAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
+  registerMinMaxBy<MinMaxByAggregateBase, true>(
+      prefix + "max_by", withCompanionFunctions);
+  registerMinMaxBy<MinMaxByAggregateBase, false>(
+      prefix + "min_by", withCompanionFunctions);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

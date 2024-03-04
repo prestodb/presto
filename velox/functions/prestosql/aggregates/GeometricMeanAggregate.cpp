@@ -82,7 +82,9 @@ class GeometricMeanAggregate {
 
 } // namespace
 
-void registerGeometricMeanAggregate(const std::string& prefix) {
+void registerGeometricMeanAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   const std::string name = prefix + kGeometricMean;
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -133,7 +135,7 @@ void registerGeometricMeanAggregate(const std::string& prefix) {
                 inputType->toString());
         }
       },
-      false);
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

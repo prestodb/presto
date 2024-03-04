@@ -906,7 +906,9 @@ template <
     typename TNonNumeric,
     template <typename T>
     class TNumericN>
-exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
+exec::AggregateRegistrationResult registerMinMax(
+    const std::string& name,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                            .orderableTypeVariable("T")
@@ -1010,16 +1012,19 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
                   inputType->kindName());
           }
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace
 
-void registerMinMaxAggregates(const std::string& prefix) {
+void registerMinMaxAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   registerMinMax<MinAggregate, NonNumericMinAggregate, MinNAggregate>(
-      prefix + kMin);
+      prefix + kMin, withCompanionFunctions);
   registerMinMax<MaxAggregate, NonNumericMaxAggregate, MaxNAggregate>(
-      prefix + kMax);
+      prefix + kMax, withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

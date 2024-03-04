@@ -23,16 +23,21 @@
 
 namespace facebook::velox::functions::aggregate::sparksql {
 
-extern void registerFirstLastAggregates(const std::string& prefix);
-extern void registerMinMaxByAggregates(const std::string& prefix);
+extern void registerFirstLastAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions);
+extern void registerMinMaxByAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions);
 
 void registerAggregateFunctions(
     const std::string& prefix,
     bool withCompanionFunctions) {
-  registerFirstLastAggregates(prefix);
-  registerMinMaxByAggregates(prefix);
-  registerBitwiseXorAggregate(prefix);
-  registerBloomFilterAggAggregate(prefix + "bloom_filter_agg");
+  registerFirstLastAggregates(prefix, withCompanionFunctions);
+  registerMinMaxByAggregates(prefix, withCompanionFunctions);
+  registerBitwiseXorAggregate(prefix, withCompanionFunctions);
+  registerBloomFilterAggAggregate(
+      prefix + "bloom_filter_agg", withCompanionFunctions);
   registerAverage(prefix + "avg", withCompanionFunctions);
   registerSum(prefix + "sum", withCompanionFunctions);
 }

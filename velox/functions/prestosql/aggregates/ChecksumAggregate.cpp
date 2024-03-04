@@ -230,7 +230,9 @@ class ChecksumAggregate : public exec::Aggregate {
 
 } // namespace
 
-void registerChecksumAggregate(const std::string& prefix) {
+void registerChecksumAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -257,7 +259,8 @@ void registerChecksumAggregate(const std::string& prefix) {
         }
 
         return std::make_unique<ChecksumAggregate>(VARBINARY());
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

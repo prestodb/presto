@@ -260,7 +260,9 @@ class NonNumericArbitrary : public exec::Aggregate {
 
 } // namespace
 
-void registerArbitraryAggregate(const std::string& prefix) {
+void registerArbitraryAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -316,7 +318,8 @@ void registerArbitraryAggregate(const std::string& prefix) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

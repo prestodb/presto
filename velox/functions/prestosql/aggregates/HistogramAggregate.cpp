@@ -340,7 +340,9 @@ class HistogramAggregate : public exec::Aggregate {
 
 } // namespace
 
-void registerHistogramAggregate(const std::string& prefix) {
+void registerHistogramAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto inputType :
        {"boolean",
@@ -405,7 +407,8 @@ void registerHistogramAggregate(const std::string& prefix) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

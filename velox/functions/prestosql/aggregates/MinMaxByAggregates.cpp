@@ -1122,7 +1122,9 @@ template <
     bool isMaxFunc,
     template <typename U, typename V>
     class NAggregate>
-exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
+exec::AggregateRegistrationResult registerMinMaxBy(
+    const std::string& name,
+    bool withCompanionFunctions) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   // V, C -> row(V, C) -> V.
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -1184,16 +1186,19 @@ exec::AggregateRegistrationResult registerMinMaxBy(const std::string& name) {
           return create<Aggregate, Comparator, isMaxFunc>(
               resultType, argTypes[0], argTypes[1], errorMessage, true);
         }
-      });
+      },
+      withCompanionFunctions);
 }
 
 } // namespace
 
-void registerMinMaxByAggregates(const std::string& prefix) {
+void registerMinMaxByAggregates(
+    const std::string& prefix,
+    bool withCompanionFunctions) {
   registerMinMaxBy<MinMaxByAggregateBase, true, MaxByNAggregate>(
-      prefix + kMaxBy);
+      prefix + kMaxBy, withCompanionFunctions);
   registerMinMaxBy<MinMaxByAggregateBase, false, MinByNAggregate>(
-      prefix + kMinBy);
+      prefix + kMinBy, withCompanionFunctions);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
