@@ -43,6 +43,5 @@ public interface HiveSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable);
+            boolean appendRowNumberEnabled);
 }
