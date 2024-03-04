@@ -98,7 +98,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
@@ -205,8 +204,7 @@ public class OrcSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -244,8 +242,7 @@ public class OrcSelectivePageSourceFactory
                 tupleDomainFilterCache,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                appendRowNumberEnabled,
-                footerStatsUnreliable));
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -275,8 +272,7 @@ public class OrcSelectivePageSourceFactory
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            boolean appendRowNumberEnabled)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -311,10 +307,6 @@ public class OrcSelectivePageSourceFactory
                     path);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
-
-            if (!footerStatsUnreliable && !physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-                return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
-            }
 
             Map<Integer, Integer> indexMapping = IntStream.range(0, columns.size())
                     .boxed()
