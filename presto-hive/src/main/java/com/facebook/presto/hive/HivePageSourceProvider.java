@@ -381,8 +381,7 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     fileContext,
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled(),
-                    layout.isFooterStatsUnreliable());
+                    layout.isAppendRowNumberEnabled());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
