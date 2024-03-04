@@ -406,7 +406,8 @@ Memory Pool Management
      std::unique_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Create an aggregate child memory pool which allows to create child memory
-  /// pools from it, and it used to aggregate memory usage from its child pools. /// Aggregate memory pool is not allowed to allocate memory directly.
+  /// pools from it, and it used to aggregate memory usage from its child pools.
+  /// Aggregate memory pool is not allowed to allocate memory directly.
   virtual std::shared_ptr<MemoryPool> MemoryPool::addAggregateChild(
      const std::string& name);
 
