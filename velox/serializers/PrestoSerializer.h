@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <string_view>
+
 #include "velox/common/base/Crc.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/vector/VectorStream.h"
@@ -164,12 +166,23 @@ class PrestoVectorSerde : public VectorSerde {
    * can simply regnerate the tokens and concatenate, so it is independent of
    * the PrestoPage format and agnostic to any changes in the format.
    *
-   * NOTE: This function does not support compression, encryption, nulls first,
-   * or lossless timestamps and will throw an exception if these features are
-   * enabled.
+   * @returns Status::OK() if the @p source successfully parses as a PrestoPage,
+   * and fills @p out with the tokens. Otherwise, returns an error status and
+   * does not modify @p out.
+   *
+   * WARNING: This function does not support compression, encryption, nulls
+   * first, or lossless timestamps and will throw an exception if these features
+   * are enabled.
+   *
+   * NOTE: If this function returns success, the lex is guaranteed to be valid.
+   * However, if the source was not PrestoPage, this function may still return
+   * success, if the source is also interpretable as a PrestoPage. It attempts
+   * to validate as much as possible, to reduce false positives, but provides no
+   * guarantees.
    */
-  static std::vector<Token> lex(
-      ByteInputStream* source,
+  static Status lex(
+      std::string_view source,
+      std::vector<Token>& out,
       const Options* options = nullptr);
 
   static void registerVectorSerde();

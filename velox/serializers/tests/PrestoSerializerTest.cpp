@@ -156,9 +156,10 @@ class PrestoSerializerTest
       // Unsupported options
       return;
     }
-    auto byteStream = toByteStream(input);
-    auto tokens =
-        serializer::presto::PrestoVectorSerde::lex(&byteStream, &paramOptions);
+    std::vector<serializer::presto::PrestoVectorSerde::Token> tokens;
+    const auto status = serializer::presto::PrestoVectorSerde::lex(
+        input, tokens, &paramOptions);
+    EXPECT_TRUE(status.ok()) << status.message();
     size_t tokenLengthSum = 0;
     for (auto const& token : tokens) {
       tokenLengthSum += token.length;

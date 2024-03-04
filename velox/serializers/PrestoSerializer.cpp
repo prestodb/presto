@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 #include "velox/serializers/PrestoSerializer.h"
+
+#include <optional>
+
+#include <folly/lang/Bits.h>
+
 #include "velox/common/base/Crc.h"
 #include "velox/common/base/RawVector.h"
 #include "velox/common/memory/ByteStream.h"
@@ -189,6 +194,14 @@ std::pair<const uint64_t*, int32_t> getStructNulls(int64_t position) {
   return {it->second.first.data(), it->second.second};
 }
 
+template <typename T>
+T readInt(std::string_view* source) {
+  assert(source->size() >= sizeof(T));
+  auto value = folly::loadUnaligned<T>(source->data());
+  source->remove_prefix(sizeof(T));
+  return value;
+}
+
 struct PrestoHeader {
   int32_t numRows;
   int8_t pageCodecMarker;
@@ -207,6 +220,31 @@ struct PrestoHeader {
     VELOX_CHECK_GE(header.numRows, 0);
     VELOX_CHECK_GE(header.uncompressedSize, 0);
     VELOX_CHECK_GE(header.compressedSize, 0);
+
+    return header;
+  }
+
+  static std::optional<PrestoHeader> read(std::string_view* source) {
+    if (source->size() < kHeaderSize) {
+      return std::nullopt;
+    }
+
+    PrestoHeader header;
+    header.numRows = readInt<int32_t>(source);
+    header.pageCodecMarker = readInt<int8_t>(source);
+    header.uncompressedSize = readInt<int32_t>(source);
+    header.compressedSize = readInt<int32_t>(source);
+    header.checksum = readInt<int64_t>(source);
+
+    if (header.numRows < 0) {
+      return std::nullopt;
+    }
+    if (header.uncompressedSize < 0) {
+      return std::nullopt;
+    }
+    if (header.compressedSize < 0) {
+      return std::nullopt;
+    }
 
     return header;
   }
@@ -3818,178 +3856,218 @@ class PrestoVectorLexer {
   using Token = PrestoVectorSerde::Token;
   using TokenType = PrestoVectorSerde::TokenType;
 
-  explicit PrestoVectorLexer(ByteInputStream* source)
-      : source_(source), pos_(source->tellp()) {}
+  explicit PrestoVectorLexer(std::string_view source)
+      : source_(source), committedPtr_(source.begin()) {}
 
-  std::vector<Token> lex() && {
-    lexHeader();
+  Status lex(std::vector<Token>& out) && {
+    VELOX_RETURN_NOT_OK(lexHeader());
 
-    const auto numColumns = lexInt<int32_t>(TokenType::NUM_COLUMNS);
+    int32_t numColumns;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_COLUMNS, &numColumns));
 
     for (int32_t col = 0; col < numColumns; ++col) {
-      lexColumn();
+      VELOX_RETURN_NOT_OK(lexColumn());
     }
 
-    VELOX_CHECK_EQ(source_->atEnd(), true, "Source not fully consumed");
+    VELOX_RETURN_IF(
+        !source_.empty(), Status::Invalid("Source not fully consumed"));
 
-    return std::move(tokens_);
+    out = std::move(tokens_);
+    return Status::OK();
   }
 
  private:
-  void lexHeader() {
+  Status lexHeader() {
     assertCommitted();
 
-    const auto header = PrestoHeader::read(source_);
-
-    VELOX_CHECK_NE(
-        isCompressedBitSet(header.pageCodecMarker),
-        true,
-        "Compression is not supported");
-    VELOX_CHECK_NE(
-        isEncryptedBitSet(header.pageCodecMarker),
-        true,
-        "Encryption is not supported");
-
-    VELOX_CHECK_EQ(
-        header.uncompressedSize,
-        header.compressedSize,
-        "Compressed size must match uncompressed size");
-
-    VELOX_CHECK_EQ(
-        header.uncompressedSize,
-        source_->remainingSize(),
-        "Uncompressed size does not match content size");
+    const auto header = PrestoHeader::read(&source_);
+    VELOX_RETURN_IF(
+        !header.has_value(), Status::Invalid("PrestoPage header invalid"));
+    VELOX_RETURN_IF(
+        isCompressedBitSet(header->pageCodecMarker),
+        Status::Invalid("Compression is not supported"));
+    VELOX_RETURN_IF(
+        isEncryptedBitSet(header->pageCodecMarker),
+        Status::Invalid("Encryption is not supported"));
+    VELOX_RETURN_IF(
+        header->uncompressedSize != header->compressedSize,
+        Status::Invalid(
+            "Compressed size must match uncompressed size: {} != {}",
+            header->uncompressedSize,
+            header->compressedSize));
+    VELOX_RETURN_IF(
+        header->uncompressedSize != source_.size(),
+        Status::Invalid(
+            "Uncompressed size does not match content size: {} != {}",
+            header->uncompressedSize,
+            source_.size()));
 
     commit(TokenType::HEADER);
+
+    return Status::OK();
   }
 
-  std::string lexColumEncoding() {
+  Status lexColumEncoding(std::string& out) {
     assertCommitted();
     // Don't use readLengthPrefixedString because it doesn't validate the length
-    auto encodingLength = source_->read<int32_t>();
-    VELOX_CHECK_GE(encodingLength, 0);
-    VELOX_CHECK_LE(encodingLength, 100);
+    int32_t encodingLength;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::COLUMN_ENCODING, &encodingLength));
+    // Control encoding length to avoid large allocations
+    VELOX_RETURN_IF(
+        encodingLength < 0 || encodingLength > 100,
+        Status::Invalid("Invalid column encoding length: {}", encodingLength));
 
     std::string encoding;
     encoding.resize(encodingLength);
-    source_->readBytes(encoding.data(), encodingLength);
-    commit(TokenType::COLUMN_ENCODING);
+    VELOX_RETURN_NOT_OK(
+        lexBytes(encodingLength, TokenType::COLUMN_ENCODING, encoding.data()));
 
-    return encoding;
+    out = std::move(encoding);
+
+    return Status::OK();
   }
 
-  void lexColumn() {
-    auto encoding = lexColumEncoding();
+  Status lexColumn() {
+    std::string encoding;
+    VELOX_RETURN_NOT_OK(lexColumEncoding(encoding));
 
     if (encoding == kByteArray) {
-      lexFixedArray<int8_t>(TokenType::BYTE_ARRAY);
+      VELOX_RETURN_NOT_OK(lexFixedArray<int8_t>(TokenType::BYTE_ARRAY));
     } else if (encoding == kShortArray) {
-      lexFixedArray<int16_t>(TokenType::SHORT_ARRAY);
+      VELOX_RETURN_NOT_OK(lexFixedArray<int16_t>(TokenType::SHORT_ARRAY));
     } else if (encoding == kIntArray) {
-      lexFixedArray<int32_t>(TokenType::INT_ARRAY);
+      VELOX_RETURN_NOT_OK(lexFixedArray<int32_t>(TokenType::INT_ARRAY));
     } else if (encoding == kLongArray) {
-      lexFixedArray<int64_t>(TokenType::LONG_ARRAY);
+      VELOX_RETURN_NOT_OK(lexFixedArray<int64_t>(TokenType::LONG_ARRAY));
     } else if (encoding == kInt128Array) {
-      lexFixedArray<int128_t>(TokenType::INT128_ARRAY);
+      VELOX_RETURN_NOT_OK(lexFixedArray<int128_t>(TokenType::INT128_ARRAY));
     } else if (encoding == kVariableWidth) {
-      lexVariableWidth();
+      VELOX_RETURN_NOT_OK(lexVariableWidth());
     } else if (encoding == kArray) {
-      lexArray();
+      VELOX_RETURN_NOT_OK(lexArray());
     } else if (encoding == kMap) {
-      lexMap();
+      VELOX_RETURN_NOT_OK(lexMap());
     } else if (encoding == kRow) {
-      lexRow();
+      VELOX_RETURN_NOT_OK(lexRow());
     } else if (encoding == kDictionary) {
-      lexDictionary();
+      VELOX_RETURN_NOT_OK(lexDictionary());
     } else if (encoding == kRLE) {
-      lexRLE();
+      VELOX_RETURN_NOT_OK(lexRLE());
     } else {
-      VELOX_CHECK(false, "Unknown encoding: {}", encoding);
+      return Status::Invalid("Unknown encoding: {}", encoding);
     }
+
+    return Status::OK();
   }
 
   template <typename T>
-  void lexFixedArray(TokenType tokenType) {
-    auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
-    numRows = lexNulls(numRows);
+  Status lexFixedArray(TokenType tokenType) {
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
+    VELOX_RETURN_NOT_OK(lexNulls(numRows));
     const auto numBytes = numRows * sizeof(T);
-    lexBytes(numBytes, tokenType);
+    VELOX_RETURN_NOT_OK(lexBytes(numBytes, tokenType));
+    return Status::OK();
   }
 
-  void lexVariableWidth() {
-    const auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
+  Status lexVariableWidth() {
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
     const auto numOffsetBytes = numRows * sizeof(int32_t);
-    lexBytes(numOffsetBytes, TokenType::OFFSETS);
-    lexNulls(numRows);
-    const auto dataBytes = lexInt<int32_t>(TokenType::VARIABLE_WIDTH_DATA_SIZE);
-    lexBytes(dataBytes, TokenType::VARIABLE_WIDTH_DATA);
+    VELOX_RETURN_NOT_OK(lexBytes(numOffsetBytes, TokenType::OFFSETS));
+    VELOX_RETURN_NOT_OK(lexNulls(numRows));
+    int32_t dataBytes;
+    VELOX_RETURN_NOT_OK(
+        lexInt(TokenType::VARIABLE_WIDTH_DATA_SIZE, &dataBytes));
+    VELOX_RETURN_NOT_OK(lexBytes(dataBytes, TokenType::VARIABLE_WIDTH_DATA));
+    return Status::OK();
   }
 
-  void lexArray() {
-    lexColumn();
-    auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
+  Status lexArray() {
+    VELOX_RETURN_NOT_OK(lexColumn());
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
     const auto offsetBytes = (numRows + 1) * sizeof(int32_t);
-    lexBytes(offsetBytes, TokenType::OFFSETS);
-    lexNulls(numRows);
+    VELOX_RETURN_NOT_OK(lexBytes(offsetBytes, TokenType::OFFSETS));
+    VELOX_RETURN_NOT_OK(lexNulls(numRows));
+    return Status::OK();
   }
 
-  void lexMap() {
+  Status lexMap() {
     // Key column
-    lexColumn();
+    VELOX_RETURN_NOT_OK(lexColumn());
     // Value column
-    lexColumn();
-    const auto hashTableBytes = lexInt<int32_t>(TokenType::HASH_TABLE_SIZE);
+    VELOX_RETURN_NOT_OK(lexColumn());
+    int32_t hashTableBytes;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::HASH_TABLE_SIZE, &hashTableBytes));
     if (hashTableBytes != -1) {
-      lexBytes(hashTableBytes, TokenType::HASH_TABLE);
+      VELOX_RETURN_NOT_OK(lexBytes(hashTableBytes, TokenType::HASH_TABLE));
     }
-    const auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
     const auto offsetBytes = (numRows + 1) * sizeof(int32_t);
-    lexBytes(offsetBytes, TokenType::OFFSETS);
-    lexNulls(numRows);
+    VELOX_RETURN_NOT_OK(lexBytes(offsetBytes, TokenType::OFFSETS));
+    VELOX_RETURN_NOT_OK(lexNulls(numRows));
+    return Status::OK();
   }
 
-  void lexRow() {
-    const auto numFields = lexInt<int32_t>(TokenType::NUM_FIELDS);
+  Status lexRow() {
+    int32_t numFields;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_FIELDS, &numFields));
     for (int32_t field = 0; field < numFields; ++field) {
-      lexColumn();
+      VELOX_RETURN_NOT_OK(lexColumn());
     }
-    const auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
     const auto offsetBytes = (numRows + 1) * sizeof(int32_t);
-    lexBytes(offsetBytes, TokenType::OFFSETS);
-    lexNulls(numRows);
+    VELOX_RETURN_NOT_OK(lexBytes(offsetBytes, TokenType::OFFSETS));
+    VELOX_RETURN_NOT_OK(lexNulls(numRows));
+
+    return Status::OK();
   }
 
-  void lexDictionary() {
-    const auto numRows = lexInt<int32_t>(TokenType::NUM_ROWS);
+  Status lexDictionary() {
+    int32_t numRows;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NUM_ROWS, &numRows));
     // Dictionary column
-    lexColumn();
+    VELOX_RETURN_NOT_OK(lexColumn());
     const auto indicesBytes = numRows * sizeof(int32_t);
-    lexBytes(indicesBytes, TokenType::DICTIONARY_INDICES);
+    VELOX_RETURN_NOT_OK(lexBytes(indicesBytes, TokenType::DICTIONARY_INDICES));
     // Dictionary ID
-    lexBytes(24, TokenType::DICTIONARY_ID);
+    VELOX_RETURN_NOT_OK(lexBytes(24, TokenType::DICTIONARY_ID));
+    return Status::OK();
   }
 
-  void lexRLE() {
+  Status lexRLE() {
     // Num rows
-    lexInt<int32_t>(TokenType::NUM_ROWS);
+    VELOX_RETURN_NOT_OK(lexInt<int32_t>(TokenType::NUM_ROWS));
     // RLE length one column
-    lexColumn();
+    VELOX_RETURN_NOT_OK(lexColumn());
+    return Status::OK();
   }
 
-  int32_t lexNulls(int32_t numRows) {
+  Status lexNulls(int32_t& numRows) {
     assertCommitted();
-    VELOX_CHECK_GE(numRows, 0, "Negative rows");
+    VELOX_RETURN_IF(
+        numRows < 0, Status::Invalid("Negative num rows: {}", numRows));
 
-    const bool hasNulls = source_->readByte() != 0;
-    if (hasNulls) {
+    int8_t hasNulls;
+    VELOX_RETURN_NOT_OK(lexInt(TokenType::NULLS, &hasNulls));
+    if (hasNulls != 0) {
       const auto numBytes = bits::nbytes(numRows);
-      VELOX_CHECK_LE(numBytes, source_->remainingSize(), "Too many rows");
+      VELOX_RETURN_IF(
+          numBytes > source_.size(),
+          Status::Invalid(
+              "More rows than bytes in source: {} > {}",
+              numRows,
+              source_.size()));
       if (nullsBuffer_.size() < numBytes) {
         constexpr auto eltBytes = sizeof(nullsBuffer_[0]);
         nullsBuffer_.resize(bits::roundUp(numBytes, eltBytes) / eltBytes);
       }
       auto* nulls = nullsBuffer_.data();
-      source_->readBytes(nulls, numBytes);
+      VELOX_RETURN_NOT_OK(
+          lexBytes(numBytes, TokenType::NULLS, reinterpret_cast<char*>(nulls)));
 
       bits::reverseBits(reinterpret_cast<uint8_t*>(nulls), numBytes);
       const auto numNulls = bits::countBits(nulls, 0, numRows);
@@ -3997,35 +4075,57 @@ class PrestoVectorLexer {
       numRows -= numNulls;
     }
     commit(TokenType::NULLS);
-    return numRows;
+    return Status::OK();
   }
 
-  void lexBytes(int32_t numBytes, TokenType tokenType) {
+  Status lexBytes(int32_t numBytes, TokenType tokenType, char* dst = nullptr) {
     assertCommitted();
-    source_->skip(numBytes);
+    VELOX_RETURN_IF(
+        numBytes < 0,
+        Status::Invalid("Attempting to read negative numBytes: {}", numBytes));
+    VELOX_RETURN_IF(
+        numBytes > source_.size(),
+        Status::Invalid(
+            "Attempting to read more bytes than in source: {} > {}",
+            numBytes,
+            source_.size()));
+    if (dst != nullptr) {
+      std::copy(source_.begin(), source_.begin() + numBytes, dst);
+    }
+    source_.remove_prefix(numBytes);
     commit(tokenType);
+    return Status::OK();
   }
 
   template <typename T>
-  T lexInt(TokenType tokenType) {
+  Status lexInt(TokenType tokenType, T* out = nullptr) {
     assertCommitted();
-    const auto value = source_->read<T>();
+    VELOX_RETURN_IF(
+        source_.size() < sizeof(T),
+        Status::Invalid(
+            "Source size less than int size: {} < {}",
+            source_.size(),
+            sizeof(T)));
+    const auto value = readInt<T>(&source_);
+    if (out != nullptr) {
+      *out = value;
+    }
     commit(tokenType);
-    return value;
+    return Status::OK();
   }
 
   void assertCommitted() const {
-    assert(pos_ == source_->tellp());
+    assert(committedPtr_ == source_.begin());
   }
 
   void commit(TokenType tokenType) {
-    const auto newPos = source_->tellp();
-    assert(pos_ <= newPos);
+    const auto newPtr = source_.begin();
+    assert(committedPtr_ <= newPtr);
     assert(
-        int64_t(newPos - pos_) <=
+        int64_t(newPtr - committedPtr_) <=
         int64_t(std::numeric_limits<uint32_t>::max()));
-    if (pos_ != newPos) {
-      const uint32_t length = uint32_t(newPos - pos_);
+    if (newPtr != committedPtr_) {
+      const uint32_t length = uint32_t(newPtr - committedPtr_);
       if (!tokens_.empty() && tokens_.back().tokenType == tokenType) {
         tokens_.back().length += length;
       } else {
@@ -4035,32 +4135,36 @@ class PrestoVectorLexer {
         tokens_.push_back(token);
       }
     }
-    pos_ = newPos;
+    committedPtr_ = newPtr;
   }
 
-  ByteInputStream* source_;
+  std::string_view source_;
+  const char* committedPtr_;
   std::vector<uint64_t> nullsBuffer_;
-  std::streampos pos_;
   std::vector<Token> tokens_;
 };
 } // namespace
 
-/* static */ std::vector<PrestoVectorSerde::Token> PrestoVectorSerde::lex(
-    ByteInputStream* source,
+/* static */ Status PrestoVectorSerde::lex(
+    std::string_view source,
+    std::vector<Token>& out,
     const Options* options) {
   const auto prestoOptions = toPrestoOptions(options);
-  VELOX_CHECK(
-      !prestoOptions.useLosslessTimestamp,
-      "Lossless timestamps are not supported, because they cannot be decoded without the Schema");
-  VELOX_CHECK_EQ(
-      prestoOptions.compressionKind,
-      common::CompressionKind::CompressionKind_NONE,
-      "Compression is not supported");
-  VELOX_CHECK(
-      !prestoOptions.nullsFirst,
-      "Nulls first encoding is not currently supported, but support can be added if needed");
 
-  return PrestoVectorLexer(source).lex();
+  VELOX_RETURN_IF(
+      prestoOptions.useLosslessTimestamp,
+      Status::Invalid(
+          "Lossless timestamps are not supported, because they cannot be decoded without the Schema"));
+  VELOX_RETURN_IF(
+      prestoOptions.compressionKind !=
+          common::CompressionKind::CompressionKind_NONE,
+      Status::Invalid("Compression is not supported"));
+  VELOX_RETURN_IF(
+      prestoOptions.nullsFirst,
+      Status::Invalid(
+          "Nulls first encoding is not currently supported, but support can be added if needed"));
+
+  return PrestoVectorLexer(source).lex(out);
 }
 
 } // namespace facebook::velox::serializer::presto
