@@ -46,8 +46,16 @@ void ArbitraryBuffer::getAvailablePageSizes(std::vector<int64_t>& out) const {
 
 std::vector<std::shared_ptr<SerializedPage>> ArbitraryBuffer::getPages(
     uint64_t maxBytes) {
-  VELOX_CHECK_GT(maxBytes, 0, "maxBytes can't be zero");
-
+  if (maxBytes == 0 && !pages_.empty() && pages_.front() == nullptr) {
+    // Always give out an end marker when this buffer is finished and fully
+    // consumed.  When multiple `DestinationBuffer' polling the same
+    // `ArbitraryBuffer', we can simplify the code in
+    // `DestinationBuffer::getData' since we will always get a null marker and
+    // not going through the callback path, eliminate the chance of getting
+    // stuck.
+    VELOX_CHECK_EQ(pages_.size(), 1);
+    return {nullptr};
+  }
   std::vector<std::shared_ptr<SerializedPage>> pages;
   uint64_t bytesRemoved{0};
   while (bytesRemoved < maxBytes && !pages_.empty()) {
@@ -107,26 +115,32 @@ DestinationBuffer::Data DestinationBuffer::getData(
     ArbitraryBuffer* arbitraryBuffer) {
   VELOX_CHECK_GE(
       sequence, sequence_, "Get received for an already acknowledged item");
-  VELOX_CHECK_GT(maxBytes, 0);
   if (arbitraryBuffer != nullptr) {
     loadData(arbitraryBuffer, maxBytes);
   }
 
-  if (sequence - sequence_ > data_.size()) {
-    VLOG(1) << this << " Out of order get: " << sequence << " over "
-            << sequence_ << " Setting second notify " << notifySequence_
-            << " / " << sequence;
+  if (sequence - sequence_ >= data_.size()) {
+    if (sequence - sequence_ > data_.size()) {
+      VLOG(1) << this << " Out of order get: " << sequence << " over "
+              << sequence_ << " Setting second notify " << notifySequence_
+              << " / " << sequence;
+    }
+    if (maxBytes == 0) {
+      std::vector<int64_t> remainingBytes;
+      if (arbitraryBuffer) {
+        arbitraryBuffer->getAvailablePageSizes(remainingBytes);
+      }
+      if (!remainingBytes.empty()) {
+        return {{}, std::move(remainingBytes), true};
+      }
+    }
     notify_ = std::move(notify);
     aliveCheck_ = std::move(activeCheck);
-    notifySequence_ = std::min(notifySequence_, sequence);
-    notifyMaxBytes_ = maxBytes;
-    return {};
-  }
-
-  if (sequence - sequence_ == data_.size()) {
-    notify_ = std::move(notify);
-    aliveCheck_ = std::move(activeCheck);
-    notifySequence_ = sequence;
+    if (sequence - sequence_ > data_.size()) {
+      notifySequence_ = std::min(notifySequence_, sequence);
+    } else {
+      notifySequence_ = sequence;
+    }
     notifyMaxBytes_ = maxBytes;
     return {};
   }
@@ -134,19 +148,20 @@ DestinationBuffer::Data DestinationBuffer::getData(
   std::vector<std::unique_ptr<folly::IOBuf>> data;
   uint64_t resultBytes = 0;
   auto i = sequence - sequence_;
-  for (; i < data_.size(); ++i) {
-    // nullptr is used as end marker
-    if (data_[i] == nullptr) {
-      VELOX_CHECK_EQ(i, data_.size() - 1, "null marker found in the middle");
-      data.push_back(nullptr);
-      ++i;
-      break;
-    }
-    data.push_back(data_[i]->getIOBuf());
-    resultBytes += data_[i]->size();
-    if (resultBytes >= maxBytes) {
-      ++i;
-      break;
+  if (maxBytes > 0) {
+    for (; i < data_.size(); ++i) {
+      // nullptr is used as end marker
+      if (data_[i] == nullptr) {
+        VELOX_CHECK_EQ(i, data_.size() - 1, "null marker found in the middle");
+        data.push_back(nullptr);
+        break;
+      }
+      data.push_back(data_[i]->getIOBuf());
+      resultBytes += data_[i]->size();
+      if (resultBytes >= maxBytes) {
+        ++i;
+        break;
+      }
     }
   }
   bool atEnd = false;
@@ -162,6 +177,9 @@ DestinationBuffer::Data DestinationBuffer::getData(
   }
   if (!atEnd && arbitraryBuffer) {
     arbitraryBuffer->getAvailablePageSizes(remainingBytes);
+  }
+  if (data.empty() && remainingBytes.empty() && atEnd) {
+    data.push_back(nullptr);
   }
   return {std::move(data), std::move(remainingBytes), true};
 }
@@ -216,7 +234,6 @@ void DestinationBuffer::maybeLoadData(ArbitraryBuffer* buffer) {
     clearNotify();
     return;
   }
-  VELOX_CHECK_GT(notifyMaxBytes_, 0);
   loadData(buffer, notifyMaxBytes_);
 }
 

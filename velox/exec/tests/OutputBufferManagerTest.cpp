@@ -454,6 +454,7 @@ TEST_F(OutputBufferManagerTest, arbitrayBuffer) {
     buffer.enqueue(std::move(page3));
     ASSERT_EQ(
         buffer.toString(), "[ARBITRARY_BUFFER PAGES[2] NO MORE DATA[false]]");
+    ASSERT_TRUE(buffer.getPages(0).empty());
     buffer.noMoreData();
     ASSERT_FALSE(buffer.empty());
     ASSERT_TRUE(buffer.hasNoMoreData());
@@ -475,7 +476,9 @@ TEST_F(OutputBufferManagerTest, arbitrayBuffer) {
     ASSERT_EQ(
         buffer.toString(), "[ARBITRARY_BUFFER PAGES[0] NO MORE DATA[true]]");
     buffer.noMoreData();
-    VELOX_ASSERT_THROW(buffer.getPages(0), "maxBytes can't be zero");
+    pages = buffer.getPages(0);
+    ASSERT_EQ(pages.size(), 1);
+    ASSERT_FALSE(pages[0]);
     // Verify the end marker is persistent.
     for (int i = 0; i < 3; ++i) {
       pages = buffer.getPages(100);
@@ -508,8 +511,7 @@ TEST_F(OutputBufferManagerTest, destinationBuffer) {
   {
     ArbitraryBuffer buffer;
     DestinationBuffer destinationBuffer;
-    VELOX_ASSERT_THROW(
-        destinationBuffer.loadData(&buffer, 0), "maxBytes can't be zero");
+    destinationBuffer.loadData(&buffer, 0);
     destinationBuffer.loadData(&buffer, 100);
     std::atomic<bool> notified{false};
     auto buffers = destinationBuffer.getData(

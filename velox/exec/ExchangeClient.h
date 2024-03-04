@@ -97,27 +97,22 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
   folly::dynamic toJson() const;
 
  private:
-  // A list of sources to request data from and how much to request from each
-  // (in bytes).
   struct RequestSpec {
-    std::vector<std::shared_ptr<ExchangeSource>> sources;
+    std::shared_ptr<ExchangeSource> source;
+
+    // How much bytes to request from this source.  0 bytes means request data
+    // sizes only.
     int64_t maxBytes;
   };
 
-  int64_t getAveragePageSize();
+  struct ProducingSource {
+    std::shared_ptr<ExchangeSource> source;
+    std::vector<int64_t> remainingBytes;
+  };
 
-  int32_t getNumSourcesToRequestLocked(int64_t averagePageSize);
+  std::vector<RequestSpec> pickSourcesToRequestLocked();
 
-  RequestSpec pickSourcesToRequestLocked();
-
-  void pickSourcesToRequestLocked(
-      RequestSpec& requestSpec,
-      int32_t numToRequest,
-      std::queue<std::shared_ptr<ExchangeSource>>& sources);
-
-  int32_t countPendingSourcesLocked();
-
-  void request(const RequestSpec& requestSpec);
+  void request(std::vector<RequestSpec>&& requestSpecs);
 
   // Handy for ad-hoc logging.
   const std::string taskId_;
@@ -131,9 +126,12 @@ class ExchangeClient : public std::enable_shared_from_this<ExchangeClient> {
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
   bool closed_{false};
 
+  // Total number of bytes in flight.
+  int64_t totalPendingBytes_{0};
+
   // A queue of sources that have returned non-empty response from the latest
   // request.
-  std::queue<std::shared_ptr<ExchangeSource>> producingSources_;
+  std::queue<ProducingSource> producingSources_;
   // A queue of sources that returned empty response from the latest request.
   std::queue<std::shared_ptr<ExchangeSource>> emptySources_;
 };

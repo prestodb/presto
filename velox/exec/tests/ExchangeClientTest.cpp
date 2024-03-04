@@ -80,7 +80,10 @@ class ExchangeClientTest : public testing::Test,
     return pageSize;
   }
 
-  void fetchPages(ExchangeClient& client, int32_t numPages) {
+  std::vector<std::unique_ptr<SerializedPage>> fetchPages(
+      ExchangeClient& client,
+      int32_t numPages) {
+    std::vector<std::unique_ptr<SerializedPage>> allPages;
     for (auto i = 0; i < numPages; ++i) {
       bool atEnd;
       ContinueFuture future;
@@ -90,8 +93,10 @@ class ExchangeClientTest : public testing::Test,
         std::move(future).via(&exec).wait();
         pages = client.next(1, &atEnd, &future);
       }
-      ASSERT_EQ(1, pages.size());
+      EXPECT_EQ(1, pages.size());
+      allPages.push_back(std::move(pages.at(0)));
     }
+    return allPages;
   }
 
   static void addSources(ExchangeQueue& queue, int32_t numSources) {
@@ -248,6 +253,35 @@ TEST_F(ExchangeClientTest, flowControl) {
     bufferManager_->removeTask(task->taskId());
   }
 
+  client->close();
+}
+
+TEST_F(ExchangeClientTest, largeSinglePage) {
+  auto data = {
+      makeRowVector({makeFlatVector<int64_t>(10000, folly::identity)}),
+      makeRowVector({makeFlatVector<int64_t>(1, folly::identity)}),
+  };
+  auto client =
+      std::make_shared<ExchangeClient>("test", 1, 1000, pool(), executor());
+  auto plan = test::PlanBuilder()
+                  .values({data})
+                  .partitionedOutputArbitrary()
+                  .planNode();
+  auto task = makeTask("local://producer", plan);
+  bufferManager_->initializeTask(
+      task, core::PartitionedOutputNode::Kind::kArbitrary, 1, 1);
+  for (auto& batch : data) {
+    enqueue(task->taskId(), 0, batch);
+  }
+  client->addRemoteTaskId(task->taskId());
+  auto pages = fetchPages(*client, 1);
+  ASSERT_EQ(pages.size(), 1);
+  ASSERT_GT(pages[0]->size(), 1000);
+  pages = fetchPages(*client, 1);
+  ASSERT_EQ(pages.size(), 1);
+  ASSERT_LT(pages[0]->size(), 1000);
+  task->requestCancel();
+  bufferManager_->removeTask(task->taskId());
   client->close();
 }
 

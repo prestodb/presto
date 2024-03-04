@@ -160,6 +160,11 @@ class LocalExchangeSource : public exec::ExchangeSource {
     return future;
   }
 
+  folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWaitSeconds) override {
+    return request(0, maxWaitSeconds);
+  }
+
   void close() override {
     checkSetRequestPromise();
 

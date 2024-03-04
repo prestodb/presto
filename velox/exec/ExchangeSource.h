@@ -86,9 +86,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// backward compatibility (e.g. communicating with coordinator), we allow
   /// small data (1MB) to be returned.
   virtual folly::SemiFuture<Response> requestDataSizes(
-      uint32_t /*maxWaitSeconds*/) {
-    VELOX_NYI();
-  }
+      uint32_t maxWaitSeconds) = 0;
 
   /// Close the exchange source. May be called before all data
   /// has been received and processed. This can happen in case

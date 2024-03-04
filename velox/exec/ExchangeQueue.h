@@ -123,7 +123,7 @@ class ExchangeQueue {
   dequeueLocked(uint32_t maxBytes, bool* atEnd, ContinueFuture* future);
 
   /// Returns the total bytes held by SerializedPages in 'this'.
-  uint64_t totalBytes() const {
+  int64_t totalBytes() const {
     return totalBytes_;
   }
 
@@ -197,7 +197,7 @@ class ExchangeQueue {
   // throw an exception with this message.
   std::string error_;
   // Total size of SerializedPages in queue.
-  uint64_t totalBytes_{0};
+  int64_t totalBytes_{0};
   // Number of SerializedPages received.
   int64_t receivedPages_{0};
   // Total size of SerializedPages received. Used to calculate an average

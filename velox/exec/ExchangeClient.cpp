@@ -18,7 +18,7 @@
 namespace facebook::velox::exec {
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
-  RequestSpec requestSpec;
+  std::vector<RequestSpec> requestSpecs;
   std::shared_ptr<ExchangeSource> toClose;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -48,11 +48,8 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     } else {
       sources_.push_back(source);
       queue_->addSourceLocked();
-      // Put new source into 'producingSources_' queue to prioritise fetching
-      // from these to find out whether these are productive or not.
-      producingSources_.push(source);
-
-      requestSpec = pickSourcesToRequestLocked();
+      emptySources_.push(source);
+      requestSpecs = pickSourcesToRequestLocked();
     }
   }
 
@@ -60,7 +57,7 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
   if (toClose) {
     toClose->close();
   } else {
-    request(requestSpec);
+    request(std::move(requestSpecs));
   }
 }
 
@@ -116,7 +113,7 @@ folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
 
 std::vector<std::unique_ptr<SerializedPage>>
 ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
-  RequestSpec requestSpec;
+  std::vector<RequestSpec> requestSpecs;
   std::vector<std::unique_ptr<SerializedPage>> pages;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -130,38 +127,50 @@ ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
       return pages;
     }
 
-    requestSpec = pickSourcesToRequestLocked();
+    requestSpecs = pickSourcesToRequestLocked();
   }
 
   // Outside of lock
-  request(requestSpec);
+  request(std::move(requestSpecs));
   return pages;
 }
 
-void ExchangeClient::request(const RequestSpec& requestSpec) {
+void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
   auto self = shared_from_this();
-  for (auto& source : requestSpec.sources) {
-    auto future = source->request(requestSpec.maxBytes, kDefaultMaxWaitSeconds);
+  for (auto& spec : requestSpecs) {
+    auto future = folly::SemiFuture<ExchangeSource::Response>::makeEmpty();
+    if (spec.maxBytes == 0) {
+      future = spec.source->requestDataSizes(kDefaultMaxWaitSeconds);
+    } else {
+      // TODO: Change maxWait to 100ms once we fix the unit of wait time.
+      future = spec.source->request(spec.maxBytes, 1);
+    }
     VELOX_CHECK(future.valid());
     std::move(future)
         .via(executor_)
-        .thenValue([self, requestSource = source](auto&& response) {
-          RequestSpec requestSpec;
+        .thenValue([self, spec = std::move(spec)](auto&& response) {
+          std::vector<RequestSpec> requestSpecs;
           {
             std::lock_guard<std::mutex> l(self->queue_->mutex());
             if (self->closed_) {
               return;
             }
             if (!response.atEnd) {
-              if (response.bytes > 0) {
-                self->producingSources_.push(requestSource);
+              if (!response.remainingBytes.empty()) {
+                for (auto bytes : response.remainingBytes) {
+                  VELOX_CHECK_GT(bytes, 0);
+                }
+                self->producingSources_.push(
+                    {std::move(spec.source),
+                     std::move(response.remainingBytes)});
               } else {
-                self->emptySources_.push(requestSource);
+                self->emptySources_.push(std::move(spec.source));
               }
             }
-            requestSpec = self->pickSourcesToRequestLocked();
+            self->totalPendingBytes_ -= spec.maxBytes;
+            requestSpecs = self->pickSourcesToRequestLocked();
           }
-          self->request(requestSpec);
+          self->request(std::move(requestSpecs));
         })
         .thenError(
             folly::tag_t<std::exception>{}, [self](const std::exception& e) {
@@ -170,74 +179,53 @@ void ExchangeClient::request(const RequestSpec& requestSpec) {
   }
 }
 
-int32_t ExchangeClient::countPendingSourcesLocked() {
-  int32_t numPending = 0;
-  for (auto& source : sources_) {
-    if (source->isRequestPendingLocked()) {
-      ++numPending;
-    }
-  }
-  return numPending;
-}
-
-int64_t ExchangeClient::getAveragePageSize() {
-  auto averagePageSize =
-      std::min<int64_t>(maxQueuedBytes_, queue_->averageReceivedPageBytes());
-  if (averagePageSize == 0) {
-    averagePageSize = 1 << 20; // 1 MB.
-  }
-
-  return averagePageSize;
-}
-
-int32_t ExchangeClient::getNumSourcesToRequestLocked(int64_t averagePageSize) {
-  // Figure out how many more 'averagePageSize' fit into 'maxQueuedBytes_'.
-  // Make sure to leave room for 'numPending' pages.
-  const auto numPending = countPendingSourcesLocked();
-
-  auto numToRequest = std::max<int32_t>(
-      1, (maxQueuedBytes_ - queue_->totalBytes()) / averagePageSize);
-  if (numToRequest <= numPending) {
-    return 0;
-  }
-
-  return numToRequest - numPending;
-}
-
-void ExchangeClient::pickSourcesToRequestLocked(
-    RequestSpec& requestSpec,
-    int32_t numToRequest,
-    std::queue<std::shared_ptr<ExchangeSource>>& sources) {
-  while (requestSpec.sources.size() < numToRequest && !sources.empty()) {
-    auto& source = sources.front();
-    if (source->shouldRequestLocked()) {
-      requestSpec.sources.push_back(source);
-    }
-    sources.pop();
-  }
-}
-
-ExchangeClient::RequestSpec ExchangeClient::pickSourcesToRequestLocked() {
-  if (closed_ || queue_->totalBytes() >= maxQueuedBytes_) {
+std::vector<ExchangeClient::RequestSpec>
+ExchangeClient::pickSourcesToRequestLocked() {
+  if (closed_) {
     return {};
   }
-
-  const auto averagePageSize = getAveragePageSize();
-  const auto numToRequest = getNumSourcesToRequestLocked(averagePageSize);
-
-  if (numToRequest == 0) {
-    return {};
+  std::vector<RequestSpec> requestSpecs;
+  while (!emptySources_.empty()) {
+    auto& source = emptySources_.front();
+    VELOX_CHECK(source->shouldRequestLocked());
+    requestSpecs.push_back({std::move(source), 0});
+    emptySources_.pop();
   }
-
-  RequestSpec requestSpec;
-  requestSpec.maxBytes = averagePageSize;
-
-  // Pick up to 'numToRequest' next sources to request data from. Prioritize
-  // sources that return data.
-  pickSourcesToRequestLocked(requestSpec, numToRequest, producingSources_);
-  pickSourcesToRequestLocked(requestSpec, numToRequest, emptySources_);
-
-  return requestSpec;
+  int64_t availableSpace =
+      maxQueuedBytes_ - queue_->totalBytes() - totalPendingBytes_;
+  while (availableSpace > 0 && !producingSources_.empty()) {
+    auto& source = producingSources_.front().source;
+    int64_t requestBytes = 0;
+    for (auto bytes : producingSources_.front().remainingBytes) {
+      availableSpace -= bytes;
+      if (availableSpace < 0) {
+        break;
+      }
+      requestBytes += bytes;
+    }
+    if (requestBytes == 0) {
+      VELOX_CHECK_LT(availableSpace, 0);
+      break;
+    }
+    VELOX_CHECK(source->shouldRequestLocked());
+    requestSpecs.push_back({std::move(source), requestBytes});
+    producingSources_.pop();
+    totalPendingBytes_ += requestBytes;
+  }
+  if (queue_->totalBytes() == 0 && totalPendingBytes_ == 0 &&
+      !producingSources_.empty()) {
+    // We have full capacity but still cannot initiate one single data transfer.
+    // Let the transfer happen in this case to avoid getting stuck.
+    auto& source = producingSources_.front().source;
+    auto requestBytes = producingSources_.front().remainingBytes.at(0);
+    LOG(INFO) << "Requesting large single page " << requestBytes
+              << " bytes, exceeding capacity " << maxQueuedBytes_;
+    VELOX_CHECK(source->shouldRequestLocked());
+    requestSpecs.push_back({std::move(source), requestBytes});
+    producingSources_.pop();
+    totalPendingBytes_ += requestBytes;
+  }
+  return requestSpecs;
 }
 
 ExchangeClient::~ExchangeClient() {
