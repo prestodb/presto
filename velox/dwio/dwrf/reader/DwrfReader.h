@@ -198,6 +198,8 @@ class DwrfRowReader : public StrideIndexProvider,
 
   dwio::common::ColumnReaderStatistics columnReaderStatistics_;
 
+  bool atEnd_{false};
+
   // internal methods
 
   std::optional<size_t> estimatedRowSizeHelper(

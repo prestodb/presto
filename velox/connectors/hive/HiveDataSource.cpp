@@ -22,74 +22,12 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorUtil.h"
 #include "velox/dwio/common/ReaderFactory.h"
-#include "velox/expression/ExprToSubfieldFilter.h"
 #include "velox/expression/FieldReference.h"
 
 namespace facebook::velox::connector::hive {
 
 class HiveTableHandle;
 class HiveColumnHandle;
-
-namespace {
-
-core::CallTypedExprPtr replaceInputs(
-    const core::CallTypedExpr* call,
-    std::vector<core::TypedExprPtr>&& inputs) {
-  return std::make_shared<core::CallTypedExpr>(
-      call->type(), std::move(inputs), call->name());
-}
-
-} // namespace
-
-core::TypedExprPtr HiveDataSource::extractFiltersFromRemainingFilter(
-    const core::TypedExprPtr& expr,
-    core::ExpressionEvaluator* evaluator,
-    bool negated,
-    SubfieldFilters& filters) {
-  auto* call = dynamic_cast<const core::CallTypedExpr*>(expr.get());
-  if (!call) {
-    return expr;
-  }
-  common::Filter* oldFilter = nullptr;
-  try {
-    common::Subfield subfield;
-    if (auto filter = exec::leafCallToSubfieldFilter(
-            *call, subfield, evaluator, negated)) {
-      if (auto it = filters.find(subfield); it != filters.end()) {
-        oldFilter = it->second.get();
-        filter = filter->mergeWith(oldFilter);
-      }
-      filters.insert_or_assign(std::move(subfield), std::move(filter));
-      return nullptr;
-    }
-  } catch (const VeloxException&) {
-    LOG(WARNING) << "Unexpected failure when extracting filter for: "
-                 << expr->toString();
-    if (oldFilter) {
-      LOG(WARNING) << "Merging with " << oldFilter->toString();
-    }
-  }
-  if (call->name() == "not") {
-    auto inner = extractFiltersFromRemainingFilter(
-        call->inputs()[0], evaluator, !negated, filters);
-    return inner ? replaceInputs(call, {inner}) : nullptr;
-  }
-  if ((call->name() == "and" && !negated) ||
-      (call->name() == "or" && negated)) {
-    auto lhs = extractFiltersFromRemainingFilter(
-        call->inputs()[0], evaluator, negated, filters);
-    auto rhs = extractFiltersFromRemainingFilter(
-        call->inputs()[1], evaluator, negated, filters);
-    if (!lhs) {
-      return rhs;
-    }
-    if (!rhs) {
-      return lhs;
-    }
-    return replaceInputs(call, {lhs, rhs});
-  }
-  return expr;
-}
 
 HiveDataSource::HiveDataSource(
     const RowTypePtr& outputType,
@@ -158,11 +96,16 @@ HiveDataSource::HiveDataSource(
   for (auto& [k, v] : hiveTableHandle_->subfieldFilters()) {
     filters.emplace(k.clone(), v->clone());
   }
+  double sampleRate = 1;
   auto remainingFilter = extractFiltersFromRemainingFilter(
       hiveTableHandle_->remainingFilter(),
       expressionEvaluator_,
       false,
-      filters);
+      filters,
+      sampleRate);
+  if (sampleRate != 1) {
+    randomSkip_ = std::make_shared<random::RandomSkipTracker>(sampleRate);
+  }
 
   std::vector<common::Subfield> remainingFilterSubfields;
   if (remainingFilter) {
@@ -245,7 +188,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   splitReader_ = createSplitReader();
   // Split reader subclasses may need to use the reader options in prepareSplit
   // so we initialize it beforehand.
-  splitReader_->configureReaderOptions();
+  splitReader_->configureReaderOptions(randomSkip_);
   splitReader_->prepareSplit(metadataFilter_, runtimeStats_);
 }
 
@@ -262,10 +205,6 @@ std::optional<RowVectorPtr> HiveDataSource::next(
   if (!output_) {
     output_ = BaseVector::create(readerOutputType_, 0, pool_);
   }
-
-  // TODO Check if remaining filter has a conjunct that doesn't depend on
-  // any column, e.g. rand() < 0.1. Evaluate that conjunct first, then scan
-  // only rows that passed.
 
   auto rowsScanned = splitReader_->next(size, output_);
   completedRows_ += rowsScanned;

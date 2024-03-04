@@ -83,7 +83,8 @@ class SplitReader {
 
   virtual ~SplitReader() = default;
 
-  void configureReaderOptions();
+  void configureReaderOptions(
+      std::shared_ptr<random::RandomSkipTracker> randomSkip);
 
   /// This function is used by different table formats like Iceberg and Hudi to
   /// do additional preparations before reading the split, e.g. Open delete

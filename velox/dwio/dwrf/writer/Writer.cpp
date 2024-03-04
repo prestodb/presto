@@ -543,7 +543,7 @@ void Writer::flushStripe(bool close) {
   metrics.groupSize = 0;
   metrics.close = close;
 
-  LOG(INFO) << fmt::format(
+  VLOG(1) << fmt::format(
       "Stripe {}: Flush overhead = {}, data length = {}, pre flush mem = {}, post flush mem = {}. Closing = {}",
       metrics.stripeIndex,
       metrics.flushOverhead,

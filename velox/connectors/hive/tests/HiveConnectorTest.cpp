@@ -404,17 +404,20 @@ TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
 
   auto expr = parseExpr("not (c0 > 0 or c1 > 0)", rowType);
   SubfieldFilters filters;
-  auto remaining = HiveDataSource::extractFiltersFromRemainingFilter(
-      expr, &evaluator, false, filters);
+  double sampleRate = 1;
+  auto remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
   ASSERT_FALSE(remaining);
+  ASSERT_EQ(sampleRate, 1);
   ASSERT_EQ(filters.size(), 2);
   ASSERT_GT(filters.count(Subfield("c0")), 0);
   ASSERT_GT(filters.count(Subfield("c1")), 0);
 
   expr = parseExpr("not (c0 > 0 or c1 > c0)", rowType);
   filters.clear();
-  remaining = HiveDataSource::extractFiltersFromRemainingFilter(
-      expr, &evaluator, false, filters);
+  remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_EQ(sampleRate, 1);
   ASSERT_EQ(filters.size(), 1);
   ASSERT_GT(filters.count(Subfield("c0")), 0);
   ASSERT_TRUE(remaining);
@@ -423,13 +426,58 @@ TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
   expr = parseExpr(
       "not (c2 > 1::decimal(20, 0) or c2 < 0::decimal(20, 0))", rowType);
   filters.clear();
-  remaining = HiveDataSource::extractFiltersFromRemainingFilter(
-      expr, &evaluator, false, filters);
+  remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_EQ(sampleRate, 1);
   ASSERT_GT(filters.count(Subfield("c2")), 0);
   // Change these once HUGEINT filter merge is fixed.
   ASSERT_TRUE(remaining);
   ASSERT_EQ(
       remaining->toString(), "not(lt(ROW[\"c2\"],cast 0 as DECIMAL(20, 0)))");
+}
+
+TEST_F(HiveConnectorTest, prestoTableSampling) {
+  core::QueryCtx queryCtx;
+  exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_.get());
+  auto rowType = ROW({"c0"}, {BIGINT()});
+
+  auto expr = parseExpr("rand() < 0.5", rowType);
+  SubfieldFilters filters;
+  double sampleRate = 1;
+  auto remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_FALSE(remaining);
+  ASSERT_EQ(sampleRate, 0.5);
+  ASSERT_TRUE(filters.empty());
+
+  expr = parseExpr("c0 > 0 and rand() < 0.5", rowType);
+  filters.clear();
+  sampleRate = 1;
+  remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_FALSE(remaining);
+  ASSERT_EQ(sampleRate, 0.5);
+  ASSERT_EQ(filters.size(), 1);
+  ASSERT_GT(filters.count(Subfield("c0")), 0);
+
+  expr = parseExpr("rand() < 0.5 and rand() < 0.5", rowType);
+  filters.clear();
+  sampleRate = 1;
+  remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_FALSE(remaining);
+  ASSERT_EQ(sampleRate, 0.25);
+  ASSERT_TRUE(filters.empty());
+
+  expr = parseExpr("c0 > 0 or rand() < 0.5", rowType);
+  filters.clear();
+  sampleRate = 1;
+  remaining = extractFiltersFromRemainingFilter(
+      expr, &evaluator, false, filters, sampleRate);
+  ASSERT_TRUE(remaining);
+  ASSERT_EQ(*remaining, *expr);
+  ASSERT_EQ(sampleRate, 1);
+  ASSERT_TRUE(filters.empty());
 }
 
 } // namespace

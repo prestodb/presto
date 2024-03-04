@@ -231,6 +231,12 @@ class ComparisonSimdFunction : public exec::VectorFunction {
   bool supportsFlatNoNullsFastPath() const override {
     return true;
   }
+
+  exec::FunctionCanonicalName getCanonicalName() const override {
+    return std::is_same_v<ComparisonOp, std::less<>>
+        ? exec::FunctionCanonicalName::kLt
+        : exec::FunctionCanonicalName::kUnknown;
+  }
 };
 
 } // namespace

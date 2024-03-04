@@ -16,6 +16,7 @@
 #pragma once
 
 #include "folly/Random.h"
+#include "velox/expression/FunctionSignature.h"
 #include "velox/functions/Macros.h"
 
 namespace facebook::velox::functions {
@@ -23,6 +24,7 @@ namespace facebook::velox::functions {
 template <typename T>
 struct RandFunction {
   static constexpr bool is_deterministic = false;
+  static constexpr auto canonical_name = exec::FunctionCanonicalName::kRand;
 
   FOLLY_ALWAYS_INLINE void call(double& result) {
     result = folly::Random::randDouble01();

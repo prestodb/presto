@@ -127,6 +127,10 @@ class VectorFunction {
       const {
     return std::nullopt;
   }
+
+  virtual FunctionCanonicalName getCanonicalName() const {
+    return FunctionCanonicalName::kUnknown;
+  }
 };
 
 /// Vector function that generates the specified error for every row. Use this

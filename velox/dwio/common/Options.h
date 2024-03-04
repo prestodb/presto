@@ -20,6 +20,7 @@
 #include <unordered_set>
 
 #include <folly/Executor.h>
+#include "velox/common/base/RandomUtil.h"
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/common/io/Options.h"
@@ -408,6 +409,7 @@ class ReaderOptions : public io::ReaderOptions {
   bool fileColumnNamesReadAsLowerCase{false};
   bool useColumnNamesForColumnMapping_{false};
   std::shared_ptr<folly::Executor> ioExecutor_;
+  std::shared_ptr<random::RandomSkipTracker> randomSkip_;
 
  public:
   static constexpr uint64_t kDefaultFooterEstimatedSize = 1024 * 1024; // 1MB
@@ -571,6 +573,14 @@ class ReaderOptions : public io::ReaderOptions {
 
   bool isUseColumnNamesForColumnMapping() const {
     return useColumnNamesForColumnMapping_;
+  }
+
+  const std::shared_ptr<random::RandomSkipTracker>& randomSkip() const {
+    return randomSkip_;
+  }
+
+  void setRandomSkip(std::shared_ptr<random::RandomSkipTracker> randomSkip) {
+    randomSkip_ = randomSkip;
   }
 };
 

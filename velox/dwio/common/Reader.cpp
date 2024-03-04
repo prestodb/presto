@@ -83,7 +83,8 @@ void applyFilter(
 
 VectorPtr RowReader::projectColumns(
     const VectorPtr& input,
-    const ScanSpec& spec) {
+    const ScanSpec& spec,
+    const Mutation* mutation) {
   auto* inputRow = input->as<RowVector>();
   VELOX_CHECK_NOT_NULL(inputRow);
   auto& inputRowType = input->type()->asRow();
@@ -95,6 +96,19 @@ VectorPtr RowReader::projectColumns(
   std::vector<TypePtr> types(numColumns);
   std::vector<VectorPtr> children(numColumns);
   std::vector<uint64_t> passed(bits::nwords(input->size()), -1);
+  if (mutation) {
+    if (mutation->deletedRows) {
+      bits::andWithNegatedBits(
+          passed.data(), mutation->deletedRows, 0, input->size());
+    }
+    if (mutation->randomSkip) {
+      bits::forEachSetBit(passed.data(), 0, input->size(), [&](auto i) {
+        if (!mutation->randomSkip->testOne()) {
+          bits::clearBit(passed.data(), i);
+        }
+      });
+    }
+  }
   for (auto& childSpec : spec.children()) {
     VectorPtr child;
     if (childSpec->isConstant()) {

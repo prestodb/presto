@@ -378,22 +378,35 @@ int64_t DwrfRowReader::nextRowNumber() {
   auto strideSize = getReader().getFooter().rowIndexStride();
   while (currentStripe_ < stripeCeiling_) {
     if (currentRowInStripe_ == 0) {
+      if (getReader().randomSkip()) {
+        auto numStripeRows =
+            getReader().getFooter().stripes(currentStripe_).numberOfRows();
+        auto skip = getReader().randomSkip()->nextSkip();
+        if (skip >= numStripeRows) {
+          getReader().randomSkip()->consume(numStripeRows);
+          auto numStrides = (numStripeRows + strideSize - 1) / strideSize;
+          skippedStrides_ += numStrides;
+          goto advanceToNextStripe;
+        }
+      }
       startNextStripe();
     }
     checkSkipStrides(strideSize);
     if (currentRowInStripe_ < rowsInCurrentStripe_) {
       return firstRowOfStripe_[currentStripe_] + currentRowInStripe_;
     }
+  advanceToNextStripe:
     ++currentStripe_;
     currentRowInStripe_ = 0;
     newStripeReadyForRead_ = false;
   }
+  atEnd_ = true;
   return kAtEnd;
 }
 
 int64_t DwrfRowReader::nextReadSize(uint64_t size) {
   VELOX_DCHECK_GT(size, 0);
-  if (nextRowNumber() == kAtEnd) {
+  if (atEnd_) {
     return kAtEnd;
   }
   auto rowsToRead = std::min(size, rowsInCurrentStripe_ - currentRowInStripe_);
@@ -786,7 +799,8 @@ DwrfReader::DwrfReader(
           options.getFilePreloadThreshold(),
           options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
                                                      : FileFormat::DWRF,
-          options.isFileColumnNamesReadAsLowerCase())),
+          options.isFileColumnNamesReadAsLowerCase(),
+          options.randomSkip())),
       options_(options) {
   // If we are not using column names to map table columns to file columns, then
   // we use indices. In that case we need to ensure the names completely match,

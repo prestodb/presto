@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/base/RandomUtil.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/SeekableInputStream.h"
@@ -70,7 +71,8 @@ class ReaderBase {
       uint64_t filePreloadThreshold =
           dwio::common::ReaderOptions::kDefaultFilePreloadThreshold,
       dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF,
-      bool fileColumnNamesReadAsLowerCase = false);
+      bool fileColumnNamesReadAsLowerCase = false,
+      std::shared_ptr<random::RandomSkipTracker> randomSkip = nullptr);
 
   ReaderBase(
       memory::MemoryPool& pool,
@@ -231,6 +233,10 @@ class ReaderBase {
     return postScript_->format();
   }
 
+  const std::shared_ptr<random::RandomSkipTracker>& randomSkip() const {
+    return randomSkip_;
+  }
+
  private:
   static std::shared_ptr<const Type> convertType(
       const FooterWrapper& footer,
@@ -251,6 +257,7 @@ class ReaderBase {
       dwio::common::ReaderOptions::kDefaultFilePreloadThreshold};
 
   std::unique_ptr<dwio::common::BufferedInput> input_;
+  const std::shared_ptr<random::RandomSkipTracker> randomSkip_;
   RowTypePtr schema_;
   // Lazily populated
   mutable std::shared_ptr<const dwio::common::TypeWithId> schemaWithId_;

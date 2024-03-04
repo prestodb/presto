@@ -140,11 +140,12 @@ class RowReader {
 
   /**
    * Helper function used by non-selective reader to project top level columns
-   * according to the scan spec.
+   * according to the scan spec and mutations.
    */
   static VectorPtr projectColumns(
       const VectorPtr& input,
-      const velox::common::ScanSpec&);
+      const velox::common::ScanSpec& spec,
+      const Mutation* mutation);
 };
 
 /**

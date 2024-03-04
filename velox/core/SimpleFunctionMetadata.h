@@ -66,6 +66,20 @@ struct udf_help<T, util::detail::void_t<decltype(T::help)>> {
   }
 };
 
+// Canonical name of the function.
+template <class T, class = void>
+struct udf_canonical_name {
+  static constexpr exec::FunctionCanonicalName value =
+      exec::FunctionCanonicalName::kUnknown;
+};
+
+template <class T>
+struct udf_canonical_name<
+    T,
+    util::detail::void_t<decltype(T::canonical_name)>> {
+  static constexpr exec::FunctionCanonicalName value = T::canonical_name;
+};
+
 // Has the value true, unless a Variadic Type appears anywhere but at the end
 // of the parameters.
 template <typename... TArgs>
@@ -311,6 +325,7 @@ class ISimpleFunctionMetadata {
   // types, otherwise return null.
   virtual TypePtr tryResolveReturnType() const = 0;
   virtual std::string getName() const = 0;
+  virtual exec::FunctionCanonicalName getCanonicalName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual uint32_t priority() const = 0;
   virtual const std::shared_ptr<exec::FunctionSignature> signature() const = 0;
@@ -374,6 +389,10 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
           "member in the function class, or specify a function alias at "
           "registration time.");
     }
+  }
+
+  exec::FunctionCanonicalName getCanonicalName() const final {
+    return udf_canonical_name<Fun>::value;
   }
 
   bool isDeterministic() const final {

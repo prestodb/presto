@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "velox/common/base/RandomUtil.h"
+
 #include <cstdint>
 
 namespace facebook::velox::dwio::common {
@@ -23,6 +25,8 @@ namespace facebook::velox::dwio::common {
 struct Mutation {
   /// Bit masks for row numbers to be deleted.
   const uint64_t* deletedRows = nullptr;
+
+  random::RandomSkipTracker* randomSkip = nullptr;
 };
 
 } // namespace facebook::velox::dwio::common

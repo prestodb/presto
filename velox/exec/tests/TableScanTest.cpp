@@ -2834,6 +2834,52 @@ TEST_F(TableScanTest, skipStridesForParentNulls) {
   ASSERT_EQ(result->size(), 5000);
 }
 
+TEST_F(TableScanTest, randomSample) {
+  random::setSeed(42);
+  auto column = makeFlatVector<double>(
+      100, [](auto /*i*/) { return folly::Random::randDouble01(); });
+  auto rows = makeRowVector({column});
+  auto rowType = asRowType(rows->type());
+  std::vector<std::shared_ptr<TempFilePath>> files;
+  auto writeConfig = std::make_shared<dwrf::Config>();
+  writeConfig->set<uint64_t>(
+      dwrf::Config::STRIPE_SIZE, rows->size() * sizeof(double));
+  int numTotalRows = 0;
+  for (int i = 0; i < 10; ++i) {
+    auto file = TempFilePath::create();
+    if (i % 2 == 0) {
+      std::vector<RowVectorPtr> vectors;
+      for (int j = 0; j < 100; ++j) {
+        vectors.push_back(rows);
+      }
+      writeToFile(file->path, vectors, writeConfig);
+      numTotalRows += rows->size() * vectors.size();
+    } else {
+      writeToFile(file->path, {rows}, writeConfig);
+      numTotalRows += rows->size();
+    }
+    files.push_back(file);
+  }
+  CursorParameters params;
+  params.planNode =
+      PlanBuilder().tableScan(rowType, {}, "rand() < 0.01").planNode();
+  auto cursor = TaskCursor::create(params);
+  for (auto& file : files) {
+    cursor->task()->addSplit("0", makeHiveSplit(file->path));
+  }
+  cursor->task()->noMoreSplits("0");
+  int numRows = 0;
+  while (cursor->moveNext()) {
+    auto result = cursor->current();
+    VELOX_CHECK_GT(result->size(), 0);
+    numRows += result->size();
+  }
+  ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
+  ASSERT_GT(getSkippedStridesStat(cursor->task()), 0);
+  double expectedNumRows = 0.01 * numTotalRows;
+  ASSERT_LT(abs(numRows - expectedNumRows) / expectedNumRows, 0.1);
+}
+
 /// Test the handling of constant remaining filter results which occur when
 /// filter input is a dictionary vector with all indices being the same (i.e.
 /// DictionaryVector::isConstant() == true).

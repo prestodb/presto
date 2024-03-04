@@ -82,6 +82,7 @@ void IcebergSplitReader::prepareSplit(
 
 uint64_t IcebergSplitReader::next(int64_t size, VectorPtr& output) {
   Mutation mutation;
+  mutation.randomSkip = baseReaderOpts_.randomSkip().get();
   mutation.deletedRows = nullptr;
 
   if (!positionalDeleteFileReaders_.empty()) {

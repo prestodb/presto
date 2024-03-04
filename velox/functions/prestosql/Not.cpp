@@ -61,6 +61,10 @@ class NotFunction : public exec::VectorFunction {
     context.moveOrCopyResult(localResult, rows, result);
   }
 
+  exec::FunctionCanonicalName getCanonicalName() const override {
+    return exec::FunctionCanonicalName::kNot;
+  }
+
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // boolean -> boolean
     return {exec::FunctionSignatureBuilder()

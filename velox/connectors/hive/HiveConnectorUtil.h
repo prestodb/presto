@@ -77,11 +77,6 @@ void configureRowReaderOptions(
     const RowTypePtr& rowType,
     std::shared_ptr<HiveConnectorSplit> hiveSplit);
 
-bool applyPartitionFilter(
-    TypeKind kind,
-    const std::string& partitionValue,
-    common::Filter* filter);
-
 bool testFilters(
     common::ScanSpec* scanSpec,
     dwio::common::Reader* reader,
@@ -97,5 +92,12 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
     const ConnectorQueryCtx* connectorQueryCtx,
     std::shared_ptr<io::IoStatistics> ioStats,
     folly::Executor* executor);
+
+core::TypedExprPtr extractFiltersFromRemainingFilter(
+    const core::TypedExprPtr& expr,
+    core::ExpressionEvaluator* evaluator,
+    bool negated,
+    SubfieldFilters& filters,
+    double& sampleRate);
 
 } // namespace facebook::velox::connector::hive

@@ -16,10 +16,6 @@
 
 #include "velox/common/base/RandomUtil.h"
 
-#include <optional>
-
-#include <folly/Random.h>
-
 namespace facebook::velox::random {
 
 namespace {
@@ -34,6 +30,15 @@ void setSeed(uint32_t value) {
 
 uint32_t getSeed() {
   return customSeed ? *customSeed : folly::Random::rand32();
+}
+
+RandomSkipTracker::RandomSkipTracker(double sampleRate)
+    : sampleRate_(sampleRate) {
+  VELOX_CHECK(0 <= sampleRate && sampleRate < 1);
+  if (sampleRate > 0) {
+    dist_ = std::geometric_distribution<uint64_t>(sampleRate);
+    rng_.seed(getSeed());
+  }
 }
 
 } // namespace facebook::velox::random

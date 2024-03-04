@@ -36,6 +36,14 @@ const std::vector<std::string> primitiveTypeNames();
 
 enum class ParameterType : int8_t { kTypeParameter, kIntegerParameter };
 
+/// Canonical names for functions that have special treatments in pushdowns.
+enum class FunctionCanonicalName {
+  kUnknown,
+  kLt,
+  kNot,
+  kRand,
+};
+
 /// SignatureVariable holds both, type parameters (e.g. K or V in map(K,
 /// V)), and integer parameters with optional constraints (e.g. "r_precision =
 /// a_precision + b_precision" in decimals).
