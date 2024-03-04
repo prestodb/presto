@@ -259,21 +259,10 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
 
   void setupMemory(
       int64_t memoryCapacity = 0,
-      uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity,
-      uint64_t memoryPoolTransferCapacity = kMemoryPoolTransferCapacity,
-      uint64_t maxReclaimWaitMs = 0) {
+      uint64_t memoryPoolInitCapacity = kMemoryPoolInitCapacity) {
     memoryCapacity = (memoryCapacity != 0) ? memoryCapacity : kMemoryCapacity;
-    MemoryManagerOptions options;
-    options.arbitratorCapacity = memoryCapacity;
-    // Avoid allocation failure in unit tests.
-    options.allocatorCapacity = memoryCapacity * 2;
-    options.arbitratorKind = "SHARED";
-    options.memoryPoolInitCapacity = memoryPoolInitCapacity;
-    options.memoryPoolTransferCapacity = memoryPoolTransferCapacity;
-    options.memoryReclaimWaitMs = maxReclaimWaitMs;
-    options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-    memoryManager_ = std::make_unique<MemoryManager>(options);
+    memoryManager_ =
+        createMemoryManager(memoryCapacity, memoryPoolInitCapacity);
     ASSERT_EQ(memoryManager_->arbitrator()->kind(), "SHARED");
     arbitrator_ = static_cast<SharedArbitrator*>(memoryManager_->arbitrator());
     numAddedPools_ = 0;
