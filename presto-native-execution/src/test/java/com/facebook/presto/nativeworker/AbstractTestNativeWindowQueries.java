@@ -152,53 +152,107 @@ public abstract class AbstractTestNativeWindowQueries
     public void testRowNumberWithFilter()
     {
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");
+    }
+
+    @Test
+    public void testRowNumberWithFilter_2()
+    {
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
     }
 
     @Test
-    public void testFirstValue()
+    public void testFirstValueOrderKey()
     {
         testWindowFunction("first_value(orderkey)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testFirstValueOrderDate()
+    {
         testWindowFunction("first_value(orderdate)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLastValue()
+    public void testLastValueOrderKey()
     {
         testWindowFunction("last_value(orderkey)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLastValueOrderDate()
+    {
         testWindowFunction("last_value(orderdate)", FunctionType.VALUE);
     }
 
     @Test
-    public void testNthValue()
+    public void testNthValueOrderKey()
     {
         testWindowFunction("nth_value(orderkey, 9)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testNthValueOrderDate()
+    {
         testWindowFunction("nth_value(orderdate, 5)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLead()
+    public void testLeadOrderKey()
+    {
+        testWindowFunction("lead(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLeadOrderDate()
     {
         testWindowFunction("lead(orderdate)", FunctionType.VALUE);
-        testWindowFunction("lead(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLeadTotalPrice()
+    {
         testWindowFunction("lead(totalprice, 2, -123.456)", FunctionType.VALUE);
     }
 
     @Test
-    public void testLag()
+    public void testLagOrderKey()
+    {
+        testWindowFunction("lag(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLagOrderDate()
     {
         testWindowFunction("lag(orderdate)", FunctionType.VALUE);
-        testWindowFunction("lag(orderkey, 5)", FunctionType.VALUE);
+    }
+
+    @Test
+    public void testLagTotalPrice()
+    {
         testWindowFunction("lag(totalprice, 2, -123.456)", FunctionType.VALUE);
     }
 
     @Test
-    public void testOverlappingPartitionAndSortingKeys()
+    public void testOverlappingPartitionAndSortingKeys_1()
     {
         assertQuery("SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
-        assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
-        assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+    }
 
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_2()
+    {
+        assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
+    }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_3()
+    {
+        assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+    }
+
+    @Test
+    public void testOverlappingPartitionAndSortingKeys_4()
+    {
         assertQuery("WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
     }
 }
