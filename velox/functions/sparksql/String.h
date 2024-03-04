@@ -17,7 +17,6 @@
 
 #include "folly/ssl/OpenSSLHash.h"
 
-#include <boost/locale.hpp>
 #include <codecvt>
 #include <string>
 #include "velox/expression/VectorFunction.h"
