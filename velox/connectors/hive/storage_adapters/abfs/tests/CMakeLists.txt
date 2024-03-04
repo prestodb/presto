@@ -28,3 +28,5 @@ target_link_libraries(
           gtest_main
           Azure::azure-storage-blobs
           Azure::azure-storage-files-datalake)
+
+target_compile_options(velox_abfs_test PRIVATE -Wno-deprecated-declarations)
