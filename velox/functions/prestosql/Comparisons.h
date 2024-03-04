@@ -26,14 +26,14 @@ template <typename T>
 struct TimestampWithTimezoneComparisonSupport {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  // Convert TimestampWithTimezone from original timezone to GMT in milliseconds
+  /// Timestamp with time zone values contain the milliseconds
+  /// already adjusted to UTC/GMT.
+  /// That means they are already normalized on UTC. We can directly compare
+  /// the UTC seconds and don't need to convert anything.
   FOLLY_ALWAYS_INLINE
-  int64_t toGMTMillis(
+  int64_t toTimestampMillis(
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto inputTimeStamp = unpackTimestampUtc(timestampWithTimezone);
-    const auto timezone = unpackZoneKeyId(timestampWithTimezone);
-    inputTimeStamp.toGMT(timezone);
-
     return inputTimeStamp.toMillis();
   }
 };
@@ -71,19 +71,19 @@ VELOX_GEN_BINARY_EXPR(GteFunction, lhs >= rhs, bool);
 
 VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
     LtFunction,
-    this->toGMTMillis(lhs) < this->toGMTMillis(rhs),
+    this->toTimestampMillis(lhs) < this->toTimestampMillis(rhs),
     bool);
 VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
     GtFunction,
-    this->toGMTMillis(lhs) > this->toGMTMillis(rhs),
+    this->toTimestampMillis(lhs) > this->toTimestampMillis(rhs),
     bool);
 VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
     LteFunction,
-    this->toGMTMillis(lhs) <= this->toGMTMillis(rhs),
+    this->toTimestampMillis(lhs) <= this->toTimestampMillis(rhs),
     bool);
 VELOX_GEN_BINARY_EXPR_TIMESTAMP_WITH_TIME_ZONE(
     GteFunction,
-    this->toGMTMillis(lhs) >= this->toGMTMillis(rhs),
+    this->toTimestampMillis(lhs) >= this->toTimestampMillis(rhs),
     bool);
 
 #undef VELOX_GEN_BINARY_EXPR
@@ -147,7 +147,7 @@ struct EqFunctionTimestampWithTimezone
       bool& result,
       const arg_type<TimestampWithTimezone>& lhs,
       const arg_type<TimestampWithTimezone>& rhs) {
-    result = this->toGMTMillis(lhs) == this->toGMTMillis(rhs);
+    result = this->toTimestampMillis(lhs) == this->toTimestampMillis(rhs);
   }
 };
 
@@ -184,7 +184,7 @@ struct NeqFunctionTimestampWithTimezone
       bool& result,
       const arg_type<TimestampWithTimezone>& lhs,
       const arg_type<TimestampWithTimezone>& rhs) {
-    result = this->toGMTMillis(lhs) != this->toGMTMillis(rhs);
+    result = this->toTimestampMillis(lhs) != this->toTimestampMillis(rhs);
   }
 };
 

@@ -3700,17 +3700,26 @@ TEST_F(DateTimeFunctionsTest, timestampWithTimezoneComparisons) {
     test::assertEqualVectors(expectedResult, actual);
   };
 
-  auto timezones = std::vector<TimeZoneKey>{900, 900, 800};
+  /// Timestamp with timezone is internally represented with the milliseconds
+  /// already converted to UTC and thus normalized. The timezone does not play
+  /// a role in the comparison.
+  /// For example, 1970-01-01-06:00:00+02:00 is stored as
+  /// TIMESTAMP WITH TIMEZONE value (14400000, 960). 960 being the tzid
+  /// representing +02:00. And 1970-01-01-04:00:00+00:00 is stored as (14400000,
+  /// 0). These timestamps are equivalent.
+  auto timestampsLhs = std::vector<int64_t>{0, 0, 1000};
+  auto timezonesLhs = std::vector<TimeZoneKey>{900, 900, 800};
   VectorPtr timestampWithTimezoneLhs = makeTimestampWithTimeZoneVector(
-      timezones.size(),
-      [](auto /*row*/) { return 0; },
-      [&](auto row) { return timezones[row]; });
+      timestampsLhs.size(),
+      [&](auto row) { return timestampsLhs[row]; },
+      [&](auto row) { return timezonesLhs[row]; });
 
-  auto timestamps = std::vector<int64_t>{0, 1000, 0};
+  auto timestampsRhs = std::vector<int64_t>{0, 1000, 0};
+  auto timezonesRhs = std::vector<TimeZoneKey>{900, 900, 800};
   VectorPtr timestampWithTimezoneRhs = makeTimestampWithTimeZoneVector(
-      timestamps.size(),
-      [&](auto row) { return timestamps[row]; },
-      [](auto /*row*/) { return 900; });
+      timestampsRhs.size(),
+      [&](auto row) { return timestampsRhs[row]; },
+      [&](auto row) { return timezonesRhs[row]; });
   auto inputs =
       makeRowVector({timestampWithTimezoneLhs, timestampWithTimezoneRhs});
 
