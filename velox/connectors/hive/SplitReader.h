@@ -115,15 +115,6 @@ class SplitReader {
       const RowTypePtr& fileType,
       const std::shared_ptr<const velox::RowType>& tableSchema);
 
-  void setConstantValue(
-      common::ScanSpec* FOLLY_NONNULL spec,
-      const TypePtr& type,
-      const velox::variant& value) const;
-
-  void setNullConstantValue(
-      common::ScanSpec* FOLLY_NONNULL spec,
-      const TypePtr& type) const;
-
   void setPartitionValue(
       common::ScanSpec* FOLLY_NONNULL spec,
       const std::string& partitionKey,
