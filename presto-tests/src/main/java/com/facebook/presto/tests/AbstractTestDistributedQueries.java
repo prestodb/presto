@@ -31,11 +31,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -87,6 +89,21 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    private Random random = new Random();
+    private String testView;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        String randomSuffix = random.ints(5, 'a', 'z')
+                .collect(
+                        StringBuilder::new,
+                        StringBuilder::appendCodePoint,
+                        StringBuilder::append)
+                .toString();
+        testView = "test_view_" + randomSuffix;
+    }
+
     protected boolean supportsViews()
     {
         return true;
@@ -328,7 +345,7 @@ public abstract class AbstractTestDistributedQueries
                 "EXPLAIN ANALYZE SELECT x + y FROM (" +
                         "   SELECT orderdate, COUNT(*) x FROM orders GROUP BY orderdate) a JOIN (" +
                         "   SELECT orderdate, COUNT(*) y FROM orders GROUP BY orderdate) b ON a.orderdate = b.orderdate");
-        assertExplainAnalyze("" +
+        assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT *, o2.custkey\n" +
                 "  IN (\n" +
                 "    SELECT orderkey\n" +
@@ -816,21 +833,21 @@ public abstract class AbstractTestDistributedQueries
 
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
-        assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
-        assertUpdate("CREATE OR REPLACE VIEW test_view AS " + query);
+        assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
+        assertUpdate("CREATE OR REPLACE VIEW " + testView + " AS " + query);
 
-        assertQuery("SELECT * FROM test_view", query);
+        assertQuery("SELECT * FROM " + testView, query);
 
         assertQuery(
-                "SELECT * FROM test_view a JOIN test_view b on a.orderkey = b.orderkey",
+                "SELECT * FROM " + testView + " a JOIN " + testView + " b on a.orderkey = b.orderkey",
                 format("SELECT * FROM (%s) a JOIN (%s) b ON a.orderkey = b.orderkey", query, query));
 
-        assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM test_view", query);
+        assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM " + testView, query);
 
-        String name = format("%s.%s.test_view", getSession().getCatalog().get(), getSession().getSchema().get());
+        String name = format("%s.%s." + testView, getSession().getCatalog().get(), getSession().getSchema().get());
         assertQuery("SELECT * FROM " + name, query);
 
-        assertUpdate("DROP VIEW test_view");
+        assertUpdate("DROP VIEW " + testView);
     }
 
     @Test
@@ -838,10 +855,10 @@ public abstract class AbstractTestDistributedQueries
     {
         skipTestUnless(supportsViews());
 
-        computeActual("CREATE VIEW test_view_uppercase AS SELECT X FROM (SELECT 123 X)");
-        computeActual("CREATE VIEW test_view_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
-        assertQuery("SELECT * FROM test_view_uppercase", "SELECT X FROM (SELECT 123 X)");
-        assertQuery("SELECT * FROM test_view_mixedcase", "SELECT XyZ FROM (SELECT 456 XyZ)");
+        computeActual("CREATE VIEW " + testView + "_uppercase AS SELECT X FROM (SELECT 123 X)");
+        computeActual("CREATE VIEW " + testView + "_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
+        assertQuery("SELECT * FROM " + testView + "_uppercase", "SELECT X FROM (SELECT 123 X)");
+        assertQuery("SELECT * FROM " + testView + "_mixedcase", "SELECT XyZ FROM (SELECT 456 XyZ)");
     }
 
     @Test
@@ -850,17 +867,17 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a", 1);
-        assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
+        assertUpdate("CREATE VIEW " + testView + "_1 AS SELECT a FROM test_table_1");
 
-        assertQuery("SELECT * FROM test_view_1", "VALUES 'abcdefg'");
+        assertQuery("SELECT * FROM " + testView + "_1", "VALUES 'abcdefg'");
 
         // replace table with a version that's implicitly coercible to the previous one
         assertUpdate("DROP TABLE test_table_1");
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abc' a", 1);
 
-        assertQuery("SELECT * FROM test_view_1", "VALUES 'abc'");
+        assertQuery("SELECT * FROM " + testView + "_1", "VALUES 'abc'");
 
-        assertUpdate("DROP VIEW test_view_1");
+        assertUpdate("DROP VIEW " + testView + "_1");
         assertUpdate("DROP TABLE test_table_1");
     }
 
@@ -870,17 +887,17 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v", 1);
-        assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
+        assertUpdate("CREATE VIEW " + testView + "_2 AS SELECT * FROM test_table_2");
 
-        assertQuery("SELECT * FROM test_view_2", "VALUES 1");
+        assertQuery("SELECT * FROM " + testView + "_2", "VALUES 1");
 
         // replace table with a version that's implicitly coercible to the previous one
         assertUpdate("DROP TABLE test_table_2");
         assertUpdate("CREATE TABLE test_table_2 AS SELECT INTEGER '1' v", 1);
 
-        assertQuery("SELECT * FROM test_view_2 WHERE v = 1", "VALUES 1");
+        assertQuery("SELECT * FROM " + testView + "_2 WHERE v = 1", "VALUES 1");
 
-        assertUpdate("DROP VIEW test_view_2");
+        assertUpdate("DROP VIEW " + testView + "_2");
         assertUpdate("DROP TABLE test_table_2");
     }
 
@@ -890,7 +907,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
-        assertUpdate("CREATE VIEW meta_test_view AS " + query);
+        assertUpdate("CREATE VIEW meta_" + testView + " AS " + query);
 
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
@@ -900,7 +917,7 @@ public abstract class AbstractTestDistributedQueries
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("customer", "BASE TABLE")
                 .row("lineitem", "BASE TABLE")
-                .row("meta_test_view", "VIEW")
+                .row("meta_" + testView, "VIEW")
                 .row("nation", "BASE TABLE")
                 .row("orders", "BASE TABLE")
                 .row("part", "BASE TABLE")
@@ -929,13 +946,13 @@ public abstract class AbstractTestDistributedQueries
                 getSession().getSchema().get()));
 
         expected = resultBuilder(getSession(), actual.getTypes())
-                .row("meta_test_view", user, formatSqlText(query))
+                .row("meta_" + testView, user, formatSqlText(query))
                 .build();
 
         assertContains(actual, expected);
 
         // test SHOW COLUMNS
-        actual = computeActual("SHOW COLUMNS FROM meta_test_view");
+        actual = computeActual("SHOW COLUMNS FROM meta_" + testView);
 
         expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("x", "bigint", "", "")
@@ -949,14 +966,14 @@ public abstract class AbstractTestDistributedQueries
                 "CREATE VIEW %s.%s.%s AS %s",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                "meta_test_view",
+                "meta_" + testView,
                 query)).trim();
 
-        actual = computeActual("SHOW CREATE VIEW meta_test_view");
+        actual = computeActual("SHOW CREATE VIEW meta_" + testView);
 
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
-        assertUpdate("DROP VIEW meta_test_view");
+        assertUpdate("DROP VIEW meta_" + testView);
     }
 
     @Test
@@ -1101,7 +1118,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setIdentity(new Identity(testView + "_access_owner", Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .setSystemProperty("default_view_security_mode", INVOKER.name())
@@ -1109,32 +1126,32 @@ public abstract class AbstractTestDistributedQueries
 
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                "CREATE VIEW " + testView + "_access AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM " + testView + "_access",
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
 
         assertAccessDenied(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM " + testView + "_access",
                 "Cannot select from columns.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                "CREATE VIEW " + testView + "_access1 SECURITY DEFINER AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         assertAccessAllowed(
-                "SELECT * FROM test_view_access1",
+                "SELECT * FROM " + testView + "_access1",
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
 
         assertAccessAllowed(
-                "SELECT * FROM test_view_access1",
+                "SELECT * FROM " + testView + "_access1",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access1");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + testView + "_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + testView + "_access1");
     }
 
     @Test
@@ -1143,7 +1160,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setIdentity(new Identity(testView + "_access_owner", Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -1152,27 +1169,27 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 viewOwnerSession,
-                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                "CREATE VIEW " + testView + "_access AS SELECT * FROM orders",
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
-                "SELECT * FROM test_view_access",
-                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                "SELECT * FROM " + testView + "_access",
+                "View owner '" + testView + "_access_owner' cannot create view that selects from .*.orders.*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
         assertAccessAllowed(
                 viewOwnerSession,
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM " + testView + "_access",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM " + testView + "_access",
                 privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
-                "SELECT * FROM test_view_access",
+                "SELECT * FROM " + testView + "_access",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
@@ -1184,22 +1201,22 @@ public abstract class AbstractTestDistributedQueries
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
-                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
-                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "CREATE VIEW test_nested_view_access AS SELECT * FROM " + testView + "_access",
+                privilege(testView + "_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM test_nested_view_access",
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
-                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*." + testView + "_access.*",
+                privilege(nestedViewOwnerSession.getUser(), testView + "_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
         assertAccessAllowed(
                 "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(getSession().getUser(), testView + "_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
                 "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
+                privilege(getSession().getUser(), testView + "_access", SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
         assertAccessAllowed(
@@ -1215,7 +1232,7 @@ public abstract class AbstractTestDistributedQueries
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + testView + "_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
     }
 

@@ -121,7 +121,8 @@ public abstract class AbstractTestingPrestoClient<T>
 
             if (error.getFailureInfo() != null) {
                 RuntimeException remoteException = error.getFailureInfo().toException();
-                throw new RuntimeException(Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+                String message = Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString);
+                throw new RuntimeException(message, remoteException);
             }
             throw new RuntimeException("Query failed: " + error.getMessage());
 
