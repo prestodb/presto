@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -84,6 +85,7 @@ import static com.facebook.presto.SystemSessionProperties.isExperimentalFunction
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.NATIVE_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
@@ -128,6 +130,7 @@ public class FunctionAndTypeManager
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
     private final boolean nativeExecution;
+    public CatalogSchemaName currentDefaultNamespace = DEFAULT_NAMESPACE;
 
     @Inject
     public FunctionAndTypeManager(
@@ -248,14 +251,14 @@ public class FunctionAndTypeManager
     public void loadFunctionNamespaceManager(
             String functionNamespaceManagerName,
             String catalogName,
-            Map<String, String> properties)
+            Map<String, String> properties,
+            Optional<NodeManager> nodeManager)
     {
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this));
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
-
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
             throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
@@ -321,6 +324,12 @@ public class FunctionAndTypeManager
 
     public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory)
     {
+        addFunctionNamespaceFactory(factory, Optional.empty());
+    }
+
+    public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory, Optional<String> defaultNamespacePrefixString)
+    {
+        defaultNamespacePrefixString.ifPresent(this::configureDefaultNamespace);
         if (functionNamespaceManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
@@ -344,9 +353,18 @@ public class FunctionAndTypeManager
         ImmutableList.Builder<SqlFunction> functions = new ImmutableList.Builder<>();
         if (!isListBuiltInFunctionsOnly(session)) {
             functions.addAll(SessionFunctionUtils.listFunctions(session.getSessionFunctions()));
-            functions.addAll(functionNamespaceManagers.values().stream()
-                    .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
-                    .collect(toImmutableList()));
+            //filter out presto default namespace if native execution is enabled
+            if (nativeExecution) {
+                functions.addAll(functionNamespaceManagers.entrySet().stream()
+                        .filter(namespace -> !namespace.getKey().equals("presto"))
+                        .flatMap(manager -> manager.getValue().listFunctions(likePattern, escape).stream())
+                        .collect(toImmutableList()));
+            }
+            else {
+                functions.addAll(functionNamespaceManagers.values().stream()
+                        .flatMap(manager -> manager.listFunctions(likePattern, escape).stream())
+                        .collect(toImmutableList()));
+            }
         }
         else {
             functions.addAll(listBuiltInFunctions());
@@ -412,12 +430,22 @@ public class FunctionAndTypeManager
     public static QualifiedObjectName qualifyObjectName(QualifiedName name)
     {
         if (!name.getPrefix().isPresent()) {
-            return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
+            return QualifiedObjectName.valueOf(currentDefaultNamespace, name.getSuffix());
         }
         if (name.getOriginalParts().size() != 3) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
         }
         return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
+    }
+
+    public void configureDefaultNamespace(String defaultNamespacePrefixString)
+    {
+        String pattern = "[a-z]+\\.[a-z]+\\.";
+        if (!defaultNamespacePrefixString.matches(pattern)) {
+            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema.', found: %s", defaultNamespacePrefixString));
+        }
+        String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
+        this.currentDefaultNamespace = new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
     }
 
     /**
@@ -434,7 +462,7 @@ public class FunctionAndTypeManager
             QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes)
     {
-        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
+        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) || functionName.getCatalogSchemaName().equals(NATIVE_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
                 Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
@@ -690,7 +718,7 @@ public class FunctionAndTypeManager
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) || functionName.getCatalogSchemaName().equals(NATIVE_NAMESPACE), "Expect built-in functions");
         checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
         return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }

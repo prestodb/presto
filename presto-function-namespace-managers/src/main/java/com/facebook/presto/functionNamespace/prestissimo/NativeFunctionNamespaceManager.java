@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.prestissimo;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
@@ -25,6 +25,7 @@ import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -44,6 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -57,29 +61,52 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class JsonFileBasedFunctionNamespaceManager
+public class NativeFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
-    private static final Logger log = Logger.get(JsonFileBasedFunctionNamespaceManager.class);
-
-    private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
+    private static final Logger log = Logger.get(NativeFunctionNamespaceManager.class);
     private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
-    private final JsonFileBasedFunctionNamespaceManagerConfig managerConfig;
-    private final FunctionDefinitionProvider functionDefinitionProvider;
     private final Map<SqlFunctionHandle, AggregationFunctionImplementation> aggregationImplementationByHandle = new ConcurrentHashMap<>();
+    private final FunctionDefinitionProvider functionDefinitionProvider;
+    private final NodeManager nodeManager;
+    private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
+    private final Supplier<Map<SqlFunctionId, SqlInvokedFunction>> memoizedFunctionsSupplier;
 
     @Inject
-    public JsonFileBasedFunctionNamespaceManager(
+    public NativeFunctionNamespaceManager(
             @ServingCatalog String catalogName,
             SqlFunctionExecutors sqlFunctionExecutors,
             SqlInvokedFunctionNamespaceManagerConfig config,
-            JsonFileBasedFunctionNamespaceManagerConfig managerConfig,
-            FunctionDefinitionProvider functionDefinitionProvider)
+            FunctionDefinitionProvider functionDefinitionProvider,
+            NodeManager nodeManager)
     {
         super(catalogName, sqlFunctionExecutors, config);
-        this.managerConfig = requireNonNull(managerConfig, "managerConfig is null");
         this.functionDefinitionProvider = requireNonNull(functionDefinitionProvider, "functionDefinitionProvider is null");
-        bootstrapNamespaceFromFile();
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.memoizedFunctionsSupplier = Suppliers.memoizeWithExpiration(this::bootstrapNamespace,
+                config.getFunctionCacheExpiration().toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    private Map<SqlFunctionId, SqlInvokedFunction> bootstrapNamespace()
+    {
+        UdfFunctionSignatureMap nativeFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(nodeManager);
+        Map<SqlFunctionId, SqlInvokedFunction> latestFunctionsTemp = new ConcurrentHashMap<>();
+        if (nativeFunctionSignatureMap == null || nativeFunctionSignatureMap.isEmpty()) {
+            return latestFunctionsTemp;
+        }
+        populateNameSpaceManager(nativeFunctionSignatureMap);
+        latestFunctionsTemp.putAll(latestFunctions);
+        latestFunctions.clear();
+        return latestFunctionsTemp;
+    }
+
+    private void populateNameSpaceManager(UdfFunctionSignatureMap udfFunctionSignatureMap)
+    {
+        Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
+        udfSignatureMap.forEach((name, metaInfoList) -> {
+            List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo)).collect(toImmutableList());
+            functions.forEach(function -> createFunction(function, false));
+        });
     }
 
     @Override
@@ -119,27 +146,9 @@ public class JsonFileBasedFunctionNamespaceManager
                 function.getAggregationMetadata());
     }
 
-    private void bootstrapNamespaceFromFile()
+    protected SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
     {
-        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionPath());
-        if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
-            return;
-        }
-        populateNameSpaceManager(udfFunctionSignatureMap);
-    }
-
-    private void populateNameSpaceManager(UdfFunctionSignatureMap udfFunctionSignatureMap)
-    {
-        Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
-        udfSignatureMap.forEach((name, metaInfoList) -> {
-            List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo)).collect(toImmutableList());
-            functions.forEach(function -> createFunction(function, false));
-        });
-    }
-
-    private SqlInvokedFunction createSqlInvokedFunction(String functionName, JsonBasedUdfFunctionMetadata jsonBasedUdfFunctionMetaData)
-    {
-        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "JsonFileBasedFunctionNamespaceManager only supports CPP UDF");
+        checkState(jsonBasedUdfFunctionMetaData.getRoutineCharacteristics().getLanguage().equals(CPP), "NativeFunctionNamespaceManager only supports CPP UDF");
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
@@ -164,9 +173,9 @@ public class JsonFileBasedFunctionNamespaceManager
     @Override
     protected Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName)
     {
-        return latestFunctions.values().stream()
+        return memoizedFunctionsSupplier.get().values().stream()
                 .filter(function -> function.getSignature().getName().equals(functionName))
-                .map(JsonFileBasedFunctionNamespaceManager::copyFunction)
+                .map(NativeFunctionNamespaceManager::copyFunction)
                 .collect(toImmutableList());
     }
 
@@ -214,19 +223,19 @@ public class JsonFileBasedFunctionNamespaceManager
     @Override
     public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in JsonFileBasedFunctionNamespaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in NativeFunctionNamespaceManager");
     }
 
     @Override
     public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in JsonFileBasedFunctionNamespaceManager");
+        throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in NativeFunctionNamespaceManager");
     }
 
     @Override
     public Collection<SqlInvokedFunction> listFunctions(Optional<String> likePattern, Optional<String> escape)
     {
-        return latestFunctions.values();
+        return memoizedFunctionsSupplier.get().values();
     }
 
     @Override

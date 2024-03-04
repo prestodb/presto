@@ -16,6 +16,7 @@ package com.facebook.presto.nativeworker;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.functionNamespace.prestissimo.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.testing.QueryRunner;
@@ -504,5 +505,16 @@ public class PrestoNativeQueryRunnerUtils
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
+    }
+
+    public static void setupNativeFunctionNamespaceManager(QueryRunner queryRunner, String catalogName)
+    {
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadNativeFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                catalogName,
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP"));
     }
 }

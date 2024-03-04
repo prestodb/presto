@@ -33,6 +33,7 @@ public class PluginManagerConfig
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
     private ImmutableSet<String> disabledConnectors = ImmutableSet.of();
+    private String defaultNamespacePrefix = "presto.default.";
 
     public File getInstalledPluginsDir()
     {
@@ -112,6 +113,19 @@ public class PluginManagerConfig
     public PluginManagerConfig setDisabledConnectors(String disabledConnectors)
     {
         this.disabledConnectors = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(disabledConnectors));
+        return this;
+    }
+
+    @NotNull
+    public String getDefaultNamespacePrefix()
+    {
+        return defaultNamespacePrefix;
+    }
+
+    @Config("presto.default-namespace")
+    public PluginManagerConfig setDefaultNamespacePrefix(String defaultNamespacePrefix)
+    {
+        this.defaultNamespacePrefix = defaultNamespacePrefix;
         return this;
     }
 }

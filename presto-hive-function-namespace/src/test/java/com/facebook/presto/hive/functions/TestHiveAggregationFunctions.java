@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -149,7 +150,8 @@ public class TestHiveAggregationFunctions
         functionAndTypeManager.loadFunctionNamespaceManager(
                 "hive-functions",
                 "hive",
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                Optional.empty());
         server.refreshNodes();
         return server;
     }

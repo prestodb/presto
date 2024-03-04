@@ -22,6 +22,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
@@ -78,7 +79,7 @@ public class StaticFunctionNamespaceStore
         String functionNamespaceManagerName = properties.remove(FUNCTION_NAMESPACE_MANAGER_NAME);
         checkState(!isNullOrEmpty(functionNamespaceManagerName), "%s property must be present", FUNCTION_NAMESPACE_MANAGER_NAME);
 
-        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.empty());
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 
