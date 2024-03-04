@@ -14,6 +14,8 @@
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <optional>
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
+#include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/exec/Exchange.h"
 
@@ -52,6 +54,16 @@ dwio::common::FileFormat toVeloxFileFormat(
     return dwio::common::FileFormat::PARQUET;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+}
+
+velox::connector::hive::iceberg::FileContent toVeloxFileContent(
+    const presto::protocol::FileContent content) {
+  if (content == protocol::FileContent::DATA) {
+    return velox::connector::hive::iceberg::FileContent::kData;
+  } else if (content == protocol::FileContent::POSITION_DELETES) {
+    return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+  }
+  VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
 
 } // anonymous namespace
@@ -115,14 +127,43 @@ velox::exec::Split toVeloxSplit(
               : std::optional<std::string>{*entry.second.value});
     }
 
+    std::unordered_map<std::string, std::string> customSplitInfo;
+    customSplitInfo["table_format"] = "hive-iceberg";
+
+    std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> deletes;
+    deletes.reserve(icebergSplit->deletes.size());
+    for (const auto& deleteFile : icebergSplit->deletes) {
+      std::unordered_map<int32_t, std::string> lowerBounds(
+          deleteFile.lowerBounds.begin(), deleteFile.lowerBounds.end());
+
+      std::unordered_map<int32_t, std::string> upperBounds(
+          deleteFile.upperBounds.begin(), deleteFile.upperBounds.end());
+
+      velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
+          toVeloxFileContent(deleteFile.content),
+          deleteFile.path,
+          toVeloxFileFormat(deleteFile.format),
+          deleteFile.recordCount,
+          deleteFile.fileSizeInBytes,
+          std::vector(deleteFile.equalityFieldIds),
+          lowerBounds,
+          upperBounds);
+
+      deletes.emplace_back(icebergDeleteFile);
+    }
+
     return velox::exec::Split(
-        std::make_shared<connector::hive::HiveConnectorSplit>(
+        std::make_shared<connector::hive::iceberg::HiveIcebergSplit>(
             scheduledSplit.split.connectorId,
             icebergSplit->path,
             toVeloxFileFormat(icebergSplit->fileFormat),
             icebergSplit->start,
             icebergSplit->length,
-            partitionKeys),
+            partitionKeys,
+            std::nullopt,
+            customSplitInfo,
+            nullptr,
+            deletes),
         splitGroupId);
   }
 

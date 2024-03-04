@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -89,6 +90,11 @@ public abstract class AbstractTestFunctions
     {
         closeAllRuntimeException(functionAssertions);
         functionAssertions = null;
+    }
+
+    public FunctionAndTypeManager getFunctionAndTypeManager()
+    {
+        return functionAssertions.getFunctionAndTypeManager();
     }
 
     protected void assertFunction(String projection, Type expectedType, Object expected)

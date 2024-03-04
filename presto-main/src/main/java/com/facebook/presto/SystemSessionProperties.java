@@ -118,6 +118,8 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
+
+    public static final String QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES = "query_max_written_intermediate_bytes";
     public static final String QUERY_MAX_OUTPUT_POSITIONS = "query_max_output_positions";
     public static final String QUERY_MAX_OUTPUT_SIZE = "query_max_output_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
@@ -620,6 +622,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_SCAN_RAW_INPUT_BYTES,
                         "Maximum scan raw input bytes of a query",
                         queryManagerConfig.getQueryMaxScanRawInputBytes(),
+                        false),
+                dataSizeProperty(
+                        QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES,
+                        "Maximum written intermediate bytes of a query",
+                        queryManagerConfig.getQueryMaxWrittenIntermediateBytes(),
                         false),
                 longProperty(
                         QUERY_MAX_OUTPUT_POSITIONS,
@@ -2251,6 +2258,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static DataSize getQueryMaxWrittenIntermediateBytesLimit(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES, DataSize.class);
     }
 
     public static DataSize getQueryMaxScanRawInputBytes(Session session)

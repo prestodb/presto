@@ -52,6 +52,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -61,6 +62,8 @@ import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -336,10 +339,10 @@ public class TestQuickStatsProvider
 
     @Test
     public void quickStatsBuildTimeIsBounded()
-            throws InterruptedException
+            throws Exception
     {
         QuickStatsBuilder longRunningQuickStatsBuilderMock = mock(QuickStatsBuilder.class);
-        ImmutableMap<String, Integer> mockPerPartitionStatsFetchTimes = ImmutableMap.of("p1", 10, "p2", 20, "p3", 500, "p4", 800);
+        ImmutableMap<String, Integer> mockPerPartitionStatsFetchTimes = ImmutableMap.of("p1", 10, "p2", 20, "p3", 1500, "p4", 1800);
         for (Map.Entry<String, Integer> partitionToSleepEntry : mockPerPartitionStatsFetchTimes.entrySet()) {
             when(longRunningQuickStatsBuilderMock.buildQuickStats(any(), any(), any(), any(), eq(partitionToSleepEntry.getKey()), any()))
                     .thenAnswer((Answer<PartitionQuickStats>) invocationOnMock -> {
@@ -348,10 +351,9 @@ public class TestQuickStatsProvider
                     });
         }
 
-        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
-                ImmutableList.of(longRunningQuickStatsBuilderMock));
-
         {
+            QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                    ImmutableList.of(longRunningQuickStatsBuilderMock));
             // Create a session where an inline build will occur for any newly requested partition
             ConnectorSession session = getSession("300ms", "0ms");
             List<String> testPartitions = ImmutableList.copyOf(mockPerPartitionStatsFetchTimes.keySet());
@@ -376,7 +378,7 @@ public class TestQuickStatsProvider
             // Create a session where no inline builds will occur for any requested partition; empty() quick stats will be returned
             ConnectorSession session = getSession("0ms", "0ms");
 
-            quickStatsProvider = new QuickStatsProvider(hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+            QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
                     ImmutableList.of((session1, metastore, table, metastoreContext, partitionId, files) -> mockPartitionQuickStats));
 
             Map<String, PartitionStatistics> quickStats = quickStatsProvider.getQuickStats(session, metastoreMock,
@@ -386,15 +388,25 @@ public class TestQuickStatsProvider
             assertEquals(quickStats.get("p5"), empty());
             assertEquals(quickStats.get("p6"), empty());
 
-            // Subsequent queries for the same partitions will fetch the cached stats though
-            Thread.sleep(250); // Sleep to allow futures to complete
+            // Subsequent queries for the same partitions will fetch the cached stats
+            // Stats may not appear immediately, so we retry with exponential delay
+            retry()
+                    .maxAttempts(10)
+                    .exponentialBackoff(new Duration(20D, MILLISECONDS), new Duration(500D, MILLISECONDS), new Duration(2, SECONDS), 2.0)
+                    .run("waitForQuickStatsBuild", () -> {
+                        Map<String, PartitionStatistics> quickStatsAfter = quickStatsProvider.getQuickStats(session, metastoreMock,
+                                new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, ImmutableList.of("p5", "p6"));
 
-            quickStats = quickStatsProvider.getQuickStats(session, metastoreMock,
-                    new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, ImmutableList.of("p5", "p6"));
-
-            assertEquals(quickStats.size(), 2);
-            assertEquals(quickStats.get("p5"), convertToPartitionStatistics(mockPartitionQuickStats));
-            assertEquals(quickStats.get("p6"), convertToPartitionStatistics(mockPartitionQuickStats));
+                        try {
+                            assertEquals(quickStatsAfter.size(), 2);
+                            assertEquals(quickStatsAfter.get("p5"), convertToPartitionStatistics(mockPartitionQuickStats));
+                            assertEquals(quickStatsAfter.get("p6"), convertToPartitionStatistics(mockPartitionQuickStats));
+                            return true;
+                        }
+                        catch (AssertionError e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 }

@@ -80,6 +80,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
@@ -92,6 +93,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -1685,6 +1687,16 @@ public class TestArrayOperators
         assertFunction("REPEAT(true, 1)", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("REPEAT(0.5E0, 4)", new ArrayType(DOUBLE), ImmutableList.of(0.5, 0.5, 0.5, 0.5));
         assertFunction("REPEAT(array[1], 4)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1), ImmutableList.of(1)));
+        assertFunction("repeat(cast(1 as integer), 10)", new ArrayType(INTEGER), nCopies(10, 1));
+        assertFunction("repeat(cast(1 as integer), 0)", new ArrayType(INTEGER), nCopies(0, 1));
+        assertFunction("repeat(cast(1 as bigint), 10)", new ArrayType(BIGINT), nCopies(10, (long) 1));
+        assertFunction("repeat(cast('ab' as varchar), 10)", new ArrayType(VARCHAR), nCopies(10, "ab"));
+        assertFunction("repeat(array[cast(2 as bigint)], 10)", new ArrayType(new ArrayType(BIGINT)), nCopies(10, ImmutableList.of((long) 2)));
+        assertFunction("repeat(array[cast(2 as bigint), 3], 10)", new ArrayType(new ArrayType(BIGINT)), nCopies(10, ImmutableList.of((long) 2, (long) 3)));
+        assertFunction("repeat(array[cast(2 as integer)], 10)", new ArrayType(new ArrayType(INTEGER)), nCopies(10, ImmutableList.of(2)));
+        assertFunction("repeat(map(array[cast(2 as integer)], array[cast('ab' as varchar)]), 10)", new ArrayType(createMapType(getFunctionAndTypeManager(), INTEGER, VARCHAR)), nCopies(10, ImmutableMap.of(2, "ab")));
+        assertFunction("REPEAT('loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar', 9999)", new ArrayType(createVarcharType(108)), nCopies(9999, "loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar"));
+        assertFunction("REPEAT(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 9999)", new ArrayType(new ArrayType(INTEGER)), nCopies(9999, ImmutableList.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)));
 
         // null values
         assertFunction("REPEAT(null, 4)", new ArrayType(UNKNOWN), asList(null, null, null, null));
@@ -1693,6 +1705,7 @@ public class TestArrayOperators
         assertFunction("REPEAT(cast(null as varchar), 4)", new ArrayType(VARCHAR), asList(null, null, null, null));
         assertFunction("REPEAT(cast(null as boolean), 4)", new ArrayType(BOOLEAN), asList(null, null, null, null));
         assertFunction("REPEAT(cast(null as array(boolean)), 4)", new ArrayType(new ArrayType(BOOLEAN)), asList(null, null, null, null));
+        assertFunction("repeat(cast(null as varchar), 10)", new ArrayType(VARCHAR), nCopies(10, null));
 
         // 0 counts
         assertFunction("REPEAT(cast(null as bigint), 0)", new ArrayType(BIGINT), ImmutableList.of());
@@ -1705,8 +1718,6 @@ public class TestArrayOperators
         // illegal inputs
         assertInvalidFunction("REPEAT(2, -1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("REPEAT(1, 1000000)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("REPEAT('loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar', 9999)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("REPEAT(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], 9999)", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
