@@ -168,58 +168,76 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================================== ============================================================= ============
-Property Name                                      Description                                                   Default
-================================================== ============================================================= ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default, and the rest of the URIs are
-                                                   fallback metastores.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-                                                   This property is required if the
-                                                   ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
-                                                   be ignored.
+======================================================= ============================================================= ============
+Property Name                                           Description                                                   Default
+======================================================= ============================================================= ============
+``hive.metastore.uri``                                  The URI(s) of the Hive metastore to connect to using the
+                                                        Thrift protocol. If multiple URIs are provided, the first
+                                                        URI is used by default, and the rest of the URIs are
+                                                        fallback metastores.
 
-``iceberg.file-format``                            The storage file format for Iceberg tables. The available     ``ORC``
-                                                   values are ``PARQUET`` and ``ORC``.
+                                                        Example: ``thrift://192.0.2.3:9083`` or
+                                                        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
 
-``iceberg.compression-codec``                      The compression codec to use when writing files. The          ``GZIP``
-                                                   available values are ``NONE``, ``SNAPPY``, ``GZIP``,
-                                                   ``LZ4``, and ``ZSTD``.
+                                                        This property is required if the
+                                                        ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
+                                                        be ignored.
 
-``iceberg.catalog.type``                           The catalog type for Iceberg tables. The available values     ``hive``
-                                                   are ``hive``, ``hadoop``, and ``nessie`` corresponding to
-                                                   the catalogs in Iceberg.
+``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``hive``
+                                                        are ``hive``, ``hadoop``, and ``nessie``.
 
-``iceberg.catalog.warehouse``                      The catalog warehouse root path for Iceberg tables.
-                                                   ``Example: hdfs://nn:8020/warehouse/path``
-                                                   This property is required if the ``iceberg.catalog.type`` is
-                                                   ``hadoop``. Otherwise, it will be ignored.
+``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
-``iceberg.catalog.cached-catalog-num``             The number of Iceberg catalogs to cache. This property is     ``10``
-                                                   required if the ``iceberg.catalog.type`` is ``hadoop``.
-                                                   Otherwise, it will be ignored.
+                                                        Example: ``hdfs://nn:8020/warehouse/path``
+                                                        This property is required if the ``iceberg.catalog.type`` is
+                                                        ``hadoop``. Otherwise, it will be ignored.
 
-``iceberg.hadoop.config.resources``                The path(s) for Hadoop configuration resources.
-                                                   ``Example: /etc/hadoop/conf/core-site.xml.`` This property
-                                                   is required if the iceberg.catalog.type is hadoop. Otherwise,
-                                                   it will be ignored.
+``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
+                                                        required if the ``iceberg.catalog.type`` is ``hadoop``.
+                                                        Otherwise, it will be ignored.
 
-``iceberg.max-partitions-per-writer``              The Maximum number of partitions handled per writer.          ``100``
+``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.
 
-``iceberg.minimum-assigned-split-weight``          A decimal value in the range (0, 1] is used as a minimum      ``0.05``
-                                                   for weights assigned to each split. A low value may improve
-                                                   performance on tables with small files. A higher value may
-                                                   improve performance for queries with highly skewed
-                                                   aggregations or joins.
+                                                        Example: ``/etc/hadoop/conf/core-site.xml.`` This property
+                                                        is required if the iceberg.catalog.type is ``hadoop``.
+                                                        Otherwise, it will be ignored.
 
-``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
-                                                   updates.
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``ORC``
+                                                        values are ``PARQUET`` and ``ORC``.
 
-``iceberg.delete-as-join-rewrite-enabled``         When enabled, equality delete row filtering is applied        ``true``
-                                                   as a join with the data of the equality delete files.
-================================================== ============================================================= ============
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
+                                                        available values are ``NONE``, ``SNAPPY``, ``GZIP``,
+                                                        ``LZ4``, and ``ZSTD``.
+
+``iceberg.max-partitions-per-writer``                   The Maximum number of partitions handled per writer.          ``100``
+
+``iceberg.minimum-assigned-split-weight``               A decimal value in the range (0, 1] is used as a minimum      ``0.05``
+                                                        for weights assigned to each split. A low value may improve
+                                                        performance on tables with small files. A higher value may
+                                                        improve performance for queries with highly skewed
+                                                        aggregations or joins.
+
+``iceberg.enable-merge-on-read-mode``                   Enable reading base tables that use merge-on-read for         ``true``
+                                                        updates.
+
+``iceberg.delete-as-join-rewrite-enabled``              When enabled, equality delete row filtering is applied        ``true``
+                                                        as a join with the data of the equality delete files.
+
+``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
+
+``iceberg.hive-statistics-merge-strategy``              Determines how to merge statistics that are stored in the     ``NONE``
+                                                        Hive Metastore. The available values are ``NONE``,
+                                                        ``USE_NULLS_FRACTION_AND_NDV``, ``USE_NULLS_FRACTIONS``
+                                                        and, ``USE_NDV``
+
+``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
+                                                        when calculating the closest snapshot when picking
+                                                        statistics. A value of 1 means a single record is equivalent
+                                                        to 1 millisecond of time difference.
+
+``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``
+                                                        only supported with Native Worker.
+======================================================= ============================================================= ============
 
 Table Properties
 ------------------------
@@ -395,7 +413,7 @@ Metastore cache only caches schema and table names. Other metadata would be fetc
     hive.metastore-cache-maximum-size=10000000
 
 Extra Hidden Metadata Columns
-----------------------------
+-----------------------------
 
 The Iceberg connector exposes extra hidden metadata columns. You can query these
 as part of a SQL query by including them in your SELECT statement.
@@ -403,6 +421,7 @@ as part of a SQL query by including them in your SELECT statement.
 ``$path`` column
 ^^^^^^^^^^^^^^^^
 * ``$path``: Full file system path name of the file for this row
+
 .. code-block:: sql
 
     SELECT "$path", regionkey FROM "ctas_nation";
@@ -416,6 +435,7 @@ as part of a SQL query by including them in your SELECT statement.
 ``$data_sequence_number`` column
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
+
 .. code-block:: sql
 
     SELECT "$data_sequence_number", regionkey FROM "ctas_nation";
@@ -435,6 +455,7 @@ as a part of a SQL query by appending name to the table.
 ``$properties`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$properties`` : General properties of the given table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$properties";
@@ -448,6 +469,7 @@ as a part of a SQL query by appending name to the table.
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
 * ``$history`` : History of table state changes
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$history";
@@ -461,6 +483,7 @@ as a part of a SQL query by appending name to the table.
 ``$snapshots`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$snapshots`` : Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$snapshots";
@@ -474,6 +497,7 @@ as a part of a SQL query by appending name to the table.
 ``$manifests`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$manifests`` : Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$manifests";
@@ -487,6 +511,7 @@ as a part of a SQL query by appending name to the table.
 ``$partitions`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$partitions`` : Detailed partition information for the table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$partitions";
@@ -500,6 +525,7 @@ as a part of a SQL query by appending name to the table.
 ``$files`` Table
 ^^^^^^^^^^^^^^^^
 * ``$files`` : Overview of data files in the current snapshot of the table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$files";
@@ -836,7 +862,7 @@ Drop the schema ``iceberg.web``::
     DROP SCHEMA iceberg.web
 
 Register table
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog using the ``register_table``
@@ -868,7 +894,7 @@ in the case where a specific metadata file contains the targeted table state::
     using the Hive connector will fail.
 
 Unregister table
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^
 
 Iceberg tables can be unregistered from the catalog using the ``unregister_table``
 procedure on the catalog's ``system`` schema::
