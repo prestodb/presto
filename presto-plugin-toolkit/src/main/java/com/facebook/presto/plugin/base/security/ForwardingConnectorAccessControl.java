@@ -243,10 +243,4 @@ public abstract class ForwardingConnectorAccessControl
     {
         delegate().checkCanDropConstraint(transactionHandle, identity, context, tableName);
     }
-
-    @Override
-    public void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
-    {
-        delegate().checkCanAddConstraint(transactionHandle, identity, context, tableName);
-    }
 }

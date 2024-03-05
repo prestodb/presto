@@ -218,9 +218,4 @@ public class AllowAllAccessControl
     public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
     }
-
-    @Override
-    public void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
-    {
-    }
 }

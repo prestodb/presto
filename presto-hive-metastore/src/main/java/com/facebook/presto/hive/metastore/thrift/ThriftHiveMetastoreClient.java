@@ -14,8 +14,6 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.hive.metastore.api.AddPrimaryKeyRequest;
-import org.apache.hadoop.hive.metastore.api.AddUniqueConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
@@ -41,8 +39,6 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
-import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
-import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -485,21 +481,5 @@ public class ThriftHiveMetastoreClient
     {
         DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(dbName, tableName, constraintName);
         client.drop_constraint(dropConstraintRequest);
-    }
-
-    @Override
-    public void addUniqueConstraint(List<SQLUniqueConstraint> constraint)
-            throws TException
-    {
-        AddUniqueConstraintRequest addUniqueConstraintRequest = new AddUniqueConstraintRequest(constraint);
-        client.add_unique_constraint(addUniqueConstraintRequest);
-    }
-
-    @Override
-    public void addPrimaryKeyConstraint(List<SQLPrimaryKey> constraint)
-            throws TException
-    {
-        AddPrimaryKeyRequest addPrimaryKeyRequest = new AddPrimaryKeyRequest(constraint);
-        client.add_primary_key(addPrimaryKeyRequest);
     }
 }

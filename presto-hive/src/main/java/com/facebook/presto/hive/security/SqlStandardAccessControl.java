@@ -50,7 +50,6 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.list
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -203,15 +202,6 @@ public class SqlStandardAccessControl
         MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyDropConstraint(tableName.toString());
-        }
-    }
-
-    @Override
-    public void checkCanAddConstraint(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
-    {
-        MetastoreContext metastoreContext = new MetastoreContext(identity, context.getQueryId().getId(), context.getClientInfo(), context.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, context.getWarningCollector(), context.getRuntimeStats());
-        if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
-            denyAddConstraint(tableName.toString());
         }
     }
 

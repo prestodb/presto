@@ -27,8 +27,6 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
-import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
-import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
@@ -172,11 +170,5 @@ public interface HiveMetastoreClient
             throws TException;
 
     void dropConstraint(String dbName, String tableName, String constraintName)
-            throws TException;
-
-    void addUniqueConstraint(List<SQLUniqueConstraint> constraint)
-            throws TException;
-
-    void addPrimaryKeyConstraint(List<SQLPrimaryKey> constraint)
             throws TException;
 }

@@ -37,7 +37,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
-import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -407,19 +406,6 @@ public class BridgingHiveMetastore
     public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
     {
         return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
-    {
-        MetastoreOperationResult result;
-        if (tableConstraint instanceof UniqueConstraint || tableConstraint instanceof PrimaryKeyConstraint) {
-            result = delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
-        }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Hive metastore supports only unique/primary key constraints");
-        }
-        return result;
     }
 
     @Override

@@ -217,9 +217,4 @@ public class AllowAllSystemAccessControl
     public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
-
-    @Override
-    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-    }
 }

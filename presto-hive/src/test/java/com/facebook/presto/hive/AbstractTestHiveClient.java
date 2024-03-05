@@ -734,14 +734,14 @@ public abstract class AbstractTestHiveClient
 
     protected List<SchemaTableName> constraintsTableList;
 
-    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1")), false, true, false),
-            new UniqueConstraint<>(Optional.of("uk1"), new LinkedHashSet<>(ImmutableList.of("c2")), false, true, false));
-    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, true, false),
-            new UniqueConstraint<>(Optional.of("uk2"), new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, true, false));
-    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1")), false, false, false),
-            new UniqueConstraint<>(Optional.of("uk3"), new LinkedHashSet<>(ImmutableList.of("c2")), false, false, false));
-    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, false, false),
-            new UniqueConstraint<>(Optional.of("uk4"), new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, false, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), false, true, false),
+            new UniqueConstraint<>("uk1", new LinkedHashSet<>(ImmutableList.of("c2")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, true, false),
+            new UniqueConstraint<>("uk2", new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), false, false, false),
+            new UniqueConstraint<>("uk3", new LinkedHashSet<>(ImmutableList.of("c2")), false, false, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, false, false),
+            new UniqueConstraint<>("uk4", new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, false, false));
 
     Map<SchemaTableName, List<TableConstraint<String>>> tableConstraintsMap;
 
