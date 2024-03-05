@@ -348,10 +348,6 @@ class GroupingSet {
   // Pool of the OperatorCtx. Used for spilling.
   memory::MemoryPool& pool_;
 
-  // Counts input batches and triggers spilling if folly hash of this % 100 <=
-  // 'spillConfig_->testSpillPct'.
-  uint64_t spillTestCounter_{0};
-
   // True if partial aggregation has been given up as non-productive.
   bool abandonedPartialAggregation_{false};
 

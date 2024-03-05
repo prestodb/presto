@@ -230,8 +230,6 @@ class QueryConfig {
   /// value is set to 100 GB.
   static constexpr const char* kMaxSpillBytes = "max_spill_bytes";
 
-  static constexpr const char* kTestingSpillPct = "testing.spill_pct";
-
   /// The max allowed spilling level with zero being the initial spilling level.
   /// This only applies for hash build spilling which might trigger recursive
   /// spilling when the build table is too big. If it is set to -1, then there
@@ -561,12 +559,6 @@ class QueryConfig {
   /// check the spillEnabled()!
   bool topNRowNumberSpillEnabled() const {
     return get<bool>(kTopNRowNumberSpillEnabled, true);
-  }
-
-  /// Returns a percentage of aggregation or join input batches that will be
-  /// forced to spill for testing. 0 means no extra spilling.
-  int32_t testingSpillPct() const {
-    return get<int32_t>(kTestingSpillPct, 0);
   }
 
   int32_t maxSpillLevel() const {

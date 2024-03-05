@@ -590,8 +590,8 @@ TEST_F(FirstAggregateTest, spillingAndSorting) {
 
   auto spillDirectory = exec::test::TempDirectoryPath::create();
 
+  exec::TestScopedSpillInjection scopedSpillInjection(100);
   results = AssertQueryBuilder(plan)
-                .config(core::QueryConfig::kTestingSpillPct, "100")
                 .config(core::QueryConfig::kSpillEnabled, "true")
                 .config(core::QueryConfig::kAggregationSpillEnabled, "true")
                 .spillDirectory(spillDirectory->path)

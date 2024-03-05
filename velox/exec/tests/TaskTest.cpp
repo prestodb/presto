@@ -1383,8 +1383,7 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
   params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
-       {core::QueryConfig::kAggregationSpillEnabled, "true"},
-       {core::QueryConfig::kTestingSpillPct, "100"}});
+       {core::QueryConfig::kAggregationSpillEnabled, "true"}});
   params.maxDrivers = 1;
 
   auto cursor = TaskCursor::create(params);
@@ -1394,6 +1393,7 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
       rootTempDir->path + "/spillDirectoryLifecycleManagement";
   task->setSpillDirectory(tmpDirectoryPath, false);
 
+  TestScopedSpillInjection scopedSpillInjection(100);
   while (cursor->moveNext()) {
   }
   ASSERT_TRUE(waitForTaskCompletion(task.get(), 5'000'000));

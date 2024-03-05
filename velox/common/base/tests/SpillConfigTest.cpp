@@ -40,7 +40,6 @@ TEST(SpillConfig, spillLevel) {
       0,
       0,
       0,
-      0,
       "none");
   struct {
     uint8_t bitOffset;
@@ -127,7 +126,6 @@ TEST(SpillConfig, spillLevelLimit) {
         testData.maxSpillLevel,
         0,
         0,
-        0,
         "none");
 
     ASSERT_EQ(
@@ -174,7 +172,6 @@ TEST(SpillConfig, spillableReservationPercentages) {
           0,
           0,
           1'000'000,
-          0,
           0,
           "none");
     };

@@ -346,6 +346,7 @@ class TableWriteTest : public HiveConnectorTestBase {
     }
 
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    TestScopedSpillInjection scopedSpillInjection(100);
     return AssertQueryBuilder(plan, duckDbQueryRunner_)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(
@@ -357,7 +358,6 @@ class TableWriteTest : public HiveConnectorTestBase {
             std::to_string(numPartitionedTableWriterCount_))
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(QueryConfig::kWriterSpillEnabled, "true")
-        .config(QueryConfig::kTestingSpillPct, "100")
         .copyResults(pool());
   }
 

@@ -1650,12 +1650,12 @@ TEST_F(AggregationTest, spillDuringOutputProcessing) {
   const int numOutputRows = 5;
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
           .spillDirectory(tempDirectory->path)
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
-          .config(QueryConfig::kTestingSpillPct, "100")
           // Set very large output buffer size, the number of output rows is
           // effectively controlled by 'kPreferredOutputBatchBytes'.
           .config(
@@ -1818,11 +1818,11 @@ TEST_F(AggregationTest, distinctWithSpilling) {
   createDuckDbTable(vectors);
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task = AssertQueryBuilder(duckDbQueryRunner_)
                   .spillDirectory(spillDirectory->path)
                   .config(QueryConfig::kSpillEnabled, true)
                   .config(QueryConfig::kAggregationSpillEnabled, true)
-                  .config(QueryConfig::kTestingSpillPct, "100")
                   .plan(PlanBuilder()
                             .values(vectors)
                             .singleAggregation({"c0"}, {}, {})
@@ -1841,12 +1841,12 @@ TEST_F(AggregationTest, spillingForAggrsWithDistinct) {
   createDuckDbTable(vectors);
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
           .spillDirectory(spillDirectory->path)
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
-          .config(QueryConfig::kTestingSpillPct, "100")
           .plan(PlanBuilder()
                     .values(vectors)
                     .singleAggregation({"c1"}, {"count(DISTINCT c0)"}, {})
@@ -1857,7 +1857,6 @@ TEST_F(AggregationTest, spillingForAggrsWithDistinct) {
   const auto& queryConfig = task->queryCtx()->queryConfig();
   ASSERT_TRUE(queryConfig.spillEnabled());
   ASSERT_TRUE(queryConfig.aggregationSpillEnabled());
-  ASSERT_EQ(100, queryConfig.testingSpillPct());
   ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
@@ -1871,11 +1870,11 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
 
   auto testPlan = [&](const core::PlanNodePtr& plan, const std::string& sql) {
     SCOPED_TRACE(sql);
+    TestScopedSpillInjection scopedSpillInjection(100);
     auto task = AssertQueryBuilder(duckDbQueryRunner_)
                     .spillDirectory(spillDirectory->path)
                     .config(QueryConfig::kSpillEnabled, true)
                     .config(QueryConfig::kAggregationSpillEnabled, true)
-                    .config(QueryConfig::kTestingSpillPct, "100")
                     .plan(plan)
                     .assertResults(sql);
 
@@ -1970,12 +1969,12 @@ TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
   createDuckDbTable(vectors);
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
           .spillDirectory(spillDirectory->path)
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
-          .config(QueryConfig::kTestingSpillPct, "100")
           .plan(PlanBuilder()
                     .values(vectors)
                     .aggregation(

@@ -98,7 +98,6 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         0,
         0,
         writerFlushThreshold,
-        0,
         "none");
   }
 

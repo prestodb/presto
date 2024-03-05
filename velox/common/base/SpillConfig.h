@@ -60,7 +60,6 @@ struct SpillConfig {
       int32_t _maxSpillLevel,
       uint64_t _maxSpillRunRows,
       uint64_t _writerFlushThresholdSize,
-      int32_t _testSpillPct,
       const std::string& _compressionKind,
       const std::string& _fileCreateConfig = {});
 
@@ -136,10 +135,6 @@ struct SpillConfig {
   /// Minimum memory footprint size required to reclaim memory from a file
   /// writer by flushing its buffered data to disk.
   uint64_t writerFlushThresholdSize;
-
-  /// Percentage of input batches to be spilled for testing. 0 means no
-  /// spilling for test.
-  int32_t testSpillPct;
 
   /// CompressionKind when spilling, CompressionKind_NONE means no compression.
   common::CompressionKind compressionKind;

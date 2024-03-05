@@ -823,9 +823,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   const int64_t flatBytes = input->estimateFlatSize();
 
   // Test-only spill path.
-  if (spillConfig_->testSpillPct > 0 &&
-      (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
-          spillConfig_->testSpillPct) {
+  if (testingTriggerSpill()) {
     spill();
     return;
   }
@@ -895,9 +893,7 @@ void GroupingSet::ensureOutputFits() {
   }
 
   // Test-only spill path.
-  if (spillConfig_->testSpillPct > 0 &&
-      (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
-          spillConfig_->testSpillPct) {
+  if (testingTriggerSpill()) {
     spill(RowContainerIterator{});
     return;
   }

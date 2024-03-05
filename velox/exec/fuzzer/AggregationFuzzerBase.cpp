@@ -373,12 +373,13 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
 
     builder.configs(queryConfigs_);
 
+    int32_t spillPct{0};
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
       builder.spillDirectory(spillDirectory->path)
           .config(core::QueryConfig::kSpillEnabled, "true")
-          .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-          .config(core::QueryConfig::kTestingSpillPct, "100");
+          .config(core::QueryConfig::kAggregationSpillEnabled, "true");
+      spillPct = 100;
     }
 
     if (abandonPartial) {
@@ -392,6 +393,7 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
       builder.splits(splits);
     }
 
+    TestScopedSpillInjection scopedSpillInjection(spillPct);
     resultOrError.result =
         builder.maxDrivers(maxDrivers).copyResults(pool_.get());
   } catch (VeloxUserError& e) {

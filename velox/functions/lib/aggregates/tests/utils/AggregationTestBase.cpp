@@ -24,6 +24,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/AggregateCompanionSignatures.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/Spill.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/expression/Expr.h"
@@ -376,12 +377,12 @@ void AggregationTestBase::testAggregationsWithCompanion(
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
-        .config(core::QueryConfig::kTestingSpillPct, 100)
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kAggregationSpillEnabled, true)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(4);
 
+    exec::TestScopedSpillInjection scopedSpillInjection(100);
     auto task = assertResults(queryBuilder);
 
     // Expect > 0 spilled bytes unless there was no input.
@@ -785,12 +786,12 @@ void AggregationTestBase::testAggregationsImpl(
         memory::spillMemoryPool()->stats().peakBytes;
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.configs(config)
-        .config(core::QueryConfig::kTestingSpillPct, 100)
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kAggregationSpillEnabled, true)
         .spillDirectory(spillDirectory->path)
         .maxDrivers(4);
 
+    exec::TestScopedSpillInjection scopedSpillInjection(100);
     auto task = assertResults(queryBuilder);
 
     // Expect > 0 spilled bytes unless there was no input.
@@ -871,11 +872,12 @@ void AggregationTestBase::testAggregationsImpl(
     auto spillDirectory = exec::test::TempDirectoryPath::create();
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    queryBuilder.configs(config).config(core::QueryConfig::kTestingSpillPct, "100")
+    queryBuilder.configs(config)
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->path);
 
+    TestScopedSpillInjection scopedSpillInjection(100);
     auto task = assertResults(queryBuilder);
 
     // Expect > 0 spilled bytes unless there was no input.
