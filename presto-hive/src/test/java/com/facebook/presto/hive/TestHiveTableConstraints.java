@@ -35,7 +35,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -82,8 +81,8 @@ public class TestHiveTableConstraints
     public void testTableConstraints()
     {
         List<TableConstraint<String>> expectedConstraints = ImmutableList.of(
-                new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false),
-                new UniqueConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
+                new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), true, true),
+                new UniqueConstraint<>("", ImmutableSet.of("c2"), true, true));
 
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(tableConstraints, expectedConstraints);

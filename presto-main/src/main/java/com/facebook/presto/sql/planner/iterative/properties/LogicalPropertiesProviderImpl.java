@@ -98,7 +98,7 @@ public class LogicalPropertiesProviderImpl
     {
         // map primary key and unique constraints from column handles to variable reference expressions
         List<Set<VariableReferenceExpression>> keys = new ArrayList<>();
-        List<TableConstraint<ColumnHandle>> uniqueConstraints = tableScanNode.getTableConstraints().stream().filter(tableConstraint -> tableConstraint instanceof UniqueConstraint && (tableConstraint.isEnabled() || tableConstraint.isRely())).collect(Collectors.toList());
+        List<TableConstraint<ColumnHandle>> uniqueConstraints = tableScanNode.getTableConstraints().stream().filter(tableConstraint -> tableConstraint instanceof UniqueConstraint && (tableConstraint.isEnforced() || tableConstraint.isRely())).collect(Collectors.toList());
         if (!uniqueConstraints.isEmpty()) {
             Map<VariableReferenceExpression, ColumnHandle> assignments = tableScanNode.getAssignments();
             Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = assignments.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));

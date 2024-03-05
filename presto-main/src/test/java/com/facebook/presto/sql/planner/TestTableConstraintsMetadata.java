@@ -34,10 +34,11 @@ import io.airlift.tpch.TpchTable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.util.Collections.emptyMap;
@@ -69,13 +70,13 @@ public class TestTableConstraintsMetadata
         //Primary key constraints
         List<TableConstraint<String>> constraints = new ArrayList<>();
         TpchTableConstraints tpchProperties = new TpchTableConstraints();
-        for (LinkedHashSet<String> pkcols : tpchProperties.lookupPK(tableName)) {
-            PrimaryKeyConstraint pk = new PrimaryKeyConstraint(tableName + "pk", pkcols, false, true, false);
+        for (Set<String> pkcols : tpchProperties.lookupPK(tableName)) {
+            PrimaryKeyConstraint pk = new PrimaryKeyConstraint(tableName + "pk", pkcols, false, true);
             constraints.add(pk);
         }
         //Unique constraints
-        for (LinkedHashSet<String> pkcols : tpchProperties.lookupUKs(tableName)) {
-            UniqueConstraint pk = new UniqueConstraint(tableName + "pk", pkcols, false, true, false);
+        for (Set<String> pkcols : tpchProperties.lookupUKs(tableName)) {
+            UniqueConstraint pk = new UniqueConstraint(tableName + "pk", pkcols, false, true);
             constraints.add(pk);
         }
         return constraints;
@@ -102,37 +103,37 @@ public class TestTableConstraintsMetadata
         private final String regionTableName = "region";
 
         //primary keys
-        private final LinkedHashSet<String> customerPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> lineItemPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> ordersPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> partPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> suppliersPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> partsuppPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> nationPK = new LinkedHashSet<>();
-        private final LinkedHashSet<String> regionPK = new LinkedHashSet<>();
-        private final Map<String, List<LinkedHashSet<String>>> tpchPKLookup = new HashMap<String, List<LinkedHashSet<String>>>();
+        private final Set<String> customerPK = new HashSet<>();
+        private final Set<String> lineItemPK = new HashSet<>();
+        private final Set<String> ordersPK = new HashSet<>();
+        private final Set<String> partPK = new HashSet<>();
+        private final Set<String> suppliersPK = new HashSet<>();
+        private final Set<String> partsuppPK = new HashSet<>();
+        private final Set<String> nationPK = new HashSet<>();
+        private final Set<String> regionPK = new HashSet<>();
+        private final Map<String, List<Set<String>>> tpchPKLookup = new HashMap<String, List<Set<String>>>();
 
         //unique keys
-        private final LinkedHashSet<String> ordersKey1 = new LinkedHashSet<>();
-        private final LinkedHashSet<String> ordersKey2 = new LinkedHashSet<>();
-        private final Map<String, List<LinkedHashSet<String>>> tpchUKLookup = new HashMap<String, List<LinkedHashSet<String>>>();
+        private final Set<String> ordersKey1 = new HashSet<>();
+        private final Set<String> ordersKey2 = new HashSet<>();
+        private final Map<String, List<Set<String>>> tpchUKLookup = new HashMap<String, List<Set<String>>>();
 
         public TpchTableConstraints()
         {
             //customer
-            ArrayList<LinkedHashSet<String>> customerKeys = new ArrayList<>();
+            ArrayList<Set<String>> customerKeys = new ArrayList<>();
             customerPK.add("custkey");
             customerKeys.add(customerPK);
             tpchPKLookup.put(customerTableName, customerKeys);
 
             //orders
-            ArrayList<LinkedHashSet<String>> ordersKeys = new ArrayList<>();
+            ArrayList<Set<String>> ordersKeys = new ArrayList<>();
             ordersPK.add("orderkey");
             ordersKeys.add(ordersPK);
             tpchPKLookup.put(ordersTableName, ordersKeys);
 
             // add supperfulous unique key
-            ArrayList<LinkedHashSet<String>> ordersUniqueKeys = new ArrayList<>();
+            ArrayList<Set<String>> ordersUniqueKeys = new ArrayList<>();
             ordersKey1.add("orderkey");
             ordersKey1.add("custkey");
             ordersUniqueKeys.add(ordersKey1);
@@ -144,50 +145,50 @@ public class TestTableConstraintsMetadata
             tpchUKLookup.put(ordersTableName, ordersUniqueKeys);
 
             //lineitem
-            ArrayList<LinkedHashSet<String>> lineitemKeys = new ArrayList<>();
+            ArrayList<Set<String>> lineitemKeys = new ArrayList<>();
             lineItemPK.add("linenumber");
             lineItemPK.add("orderkey");
             lineitemKeys.add(lineItemPK);
             tpchPKLookup.put(lineitemTableName, lineitemKeys);
 
             //part
-            ArrayList<LinkedHashSet<String>> partKeys = new ArrayList<>();
+            ArrayList<Set<String>> partKeys = new ArrayList<>();
             partPK.add("partkey");
             partKeys.add(partPK);
             tpchPKLookup.put(partTableName, partKeys);
 
             //suppliers
-            ArrayList<LinkedHashSet<String>> suppliersKeys = new ArrayList<>();
+            ArrayList<Set<String>> suppliersKeys = new ArrayList<>();
             suppliersPK.add("suppkey");
             suppliersKeys.add(suppliersPK);
             tpchPKLookup.put(suppliersTableName, suppliersKeys);
 
             //partsupp
-            ArrayList<LinkedHashSet<String>> partsuppKeys = new ArrayList<>();
+            ArrayList<Set<String>> partsuppKeys = new ArrayList<>();
             partsuppPK.add("partkey");
             partsuppPK.add("suppkey");
             partsuppKeys.add(partsuppPK);
             tpchPKLookup.put(partsuppTableName, partsuppKeys);
 
             //nation
-            ArrayList<LinkedHashSet<String>> nationKeys = new ArrayList<>();
+            ArrayList<Set<String>> nationKeys = new ArrayList<>();
             nationPK.add("nationkey");
             nationKeys.add(nationPK);
             tpchPKLookup.put(nationTableName, nationKeys);
 
             //region
-            ArrayList<LinkedHashSet<String>> regionKeys = new ArrayList<>();
+            ArrayList<Set<String>> regionKeys = new ArrayList<>();
             regionPK.add("regionkey");
             regionKeys.add(regionPK);
             tpchPKLookup.put(regionTableName, regionKeys);
         }
 
-        public List<LinkedHashSet<String>> lookupPK(String tableName)
+        public List<Set<String>> lookupPK(String tableName)
         {
             return tpchPKLookup.containsKey(tableName) ? tpchPKLookup.get(tableName) : Collections.emptyList();
         }
 
-        public List<LinkedHashSet<String>> lookupUKs(String tableName)
+        public List<Set<String>> lookupUKs(String tableName)
         {
             return tpchUKLookup.containsKey(tableName) ? tpchUKLookup.get(tableName) : Collections.emptyList();
         }
