@@ -210,6 +210,12 @@ class AsyncDataCacheTest : public testing::Test {
     }
   }
 
+  static void waitForSsdWriteToFinish(const SsdCache* ssdCache) {
+    while (ssdCache->writeInProgress()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+    }
+  }
+
   CachePin newEntry(uint64_t offset, int32_t size) {
     folly::SemiFuture<bool> wait(false);
     try {
@@ -1097,9 +1103,7 @@ DEBUG_ONLY_TEST_F(AsyncDataCacheTest, shrinkWithSsdWrite) {
   writeWaitFlag = false;
   writeWait.notifyAll();
   ssdWriteThread.join();
-  while (cache_->ssdCache()->writeInProgress()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
-  }
+  waitForSsdWriteToFinish(cache_->ssdCache());
 
   stats = cache_->refreshStats();
   ASSERT_GT(stats.numEntries, stats.numEmptyEntries);
@@ -1110,7 +1114,6 @@ DEBUG_ONLY_TEST_F(AsyncDataCacheTest, shrinkWithSsdWrite) {
   ASSERT_EQ(stats.numEmptyEntries, numEntries);
 }
 
-#ifndef NDEBUG
 DEBUG_ONLY_TEST_F(AsyncDataCacheTest, ttl) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 128UL << 20;
@@ -1129,11 +1132,11 @@ DEBUG_ONLY_TEST_F(AsyncDataCacheTest, ttl) {
 
   stt.setCurrentTestTimeSec(loadTime1);
   loadNFiles(filenames_.size() * 2 / 3, offsets);
+  waitForSsdWriteToFinish(cache_->ssdCache());
   auto statsT1 = cache_->refreshStats();
 
   stt.setCurrentTestTimeSec(loadTime2);
   loadNFiles(filenames_.size(), offsets);
-  auto statsT2 = cache_->refreshStats();
 
   runThreads(2, [&](int32_t /*i*/) {
     CacheTTLController::getInstance()->applyTTL(
@@ -1144,6 +1147,5 @@ DEBUG_ONLY_TEST_F(AsyncDataCacheTest, ttl) {
   EXPECT_EQ(statsTtl.numAgedOut, statsT1.numEntries);
   EXPECT_EQ(statsTtl.ssdStats->entriesAgedOut, statsT1.ssdStats->entriesCached);
 }
-#endif
 
 // TODO: add concurrent fuzzer test.
