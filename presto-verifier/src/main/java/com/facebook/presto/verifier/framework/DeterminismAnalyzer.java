@@ -149,7 +149,7 @@ public class DeterminismAnalyzer
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
 
-                DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
+                DeterminismAnalysis analysis = matchResultToDeterminism(match(DataMatchResult.DataType.DATA, checksumValidator, columns, columns, controlChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {
                     return analysis;
                 }

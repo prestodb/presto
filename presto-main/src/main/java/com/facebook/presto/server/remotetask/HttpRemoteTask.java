@@ -399,6 +399,11 @@ public final class HttpRemoteTask
         }
     }
 
+    public PlanFragment getPlanFragment()
+    {
+        return planFragment;
+    }
+
     @Override
     public TaskId getTaskId()
     {

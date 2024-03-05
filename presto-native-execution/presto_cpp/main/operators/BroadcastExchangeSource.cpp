@@ -68,6 +68,18 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
   return reader_->stats();
 }
 
+folly::SemiFuture<BroadcastExchangeSource::Response>
+BroadcastExchangeSource::requestDataSizes(uint32_t /*maxWaitSeconds*/) {
+  std::vector<int64_t> remainingBytes;
+  if (!atEnd_) {
+    // Use default value of ExchangeClient::getAveragePageSize() for now.
+    //
+    // TODO: Change BroadcastFileReader to return the next batch size.
+    remainingBytes.push_back(1 << 20);
+  }
+  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+}
+
 // static
 std::shared_ptr<exec::ExchangeSource>
 BroadcastExchangeSource::createExchangeSource(

@@ -316,6 +316,9 @@ public class OrcSelectivePageSourceFactory
                     inputStream,
                     stats);
         }
+        catch (PrestoException e) {
+            throw e;
+        }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {

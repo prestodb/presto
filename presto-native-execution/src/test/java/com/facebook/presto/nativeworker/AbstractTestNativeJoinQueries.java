@@ -72,8 +72,11 @@ public abstract class AbstractTestNativeJoinQueries
     {
         assertQuery(joinTypeSession, "SELECT * FROM orders WHERE orderdate IN (SELECT shipdate FROM lineitem) or orderdate IN (SELECT commitdate FROM lineitem)");
         assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
-        assertQuery(joinTypeSession, "SELECT * FROM lineitem " +
-                "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(joinTypeSession, "SELECT * FROM lineitem WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(joinTypeSession, "WITH\n" +
+                "users AS (SELECT orderkey FROM orders ),\n" +
+                "left_table AS (SELECT * FROM ( VALUES (0, NULL), (283755559, NULL), (NULL, NULL) ) AS left_table (userid, sid_cast))\n" +
+                "SELECT userid FROM left_table WHERE (sid_cast IS NOT NULL) OR (NOT (userid IN (SELECT * FROM users)))");
     }
 
     @Test(dataProvider = "joinTypeProvider")

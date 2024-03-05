@@ -54,6 +54,7 @@ target_link_libraries(
   velox_functions_lib
   velox_functions_prestosql
   velox_hive_connector
+  velox_hive_iceberg_splitreader
   velox_hive_partition_function
   velox_presto_serializer
   velox_serialization
