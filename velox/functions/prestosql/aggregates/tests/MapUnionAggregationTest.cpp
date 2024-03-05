@@ -278,20 +278,8 @@ TEST_F(MapUnionTest, unknownKeysAndValues) {
       makeMapVector<UnknownValue, UnknownValue>({{}, {}}),
   });
 
-  testAggregations(
-      {data},
-      {},
-      {"map_union(c1)"},
-      {expectedGlobalResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
-  testAggregations(
-      {data},
-      {"c0"},
-      {"map_union(c1)"},
-      {expectedGroupByResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
+  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
 
   // map_union over non-empty map(T, unknown) where T is not unknown is allowed.
   data = makeRowVector({
@@ -329,20 +317,8 @@ TEST_F(MapUnionTest, unknownKeysAndValues) {
       }),
   });
 
-  testAggregations(
-      {data},
-      {},
-      {"map_union(c1)"},
-      {expectedGlobalResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
-  testAggregations(
-      {data},
-      {"c0"},
-      {"map_union(c1)"},
-      {expectedGroupByResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+  testAggregations({data}, {}, {"map_union(c1)"}, {expectedGlobalResult});
+  testAggregations({data}, {"c0"}, {"map_union(c1)"}, {expectedGroupByResult});
 
   // map_union over non-emtpy map(unknown, T) is not allowed.
   data = makeRowVector({

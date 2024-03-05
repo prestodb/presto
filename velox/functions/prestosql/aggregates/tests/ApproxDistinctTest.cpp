@@ -42,9 +42,7 @@ class ApproxDistinctTest : public AggregationTestBase {
         {vectors},
         {},
         {fmt::format("approx_distinct(c0, {})", maxStandardError)},
-        {expected},
-        {},
-        testWithTableScan);
+        {expected});
     testAggregationsWithCompanion(
         {vectors},
         [](auto& /*builder*/) {},
@@ -59,9 +57,7 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {fmt::format("approx_set(c0, {})", maxStandardError)},
         {"cardinality(a0)"},
-        {expected},
-        {},
-        testWithTableScan);
+        {expected});
   }
 
   void testGlobalAgg(
@@ -72,13 +68,7 @@ class ApproxDistinctTest : public AggregationTestBase {
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
 
-    testAggregations(
-        {vectors},
-        {},
-        {"approx_distinct(c0)"},
-        {expected},
-        {},
-        testWithTableScan);
+    testAggregations({vectors}, {}, {"approx_distinct(c0)"}, {expected});
     testAggregationsWithCompanion(
         {vectors},
         [](auto& /*builder*/) {},
@@ -89,13 +79,7 @@ class ApproxDistinctTest : public AggregationTestBase {
         {expected});
 
     testAggregations(
-        {vectors},
-        {},
-        {"approx_set(c0)"},
-        {"cardinality(a0)"},
-        {expected},
-        {},
-        testWithTableScan);
+        {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
   }
 
   template <typename T, typename U>

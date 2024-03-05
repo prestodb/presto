@@ -56,13 +56,7 @@ class ChecksumAggregateTest : public AggregationTestBase {
         fmt::format("VALUES (CAST(\'{}\' AS VARCHAR))", expectedChecksum);
 
     testAggregations(
-        rowVectors,
-        {},
-        {"checksum(c0)"},
-        {"to_base64(a0)"},
-        expectedDuckDbSql,
-        /*config*/ {},
-        testWithTableScan);
+        rowVectors, {}, {"checksum(c0)"}, {"to_base64(a0)"}, expectedDuckDbSql);
   }
 
   template <typename G, typename T>

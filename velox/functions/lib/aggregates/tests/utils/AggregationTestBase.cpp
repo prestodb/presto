@@ -84,11 +84,9 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::string& duckDbSql,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
+    const std::unordered_map<std::string, std::string>& config) {
   SCOPED_TRACE(duckDbSql);
-  testAggregations(
-      data, groupingKeys, aggregates, {}, duckDbSql, config, testWithTableScan);
+  testAggregations(data, groupingKeys, aggregates, {}, duckDbSql, config);
 }
 
 void AggregationTestBase::testAggregations(
@@ -96,16 +94,8 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<RowVectorPtr>& expectedResult,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
-  testAggregations(
-      data,
-      groupingKeys,
-      aggregates,
-      {},
-      expectedResult,
-      config,
-      testWithTableScan);
+    const std::unordered_map<std::string, std::string>& config) {
+  testAggregations(data, groupingKeys, aggregates, {}, expectedResult, config);
 }
 
 void AggregationTestBase::testAggregations(
@@ -114,8 +104,7 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
     const std::string& duckDbSql,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
+    const std::unordered_map<std::string, std::string>& config) {
   SCOPED_TRACE(duckDbSql);
   testAggregations(
       [&](PlanBuilder& builder) { builder.values(data); },
@@ -123,8 +112,7 @@ void AggregationTestBase::testAggregations(
       aggregates,
       postAggregationProjections,
       [&](auto& builder) { return builder.assertResults(duckDbSql); },
-      config,
-      testWithTableScan);
+      config);
 }
 
 namespace {
@@ -550,6 +538,11 @@ bool isTableScanSupported(const TypePtr& type) {
   if (type->kind() == TypeKind::HUGEINT) {
     return false;
   }
+  // Disable testing with TableScan when input contains TIMESTAMP type, due to
+  // the issue #8127.
+  if (type->kind() == TypeKind::TIMESTAMP) {
+    return false;
+  }
 
   for (auto i = 0; i < type->size(); ++i) {
     if (!isTableScanSupported(type->childAt(i))) {
@@ -578,17 +571,29 @@ void AggregationTestBase::testReadFromFiles(
   }
 
   auto input = AssertQueryBuilder(builder.planNode()).copyResults(pool());
-  if (input->size() < 2) {
+  if (input->size() == 0) {
     return;
   }
-  auto size1 = input->size() / 2;
-  auto size2 = input->size() - size1;
-  auto input1 = input->slice(0, size1);
-  auto input2 = input->slice(size1, size2);
+
   std::vector<std::shared_ptr<exec::test::TempFilePath>> files;
   std::vector<exec::Split> splits;
+  std::vector<VectorPtr> inputs;
   auto writerPool = rootPool_->addAggregateChild("AggregationTestBase.writer");
-  for (auto& vector : {input1, input2}) {
+
+  // Splits and writes the input vectors into two files, to some extent,
+  // involves shuffling of the inputs. So only split input if allowInputShuffle_
+  // is true. Otherwise, only write into a single file.
+  if (allowInputShuffle_ && input->size() >= 2) {
+    auto size1 = input->size() / 2;
+    auto size2 = input->size() - size1;
+    auto input1 = input->slice(0, size1);
+    auto input2 = input->slice(size1, size2);
+    inputs = {input1, input2};
+  } else {
+    inputs.push_back(input);
+  }
+
+  for (auto& vector : inputs) {
     auto file = exec::test::TempFilePath::create();
     writeToFile(file->path, vector, writerPool.get());
     files.push_back(file);
@@ -619,16 +624,14 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
     const std::vector<RowVectorPtr>& expectedResult,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregations(
       [&](PlanBuilder& builder) { builder.values(data); },
       groupingKeys,
       aggregates,
       postAggregationProjections,
       [&](auto& builder) { return builder.assertResults(expectedResult); },
-      config,
-      testWithTableScan);
+      config);
 }
 
 void AggregationTestBase::testAggregations(
@@ -636,16 +639,14 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::string& duckDbSql,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregations(
       makeSource,
       groupingKeys,
       aggregates,
       {},
       [&](auto& builder) { return builder.assertResults(duckDbSql); },
-      config,
-      testWithTableScan);
+      config);
 }
 
 namespace {
@@ -1032,8 +1033,7 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& postAggregationProjections,
     std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder&)>
         assertResults,
-    const std::unordered_map<std::string, std::string>& config,
-    bool testWithTableScan) {
+    const std::unordered_map<std::string, std::string>& config) {
   testAggregationsImpl(
       makeSource,
       groupingKeys,
@@ -1057,7 +1057,7 @@ void AggregationTestBase::testAggregations(
         config);
   }
 
-  if (testWithTableScan) {
+  {
     SCOPED_TRACE("Test reading input from table scan");
     testReadFromFiles(
         makeSource,

@@ -28,7 +28,6 @@ class MapAggTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
-    allowInputShuffle();
   }
 };
 
@@ -150,13 +149,7 @@ TEST_F(MapAggTest, groupByWithDuplicates) {
 
   // We don't test with TableScan because when there are duplicate keys in
   // different splits, the result is non-deterministic.
-  testAggregations(
-      vectors,
-      {"c0"},
-      {"map_agg(c1, c2)"},
-      {expectedResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+  testAggregations(vectors, {"c0"}, {"map_agg(c1, c2)"}, {expectedResult});
 }
 
 TEST_F(MapAggTest, groupByNoData) {
@@ -310,13 +303,7 @@ TEST_F(MapAggTest, globalDuplicateKeys) {
 
   // We don't test with TableScan because when there are duplicate keys in
   // different splits, the result is non-deterministic.
-  testAggregations(
-      vectors,
-      {},
-      {"map_agg(c0, c1)"},
-      {expectedResult},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, {expectedResult});
 }
 
 /// Reproduces the bug reported in
@@ -373,20 +360,9 @@ TEST_F(MapAggTest, unknownKey) {
   });
 
   testAggregations(
-      {data},
-      {"c0"},
-      {"map_agg(c1, c2)"},
-      "VALUES (1, NULL), (2, NULL)",
-      {},
-      false /*testWithTableScan*/);
+      {data}, {"c0"}, {"map_agg(c1, c2)"}, "VALUES (1, NULL), (2, NULL)");
 
-  testAggregations(
-      {data},
-      {},
-      {"map_agg(c1, c2)"},
-      "VALUES (NULL)",
-      {},
-      false /*testWithTableScan*/);
+  testAggregations({data}, {}, {"map_agg(c1, c2)"}, "VALUES (NULL)");
 }
 
 TEST_F(MapAggTest, stringLifeCycle) {

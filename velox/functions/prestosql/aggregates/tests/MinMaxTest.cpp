@@ -62,12 +62,7 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
 
     // Global aggregation.
     testAggregations(
-        vectors,
-        {},
-        {agg(c1)},
-        fmt::format("SELECT {} FROM tmp", agg(c1)),
-        /*config*/ {},
-        testWithTableScan);
+        vectors, {}, {agg(c1)}, fmt::format("SELECT {} FROM tmp", agg(c1)));
 
     // Group by aggregation.
     testAggregations(
@@ -76,19 +71,12 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         },
         {"p0"},
         {agg(c1)},
-        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)),
-        /*config*/ {},
-        testWithTableScan);
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", agg(c1)));
 
     // Masked aggregations.
     auto maskedAgg = agg(c1) + " filter (where mask)";
     testAggregations(
-        vectors,
-        {},
-        {maskedAgg},
-        fmt::format("SELECT {} FROM tmp", maskedAgg),
-        /*config*/ {},
-        testWithTableScan);
+        vectors, {}, {maskedAgg}, fmt::format("SELECT {} FROM tmp", maskedAgg));
 
     testAggregations(
         [&](auto& builder) {
@@ -96,9 +84,7 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         },
         {"p0"},
         {maskedAgg},
-        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", maskedAgg),
-        /*config*/ {},
-        testWithTableScan);
+        fmt::format("SELECT c0 % 10, {} FROM tmp GROUP BY 1", maskedAgg));
 
     // Encodings: use filter to wrap aggregation inputs in a dictionary.
     testAggregations(
@@ -110,17 +96,14 @@ class MinMaxTest : public functions::aggregate::test::AggregationTestBase {
         {"p0"},
         {agg(c1)},
         fmt::format(
-            "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1", agg(c1)),
-        /*config*/ {},
-        testWithTableScan);
+            "SELECT c0 % 11, {} FROM tmp WHERE c0 % 2 = 0 GROUP BY 1",
+            agg(c1)));
 
     testAggregations(
         [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
         {},
         {agg(c1)},
-        fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)),
-        /*config*/ {},
-        testWithTableScan);
+        fmt::format("SELECT {} FROM tmp WHERE c0 % 2 = 0", agg(c1)));
   }
 };
 

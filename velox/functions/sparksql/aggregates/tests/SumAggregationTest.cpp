@@ -42,13 +42,7 @@ class SumAggregationTest : public SumTestBase {
     auto in = makeRowVector({makeNullableFlatVector<int128_t>({input}, type)});
     auto expected =
         makeRowVector({makeNullableFlatVector<int128_t>({output}, type)});
-    testAggregations(
-        {in},
-        {},
-        {"spark_sum(c0)"},
-        {expected},
-        /*config*/ {},
-        /*testWithTableScan*/ false);
+    testAggregations({in}, {}, {"spark_sum(c0)"}, {expected});
     testAggregationsWithCompanion(
         {in},
         [](auto& /*builder*/) {},
@@ -71,13 +65,7 @@ class SumAggregationTest : public SumTestBase {
         {makeFlatVector<int32_t>(10, [](auto row) { return row; }),
          makeNullableFlatVector<int128_t>(
              std::vector<std::optional<int128_t>>(10, std::nullopt), type)});
-    testAggregations(
-        {in},
-        {"c0"},
-        {"spark_sum(c1)"},
-        {expected},
-        /*config*/ {},
-        /*testWithTableScan*/ false);
+    testAggregations({in}, {"c0"}, {"spark_sum(c1)"}, {expected});
     testAggregationsWithCompanion(
         {in},
         [](auto& /*builder*/) {},
@@ -109,13 +97,7 @@ class SumAggregationTest : public SumTestBase {
     auto expected = makeRowVector(
         {makeFlatVector<int32_t>(std::vector<int32_t>{0, 1, 2, 3}),
          outputDecimalVector});
-    testAggregations(
-        {vectors},
-        {"c0"},
-        {"spark_sum(c1)"},
-        {expected},
-        /*config*/ {},
-        /*testWithTableScan*/ false);
+    testAggregations({vectors}, {"c0"}, {"spark_sum(c1)"}, {expected});
     testAggregationsWithCompanion(
         {vectors},
         [](auto& /*builder*/) {},
@@ -191,9 +173,7 @@ TEST_F(SumAggregationTest, decimalSum) {
       {input},
       {},
       {"spark_sum(c0)", "spark_sum(c1)"},
-      "SELECT sum(c0), sum(c1) FROM tmp",
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+      "SELECT sum(c0), sum(c1) FROM tmp");
   testAggregationsWithCompanion(
       {input},
       [](auto& /*builder*/) {},
@@ -246,9 +226,7 @@ TEST_F(SumAggregationTest, decimalSum) {
       inputShortDecimalRows,
       {"c0"},
       {"spark_sum(c1)"},
-      expectedShortDecimalResult,
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+      expectedShortDecimalResult);
   testAggregationsWithCompanion(
       {inputShortDecimalRows},
       [](auto& /*builder*/) {},
@@ -309,9 +287,7 @@ TEST_F(SumAggregationTest, decimalSum) {
       inputLongDecimalRows,
       {"c0"},
       {"spark_sum(c1)"},
-      expectedLongDecimalResult,
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+      expectedLongDecimalResult);
   testAggregationsWithCompanion(
       {inputShortDecimalRows},
       [](auto& /*builder*/) {},
@@ -400,13 +376,7 @@ TEST_F(SumAggregationTest, decimalAllNullValues) {
   std::vector<std::optional<int128_t>> result = {std::nullopt};
   auto expected =
       makeRowVector({makeNullableFlatVector<int128_t>(result, DECIMAL(30, 2))});
-  testAggregations(
-      {input},
-      {},
-      {"spark_sum(c0)"},
-      {expected},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+  testAggregations({input}, {}, {"spark_sum(c0)"}, {expected});
   testAggregationsWithCompanion(
       {input},
       [](auto& /*builder*/) {},
@@ -468,12 +438,7 @@ TEST_F(SumAggregationTest, decimalRangeOverflow) {
   auto expected = makeRowVector(
       {makeNullableFlatVector<int128_t>(result, DECIMAL(38, 18))});
   testAggregations(
-      {firstInput, secondInput},
-      {},
-      {"spark_sum(c0)"},
-      {expected},
-      /*config*/ {},
-      /*testWithTableScan*/ false);
+      {firstInput, secondInput}, {}, {"spark_sum(c0)"}, {expected});
   testAggregationsWithCompanion(
       {firstInput, secondInput},
       [](auto& /*builder*/) {},

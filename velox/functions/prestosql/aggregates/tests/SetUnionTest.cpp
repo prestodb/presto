@@ -454,7 +454,7 @@ TEST_F(SetUnionTest, longDecimal) {
   });
 
   testAggregations(
-      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
 
   // Test with some NULL inputs (long decimals).
   data = makeRowVector({
@@ -487,7 +487,7 @@ TEST_F(SetUnionTest, longDecimal) {
   });
 
   testAggregations(
-      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
 
   // Test with all NULL inputs (long decimals).
   data = makeRowVector({
@@ -499,7 +499,7 @@ TEST_F(SetUnionTest, longDecimal) {
   });
 
   testAggregations(
-      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
 }
 } // namespace
 } // namespace facebook::velox::aggregate::test

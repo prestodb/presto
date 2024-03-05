@@ -468,9 +468,7 @@ class MinMaxByGlobalByAggregationTest
           {},
           {"min_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql,
-          /*config*/ {},
-          /*testWithTableScan*/ false);
+          testData.verifyDuckDbSql);
     }
   }
 
@@ -566,9 +564,7 @@ class MinMaxByGlobalByAggregationTest
           {},
           {"max_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql,
-          /*config*/ {},
-          /*testWithTableScan*/ false);
+          testData.verifyDuckDbSql);
     }
   }
 };
@@ -858,9 +854,7 @@ class MinMaxByGroupByAggregationTest
           {"c2"},
           {"min_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql,
-          /*config*/ {},
-          /*testWithTableScan*/ false);
+          testData.verifyDuckDbSql);
     }
   }
 
@@ -1011,9 +1005,7 @@ class MinMaxByGroupByAggregationTest
           {"c2"},
           {"max_by(c0, c1)"},
           {},
-          testData.verifyDuckDbSql,
-          /*config*/ {},
-          /*testWithTableScan*/ false);
+          testData.verifyDuckDbSql);
     }
   }
 };

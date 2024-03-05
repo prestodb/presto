@@ -279,8 +279,7 @@ TEST_F(SetAggTest, longDecimal) {
           type),
   });
 
-  testAggregations(
-      {data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+  testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
 
   // Test with some NULL inputs (long decimals)
   data = makeRowVector({
@@ -317,8 +316,7 @@ TEST_F(SetAggTest, longDecimal) {
           ARRAY(type)),
   });
 
-  testAggregations(
-      {data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+  testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
 
   // Test with all NULL inputs (long decimals)
   data = makeRowVector({
@@ -337,8 +335,7 @@ TEST_F(SetAggTest, longDecimal) {
           ARRAY(type)),
   });
 
-  testAggregations(
-      {data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected}, {}, false);
+  testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
 }
 
 std::vector<std::optional<std::string>> generateStrings(
