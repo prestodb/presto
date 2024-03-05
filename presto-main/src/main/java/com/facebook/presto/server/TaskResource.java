@@ -39,7 +39,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -63,8 +62,6 @@ import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICA
 import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
@@ -289,33 +286,6 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
-    }
-
-    @HEAD
-    @Path("{taskId}/results/{bufferId}")
-    public Response taskResultsHeaders(
-            @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId)
-    {
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(bufferId, "bufferId is null");
-
-        return taskManager.getTaskBufferInfo(taskId, bufferId)
-                .map(bufferInfo -> Response.ok()
-                        .header(PRESTO_BUFFER_REMAINING_BYTES, bufferInfo.getPageBufferInfo().getBufferedBytes())
-                        .header(PRESTO_BUFFER_COMPLETE, bufferInfo.isFinished())
-                        .build())
-                .orElse(Response.status(Response.Status.NOT_FOUND).build());
-    }
-
-    @HEAD
-    @Path("{taskId}/results/{bufferId}/{token}")
-    public Response taskResultsHeaders(
-            @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long unused)
-    {
-        return taskResultsHeaders(taskId, bufferId);
     }
 
     @DELETE

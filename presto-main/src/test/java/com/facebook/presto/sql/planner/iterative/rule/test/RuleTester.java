@@ -193,7 +193,7 @@ public class RuleTester
     {
         return queryRunner.inTransaction(transactionSession -> {
             metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
-            return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
+            return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraints();
         });
     }
 }

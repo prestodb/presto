@@ -135,7 +135,6 @@ class ClientBuffer
     public void enqueuePages(Collection<SerializedPageReference> pages)
     {
         PendingRead pendingRead;
-        long bufferedBytes;
         synchronized (this) {
             // ignore pages after no more pages is set
             // this can happen with limit queries
@@ -143,7 +142,7 @@ class ClientBuffer
                 return;
             }
 
-            bufferedBytes = addPages(pages);
+            addPages(pages);
 
             pendingRead = this.pendingRead;
             this.pendingRead = null;
@@ -151,11 +150,11 @@ class ClientBuffer
 
         // we just added a page, so process the pending read
         if (pendingRead != null) {
-            processRead(pendingRead, bufferedBytes);
+            processRead(pendingRead);
         }
     }
 
-    private synchronized long addPages(Collection<SerializedPageReference> pages)
+    private synchronized void addPages(Collection<SerializedPageReference> pages)
     {
         long rowCount = 0;
         long bytesAdded = 0;
@@ -170,7 +169,7 @@ class ClientBuffer
         this.pages.addAll(pages);
         rowsAdded.addAndGet(rowCount);
         pagesAdded.addAndGet(pageCount);
-        return bufferedBytes.addAndGet(bytesAdded);
+        bufferedBytes.addAndGet(bytesAdded);
     }
 
     public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize)
@@ -196,7 +195,7 @@ class ClientBuffer
                 // Return results immediately if we have data, there will be no more data, or this is
                 // an out of order request
                 if (!pages.isEmpty() || noMorePages || sequenceId != currentSequenceId.get()) {
-                    return immediateFuture(processRead(sequenceId, maxSize, bufferedBytes.get()));
+                    return immediateFuture(processRead(sequenceId, maxSize));
                 }
 
                 // otherwise, wait for more data to arrive
@@ -216,7 +215,6 @@ class ClientBuffer
     public void setNoMorePages()
     {
         PendingRead pendingRead;
-        long bufferedBytes;
         synchronized (this) {
             // ignore duplicate calls
             if (noMorePages) {
@@ -227,12 +225,11 @@ class ClientBuffer
 
             pendingRead = this.pendingRead;
             this.pendingRead = null;
-            bufferedBytes = this.bufferedBytes.get();
         }
 
         // there will be no more pages, so process the pending read
         if (pendingRead != null) {
-            processRead(pendingRead, bufferedBytes);
+            processRead(pendingRead);
         }
     }
 
@@ -244,13 +241,11 @@ class ClientBuffer
         // same pending read instance by the time pages are loaded but this is
         // safe since the size is rechecked before returning pages.
         DataSize maxSize;
-        long bufferedBytes;
         synchronized (this) {
             if (pendingRead == null) {
                 return;
             }
             maxSize = pendingRead.getMaxSize();
-            bufferedBytes = this.bufferedBytes.get();
         }
 
         boolean dataAddedOrNoMorePages = loadPagesIfNecessary(pagesSupplier, maxSize);
@@ -261,7 +256,7 @@ class ClientBuffer
                 pendingRead = this.pendingRead;
             }
             if (pendingRead != null) {
-                processRead(pendingRead, bufferedBytes);
+                processRead(pendingRead);
             }
         }
     }
@@ -305,7 +300,7 @@ class ClientBuffer
         return dataAddedOrNoMorePages;
     }
 
-    private void processRead(PendingRead pendingRead, long bufferedBytes)
+    private void processRead(PendingRead pendingRead)
     {
         checkState(!Thread.holdsLock(this), "Can not process pending read while holding a lock on this");
 
@@ -313,14 +308,14 @@ class ClientBuffer
             return;
         }
 
-        BufferResult bufferResult = processRead(pendingRead.getSequenceId(), pendingRead.getMaxSize(), bufferedBytes);
+        BufferResult bufferResult = processRead(pendingRead.getSequenceId(), pendingRead.getMaxSize());
         pendingRead.getResultFuture().set(bufferResult);
     }
 
     /**
      * @return a result with at least one page if we have pages in buffer, empty result otherwise
      */
-    private synchronized BufferResult processRead(long sequenceId, DataSize maxSize, long bufferedBytes)
+    private synchronized BufferResult processRead(long sequenceId, DataSize maxSize)
     {
         // When pages are added to the partition buffer they are effectively
         // assigned an id starting from zero. When a read is processed, the
@@ -347,13 +342,13 @@ class ClientBuffer
 
         // if request is for pages before the current position, just return an empty result
         if (sequenceId < currentSequenceId.get()) {
-            return emptyResults(taskInstanceId, sequenceId, bufferedBytes, false);
+            return emptyResults(taskInstanceId, sequenceId, false);
         }
 
         // if this buffer is finished, notify the client of this, so the client
         // will destroy this buffer
         if (pages.isEmpty() && noMorePages) {
-            return emptyResults(taskInstanceId, currentSequenceId.get(), bufferedBytes, true);
+            return emptyResults(taskInstanceId, currentSequenceId.get(), true);
         }
 
         // if request is for pages after the current position, there is a bug somewhere
@@ -366,17 +361,17 @@ class ClientBuffer
         // read the new pages
         long maxBytes = maxSize.toBytes();
         List<SerializedPage> result = new ArrayList<>();
-        long bytesReturned = 0;
+        long bytes = 0;
 
         for (SerializedPageReference page : pages) {
-            bytesReturned += page.getRetainedSizeInBytes();
+            bytes += page.getRetainedSizeInBytes();
             // break (and don't add) if this page would exceed the limit
-            if (!result.isEmpty() && bytesReturned > maxBytes) {
+            if (!result.isEmpty() && bytes > maxBytes) {
                 break;
             }
             result.add(page.getSerializedPage());
         }
-        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, Math.max(bufferedBytes - bytesReturned, 0), result);
+        return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, result);
     }
 
     /**

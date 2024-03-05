@@ -103,6 +103,7 @@ public final class SystemSessionProperties
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
+    public static final String MAX_STAGE_RETRIES = "max_stage_retries";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
@@ -118,8 +119,6 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
-
-    public static final String QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES = "query_max_written_intermediate_bytes";
     public static final String QUERY_MAX_OUTPUT_POSITIONS = "query_max_output_positions";
     public static final String QUERY_MAX_OUTPUT_SIZE = "query_max_output_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
@@ -214,6 +213,7 @@ public final class SystemSessionProperties
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
     public static final String EXPERIMENTAL_FUNCTIONS_ENABLED = "experimental_functions_enabled";
+    public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
@@ -475,6 +475,11 @@ public final class SystemSessionProperties
                         "Experimental: Use recoverable grouped execution when possible",
                         featuresConfig.isRecoverableGroupedExecutionEnabled(),
                         false),
+                integerProperty(
+                        MAX_STAGE_RETRIES,
+                        "Maximum number of times that stages can be retried",
+                        featuresConfig.getMaxStageRetries(),
+                        false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
                         "Prefer source table layouts that produce streaming operators",
@@ -622,11 +627,6 @@ public final class SystemSessionProperties
                         QUERY_MAX_SCAN_RAW_INPUT_BYTES,
                         "Maximum scan raw input bytes of a query",
                         queryManagerConfig.getQueryMaxScanRawInputBytes(),
-                        false),
-                dataSizeProperty(
-                        QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES,
-                        "Maximum written intermediate bytes of a query",
-                        queryManagerConfig.getQueryMaxWrittenIntermediateBytes(),
                         false),
                 longProperty(
                         QUERY_MAX_OUTPUT_POSITIONS,
@@ -1186,6 +1186,11 @@ public final class SystemSessionProperties
                         EXPERIMENTAL_FUNCTIONS_ENABLED,
                         "Enable listing of functions marked as experimental",
                         featuresConfig.isExperimentalFunctionsEnabled(),
+                        false),
+                booleanProperty(
+                        USE_LEGACY_SCHEDULER,
+                        "Use version of scheduler before refactorings for section retries",
+                        featuresConfig.isUseLegacyScheduler(),
                         false),
                 booleanProperty(
                         OPTIMIZE_COMMON_SUB_EXPRESSIONS,
@@ -2060,6 +2065,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_FAILED_TASK_PERCENTAGE, Double.class);
     }
 
+    public static int getMaxStageRetries(Session session)
+    {
+        return session.getSystemProperty(MAX_STAGE_RETRIES, Integer.class);
+    }
+
     public static boolean preferStreamingOperators(Session session)
     {
         return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
@@ -2258,11 +2268,6 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
-    }
-
-    public static DataSize getQueryMaxWrittenIntermediateBytesLimit(Session session)
-    {
-        return session.getSystemProperty(QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES, DataSize.class);
     }
 
     public static DataSize getQueryMaxScanRawInputBytes(Session session)
@@ -2694,6 +2699,11 @@ public final class SystemSessionProperties
     public static boolean isExperimentalFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(EXPERIMENTAL_FUNCTIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseLegacyScheduler(Session session)
+    {
+        return session.getSystemProperty(USE_LEGACY_SCHEDULER, Boolean.class);
     }
 
     public static boolean isOptimizeCommonSubExpressions(Session session)

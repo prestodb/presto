@@ -33,7 +33,6 @@ import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
-import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -57,7 +56,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -97,11 +95,9 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenCol
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.getTableHandle;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
-import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
-import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
@@ -222,9 +218,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                columnConverterProvider,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
-
+                columnConverterProvider);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -516,12 +510,12 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges, List<TableConstraint<String>> constraints)
+        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges)
         {
             // hack to work around the metastore not being configured for S3 or other FS
             Table.Builder tableBuilder = Table.builder(table);
             tableBuilder.getStorageBuilder().setLocation("/");
-            super.createTable(metastoreContext, tableBuilder.build(), privileges, constraints);
+            super.createTable(metastoreContext, tableBuilder.build(), privileges);
             return EMPTY_RESULT;
         }
 

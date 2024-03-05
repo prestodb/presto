@@ -295,10 +295,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         verifyRecordingMode();
-        return delegate.createTable(metastoreContext, table, principalPrivileges, constraints);
+        return delegate.createTable(metastoreContext, table, principalPrivileges);
     }
 
     @Override
@@ -497,20 +497,6 @@ public class RecordingHiveMetastore
     public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         throw new UnsupportedOperationException("setPartitionLeases is not supported in RecordingHiveMetastore");
-    }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        verifyRecordingMode();
-        return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
-    {
-        verifyRecordingMode();
-        return delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
     }
 
     private <K, V> V loadValue(Cache<K, V> cache, K key, Supplier<V> valueSupplier)

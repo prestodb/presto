@@ -175,17 +175,9 @@ void PrestoExchangeSource::doRequest(
   auto path = fmt::format("{}/{}", basePath_, sequence_);
   VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  auto requestBuilder =
-      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
-
-  if (maxBytes == 0) {
-    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
-    // Coordinator ignores the header and always sends back data.  There is only
-    // one coordinator to fetch data from, so a limit of 1MB is enough.
-    maxBytes = 1 << 20;
-  }
-
-  requestBuilder
+  http::RequestBuilder()
+      .method(proxygen::HTTPMethod::GET)
+      .url(path)
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
           protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
@@ -258,13 +250,6 @@ void PrestoExchangeSource::processDataResponse(
   if (complete) {
     VLOG(1) << "Received buffer-complete header for " << basePath_ << "/"
             << sequence_;
-  }
-
-  std::vector<int64_t> remainingBytes;
-  auto remainingBytesString = headers->getHeaders().getSingleOrEmpty(
-      protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
-  if (!remainingBytesString.empty()) {
-    folly::split(',', remainingBytesString, remainingBytes);
   }
 
   int64_t ackSequence =
@@ -340,8 +325,7 @@ void PrestoExchangeSource::processDataResponse(
     }
 
     if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue(
-          Response{pageSize, complete, std::move(remainingBytes)});
+      requestPromise.setValue(Response{pageSize, complete});
     } else {
       // The source must have been closed.
       VELOX_CHECK(closed_.load());

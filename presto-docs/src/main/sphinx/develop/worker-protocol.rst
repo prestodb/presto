@@ -61,10 +61,6 @@ upstream worker.
   the receipt of the results and allows the worker to delete them.
 * A ``DELETE`` on ``{taskId}/results/{bufferId}`` deletes all results from the
   specified output buffer in case of an error.
-* Optionally, a ``HEAD`` request can be made to ``{taskId}/results/{bufferId}``
-  to retrieve any non-data page sequence related headers.  Use this to check if
-  the buffer is finished, or to see how much data is buffered without fetching
-  the data.
 
 Coordinator and workers fetch results in chunks. They specify the maximum size
 in bytes for the chunk using ``X-Presto-Max-Size`` HTTP header. Each chunk is
@@ -77,10 +73,6 @@ response includes:
   request the next chunk as ``X-Presto-Page-End-Sequence-Id`` HTTP header,
 * An indication that there are no more results as ``X-Presto-Buffer-Complete``
   HTTP header with the value of "true".
-* The remaining buffered bytes in the output buffer as ``X-Presto-Buffer-Remaining-Bytes``
-  HTTP header.  This should return a comma separated list of the size in bytes of
-  the pages that can be returned in the next request.  This can be used as a hint
-  to upstream tasks to optimize data exchange.
 
 The body of the response contains a list of pages in :doc:`SerializedPage wire format <serialized-page>`.
 

@@ -29,7 +29,6 @@ import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
 public class PageFileWriter
@@ -83,15 +82,14 @@ public class PageFileWriter
             pageWriter.close();
             return Optional.empty();
         }
-        catch (IOException | UncheckedIOException | PrestoException e) {
+        catch (IOException | UncheckedIOException e) {
             try {
                 rollbackAction.call();
             }
             catch (Exception ignored) {
                 // ignore
             }
-            throwIfInstanceOf(e, PrestoException.class);
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive. " + e.getMessage(), e);
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
 
@@ -105,9 +103,6 @@ public class PageFileWriter
             finally {
                 rollbackAction.call();
             }
-        }
-        catch (PrestoException e) {
-            throw e;
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

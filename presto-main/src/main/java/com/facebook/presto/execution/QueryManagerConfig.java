@@ -31,7 +31,6 @@ import javax.validation.constraints.NotNull;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.PETABYTE;
-import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -80,7 +79,6 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
-    private DataSize queryMaxWrittenIntermediateBytes = DataSize.succinctDataSize(2, TERABYTE);
     private long queryMaxOutputPositions = Long.MAX_VALUE;
     private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
 
@@ -480,18 +478,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanRawInputBytes(DataSize queryMaxRawInputBytes)
     {
         this.queryMaxScanRawInputBytes = queryMaxRawInputBytes;
-        return this;
-    }
-
-    public DataSize getQueryMaxWrittenIntermediateBytes()
-    {
-        return this.queryMaxWrittenIntermediateBytes;
-    }
-
-    @Config("query.max-written-intermediate-bytes")
-    public QueryManagerConfig setQueryMaxWrittenIntermediateBytes(DataSize queryMaxWrittenIntermediateBytes)
-    {
-        this.queryMaxWrittenIntermediateBytes = queryMaxWrittenIntermediateBytes;
         return this;
     }
 

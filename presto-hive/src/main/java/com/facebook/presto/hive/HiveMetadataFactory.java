@@ -21,7 +21,6 @@ import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
-import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -71,7 +70,6 @@ public class HiveMetadataFactory
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
     private final ColumnConverterProvider columnConverterProvider;
-    private final QuickStatsProvider quickStatsProvider;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -98,8 +96,7 @@ public class HiveMetadataFactory
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            ColumnConverterProvider columnConverterProvider,
-            QuickStatsProvider quickStatsProvider)
+            ColumnConverterProvider columnConverterProvider)
     {
         this(
                 metastore,
@@ -133,8 +130,7 @@ public class HiveMetadataFactory
                 encryptionInformationProvider,
                 hivePartitionStats,
                 hiveFileRenamer,
-                columnConverterProvider,
-                quickStatsProvider);
+                columnConverterProvider);
     }
 
     public HiveMetadataFactory(
@@ -169,8 +165,7 @@ public class HiveMetadataFactory
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            ColumnConverterProvider columnConverterProvider,
-            QuickStatsProvider quickStatsProvider)
+            ColumnConverterProvider columnConverterProvider)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -204,7 +199,6 @@ public class HiveMetadataFactory
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
-        this.quickStatsProvider = requireNonNull(quickStatsProvider, "quickStatsProvider is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -245,7 +239,7 @@ public class HiveMetadataFactory
                 partitionUpdateSmileCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(metastore, quickStatsProvider),
+                new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 partitionObjectBuilder,

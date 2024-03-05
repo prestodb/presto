@@ -27,7 +27,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -55,7 +54,7 @@ public interface HiveMetastore
 
     void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database database);
 
-    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 
@@ -186,8 +185,4 @@ public interface HiveMetastore
     {
         return ImmutableList.of();
     }
-
-    MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName);
-
-    MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint);
 }

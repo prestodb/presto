@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 
 public abstract class AbstractTestNativeWindowQueries
@@ -37,7 +36,6 @@ public abstract class AbstractTestNativeWindowQueries
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
         createOrders(queryRunner);
-        createLineitem(queryRunner);
     }
 
     private static final List<String> OVER_CLAUSES_WITH_ORDER_BY = Arrays.asList(
@@ -198,7 +196,5 @@ public abstract class AbstractTestNativeWindowQueries
         assertQuery("SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
         assertQuery("SELECT min(orderkey) OVER (PARTITION BY orderdate ORDER BY orderdate, totalprice) FROM orders");
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
-
-        assertQuery("WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
     }
 }

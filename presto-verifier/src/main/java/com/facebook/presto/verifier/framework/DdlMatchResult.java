@@ -53,12 +53,6 @@ public class DdlMatchResult
     }
 
     @Override
-    public String getDataType()
-    {
-        return "DDL";
-    }
-
-    @Override
     public String getMatchTypeName()
     {
         return matchType.name();

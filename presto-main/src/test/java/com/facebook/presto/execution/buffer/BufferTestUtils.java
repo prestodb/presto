@@ -80,7 +80,6 @@ public final class BufferTestUtils
                 token,
                 token + pages.size(),
                 false,
-                0,
                 pages.stream()
                         .map(PAGES_SERDE::serialize)
                         .collect(Collectors.toList()));

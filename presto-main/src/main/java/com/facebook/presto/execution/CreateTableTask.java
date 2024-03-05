@@ -24,12 +24,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ColumnDefinition;
-import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LikeClause;
@@ -42,8 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,11 +46,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.execution.AddConstraintTask.convertToTableConstraint;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -72,7 +65,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.lang.String.format;
 
 public class CreateTableTask
         implements DDLDefinitionTask<CreateTable>
@@ -92,11 +84,11 @@ public class CreateTableTask
     @Override
     public ListenableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, session, parameters, warningCollector);
+        return internalExecute(statement, metadata, accessControl, session, parameters);
     }
 
     @VisibleForTesting
-    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
+    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -116,7 +108,6 @@ public class CreateTableTask
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
-        List<TableConstraint<String>> constraints = new ArrayList<>();
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
@@ -187,32 +178,12 @@ public class CreateTableTask
                             columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
                         });
             }
-            else if (element instanceof ConstraintSpecification) {
-                accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-                constraints.add(convertToTableConstraint(metadata, session, connectorId, (ConstraintSpecification) element, warningCollector));
-            }
             else {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
             }
         }
 
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-
-        constraints.stream()
-                .filter(c -> c.getName().isPresent())
-                .collect(Collectors.groupingBy(c -> c.getName().get(), Collectors.counting()))
-                .forEach((constraintName, count) -> {
-                    if (count > 1) {
-                        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Constraint name '%s' specified more than once", constraintName));
-                    }
-                });
-
-        if (constraints.stream()
-                .filter(PrimaryKeyConstraint.class::isInstance)
-                .collect(Collectors.groupingBy(c -> c.getName().orElse(""), Collectors.counting()))
-                .size() > 1) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Multiple primary key constraints are not allowed");
-        }
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
@@ -225,7 +196,7 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment(), constraints, Collections.emptyMap());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
             metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
         }

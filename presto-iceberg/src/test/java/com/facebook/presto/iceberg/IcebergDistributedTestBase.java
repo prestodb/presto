@@ -14,12 +14,10 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -89,7 +87,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -473,56 +470,41 @@ public class IcebergDistributedTestBase
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @DataProvider(name = "timezones")
-    public Object[][] timezones()
+    @Test
+    public void testPartitionedByTimestampType()
     {
-        return new Object[][] {
-                {"UTC", true},
-                {"America/Los_Angeles", true},
-                {"Asia/Shanghai", true},
-                {"None", false}};
-    }
+        // create iceberg table partitioned by column of TimestampType, and insert some data
+        assertQuerySucceeds("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+        assertQuerySucceeds("insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
-    @Test(dataProvider = "timezones")
-    public void testPartitionedByTimestampType(String zoneId, boolean legacyTimestamp)
-    {
-        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+        // validate return data of TimestampType
+        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 2);
+        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        try {
-            // create iceberg table partitioned by column of TimestampType, and insert some data
-            assertQuerySucceeds(session, "create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
-            assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
+        // validate column of TimestampType exists in query filter
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
+                LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-            // validate return data of TimestampType
-            List<Object> timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-            assertEquals(timestampColumnDatas.size(), 2);
-            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        // validate column of TimestampType in system table "partitions"
+        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
 
-            // validate column of TimestampType exists in query filter
-            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
-                    LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        // validate column of TimestampType exists in delete filter
+        assertUpdate("delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
+        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+        assertEquals(timestampColumnDatas.size(), 1);
+        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
 
-            // validate column of TimestampType in system table "partitions"
-            assertEquals(getQueryRunner().execute(session, "select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
-            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
-            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
-
-            // validate column of TimestampType exists in delete filter
-            assertUpdate(session, "delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
-            timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-            assertEquals(timestampColumnDatas.size(), 1);
-            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            assertEquals(getQueryRunner().execute(session, "select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            assertEquals(getQueryRunner().execute(session, "select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
-            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
-        }
-        finally {
-            assertQuerySucceeds(session, "drop table test_partition_columns");
-        }
+        assertQuerySucceeds("drop table test_partition_columns");
     }
 
     @Test
@@ -1225,15 +1207,5 @@ public class IcebergDistributedTestBase
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
-    }
-
-    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
-    {
-        SessionBuilder sessionBuilder = Session.builder(getSession())
-                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
-        if (legacyTimestamp) {
-            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
-        }
-        return sessionBuilder.build();
     }
 }

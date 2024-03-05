@@ -59,8 +59,6 @@ public class VerifierConfig
 
     private boolean explain;
     private boolean saveSnapshot;
-
-    private boolean extendedVerification;
     private String runningMode = CONTROL_TEST_MODE;
 
     @NotNull
@@ -362,19 +360,6 @@ public class VerifierConfig
     public VerifierConfig setSaveSnapshot(boolean saveSnapshot)
     {
         this.saveSnapshot = saveSnapshot;
-        return this;
-    }
-
-    public boolean isExtendedVerification()
-    {
-        return extendedVerification;
-    }
-
-    @ConfigDescription("Run extended verification logic in verifier.")
-    @Config("extended-verification")
-    public VerifierConfig setExtendedVerification(boolean extendedVerification)
-    {
-        this.extendedVerification = extendedVerification;
         return this;
     }
 

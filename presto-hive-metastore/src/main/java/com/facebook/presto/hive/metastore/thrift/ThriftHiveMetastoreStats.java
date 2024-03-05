@@ -36,7 +36,6 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats dropDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createTable = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats createTableWithConstraints = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPartitions = new HiveMetastoreApiStats();
@@ -55,9 +54,6 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats unlock = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPrimaryKey = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getUniqueConstraints = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats dropConstraint = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats addUniqueConstraint = new HiveMetastoreApiStats();
-    private final HiveMetastoreApiStats addPrimaryKeyConstraint = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -187,13 +183,6 @@ public class ThriftHiveMetastoreStats
 
     @Managed
     @Nested
-    public HiveMetastoreApiStats getCreateTableWithConstraints()
-    {
-        return createTableWithConstraints;
-    }
-
-    @Managed
-    @Nested
     public HiveMetastoreApiStats getDropTable()
     {
         return dropTable;
@@ -312,26 +301,5 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getGetUniqueConstraints()
     {
         return getUniqueConstraints;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getDropConstraint()
-    {
-        return dropConstraint;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getAddUniqueConstraint()
-    {
-        return addUniqueConstraint;
-    }
-
-    @Managed
-    @Nested
-    public HiveMetastoreApiStats getAddPrimaryKeyConstraint()
-    {
-        return addPrimaryKeyConstraint;
     }
 }

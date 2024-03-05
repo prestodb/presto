@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer.utils;
 
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
@@ -33,7 +32,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
-import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -128,8 +126,6 @@ public final class StatementUtils
         builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
-        builder.put(DropConstraint.class, QueryType.DATA_DEFINITION);
-        builder.put(AddConstraint.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
         builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);

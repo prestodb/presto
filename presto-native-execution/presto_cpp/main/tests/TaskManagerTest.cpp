@@ -1107,7 +1107,7 @@ TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
           .getVia(eventBase));
 }
 
-TEST_F(TaskManagerTest, DISABLED_aggregationSpill) {
+TEST_F(TaskManagerTest, aggregationSpill) {
   // NOTE: we need to write more than one batches to each file (source split) to
   // trigger spill.
   const int numBatchesPerFile = 5;
@@ -1135,8 +1135,7 @@ TEST_F(TaskManagerTest, DISABLED_aggregationSpill) {
     if (doSpill) {
       spillDirectory = TaskManagerTest::setupSpillPath();
       taskManager_->setBaseSpillDirectory(spillDirectory->path);
-      // TODO(jtan6): use TestScopedSpillInjection after velox PR lands and
-      // re-enable the test.
+      queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
       queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
       queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
     }

@@ -32,8 +32,6 @@ public interface SqlQuerySchedulerInterface
 
     DataSize getRawInputDataSize();
 
-    DataSize getWrittenIntermediateDataSize();
-
     long getOutputPositions();
 
     DataSize getOutputDataSize();

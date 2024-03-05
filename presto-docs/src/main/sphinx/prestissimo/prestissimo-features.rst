@@ -152,7 +152,8 @@ disabled if ``connector.num-io-threads-hw-multiplier`` is set to zero.
 * **Default value:** ``true``
 * **Presto on Spark default value:** ``false``
 
-Whether async data cache is enabled.
+Whether async data cache is enabled.  Setting ``async-data-cache-enabled``
+to ``false`` disables split prefetching in table scan.
 
 ``async-cache-ssd-gb``
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -160,7 +161,8 @@ Whether async data cache is enabled.
 * **Type** ``integer``
 * **Default value:** ``0``
 
-Size of the SSD cache when async data cache is enabled.
+Size of the SSD cache when async data cache is enabled.  Must be zero if
+``async-data-cache-enabled`` is ``false``.
 
 ``enable-old-task-cleanup``
 ^^^^^^^^^^^^^^^^^^^^^^

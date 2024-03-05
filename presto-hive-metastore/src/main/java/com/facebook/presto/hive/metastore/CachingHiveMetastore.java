@@ -549,10 +549,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         try {
-            return delegate.createTable(metastoreContext, table, principalPrivileges, constraints);
+            return delegate.createTable(metastoreContext, table, principalPrivileges);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
@@ -1014,28 +1014,6 @@ public class CachingHiveMetastore
     public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
-    }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        try {
-            return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-        }
-        finally {
-            invalidateTable(databaseName, tableName);
-        }
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
-    {
-        try {
-            return delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
-        }
-        finally {
-            invalidateTable(databaseName, tableName);
-        }
     }
 
     @Override

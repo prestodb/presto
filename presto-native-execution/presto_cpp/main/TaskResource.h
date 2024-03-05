@@ -80,8 +80,7 @@ class TaskResource {
 
   proxygen::RequestHandler* getResults(
       proxygen::HTTPMessage* message,
-      const std::vector<std::string>& pathMatch,
-      bool getDataSize);
+      const std::vector<std::string>& pathMatch);
 
   proxygen::RequestHandler* getTaskStatus(
       proxygen::HTTPMessage* message,

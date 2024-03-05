@@ -48,7 +48,6 @@ import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.A
 import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -56,7 +55,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -414,22 +412,6 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denyRevokeTablePrivilege(privilege.toString(), table.toString());
-        }
-    }
-
-    @Override
-    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
-            denyDropConstraint(table.toString());
-        }
-    }
-
-    @Override
-    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
-            denyAddConstraint(table.toString());
         }
     }
 

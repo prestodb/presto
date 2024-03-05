@@ -59,9 +59,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using",
-        "use-legacy-scheduler",
-        "max-stage-retries"})
+        "deprecated.legacy-join-using"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -83,6 +81,7 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
+    private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -211,6 +210,7 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
+    private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
@@ -719,6 +719,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
     {
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
+        return this;
+    }
+
+    public int getMaxStageRetries()
+    {
+        return maxStageRetries;
+    }
+
+    @Config("max-stage-retries")
+    @ConfigDescription("Maximum number of times that stages can be retried")
+    public FeaturesConfig setMaxStageRetries(int maxStageRetries)
+    {
+        this.maxStageRetries = maxStageRetries;
         return this;
     }
 
@@ -2040,6 +2053,19 @@ public class FeaturesConfig
     public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
     {
         this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
+        return this;
+    }
+
+    public boolean isUseLegacyScheduler()
+    {
+        return useLegacyScheduler;
+    }
+
+    @Config("use-legacy-scheduler")
+    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
+    public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
+    {
+        this.useLegacyScheduler = useLegacyScheduler;
         return this;
     }
 

@@ -16,35 +16,18 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.jmx.JmxPlugin;
-import com.facebook.presto.hive.HdfsConfiguration;
-import com.facebook.presto.hive.HdfsConfigurationInitializer;
-import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveClientConfig;
-import com.facebook.presto.hive.HiveColumnConverterProvider;
-import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.MetastoreClientConfig;
-import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpcds.TpcdsPlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
 
 import java.io.File;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
@@ -60,7 +43,6 @@ public final class IcebergQueryRunner
     public static final String ICEBERG_CATALOG = "iceberg";
     public static final String TEST_DATA_DIRECTORY = "iceberg_data";
     public static final String TEST_CATALOG_DIRECTORY = "catalog";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     private IcebergQueryRunner() {}
 
@@ -128,20 +110,6 @@ public final class IcebergQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, Optional.empty(), dataDirectory);
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            boolean addJmxPlugin,
-            OptionalInt nodeCount,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<Path> dataDirectory)
-            throws Exception
-    {
         Logging logger = Logging.initialize();
         logger.setLevel("org.apache.iceberg", WARN);
         Session session = testSessionBuilder()
@@ -149,18 +117,16 @@ public final class IcebergQueryRunner
                 .setSchema("tpch")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session)
                 .setExtraProperties(extraProperties)
-                .setDataDirectory(dataDirectory)
-                .setNodeCount(nodeCount.orElse(4))
-                .setExternalWorkerLauncher(externalWorkerLauncher)
-                .build();
+                .setDataDirectory(dataDirectory);
+
+        nodeCount.ifPresent(queryRunnerBuilder::setNodeCount);
+
+        DistributedQueryRunner queryRunner = queryRunnerBuilder.build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
-
-        queryRunner.installPlugin(new TpcdsPlugin());
-        queryRunner.createCatalog("tpcds", "tpcds");
 
         Path icebergDataDirectory = queryRunner.getCoordinator().getDataDirectory();
 
@@ -180,38 +146,13 @@ public final class IcebergQueryRunner
             queryRunner.createCatalog("jmx", "jmx");
         }
 
-        if (catalogType == HIVE.name()) {
-            Path icebergDir = icebergDataDirectory
-                    .resolve(TEST_DATA_DIRECTORY)
-                    .getParent()
-                    .resolve(TEST_CATALOG_DIRECTORY);
-            ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDir);
-            if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
-                queryRunner.execute("CREATE SCHEMA tpch");
-            }
-            if (!metastore.getDatabase(METASTORE_CONTEXT, "tpcds").isPresent()) {
-                queryRunner.execute("CREATE SCHEMA tpcds");
-            }
-        }
-        else {
-            queryRunner.execute("CREATE SCHEMA tpch");
-            queryRunner.execute("CREATE SCHEMA tpcds");
-        }
+        queryRunner.execute("CREATE SCHEMA tpch");
 
         if (createTpchTables) {
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
         }
 
         return queryRunner;
-    }
-
-    private static ExtendedHiveMetastore getFileHiveMetastore(Path dataDirectory)
-    {
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, dataDirectory.toFile().toURI().toString(), "test");
     }
 
     private static Map<String, String> getConnectorProperties(CatalogType icebergCatalogType, Path icebergDataDirectory)

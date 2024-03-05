@@ -29,7 +29,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -174,7 +173,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints)
+    public synchronized MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table)
     {
         TableType tableType = TableType.valueOf(table.getTableType());
         checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
@@ -521,18 +520,6 @@ public class InMemoryHiveMetastore
 
     @Override
     public void revokeTablePrivileges(MetastoreContext metastoreContext, String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
     {
         throw new UnsupportedOperationException();
     }

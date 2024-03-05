@@ -179,30 +179,6 @@ public class TestClientBuffer
     }
 
     @Test
-    public void testBufferResults()
-    {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
-
-        long totalSizeOfPagesInBytes = 0;
-        for (int i = 0; i < 3; i++) {
-            Page page = createPage(i);
-            SerializedPageReference pageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, Lifespan.taskWide());
-            totalSizeOfPagesInBytes = totalSizeOfPagesInBytes + pageReference.getSerializedPage().getRetainedSizeInBytes();
-            addPage(buffer, page);
-        }
-        // Everything buffered
-        assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
-
-        BufferResult bufferResult = getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT);
-        long remainingBytes = totalSizeOfPagesInBytes - bufferResult.getBufferedBytes();
-        assertEquals(bufferResult.getBufferedBytes(), sizeOfPages(1).toBytes());
-        assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
-
-        buffer.acknowledgePages(bufferResult.getNextToken());
-        assertBufferInfo(buffer, 2, 1, remainingBytes);
-    }
-
-    @Test
     public void testDuplicateRequests()
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
@@ -416,41 +392,14 @@ public class TestClientBuffer
     private static void addPage(ClientBuffer buffer, Page page, PagesReleasedListener onPagesReleased)
     {
         SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, Lifespan.taskWide());
-        addPage(buffer, serializedPageReference, onPagesReleased);
-    }
-
-    private static void addPage(ClientBuffer buffer, SerializedPageReference page, PagesReleasedListener onPagesReleased)
-    {
-        buffer.enqueuePages(ImmutableList.of(page));
-        dereferencePages(ImmutableList.of(page), onPagesReleased);
+        buffer.enqueuePages(ImmutableList.of(serializedPageReference));
+        dereferencePages(ImmutableList.of(serializedPageReference), onPagesReleased);
     }
 
     private static void assertBufferInfo(
             ClientBuffer buffer,
             int bufferedPages,
             int pagesSent)
-    {
-        assertEquals(
-                buffer.getInfo(),
-                new BufferInfo(
-                        BUFFER_ID,
-                        false,
-                        bufferedPages,
-                        pagesSent,
-                        new PageBufferInfo(
-                                BUFFER_ID.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
-        assertFalse(buffer.isDestroyed());
-    }
-
-    private static void assertBufferInfo(
-            ClientBuffer buffer,
-            int bufferedPages,
-            int pagesSent,
-            long bufferedBytes)
     {
         assertEquals(
                 buffer.getInfo(),

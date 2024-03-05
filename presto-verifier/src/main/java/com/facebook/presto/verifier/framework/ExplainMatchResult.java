@@ -40,12 +40,6 @@ public class ExplainMatchResult
     }
 
     @Override
-    public String getDataType()
-    {
-        return "EXPLAIN";
-    }
-
-    @Override
     public String getMatchTypeName()
     {
         return matchType.name();

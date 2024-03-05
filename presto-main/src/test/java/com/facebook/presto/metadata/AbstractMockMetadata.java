@@ -36,7 +36,6 @@ import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -657,18 +656,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint)
     {
         throw new UnsupportedOperationException();
     }

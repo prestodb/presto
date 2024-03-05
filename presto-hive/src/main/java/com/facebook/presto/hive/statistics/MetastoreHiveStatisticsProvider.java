@@ -40,9 +40,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.common.hash.HashFunction;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
@@ -77,17 +75,14 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATI
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
 import static com.facebook.presto.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
-import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
-import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
-import static com.google.common.collect.Sets.difference;
 import static com.google.common.hash.Hashing.murmur3_128;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
@@ -103,23 +98,20 @@ public class MetastoreHiveStatisticsProvider
     private static final Logger log = Logger.get(MetastoreHiveStatisticsProvider.class);
 
     private final PartitionsStatisticsProvider statisticsProvider;
-    private final QuickStatsProvider quickStatsProvider;
 
-    public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore, QuickStatsProvider quickStatsProvider)
+    public MetastoreHiveStatisticsProvider(SemiTransactionalHiveMetastore metastore)
     {
         requireNonNull(metastore, "metastore is null");
         this.statisticsProvider = (session, table, hivePartitions) -> getPartitionsStatistics(session, metastore, table, hivePartitions);
-        this.quickStatsProvider = quickStatsProvider;
     }
 
     @VisibleForTesting
-    MetastoreHiveStatisticsProvider(PartitionsStatisticsProvider statisticsProvider, QuickStatsProvider quickStatsProvider)
+    MetastoreHiveStatisticsProvider(PartitionsStatisticsProvider statisticsProvider)
     {
         this.statisticsProvider = requireNonNull(statisticsProvider, "statisticsProvider is null");
-        this.quickStatsProvider = quickStatsProvider;
     }
 
-    private Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
+    private static Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table, List<HivePartition> hivePartitions)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
@@ -128,29 +120,12 @@ public class MetastoreHiveStatisticsProvider
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
         if (unpartitioned) {
             checkArgument(hivePartitions.size() == 1, "expected only one hive partition");
-            PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
-            if (isQuickStatsEnabled(session) &&
-                    (tableStatistics.equals(empty()) || tableStatistics.getColumnStatistics().isEmpty())) {
-                tableStatistics = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, UNPARTITIONED_ID);
-            }
-            return ImmutableMap.of(UNPARTITIONED_ID, tableStatistics);
+            return ImmutableMap.of(UNPARTITIONED_ID, metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName()));
         }
-
-        Set<String> partitionIds = hivePartitions.stream()
+        Set<String> partitionNames = hivePartitions.stream()
                 .map(HivePartition::getPartitionId)
                 .collect(toImmutableSet());
-        Map<String, PartitionStatistics> partitionStatistics = metastore.getPartitionStatistics(metastoreContext, table.getSchemaName(), table.getTableName(), partitionIds);
-
-        if (isQuickStatsEnabled(session)) {
-            Sets.SetView<String> partitionsWithNoStats = difference(partitionIds, partitionStatistics.entrySet().stream().filter(e -> !e.getValue().equals(empty()))
-                    .map(Map.Entry::getKey).collect(toImmutableSet()));
-            Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext,
-                    ImmutableList.copyOf(partitionsWithNoStats));
-            return ImmutableMap.<String, PartitionStatistics>builder().putAll(partitionStatistics).putAll(partitionQuickStats).build();
-        }
-        else {
-            return partitionStatistics;
-        }
+        return metastore.getPartitionStatistics(metastoreContext, table.getSchemaName(), table.getTableName(), partitionNames);
     }
 
     @Override

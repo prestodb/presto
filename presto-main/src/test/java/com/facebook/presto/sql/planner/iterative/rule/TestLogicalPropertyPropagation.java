@@ -58,10 +58,11 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -218,9 +219,9 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // add an additional unique constraint on customer (comment, nationkey)column
-        LinkedHashSet<ColumnHandle> commentcolumnSet = new LinkedHashSet<>();
+        Set<ColumnHandle> commentcolumnSet = new HashSet<>();
         commentcolumnSet.add(customerCommentColumn);
-        UniqueConstraint<ColumnHandle> commentConstraint = new UniqueConstraint<>(commentcolumnSet, true, true, false);
+        UniqueConstraint<ColumnHandle> commentConstraint = new UniqueConstraint<>(commentcolumnSet, true, true);
         List<TableConstraint<ColumnHandle>> customerConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
         customerConstraints.add(commentConstraint);
 
@@ -253,10 +254,10 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TEST: add a superfulous unique constraint on the (custkey, comment) combination
-        LinkedHashSet<ColumnHandle> custkeyCommentColumnSet = new LinkedHashSet<>();
+        Set<ColumnHandle> custkeyCommentColumnSet = new HashSet<>();
         custkeyCommentColumnSet.add(customerCustKeyColumn);
         custkeyCommentColumnSet.add(customerCommentColumn);
-        UniqueConstraint<ColumnHandle> custkeyCommentConstraint = new UniqueConstraint<>(custkeyCommentColumnSet, true, true, false);
+        UniqueConstraint<ColumnHandle> custkeyCommentConstraint = new UniqueConstraint<>(custkeyCommentColumnSet, true, true);
         customerConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
         customerConstraints.add(custkeyCommentConstraint);
 
@@ -306,8 +307,8 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // INVARIANT: define a table with primary key (A,B) and unique key (A) and ensure that the table scan key property only has key (A) (both A and B should have mappings)
-        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>(Optional.of("primarykey"), custkeyCommentColumnSet, true, true, false);
-        UniqueConstraint<ColumnHandle> custkeyUniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(customerCustKeyColumn)), true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> custkeyCommentPK = new PrimaryKeyConstraint<>("primarykey", custkeyCommentColumnSet, true, true);
+        UniqueConstraint<ColumnHandle> custkeyUniqueConstraint = new UniqueConstraint<>(ImmutableSet.of(customerCustKeyColumn), true, true);
 
         expectedLogicalProperties = new LogicalPropertiesImpl(new EquivalenceClassProperty(),
                 new MaxCardProperty(),
@@ -359,8 +360,8 @@ public class TestLogicalPropertyPropagation
         ColumnHandle colB = new TpchColumnHandle("B", BIGINT);
         ColumnHandle colC = new TpchColumnHandle("C", BIGINT);
 
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false);
-        UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint = new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA), true, true);
+        UniqueConstraint<ColumnHandle> uniqueConstraint = new UniqueConstraint<>(ImmutableSet.of(colB, colC), true, true);
         List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(primaryKeyConstraint, uniqueConstraint);
 
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
@@ -391,8 +392,8 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //INVARIANT: define a table with keys (A,C) and (B,C) and apply predicate A=constant and ensure that the filter key property has only has one key (C)
-        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colC)), true, true, false);
-        UniqueConstraint<ColumnHandle> uniqueConstraint1 = new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(colB, colC)), true, true, false);
+        PrimaryKeyConstraint<ColumnHandle> primaryKeyConstraint1 = new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colC), true, true);
+        UniqueConstraint<ColumnHandle> uniqueConstraint1 = new UniqueConstraint<>(ImmutableSet.of(colB, colC), true, true);
         List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(primaryKeyConstraint1, uniqueConstraint1);
 
         equivalenceClasses = new EquivalenceClassProperty();
@@ -420,7 +421,7 @@ public class TestLogicalPropertyPropagation
 
         //INVARIANT: define a table with key (A,B) and apply predicates A=constant1 and B=constant2 ensure that the filter has maxcard=1 and key property is empty
 
-        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints2 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colB), true, true));
 
         equivalenceClasses = new EquivalenceClassProperty();
         equivalenceClasses = equivalenceClasses.combineWith(varA, constant(100L, BIGINT));
@@ -499,7 +500,7 @@ public class TestLogicalPropertyPropagation
         VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "A", BIGINT);
         VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "B", BIGINT);
         VariableReferenceExpression projectedVarA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
-        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA, colB)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA, colB), true, true));
         Assignments assignments1 = Assignments.builder().put(projectedVarA, varA).build();
 
         expectedLogicalProperties = new LogicalPropertiesImpl(
@@ -522,7 +523,7 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         //TableScan key property has key (A), Filter applies predicate A=B, Project only has a mapping B->B'. Project should have key property with (B').
-        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.of("primarykey"), new LinkedHashSet<>(ImmutableList.of(colA)), true, true, false));
+        List<TableConstraint<ColumnHandle>> tableConstraints1 = ImmutableList.of(new PrimaryKeyConstraint<>("primarykey", ImmutableSet.of(colA), true, true));
         VariableReferenceExpression projectedA = new VariableReferenceExpression(Optional.empty(), "A1", BIGINT);
         Assignments assignments2 = Assignments.builder().put(projectedA, varA).build();
 
@@ -1087,10 +1088,10 @@ public class TestLogicalPropertyPropagation
 
         //test m to n cases where there are multiple keys in the left and right tables to concatenate e.g. add unique keys customer.comment and orders.comment
         List<TableConstraint<ColumnHandle>> customerTableConstraints = new ArrayList<>(tester().getTableConstraints(customerTableHandle));
-        customerTableConstraints.add(new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(customerCommentColumn)), true, true, false));
+        customerTableConstraints.add(new UniqueConstraint<>(ImmutableSet.of(customerCommentColumn), true, true));
 
         List<TableConstraint<ColumnHandle>> orderTableConstraints = new ArrayList<>(tester().getTableConstraints(ordersTableHandle));
-        orderTableConstraints.add(new UniqueConstraint<>(new LinkedHashSet<>(ImmutableList.of(ordersCommentColumn)), true, true, false));
+        orderTableConstraints.add(new UniqueConstraint<>(ImmutableSet.of(ordersCommentColumn), true, true));
 
         expectedLogicalProperties = new LogicalPropertiesImpl(
                 new EquivalenceClassProperty(),

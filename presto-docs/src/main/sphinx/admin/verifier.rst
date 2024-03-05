@@ -286,9 +286,6 @@ Name                                        Description
 ``running-mode``                            Set to ``query-bank`` to make the Verifier run in ``query-bank`` mode. Supports
                                             ``query-bank`` and ``control-test``. Defaults to ``control-test``.
 ``save-snapshot``                           Set to ``true`` to save checksums to ``mysql`` database.
-``extended-verification``                   Set to ``true`` to run extended table layout verification for written tables.
-                                            It only applies to ``Insert`` and ``CreateTableAsSelect`` queries.
-                                            It would verify each partition's data checksum if the inserted table is partitioned.
 =========================================== ===============================================================================
 
 

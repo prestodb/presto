@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.verifier.framework.DataMatchResult.DataType.DATA;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
@@ -53,11 +52,11 @@ import static java.util.Objects.requireNonNull;
 public class DataVerification
         extends AbstractVerification<QueryObjectBundle, DataMatchResult, Void>
 {
-    protected final QueryRewriter queryRewriter;
-    protected final DeterminismAnalyzer determinismAnalyzer;
-    protected final FailureResolverManager failureResolverManager;
-    protected final TypeManager typeManager;
-    protected final ChecksumValidator checksumValidator;
+    private final QueryRewriter queryRewriter;
+    private final DeterminismAnalyzer determinismAnalyzer;
+    private final FailureResolverManager failureResolverManager;
+    private final TypeManager typeManager;
+    private final ChecksumValidator checksumValidator;
 
     public DataVerification(
             QueryActions queryActions,
@@ -126,7 +125,6 @@ public class DataVerification
 
                 snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, snapshot));
                 return new DataMatchResult(
-                        DATA,
                         MATCH,
                         Optional.empty(),
                         OptionalLong.empty(),
@@ -143,7 +141,7 @@ public class DataVerification
                 controlChecksumResult = ChecksumResult.fromJson(snapshotJson);
             }
             else {
-                return new DataMatchResult(DATA, SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), Collections.emptyList());
+                return new DataMatchResult(SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), Collections.emptyList());
             }
         }
 
@@ -152,7 +150,7 @@ public class DataVerification
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
         ChecksumResult testChecksumResult = getOnlyElement(testChecksum.getResults());
 
-        return match(DATA, checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
+        return match(checksumValidator, controlColumns, testColumns, controlChecksumResult, testChecksumResult);
     }
 
     @Override

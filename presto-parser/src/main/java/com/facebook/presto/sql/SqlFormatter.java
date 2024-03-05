@@ -14,7 +14,6 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -25,7 +24,6 @@ import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
-import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -38,7 +36,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
-import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -136,7 +133,6 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
-import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -1026,10 +1022,6 @@ public final class SqlFormatter
                             }
                             return builder.toString();
                         }
-                        if (element instanceof ConstraintSpecification) {
-                            ConstraintSpecification constraint = (ConstraintSpecification) element;
-                            return elementIndent + processConstraintDefinition(constraint);
-                        }
                         throw new UnsupportedOperationException("unknown table element: " + element);
                     })
                     .collect(joining(",\n"));
@@ -1593,64 +1585,6 @@ public final class SqlFormatter
             }
 
             return null;
-        }
-
-        @Override
-        protected Void visitDropConstraint(DropConstraint node, Integer indent)
-        {
-            builder.append("ALTER TABLE ");
-            if (node.isTableExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(formatName(node.getTableName()))
-                    .append(" DROP CONSTRAINT ");
-            if (node.isConstraintExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(node.getConstraintName());
-
-            return null;
-        }
-
-        @Override
-        protected Void visitAddConstraint(AddConstraint node, Integer indent)
-        {
-            builder.append("ALTER TABLE ");
-            builder.append(node.getTableName().toString());
-            builder.append(" ADD ");
-            builder.append(processConstraintDefinition(node.getConstraintSpecification()));
-
-            return null;
-        }
-
-        private String processConstraintDefinition(ConstraintSpecification node)
-        {
-            StringBuilder sb = new StringBuilder();
-            if (node.getConstraintName().isPresent()) {
-                sb.append("CONSTRAINT ");
-                sb.append(node.getConstraintName().get());
-                sb.append(" ");
-            }
-            sb.append(node.getConstraintType() == UNIQUE ? "UNIQUE " : "PRIMARY KEY ");
-            sb.append("(");
-            Iterator<String> columns = node.getColumns().iterator();
-            while (columns.hasNext()) {
-                sb.append(columns.next());
-                if (columns.hasNext()) {
-                    sb.append(", ");
-                }
-            }
-            sb.append(")");
-            if (!node.isEnabled()) {
-                sb.append(" DISABLED");
-            }
-            if (!node.isRely()) {
-                sb.append(" NOT RELY");
-            }
-            if (!node.isEnforced()) {
-                sb.append(" NOT ENFORCED");
-            }
-            return sb.toString();
         }
 
         private void processRelation(Relation relation, Integer indent)

@@ -39,7 +39,6 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -170,7 +169,7 @@ public interface ConnectorMetadata
      * the rows it contains is the same as union of a set of partitions <code>a_{i_1}, a_{i_2}, ... a_{i_k}</code>
      * in partitioning <code>a</code>, i.e.
      * <p>
-     * <code>b_i = a_{i_1} + a_{i_2} +  ... + a_{i_k}</code>
+     * <code>b_i = a_{i_1} + a_{i_2} + ... + a_{i_k}</code>
      * <li> Connector can transparently convert partitioning <code>a</code> to partitioning <code>b</code>
      * associated with the provided table layout handle.
      * </ul>
@@ -825,21 +824,5 @@ public interface ConnectorMetadata
     default TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle tableHandle, Set<String> relevantPartitionColumns)
     {
         return NOT_APPLICABLE;
-    }
-
-    /**
-     * Drop the specified constraint
-     */
-    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table constraints");
-    }
-
-    /**
-     * Add the specified constraint
-     */
-    default void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding table constraints");
     }
 }

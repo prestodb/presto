@@ -150,7 +150,7 @@ public class ParquetPageSourceFactory
             Optional.empty(),
             Optional.empty());
 
-    public static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
+    private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();

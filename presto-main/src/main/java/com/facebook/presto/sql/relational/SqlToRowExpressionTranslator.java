@@ -929,7 +929,7 @@ public final class SqlToRowExpressionTranslator
 
         private RowExpression generateLikePrefixOrSuffixMatch(RowExpression value, RowExpression pattern)
         {
-            if (value.getType() instanceof VarcharType && pattern instanceof ConstantExpression) {
+            if ((value.getType() instanceof VarcharType || value.getType() instanceof CharType) && pattern instanceof ConstantExpression) {
                 Object constObject = ((ConstantExpression) pattern).getValue();
                 if (constObject instanceof Slice) {
                     Slice slice = (Slice) constObject;

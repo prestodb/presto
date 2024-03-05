@@ -37,7 +37,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
-import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -192,10 +191,10 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         checkArgument(!table.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
-        return delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()), constraints);
+        return delegate.createTable(metastoreContext, toMetastoreApiTable(table, principalPrivileges, metastoreContext.getColumnConverter()));
     }
 
     @Override
@@ -401,25 +400,6 @@ public class BridgingHiveMetastore
     public void setPartitionLeases(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, String> partitionNameToLocation, Duration leaseDuration)
     {
         delegate.setPartitionLeases(metastoreContext, databaseName, tableName, partitionNameToLocation, leaseDuration);
-    }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
-    {
-        MetastoreOperationResult result;
-        if (tableConstraint instanceof UniqueConstraint || tableConstraint instanceof PrimaryKeyConstraint) {
-            result = delegate.addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
-        }
-        else {
-            throw new PrestoException(NOT_SUPPORTED, "Hive metastore supports only unique/primary key constraints");
-        }
-        return result;
     }
 
     @Override

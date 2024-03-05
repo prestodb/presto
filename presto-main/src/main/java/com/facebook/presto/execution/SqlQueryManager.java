@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
-import com.facebook.presto.ExceededIntermediateWrittenBytesException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
@@ -31,7 +30,6 @@ import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
@@ -64,7 +62,6 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputPositions;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxOutputSize;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
-import static com.facebook.presto.SystemSessionProperties.getQueryMaxWrittenIntermediateBytesLimit;
 import static com.facebook.presto.execution.QueryLimit.Source.QUERY;
 import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
 import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
@@ -91,8 +88,6 @@ public class SqlQueryManager
 
     private final Duration maxQueryCpuTime;
     private final DataSize maxQueryScanPhysicalBytes;
-
-    private final DataSize maxWrittenIntermediatePhysicalBytes;
     private final long maxQueryOutputPositions;
     private final DataSize maxQueryOutputSize;
 
@@ -119,7 +114,6 @@ public class SqlQueryManager
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanRawInputBytes();
-        this.maxWrittenIntermediatePhysicalBytes = queryManagerConfig.getQueryMaxWrittenIntermediateBytes();
         this.maxQueryOutputPositions = queryManagerConfig.getQueryMaxOutputPositions();
         this.maxQueryOutputSize = queryManagerConfig.getQueryMaxOutputSize();
 
@@ -162,13 +156,6 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query output rows limits");
-            }
-
-            try {
-                enforceWrittenIntermediateBytesLimit();
-            }
-            catch (Throwable e) {
-                log.error(e, "Error enforcing written intermediate limits");
             }
 
             try {
@@ -428,26 +415,6 @@ public class SqlQueryManager
             DataSize limit = Ordering.natural().min(maxQueryScanPhysicalBytes, sessionlimit);
             if (rawInputSize.compareTo(limit) >= 0) {
                 query.fail(new ExceededScanLimitException(limit));
-            }
-        }
-    }
-
-    /**
-     * Enforce WrittenIntermediateDataSize bytes limits
-     */
-    private void enforceWrittenIntermediateBytesLimit()
-    {
-        for (QueryExecution query : queryTracker.getAllQueries()) {
-            if (query.getSession().getCteInformationCollector()
-                    .getCTEInformationList().stream().noneMatch(CTEInformation::isMaterialized)) {
-                // No Ctes Materialized
-                continue;
-            }
-            DataSize writtenIntermediateDataSize = query.getWrittenIntermediateDataSize();
-            DataSize sessionlimit = getQueryMaxWrittenIntermediateBytesLimit(query.getSession());
-            DataSize limit = Ordering.natural().min(maxWrittenIntermediatePhysicalBytes, sessionlimit);
-            if (writtenIntermediateDataSize.compareTo(limit) >= 0) {
-                query.fail(new ExceededIntermediateWrittenBytesException(limit));
             }
         }
     }

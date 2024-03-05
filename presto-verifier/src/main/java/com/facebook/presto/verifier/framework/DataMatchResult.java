@@ -33,22 +33,15 @@ import static java.util.Objects.requireNonNull;
 public class DataMatchResult
         implements MatchResult
 {
-    public enum DataType
-    {
-        DATA,
-        PARTITION_DATA,
-    }
     public enum MatchType
     {
         MATCH,
         SCHEMA_MISMATCH,
         ROW_COUNT_MISMATCH,
         COLUMN_MISMATCH,
-        PARTITION_COUNT_MISMATCH,
         SNAPSHOT_DOES_NOT_EXIST,
     }
 
-    private final DataType dataType;
     private final MatchType matchType;
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
@@ -56,15 +49,13 @@ public class DataMatchResult
     private final List<ColumnMatchResult<?>> mismatchedColumns;
 
     public DataMatchResult(
-            DataType dataType,
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
             List<ColumnMatchResult<?>> mismatchedColumns)
     {
-        this.dataType = requireNonNull(dataType, "data type is null");
-        this.matchType = requireNonNull(matchType, "match type is null");
+        this.matchType = requireNonNull(matchType, "type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
@@ -75,12 +66,6 @@ public class DataMatchResult
     public boolean isMatched()
     {
         return matchType == MATCH;
-    }
-
-    @Override
-    public String getDataType()
-    {
-        return dataType.name();
     }
 
     @Override

@@ -18,10 +18,8 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.annotations.VisibleForTesting;
@@ -50,7 +48,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
@@ -200,14 +197,7 @@ public class AsyncPageTransportServlet
         ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(
-                        taskManager.getTaskInstanceId(taskId),
-                        token,
-                        taskManager.getTaskBufferInfo(taskId, bufferId)
-                                .map(BufferInfo::getPageBufferInfo)
-                                .map(PageBufferInfo::getBufferedBytes)
-                                .orElse(0L),
-                        false),
+                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
                 waitTime,
                 timeoutExecutor);
 
@@ -224,7 +214,6 @@ public class AsyncPageTransportServlet
                         response.setHeader(PRESTO_PAGE_TOKEN, String.valueOf(bufferResult.getToken()));
                         response.setHeader(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(bufferResult.getNextToken()));
                         response.setHeader(PRESTO_BUFFER_COMPLETE, String.valueOf(bufferResult.isBufferComplete()));
-                        response.setHeader(PRESTO_BUFFER_REMAINING_BYTES, String.valueOf(bufferResult.getBufferedBytes()));
 
                         List<SerializedPage> serializedPages = bufferResult.getSerializedPages();
                         if (serializedPages.isEmpty()) {

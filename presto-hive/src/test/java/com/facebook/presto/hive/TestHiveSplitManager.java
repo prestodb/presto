@@ -34,7 +34,6 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
-import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
@@ -87,11 +86,9 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
-import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
@@ -517,8 +514,7 @@ public class TestHiveSplitManager
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),

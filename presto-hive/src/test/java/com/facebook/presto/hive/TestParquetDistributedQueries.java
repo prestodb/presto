@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
@@ -23,8 +22,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
-import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -53,45 +50,6 @@ public class TestParquetDistributedQueries
                 "sql-standard",
                 parquetProperties,
                 Optional.empty());
-    }
-
-    @Test
-    public void testQuickStats()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty("hive." + COLLECT_COLUMN_STATISTICS_ON_WRITE, "false")
-                .setSystemProperty("hive." + QUICK_STATS_ENABLED, "true")
-                .build();
-
-        getQueryRunner().execute(session, "CREATE TABLE test_quick_stats AS " +
-                "SELECT orderkey, linenumber, shipdate," +
-                " ARRAY[returnflag, linestatus] as arr," +
-                " CAST(ROW(commitdate, receiptdate) AS ROW(date1 DATE,date2 DATE)) as rrow from lineitem");
-
-        try {
-            // Since no stats were collected during write, all column stats will be null
-            assertQuery("SHOW STATS FOR test_quick_stats",
-                    "SELECT * FROM (VALUES " +
-                            "   ('orderkey', null, null, null, null, null, null), " +
-                            "   ('linenumber', null, null, null, null, null, null), " +
-                            "   ('shipdate', null, null, null, null, null, null), " +
-                            "   ('arr', null, null, null, null, null, null), " +
-                            "   ('rrow', null, null, null, null, null, null), " +
-                            "   (null, null, null, null, 60175.0, null, null))");
-
-            // With quick stats enabled, we should get nulls_fraction, low_value and high_value for the non-nested columns
-            assertQuery(session, "SHOW STATS FOR test_quick_stats",
-                    "SELECT * FROM (VALUES " +
-                            "   ('orderkey', null, null, 0.0, null, '1', '60000'), " +
-                            "   ('linenumber', null, null, 0.0, null, '1', '7'), " +
-                            "   ('shipdate', null, null, 0.0, null, '1992-01-04', '1998-11-29'), " +
-                            "   ('arr', null, null, null, null, null, null), " +
-                            "   ('rrow', null, null, null, null, null, null), " +
-                            "   (null, null, null, null, 60175.0, null, null))");
-        }
-        finally {
-            getQueryRunner().execute("DROP TABLE test_quick_stats");
-        }
     }
 
     @Test
