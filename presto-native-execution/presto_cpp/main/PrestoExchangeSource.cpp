@@ -265,6 +265,10 @@ void PrestoExchangeSource::processDataResponse(
       protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
   if (!remainingBytesString.empty()) {
     folly::split(',', remainingBytesString, remainingBytes);
+    if (!remainingBytes.empty() && remainingBytes[0] == 0) {
+      VELOX_CHECK_EQ(remainingBytes.size(), 1);
+      remainingBytes.clear();
+    }
   }
 
   int64_t ackSequence =
