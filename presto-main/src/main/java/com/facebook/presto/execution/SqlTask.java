@@ -494,6 +494,12 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
+    public Optional<List<Long>> getBufferedPageBytes(OutputBufferId bufferId)
+    {
+        requireNonNull(bufferId, "bufferId is null");
+        return Optional.ofNullable(outputBuffer.getBufferedPageBytes().get(bufferId));
+    }
+
     public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(bufferId, "bufferId is null");

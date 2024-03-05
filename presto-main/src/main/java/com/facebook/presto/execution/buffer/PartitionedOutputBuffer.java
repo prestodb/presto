@@ -21,10 +21,12 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -141,6 +143,16 @@ public class PartitionedOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 infos.build());
+    }
+
+    @Override
+    public Map<OutputBufferId, List<Long>> getBufferedPageBytes()
+    {
+        ImmutableMap.Builder<OutputBufferId, List<Long>> builder = ImmutableMap.builder();
+        for (ClientBuffer partition : partitions) {
+            builder.put(partition.getBufferId(), partition.getBufferedPageBytes());
+        }
+        return builder.build();
     }
 
     @Override

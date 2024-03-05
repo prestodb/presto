@@ -217,6 +217,12 @@ public class TestThriftServerInfoIntegration
                 }
 
                 @Override
+                public Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBufferId bufferId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
                 {
                     throw new UnsupportedOperationException();

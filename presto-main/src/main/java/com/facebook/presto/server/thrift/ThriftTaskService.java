@@ -21,6 +21,7 @@ import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -61,7 +62,11 @@ public class ThriftTaskService
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
+                () -> BufferResult.emptyResults(
+                        taskManager.getTaskInstanceId(taskId),
+                        token,
+                        taskManager.getBufferedPageBytes(taskId, bufferId).orElse(ImmutableList.of()),
+                        false),
                 waitTime,
                 timeoutExecutor);
 

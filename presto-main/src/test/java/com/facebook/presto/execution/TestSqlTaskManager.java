@@ -49,6 +49,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -70,8 +71,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
-@Test
+@Test(singleThreaded = true)
 public class TestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId("query", 0, 0, 1, 0);
@@ -148,6 +150,39 @@ public class TestSqlTaskManager
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        }
+    }
+
+    @Test
+    public void testRemainingBufferMetadata()
+            throws Exception
+    {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            taskInfo = sqlTaskManager.getTaskInfo(taskId);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+
+            // Task results clear out all buffered data once ack is sent
+            long retainedPageSize = results.getSerializedPages().get(0).getRetainedSizeInBytes();
+            assertEquals(results.getBufferedPageBytes().size(), 0);
+            Optional<List<Long>> bufferedPageBytes = sqlTaskManager.getBufferedPageBytes(TASK_ID, OUT);
+            assertTrue(bufferedPageBytes.isPresent());
+            // Buffer still remains as acknowledgement has not been received
+            assertEquals(bufferedPageBytes.get().stream().mapToLong(i -> i).sum(), retainedPageSize);
+            // Once acknowledged, the retained size of the data page is removed from the buffer
+            sqlTaskManager.acknowledgeTaskResults(taskId, OUT, results.getNextToken());
+            bufferedPageBytes = sqlTaskManager.getBufferedPageBytes(TASK_ID, OUT);
+            assertTrue(bufferedPageBytes.isPresent());
+            assertEquals(bufferedPageBytes.get().size(), 0);
+
+            sqlTaskManager.cancelTask(TASK_ID);
+            taskInfo = sqlTaskManager.getTaskInfo(taskId);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
         }
     }
 

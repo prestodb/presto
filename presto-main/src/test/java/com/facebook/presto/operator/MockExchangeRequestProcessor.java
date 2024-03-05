@@ -27,6 +27,7 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
@@ -220,7 +221,7 @@ public class MockExchangeRequestProcessor
             // update sequence id
             long nextToken = token.get() + responsePages.size();
 
-            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, responsePages);
+            BufferResult bufferResult = new BufferResult(TASK_INSTANCE_ID, token.get(), nextToken, false, ImmutableList.of(), responsePages);
             token.set(nextToken);
 
             return bufferResult;

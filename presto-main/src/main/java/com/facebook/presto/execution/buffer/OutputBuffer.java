@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public interface OutputBuffer
@@ -30,6 +31,11 @@ public interface OutputBuffer
      * contended locks, but the stats in the info object may be internally inconsistent.
      */
     OutputBufferInfo getInfo();
+
+    /**
+     * Returns the buffered page sizes in bytes for each output buffer
+     */
+    Map<OutputBufferId, List<Long>> getBufferedPageBytes();
 
     /**
      * A buffer is finished once no-more-pages has been set and all buffers have been closed

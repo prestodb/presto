@@ -453,6 +453,14 @@ public class SqlTaskManager
     }
 
     @Override
+    public Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBufferId bufferId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        return tasks.getUnchecked(taskId).getBufferedPageBytes(bufferId);
+    }
+
+    @Override
     public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(taskId, "taskId is null");

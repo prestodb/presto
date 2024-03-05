@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class TestingOutputBuffer
@@ -32,6 +33,12 @@ public class TestingOutputBuffer
 {
     @Override
     public OutputBufferInfo getInfo()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<OutputBuffers.OutputBufferId, List<Long>> getBufferedPageBytes()
     {
         throw new UnsupportedOperationException();
     }

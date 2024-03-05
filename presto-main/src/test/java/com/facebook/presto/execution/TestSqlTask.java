@@ -29,6 +29,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -43,6 +44,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -161,9 +163,21 @@ public class TestSqlTask
         assertEquals(results.isBufferComplete(), false);
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
+        // Task results clear out all buffered data once ack is sent
+        long pagesRetanedSizeInBytes = results.getSerializedPages().stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
+        assertEquals(results.getBufferedPageBytes().size(), 0);
+        Optional<List<Long>> bufferedPageBytes = sqlTask.getBufferedPageBytes(OUT);
+        assertTrue(bufferedPageBytes.isPresent());
+        // Buffer still remains as acknowledgement has not been received
+        assertEquals(bufferedPageBytes.get().stream().mapToLong(i -> i).sum(), pagesRetanedSizeInBytes);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
+            pagesRetanedSizeInBytes = results.getSerializedPages().stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
+            assertEquals(results.getBufferedPageBytes().stream().mapToLong(i -> i).sum(), pagesRetanedSizeInBytes);
+            bufferedPageBytes = sqlTask.getBufferedPageBytes(OUT);
+            assertTrue(bufferedPageBytes.isPresent());
+            assertEquals(bufferedPageBytes.get().stream().mapToLong(i -> i).sum(), pagesRetanedSizeInBytes);
         }
         assertEquals(results.getSerializedPages().size(), 0);
 

@@ -103,6 +103,12 @@ public class PrestoSparkTaskManager
     }
 
     @Override
+    public Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBuffers.OutputBufferId bufferId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void acknowledgeTaskResults(TaskId taskId, OutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         throw new UnsupportedOperationException();

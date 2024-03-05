@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -39,6 +40,7 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
+import javax.ws.rs.HEAD;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -62,6 +64,8 @@ import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICA
 import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_REMAINING_BYTES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
@@ -83,6 +87,8 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
+
+    private static final Joiner COMMA_SEPARATED_JOINER = Joiner.on(',');
 
     private final TaskManager taskManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -286,6 +292,33 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+    }
+
+    @HEAD
+    @Path("{taskId}/results/{bufferId}")
+    public Response taskResultsHeaders(
+            @PathParam("taskId") TaskId taskId,
+            @PathParam("bufferId") OutputBufferId bufferId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+
+        return taskManager.getBufferedPageBytes(taskId, bufferId)
+                .map(bufferedPages -> Response.ok()
+                        .header(PRESTO_BUFFER_REMAINING_BYTES, COMMA_SEPARATED_JOINER.join(bufferedPages))
+                        .header(PRESTO_BUFFER_COMPLETE, false)
+                        .build())
+                .orElse(Response.status(Response.Status.NOT_FOUND).build());
+    }
+
+    @HEAD
+    @Path("{taskId}/results/{bufferId}/{token}")
+    public Response taskResultsHeaders(
+            @PathParam("taskId") TaskId taskId,
+            @PathParam("bufferId") OutputBufferId bufferId,
+            @PathParam("token") final long unused)
+    {
+        return taskResultsHeaders(taskId, bufferId);
     }
 
     @DELETE

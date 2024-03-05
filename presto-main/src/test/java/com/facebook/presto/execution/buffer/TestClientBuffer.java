@@ -179,6 +179,33 @@ public class TestClientBuffer
     }
 
     @Test
+    public void testBufferResults()
+    {
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
+
+        List<Long> pageSizesInBytes = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            Page page = createPage(i);
+            SerializedPageReference pageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, Lifespan.taskWide());
+            pageSizesInBytes.add(pageReference.getSerializedPage().getRetainedSizeInBytes());
+            addPage(buffer, page);
+        }
+        // Everything buffered
+        assertBufferInfo(buffer, 3, 0);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes);
+
+        BufferResult bufferResult = getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT);
+        // Buffered page bytes includes only the pages that are not included in the buffer result
+        assertEquals(bufferResult.getBufferedPageBytes(), pageSizesInBytes.subList(1, pageSizesInBytes.size()));
+        assertBufferInfo(buffer, 3, 0);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes);
+
+        buffer.acknowledgePages(bufferResult.getNextToken());
+        assertBufferInfo(buffer, 2, 1);
+        assertEquals(buffer.getBufferedPageBytes(), pageSizesInBytes.subList(1, pageSizesInBytes.size()));
+    }
+
+    @Test
     public void testDuplicateRequests()
     {
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
@@ -392,8 +419,13 @@ public class TestClientBuffer
     private static void addPage(ClientBuffer buffer, Page page, PagesReleasedListener onPagesReleased)
     {
         SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, Lifespan.taskWide());
-        buffer.enqueuePages(ImmutableList.of(serializedPageReference));
-        dereferencePages(ImmutableList.of(serializedPageReference), onPagesReleased);
+        addPage(buffer, serializedPageReference, onPagesReleased);
+    }
+
+    private static void addPage(ClientBuffer buffer, SerializedPageReference page, PagesReleasedListener onPagesReleased)
+    {
+        buffer.enqueuePages(ImmutableList.of(page));
+        dereferencePages(ImmutableList.of(page), onPagesReleased);
     }
 
     private static void assertBufferInfo(

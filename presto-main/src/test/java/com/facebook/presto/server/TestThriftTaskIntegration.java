@@ -246,6 +246,12 @@ public class TestThriftTaskIntegration
                 }
 
                 @Override
+                public Optional<List<Long>> getBufferedPageBytes(TaskId taskId, OutputBufferId bufferId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
                 public void acknowledgeTaskResults(TaskId taskId, OutputBufferId bufferId, long sequenceId)
                 {
                     assertEquals(taskId, TaskId.valueOf("queryid.0.0.0.0"));
