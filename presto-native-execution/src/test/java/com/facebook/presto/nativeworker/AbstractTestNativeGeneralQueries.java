@@ -28,7 +28,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -1483,6 +1485,19 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+    }
+
+    /**
+     * See GitHub issue: <a href="https://github.com/prestodb/presto/issues/22085">link</a>
+     */
+    @Test
+    public void testKeyBasedSamplingInlined()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(session, "select count(1) from orders join lineitem using(orderkey)");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
