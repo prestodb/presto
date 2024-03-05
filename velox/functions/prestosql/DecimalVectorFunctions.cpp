@@ -451,6 +451,39 @@ class Round {
   }
 };
 
+class Floor {
+ public:
+  template <typename R, typename A>
+  inline static void apply(
+      R& r,
+      const A& a,
+      uint8_t /*aPrecision*/,
+      uint8_t aRescale,
+      const ExtraParams& /*param*/) {
+    auto rescaleFactor = DecimalUtil::kPowersOfTen[aRescale];
+    // Function interpretation is the same as ceil for negative numbers, and as
+    // floor for positive numbers.
+    auto increment = (a % rescaleFactor) < 0 ? -1 : 0;
+    r = a / rescaleFactor + increment;
+  }
+
+  inline static uint8_t computeRescaleFactor(
+      uint8_t fromScale,
+      uint8_t /*toScale*/,
+      uint8_t /*rScale*/) {
+    return fromScale;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale,
+      const ExtraParams& /*extraParams*/) {
+    // The result precision is calculated as "p - s + min(s, 1)" in Presto.
+    return {
+        std::min(38, aPrecision - aScale + std::min((uint8_t)1, aScale)), 0};
+  }
+};
+
 class Abs {
  public:
   template <typename R, typename A>
@@ -576,6 +609,18 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> decimalRoundSignature() {
           .returnType("DECIMAL(r_precision, a_scale)")
           .argumentType("DECIMAL(a_precision, a_scale)")
           .argumentType("integer")
+          .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> decimalFloorSignature() {
+  return {
+      exec::FunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
+          .integerVariable(
+              "r_precision", "min(38, a_precision - a_scale + min(a_scale, 1))")
+          .returnType("DECIMAL(r_precision, 0)")
+          .argumentType("DECIMAL(a_precision, a_scale)")
           .build()};
 }
 
@@ -752,6 +797,11 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_round,
     decimalRoundSignature(),
     createDecimalUnary<Round>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_floor,
+    decimalFloorSignature(),
+    createDecimalUnary<Floor>);
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_abs,

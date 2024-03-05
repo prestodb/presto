@@ -185,6 +185,7 @@ void registerArithmeticFunctions(const std::string& prefix = "") {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, prefix + "multiply");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, prefix + "divide");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_round, prefix + "round");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_floor, prefix + "floor");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_abs, prefix + "abs");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_negate, prefix + "negate");
 }
