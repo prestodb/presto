@@ -119,6 +119,10 @@ class HiveDataSource : public DataSource {
 
   // The row type for the data source output, not including filter-only columns
   const RowTypePtr outputType_;
+
+  // Column handles for the Split info columns keyed on their column names.
+  std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>
+      infoColumns_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   RowVectorPtr emptyOutput_;

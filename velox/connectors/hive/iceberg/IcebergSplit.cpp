@@ -30,7 +30,8 @@ HiveIcebergSplit::HiveIcebergSplit(
         _partitionKeys,
     std::optional<int32_t> _tableBucketNumber,
     const std::unordered_map<std::string, std::string>& _customSplitInfo,
-    const std::shared_ptr<std::string>& _extraFileInfo)
+    const std::shared_ptr<std::string>& _extraFileInfo,
+    const std::unordered_map<std::string, std::string>& _infoColumns)
     : HiveConnectorSplit(
           _connectorId,
           _filePath,
@@ -38,7 +39,12 @@ HiveIcebergSplit::HiveIcebergSplit(
           _start,
           _length,
           _partitionKeys,
-          _tableBucketNumber) {
+          _tableBucketNumber,
+          _customSplitInfo,
+          _extraFileInfo,
+          {},
+          0,
+          _infoColumns) {
   // TODO: Deserialize _extraFileInfo to get deleteFiles;
 }
 
@@ -54,7 +60,8 @@ HiveIcebergSplit::HiveIcebergSplit(
     std::optional<int32_t> _tableBucketNumber,
     const std::unordered_map<std::string, std::string>& _customSplitInfo,
     const std::shared_ptr<std::string>& _extraFileInfo,
-    std::vector<IcebergDeleteFile> _deletes)
+    std::vector<IcebergDeleteFile> _deletes,
+    const std::unordered_map<std::string, std::string>& _infoColumns)
     : HiveConnectorSplit(
           _connectorId,
           _filePath,
@@ -64,6 +71,9 @@ HiveIcebergSplit::HiveIcebergSplit(
           _partitionKeys,
           _tableBucketNumber,
           _customSplitInfo,
-          _extraFileInfo),
+          _extraFileInfo,
+          {},
+          0,
+          _infoColumns),
       deleteFiles(_deletes) {}
 } // namespace facebook::velox::connector::hive::iceberg

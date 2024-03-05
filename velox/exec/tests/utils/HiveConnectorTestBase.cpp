@@ -171,7 +171,12 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
     const std::vector<std::shared_ptr<TempFilePath>>& filePaths) {
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (auto filePath : filePaths) {
-    splits.push_back(makeHiveConnectorSplit(filePath->path));
+    splits.push_back(makeHiveConnectorSplit(
+        filePath->path,
+        filePath->fileSize(),
+        filePath->fileModifiedTime(),
+        0,
+        std::numeric_limits<uint64_t>::max()));
   }
   return splits;
 }
@@ -186,6 +191,21 @@ HiveConnectorTestBase::makeHiveConnectorSplit(
       .start(start)
       .length(length)
       .splitWeight(splitWeight)
+      .build();
+}
+
+std::shared_ptr<connector::ConnectorSplit>
+HiveConnectorTestBase::makeHiveConnectorSplit(
+    const std::string& filePath,
+    int64_t fileSize,
+    int64_t fileModifiedTime,
+    uint64_t start,
+    uint64_t length) {
+  return HiveConnectorSplitBuilder(filePath)
+      .infoColumn("$file_size", fmt::format("{}", fileSize))
+      .infoColumn("$file_modified_time", fmt::format("{}", fileModifiedTime))
+      .start(start)
+      .length(length)
       .build();
 }
 

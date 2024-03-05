@@ -218,9 +218,9 @@ std::vector<TypePtr> SplitReader::adaptColumns(
     auto* childSpec = childrenSpecs[i].get();
     const std::string& fieldName = childSpec->fieldName();
 
-    auto iter = hiveSplit_->partitionKeys.find(fieldName);
-    if (iter != hiveSplit_->partitionKeys.end()) {
-      setPartitionValue(childSpec, fieldName, iter->second);
+    if (auto it = hiveSplit_->partitionKeys.find(fieldName);
+        it != hiveSplit_->partitionKeys.end()) {
+      setPartitionValue(childSpec, fieldName, it->second);
     } else if (fieldName == kPath) {
       auto constantVec = std::make_shared<ConstantVector<StringView>>(
           connectorQueryCtx_->memoryPool(),
@@ -240,6 +240,18 @@ std::vector<TypePtr> SplitReader::adaptColumns(
             std::move(bucket));
         childSpec->setConstantValue(constantVec);
       }
+    } else if (auto iter = hiveSplit_->infoColumns.find(fieldName);
+               iter != hiveSplit_->infoColumns.end()) {
+      auto infoColumnType =
+          readerOutputType_->childAt(readerOutputType_->getChildIdx(fieldName));
+      auto constant = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+          newConstantFromString,
+          infoColumnType->kind(),
+          infoColumnType,
+          iter->second,
+          1,
+          connectorQueryCtx_->memoryPool());
+      childSpec->setConstantValue(constant);
     } else {
       auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
       if (!fileTypeIdx.has_value()) {

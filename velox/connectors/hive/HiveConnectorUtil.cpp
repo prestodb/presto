@@ -239,6 +239,13 @@ inline uint8_t parseDelimiter(const std::string& delim) {
   return stoi(delim);
 }
 
+inline bool isSynthesizedColumn(
+    const std::string& name,
+    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+        infoColumns) {
+  return name == kPath || name == kBucket || infoColumns.count(name) != 0;
+}
+
 } // namespace
 
 const std::string& getColumnName(const common::Subfield& subfield) {
@@ -273,9 +280,13 @@ void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type) {
   }
 }
 
-void checkColumnNameLowerCase(const SubfieldFilters& filters) {
+void checkColumnNameLowerCase(
+    const SubfieldFilters& filters,
+    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+        infoColumns) {
   for (auto& pair : filters) {
-    if (auto name = pair.first.toString(); name == kPath || name == kBucket) {
+    if (auto name = pair.first.toString();
+        isSynthesizedColumn(name, infoColumns)) {
       continue;
     }
     auto& path = pair.first.path();
@@ -310,6 +321,8 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     const RowTypePtr& dataColumns,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         partitionKeys,
+    const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
+        infoColumns,
     memory::MemoryPool* pool) {
   auto spec = std::make_shared<common::ScanSpec>("root");
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
@@ -317,7 +330,8 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
   std::vector<SubfieldSpec> subfieldSpecs;
   for (auto& [subfield, _] : filters) {
     if (auto name = subfield.toString();
-        name != kPath && name != kBucket && partitionKeys.count(name) == 0) {
+        !isSynthesizedColumn(name, infoColumns) &&
+        partitionKeys.count(name) == 0) {
       filterSubfields[getColumnName(subfield)].push_back(&subfield);
     }
   }
@@ -364,11 +378,13 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     // SelectiveColumnReader doesn't support constant columns with filters,
     // hence, we can't have a filter for a $path or $bucket column.
     //
-    // Unfortunately, Presto happens to specify a filter for $path or
-    // $bucket column. This filter is redundant and needs to be removed.
+    // Unfortunately, Presto happens to specify a filter for $path, $file_size,
+    // $file_modified_time or $bucket column. This filter is redundant and needs
+    // to be removed.
     // TODO Remove this check when Presto is fixed to not specify a filter
     // on $path and $bucket column.
-    if (auto name = pair.first.toString(); name == kPath || name == kBucket) {
+    if (auto name = pair.first.toString();
+        isSynthesizedColumn(name, infoColumns)) {
       continue;
     }
     auto fieldSpec = spec->getOrCreateChild(pair.first);

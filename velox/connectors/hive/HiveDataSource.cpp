@@ -57,6 +57,10 @@ HiveDataSource::HiveDataSource(
     if (handle->columnType() == HiveColumnHandle::ColumnType::kPartitionKey) {
       partitionKeys_.emplace(handle->name(), handle);
     }
+
+    if (handle->columnType() == HiveColumnHandle::ColumnType::kSynthesized) {
+      infoColumns_.emplace(handle->name(), handle);
+    }
   }
 
   std::vector<std::string> readerRowNames;
@@ -88,7 +92,7 @@ HiveDataSource::HiveDataSource(
   if (hiveConfig_->isFileColumnNamesReadAsLowerCase(
           connectorQueryCtx->sessionProperties())) {
     checkColumnNameLowerCase(outputType_);
-    checkColumnNameLowerCase(hiveTableHandle_->subfieldFilters());
+    checkColumnNameLowerCase(hiveTableHandle_->subfieldFilters(), infoColumns_);
     checkColumnNameLowerCase(hiveTableHandle_->remainingFilter());
   }
 
@@ -149,6 +153,7 @@ HiveDataSource::HiveDataSource(
       filters,
       hiveTableHandle_->dataColumns(),
       partitionKeys_,
+      infoColumns_,
       pool_);
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(

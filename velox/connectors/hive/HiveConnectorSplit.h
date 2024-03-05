@@ -39,6 +39,10 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   std::shared_ptr<std::string> extraFileInfo;
   std::unordered_map<std::string, std::string> serdeParameters;
 
+  /// These represent columns like $file_size, $file_modified_time that are
+  /// associated with the HiveSplit.
+  std::unordered_map<std::string, std::string> infoColumns;
+
   HiveConnectorSplit(
       const std::string& connectorId,
       const std::string& _filePath,
@@ -51,7 +55,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       const std::unordered_map<std::string, std::string>& _customSplitInfo = {},
       const std::shared_ptr<std::string>& _extraFileInfo = {},
       const std::unordered_map<std::string, std::string>& _serdeParameters = {},
-      int64_t _splitWeight = 0)
+      int64_t _splitWeight = 0,
+      const std::unordered_map<std::string, std::string>& _infoColumns = {})
       : ConnectorSplit(connectorId, _splitWeight),
         filePath(_filePath),
         fileFormat(_fileFormat),
@@ -61,7 +66,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         tableBucketNumber(_tableBucketNumber),
         customSplitInfo(_customSplitInfo),
         extraFileInfo(_extraFileInfo),
-        serdeParameters(_serdeParameters) {}
+        serdeParameters(_serdeParameters),
+        infoColumns(_infoColumns) {}
 
   std::string toString() const override {
     if (tableBucketNumber.has_value()) {
