@@ -588,7 +588,7 @@ class QueryConfig {
   ///
   /// NOTE: as for now, we only support up to 8-way spill partitioning.
   uint8_t joinSpillPartitionBits() const {
-    constexpr uint8_t kDefaultBits = 2;
+    constexpr uint8_t kDefaultBits = 3;
     constexpr uint8_t kMaxBits = 3;
     return std::min(
         kMaxBits, get<uint8_t>(kJoinSpillPartitionBits, kDefaultBits));

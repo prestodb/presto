@@ -5269,9 +5269,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
             const auto statsPair = taskSpilledStats(*task);
             if (testData.expectedReclaimable) {
               ASSERT_GT(statsPair.first.spilledBytes, 0);
-              ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+              ASSERT_EQ(statsPair.first.spilledPartitions, 8);
               ASSERT_GT(statsPair.second.spilledBytes, 0);
-              ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+              ASSERT_EQ(statsPair.second.spilledPartitions, 8);
               verifyTaskSpilledRuntimeStats(*task, true);
             } else {
               ASSERT_EQ(statsPair.first.spilledBytes, 0);
@@ -5421,9 +5421,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           const auto statsPair = taskSpilledStats(*task);
           ASSERT_GT(statsPair.first.spilledBytes, 0);
-          ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 8);
           ASSERT_GT(statsPair.second.spilledBytes, 0);
-          ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 8);
           verifyTaskSpilledRuntimeStats(*task, true);
         })
         .run();
@@ -5816,9 +5816,9 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           const auto statsPair = taskSpilledStats(*task);
           ASSERT_GT(statsPair.first.spilledBytes, 0);
-          ASSERT_EQ(statsPair.first.spilledPartitions, 4);
+          ASSERT_EQ(statsPair.first.spilledPartitions, 8);
           ASSERT_GT(statsPair.second.spilledBytes, 0);
-          ASSERT_EQ(statsPair.second.spilledPartitions, 4);
+          ASSERT_EQ(statsPair.second.spilledPartitions, 8);
         })
         .run();
   });
@@ -6382,13 +6382,13 @@ TEST_F(HashJoinTest, exceededMaxSpillLevel) {
                              .pipelineStats.back()
                              .operatorStats.back()
                              .runtimeStats;
-        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].sum, 4);
-        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].count, 4);
+        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].sum, 8);
+        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].count, 8);
       })
       .run();
   ASSERT_EQ(
       common::globalSpillStats().spillMaxLevelExceededCount,
-      exceededMaxSpillLevelCount + 4);
+      exceededMaxSpillLevelCount + 8);
 }
 
 TEST_F(HashJoinTest, maxSpillBytes) {
