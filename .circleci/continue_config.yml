@@ -153,7 +153,7 @@ jobs:
       run_linux_tests:
         type: boolean
         default: true
-    parallelism: 4
+    parallelism: 3
     steps:
       - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
       - when:
