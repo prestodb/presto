@@ -39,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -83,18 +84,21 @@ public class TestCachingHiveMetastore
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, metastoreClientConfig, HDFS_ENVIRONMENT);
         PartitionMutator hivePartitionMutator = new HivePartitionMutator();
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator);
         metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
-                executor,
-                false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
-                1000,
-                false,
-                MetastoreCacheScope.ALL,
-                0.0,
-                metastoreClientConfig.getPartitionCacheColumnCountLimit(),
-                NOOP_METASTORE_CACHE_STATS);
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(new Duration(5, TimeUnit.MINUTES).toMillis()),
+                        OptionalLong.of(new Duration(1, TimeUnit.MINUTES).toMillis()),
+                        1000,
+                        false,
+                        MetastoreCacheScope.ALL,
+                        0.0,
+                        metastoreClientConfig.getPartitionCacheColumnCountLimit(),
+                        NOOP_METASTORE_CACHE_STATS));
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -223,18 +227,21 @@ public class TestCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator);
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
-                executor,
-                false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
-                1000,
-                true,
-                MetastoreCacheScope.PARTITION,
-                0.0,
-                10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(new Duration(5, TimeUnit.MINUTES).toMillis()),
+                        OptionalLong.of(new Duration(1, TimeUnit.MINUTES).toMillis()),
+                        1000,
+                        true,
+                        MetastoreCacheScope.PARTITION,
+                        0.0,
+                        10_000,
+                        NOOP_METASTORE_CACHE_STATS));
 
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
@@ -272,24 +279,27 @@ public class TestCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
-        CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, partitionMutator),
-                executor,
-                false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
-                1000,
-                true,
-                MetastoreCacheScope.PARTITION,
-                0.0,
-                10_000,
-                NOOP_METASTORE_CACHE_STATS);
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(mockHiveMetastore, partitionMutator);
+        CachingHiveMetastore partitionCachingEnabledMetastore = new CachingHiveMetastore(
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(new Duration(5, TimeUnit.MINUTES).toMillis()),
+                        OptionalLong.of(new Duration(1, TimeUnit.MINUTES).toMillis()),
+                        1000,
+                        true,
+                        MetastoreCacheScope.PARTITION,
+                        0.0,
+                        10_000,
+                        NOOP_METASTORE_CACHE_STATS));
 
         int clientAccessCount = 0;
         for (int i = 0; i < 100; i++) {
-            assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
+            assertEquals(partitionCachingEnabledMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), EXPECTED_PARTITIONS);
             assertEquals(mockClient.getAccessCount(), ++clientAccessCount);
-            assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+            assertEquals(partitionCachingEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
             // Assert that we did not hit cache
             assertEquals(mockClient.getAccessCount(), ++clientAccessCount);
         }
@@ -309,18 +319,21 @@ public class TestCachingHiveMetastore
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
         ColumnConverter hiveColumnConverter = new HiveColumnConverter();
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator);
         CachingHiveMetastore partitionCacheVerificationEnabledMetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
-                executor,
-                false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
-                1000,
-                true,
-                MetastoreCacheScope.PARTITION,
-                100.0,
-                10_000,
-                NOOP_METASTORE_CACHE_STATS);
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(new Duration(5, TimeUnit.MINUTES).toMillis()),
+                        OptionalLong.of(new Duration(1, TimeUnit.MINUTES).toMillis()),
+                        1000,
+                        true,
+                        MetastoreCacheScope.PARTITION,
+                        100.0,
+                        10_000,
+                        NOOP_METASTORE_CACHE_STATS));
 
         // Warmup the cache
         partitionCacheVerificationEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2));
@@ -340,19 +353,22 @@ public class TestCachingHiveMetastore
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
         PartitionMutator mockPartitionMutator = new MockPartitionMutator(identity());
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator);
         CachingHiveMetastore partitionCachingEnabledMetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, mockPartitionMutator),
-                executor,
-                false,
-                new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES),
-                1000,
-                true,
-                MetastoreCacheScope.PARTITION,
-                0.0,
-                // set the cached partition column count limit as 1 for testing purpose
-                1,
-                NOOP_METASTORE_CACHE_STATS);
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(new Duration(5, TimeUnit.MINUTES).toMillis()),
+                        OptionalLong.of(new Duration(1, TimeUnit.MINUTES).toMillis()),
+                        1000,
+                        true,
+                        MetastoreCacheScope.PARTITION,
+                        0.0,
+                        // set the cached partition column count limit as 1 for testing purpose
+                        1,
+                        NOOP_METASTORE_CACHE_STATS));
 
         // Select all of the available partitions. Normally they would have been loaded into the cache. But because of column count limit, they will not be cached
         assertEquals(partitionCachingEnabledMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);

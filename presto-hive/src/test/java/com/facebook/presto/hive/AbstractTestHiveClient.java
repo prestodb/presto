@@ -49,6 +49,7 @@ import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import com.facebook.presto.hive.metastore.InMemoryMetastoreCache;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
@@ -981,18 +982,21 @@ public abstract class AbstractTestHiveClient
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
+        BridgingHiveMetastore delegate = new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, hdfsEnvironment), new HivePartitionMutator());
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, hdfsEnvironment), new HivePartitionMutator()),
-                executor,
-                false,
-                Duration.valueOf("1m"),
-                Duration.valueOf("15s"),
-                10000,
-                false,
-                MetastoreCacheScope.ALL,
-                0.0,
-                metastoreClientConfig.getPartitionCacheColumnCountLimit(),
-                NOOP_METASTORE_CACHE_STATS);
+                delegate,
+                new InMemoryMetastoreCache(
+                        delegate,
+                        executor,
+                        false,
+                        OptionalLong.of(Duration.valueOf("1m").toMillis()),
+                        OptionalLong.of(Duration.valueOf("15s").toMillis()),
+                        10000,
+                        false,
+                        MetastoreCacheScope.ALL,
+                        0.0,
+                        metastoreClientConfig.getPartitionCacheColumnCountLimit(),
+                        NOOP_METASTORE_CACHE_STATS));
 
         setup(databaseName, hiveClientConfig, cacheConfig, metastoreClientConfig, metastore);
     }
