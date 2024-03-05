@@ -29,13 +29,13 @@ import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -458,8 +458,8 @@ public class TestCachingHiveMetastore
     {
         assertEquals(mockClient.getAccessCount(), 0);
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), true, true));
-        assertEquals(tableConstraints.get(1), new UniqueConstraint<>("", ImmutableSet.of("c2"), true, true));
+        assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false));
+        assertEquals(tableConstraints.get(1), new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
         assertEquals(mockClient.getAccessCount(), 2);
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 2);

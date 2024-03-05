@@ -204,6 +204,17 @@ public class HiveClientConfig
 
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
+    private boolean quickStatsEnabled;
+    // Duration the initiator query of the quick stats fetch for a partition should wait for stats to be built, before failing and returning EMPTY PartitionStats
+    private Duration quickStatsInlineBuildTimeout = new Duration(60, TimeUnit.SECONDS);
+    // If an in-progress background build is already observed for a partition, this duration is what the current query will wait for the background build to finish
+    // before giving up and returning EMPTY stats
+    private Duration quickStatsBackgroundBuildTimeout = new Duration(0, TimeUnit.SECONDS);
+    private Duration quickStatsCacheExpiry = new Duration(24, TimeUnit.HOURS);
+    private Duration quickStatsInProgressReaperExpiry = new Duration(5, TimeUnit.MINUTES);
+    private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
+    private int parquetQuickStatsMaxConcurrentCalls = 500;
+    private int quickStatsMaxConcurrentCalls = 100;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1600,6 +1611,105 @@ public class HiveClientConfig
     public boolean isHudiMetadataEnabled()
     {
         return this.hudiMetadataEnabled;
+    }
+
+    @Config("hive.quick-stats.enabled")
+    @ConfigDescription("Use quick stats to resolve stats")
+    public HiveClientConfig setQuickStatsEnabled(boolean quickStatsEnabled)
+    {
+        this.quickStatsEnabled = quickStatsEnabled;
+        return this;
+    }
+
+    public boolean isQuickStatsEnabled()
+    {
+        return this.quickStatsEnabled;
+    }
+
+    @Config("hive.quick-stats.inline-build-timeout")
+    public HiveClientConfig setQuickStatsInlineBuildTimeout(Duration buildTimeout)
+    {
+        this.quickStatsInlineBuildTimeout = buildTimeout;
+        return this;
+    }
+
+    public Duration getQuickStatsInlineBuildTimeout()
+    {
+        return this.quickStatsInlineBuildTimeout;
+    }
+
+    @Config("hive.quick-stats.background-build-timeout")
+    public HiveClientConfig setQuickStatsBackgroundBuildTimeout(Duration buildTimeout)
+    {
+        this.quickStatsBackgroundBuildTimeout = buildTimeout;
+        return this;
+    }
+
+    public Duration getQuickStatsBackgroundBuildTimeout()
+    {
+        return this.quickStatsBackgroundBuildTimeout;
+    }
+
+    @Config("hive.quick-stats.cache-expiry")
+    public HiveClientConfig setQuickStatsCacheExpiry(Duration cacheExpiry)
+    {
+        this.quickStatsCacheExpiry = cacheExpiry;
+        return this;
+    }
+
+    public Duration getQuickStatsCacheExpiry()
+    {
+        return this.quickStatsCacheExpiry;
+    }
+
+    @Config("hive.quick-stats.reaper-expiry")
+    public HiveClientConfig setQuickStatsReaperExpiry(Duration reaperExpiry)
+    {
+        this.quickStatsInProgressReaperExpiry = reaperExpiry;
+        return this;
+    }
+
+    public Duration getQuickStatsReaperExpiry()
+    {
+        return this.quickStatsInProgressReaperExpiry;
+    }
+
+    @Config("hive.quick-stats.parquet.file-metadata-fetch-timeout")
+    public HiveClientConfig setParquetQuickStatsFileMetadataFetchTimeout(Duration fileMetadataFetchTimeout)
+    {
+        this.parquetQuickStatsFileMetadataFetchTimeout = fileMetadataFetchTimeout;
+        return this;
+    }
+
+    public Duration getParquetQuickStatsFileMetadataFetchTimeout()
+    {
+        return this.parquetQuickStatsFileMetadataFetchTimeout;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentParquetQuickStatsCalls()
+    {
+        return parquetQuickStatsMaxConcurrentCalls;
+    }
+
+    @Config("hive.quick-stats.parquet.max-concurrent-calls")
+    public HiveClientConfig setMaxConcurrentParquetQuickStatsCalls(int maxConcurrentCalls)
+    {
+        this.parquetQuickStatsMaxConcurrentCalls = maxConcurrentCalls;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentQuickStatsCalls()
+    {
+        return quickStatsMaxConcurrentCalls;
+    }
+
+    @Config("hive.quick-stats.max-concurrent-calls")
+    public HiveClientConfig setMaxConcurrentQuickStatsCalls(int maxConcurrentFooterFetchCalls)
+    {
+        this.quickStatsMaxConcurrentCalls = maxConcurrentFooterFetchCalls;
+        return this;
     }
 
     public Protocol getThriftProtocol()

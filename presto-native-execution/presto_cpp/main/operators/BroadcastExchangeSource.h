@@ -41,6 +41,9 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
       uint32_t maxBytes,
       uint32_t maxWaitSeconds) override;
 
+  folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWaitSeconds) override;
+
   void close() override {}
 
   folly::F14FastMap<std::string, int64_t> stats() const override;

@@ -126,6 +126,10 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
+    public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
+    public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
+    public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -593,7 +597,33 @@ public final class HiveSessionProperties
                         PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
                         "Enables parallel parsing of partition values from partition names using thread pool",
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
-                        false));
+                        false),
+                booleanProperty(
+                        QUICK_STATS_ENABLED,
+                        "Use quick stats to resolve stats",
+                        hiveClientConfig.isQuickStatsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        QUICK_STATS_INLINE_BUILD_TIMEOUT,
+                        "Duration that the first query that initiated a quick stats call should wait before failing and returning EMPTY stats. " +
+                                "If set to 0, quick stats builds are pushed to the background, and EMPTY stats are returned",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getQuickStatsInlineBuildTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
+                new PropertyMetadata<>(
+                        QUICK_STATS_BACKGROUND_BUILD_TIMEOUT,
+                        "If a quick stats build is already in-progress by another query, this property controls the duration the current query should wait " +
+                                "for the in-progress build to finish, before failing and returning EMPTY stats. If set to 0, EMTPY stats are returned whenever an " +
+                                "in-progress build is observed",
+                        VARCHAR,
+                        Duration.class,
+                        hiveClientConfig.getQuickStatsBackgroundBuildTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1035,5 +1065,20 @@ public final class HiveSessionProperties
     public static boolean isParallelParsingOfPartitionValuesEnabled(ConnectorSession session)
     {
         return session.getProperty(PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQuickStatsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_ENABLED, Boolean.class);
+    }
+
+    public static Duration getQuickStatsInlineBuildTimeout(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_INLINE_BUILD_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getQuickStatsBackgroundBuildTimeout(ConnectorSession session)
+    {
+        return session.getProperty(QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, Duration.class);
     }
 }
