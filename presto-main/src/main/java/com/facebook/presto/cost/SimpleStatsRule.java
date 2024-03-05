@@ -36,8 +36,23 @@ public abstract class SimpleStatsRule<T extends PlanNode>
     @Override
     public final Optional<PlanNodeStatsEstimate> calculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
-        return doCalculate(node, sourceStats, lookup, session, types)
+        Optional<PlanNodeStatsEstimate> planNodeStatsEstimate = doCalculate(node, sourceStats, lookup, session, types)
                 .map(estimate -> normalizer.normalize(estimate, node.getOutputVariables()));
+        if (node.getSources().isEmpty()) {
+            // dont do the confident check for tablescan stats
+            return planNodeStatsEstimate;
+        }
+        boolean confident = sourceStats.getStats(node.getSources().get(0)).isConfident();
+        for (PlanNode source : node.getSources()) {
+            confident = sourceStats.getStats(source).isConfident();
+            if (!confident) {
+                break;
+            }
+        }
+        boolean finalConfident = confident;
+        return planNodeStatsEstimate.map(p -> new PlanNodeStatsEstimate(p.getOutputRowCount(),
+                p.getTotalSize(), finalConfident,
+                p.getVariableStatistics(), p.getJoinNodeStatsEstimate(), p.getTableWriterNodeStatsEstimate()));
     }
 
     protected abstract Optional<PlanNodeStatsEstimate> doCalculate(T node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types);

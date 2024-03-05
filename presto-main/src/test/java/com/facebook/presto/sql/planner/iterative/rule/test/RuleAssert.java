@@ -107,7 +107,16 @@ public class RuleAssert
 
     public RuleAssert overrideStats(String nodeId, PlanNodeStatsEstimate nodeStats)
     {
-        statsCalculator.setNodeStats(new PlanNodeId(nodeId), nodeStats);
+        // For testing all stats are confident
+        return overrideStats(nodeId, nodeStats, true);
+    }
+
+    public RuleAssert overrideStats(String nodeId, PlanNodeStatsEstimate nodeStats, boolean confidence)
+    {
+        PlanNodeStatsEstimate statsWithConfidence = new PlanNodeStatsEstimate(nodeStats.getOutputRowCount(),
+                nodeStats.getTotalSize(), confidence,
+                nodeStats.getVariableStatistics(), nodeStats.getJoinNodeStatsEstimate(), nodeStats.getTableWriterNodeStatsEstimate());
+        statsCalculator.setNodeStats(new PlanNodeId(nodeId), statsWithConfidence);
         return this;
     }
 

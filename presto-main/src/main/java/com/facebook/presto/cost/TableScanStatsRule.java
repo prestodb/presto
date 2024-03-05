@@ -59,6 +59,10 @@ public class TableScanStatsRule
         Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), ImmutableList.copyOf(node.getAssignments().values()), constraint);
+        if (tableStatistics.getRowCount().isUnknown()) {
+            // Since we do not have any hms statistics, we should not be confident
+            return Optional.of(PlanNodeStatsEstimate.unknown());
+        }
         Map<VariableReferenceExpression, VariableStatsEstimate> outputVariableStats = new HashMap<>();
 
         for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {

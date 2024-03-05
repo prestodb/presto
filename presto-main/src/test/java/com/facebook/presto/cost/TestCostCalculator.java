@@ -874,6 +874,7 @@ public class TestCostCalculator
                             .setAverageRowSize(AVERAGE_ROW_SIZE)
                             .build());
         }
+        builder.setConfident(true);
         return builder.build();
     }
 
