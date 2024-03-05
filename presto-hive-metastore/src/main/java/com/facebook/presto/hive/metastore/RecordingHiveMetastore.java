@@ -295,10 +295,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
         verifyRecordingMode();
-        return delegate.createTable(metastoreContext, table, principalPrivileges, constraints);
+        return delegate.createTable(metastoreContext, table, principalPrivileges);
     }
 
     @Override

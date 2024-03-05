@@ -332,12 +332,6 @@ public class MockHiveMetastoreClient
     }
 
     @Override
-    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void dropTable(String databaseName, String name, boolean deleteData)
     {
         throw new UnsupportedOperationException();
