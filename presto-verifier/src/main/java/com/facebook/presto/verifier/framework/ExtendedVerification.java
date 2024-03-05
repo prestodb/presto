@@ -35,6 +35,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.facebook.presto.verifier.framework.DataMatchResult.DataType.PARTITION_DATA;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.PARTITION_COUNT_MISMATCH;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
@@ -96,31 +97,48 @@ public class ExtendedVerification
             // Extended verification doesn't support query bank mode for now.
             return dataMatchResult;
         }
+        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
+        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
 
         // 1. Partition verification
-        List<Column> controlPartitionColumns = null;
-        List<Column> testPartitionColumns = null;
+        Optional<DataMatchResult> partitionMatchResult = verifyPartition(control, test, controlColumns, testColumns, controlChecksumQueryContext, testChecksumQueryContext);
+
+        if (partitionMatchResult.isPresent()) {
+            return partitionMatchResult.get();
+        }
+        return dataMatchResult;
+    }
+
+    private Optional<DataMatchResult> verifyPartition(
+            QueryObjectBundle control,
+            QueryObjectBundle test,
+            List<Column> controlColumns,
+            List<Column> testColumns,
+            ChecksumQueryContext controlChecksumQueryContext,
+            ChecksumQueryContext testChecksumQueryContext)
+    {
+        List<Column> controlPartitionColumns;
+        List<Column> testPartitionColumns;
         try {
             controlPartitionColumns = getColumns(getHelperAction(), typeManager, formPartitionTableName(control.getObjectName()));
             testPartitionColumns = getColumns(getHelperAction(), typeManager, formPartitionTableName(test.getObjectName()));
         }
         catch (Throwable e) {
-            return dataMatchResult;
+            return Optional.empty();
         }
-        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
-        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
+
         List<Column> controlDataColumns = getDataColumn(controlColumns, ImmutableSet.copyOf(controlPartitionColumns));
         List<Column> testDataColumns = getDataColumn(testColumns, ImmutableSet.copyOf(testPartitionColumns));
         List<ChecksumResult> controlPartitionChecksum = runPartitionChecksum(control, controlPartitionColumns, controlDataColumns, controlChecksumQueryContext, CONTROL_PARTITION_CHECKSUM);
         List<ChecksumResult> testPartitionChecksum = runPartitionChecksum(test, testPartitionColumns, testDataColumns, testChecksumQueryContext, TEST_PARTITION_CHECKSUM);
         if (controlPartitionChecksum.size() != testPartitionChecksum.size()) {
-            return new DataMatchResult(
+            return Optional.of(new DataMatchResult(
                     PARTITION_DATA,
                     PARTITION_COUNT_MISMATCH,
                     Optional.empty(),
                     OptionalLong.of(controlPartitionChecksum.size()),
                     OptionalLong.of(testPartitionChecksum.size()),
-                    ImmutableList.of());
+                    ImmutableList.of()));
         }
         for (int i = 0; i < controlPartitionChecksum.size(); i++) {
             DataMatchResult partitionMatchResult = match(
@@ -131,11 +149,16 @@ public class ExtendedVerification
                     controlPartitionChecksum.get(i),
                     testPartitionChecksum.get(i));
             if (!partitionMatchResult.isMatched()) {
-                return partitionMatchResult;
+                return Optional.of(partitionMatchResult);
             }
         }
-
-        return dataMatchResult;
+        return Optional.of(new DataMatchResult(
+                PARTITION_DATA,
+                MATCH,
+                Optional.empty(),
+                OptionalLong.of(controlPartitionChecksum.size()),
+                OptionalLong.of(testPartitionChecksum.size()),
+                ImmutableList.of()));
     }
 
     // Returns the hidden system table name "tableName$partitions".
