@@ -22,6 +22,10 @@
 
 namespace facebook::velox::exec {
 
+namespace test {
+class HashJoinBridgeTestHelper;
+}
+
 /// Hands over a hash table from a multi-threaded build pipeline to a
 /// multi-threaded probe pipeline. This is owned by shared_ptr by all the build
 /// and probe Operator instances concerned. Corresponds to the Presto concept of
@@ -35,14 +39,19 @@ class HashJoinBridge : public JoinBridge {
   /// HashBuild operators to parallelize the restoring operation.
   void addBuilder();
 
+  /// Invoked by the build operator to set the built hash table.
   /// 'spillPartitionSet' contains the spilled partitions while building
-  /// 'table'. The function returns true if there is spill data to restore
-  /// after HashProbe operators process 'table', otherwise false. This only
-  /// applies if the disk spilling is enabled.
-  bool setHashTable(
+  /// 'table' which only applies if the disk spilling is enabled.
+  void setHashTable(
       std::unique_ptr<BaseHashTable> table,
       SpillPartitionSet spillPartitionSet,
       bool hasNullKeys);
+
+  /// Invoked by the probe operator to set the spilled hash table while the
+  /// probing. The function puts the spilled table partitions into
+  /// 'spillPartitionSets_' stack. This only applies if the disk spilling is
+  /// enabled.
+  void setSpilledHashTable(SpillPartitionSet spillPartitionSet);
 
   void setAntiJoinHasNullKeys();
 
@@ -75,8 +84,7 @@ class HashJoinBridge : public JoinBridge {
   /// HashBuild operators. If HashProbe operator calls this early, 'future' will
   /// be set to wait asynchronously, otherwise the built table along with
   /// optional spilling related information will be returned in HashBuildResult.
-  std::optional<HashBuildResult> tableOrFuture(
-      ContinueFuture* FOLLY_NONNULL future);
+  std::optional<HashBuildResult> tableOrFuture(ContinueFuture* future);
 
   /// Invoked by HashProbe operator after finishes probing the built table to
   /// set one of the previously spilled partition to restore. The HashBuild
@@ -102,8 +110,7 @@ class HashJoinBridge : public JoinBridge {
   /// If HashBuild operator calls this early, 'future' will be set to wait
   /// asynchronously. If there is no more spill data to restore, then
   /// 'spillPartition' will be set to null in the returned SpillInput.
-  std::optional<SpillInput> spillInputOrFuture(
-      ContinueFuture* FOLLY_NONNULL future);
+  std::optional<SpillInput> spillInputOrFuture(ContinueFuture* future);
 
  private:
   uint32_t numBuilders_{0};
@@ -129,6 +136,8 @@ class HashJoinBridge : public JoinBridge {
   // This set can grow if HashBuild operator cannot load full partition in
   // memory and engages in recursive spilling.
   SpillPartitionSet spillPartitionSets_;
+
+  friend test::HashJoinBridgeTestHelper;
 };
 
 // Indicates if 'joinNode' is null-aware anti or left semi project join type and
@@ -156,4 +165,8 @@ class HashJoinMemoryReclaimer final : public MemoryReclaimer {
 /// Returns true if 'pool' is a hash build operator's memory pool. The check is
 /// currently based on the pool name.
 bool isHashBuildMemoryPool(const memory::MemoryPool& pool);
+
+/// Returns true if 'pool' is a hash probe operator's memory pool. The check is
+/// currently based on the pool name.
+bool isHashProbeMemoryPool(const memory::MemoryPool& pool);
 } // namespace facebook::velox::exec

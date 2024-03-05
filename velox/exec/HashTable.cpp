@@ -726,11 +726,16 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
 }
 
 template <bool ignoreNullKeys>
-void HashTable<ignoreNullKeys>::clear() {
+void HashTable<ignoreNullKeys>::clear(bool freeTable) {
   rows_->clear();
   if (table_) {
-    // All modes have 8 bytes per slot.
-    memset(table_, 0, capacity_ * sizeof(char*));
+    if (!freeTable) {
+      // All modes have 8 bytes per slot.
+      ::memset(table_, 0, capacity_ * sizeof(char*));
+    } else {
+      rows_->pool()->freeContiguous(tableAllocation_);
+      table_ = nullptr;
+    }
   }
   numDistinct_ = 0;
   numTombstones_ = 0;

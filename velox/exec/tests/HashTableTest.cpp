@@ -173,6 +173,9 @@ class HashTableTest : public testing::TestWithParam<bool>,
     testEraseEveryN(4);
     testProbe();
     testGroupBySpill(size, buildType, numKeys);
+    const auto memoryUsage = pool()->currentBytes();
+    topTable_->clear(true);
+    ASSERT_LT(pool()->currentBytes(), memoryUsage);
   }
 
   // Inserts and deletes rows in a HashTable, similarly to a group by
@@ -629,9 +632,11 @@ TEST_P(HashTableTest, clear) {
       BIGINT(),
       config);
 
-  auto table = HashTable<true>::createForAggregation(
-      std::move(keyHashers), {Accumulator{aggregate.get(), nullptr}}, pool());
-  ASSERT_NO_THROW(table->clear());
+  for (const bool clearTable : {false, true}) {
+    auto table = HashTable<true>::createForAggregation(
+        std::move(keyHashers), {Accumulator{aggregate.get(), nullptr}}, pool());
+    ASSERT_NO_THROW(table->clear(clearTable));
+  }
 }
 
 // Test a specific code path in HashTable::decodeHashMode where
