@@ -3104,3 +3104,22 @@ TEST_F(TestReader, selectiveStringDirect) {
   });
   assertEqualVectors(expected, actual);
 }
+
+TEST_F(TestReader, selectiveFlatMapFastPathAllInlinedStringKeys) {
+  auto maps = makeMapVector<std::string, int64_t>(
+      {{{"a", 0}, {"b", 0}}, {{"a", 1}, {"b", 1}}});
+  auto row = makeRowVector({"c0"}, {maps});
+  auto config = std::make_shared<dwrf::Config>();
+  config->set(dwrf::Config::FLATTEN_MAP, true);
+  config->set(dwrf::Config::MAP_FLAT_COLS, {0});
+  auto [writer, reader] = createWriterReader({row}, pool(), config);
+  auto schema = asRowType(row->type());
+  auto spec = std::make_shared<common::ScanSpec>("<root>");
+  spec->addAllChildFields(*schema);
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(spec);
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+  VectorPtr batch = BaseVector::create(schema, 0, pool());
+  ASSERT_EQ(rowReader->next(10, batch), 2);
+  assertEqualVectors(batch, row);
+}

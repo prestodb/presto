@@ -617,7 +617,7 @@ class SelectiveFlatMapReader : public SelectiveStructColumnReaderBase {
         keyBuffer->template asMutable<T>());
 
     std::vector<BufferPtr> keyStrings;
-    if constexpr (std::is_same_v<T, StringView>) {
+    if (std::is_same_v<T, StringView> && keyStrings_) {
       keyStrings.push_back(keyStrings_);
     }
     auto keyVector = std::make_shared<FlatVector<T>>(
