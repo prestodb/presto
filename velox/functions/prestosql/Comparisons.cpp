@@ -52,7 +52,7 @@ struct SimdComparator {
     if constexpr (numScalarElements == 2 || numScalarElements == 4) {
       for (auto i = begin; i < vectorEnd; i += 8) {
         rawResult[i / 8] = 0;
-        for (auto j = 0; j < 8 && j < vectorEnd; j += numScalarElements) {
+        for (auto j = 0; j < 8 && (i + j) < vectorEnd; j += numScalarElements) {
           auto left = loadSimdData<T, isLeftConstant>(rawLhs, i + j);
           auto right = loadSimdData<T, isRightConstant>(rawRhs, i + j);
 
