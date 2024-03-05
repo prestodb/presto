@@ -56,6 +56,7 @@ struct Result {
   int64_t nextSequence;
   std::unique_ptr<folly::IOBuf> data;
   bool complete;
+  std::vector<int64_t> remainingBytes;
 };
 
 struct ResultRequest {

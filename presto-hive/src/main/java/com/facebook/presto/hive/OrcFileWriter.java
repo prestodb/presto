@@ -53,6 +53,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILE
 import static com.facebook.presto.hive.HiveManifestUtils.createFileStatisticsPage;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
 public class OrcFileWriter
@@ -245,13 +246,14 @@ public class OrcFileWriter
         try {
             orcWriter.close();
         }
-        catch (IOException | UncheckedIOException e) {
+        catch (IOException | UncheckedIOException | PrestoException e) {
             try {
                 rollbackAction.call();
             }
             catch (Exception ignored) {
                 // ignore
             }
+            throwIfInstanceOf(e, PrestoException.class);
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive. " + e.getMessage(), e);
         }
 
@@ -281,6 +283,9 @@ public class OrcFileWriter
             finally {
                 rollbackAction.call();
             }
+        }
+        catch (PrestoException e) {
+            throw e;
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

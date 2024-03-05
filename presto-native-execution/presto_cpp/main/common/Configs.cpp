@@ -725,7 +725,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(
               QueryConfig::kOrderBySpillMemoryThreshold,
               c.orderBySpillMemoryThreshold()),
-          NUM_PROP(QueryConfig::kTestingSpillPct, c.testingSpillPct()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
           NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
