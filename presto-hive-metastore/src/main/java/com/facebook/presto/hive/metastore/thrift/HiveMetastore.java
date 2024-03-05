@@ -185,6 +185,4 @@ public interface HiveMetastore
     {
         return ImmutableList.of();
     }
-
-    MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName);
 }

@@ -499,13 +499,6 @@ public class RecordingHiveMetastore
         throw new UnsupportedOperationException("setPartitionLeases is not supported in RecordingHiveMetastore");
     }
 
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        verifyRecordingMode();
-        return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-    }
-
     private <K, V> V loadValue(Cache<K, V> cache, K key, Supplier<V> valueSupplier)
     {
         if (replay) {

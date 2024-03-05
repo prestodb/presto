@@ -635,10 +635,4 @@ public abstract class DelegatingMetadataManager
     {
         return delegate.getConnectorCapabilities(session, catalogName);
     }
-
-    @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
-    {
-        delegate.dropConstraint(session, tableHandle, constraintName);
-    }
 }

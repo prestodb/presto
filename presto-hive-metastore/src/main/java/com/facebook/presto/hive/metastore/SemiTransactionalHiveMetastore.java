@@ -1050,14 +1050,6 @@ public class SemiTransactionalHiveMetastore
         });
     }
 
-    public synchronized void dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        setExclusive((delegate, hdfsEnvironment) -> {
-            MetastoreOperationResult operationResult = delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-            return buildCommitHandle(new SchemaTableName(databaseName, tableName), operationResult);
-        });
-    }
-
     public synchronized void declareIntentionToWrite(
             HdfsContext context,
             MetastoreContext metastoreContext,

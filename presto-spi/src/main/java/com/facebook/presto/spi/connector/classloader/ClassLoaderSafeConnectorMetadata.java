@@ -763,12 +763,4 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getTableLayoutFilterCoverage(tableHandle, relevantPartitionColumns);
         }
     }
-
-    @Override
-    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.dropConstraint(session, tableHandle, constraintName);
-        }
-    }
 }

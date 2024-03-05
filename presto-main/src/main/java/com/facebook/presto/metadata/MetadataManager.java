@@ -1455,14 +1455,6 @@ public class MetadataManager
         return metadata.getTableLayoutFilterCoverage(tableHandle.getLayout().get(), relevantPartitionColumns);
     }
 
-    @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
-    {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.dropConstraint(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), constraintName);
-    }
-
     private ViewDefinition deserializeView(String data)
     {
         try {

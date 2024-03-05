@@ -1028,10 +1028,4 @@ public class GlueHiveMetastore
     {
         //No-op
     }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "dropConstraint is not supported by Glue");
-    }
 }

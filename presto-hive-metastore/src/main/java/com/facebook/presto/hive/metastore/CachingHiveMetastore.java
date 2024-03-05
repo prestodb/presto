@@ -1017,19 +1017,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        try {
-            return delegate.dropConstraint(metastoreContext, databaseName, tableName, constraintName);
-        }
-        finally {
-            invalidateTable(databaseName, tableName);
-        }
-    }
-
-    @Override
     public Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
-
     {
         tableCache.invalidate(getCachingKey(metastoreContext, new HiveTableHandle(databaseName, tableName)));
         return delegate.lock(metastoreContext, databaseName, tableName);

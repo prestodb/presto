@@ -282,22 +282,13 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
-     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
-     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
-
-    /**
-     * Check if identity is allowed to drop constraint from the specified table.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
 }
