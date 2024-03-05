@@ -83,6 +83,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
