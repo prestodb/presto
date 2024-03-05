@@ -101,6 +101,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   EXPECT_EQ(readerOptions.getFileFormat(), fileFormat);
   EXPECT_TRUE(
       compareSerDeOptions(readerOptions.getSerDeOptions(), expectedSerDe));
+  EXPECT_EQ(readerOptions.loadQuantum(), hiveConfig->loadQuantum());
   EXPECT_EQ(readerOptions.maxCoalesceBytes(), hiveConfig->maxCoalescedBytes());
   EXPECT_EQ(
       readerOptions.maxCoalesceDistance(),
@@ -174,6 +175,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   // Tests other custom reader options.
   clearDynamicParameters(FileFormat::TEXT);
   std::unordered_map<std::string, std::string> customHiveConfigProps;
+  customHiveConfigProps[hive::HiveConfig::kLoadQuantum] = "321";
   customHiveConfigProps[hive::HiveConfig::kMaxCoalescedBytes] = "129";
   customHiveConfigProps[hive::HiveConfig::kMaxCoalescedDistanceBytes] = "513";
   customHiveConfigProps[hive::HiveConfig::kFileColumnNamesReadAsLowerCase] =
@@ -184,6 +186,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   hiveConfig = std::make_shared<hive::HiveConfig>(
       std::make_shared<core::MemConfig>(customHiveConfigProps));
   performConfigure();
+  EXPECT_EQ(readerOptions.loadQuantum(), hiveConfig->loadQuantum());
   EXPECT_EQ(readerOptions.maxCoalesceBytes(), hiveConfig->maxCoalescedBytes());
   EXPECT_EQ(
       readerOptions.maxCoalesceDistance(),
