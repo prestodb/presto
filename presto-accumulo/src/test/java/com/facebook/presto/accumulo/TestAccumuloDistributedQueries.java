@@ -35,6 +35,7 @@ import static org.testng.Assert.assertTrue;
  * This is the same for any test cases that were creating tables with duplicate rows,
  * so some test cases are overridden from the base class and slightly modified to add an additional UUID column.
  */
+@Test(singleThreaded = true)
 public class TestAccumuloDistributedQueries
         extends AbstractTestDistributedQueries
 {
