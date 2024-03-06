@@ -26,35 +26,57 @@ namespace facebook::velox::util {
 namespace {
 
 TEST(DateTimeUtilTest, fromDate) {
-  EXPECT_EQ(0, daysSinceEpochFromDate(1970, 1, 1));
-  EXPECT_EQ(1, daysSinceEpochFromDate(1970, 1, 2));
-  EXPECT_EQ(365, daysSinceEpochFromDate(1971, 1, 1));
-  EXPECT_EQ(730, daysSinceEpochFromDate(1972, 1, 1)); // leap year.
-  EXPECT_EQ(1096, daysSinceEpochFromDate(1973, 1, 1));
+  auto testDaysSinceEpochFromDate =
+      [](int32_t year, int32_t month, int32_t day) {
+        int64_t daysSinceEpoch;
+        auto status =
+            util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
+        EXPECT_TRUE(status.ok());
+        return daysSinceEpoch;
+      };
+  EXPECT_EQ(0, testDaysSinceEpochFromDate(1970, 1, 1));
+  EXPECT_EQ(1, testDaysSinceEpochFromDate(1970, 1, 2));
+  EXPECT_EQ(365, testDaysSinceEpochFromDate(1971, 1, 1));
+  EXPECT_EQ(730, testDaysSinceEpochFromDate(1972, 1, 1)); // leap year.
+  EXPECT_EQ(1096, testDaysSinceEpochFromDate(1973, 1, 1));
 
-  EXPECT_EQ(10957, daysSinceEpochFromDate(2000, 1, 1));
-  EXPECT_EQ(18474, daysSinceEpochFromDate(2020, 7, 31));
+  EXPECT_EQ(10957, testDaysSinceEpochFromDate(2000, 1, 1));
+  EXPECT_EQ(18474, testDaysSinceEpochFromDate(2020, 7, 31));
 
   // Before unix epoch.
-  EXPECT_EQ(-1, daysSinceEpochFromDate(1969, 12, 31));
-  EXPECT_EQ(-365, daysSinceEpochFromDate(1969, 1, 1));
-  EXPECT_EQ(-731, daysSinceEpochFromDate(1968, 1, 1)); // leap year.
-  EXPECT_EQ(-719528, daysSinceEpochFromDate(0, 1, 1));
+  EXPECT_EQ(-1, testDaysSinceEpochFromDate(1969, 12, 31));
+  EXPECT_EQ(-365, testDaysSinceEpochFromDate(1969, 1, 1));
+  EXPECT_EQ(-731, testDaysSinceEpochFromDate(1968, 1, 1)); // leap year.
+  EXPECT_EQ(-719528, testDaysSinceEpochFromDate(0, 1, 1));
 
   // Negative year - BC.
-  EXPECT_EQ(-719529, daysSinceEpochFromDate(-1, 12, 31));
-  EXPECT_EQ(-719893, daysSinceEpochFromDate(-1, 1, 1));
+  EXPECT_EQ(-719529, testDaysSinceEpochFromDate(-1, 12, 31));
+  EXPECT_EQ(-719893, testDaysSinceEpochFromDate(-1, 1, 1));
 }
 
 TEST(DateTimeUtilTest, fromDateInvalid) {
-  EXPECT_THROW(daysSinceEpochFromDate(1970, 1, -1), VeloxUserError);
-  EXPECT_THROW(daysSinceEpochFromDate(1970, -1, 1), VeloxUserError);
-  EXPECT_THROW(daysSinceEpochFromDate(1970, 0, 1), VeloxUserError);
-  EXPECT_THROW(daysSinceEpochFromDate(1970, 13, 1), VeloxUserError);
-  EXPECT_THROW(daysSinceEpochFromDate(1970, 1, 32), VeloxUserError);
-  EXPECT_THROW(
-      daysSinceEpochFromDate(1970, 2, 29), VeloxUserError); // non-leap.
-  EXPECT_THROW(daysSinceEpochFromDate(1970, 6, 31), VeloxUserError);
+  auto testDaysSinceEpochFromDateInvalid =
+      [](int32_t year, int32_t month, int32_t day, const std::string& error) {
+        int64_t daysSinceEpoch;
+        auto status =
+            util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
+        EXPECT_TRUE(status.isUserError());
+        EXPECT_EQ(status.message(), error);
+      };
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 1, -1, "Date out of range: 1970-1--1"));
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, -1, 1, "Date out of range: 1970--1-1"));
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 0, 1, "Date out of range: 1970-0-1"));
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 13, 1, "Date out of range: 1970-13-1"));
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 1, 32, "Date out of range: 1970-1-32"));
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 2, 29, "Date out of range: 1970-2-29")); // non-leap.
+  EXPECT_NO_THROW(testDaysSinceEpochFromDateInvalid(
+      1970, 6, 31, "Date out of range: 1970-6-31"));
 }
 
 TEST(DateTimeUtilTest, fromDateString) {

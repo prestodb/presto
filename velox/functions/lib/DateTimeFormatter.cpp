@@ -1347,15 +1347,23 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
 
   // Convert the parsed date/time into a timestamp.
   int64_t daysSinceEpoch;
+  Status status;
   if (date.weekDateFormat) {
-    daysSinceEpoch =
-        util::daysSinceEpochFromWeekDate(date.year, date.week, date.dayOfWeek);
+    status = util::daysSinceEpochFromWeekDate(
+        date.year, date.week, date.dayOfWeek, daysSinceEpoch);
   } else if (date.dayOfYearFormat) {
-    daysSinceEpoch =
-        util::daysSinceEpochFromDayOfYear(date.year, date.dayOfYear);
+    status = util::daysSinceEpochFromDayOfYear(
+        date.year, date.dayOfYear, daysSinceEpoch);
   } else {
-    daysSinceEpoch =
-        util::daysSinceEpochFromDate(date.year, date.month, date.day);
+    status = util::daysSinceEpochFromDate(
+        date.year, date.month, date.day, daysSinceEpoch);
+  }
+  if (!status.ok()) {
+    VELOX_DCHECK(status.isUserError());
+    if (!failOnError) {
+      return std::nullopt;
+    }
+    VELOX_USER_FAIL(status.message());
   }
 
   int64_t microsSinceMidnight =

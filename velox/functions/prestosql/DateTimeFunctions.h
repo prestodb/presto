@@ -339,14 +339,28 @@ struct LastDayOfMonthFunction : public InitSessionTimezone<T>,
       out_type<Date>& result,
       const arg_type<Timestamp>& timestamp) {
     auto dt = getDateTime(timestamp, this->timeZone_);
-    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+    int64_t daysSinceEpochFromDate;
+    auto status =
+        util::lastDayOfMonthSinceEpochFromDate(dt, daysSinceEpochFromDate);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
+    result = daysSinceEpochFromDate;
   }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Date>& date) {
     auto dt = getDateTime(date);
-    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+    int64_t daysSinceEpochFromDate;
+    auto status =
+        util::lastDayOfMonthSinceEpochFromDate(dt, daysSinceEpochFromDate);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
+    result = daysSinceEpochFromDate;
   }
 
   FOLLY_ALWAYS_INLINE void call(
@@ -354,7 +368,14 @@ struct LastDayOfMonthFunction : public InitSessionTimezone<T>,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
     auto dt = getDateTime(timestamp, nullptr);
-    result = util::lastDayOfMonthSinceEpochFromDate(dt);
+    int64_t daysSinceEpochFromDate;
+    auto status =
+        util::lastDayOfMonthSinceEpochFromDate(dt, daysSinceEpochFromDate);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
+    result = daysSinceEpochFromDate;
   }
 };
 

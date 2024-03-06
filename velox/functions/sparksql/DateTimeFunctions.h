@@ -321,7 +321,13 @@ struct MakeDateFunction {
       const int32_t year,
       const int32_t month,
       const int32_t day) {
-    auto daysSinceEpoch = util::daysSinceEpochFromDate(year, month, day);
+    int64_t daysSinceEpoch;
+    auto status =
+        util::daysSinceEpochFromDate(year, month, day, daysSinceEpoch);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
@@ -357,7 +363,13 @@ struct LastDayFunction {
     int32_t month = getMonth(dateTime);
     int32_t day = getMonth(dateTime);
     auto lastDay = util::getMaxDayOfMonth(year, month);
-    auto daysSinceEpoch = util::daysSinceEpochFromDate(year, month, lastDay);
+    int64_t daysSinceEpoch;
+    auto status =
+        util::daysSinceEpochFromDate(year, month, lastDay, daysSinceEpoch);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
@@ -460,8 +472,14 @@ struct AddMonthsFunction {
     auto lastDayOfMonth = util::getMaxDayOfMonth(yearResult, monthResult);
     // Adjusts day to valid one.
     auto dayResult = lastDayOfMonth < day ? lastDayOfMonth : day;
-    auto daysSinceEpoch =
-        util::daysSinceEpochFromDate(yearResult, monthResult, dayResult);
+
+    int64_t daysSinceEpoch;
+    auto status = util::daysSinceEpochFromDate(
+        yearResult, monthResult, dayResult, daysSinceEpoch);
+    if (!status.ok()) {
+      VELOX_DCHECK(status.isUserError());
+      VELOX_USER_FAIL(status.message());
+    }
     VELOX_USER_CHECK_EQ(
         daysSinceEpoch,
         (int32_t)daysSinceEpoch,
