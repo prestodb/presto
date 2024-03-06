@@ -60,10 +60,11 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
     DecodedVector decoded(*args[0], rows);
 
     if (decoded.isConstantMapping()) {
-      if (decoded.isNullAt(0)) {
+      auto begin = rows.begin();
+      if (decoded.isNullAt(begin)) {
         return;
       }
-      auto value = decoded.valueAt<T>(0);
+      auto value = decoded.valueAt<T>(begin);
       rows.applyToSelected([&](vector_size_t i) {
         if (exec::Aggregate::isNull(groups[i])) {
           updateValue(groups[i], value);
@@ -101,14 +102,15 @@ class ArbitraryAggregate : public SimpleNumericAggregate<T, T, T> {
       return;
     }
     DecodedVector decoded(*args[0], rows);
+    auto begin = rows.begin();
 
     if (decoded.isConstantMapping()) {
-      if (decoded.isNullAt(0)) {
+      if (decoded.isNullAt(begin)) {
         return;
       }
-      updateValue(group, decoded.valueAt<T>(0));
+      updateValue(group, decoded.valueAt<T>(begin));
     } else if (!decoded.mayHaveNulls()) {
-      updateValue(group, decoded.valueAt<T>(0));
+      updateValue(group, decoded.valueAt<T>(begin));
     } else {
       // Find the first non-null value.
       rows.testSelected([&](vector_size_t i) {
@@ -195,7 +197,7 @@ class NonNumericArbitrary : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*unused*/) override {
     DecodedVector decoded(*args[0], rows, true);
-    if (decoded.isConstantMapping() && decoded.isNullAt(0)) {
+    if (decoded.isConstantMapping() && decoded.isNullAt(rows.begin())) {
       // nothing to do; all values are nulls
       return;
     }
@@ -232,7 +234,7 @@ class NonNumericArbitrary : public exec::Aggregate {
     }
 
     DecodedVector decoded(*args[0], rows, true);
-    if (decoded.isConstantMapping() && decoded.isNullAt(0)) {
+    if (decoded.isConstantMapping() && decoded.isNullAt(rows.begin())) {
       // nothing to do; all values are nulls
       return;
     }

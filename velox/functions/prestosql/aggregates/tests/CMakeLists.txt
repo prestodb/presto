@@ -72,6 +72,7 @@ target_link_libraries(
   velox_simple_aggregate
   velox_type
   velox_vector_fuzzer
+  velox_temp_path
   gflags::gflags
   gtest
   gtest_main)

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include "velox/exec/Spill.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/lib/window/tests/WindowTestBase.h"
 
@@ -380,6 +382,32 @@ TEST_F(ArbitraryWindowTest, basic) {
       "partition by c2 order by c0",
       "range between unbounded preceding and current row",
       expected);
+}
+
+TEST_F(ArbitraryTest, spilling) {
+  auto data = makeRowVector(
+      {makeFlatVector<float>({0.1, 0.2, 0.3, 0.4, 0.5, 0.6}),
+       makeNullableFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
+  auto expected = makeRowVector(
+      {makeNullableFlatVector<int64_t>({1, 2, 3, 4, 5, 6}),
+       makeNullableFlatVector<float>({0.1, 0.2, 0.3, 0.4, 0.5, 0.6})});
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({"c1"}, {"arbitrary(c0)"})
+                  .planNode();
+
+  std::shared_ptr<TempDirectoryPath> spillDirectory;
+  AssertQueryBuilder builder(plan);
+
+  exec::TestScopedSpillInjection scopedSpillInjection(100);
+  spillDirectory = exec::test::TempDirectoryPath::create();
+  builder.spillDirectory(spillDirectory->path)
+      .config(core::QueryConfig::kSpillEnabled, "true")
+      .config(core::QueryConfig::kAggregationSpillEnabled, "true");
+
+  auto result = builder.maxDrivers(2).copyResults(pool_.get());
+  ::facebook::velox::test::assertEqualVectors(expected, result);
 }
 
 } // namespace
