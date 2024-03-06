@@ -311,6 +311,8 @@ public class FeaturesConfig
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
 
+    private boolean useNewNanDefinition;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -3115,6 +3117,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseHistograms(boolean useHistograms)
     {
         this.useHistograms = useHistograms;
+        return this;
+    }
+
+    public boolean getUseNewNanDefinition()
+    {
+        return useNewNanDefinition;
+    }
+
+    @Config("use-new-nan-definition")
+    @ConfigDescription("Enable functions to use the new consistent NaN definition where NaN=NaN and is sorted largest")
+    public FeaturesConfig setUseNewNanDefinition(boolean useNewNanDefinition)
+    {
+        this.useNewNanDefinition = useNewNanDefinition;
         return this;
     }
 }
