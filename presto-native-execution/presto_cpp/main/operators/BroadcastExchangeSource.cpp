@@ -33,7 +33,7 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 folly::SemiFuture<BroadcastExchangeSource::Response>
 BroadcastExchangeSource::request(
     uint32_t /*maxBytes*/,
-    uint32_t /*maxWaitSeconds*/) {
+    std::chrono::microseconds /*maxWait*/) {
   if (atEnd_) {
     return folly::makeFuture(Response{0, true});
   }
@@ -69,7 +69,8 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
 }
 
 folly::SemiFuture<BroadcastExchangeSource::Response>
-BroadcastExchangeSource::requestDataSizes(uint32_t /*maxWaitSeconds*/) {
+BroadcastExchangeSource::requestDataSizes(
+    std::chrono::microseconds /*maxWait*/) {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
     // Use default value of ExchangeClient::getAveragePageSize() for now.

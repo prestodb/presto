@@ -453,7 +453,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
       std::lock_guard<std::mutex> l(queue->mutex());
       ASSERT_TRUE(exchangeSource->shouldRequestLocked());
     }
-    exchangeSource->request(1 << 20, 2);
+    exchangeSource->request(1 << 20, std::chrono::seconds(2));
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -999,7 +999,7 @@ TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
     std::lock_guard<std::mutex> l(queue->mutex());
     ASSERT_TRUE(exchangeSource->shouldRequestLocked());
   }
-  auto future = exchangeSource->request(1 << 20, 2);
+  auto future = exchangeSource->request(1 << 20, std::chrono::seconds(2));
   ASSERT_TRUE(future.isReady());
   auto response = std::move(future).get();
   ASSERT_EQ(response.bytes, 0);

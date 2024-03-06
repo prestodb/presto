@@ -130,11 +130,11 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// should not hold a lock over queue's mutex when making this call.
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      uint32_t maxWaitSeconds) override;
+      std::chrono::microseconds maxWait) override;
 
   folly::SemiFuture<Response> requestDataSizes(
-      uint32_t maxWaitSeconds) override {
-    return request(0, maxWaitSeconds);
+      std::chrono::microseconds maxWait) override {
+    return request(0, maxWait);
   }
 
   // Create an exchange source using pooled connections.
@@ -198,7 +198,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   static void testingClearMemoryUsage();
 
  private:
-  void doRequest(int64_t delayMs, uint32_t maxBytes, uint32_t maxWaitSeconds);
+  void doRequest(
+      int64_t delayMs,
+      uint32_t maxBytes,
+      std::chrono::microseconds maxWait);
 
   /// Handles successful, possibly empty, response. Adds received data to the
   /// queue. If received an end marker, notifies the queue by adding null page.
@@ -218,7 +221,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   void processDataError(
       const std::string& path,
       uint32_t maxBytes,
-      uint32_t maxWaitSeconds,
+      std::chrono::microseconds maxWait,
       const std::string& error);
 
   void acknowledgeResults(int64_t ackSequence);
