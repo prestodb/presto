@@ -40,7 +40,7 @@ template <typename Item>
 class AsyncSource {
  public:
   explicit AsyncSource(std::function<std::unique_ptr<Item>()> make)
-      : make_(make) {}
+      : make_(std::move(make)) {}
 
   // Makes an item if it is not already made. To be called on a background
   // executor.
