@@ -140,6 +140,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isFileModifiedTimeColumn
 import static com.facebook.presto.hive.HiveColumnHandle.isFileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.rowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
@@ -958,6 +959,7 @@ public final class HiveUtil
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
+        columns.add(rowIdColumnHandle());
 
         return columns.build();
     }
@@ -1022,7 +1024,6 @@ public final class HiveUtil
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
             return Optional.of(String.valueOf(fileSplit.getFileModifiedTime()));
         }
-
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
 
@@ -1145,9 +1146,9 @@ public final class HiveUtil
         for (HiveColumnHandle column : columns) {
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger than the number of columns in the
-                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a synthesized column like
-                // a partitioning key, $bucket or $path, leave it as is.
+                // If the column is missing from the file, assign it a column number larger than the number of columns in the
+                // file so the reader will fill it with nulls. If the index is negative, i.e. this is a synthesized column like
+                // a partitioning key, $bucket, $row_id, or $path, leave it as is.
                 if (column.getHiveColumnIndex() < 0) {
                     physicalOrdinal = column.getHiveColumnIndex();
                 }
