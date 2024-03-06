@@ -81,6 +81,27 @@ class DuckDbQueryRunner {
       std::function<void(std::vector<MaterializedRow>&)> resultCallback);
 };
 
+/// Scoped abort percentage utility that allows user to trigger abort during the
+///  query execution.
+/// 'abortPct' specifies the probability of of triggering abort. 100% means
+/// abort will always be triggered.
+/// 'maxInjections' indicates the max number of actual triggering, e.g. when
+/// 'abortPct' is 20 and 'maxInjections' is 10, continuous calls to
+/// testingMaybeTriggerAbort() will keep rolling the dice that has a chance of
+/// 20% triggering until 10 triggers have been invoked.
+class TestScopedAbortInjection {
+ public:
+  explicit TestScopedAbortInjection(
+      int32_t abortPct,
+      int32_t maxInjections = std::numeric_limits<int32_t>::max());
+
+  ~TestScopedAbortInjection();
+};
+
+/// Test utility that might trigger task abort. The function returns true if
+/// abortion triggers otherwise false.
+bool testingMaybeTriggerAbort(exec::Task* task);
+
 std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     const CursorParameters& params,
     std::function<void(exec::Task*)> addSplits,

@@ -1073,6 +1073,7 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
     const int maxNumZombieTasks = 8;
     std::vector<std::thread> queryThreads;
     queryThreads.reserve(numThreads);
+    TestScopedAbortInjection testScopedAbortInjection(10, numThreads);
     for (int i = 0; i < numThreads; ++i) {
       queryThreads.emplace_back([&, i]() {
         std::shared_ptr<Task> task;
@@ -1131,7 +1132,8 @@ TEST_F(SharedArbitrationTest, concurrentArbitration) {
         } catch (const VeloxException& e) {
           if (e.errorCode() != error_code::kMemCapExceeded.c_str() &&
               e.errorCode() != error_code::kMemAborted.c_str() &&
-              e.errorCode() != error_code::kMemAllocError.c_str()) {
+              e.errorCode() != error_code::kMemAllocError.c_str() &&
+              (e.message() != "Aborted for external error")) {
             std::rethrow_exception(std::current_exception());
           }
         }
