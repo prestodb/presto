@@ -22,7 +22,7 @@
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
-#include "velox/exec/SharedArbitrator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 
 using namespace ::testing;
 
@@ -112,8 +112,8 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     });
   }
   {
-    // Reserved memory is enforced when SharedMemoryArbitrator is used.
-    exec::SharedArbitrator::registerFactory();
+    // Reserved memory is e`nforced when SharedMemoryArbitrator is used.
+    SharedArbitrator::registerFactory();
     MemoryManagerOptions options;
     options.allocatorCapacity = 8L << 20;
     options.arbitratorCapacity = 4L << 20;
@@ -147,7 +147,7 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), 2 << 20);
     ASSERT_EQ(rootPool->capacity(), 0);
     ASSERT_EQ(leafPool->capacity(), 0);
-    exec::SharedArbitrator::unregisterFactory();
+    memory::SharedArbitrator::unregisterFactory();
   }
 }
 

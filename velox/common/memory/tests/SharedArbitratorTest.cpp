@@ -19,19 +19,20 @@
 #include <re2/re2.h>
 #include <deque>
 
+#include <folly/init/Init.h>
 #include <functional>
 #include <optional>
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashBuild.h"
-#include "velox/exec/SharedArbitrator.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
@@ -45,7 +46,7 @@ using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::memory {
 // Custom node for the custom factory.
 class FakeMemoryNode : public core::PlanNode {
  public:
@@ -1186,4 +1187,10 @@ TEST_F(SharedArbitrationTest, reserveReleaseCounters) {
     ASSERT_EQ(arbitrator_->stats().numReleases, numRootPools);
   }
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::memory
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::Init init{&argc, &argv, false};
+  return RUN_ALL_TESTS();
+}

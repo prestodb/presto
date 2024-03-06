@@ -28,6 +28,7 @@ add_library(
   MemoryPool.cpp
   MmapAllocator.cpp
   MmapArena.cpp
+  SharedArbitrator.cpp
   StreamArena.cpp)
 
 target_link_libraries(

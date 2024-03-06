@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include(GoogleTest)
+
 add_executable(
   velox_memory_test
   AllocationTest.cpp
@@ -25,6 +26,7 @@ add_executable(
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MockSharedArbitratorTest.cpp
+  SharedArbitratorTest.cpp
   StreamArenaTest.cpp)
 
 target_link_libraries(

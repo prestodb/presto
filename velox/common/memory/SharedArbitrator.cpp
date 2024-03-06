@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/exec/SharedArbitrator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/Exceptions.h"
@@ -26,7 +26,7 @@
 
 using facebook::velox::common::testutil::TestValue;
 
-namespace facebook::velox::exec {
+namespace facebook::velox::memory {
 
 namespace {
 
@@ -708,4 +708,4 @@ void SharedArbitrator::registerFactory() {
 void SharedArbitrator::unregisterFactory() {
   MemoryArbitrator::unregisterFactory(kind_);
 }
-} // namespace facebook::velox::exec
+} // namespace facebook::velox::memory

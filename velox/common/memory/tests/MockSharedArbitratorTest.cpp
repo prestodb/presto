@@ -26,8 +26,8 @@
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryArbitrator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/exec/SharedArbitrator.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -390,7 +390,7 @@ MockTask::~MockTask() {
 class MockSharedArbitrationTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    exec::SharedArbitrator::registerFactory();
+    SharedArbitrator::registerFactory();
     FLAGS_velox_memory_leak_check_enabled = true;
     TestValue::enable();
   }

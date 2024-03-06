@@ -18,12 +18,11 @@
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MallocAllocator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
-#include "velox/exec/SharedArbitrator.h"
-#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -59,7 +58,7 @@ OperatorTestBase::~OperatorTestBase() {
 void OperatorTestBase::SetUpTestCase() {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
-  exec::SharedArbitrator::registerFactory();
+  memory::SharedArbitrator::registerFactory();
   memory::MemoryManagerOptions options;
   options.allocatorCapacity = 8L << 30;
   if (FLAGS_velox_testing_enable_arbitration) {
@@ -69,7 +68,8 @@ void OperatorTestBase::SetUpTestCase() {
     options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   }
   memory::MemoryManager::testingSetInstance(options);
-  asyncDataCache_ = cache::AsyncDataCache::create(memoryManager()->allocator());
+  asyncDataCache_ =
+      cache::AsyncDataCache::create(memory::memoryManager()->allocator());
   cache::AsyncDataCache::setInstance(asyncDataCache_.get());
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
@@ -79,7 +79,7 @@ void OperatorTestBase::SetUpTestCase() {
 void OperatorTestBase::TearDownTestCase() {
   asyncDataCache_->shutdown();
   waitForAllTasksToBeDeleted();
-  exec::SharedArbitrator::unregisterFactory();
+  memory::SharedArbitrator::unregisterFactory();
 }
 
 void OperatorTestBase::SetUp() {
