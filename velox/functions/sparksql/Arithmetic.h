@@ -350,4 +350,59 @@ struct ToHexBigintFunction {
     ToHexUtil::toHex(input, result);
   }
 };
+
+namespace detail {
+FOLLY_ALWAYS_INLINE static int8_t fromHex(char c) {
+  if (c >= '0' && c <= '9') {
+    return c - '0';
+  }
+
+  if (c >= 'A' && c <= 'F') {
+    return 10 + c - 'A';
+  }
+
+  if (c >= 'a' && c <= 'f') {
+    return 10 + c - 'a';
+  }
+  return -1;
+}
+} // namespace detail
+
+template <typename T>
+struct UnHexFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Varbinary>& result,
+      const arg_type<Varchar>& input) {
+    const auto resultSize = (input.size() + 1) >> 1;
+    result.resize(resultSize);
+    const char* inputBuffer = input.data();
+    char* resultBuffer = result.data();
+
+    int32_t i = 0;
+    if ((input.size() & 0x01) != 0) {
+      const auto v = detail::fromHex(inputBuffer[0]);
+      if (v == -1) {
+        return false;
+      }
+      // out_type<Varbinary> resize does not guarantee all chars initialized
+      // with 0, filling last char with 0 to align with Spark.
+      resultBuffer[resultSize - 1] = 0;
+      resultBuffer[0] = v;
+      i += 1;
+    }
+
+    while (i < input.size()) {
+      const auto first = detail::fromHex(inputBuffer[i]);
+      const auto second = detail::fromHex(inputBuffer[i + 1]);
+      if (first == -1 || second == -1) {
+        return false;
+      }
+      resultBuffer[i / 2] = (first << 4) | second;
+      i += 2;
+    }
+    return true;
+  }
+};
 } // namespace facebook::velox::functions::sparksql

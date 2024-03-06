@@ -233,3 +233,18 @@ Mathematical Functions
 .. spark:function:: unaryminus(x) -> [same as x]
 
     Returns the negative of `x`.  Corresponds to Spark's operator ``-``.
+
+.. spark:function:: unhex(x) -> varbinary
+
+    Converts hexadecimal varchar ``x`` to varbinary.
+    ``x`` is considered case insensitive and expected to contain only hexadecimal characters 0-9 and A-F.
+    If ``x`` contains non-hexadecimal character, the function returns NULL.
+    When ``x`` contains even number of characters, each pair is converted to a single byte. The number of bytes in the result is half the number of bytes in the input.
+    When ``x`` contains a single character, the result contains a single byte whose value matches the hexadecimal character.
+    When ``x`` contains an odd number characters greater than 2, the first character is ignored, the remaining pairs of characters are converted to bytes, then zero byte is added at the end of the output. ::
+
+        SELECT unhex("23"); -- #
+        SELECT unhex("f"); -- \x0F
+        SELECT unhex("b2323"); -- ##\0
+        SELECT unhex("G"); -- NULL
+        SELECT unhex("G23"); -- NULL

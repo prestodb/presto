@@ -268,6 +268,27 @@ TEST_F(ArithmeticTest, cosh) {
   EXPECT_TRUE(std::isnan(cosh(kNan).value_or(0)));
 }
 
+TEST_F(ArithmeticTest, unhex) {
+  const auto unhex = [&](std::optional<std::string> a) {
+    return evaluateOnce<std::string>("unhex(c0)", a);
+  };
+
+  EXPECT_EQ(unhex("737472696E67"), "string");
+  EXPECT_EQ(unhex(""), "");
+  EXPECT_EQ(unhex("23"), "#");
+  std::string b("#\0", 2);
+  EXPECT_EQ(unhex("123"), b);
+  EXPECT_EQ(unhex("b23"), b);
+  b = std::string("##\0", 3);
+  EXPECT_EQ(unhex("b2323"), b);
+  EXPECT_EQ(unhex("F"), "\x0F");
+  EXPECT_EQ(unhex("ff"), "\xFF");
+  EXPECT_EQ(unhex("G"), std::nullopt);
+  EXPECT_EQ(unhex("GG"), std::nullopt);
+  EXPECT_EQ(unhex("G23"), std::nullopt);
+  EXPECT_EQ(unhex("E4B889E9878DE79A84"), "\u4E09\u91CD\u7684");
+}
+
 class CeilFloorTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
