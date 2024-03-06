@@ -26,25 +26,31 @@ class RandTest : public SparkFunctionBaseTest {
   }
 
  protected:
+  void setSparkPartitionId(int32_t partitionId) {
+    queryCtx_->testingOverrideConfigUnsafe(
+        {{core::QueryConfig::kSparkPartitionId, std::to_string(partitionId)}});
+  }
+
   std::optional<double> rand(int32_t seed, int32_t partitionIndex = 0) {
+    setSparkPartitionId(partitionIndex);
     return evaluateOnce<double>(
-        fmt::format("rand({}, {})", seed, partitionIndex),
-        makeRowVector(ROW({}), 1));
+        fmt::format("rand({})", seed), makeRowVector(ROW({}), 1));
   }
 
   std::optional<double> randWithNullSeed(int32_t partitionIndex = 0) {
-    return evaluateOnce<double>(
-        fmt::format("rand(NULL, {})", partitionIndex),
-        makeRowVector(ROW({}), 1));
+    setSparkPartitionId(partitionIndex);
+    std::optional<int32_t> seed = std::nullopt;
+    return evaluateOnce<double>("rand(c0)", seed);
   }
 
   std::optional<double> randWithNoSeed() {
+    setSparkPartitionId(0);
     return evaluateOnce<double>("rand()", makeRowVector(ROW({}), 1));
   }
 
   VectorPtr randWithBatchInput(int32_t seed, int32_t partitionIndex = 0) {
-    auto exprSet = compileExpression(
-        fmt::format("rand({}, {})", seed, partitionIndex), ROW({}));
+    setSparkPartitionId(partitionIndex);
+    auto exprSet = compileExpression(fmt::format("rand({})", seed), ROW({}));
     return evaluate(*exprSet, makeRowVector(ROW({}), 20));
   }
 
@@ -92,6 +98,7 @@ TEST_F(RandTest, withSeed) {
 
   // Test with batch input.
   auto batchResult1 = randWithBatchInput(100);
+  ASSERT_FALSE(batchResult1->isConstantEncoding());
   auto batchResult2 = randWithBatchInput(100);
   // Same seed & partition index produce same results.
   velox::test::assertEqualVectors(batchResult1, batchResult2);

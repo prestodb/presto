@@ -620,3 +620,6 @@ Spark-specific Configuration
      - 4194304
      - The maximum number of bits to use for the bloom filter in :spark:func:`bloom_filter_agg` function,
        the value of this config can not exceed the default value.
+   * - spark.partition_id
+     - integer
+     - The current task's Spark partition ID. It's set by the query engine (Spark) prior to task execution.

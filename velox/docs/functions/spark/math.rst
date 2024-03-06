@@ -175,14 +175,13 @@ Mathematical Functions
 
         SELECT rand(); -- 0.9629742951434543
 
-.. spark:function:: rand(seed, partitionIndex) -> double
+.. spark:function:: rand(seed) -> double
 
     Returns a random value with uniformly distributed values in [0, 1) using a seed formed
-    by combining user-specified ``seed`` and framework provided ``partitionIndex``. The
+    by combining user-specified ``seed`` and the configuration `spark.partition_id`. The
     framework is responsible for deterministic partitioning of the data and assigning unique
-    ``partitionIndex`` to each thread (in a deterministic way).
-    ``seed`` must be constant. NULL ``seed`` is identical to zero ``seed``. ``partitionIndex``
-    cannot be NULL. ::
+    `spark.partition_id` to each thread (in a deterministic way) .
+    ``seed`` must be constant. NULL ``seed`` is identical to zero ``seed``. ::
 
         SELECT rand(0);    -- 0.5488135024422883
         SELECT rand(NULL); -- 0.5488135024422883
@@ -191,9 +190,9 @@ Mathematical Functions
 
     An alias for ``rand()``.
 
-.. spark:function:: random(seed, partitionIndex) -> double
+.. spark:function:: random(seed) -> double
 
-    An alias for ``rand(seed, partitionIndex)``.
+    An alias for ``rand(seed)``.
 
 .. spark:function:: remainder(n, m) -> [same as n]
 

@@ -23,54 +23,25 @@ template <typename T>
 struct RandFunction {
   static constexpr bool is_deterministic = false;
 
+  template <typename TInput>
+  void initialize(const core::QueryConfig& config, const TInput* seedInput) {
+    auto partitionId = config.sparkPartitionId();
+    generator_ = std::mt19937{};
+    int64_t seed = seedInput ? (int64_t)*seedInput : 0;
+    generator_.seed(seed + partitionId);
+  }
+
   FOLLY_ALWAYS_INLINE void call(double& result) {
     result = folly::Random::randDouble01();
   }
 
-  FOLLY_ALWAYS_INLINE void callNullable(
-      double& result,
-      const int32_t* seed,
-      const int32_t* partitionIndex) {
-    initializeGenerator(seed, partitionIndex);
-    result = folly::Random::randDouble01(*generator_);
-  }
-
-  // To differentiate generator for each thread, seed plus partitionIndex is
-  // the actual seed used for generator.
-  FOLLY_ALWAYS_INLINE void callNullable(
-      double& result,
-      const int64_t* seed,
-      const int32_t* partitionIndex) {
-    initializeGenerator(seed, partitionIndex);
-    result = folly::Random::randDouble01(*generator_);
-  }
-
-  // For NULL constant input of unknown type.
-  FOLLY_ALWAYS_INLINE void callNullable(
-      double& result,
-      const UnknownValue* /*seed*/,
-      const int32_t* partitionIndex) {
-    initializeGenerator<int64_t>(nullptr, partitionIndex);
-    result = folly::Random::randDouble01(*generator_);
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void callNullable(double& result, TInput /*seedInput*/) {
+    result = folly::Random::randDouble01(generator_);
   }
 
  private:
-  template <typename TSeed>
-  FOLLY_ALWAYS_INLINE void initializeGenerator(
-      const TSeed* seed,
-      const int32_t* partitionIndex) {
-    VELOX_USER_CHECK_NOT_NULL(partitionIndex, "partitionIndex cannot be null.");
-    if (!generator_.has_value()) {
-      generator_ = std::mt19937{};
-      if (seed != nullptr) {
-        generator_->seed((int64_t)*seed + *partitionIndex);
-      } else {
-        // For null seed, partitionIndex is the seed, consistent with Spark.
-        generator_->seed(*partitionIndex);
-      }
-    }
-  }
-
-  std::optional<std::mt19937> generator_;
+  std::mt19937 generator_;
 };
+
 } // namespace facebook::velox::functions::sparksql
