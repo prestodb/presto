@@ -136,25 +136,28 @@ public class TestQuickStatsProvider
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 SESSION.getWarningCollector(),
                 SESSION.getRuntimeStats());
+        Storage mockStorage = new Storage(
+                fromHiveStorageFormat(PARQUET),
+                "some/path",
+                Optional.empty(),
+                true,
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        Partition mockPartition = new Partition(
+                TEST_SCHEMA,
+                TEST_TABLE,
+                ImmutableList.of(),
+                mockStorage,
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                false,
+                true,
+                0,
+                0,
+                Optional.empty());
         when(metastoreMock.getPartition(any(), eq(TEST_SCHEMA), eq(TEST_TABLE), any()))
-                .thenReturn(Optional.of(new Partition(
-                        TEST_SCHEMA,
-                        TEST_TABLE,
-                        ImmutableList.of(),
-                        new Storage(
-                                fromHiveStorageFormat(PARQUET),
-                                "some/path",
-                                Optional.empty(),
-                                true,
-                                ImmutableMap.of(),
-                                ImmutableMap.of()),
-                        ImmutableList.of(),
-                        ImmutableMap.of(),
-                        Optional.empty(),
-                        false,
-                        true,
-                        0,
-                        0)));
+                .thenReturn(Optional.of(mockPartition));
 
         when(metastoreMock.getTable(any(), eq(TEST_SCHEMA), eq(TEST_TABLE)))
                 .thenReturn(Optional.of(new Table(

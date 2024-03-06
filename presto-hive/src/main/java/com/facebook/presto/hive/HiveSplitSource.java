@@ -537,7 +537,8 @@ class HiveSplitSource
                         cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation(),
                         internalSplit.getPartitionInfo().getRedundantColumnDomains(),
-                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
+                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes),
+                        internalSplit.getPartitionInfo().getRowIdPartitionComponent()));
 
                 internalSplit.increaseStart(splitBytes);
 

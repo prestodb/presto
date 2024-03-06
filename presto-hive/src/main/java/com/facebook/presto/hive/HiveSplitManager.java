@@ -457,7 +457,8 @@ public class HiveSplitManager
                         Optional.empty(),
                         TableToPartitionMapping.empty(),
                         encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
-                        ImmutableSet.of()));
+                        ImmutableSet.of(),
+                        Optional.empty()));
             }
         }
 
@@ -586,7 +587,8 @@ public class HiveSplitManager
                                 Optional.of(partition),
                                 tableToPartitionMapping,
                                 encryptionInformation,
-                                partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains()));
+                                partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains(),
+                                Optional.empty()));
             }
             if (unreadablePartitionsSkipped > 0) {
                 StringBuilder warningMessage = new StringBuilder(format("Table '%s' has %s out of %s partitions unreadable: ", tableName, unreadablePartitionsSkipped, partitionBatch.size()));
