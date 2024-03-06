@@ -253,7 +253,7 @@ public class TestQuickStatsProvider
             // Build a session where an inline quick stats build will occur for the 1st query that initiates the build,
             // but subsequent queries will NOT wait
 
-            ConnectorSession session = getSession("300ms", "0ms");
+            ConnectorSession session = getSession("600ms", "0ms");
             // Execute two concurrent calls for the same partitions; wait for them to complete
             CompletableFuture<Map<String, PartitionStatistics>> future1 = supplyAsync(() -> quickStatsProvider.getQuickStats(session, metastoreMock,
                     new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, testPartitions), commonPool());
