@@ -459,24 +459,13 @@ public class TestHiveSplitManager
 
         // Prepare partition with stats
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
-                new Partition(
-                        "test_db",
-                        "test_table",
-                        ImmutableList.of(PARTITION_VALUE),
-                        new Storage(
-                                fromHiveStorageFormat(ORC),
-                                "location",
-                                Optional.empty(),
-                                true,
-                                ImmutableMap.of(),
-                                ImmutableMap.of()),
-                        COLUMNS,
-                        ImmutableMap.of(),
-                        Optional.empty(),
-                        false,
-                        true,
-                        0,
-                        0),
+                new Partition("test_db", "test_table", ImmutableList.of(PARTITION_VALUE), new Storage(
+                                                fromHiveStorageFormat(ORC),
+                                                "location",
+                                                Optional.empty(),
+                                                true,
+                                                ImmutableMap.of(),
+                                                ImmutableMap.of()), COLUMNS, ImmutableMap.of(), Optional.empty(), false, true, 0, 0, Optional.empty()),
                 PARTITION_NAME,
                 partitionStatistics);
 

@@ -59,6 +59,7 @@ public class HiveSplit
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Set<ColumnHandle> redundantColumnDomains;
     private final SplitWeight splitWeight;
+    private final Optional<byte[]> rowIdPartitionComponent;
 
     @JsonCreator
     public HiveSplit(
@@ -79,7 +80,8 @@ public class HiveSplit
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
             @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
             @JsonProperty("redundantColumnDomains") Set<ColumnHandle> redundantColumnDomains,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("rowIdPartitionComponent") Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(fileSplit, "fileSplit is null");
         requireNonNull(database, "database is null");
@@ -96,6 +98,7 @@ public class HiveSplit
         requireNonNull(cacheQuotaRequirement, "cacheQuotaRequirement is null");
         requireNonNull(encryptionInformation, "encryptionMetadata is null");
         requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
+        requireNonNull(rowIdPartitionComponent, "rowIdPartitionComponent is null");
 
         this.fileSplit = fileSplit;
         this.database = database;
@@ -115,6 +118,7 @@ public class HiveSplit
         this.encryptionInformation = encryptionInformation;
         this.redundantColumnDomains = ImmutableSet.copyOf(redundantColumnDomains);
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.rowIdPartitionComponent = rowIdPartitionComponent;
     }
 
     @JsonProperty
@@ -234,6 +238,12 @@ public class HiveSplit
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getRowIdPartitionComponent()
+    {
+        return rowIdPartitionComponent;
     }
 
     @Override
