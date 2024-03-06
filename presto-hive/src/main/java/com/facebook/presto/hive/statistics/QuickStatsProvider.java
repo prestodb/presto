@@ -237,20 +237,20 @@ public class QuickStatsProvider
             CompletableFuture<PartitionStatistics> fetchFuture = supplyAsync(() -> buildQuickStats(partitionKey, partitionId, session, metastore, table, metastoreContext), backgroundFetchExecutor);
             partitionStatisticsCompletableFuture.set(fetchFuture);
 
-            // Add a hook to stop tracking the in-progress build for this partition once the future finishes (successfully or exceptionally)
-            fetchFuture.whenComplete((r, e) -> inProgressBuilds.remove(partitionKey));
-
-            // Also add a hook to reap this in-progress thread if it doesn't finish in reaperExpiry seconds
-            inProgressReaperExecutor.schedule(() -> {
-                inProgressBuilds.remove(key);
-                fetchFuture.cancel(true);
-            }, reaperExpiryMillis, MILLISECONDS);
-
             return new InProgressBuildInfo(fetchFuture, Instant.now());
         });
 
         CompletableFuture<PartitionStatistics> future = partitionStatisticsCompletableFuture.get();
         if (future != null) {
+            // Add a hook to stop tracking the in-progress build for this partition once the future finishes (successfully or exceptionally)
+            future.whenCompleteAsync((r, e) -> inProgressBuilds.remove(partitionKey), inProgressReaperExecutor);
+
+            // Also add a hook to reap this in-progress thread if it doesn't finish in reaperExpiry seconds
+            inProgressReaperExecutor.schedule(() -> {
+                inProgressBuilds.remove(partitionKey);
+                future.cancel(true);
+            }, reaperExpiryMillis, MILLISECONDS);
+
             long inlineBuildTimeoutMillis = getQuickStatsInlineBuildTimeoutMillis(session);
             if (inlineBuildTimeoutMillis > 0) {
                 // A background call to build quick stats was started, and we want to wait for quick stats to be built
