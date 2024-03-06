@@ -76,4 +76,14 @@ void StreamArena::newTinyRange(
   range->buffer = reinterpret_cast<uint8_t*>(tinyRanges_.back().data());
   range->size = bytes;
 }
+void StreamArena::clear() {
+  allocations_.clear();
+  pool_->freeNonContiguous(allocation_);
+  currentRun_ = 0;
+  currentOffset_ = 0;
+  largeAllocations_.clear();
+  size_ = 0;
+  tinyRanges_.clear();
+}
+
 } // namespace facebook::velox

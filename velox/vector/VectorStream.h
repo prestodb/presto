@@ -86,6 +86,11 @@ class IterativeVectorSerializer {
 
   /// Write serialized data to 'stream'.
   virtual void flush(OutputStream* stream) = 0;
+
+  /// Resets 'this' to post construction state.
+  virtual void clear() {
+    VELOX_UNSUPPORTED("clear");
+  }
 };
 
 /// Serializer that writes a subset of rows from a single RowVector to the
@@ -296,6 +301,11 @@ class VectorStreamGroup : public StreamArena {
       RowTypePtr type,
       RowVectorPtr* result,
       const VectorSerde::Options* options = nullptr);
+
+  void clear() override {
+    StreamArena::clear();
+    serializer_->clear();
+  }
 
  private:
   std::unique_ptr<IterativeVectorSerializer> serializer_;

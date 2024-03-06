@@ -62,6 +62,10 @@ class StreamArena {
     return pool_;
   }
 
+  /// Restores 'this' to post-construction state. Used in recycling streams for
+  /// serilizers.
+  virtual void clear();
+
  private:
   memory::MemoryPool* const pool_;
   const memory::MachinePageCount allocationQuantum_{2};

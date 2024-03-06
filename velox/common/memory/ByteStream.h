@@ -246,7 +246,16 @@ class ByteOutputStream {
     return ranges_;
   }
 
+  /// Prepares 'this' for writing. Can be called several times,
+  /// e.g. PrestoSerializer resets these. The memory formerly backing
+  /// 'ranges_' is not owned and the caller needs to recycle or free
+  /// this independently.
   void startWrite(int32_t initialSize) {
+    ranges_.clear();
+    isReversed_ = false;
+    allocatedBytes_ = 0;
+    current_ = nullptr;
+    lastRangeEnd_ = 0;
     extend(initialSize);
   }
 

@@ -381,3 +381,15 @@ TEST_F(ByteStreamTest, nextViewNegativeSize) {
   ByteInputStream byteStream({ByteRange{buffer, kBufferSize, 0}});
   EXPECT_THROW(byteStream.nextView(-100), VeloxRuntimeError);
 }
+
+TEST_F(ByteStreamTest, reuse) {
+  auto arena = newArena();
+  ByteOutputStream stream(arena.get());
+  char bytes[10000] = {};
+  for (auto i = 0; i < 10; ++i) {
+    arena->clear();
+    stream.startWrite(i * 100);
+    stream.appendStringView(std::string_view(bytes, sizeof(bytes)));
+    EXPECT_EQ(sizeof(bytes), stream.size());
+  }
+}
