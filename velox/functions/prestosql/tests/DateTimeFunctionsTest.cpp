@@ -881,6 +881,66 @@ TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalDayTime) {
   EXPECT_THROW(minus(baseDate, partDay), VeloxUserError);
 }
 
+TEST_F(DateTimeFunctionsTest, timestampMinusIntervalYearMonth) {
+  const auto minus = [&](std::optional<std::string> timestamp,
+                         std::optional<int32_t> interval) {
+    return evaluateOnce<std::string>(
+        "date_format(date_parse(c0, '%Y-%m-%d %H:%i:%s') - c1, '%Y-%m-%d %H:%i:%s')",
+        makeRowVector({
+            makeNullableFlatVector<std::string>({timestamp}, VARCHAR()),
+            makeNullableFlatVector<int32_t>({interval}, INTERVAL_YEAR_MONTH()),
+        }));
+  };
+
+  EXPECT_EQ("2001-01-03 04:05:06", minus("2001-02-03 04:05:06", 1));
+  EXPECT_EQ("2000-04-03 04:05:06", minus("2001-02-03 04:05:06", 10));
+  EXPECT_EQ("1999-06-03 04:05:06", minus("2001-02-03 04:05:06", 20));
+
+  // Some special dates.
+  EXPECT_EQ("2001-04-30 04:05:06", minus("2001-05-31 04:05:06", 1));
+  EXPECT_EQ("2001-03-30 04:05:06", minus("2001-04-30 04:05:06", 1));
+  EXPECT_EQ("2001-02-28 04:05:06", minus("2001-03-30 04:05:06", 1));
+  EXPECT_EQ("2000-02-29 04:05:06", minus("2000-03-30 04:05:06", 1));
+  EXPECT_EQ("2000-01-29 04:05:06", minus("2000-02-29 04:05:06", 1));
+}
+
+TEST_F(DateTimeFunctionsTest, timestampPlusIntervalYearMonth) {
+  const auto plus = [&](std::optional<std::string> timestamp,
+                        std::optional<int32_t> interval) {
+    // timestamp + interval.
+    auto result1 = evaluateOnce<std::string>(
+        "date_format(date_parse(c0, '%Y-%m-%d %H:%i:%s') + c1, '%Y-%m-%d %H:%i:%s')",
+        makeRowVector(
+            {makeNullableFlatVector<std::string>({timestamp}, VARCHAR()),
+             makeNullableFlatVector<int32_t>(
+                 {interval}, INTERVAL_YEAR_MONTH())}));
+
+    // interval + timestamp.
+    auto result2 = evaluateOnce<std::string>(
+        "date_format(c1 + date_parse(c0, '%Y-%m-%d %H:%i:%s'), '%Y-%m-%d %H:%i:%s')",
+        makeRowVector(
+            {makeNullableFlatVector<std::string>({timestamp}, VARCHAR()),
+             makeNullableFlatVector<int32_t>(
+                 {interval}, INTERVAL_YEAR_MONTH())}));
+
+    // They should be the same.
+    EXPECT_EQ(result1, result2);
+
+    return result1;
+  };
+
+  EXPECT_EQ("2001-02-03 04:05:06", plus("2001-01-03 04:05:06", 1));
+  EXPECT_EQ("2001-02-03 04:05:06", plus("2000-04-03 04:05:06", 10));
+  EXPECT_EQ("2001-02-03 04:05:06", plus("1999-06-03 04:05:06", 20));
+
+  // Some special dates.
+  EXPECT_EQ("2001-06-30 04:05:06", plus("2001-05-31 04:05:06", 1));
+  EXPECT_EQ("2001-05-30 04:05:06", plus("2001-04-30 04:05:06", 1));
+  EXPECT_EQ("2001-02-28 04:05:06", plus("2001-01-31 04:05:06", 1));
+  EXPECT_EQ("2000-02-29 04:05:06", plus("2000-01-31 04:05:06", 1));
+  EXPECT_EQ("2000-02-29 04:05:06", plus("2000-01-29 04:05:06", 1));
+}
+
 TEST_F(DateTimeFunctionsTest, plusMinusTimestampIntervalDayTime) {
   constexpr int64_t kLongMax = std::numeric_limits<int64_t>::max();
   constexpr int64_t kLongMin = std::numeric_limits<int64_t>::min();

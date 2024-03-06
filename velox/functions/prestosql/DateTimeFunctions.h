@@ -427,7 +427,7 @@ struct TimestampMinusFunction {
 };
 
 template <typename T>
-struct TimestampPlusIntervalDayTime {
+struct TimestampPlusInterval {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
@@ -442,10 +442,17 @@ struct TimestampPlusIntervalDayTime {
   {
     result = Timestamp::fromMillisNoError(a.toMillis() + b);
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<IntervalYearMonth>& interval) {
+    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
+  }
 };
 
 template <typename T>
-struct IntervalDayTimePlusTimestamp {
+struct IntervalPlusTimestamp {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
@@ -460,10 +467,17 @@ struct IntervalDayTimePlusTimestamp {
   {
     result = Timestamp::fromMillisNoError(a + b.toMillis());
   }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<IntervalYearMonth>& interval,
+      const arg_type<Timestamp>& timestamp) {
+    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, interval);
+  }
 };
 
 template <typename T>
-struct TimestampMinusIntervalDayTime {
+struct TimestampMinusInterval {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void call(
@@ -477,6 +491,13 @@ struct TimestampMinusIntervalDayTime {
 #endif
   {
     result = Timestamp::fromMillisNoError(a.toMillis() - b);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<IntervalYearMonth>& interval) {
+    result = addToTimestamp(timestamp, DateTimeUnit::kMonth, -interval);
   }
 };
 
