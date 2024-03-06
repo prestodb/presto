@@ -243,7 +243,8 @@ public class StoragePartitionLoader
                         partitionDataColumnCount,
                         partition.getTableToPartitionMapping(),
                         bucketConversion,
-                        partition.getRedundantColumnDomains()),
+                        partition.getRedundantColumnDomains(),
+                        partition.getRowIdPartitionComponent()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
     }
