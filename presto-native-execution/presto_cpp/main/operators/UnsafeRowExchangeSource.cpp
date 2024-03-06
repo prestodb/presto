@@ -31,7 +31,7 @@ namespace facebook::presto::operators {
 folly::SemiFuture<UnsafeRowExchangeSource::Response>
 UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
-    uint32_t /*maxWaitSeconds*/) {
+    std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
     return std::move(shuffle_->next())
         .deferValue([this](velox::BufferPtr buffer) {
@@ -74,7 +74,8 @@ UnsafeRowExchangeSource::request(
 }
 
 folly::SemiFuture<UnsafeRowExchangeSource::Response>
-UnsafeRowExchangeSource::requestDataSizes(uint32_t /*maxWaitSeconds*/) {
+UnsafeRowExchangeSource::requestDataSizes(
+    std::chrono::microseconds /*maxWait*/) {
   std::vector<int64_t> remainingBytes;
   if (!atEnd_) {
     // Use default value of ExchangeClient::getAveragePageSize() for now.
