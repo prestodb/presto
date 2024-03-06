@@ -476,7 +476,8 @@ public class TestHiveSplitManager
                         false,
                         true,
                         0,
-                        0),
+                        0,
+                        Optional.empty()),
                 PARTITION_NAME,
                 partitionStatistics);
 
