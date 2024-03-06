@@ -158,6 +158,7 @@ function cmake_install {
   mkdir -p "${BINARY_DIR}"
   CPU_TARGET="${CPU_TARGET:-unknown}"
   COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
+  SUDO="${SUDO:-""}"
 
   # CMAKE_POSITION_INDEPENDENT_CODE is required so that Velox can be built into dynamic libraries \
   cmake -Wno-dev -B"${BINARY_DIR}" \
@@ -169,6 +170,6 @@ function cmake_install {
     -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" \
     -DBUILD_TESTING=OFF \
     "$@"
-  ninja -C "${BINARY_DIR}" install
+  ${SUDO} ninja -C "${BINARY_DIR}" install
 }
 

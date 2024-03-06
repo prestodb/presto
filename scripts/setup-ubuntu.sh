@@ -29,6 +29,7 @@ BOOST_VERSION=boost-1.84.0
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 export CMAKE_BUILD_TYPE=Release
+export SUDO=sudo
 
 # Install all velox and folly dependencies.
 # The is an issue on 22.04 where a version conflict prevents glog install,

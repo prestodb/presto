@@ -18,6 +18,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/scheduled.yml"
+      - scripts/*
 
   schedule:
     - cron: '0 3 * * *'
@@ -75,7 +76,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: cd  velox && source ./scripts/setup-ubuntu.sh
+        run: cd  velox && sudo ./scripts/setup-ubuntu.sh 
 
       - name: "Build"
         run: |
@@ -125,7 +126,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run: sudo ./scripts/setup-ubuntu.sh
 
       - name: Download presto fuzzer
         uses: actions/download-artifact@v3
@@ -173,7 +174,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run: sudo ./scripts/setup-ubuntu.sh
 
       - name: Download spark expression fuzzer
         uses: actions/download-artifact@v3
@@ -247,7 +248,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run: sudo ./scripts/setup-ubuntu.sh
 
       - name: Download aggregation fuzzer
         uses: actions/download-artifact@v3
@@ -288,7 +289,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run:  sudo ./scripts/setup-ubuntu.sh
 
       - name: Download join fuzzer
         uses: actions/download-artifact@v3
