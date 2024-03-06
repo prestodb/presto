@@ -57,33 +57,33 @@ class ReclaimableSectionGuard {
  public:
   explicit ReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
       : nonReclaimableSection_(nonReclaimableSection),
-        oldMonReclaimableSectionValue_(*nonReclaimableSection_) {
+        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
     *nonReclaimableSection_ = false;
   }
 
   ~ReclaimableSectionGuard() {
-    *nonReclaimableSection_ = oldMonReclaimableSectionValue_;
+    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
   }
 
  private:
   tsan_atomic<bool>* const nonReclaimableSection_;
-  const bool oldMonReclaimableSectionValue_;
+  const bool oldNonReclaimableSectionValue_;
 };
 
 class NonReclaimableSectionGuard {
  public:
   explicit NonReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
       : nonReclaimableSection_(nonReclaimableSection),
-        oldMonReclaimableSectionValue_(*nonReclaimableSection_) {
+        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
     *nonReclaimableSection_ = true;
   }
 
   ~NonReclaimableSectionGuard() {
-    *nonReclaimableSection_ = oldMonReclaimableSectionValue_;
+    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
   }
 
  private:
   tsan_atomic<bool>* const nonReclaimableSection_;
-  const bool oldMonReclaimableSectionValue_;
+  const bool oldNonReclaimableSectionValue_;
 };
 } // namespace facebook::velox::exec
