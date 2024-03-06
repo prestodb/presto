@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -38,6 +39,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.POSTFILLED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.REGULAR;
 import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
@@ -99,8 +101,12 @@ public class HiveRecordCursor
 
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
-
-            if (columnMapping.getKind() == PREFILLED) {
+            if (columnMapping.getKind() == POSTFILLED) {
+                slices[columnIndex] = Slices.EMPTY_SLICE;
+                Type type = typeManager.getType(columnMapping.getHiveColumnHandle().getTypeSignature());
+                types[columnIndex] = type;
+            }
+            else if (columnMapping.getKind() == PREFILLED) {
                 String columnValue = columnMapping.getPrefilledValue();
                 byte[] bytes = columnValue.getBytes(UTF_8);
 

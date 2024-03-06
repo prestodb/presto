@@ -25,6 +25,7 @@ import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
@@ -145,6 +146,10 @@ public class HivePageSource
                 switch (columnMapping.getKind()) {
                     case PREFILLED:
                         blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
+                        break;
+                    case POSTFILLED:
+                        // Use empty slice for the value since this will be replaced later, after the data is read
+                        blocks.add(RunLengthEncodedBlock.create(types[fieldId], Slices.EMPTY_SLICE, batchSize));
                         break;
                     case REGULAR:
                         Block block = dataPage.getBlock(columnMapping.getIndex());

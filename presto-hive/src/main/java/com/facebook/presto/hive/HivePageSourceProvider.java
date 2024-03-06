@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
@@ -446,11 +447,11 @@ public class HivePageSourceProvider
                 tableToPartitionMapping,
                 fileSplit,
                 tableBucketNumber);
-
         Set<Integer> outputIndices = hiveColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableSet());
 
+        // Finds the non-synthetic columns.
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
@@ -830,6 +831,10 @@ public class HivePageSourceProvider
                     columnMappings.add(columnMapping);
                     regularIndex++;
                 }
+                else if (isRowIdColumnHandle(column)) { // ROW_ID is synthesized but not prefilled.
+                    ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.POSTFILLED, column, Optional.empty(), OptionalInt.empty(), coercionFrom);
+                    columnMappings.add(columnMapping);
+                }
                 else {
                     columnMappings.add(prefilled(
                             column,
@@ -896,7 +901,8 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
-        AGGREGATED
+        AGGREGATED,
+        POSTFILLED
     }
 
     private static final class RowExpressionCacheKey
