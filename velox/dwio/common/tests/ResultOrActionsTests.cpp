@@ -82,7 +82,7 @@ TEST(ResultOrActionsTest, Void) {
 }
 
 using ReaderResultTypes = ::testing::Types<ReaderResult, VoidResult>;
-TYPED_TEST_CASE(ResultOrActionsTypedTest, ReaderResultTypes);
+TYPED_TEST_SUITE(ResultOrActionsTypedTest, ReaderResultTypes);
 
 TYPED_TEST(ResultOrActionsTypedTest, NoResult) {
   ReaderResult readerResult;
