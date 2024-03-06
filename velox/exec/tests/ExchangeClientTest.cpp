@@ -371,10 +371,10 @@ TEST_F(ExchangeClientTest, sourceTimeout) {
 
 #ifndef NDEBUG
   // Wait until all sources have timed out at least once.
-  constexpr int32_t kMaxIters =
-      3 * kNumSources * ExchangeClient::kDefaultMaxWaitSeconds;
-  int32_t counter = 0;
-  for (; counter < kMaxIters; ++counter) {
+  auto deadline = std::chrono::system_clock::now() +
+      3 * kNumSources *
+          std::chrono::seconds(ExchangeClient::kRequestDataSizesMaxWait);
+  while (std::chrono::system_clock::now() < deadline) {
     {
       std::lock_guard<std::mutex> l(mutex);
       if (sourcesWithTimeout.size() >= kNumSources) {
@@ -383,7 +383,7 @@ TEST_F(ExchangeClientTest, sourceTimeout) {
     }
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
-  EXPECT_LT(counter, kMaxIters);
+  EXPECT_LT(std::chrono::system_clock::now(), deadline);
 #endif
 
   const auto& queue = client->queue();

@@ -140,10 +140,9 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
   for (auto& spec : requestSpecs) {
     auto future = folly::SemiFuture<ExchangeSource::Response>::makeEmpty();
     if (spec.maxBytes == 0) {
-      future = spec.source->requestDataSizes(kDefaultMaxWaitSeconds);
+      future = spec.source->requestDataSizes(kRequestDataSizesMaxWait);
     } else {
-      // TODO: Change maxWait to 100ms once we fix the unit of wait time.
-      future = spec.source->request(spec.maxBytes, 1);
+      future = spec.source->request(spec.maxBytes, kRequestDataMaxWait);
     }
     VELOX_CHECK(future.valid());
     std::move(future)
