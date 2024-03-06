@@ -661,6 +661,31 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
 
         assertUpdate("DROP TABLE test_insert");
+
+        assertUpdate("CREATE TABLE test_insert(a row(b int, c varchar))");
+        assertUpdate("INSERT INTO test_insert VALUES (row(1, '1001'))", 1);
+        assertUpdate("INSERT INTO test_insert VALUES row(2, '1002'), ((3, '1003'))", 2);
+        assertUpdate("INSERT INTO test_insert VALUES (4, '1004'), (row(5, '1005'))", 2);
+        assertUpdate("INSERT INTO test_insert VALUES ((6, '1006')), (row(7, '1007'))", 2);
+        assertQuery("SELECT count(*) FROM test_insert", "select 7");
+        assertQuery("select a.c from test_insert order by a.b", "VALUES ('1001'), ('1002'), ('1003'), ('1004'), ('1005'), ('1006'), ('1007')");
+        assertQuerySucceeds("DROP TABLE test_insert");
+
+        assertUpdate("CREATE TABLE test_insert(a row(b int, c varchar), d int)");
+        assertUpdate("INSERT INTO test_insert(a) VALUES (row(1, '1001'))", 1);
+        assertUpdate("INSERT INTO test_insert VALUES (row(2, '1002'), 2), ((3, '1003'), 3)", 2);
+        assertUpdate("INSERT INTO test_insert(a) VALUES (4, '1004'), (row(5, '1005'))", 2);
+        assertUpdate("INSERT INTO test_insert VALUES ((6, '1006'), 6), (row(7, '1007'), 7)", 2);
+        assertQuery("SELECT count(*) FROM test_insert", "select 7");
+        assertQuery("select a.c from test_insert order by a.b", "VALUES ('1001'), ('1002'), ('1003'), ('1004'), ('1005'), ('1006'), ('1007')");
+        assertQuerySucceeds("DROP TABLE test_insert");
+
+        assertUpdate("CREATE TABLE test_insert(a row(r row(b int, c varchar)))");
+        assertUpdate("INSERT INTO test_insert VALUES row(row(1, '1001'))", 1);
+        assertUpdate("INSERT INTO test_insert VALUES row(row(2, '1002')), row(row(3, '1003'))", 2);
+        assertQuery("SELECT count(*) FROM test_insert", "select 3");
+        assertQuery("select a.r from test_insert order by a.r.b", "VALUES (row(1, '1001')), (row(2, '1002')), (row(3, '1003'))");
+        assertQuerySucceeds("DROP TABLE test_insert");
     }
 
     @Test

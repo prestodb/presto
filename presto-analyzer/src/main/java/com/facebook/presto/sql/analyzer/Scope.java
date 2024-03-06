@@ -37,11 +37,14 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Scope
 {
+    public static final String INSERT_SINGLE_ROW_TYPE_COLUMN = "insert_single_row_type_column";
+
     private final Optional<Scope> parent;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
     private final Map<String, WithQuery> namedQueries;
+    private final Map<String, Object> extraMessage;
 
     public static Scope create()
     {
@@ -58,13 +61,15 @@ public class Scope
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
-            Map<String, WithQuery> namedQueries)
+            Map<String, WithQuery> namedQueries,
+            Map<String, Object> extraMessage)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.queryBoundary = queryBoundary;
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+        this.extraMessage = requireNonNull(extraMessage, "extraMessage is null");
     }
 
     public Optional<Scope> getOuterQueryParent()
@@ -97,6 +102,21 @@ public class Scope
     public RelationType getRelationType()
     {
         return relation;
+    }
+
+    public Optional<Object> getScopeExtraMessage(String extraMessageKey)
+    {
+        return Optional.ofNullable(extraMessage.get(extraMessageKey));
+    }
+
+    public Map<String, Object> getExtraMessage()
+    {
+        return ImmutableMap.copyOf(this.extraMessage);
+    }
+
+    public void setScopeExtraMessage(String extraMessageKey, Object extraMessageValue)
+    {
+        this.extraMessage.put(extraMessageKey, extraMessageValue);
     }
 
     public ResolvedField resolveField(Expression expression, QualifiedName name)
@@ -209,11 +229,19 @@ public class Scope
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
         private boolean queryBoundary;
+        private Map<String, Object> extraMessages = new HashMap<>();
 
         public Builder withRelationType(RelationId relationId, RelationType relationType)
         {
             this.relationId = requireNonNull(relationId, "relationId is null");
             this.relationType = requireNonNull(relationType, "relationType is null");
+            return this;
+        }
+
+        public Builder withExtraMessages(Map<String, Object> extraMessages)
+        {
+            this.extraMessages.clear();
+            this.extraMessages.putAll(extraMessages);
             return this;
         }
 
@@ -246,7 +274,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+            return new Scope(parent, queryBoundary, relationId, relationType, namedQueries, extraMessages);
         }
     }
 }

@@ -230,6 +230,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpres
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.PredicateStitcher.PredicateStitcherContext;
 import static com.facebook.presto.sql.analyzer.RefreshMaterializedViewPredicateAnalyzer.extractTablePredicates;
+import static com.facebook.presto.sql.analyzer.Scope.INSERT_SINGLE_ROW_TYPE_COLUMN;
 import static com.facebook.presto.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
@@ -393,9 +394,6 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
-            // analyze the query that creates the data
-            Scope queryScope = process(insert.getQuery(), scope);
-
             analysis.setUpdateType("INSERT");
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, metadataHandle, targetTable);
@@ -434,6 +432,15 @@ class StatementAnalyzer
                     .map(insertColumn -> getColumnMetadata(columnsMetadata, insertColumn))
                     .collect(toImmutableList());
 
+            if (expectedColumns.size() == 1 && expectedColumns.get(0).getType() instanceof RowType) {
+                if (!scope.isPresent()) {
+                    scope = Optional.of(Scope.builder().build());
+                }
+                scope.get().setScopeExtraMessage(INSERT_SINGLE_ROW_TYPE_COLUMN, true);
+            }
+
+            // analyze the query that creates the data
+            Scope queryScope = process(insert.getQuery(), scope);
             checkTypesMatchForInsert(insert, queryScope, expectedColumns);
 
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
@@ -2161,10 +2168,15 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
+            boolean singleRowValue = scope
+                    .map(scp -> scp.getScopeExtraMessage(INSERT_SINGLE_ROW_TYPE_COLUMN)
+                            .map(Boolean.class::cast)
+                            .orElse(false))
+                    .orElse(false);
             List<List<Type>> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
-                        if (type instanceof RowType) {
+                        if (type instanceof RowType && !singleRowValue) {
                             return type.getTypeParameters();
                         }
                         return ImmutableList.of(type);
@@ -2201,7 +2213,7 @@ class StatementAnalyzer
 
             // add coercions for the rows
             for (Expression row : node.getRows()) {
-                if (row instanceof Row) {
+                if (row instanceof Row && !singleRowValue) {
                     List<Expression> items = ((Row) row).getItems();
                     for (int i = 0; i < items.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
@@ -3049,6 +3061,7 @@ class StatementAnalyzer
                 // parent scope represents local query scope hierarchy. Local query scope
                 // hierarchy should have outer query scope as ancestor already.
                 scopeBuilder.withParent(parentScope.get());
+                scopeBuilder.withExtraMessages(parentScope.get().getExtraMessage());
             }
             else if (outerQueryScope.isPresent()) {
                 scopeBuilder.withOuterQueryParent(outerQueryScope.get());

@@ -120,6 +120,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLoca
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
+import static com.facebook.presto.sql.analyzer.Scope.INSERT_SINGLE_ROW_TYPE_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
@@ -780,10 +781,13 @@ class RelationPlanner
             outputVariablesBuilder.add(newVariable(variableAllocator, field));
         }
 
+        boolean singleRowValue = scope.getScopeExtraMessage(INSERT_SINGLE_ROW_TYPE_COLUMN)
+                .map(Boolean.class::cast)
+                .orElse(false);
         ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
-            if (row instanceof Row) {
+            if (row instanceof Row && !singleRowValue) {
                 for (Expression item : ((Row) row).getItems()) {
                     values.add(rewriteRow(item, context));
                 }
