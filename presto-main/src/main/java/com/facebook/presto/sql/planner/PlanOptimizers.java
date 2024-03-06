@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
+import com.facebook.presto.sql.planner.iterative.rule.AddProjectUnderFilter;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
 import com.facebook.presto.sql.planner.iterative.rule.CrossJoinWithArrayContainsToInnerJoin;
@@ -294,7 +295,8 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new InlineProjections(metadata.getFunctionAndTypeManager()),
                         new RemoveRedundantIdentityProjections(),
-                        new RemoveIdentityProjectionsBelowProjection()));
+                        new RemoveIdentityProjectionsBelowProjection(),
+                        new AddProjectUnderFilter(metadata.getFunctionAndTypeManager())));
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 metadata,

@@ -319,6 +319,7 @@ public final class SystemSessionProperties
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
+    public static final String PROJECT_COMMON_EXPRESSION_IN_FILTER_AND_PROJECT = "project_common_expression_in_filter_and_project";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1927,6 +1928,11 @@ public final class SystemSessionProperties
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isRewriteExpressionWithConstantVariable(),
                         false),
+                booleanProperty(
+                        PROJECT_COMMON_EXPRESSION_IN_FILTER_AND_PROJECT,
+                        "When project and filter node has common subexpression which is expensive, add a project under filter for this common subexpression",
+                        true,
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -3200,6 +3206,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteExpressionWithConstantEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
+    }
+
+    public static boolean isProjectCommonExpressionInFilterAndProjectEnabled(Session session)
+    {
+        return session.getSystemProperty(PROJECT_COMMON_EXPRESSION_IN_FILTER_AND_PROJECT, Boolean.class);
     }
 
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
