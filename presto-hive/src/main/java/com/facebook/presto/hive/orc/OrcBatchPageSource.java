@@ -115,7 +115,7 @@ public class OrcBatchPageSource
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
+            checkState(column.getColumnType() == REGULAR, format("column type of %s must be REGULAR but was %s", column.getName(), column.getColumnType().name()));
 
             String name = column.getName();
             Type type = typeManager.getType(column.getTypeSignature());
