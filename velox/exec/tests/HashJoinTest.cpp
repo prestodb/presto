@@ -638,6 +638,23 @@ class HashJoinBuilder {
         memory::spillMemoryPool()->stats().peakBytes;
     TestScopedSpillInjection scopedSpillInjection(spillPct);
     auto task = builder.assertResults(referenceQuery_);
+    // Wait up to 5 seconds for all the task background activities to complete.
+    // Then we can collect the stats from all the operators.
+    //
+    // TODO: replace this with task utility to ensure all the background
+    // activities to finish and all the drivers stats have been reported.
+    uint64_t totalTaskWaitTimeUs{0};
+    while (task.use_count() != 1) {
+      constexpr uint64_t kWaitInternalUs = 1'000;
+      std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+      totalTaskWaitTimeUs += kWaitInternalUs;
+      if (totalTaskWaitTimeUs >= 5'000'000) {
+        VELOX_FAIL(
+            "Failed to wait for all the background activities of task {} to finish, pending reference count: {}",
+            task->taskId(),
+            task.use_count());
+      }
+    }
     const auto statsPair = taskSpilledStats(*task);
     if (injectSpill) {
       if (checkSpillStats_) {
