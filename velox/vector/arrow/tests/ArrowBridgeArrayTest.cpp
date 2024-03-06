@@ -1135,14 +1135,16 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
         "ttn", {Timestamp(0, 0), std::nullopt, Timestamp(1699308257, 1234)});
   }
 
-  void testImportWithoutNullsBuffer() {
-    std::vector<std::optional<int64_t>> inputValues = {1, 2, 3, 4, 5};
+  template <typename TOutput, typename TInput>
+  void testImportWithoutNullsBuffer(
+      std::vector<std::optional<TInput>> inputValues,
+      const char* format) {
     auto length = inputValues.size();
 
     // Construct Arrow array without nulls value and nulls buffer
     ArrowContextHolder holder1;
-    holder1.values = AlignedBuffer::allocate<int64_t>(length, pool_.get());
-    auto rawValues1 = holder1.values->asMutable<int64_t>();
+    holder1.values = AlignedBuffer::allocate<TInput>(length, pool_.get());
+    auto rawValues1 = holder1.values->asMutable<TInput>();
     for (size_t i = 0; i < length; ++i) {
       rawValues1[i] = *inputValues[i];
     }
@@ -1150,23 +1152,28 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     holder1.buffers[0] = nullptr;
     holder1.buffers[1] = (const void*)rawValues1;
     auto arrowArray1 = makeArrowArray(holder1.buffers, 2, length, 0);
-    auto arrowSchema1 = makeArrowSchema("l");
+    auto arrowSchema1 = makeArrowSchema(format);
 
     auto output = importFromArrow(arrowSchema1, arrowArray1, pool_.get());
-    assertVectorContent(inputValues, output, arrowArray1.null_count);
+    if constexpr (
+        std::is_same_v<TInput, int64_t> && std::is_same_v<TOutput, Timestamp>) {
+      assertTimestampVectorContent(inputValues, output, arrowArray1.null_count);
+    } else {
+      assertVectorContent(inputValues, output, arrowArray1.null_count);
+    }
 
     // However, convert from an Arrow array without nulls buffer but non-zero
     // null count should fail
     ArrowContextHolder holder2;
-    holder2.values = AlignedBuffer::allocate<int64_t>(length, pool_.get());
-    auto rawValues2 = holder2.values->asMutable<int64_t>();
+    holder2.values = AlignedBuffer::allocate<TInput>(length, pool_.get());
+    auto rawValues2 = holder2.values->asMutable<TInput>();
     for (size_t i = 0; i < length; ++i) {
       rawValues2[i] = *inputValues[i];
     }
 
     holder2.buffers[0] = nullptr;
     holder2.buffers[1] = (const void*)rawValues2;
-    auto arrowSchema2 = makeArrowSchema("l");
+    auto arrowSchema2 = makeArrowSchema(format);
     auto arrowArray2 = makeArrowArray(holder2.buffers, 2, length, 1);
     EXPECT_THROW(
         importFromArrow(arrowSchema2, arrowArray2, pool_.get()),
@@ -1205,6 +1212,24 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
   }
 
  private:
+  // Creates timestamp from bigint and asserts the content of actual vector with
+  // the expected timestamp values.
+  void assertTimestampVectorContent(
+      const std::vector<std::optional<int64_t>>& expectedValues,
+      const VectorPtr& actual,
+      size_t nullCount) {
+    std::vector<std::optional<Timestamp>> tsValues;
+    tsValues.reserve(expectedValues.size());
+    for (const auto& value : expectedValues) {
+      if (value.has_value()) {
+        tsValues.emplace_back(Timestamp::fromNanos(value.value()));
+      } else {
+        tsValues.emplace_back(std::nullopt);
+      }
+    }
+    assertVectorContent(tsValues, actual, nullCount);
+  }
+
   void testImportRowFull() {
     // Manually create a ROW type.
     ArrowSchema arrowSchema;
@@ -1580,7 +1605,9 @@ TEST_F(ArrowBridgeArrayImportAsViewerTest, scalar) {
 }
 
 TEST_F(ArrowBridgeArrayImportAsViewerTest, without_nulls_buffer) {
-  testImportWithoutNullsBuffer();
+  std::vector<std::optional<int64_t>> inputValues = {1, 2, 3, 4, 5};
+  testImportWithoutNullsBuffer<int64_t>(inputValues, "l");
+  testImportWithoutNullsBuffer<Timestamp>(inputValues, "ttn");
 }
 
 TEST_F(ArrowBridgeArrayImportAsViewerTest, string) {
@@ -1631,7 +1658,9 @@ TEST_F(ArrowBridgeArrayImportAsOwnerTest, scalar) {
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, without_nulls_buffer) {
-  testImportWithoutNullsBuffer();
+  std::vector<std::optional<int64_t>> inputValues = {1, 2, 3, 4, 5};
+  testImportWithoutNullsBuffer<int64_t>(inputValues, "l");
+  testImportWithoutNullsBuffer<Timestamp>(inputValues, "ttn");
 }
 
 TEST_F(ArrowBridgeArrayImportAsOwnerTest, string) {

@@ -1396,9 +1396,12 @@ VectorPtr createTimestampVector(
     int64_t nullCount) {
   BufferPtr timestamps = AlignedBuffer::allocate<Timestamp>(length, pool);
   auto* rawTimestamps = timestamps->asMutable<Timestamp>();
-  const auto* rawNulls = nulls->as<const uint64_t>();
-
-  if (length > nullCount) {
+  if (nulls == nullptr) {
+    for (size_t i = 0; i < length; ++i) {
+      rawTimestamps[i] = Timestamp::fromNanos(input[i]);
+    }
+  } else if (length > nullCount) {
+    const auto* rawNulls = nulls->as<const uint64_t>();
     for (size_t i = 0; i < length; ++i) {
       if (!bits::isBitNull(rawNulls, i)) {
         rawTimestamps[i] = Timestamp::fromNanos(input[i]);
