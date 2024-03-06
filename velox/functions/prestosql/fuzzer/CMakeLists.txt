@@ -20,6 +20,7 @@ target_link_libraries(
   velox_aggregation_fuzzer_base
   velox_aggregates
   velox_window
+  velox_vector_test_lib
   gtest
   gtest_main)
 

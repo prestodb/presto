@@ -110,6 +110,7 @@ inline void registerArrayRemoveFunctions(const std::string& prefix) {
 void registerInternalArrayFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_$internal$canonicalize, "$internal$canonicalize");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_$internal$contains, "$internal$contains");
 }
 
 void registerArrayFunctions(const std::string& prefix) {

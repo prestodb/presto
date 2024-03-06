@@ -26,7 +26,8 @@ void applyTyped(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     exec::EvalCtx& /*context*/,
-    FlatVector<bool>& flatResult) {
+    FlatVector<bool>& flatResult,
+    bool /*throwOnNestedNull*/) {
   using T = typename TypeTraits<kind>::NativeType;
 
   auto baseArray = arrayDecoded.base()->as<ArrayVector>();
@@ -87,7 +88,8 @@ void applyComplexType(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     exec::EvalCtx& context,
-    FlatVector<bool>& flatResult) {
+    FlatVector<bool>& flatResult,
+    bool throwOnNestedNull) {
   auto baseArray = arrayDecoded.base()->as<ArrayVector>();
   auto rawSizes = baseArray->rawSizes();
   auto rawOffsets = baseArray->rawOffsets();
@@ -97,6 +99,10 @@ void applyComplexType(
   auto elementIndices = elementsDecoded.indices();
   auto searchBase = searchDecoded.base();
   auto searchIndices = searchDecoded.indices();
+
+  const auto nullHandlingMode = throwOnNestedNull
+      ? CompareFlags::NullHandlingMode::kNullAsIndeterminate
+      : CompareFlags::NullHandlingMode::kNullAsValue;
 
   context.applyToSelectedNoThrow(rows, [&](auto row) {
     auto size = rawSizes[indices[row]];
@@ -112,7 +118,7 @@ void applyComplexType(
             searchBase,
             elementIndices[offset + i],
             searchIndex,
-            CompareFlags::NullHandlingMode::kNullAsIndeterminate);
+            nullHandlingMode);
         VELOX_USER_CHECK(
             result.has_value(),
             "contains does not support arrays with elements that contain null");
@@ -138,9 +144,16 @@ void applyTyped<TypeKind::ARRAY>(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     exec::EvalCtx& context,
-    FlatVector<bool>& flatResult) {
+    FlatVector<bool>& flatResult,
+    bool throwOnNestedNull) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
+      rows,
+      arrayDecoded,
+      elementsDecoded,
+      searchDecoded,
+      context,
+      flatResult,
+      throwOnNestedNull);
 }
 
 template <>
@@ -150,9 +163,16 @@ void applyTyped<TypeKind::MAP>(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     exec::EvalCtx& context,
-    FlatVector<bool>& flatResult) {
+    FlatVector<bool>& flatResult,
+    bool throwOnNestedNull) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
+      rows,
+      arrayDecoded,
+      elementsDecoded,
+      searchDecoded,
+      context,
+      flatResult,
+      throwOnNestedNull);
 }
 
 template <>
@@ -162,13 +182,23 @@ void applyTyped<TypeKind::ROW>(
     DecodedVector& elementsDecoded,
     DecodedVector& searchDecoded,
     exec::EvalCtx& context,
-    FlatVector<bool>& flatResult) {
+    FlatVector<bool>& flatResult,
+    bool throwOnNestedNull) {
   applyComplexType(
-      rows, arrayDecoded, elementsDecoded, searchDecoded, context, flatResult);
+      rows,
+      arrayDecoded,
+      elementsDecoded,
+      searchDecoded,
+      context,
+      flatResult,
+      throwOnNestedNull);
 }
 
 class ArrayContainsFunction : public exec::VectorFunction {
  public:
+  explicit ArrayContainsFunction(bool throwOnNestedNull)
+      : throwOnNestedNull_(throwOnNestedNull) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -205,7 +235,8 @@ class ArrayContainsFunction : public exec::VectorFunction {
         *elementsHolder.get(),
         *searchHolder.get(),
         context,
-        *flatResult);
+        *flatResult,
+        throwOnNestedNull_);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -217,6 +248,9 @@ class ArrayContainsFunction : public exec::VectorFunction {
                 .argumentType("T")
                 .build()};
   }
+
+ private:
+  bool throwOnNestedNull_;
 };
 
 } // namespace
@@ -224,6 +258,13 @@ class ArrayContainsFunction : public exec::VectorFunction {
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_array_contains,
     ArrayContainsFunction::signatures(),
-    std::make_unique<ArrayContainsFunction>());
+    std::make_unique<ArrayContainsFunction>(true));
+
+// Internal function only used for testing. This function allows the array to
+// have null elements and considers null as a value, i.e., null == null.
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_$internal$contains,
+    ArrayContainsFunction::signatures(),
+    std::make_unique<ArrayContainsFunction>(false));
 
 } // namespace facebook::velox::functions

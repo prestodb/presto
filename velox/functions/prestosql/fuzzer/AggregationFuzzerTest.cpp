@@ -29,6 +29,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/ArbitraryResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -107,6 +108,7 @@ int main(int argc, char** argv) {
 
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;
+  using facebook::velox::exec::test::ArbitraryResultVerifier;
   using facebook::velox::exec::test::setupReferenceQueryRunner;
   using facebook::velox::exec::test::TransformResultVerifier;
 
@@ -135,7 +137,7 @@ int main(int argc, char** argv) {
           {"approx_set", nullptr},
           {"approx_percentile",
            std::make_shared<ApproxPercentileResultVerifier>()},
-          {"arbitrary", nullptr},
+          {"arbitrary", std::make_shared<ArbitraryResultVerifier>()},
           {"any_value", nullptr},
           {"array_agg", makeArrayVerifier()},
           {"set_agg", makeArrayVerifier()},

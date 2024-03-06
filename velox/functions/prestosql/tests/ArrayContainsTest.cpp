@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -318,14 +319,19 @@ TEST_F(ArrayContainsTest, dictionaryEncodingElements) {
 }
 
 TEST_F(ArrayContainsTest, arrayCheckNulls) {
+  facebook::velox::functions::prestosql::registerInternalFunctions();
+
   static const std::string kErrorMessage =
       "contains does not support arrays with elements that contain null";
-  auto contains = [&](const std::string& search, const auto& data) {
+  auto contains = [&](const std::string& search,
+                      const auto& data,
+                      bool internal = false) {
     const auto searchBase = makeArrayVectorFromJson<int32_t>({search});
     const auto searchConstant =
         BaseVector::wrapInConstant(data->size(), 0, searchBase);
-    const auto result =
-        evaluate("contains(c0, c1)", makeRowVector({data, searchConstant}));
+    std::string call = internal ? "\"$internal$contains\"" : "contains";
+    const auto result = evaluate(
+        fmt::format("{}(c0, c1)", call), makeRowVector({data, searchConstant}));
     return result->template asFlatVector<bool>()->valueAt(0);
   };
 
@@ -343,10 +349,15 @@ TEST_F(ArrayContainsTest, arrayCheckNulls) {
 
     // No null equal.
     ASSERT_FALSE(contains("[7, null]", data));
+    ASSERT_FALSE(contains("[7, null]", data, true));
     // Null equal, [3, null] vs [3, 3].
     VELOX_ASSERT_THROW(contains("[3, 3]", data), kErrorMessage);
+    ASSERT_FALSE(contains("[3, 3]", data, true));
     // Null equal, [6, 6] vs [6, null].
     VELOX_ASSERT_THROW(contains("[6, null]", data), kErrorMessage);
+    ASSERT_FALSE(contains("[6, null]", data, true));
+    // [3, null] = [3, null] is true in $internal$contains.
+    ASSERT_TRUE(contains("[3, null]", data, true));
   }
 
   {
@@ -357,34 +368,44 @@ TEST_F(ArrayContainsTest, arrayCheckNulls) {
 
     // [null] = [null, 3] is false.
     ASSERT_FALSE(contains("[null]", data));
+    ASSERT_FALSE(contains("[null]", data, true));
     //  [null, 4] = [null, 3] is false.
     ASSERT_FALSE(contains("[null, 4]", data));
+    ASSERT_FALSE(contains("[null, 4]", data, true));
     //  [null, 4] = [1, 1] is false.
     ASSERT_FALSE(contains("[1, 1]", data));
+    ASSERT_FALSE(contains("[1, 1]", data, true));
 
     // [null, 3] = [null, 3] is indeterminate.
     VELOX_ASSERT_THROW(contains("[null, 3]", data), kErrorMessage);
     // [null, 3] = [null, null] is indeterminate.
     VELOX_ASSERT_THROW(contains("[null, null]", data), kErrorMessage);
+    ASSERT_FALSE(contains("[null, null]", data, true));
+    // [null, 3] = [null, 3] is true in $internal$contains.
+    ASSERT_TRUE(contains("[null, 3]", data, true));
   }
 }
 
 TEST_F(ArrayContainsTest, rowCheckNulls) {
+  facebook::velox::functions::prestosql::registerInternalFunctions();
+
   const auto baseVector = makeRowVector({
       makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 4, 5, 6}),
   });
   const auto data = makeArrayVector({0, 3}, baseVector);
 
-  auto contains = [&](const std::vector<std::optional<int32_t>>& search) {
+  auto contains = [&](const std::vector<std::optional<int32_t>>& search,
+                      bool internal = false) {
     const auto searchBase = makeRowVector({
         makeNullableFlatVector<int32_t>({search.at(0)}),
         makeNullableFlatVector<int32_t>({search.at(1)}),
     });
     const auto searchConstant =
         BaseVector::wrapInConstant(data->size(), 0, searchBase);
-    const auto result =
-        evaluate("contains(c0, c1)", makeRowVector({data, searchConstant}));
+    std::string call = internal ? "\"$internal$contains\"" : "contains";
+    const auto result = evaluate(
+        fmt::format("{}(c0, c1)", call), makeRowVector({data, searchConstant}));
     return result->asFlatVector<bool>()->valueAt(0);
   };
 
@@ -392,9 +413,14 @@ TEST_F(ArrayContainsTest, rowCheckNulls) {
       "contains does not support arrays with elements that contain null";
   // No null equal.
   ASSERT_FALSE(contains({7, std::nullopt}));
+  ASSERT_FALSE(contains({7, std::nullopt}, true));
   // Null equal, (3, null) vs (3, 3).
   VELOX_ASSERT_THROW(contains({3, 3}), kErrorMessage);
+  ASSERT_FALSE(contains({3, 3}, true));
   // Null equal, (6, 6) vs (6, null).
   VELOX_ASSERT_THROW(contains({6, std::nullopt}), kErrorMessage);
+  ASSERT_FALSE(contains({6, std::nullopt}, true));
+  // (3, null) = (3, null) is true in $internal$contains.
+  ASSERT_TRUE(contains({3, std::nullopt}, true));
 }
 } // namespace
