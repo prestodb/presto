@@ -50,8 +50,8 @@ class BufferedInput {
       memory::MemoryPool& pool,
       uint64_t maxMergeDistance = kMaxMergeDistance,
       std::optional<bool> wsVRLoad = std::nullopt)
-      : input_(std::move(input)),
-        pool_(pool),
+      : input_{std::move(input)},
+        pool_{pool},
         maxMergeDistance_{maxMergeDistance},
         wsVRLoad_{wsVRLoad},
         allocPool_{std::make_unique<memory::AllocationPool>(&pool)} {}
