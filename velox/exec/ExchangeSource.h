@@ -79,33 +79,14 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// already produced or data will take more time to produce.
   virtual folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait) {
-    auto maxWaitSeconds = std::max(1ll, llround(maxWait.count() / 1e6));
-    return request(maxBytes, maxWaitSeconds);
-  }
+      std::chrono::microseconds maxWait) = 0;
 
   /// Ask for available data sizes that can be fetched.  Normally should not
   /// fetching any actual data (i.e. Response::bytes should be 0).  However for
   /// backward compatibility (e.g. communicating with coordinator), we allow
   /// small data (1MB) to be returned.
   virtual folly::SemiFuture<Response> requestDataSizes(
-      std::chrono::microseconds maxWait) {
-    auto maxWaitSeconds = std::max(1ll, llround(maxWait.count() / 1e6));
-    return requestDataSizes(maxWaitSeconds);
-  }
-
-  /// Used in presto_cpp for backward compatibility only, will be removed soon.
-  virtual folly::SemiFuture<Response> request(
-      uint32_t maxBytes,
-      uint32_t maxWaitSeconds) {
-    VELOX_UNREACHABLE();
-  }
-
-  /// Used in presto_cpp for backward compatibility only, will be removed soon.
-  virtual folly::SemiFuture<Response> requestDataSizes(
-      uint32_t maxWaitSeconds) {
-    VELOX_UNREACHABLE();
-  }
+      std::chrono::microseconds maxWait) = 0;
 
   /// Close the exchange source. May be called before all data
   /// has been received and processed. This can happen in case
