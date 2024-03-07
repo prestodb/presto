@@ -15,6 +15,7 @@
  */
 
 #include <fmt/format.h>
+#include <utility>
 
 #include "folly/io/Cursor.h"
 #include "velox/dwio/common/BufferedInput.h"
@@ -26,6 +27,14 @@ using ::facebook::velox::common::Region;
 namespace facebook::velox::dwio::common {
 
 static_assert(std::is_move_constructible<BufferedInput>());
+
+namespace {
+void copyIOBufToMemory(folly::IOBuf&& iobuf, folly::Range<char*> allocated) {
+  folly::io::Cursor cursor(&iobuf);
+  DWIO_ENSURE_EQ(cursor.totalLength(), allocated.size(), "length mismatch.");
+  cursor.pull(allocated.data(), allocated.size());
+}
+} // namespace
 
 void BufferedInput::load(const LogType logType) {
   // no regions to load
@@ -49,16 +58,8 @@ void BufferedInput::load(const LogType logType) {
     std::vector<folly::IOBuf> iobufs(regions_.size());
     input_->vread(regions_, {iobufs.data(), iobufs.size()}, logType);
     for (size_t i = 0; i < regions_.size(); ++i) {
-      const auto& region = regions_[i];
-      auto iobuf = std::move(iobufs[i]);
-
-      auto allocated = allocate(region);
-      folly::io::Cursor cursor(&iobuf);
-      DWIO_ENSURE_EQ(
-          cursor.totalLength(), allocated.size(), "length mismatch.");
-      cursor.pull(allocated.data(), allocated.size());
+      copyIOBufToMemory(std::move(iobufs[i]), allocate(regions_[i]));
     }
-
   } else {
     for (const auto& region : regions_) {
       auto allocated = allocate(region);
