@@ -277,6 +277,8 @@ public class TestStatementBuilder
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2))");
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2), constraint uq1 unique (c4), unique (c3))");
         printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2) disabled not rely enforced , constraint uq1 unique (c4) not rely enforced, unique (c3) disabled)");
+        // primary is not a keyword and may be used as a column name
+        printStatement("select primary, secondary from foo a (primary, secondary)");
     }
 
     @Test

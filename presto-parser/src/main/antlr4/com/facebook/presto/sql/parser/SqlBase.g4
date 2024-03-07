@@ -577,15 +577,7 @@ number
     ;
 
 constraintSpecification
-    : namedConstraintSpecification | unnamedConstraintSpecification
-    ;
-
-namedConstraintSpecification
-    : CONSTRAINT name=identifier unnamedConstraintSpecification
-    ;
-
-unnamedConstraintSpecification
-    : constraintType columnAliases constraintEnabled? constraintRely? constraintEnforced?
+    : (CONSTRAINT name=identifier)? constraintType columnAliases constraintEnabled? constraintRely? constraintEnforced?
     ;
 
 constraintType
@@ -622,7 +614,7 @@ nonReserved
     | MAP | MATERIALIZED | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIVILEGES | PROPERTIES
+    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES
     | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION

@@ -213,6 +213,7 @@ import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpress
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -520,33 +521,23 @@ class AstBuilder
     @Override
     public Node visitConstraintSpecification(SqlBaseParser.ConstraintSpecificationContext context)
     {
-        return context.namedConstraintSpecification() != null ?
-                (ConstraintSpecification) visit(context.namedConstraintSpecification()) :
-                (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
-    }
-
-    @Override
-    public Node visitNamedConstraintSpecification(SqlBaseParser.NamedConstraintSpecificationContext context)
-    {
-        ConstraintSpecification unnamedConstraint = (ConstraintSpecification) visit(context.unnamedConstraintSpecification());
-        return new ConstraintSpecification(getLocation(context),
-                Optional.of(visit(context.name).toString()),
-                unnamedConstraint.getColumns(),
-                unnamedConstraint.getConstraintType(),
-                unnamedConstraint.isEnabled(),
-                unnamedConstraint.isRely(),
-                unnamedConstraint.isEnforced());
-    }
-
-    @Override
-    public Node visitUnnamedConstraintSpecification(SqlBaseParser.UnnamedConstraintSpecificationContext context)
-    {
         List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
 
         boolean enabled = context.constraintEnabled() == null || context.constraintEnabled().DISABLED() == null;
         boolean rely = context.constraintRely() == null || context.constraintRely().NOT() == null;
         boolean enforced = context.constraintEnforced() == null || context.constraintEnforced().NOT() == null;
 
+        // Named constraint
+        if (context.CONSTRAINT() != null) {
+            return new ConstraintSpecification(getLocation(context),
+                    Optional.of(visit(context.name).toString()),
+                    columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
+                    getConstraintType((Token) context.constraintType().getChild(0).getPayload()),
+                    enabled,
+                    rely,
+                    enforced);
+        }
+        // Unnammed constraint
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
                 columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
