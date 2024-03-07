@@ -112,6 +112,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {

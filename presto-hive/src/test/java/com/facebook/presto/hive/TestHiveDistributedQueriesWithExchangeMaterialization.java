@@ -32,6 +32,7 @@ import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
+@Test(singleThreaded = true)
 public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
 {
