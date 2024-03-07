@@ -117,12 +117,6 @@ class TestBufferedInput : public testing::Test {
 };
 } // namespace
 
-TEST_F(TestBufferedInput, AllowMoveConstructor) {
-  auto readFileMock = std::make_shared<ReadFileMock>();
-  BufferedInput a(readFileMock, *pool_);
-  BufferedInput b(std::move(a));
-}
-
 TEST_F(TestBufferedInput, ZeroLengthStream) {
   auto readFile =
       std::make_shared<facebook::velox::InMemoryReadFile>(std::string());

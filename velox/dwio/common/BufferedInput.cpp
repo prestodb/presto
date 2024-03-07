@@ -25,6 +25,8 @@ using ::facebook::velox::common::Region;
 
 namespace facebook::velox::dwio::common {
 
+static_assert(std::is_move_constructible<BufferedInput>());
+
 void BufferedInput::load(const LogType logType) {
   // no regions to load
   if (regions_.size() == 0) {
