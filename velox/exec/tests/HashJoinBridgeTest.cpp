@@ -24,26 +24,6 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using facebook::velox::exec::test::TempDirectoryPath;
 
-namespace facebook::velox::exec::test {
-
-class HashJoinBridgeTestHelper {
- public:
-  static HashJoinBridgeTestHelper create(HashJoinBridge* bridge) {
-    return HashJoinBridgeTestHelper(bridge);
-  }
-
-  std::optional<HashJoinBridge::HashBuildResult>& buildResult() const {
-    return bridge_->buildResult_;
-  }
-
- private:
-  explicit HashJoinBridgeTestHelper(HashJoinBridge* bridge) : bridge_(bridge) {
-    VELOX_CHECK_NOT_NULL(bridge_);
-  }
-
-  HashJoinBridge* const bridge_;
-};
-
 struct TestParam {
   int32_t numProbers{1};
   int32_t numBuilders{1};
@@ -170,20 +150,17 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
     auto joinBridge = createJoinBridge();
     // Can't call any other APIs except addBuilder() before start a join bridge
     // first.
-    VELOX_ASSERT_THROW(
-        joinBridge->setHashTable(createFakeHashTable(), {}, false), "");
-    VELOX_ASSERT_THROW(joinBridge->setAntiJoinHasNullKeys(), "");
-    VELOX_ASSERT_THROW(joinBridge->probeFinished(), "");
-    VELOX_ASSERT_THROW(joinBridge->tableOrFuture(&futures[0]), "");
-    VELOX_ASSERT_THROW(joinBridge->spillInputOrFuture(&futures[0]), "");
-    VELOX_ASSERT_THROW(
-        joinBridge->setSpilledHashTable(makeFakeSpillPartitionSet(0)), "");
+    ASSERT_ANY_THROW(
+        joinBridge->setHashTable(createFakeHashTable(), {}, false));
+    ASSERT_ANY_THROW(joinBridge->setAntiJoinHasNullKeys());
+    ASSERT_ANY_THROW(joinBridge->probeFinished());
+    ASSERT_ANY_THROW(joinBridge->tableOrFuture(&futures[0]));
+    ASSERT_ANY_THROW(joinBridge->spillInputOrFuture(&futures[0]));
 
     // Can't start a bridge without any builders.
-    VELOX_ASSERT_THROW(joinBridge->start(), "");
+    ASSERT_ANY_THROW(joinBridge->start());
 
     joinBridge = createJoinBridge();
-    auto helper = HashJoinBridgeTestHelper::create(joinBridge.get());
 
     for (int32_t i = 0; i < numBuilders_; ++i) {
       joinBridge->addBuilder();
@@ -195,20 +172,18 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
       ASSERT_FALSE(tableOr.has_value());
       ASSERT_TRUE(futures[i].valid());
     }
-    ASSERT_FALSE(helper.buildResult().has_value());
 
     BaseHashTable* rawTable = nullptr;
     if (hasNullKeys) {
       joinBridge->setAntiJoinHasNullKeys();
-      VELOX_ASSERT_THROW(joinBridge->setAntiJoinHasNullKeys(), "");
+      ASSERT_ANY_THROW(joinBridge->setAntiJoinHasNullKeys());
     } else {
       auto table = createFakeHashTable();
       rawTable = table.get();
       joinBridge->setHashTable(std::move(table), {}, false);
-      VELOX_ASSERT_THROW(
-          joinBridge->setHashTable(createFakeHashTable(), {}, false), "");
+      ASSERT_ANY_THROW(
+          joinBridge->setHashTable(createFakeHashTable(), {}, false));
     }
-    ASSERT_TRUE(helper.buildResult().has_value());
 
     for (int32_t i = 0; i < numProbers_; ++i) {
       futures[i].wait();
@@ -233,28 +208,16 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
         ASSERT_TRUE(tableOr.value().spillPartitionIds.empty());
       }
     }
-    ASSERT_TRUE(helper.buildResult().has_value());
 
-    // Verify builder will wait for probe side finish signal even if there is no
-    // spill input.
+    // Verify builder will see no spill input.
     auto inputOr = joinBridge->spillInputOrFuture(&futures[0]);
-    ASSERT_FALSE(inputOr.has_value());
-    ASSERT_TRUE(futures[0].valid());
-
-    // Probe side completion.
-    ASSERT_FALSE(joinBridge->probeFinished());
-    ASSERT_FALSE(helper.buildResult().has_value());
-
-    futures[0].wait();
-
-    futures = createEmptyFutures(1);
-    inputOr = joinBridge->spillInputOrFuture(&futures[0]);
     ASSERT_TRUE(inputOr.has_value());
     ASSERT_FALSE(futures[0].valid());
     ASSERT_TRUE(inputOr.value().spillPartition == nullptr);
 
-    VELOX_ASSERT_THROW(joinBridge->probeFinished(), "");
-    ASSERT_FALSE(helper.buildResult().has_value());
+    // Probe side completion.
+    ASSERT_FALSE(joinBridge->probeFinished());
+    ASSERT_ANY_THROW(joinBridge->probeFinished());
   }
 }
 
@@ -306,23 +269,15 @@ TEST_P(HashJoinBridgeTest, withSpill) {
       } else {
         spillPartitionSet = makeFakeSpillPartitionSet(startPartitionBitOffset_);
       }
-
-      bool spillByProber{false};
-      bool hasMoreSpill{false};
+      bool hasMoreSpill;
       if (spillLevel >= testData.spillLevel && testData.endWithNull) {
         joinBridge->setAntiJoinHasNullKeys();
         hasMoreSpill = false;
       } else {
         numSpilledPartitions += spillPartitionSet.size();
-        if (oneIn(2)) {
-          spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
-          joinBridge->setHashTable(
-              createFakeHashTable(), std::move(spillPartitionSet), false);
-        } else {
-          spillByProber = !spillPartitionSet.empty();
-          joinBridge->setHashTable(createFakeHashTable(), {}, false);
-        }
-        hasMoreSpill = numSpilledPartitions > numRestoredPartitions;
+        spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
+        hasMoreSpill = joinBridge->setHashTable(
+            createFakeHashTable(), std::move(spillPartitionSet), false);
       }
 
       // Get built table from probe side.
@@ -341,33 +296,22 @@ TEST_P(HashJoinBridgeTest, withSpill) {
       }
 
       // Wait for probe to complete from build side.
-      for (int32_t i = 0; i < numBuilders_; ++i) {
-        ASSERT_FALSE(
-            joinBridge->spillInputOrFuture(&buildFutures[i]).has_value());
-      }
-
-      if (spillByProber) {
-        VELOX_ASSERT_THROW(
-            joinBridge->setSpilledHashTable({}),
-            "Spilled table partitions can't be empty");
-        joinBridge->setSpilledHashTable(std::move(spillPartitionSet));
-      }
-
-      // Probe table.
-      ASSERT_EQ(hasMoreSpill, joinBridge->probeFinished());
-      // Probe can't set spilled table partitions after it finishes probe.
-      VELOX_ASSERT_THROW(
-          joinBridge->setSpilledHashTable({}),
-          "Spilled table partitions can't be empty");
-      VELOX_ASSERT_THROW(
-          joinBridge->setSpilledHashTable(makeFakeSpillPartitionSet(0)), "");
-
       if (!hasMoreSpill) {
         for (int32_t i = 0; i < numBuilders_; ++i) {
           auto inputOr = joinBridge->spillInputOrFuture(&buildFutures[i]);
           ASSERT_TRUE(inputOr.has_value());
           ASSERT_TRUE(inputOr.value().spillPartition == nullptr);
         }
+      } else {
+        for (int32_t i = 0; i < numBuilders_; ++i) {
+          ASSERT_FALSE(
+              joinBridge->spillInputOrFuture(&buildFutures[i]).has_value());
+        }
+      }
+
+      // Probe table.
+      ASSERT_EQ(hasMoreSpill, joinBridge->probeFinished());
+      if (!hasMoreSpill) {
         break;
       }
 
@@ -484,20 +428,23 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             tableOr = joinBridge->tableOrFuture(&tableFuture);
             ASSERT_TRUE(tableOr.has_value());
           }
-          if (!tableOr.value().hasNullKeys) {
-            ASSERT_TRUE(tableOr.value().table != nullptr);
-            for (const auto& id : tableOr.value().spillPartitionIds) {
-              ASSERT_FALSE(spillPartitionIdSet.contains(id));
-              spillPartitionIdSet.insert(id);
-            }
-            if (tableOr.value().restoredPartitionId.has_value()) {
-              ASSERT_TRUE(spillPartitionIdSet.contains(
-                  tableOr.value().restoredPartitionId.value()));
-              spillPartitionIdSet.erase(
-                  tableOr.value().restoredPartitionId.value());
-            }
-          } else {
-            spillPartitionIdSet.clear();
+          if (tableOr.value().hasNullKeys) {
+            break;
+          }
+          ASSERT_TRUE(tableOr.value().table != nullptr);
+          for (const auto& id : tableOr.value().spillPartitionIds) {
+            ASSERT_FALSE(spillPartitionIdSet.contains(id));
+            spillPartitionIdSet.insert(id);
+          }
+          if (tableOr.value().restoredPartitionId.has_value()) {
+            ASSERT_TRUE(spillPartitionIdSet.contains(
+                tableOr.value().restoredPartitionId.value()));
+            spillPartitionIdSet.erase(
+                tableOr.value().restoredPartitionId.value());
+          }
+
+          if (spillPartitionIdSet.empty()) {
+            break;
           }
 
           // Wait for probe to finish.
@@ -518,14 +465,10 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             probeFuture.wait();
           } else {
             proberBarrier.reset(new BarrierState());
-            ASSERT_EQ(
-                joinBridge->probeFinished(), !spillPartitionIdSet.empty());
+            ASSERT_TRUE(joinBridge->probeFinished());
             for (auto& promise : promises) {
               promise.setValue();
             }
-          }
-          if (spillPartitionIdSet.empty()) {
-            break;
           }
         }
       });
@@ -540,32 +483,29 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
   }
 }
 
-TEST_P(HashJoinBridgeTest, isHashJoinMemoryPools) {
+TEST_P(HashJoinBridgeTest, isHashBuildMemoryPool) {
   auto root = memory::memoryManager()->addRootPool("isHashBuildMemoryPool");
   struct {
     std::string poolName;
-    bool isHashBuildPool;
-    bool isHashProbePool;
+    bool expectedHashBuildPool;
 
     std::string debugString() const {
       return fmt::format(
-          "poolName: {}, isHashBuildPool: {}, isHashProbePool: {}",
+          "poolName: {}, expectedHashBuildPool: {}",
           poolName,
-          isHashBuildPool,
-          isHashProbePool);
+          expectedHashBuildPool);
     }
   } testSettings[] = {
-      {"HashBuild", true, false},
-      {"HashBuildd", false, false},
-      {"hHashBuild", true, false},
-      {"hHashProbe", false, true},
-      {"HashProbe", false, true},
-      {"HashProbeh", false, false}};
+      {"HashBuild", true},
+      {"HashBuildd", false},
+      {"hHashBuild", true},
+      {"hHashProbe", false},
+      {"HashProbe", false},
+      {"HashProbeh", false}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     const auto pool = root->addLeafChild(testData.poolName);
-    ASSERT_EQ(isHashBuildMemoryPool(*pool), testData.isHashBuildPool);
-    ASSERT_EQ(isHashProbeMemoryPool(*pool), testData.isHashProbePool);
+    ASSERT_EQ(isHashBuildMemoryPool(*pool), testData.expectedHashBuildPool);
   }
 }
 
@@ -573,5 +513,3 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinBridgeTest,
     HashJoinBridgeTest,
     testing::ValuesIn(HashJoinBridgeTest::getTestParams()));
-
-} // namespace facebook::velox::exec::test

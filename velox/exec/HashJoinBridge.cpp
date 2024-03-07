@@ -29,7 +29,7 @@ void HashJoinBridge::addBuilder() {
   ++numBuilders_;
 }
 
-void HashJoinBridge::setHashTable(
+bool HashJoinBridge::setHashTable(
     std::unique_ptr<BaseHashTable> table,
     SpillPartitionSet spillPartitionSet,
     bool hasNullKeys) {
@@ -37,6 +37,7 @@ void HashJoinBridge::setHashTable(
 
   auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
 
+  bool hasSpillData;
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -63,25 +64,12 @@ void HashJoinBridge::setHashTable(
         std::move(spillPartitionIdSet),
         hasNullKeys);
     restoringSpillPartitionId_.reset();
+
+    hasSpillData = !spillPartitionSets_.empty();
     promises = std::move(promises_);
   }
   notify(std::move(promises));
-}
-
-void HashJoinBridge::setSpilledHashTable(SpillPartitionSet spillPartitionSet) {
-  VELOX_CHECK(
-      !spillPartitionSet.empty(), "Spilled table partitions can't be empty");
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(started_);
-  VELOX_CHECK(buildResult_.has_value());
-  VELOX_CHECK(restoringSpillShards_.empty());
-  VELOX_CHECK(!restoringSpillPartitionId_.has_value());
-
-  for (auto& partitionEntry : spillPartitionSet) {
-    const auto id = partitionEntry.first;
-    VELOX_CHECK_EQ(spillPartitionSets_.count(id), 0);
-    spillPartitionSets_.emplace(id, std::move(partitionEntry.second));
-  }
+  return hasSpillData;
 }
 
 void HashJoinBridge::setAntiJoinHasNullKeys() {
@@ -143,8 +131,10 @@ bool HashJoinBridge::probeFinished() {
           spillPartitionSets_.begin()->second->split(numBuilders_);
       VELOX_CHECK_EQ(restoringSpillShards_.size(), numBuilders_);
       spillPartitionSets_.erase(spillPartitionSets_.begin());
+      promises = std::move(promises_);
+    } else {
+      VELOX_CHECK(promises_.empty());
     }
-    promises = std::move(promises_);
   }
   notify(std::move(promises));
   return hasSpillInput;
@@ -158,23 +148,15 @@ std::optional<HashJoinBridge::SpillInput> HashJoinBridge::spillInputOrFuture(
   VELOX_DCHECK(
       !restoringSpillPartitionId_.has_value() || !buildResult_.has_value());
 
-  // If 'buildResult_' is set, then the probe side is under processing. The
-  // build shall just wait.
-  if (buildResult_.has_value()) {
-    VELOX_CHECK(!restoringSpillPartitionId_.has_value());
-    promises_.emplace_back("HashJoinBridge::spillInputOrFuture");
-    *future = promises_.back().getSemiFuture();
-    return std::nullopt;
-  }
-
-  // If 'restoringSpillPartitionId_' is not set after probe side is done, then
-  // the join processing is all done.
   if (!restoringSpillPartitionId_.has_value()) {
-    VELOX_CHECK(spillPartitionSets_.empty());
-    VELOX_CHECK(restoringSpillShards_.empty());
-    return HashJoinBridge::SpillInput{};
+    if (spillPartitionSets_.empty()) {
+      return HashJoinBridge::SpillInput{};
+    } else {
+      promises_.emplace_back("HashJoinBridge::spillInputOrFuture");
+      *future = promises_.back().getSemiFuture();
+      return std::nullopt;
+    }
   }
-
   VELOX_CHECK(!restoringSpillShards_.empty());
   auto spillShard = std::move(restoringSpillShards_.back());
   restoringSpillShards_.pop_back();
@@ -193,39 +175,22 @@ uint64_t HashJoinMemoryReclaimer::reclaim(
     uint64_t targetBytes,
     uint64_t maxWaitMs,
     memory::MemoryReclaimer::Stats& stats) {
-  // The flags to track if we have reclaimed from both build and probe operators
-  // under a hash join node.
-  bool hasReclaimedFromBuild{false};
-  bool hasReclaimedFromProbe{false};
   uint64_t reclaimedBytes{0};
   pool->visitChildren([&](memory::MemoryPool* child) {
     VELOX_CHECK_EQ(child->kind(), memory::MemoryPool::Kind::kLeaf);
-    const bool isBuild = isHashBuildMemoryPool(*child);
-    if (isBuild) {
-      if (!hasReclaimedFromBuild) {
-        // We just need to reclaim from any one of the hash build operator.
-        hasReclaimedFromBuild = true;
-        reclaimedBytes = child->reclaim(targetBytes, maxWaitMs, stats);
-      }
-      return !hasReclaimedFromProbe;
+    // The hash probe operator do not support memory reclaim.
+    if (!isHashBuildMemoryPool(*child)) {
+      return true;
     }
-
-    if (!hasReclaimedFromProbe) {
-      // The same as build operator, we only need to reclaim from any one of the
-      // hash probe operator.
-      hasReclaimedFromProbe = true;
-      reclaimedBytes = child->reclaim(targetBytes, maxWaitMs, stats);
-    }
-    return !hasReclaimedFromBuild;
+    // We only need to reclaim from any one of the hash build operators
+    // which will reclaim from all the peer hash build operators.
+    reclaimedBytes = child->reclaim(targetBytes, maxWaitMs, stats);
+    return false;
   });
   return reclaimedBytes;
 }
 
 bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {
   return folly::StringPiece(pool.name()).endsWith("HashBuild");
-}
-
-bool isHashProbeMemoryPool(const memory::MemoryPool& pool) {
-  return folly::StringPiece(pool.name()).endsWith("HashProbe");
 }
 } // namespace facebook::velox::exec
