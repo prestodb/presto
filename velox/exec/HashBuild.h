@@ -101,9 +101,7 @@ class HashBuild final : public Operator {
   // Invoked when operator has finished processing the build input and wait for
   // all the other drivers to finish the processing. The last driver that
   // reaches to the hash build barrier, is responsible to build the hash table
-  // merged from all the other drivers. If the disk spilling is enabled, the
-  // last driver will also restart 'spillGroup_' and add a new hash build
-  // barrier for the next round of hash table build operation if it needs.
+  // merged from all the other drivers.
   bool finishHashBuild();
 
   // Invoked after the hash table has been built. It waits for any spill data to
@@ -142,26 +140,13 @@ class HashBuild final : public Operator {
 
   // Invoked to ensure there is a sufficient memory to process 'input' by
   // reserving a sufficient amount of memory in advance if disk spilling is
-  // enabled. The function returns true if the disk spilling is not enabled, or
-  // the memory reservation succeeds. If the memory reservation fails, the
-  // function will trigger a group spill which needs coordination among the
-  // other build drivers in the same group. The function returns true if the
-  // group spill has been inline executed which could happen if there is only
-  // one driver in the group, or it happens that all the other drivers have
-  // also requested group spill and this driver is the last one to reach the
-  // group spill barrier. Otherwise, the function returns false to wait for the
-  // group spill to run. The operator will transition to 'kWaitForSpill' state
-  // accordingly.
-  bool ensureInputFits(RowVectorPtr& input);
+  // enabled.
+  void ensureInputFits(RowVectorPtr& input);
 
   // Invoked to ensure there is sufficient memory to build the join table with
   // the specified 'numRows' if spilling is enabled. The function throws to fail
   // the query if the memory reservation fails.
   void ensureTableFits(uint64_t numRows);
-
-  // Invoked to reserve memory for 'input' if disk spilling is enabled. The
-  // function returns true on success, otherwise false.
-  bool reserveMemory(const RowVectorPtr& input);
 
   // Invoked to compute spill partitions numbers for each row 'input' and spill
   // rows to spiller directly if the associated partition(s) is spilling. The
@@ -189,28 +174,6 @@ class HashBuild final : public Operator {
   void prepareInputIndicesBuffers(
       vector_size_t numInput,
       const SpillPartitionNumSet& spillPartitions);
-
-  // Invoked to send group spill request to 'spillGroup_'. The function returns
-  // true if group spill has been inline executed, otherwise returns false. In
-  // the latter case, the operator will transition to 'kWaitForSpill' state and
-  // 'input' will be saved in 'input_' to be processed after the group spill has
-  // been executed.
-  bool requestSpill(RowVectorPtr& input);
-
-  // Invoked to check if it needs to wait for any pending group spill to run.
-  // The function returns true if it needs to wait, otherwise false. The latter
-  // case is either because there is no pending group spill or this operator is
-  // the last one to reach to the group spill barrier and execute the group
-  // spill inline.
-  bool waitSpill(RowVectorPtr& input);
-
-  // The callback registered to 'spillGroup_' to run group spill on
-  // 'spillOperators'.
-  void runSpill(const std::vector<Operator*>& spillOperators);
-
-  // Invoked by 'runSpill' to sum up the spill targets from all the operators in
-  // 'numRows' and 'numBytes'.
-  void addAndClearSpillTarget(uint64_t& numRows, uint64_t& numBytes);
 
   // Invoked to reset the operator state to restore previously spilled data. It
   // setup (recursive) spiller and spill input reader from 'spillInput' received
@@ -248,13 +211,7 @@ class HashBuild final : public Operator {
 
   std::shared_ptr<HashJoinBridge> joinBridge_;
 
-  // The maximum memory usage that a hash build can hold before spilling.
-  // If it is zero, then there is no such limit.
-  const uint64_t spillMemoryThreshold_;
-
   bool exceededMaxSpillLevelLimit_{false};
-
-  std::shared_ptr<SpillOperatorGroup> spillGroup_;
 
   State state_{State::kRunning};
 
@@ -303,10 +260,6 @@ class HashBuild final : public Operator {
   // True if this is a build side of an anti or left semi project join and has
   // at least one entry with null join keys.
   bool joinHasNullKeys_{false};
-
-  // The spill targets set by 'requestSpill()' to request group spill.
-  uint64_t numSpillRows_{0};
-  uint64_t numSpillBytes_{0};
 
   // This can be nullptr if either spilling is not allowed or it has been
   // trsnaferred to the last hash build operator while in kWaitForBuild state or
