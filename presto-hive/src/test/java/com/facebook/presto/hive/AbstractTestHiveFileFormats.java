@@ -876,6 +876,13 @@ public abstract class AbstractTestHiveFileFormats
             return partitionKey;
         }
 
+        public TestColumn withName(String newName)
+        {
+            return new TestColumn(newName, this.objectInspector,
+                    this.writeValue, this.expectedValue,
+                    this.partitionKey);
+        }
+
         @Override
         public String toString()
         {
