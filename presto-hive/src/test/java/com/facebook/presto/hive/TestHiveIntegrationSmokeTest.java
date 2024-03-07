@@ -6427,6 +6427,14 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT pk1 %s (c4) NOT ENFORCED", primaryKey),
                 format("%s (c3, c1) DISABLED NOT RELY", primaryKey));
         assertQueryFails(createTableWithTwoConstraintsSql, "Multiple primary key constraints are not allowed");
+
+        assertUpdate(getSession(), createTableWithOneConstraintSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        // Since PRIMARY is a non-reserved keyword, it gets parsed and then fails at column resolution
+        assertQueryFails("SELECT PRIMARY FROM " + tableName, ".*cannot be resolved.*");
+        assertQueryFails("SELECT PRIMARY KEY FROM " + tableName, ".*cannot be resolved.*");
+        assertUpdate(getSession(), dropTableStmt);
     }
 
     @Test
