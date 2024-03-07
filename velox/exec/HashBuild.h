@@ -19,7 +19,6 @@
 #include "velox/exec/HashTable.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/Spill.h"
-#include "velox/exec/SpillOperatorGroup.h"
 #include "velox/exec/Spiller.h"
 #include "velox/exec/UnorderedStreamReader.h"
 #include "velox/exec/VectorHasher.h"

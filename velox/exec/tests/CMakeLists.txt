@@ -65,7 +65,6 @@ add_executable(
   RowNumberTest.cpp
   MarkDistinctTest.cpp
   SpillTest.cpp
-  SpillOperatorGroupTest.cpp
   SpillerTest.cpp
   SplitToStringTest.cpp
   SqlTest.cpp

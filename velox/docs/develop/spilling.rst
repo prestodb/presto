@@ -369,14 +369,7 @@ other to ensure all operators spill the same set of partitions. If operators
 spill independently, it is possible to end up with all partitions being
 spilled. To build a hash table, we need all rows from one or more partitions.
 Unlike hash aggregation and order by, the hash join spilling is explicitly
-controlled by the hash build operators. A SpillOperatorGroup object coordinates
-the spilling on all the operators. The SpillOperatorGroup object is shared by
-all the hash build operators. It implements a recurring barrier function. When
-spilling gets triggered, the object starts a barrier to stop all the hash build
-operators executions. The last operator reaching the barrier acts as the
-coordinator. It collects spillable stats from the Spillers of all the
-operators, chooses a set of partitions to spill, and runs spilling on all the
-Spillers with the selected partitions.
+controlled by the hash build operators.
 
 .. image:: images/spill-hash-join-probe.png
    :width: 400
