@@ -901,6 +901,42 @@ public class IcebergDistributedTestBase
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithEqualityDeleteDifferentColumnOrder(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        // Specify equality delete filter with different column order from table definition
+        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+        // natiokey is before the equality delete column in the table schema, comment is after
+        assertQuery(session, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE name != 'ARGENTINA'");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithEqualityDeleteAndGroupByAndLimit(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        Session disable = deleteAsJoinEnabled(false);
+        // Specify equality delete filter with different column order from table definition
+        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+
+        // Test group by
+        assertQuery(session, "SELECT nationkey FROM " + tableName + " group by nationkey", "VALUES(0),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15),(16),(17),(18),(19),(20),(21),(22),(23),(24)");
+        // Test group by with limit
+        assertQueryWithSameQueryRunner(session, "SELECT nationkey FROM " + tableName + " group by nationkey limit 100", disable);
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
     public void testTableWithPositionDeleteAndEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
