@@ -233,14 +233,14 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               try {
                 taskInfo =
                     createOrUpdateFunc(taskId, updateJson, startProcessCpuTime);
-              } catch (const velox::VeloxException& e) {
+              } catch (const velox::VeloxException&) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId, std::current_exception(), startProcessCpuTime);
-                } catch (const velox::VeloxUserError& e) {
+                } catch (const velox::VeloxUserError&) {
                   throw;
                 }
               }
