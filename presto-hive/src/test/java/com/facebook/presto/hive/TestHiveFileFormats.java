@@ -70,6 +70,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -392,6 +393,33 @@ public class TestHiveFileFormats
                 .withReadColumns(Lists.reverse(TEST_COLUMNS))
                 .withSession(session)
                 .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testOrcUseColumnNamesCompatibility(int rowCount)
+            throws Exception
+    {
+        // test hive.orc.use-column-names can fallback to use hive column names, if in orc file has no real column names
+        // only have old hive style name _col1, _col2, _col3
+        TestingConnectorSession session = new TestingConnectorSession(getAllSessionProperties(
+                new HiveClientConfig(),
+                new HiveCommonClientConfig()));
+
+        assertThatFileFormat(ORC)
+                .withWriteColumns(getHiveColumnNameColumns())
+                .withRowsCount(rowCount)
+                .withReadColumns(TEST_COLUMNS)
+                .withSession(session)
+                .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
+    }
+
+    private static List<TestColumn> getHiveColumnNameColumns()
+    {
+        // Creates a new list of TestColumn objects with Hive-style column names based on their indices.
+        // Each column's name is replaced with "_col" followed by its index in the list.
+        return IntStream.range(0, TEST_COLUMNS.size())
+                .mapToObj(index -> TEST_COLUMNS.get(index).withName("_col" + index))
+                .collect(toList());
     }
 
     @Test(dataProvider = "rowCount")
