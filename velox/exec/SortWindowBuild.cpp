@@ -122,7 +122,7 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
   {
-    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (data_->pool()->maybeReserve(targetIncrementBytes)) {
       return;
     }

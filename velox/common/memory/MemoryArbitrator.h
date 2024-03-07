@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Portability.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/future/VeloxPromise.h"
 #include "velox/common/time/Timer.h"
@@ -354,6 +355,45 @@ class MemoryReclaimer {
 
  protected:
   MemoryReclaimer() = default;
+};
+
+/// The object is used to set/clear non-reclaimable section of an operation in
+/// the middle of its execution. It allows the memory arbitrator to reclaim
+/// memory from a running operator which is waiting for memory arbitration.
+/// 'nonReclaimableSection' points to the corresponding flag of the associated
+/// operator.
+class ReclaimableSectionGuard {
+ public:
+  explicit ReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
+      : nonReclaimableSection_(nonReclaimableSection),
+        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
+    *nonReclaimableSection_ = false;
+  }
+
+  ~ReclaimableSectionGuard() {
+    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
+  }
+
+ private:
+  tsan_atomic<bool>* const nonReclaimableSection_;
+  const bool oldNonReclaimableSectionValue_;
+};
+
+class NonReclaimableSectionGuard {
+ public:
+  explicit NonReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
+      : nonReclaimableSection_(nonReclaimableSection),
+        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
+    *nonReclaimableSection_ = true;
+  }
+
+  ~NonReclaimableSectionGuard() {
+    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
+  }
+
+ private:
+  tsan_atomic<bool>* const nonReclaimableSection_;
+  const bool oldNonReclaimableSectionValue_;
 };
 
 /// The memory arbitration context which is set on per-thread local variable by

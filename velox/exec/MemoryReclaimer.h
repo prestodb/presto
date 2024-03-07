@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/base/Portability.h"
 #include "velox/common/memory/MemoryArbitrator.h"
 
 namespace facebook::velox::exec {
@@ -47,43 +45,4 @@ class MemoryReclaimer : public memory::MemoryReclaimer {
 /// drivers to go off thread. A suspended driver thread is not counted as
 /// running.
 void memoryArbitrationStateCheck(memory::MemoryPool& pool);
-
-/// The object is used to set/clear non-reclaimable section of an operation in
-/// the middle of its execution. It allows the memory arbitrator to reclaim
-/// memory from a running operator which is waiting for memory arbitration.
-/// 'nonReclaimableSection' points to the corresponding flag of the associated
-/// operator.
-class ReclaimableSectionGuard {
- public:
-  explicit ReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
-      : nonReclaimableSection_(nonReclaimableSection),
-        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
-    *nonReclaimableSection_ = false;
-  }
-
-  ~ReclaimableSectionGuard() {
-    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
-  }
-
- private:
-  tsan_atomic<bool>* const nonReclaimableSection_;
-  const bool oldNonReclaimableSectionValue_;
-};
-
-class NonReclaimableSectionGuard {
- public:
-  explicit NonReclaimableSectionGuard(tsan_atomic<bool>* nonReclaimableSection)
-      : nonReclaimableSection_(nonReclaimableSection),
-        oldNonReclaimableSectionValue_(*nonReclaimableSection_) {
-    *nonReclaimableSection_ = true;
-  }
-
-  ~NonReclaimableSectionGuard() {
-    *nonReclaimableSection_ = oldNonReclaimableSectionValue_;
-  }
-
- private:
-  tsan_atomic<bool>* const nonReclaimableSection_;
-  const bool oldNonReclaimableSectionValue_;
-};
 } // namespace facebook::velox::exec

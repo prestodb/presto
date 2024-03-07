@@ -872,7 +872,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
   {
-    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_.maybeReserve(targetIncrementBytes)) {
       return;
     }
@@ -901,7 +901,7 @@ void GroupingSet::ensureOutputFits() {
   const uint64_t outputBufferSizeToReserve =
       queryConfig_.preferredOutputBatchBytes() * 1.2;
   {
-    ReclaimableSectionGuard guard(nonReclaimableSection_);
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
     if (pool_.maybeReserve(outputBufferSizeToReserve)) {
       return;
     }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/exec/MemoryReclaimer.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -116,16 +116,16 @@ TEST_F(MemoryReclaimerTest, abortTest) {
 TEST(ReclaimableSectionGuard, basic) {
   tsan_atomic<bool> nonReclaimableSection{false};
   {
-    NonReclaimableSectionGuard guard(&nonReclaimableSection);
+    memory::NonReclaimableSectionGuard guard(&nonReclaimableSection);
     ASSERT_TRUE(nonReclaimableSection);
     {
-      ReclaimableSectionGuard guard(&nonReclaimableSection);
+      memory::ReclaimableSectionGuard guard(&nonReclaimableSection);
       ASSERT_FALSE(nonReclaimableSection);
       {
-        ReclaimableSectionGuard guard(&nonReclaimableSection);
+        memory::ReclaimableSectionGuard guard(&nonReclaimableSection);
         ASSERT_FALSE(nonReclaimableSection);
         {
-          NonReclaimableSectionGuard guard(&nonReclaimableSection);
+          memory::NonReclaimableSectionGuard guard(&nonReclaimableSection);
           ASSERT_TRUE(nonReclaimableSection);
         }
         ASSERT_FALSE(nonReclaimableSection);
@@ -137,21 +137,21 @@ TEST(ReclaimableSectionGuard, basic) {
   ASSERT_FALSE(nonReclaimableSection);
   nonReclaimableSection = true;
   {
-    ReclaimableSectionGuard guard(&nonReclaimableSection);
+    memory::ReclaimableSectionGuard guard(&nonReclaimableSection);
     ASSERT_FALSE(nonReclaimableSection);
     {
-      NonReclaimableSectionGuard guard(&nonReclaimableSection);
+      memory::NonReclaimableSectionGuard guard(&nonReclaimableSection);
       ASSERT_TRUE(nonReclaimableSection);
       {
-        ReclaimableSectionGuard guard(&nonReclaimableSection);
+        memory::ReclaimableSectionGuard guard(&nonReclaimableSection);
         ASSERT_FALSE(nonReclaimableSection);
         {
-          ReclaimableSectionGuard guard(&nonReclaimableSection);
+          memory::ReclaimableSectionGuard guard(&nonReclaimableSection);
           ASSERT_FALSE(nonReclaimableSection);
         }
         ASSERT_FALSE(nonReclaimableSection);
         {
-          NonReclaimableSectionGuard guard(&nonReclaimableSection);
+          memory::NonReclaimableSectionGuard guard(&nonReclaimableSection);
           ASSERT_TRUE(nonReclaimableSection);
         }
         ASSERT_FALSE(nonReclaimableSection);

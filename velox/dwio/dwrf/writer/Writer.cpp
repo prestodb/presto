@@ -222,7 +222,7 @@ void Writer::ensureWriteFits(size_t appendBytes, size_t appendRows) {
 
   // Allows the memory arbitrator to reclaim memory from this file writer if the
   // memory reservation below has triggered memory arbitration.
-  exec::ReclaimableSectionGuard reclaimGuard(nonReclaimableSection_);
+  memory::ReclaimableSectionGuard reclaimGuard(nonReclaimableSection_);
 
   const size_t estimatedAppendMemoryBytes =
       std::max(appendBytes, context.estimateNextWriteSize(appendRows));
@@ -254,7 +254,7 @@ void Writer::ensureStripeFlushFits() {
 
   // Allows the memory arbitrator to reclaim memory from this file writer if the
   // memory reservation below has triggered memory arbitration.
-  exec::ReclaimableSectionGuard reclaimGuard(nonReclaimableSection_);
+  memory::ReclaimableSectionGuard reclaimGuard(nonReclaimableSection_);
 
   auto& context = getContext();
   const size_t estimateFlushMemoryBytes =
