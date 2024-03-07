@@ -62,22 +62,27 @@ void BufferedInput::load(const LogType logType) {
     }
   } else {
     for (const auto& region : regions_) {
-      auto allocated = allocate(region);
-      uint64_t usec = 0;
-      {
-        MicrosecondTimer timer(&usec);
-        input_->read(
-            allocated.data(), allocated.size(), region.offset, logType);
-      }
-      if (auto* stats = input_->getStats()) {
-        stats->read().increment(region.length);
-        stats->queryThreadIoLatency().increment(usec);
-      }
+      readToBuffer(region.offset, allocate(region), logType);
     }
   }
 
   // clear the loaded regions
   regions_.clear();
+}
+
+void BufferedInput::readToBuffer(
+    uint64_t offset,
+    folly::Range<char*> allocated,
+    const LogType logType) {
+  uint64_t usec = 0;
+  {
+    MicrosecondTimer timer(&usec);
+    input_->read(allocated.data(), allocated.size(), offset, logType);
+  }
+  if (auto* stats = input_->getStats()) {
+    stats->read().increment(allocated.size());
+    stats->queryThreadIoLatency().increment(usec);
+  }
 }
 
 std::unique_ptr<SeekableInputStream> BufferedInput::enqueue(

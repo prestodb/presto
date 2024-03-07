@@ -175,6 +175,10 @@ class BufferedInput {
       uint64_t offset,
       uint64_t length,
       std::optional<size_t> i = std::nullopt) const;
+  void readToBuffer(
+      uint64_t offset,
+      folly::Range<char*> allocated,
+      const LogType logType);
 
   folly::Range<char*> allocate(const velox::common::Region& region) {
     // Save the file offset and the buffer to which we'll read it
