@@ -625,6 +625,14 @@ public class DistributedQueryRunner
         }
     }
 
+    @Override
+    public void loadSystemSessionPropertyProvider()
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getSessionPropertyProviderManager().loadSessionPropertyProvider();
+        }
+    }
+
     /**
      * This method exists only because it is currently impossible to create a function namespace from the query engine,
      * and therefore the query runner needs to be aware of the H2 handle in order to create function namespaces when

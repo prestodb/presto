@@ -71,12 +71,14 @@ public final class SessionPropertyManager
         this(new SystemSessionProperties());
     }
 
-    @Inject
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
     {
         this(systemSessionProperties.getSessionProperties());
-        this.providerManager = null;
+        // Dummy provider manager.
+        this.providerManager = new SystemSessionPropertyProviderManager(null);
     }
+
+    @Inject
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties, SystemSessionPropertyProviderManager providerManager)
     {
         this(systemSessionProperties.getSessionProperties());
@@ -175,24 +177,24 @@ public final class SessionPropertyManager
             }
         }
 
-        if (providerManager != null) {
-            SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
-            if (sessionPropertyProvider != null) {
-                for (SessionPropertyMetadata property : sessionPropertyProvider.getSessionProperties()) {
-                    String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
-                    String value = systemProperties.getOrDefault(property.getName(), defaultValue);
-                    sessionPropertyValues.add(new SessionPropertyValue(
-                            value,
-                            defaultValue,
-                            property.getName(),
-                            Optional.empty(),
-                            property.getName(),
-                            property.getDescription(),
-                            property.getSqlTypeSignature().getBase(),
-                            property.isHidden()));
-                }
+        SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
+        // TODO: To be removed once default Java worker plugin is implemented.
+        if (sessionPropertyProvider != null) {
+            for (SessionPropertyMetadata property : sessionPropertyProvider.getSessionProperties()) {
+                String defaultValue = firstNonNull(property.getDefaultValue(), "");
+                String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+                sessionPropertyValues.add(new SessionPropertyValue(
+                        value,
+                        defaultValue,
+                        property.getName(),
+                        Optional.empty(),
+                        property.getName(),
+                        property.getDescription(),
+                        property.getSqlTypeSignature().getBase(),
+                        property.isHidden()));
             }
         }
+
         return sessionPropertyValues.build();
     }
 

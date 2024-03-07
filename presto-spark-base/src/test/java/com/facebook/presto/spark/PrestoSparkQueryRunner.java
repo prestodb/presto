@@ -442,6 +442,12 @@ public class PrestoSparkQueryRunner
     }
 
     @Override
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TransactionManager getTransactionManager()
     {
         return transactionManager;

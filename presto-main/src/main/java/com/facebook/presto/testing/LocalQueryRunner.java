@@ -378,6 +378,7 @@ public class LocalQueryRunner
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
+        // TODO : This should be changed to PluginNodeManager
         this.pluginNodeManager = new ConnectorAwareNodeManager(nodeManager);
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
@@ -902,6 +903,12 @@ public class LocalQueryRunner
     public Lock getExclusiveLock()
     {
         return lock.writeLock();
+    }
+
+    @Override
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)

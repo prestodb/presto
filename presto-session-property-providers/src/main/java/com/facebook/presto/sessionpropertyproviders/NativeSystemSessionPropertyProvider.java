@@ -67,10 +67,8 @@ public class NativeSystemSessionPropertyProvider
     private URL getSessionPropertiesUrl()
     {
         Set<Node> nodes = nodeManager.getAllNodes();
-        Node nativeNode = nodes.stream()
-                .filter(node -> !node.isCoordinatorSidecar())
-                .findFirst()
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Failed to find native node"));
+        Node nativeNode = nodes.stream().filter(Node::isCoordinatorSidecar).findFirst()
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "failed to find native node !"));
         try {
             // endpoint to retrieve session properties from native worker
             return new URL(nativeNode.getHttpUri().toString() + SESSION_PROPERTY_ENDPOINT);

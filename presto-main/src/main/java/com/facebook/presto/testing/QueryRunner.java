@@ -90,6 +90,8 @@ public interface QueryRunner
 
     Lock getExclusiveLock();
 
+    void loadSystemSessionPropertyProvider();
+
     class MaterializedResultWithPlan
     {
         private final MaterializedResult materializedResult;

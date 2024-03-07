@@ -47,7 +47,6 @@ public class SystemSessionPropertyProviderManager
     }
 
     public void loadSessionPropertyProvider()
-            throws IOException
     {
         if (this.providerFactory == null) {
             return;
@@ -63,11 +62,15 @@ public class SystemSessionPropertyProviderManager
     }
 
     private Map<String, String> getConfig()
-            throws IOException
     {
         Map<String, String> result;
         if (SESSION_PROPERTY_PROVIDER_CONFIG.exists()) {
-            result = loadProperties(SESSION_PROPERTY_PROVIDER_CONFIG);
+            try {
+                result = loadProperties(SESSION_PROPERTY_PROVIDER_CONFIG);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
         else {
             result = ImmutableMap.of();
