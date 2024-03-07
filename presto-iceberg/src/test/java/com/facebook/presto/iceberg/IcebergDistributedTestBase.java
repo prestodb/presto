@@ -922,6 +922,19 @@ public class IcebergDistributedTestBase
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
+    public void testPartitionedTableWithEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_equality_delete" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey'], format = '" + fileFormat + "') " + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "nationkey", 1L), ImmutableMap.of("nationkey", 1L));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 or nationkey != 1 ");
+        assertQuery(session, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1 or nationkey != 1");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
     public void testEqualityDeletesWithPartitions(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {

@@ -459,7 +459,9 @@ public class IcebergEqualityDeleteAsJoin
                                         return schema.findField(partitionFieldInfo.partitionField.sourceId());
                                     }
                                     return partitionFieldInfo.nestedField;
-                                })).collect(Collectors.toList());
+                                }))
+                        .distinct()
+                        .collect(Collectors.toList());
             }
         }
     }
