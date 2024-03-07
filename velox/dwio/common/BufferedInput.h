@@ -36,14 +36,14 @@ class BufferedInput {
       IoStatistics* FOLLY_NULLABLE stats = nullptr,
       uint64_t maxMergeDistance = kMaxMergeDistance,
       std::optional<bool> wsVRLoad = std::nullopt)
-      : input_{std::make_shared<ReadFileInputStream>(
-            std::move(readFile),
-            metricsLog,
-            stats)},
-        pool_{pool},
-        maxMergeDistance_{maxMergeDistance},
-        wsVRLoad_{wsVRLoad},
-        allocPool_{std::make_unique<memory::AllocationPool>(&pool)} {}
+      : BufferedInput(
+            std::make_shared<ReadFileInputStream>(
+                std::move(readFile),
+                metricsLog,
+                stats),
+            pool,
+            maxMergeDistance,
+            wsVRLoad) {}
 
   BufferedInput(
       std::shared_ptr<ReadFileInputStream> input,
