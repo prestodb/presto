@@ -101,6 +101,8 @@ class ExpressionFuzzerVerifier {
     VectorFuzzer::Options vectorFuzzerOptions;
 
     ExpressionFuzzer::Options expressionFuzzerOptions;
+
+    std::unordered_map<std::string, std::string> queryConfigs;
   };
 
  private:
@@ -191,12 +193,12 @@ class ExpressionFuzzerVerifier {
 
   size_t currentSeed_{0};
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
+  std::shared_ptr<core::QueryCtx> queryCtx_;
 
   std::shared_ptr<memory::MemoryPool> pool_{
       memory::deprecatedAddDefaultLeafMemoryPool()};
 
-  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
+  core::ExecCtx execCtx_;
 
   test::ExpressionVerifier verifier_;
 

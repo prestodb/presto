@@ -179,7 +179,8 @@ ExpressionFuzzer::Options getExpressionFuzzerOptions(
 }
 
 ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
-    const std::unordered_set<std::string>& skipFunctions) {
+    const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::string>& queryConfigs) {
   ExpressionFuzzerVerifier::Options opts;
   opts.steps = FLAGS_steps;
   opts.durationSeconds = FLAGS_duration_sec;
@@ -193,6 +194,7 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
   opts.maxExpressionTreesPerStep = FLAGS_max_expression_trees_per_step;
   opts.vectorFuzzerOptions = getVectorFuzzerOptions();
   opts.expressionFuzzerOptions = getExpressionFuzzerOptions(skipFunctions);
+  opts.queryConfigs = queryConfigs;
   return opts;
 }
 
@@ -201,19 +203,23 @@ ExpressionFuzzerVerifier::Options getExpressionFuzzerVerifierOptions(
 // static
 int FuzzerRunner::run(
     size_t seed,
-    const std::unordered_set<std::string>& skipFunctions) {
-  runFromGtest(seed, skipFunctions);
+    const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::string>& queryConfigs) {
+  runFromGtest(seed, skipFunctions, queryConfigs);
   return RUN_ALL_TESTS();
 }
 
 // static
 void FuzzerRunner::runFromGtest(
     size_t seed,
-    const std::unordered_set<std::string>& skipFunctions) {
+    const std::unordered_set<std::string>& skipFunctions,
+    const std::unordered_map<std::string, std::string>& queryConfigs) {
   memory::MemoryManager::testingSetInstance({});
   auto signatures = facebook::velox::getFunctionSignatures();
   ExpressionFuzzerVerifier(
-      signatures, seed, getExpressionFuzzerVerifierOptions(skipFunctions))
+      signatures,
+      seed,
+      getExpressionFuzzerVerifierOptions(skipFunctions, queryConfigs))
       .go();
 }
 } // namespace facebook::velox::test

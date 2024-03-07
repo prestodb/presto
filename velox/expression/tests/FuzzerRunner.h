@@ -18,6 +18,7 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -31,11 +32,13 @@ class FuzzerRunner {
  public:
   static int run(
       size_t seed,
-      const std::unordered_set<std::string>& skipFunctions);
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::unordered_map<std::string, std::string>& queryConfigs);
 
   static void runFromGtest(
       size_t seed,
-      const std::unordered_set<std::string>& skipFunctions);
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::unordered_map<std::string, std::string>& queryConfigs);
 };
 
 } // namespace facebook::velox::test

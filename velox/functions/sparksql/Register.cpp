@@ -37,6 +37,7 @@
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
 #include "velox/functions/sparksql/Size.h"
+#include "velox/functions/sparksql/SparkPartitionId.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
@@ -336,6 +337,9 @@ void registerFunctions(const std::string& prefix) {
       prefix + "unscaled_value",
       unscaledValueSignatures(),
       makeUnscaledValue());
+
+  registerFunction<SparkPartitionIdFunction, int32_t>(
+      {prefix + "spark_partition_id"});
 }
 
 } // namespace sparksql

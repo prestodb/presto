@@ -82,6 +82,10 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
     size_t initialSeed,
     const ExpressionFuzzerVerifier::Options& options)
     : options_(options),
+      queryCtx_(std::make_shared<core::QueryCtx>(
+          nullptr,
+          core::QueryConfig(options.queryConfigs))),
+      execCtx_({pool_.get(), queryCtx_.get()}),
       verifier_(
           &execCtx_,
           {options_.disableConstantFolding,
