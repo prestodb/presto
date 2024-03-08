@@ -431,7 +431,8 @@ class LastAggregate : public FirstLastAggregateBase<numeric, TData> {
 template <template <bool B1, typename T, bool B2> class TClass, bool ignoreNull>
 AggregateRegistrationResult registerFirstLast(
     const std::string& name,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures = {
       AggregateFunctionSignatureBuilder()
           .typeVariable("T")
@@ -502,20 +503,22 @@ AggregateRegistrationResult registerFirstLast(
                 inputType->toString());
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 void registerFirstLastAggregates(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   registerFirstLast<FirstAggregate, false>(
-      prefix + "first", withCompanionFunctions);
+      prefix + "first", withCompanionFunctions, overwrite);
   registerFirstLast<FirstAggregate, true>(
-      prefix + "first_ignore_null", withCompanionFunctions);
+      prefix + "first_ignore_null", withCompanionFunctions, overwrite);
   registerFirstLast<LastAggregate, false>(
-      prefix + "last", withCompanionFunctions);
+      prefix + "last", withCompanionFunctions, overwrite);
   registerFirstLast<LastAggregate, true>(
-      prefix + "last_ignore_null", withCompanionFunctions);
+      prefix + "last_ignore_null", withCompanionFunctions, overwrite);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

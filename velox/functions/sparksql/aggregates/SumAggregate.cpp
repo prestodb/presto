@@ -45,7 +45,8 @@ void checkAccumulatorRowType(const TypePtr& type) {
 
 exec::AggregateRegistrationResult registerSum(
     const std::string& name,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("real")
@@ -154,7 +155,8 @@ exec::AggregateRegistrationResult registerSum(
                 inputType->kindName());
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

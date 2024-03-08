@@ -206,7 +206,8 @@ class MaxSizeForStatsAggregate
 
 void registerMaxDataSizeForStatsAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
 
   signatures.push_back(exec::AggregateFunctionSignatureBuilder()
@@ -231,7 +232,8 @@ void registerMaxDataSizeForStatsAggregate(
 
         return std::make_unique<MaxSizeForStatsAggregate>(resultType);
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

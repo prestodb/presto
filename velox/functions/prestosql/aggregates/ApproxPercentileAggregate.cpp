@@ -830,7 +830,8 @@ void addSignatures(
 
 void registerApproxPercentileAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& inputType :
        {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
@@ -930,7 +931,8 @@ void registerApproxPercentileAggregate(
                 type->toString());
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

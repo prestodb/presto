@@ -338,7 +338,8 @@ void checkRowType(const TypePtr& type, const std::string& errorMessage) {
 
 void registerEntropyAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> inputTypes = {"smallint", "integer", "bigint"};
   for (const auto& inputType : inputTypes) {
@@ -385,7 +386,8 @@ void registerEntropyAggregate(
           return std::make_unique<EntropyAggregate<int64_t>>(resultType);
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

@@ -73,7 +73,8 @@ template <template <typename U> class T>
 exec::AggregateRegistrationResult registerBitwise(
     const std::string& name,
     bool withCompanionFunctions,
-    bool onlyPrestoSignatures) {
+    bool onlyPrestoSignatures,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> typeList{"tinyint", "smallint", "integer", "bigint"};
   if (onlyPrestoSignatures) {
@@ -114,7 +115,8 @@ exec::AggregateRegistrationResult registerBitwise(
                 inputType->kindName());
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::functions::aggregate

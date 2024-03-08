@@ -157,7 +157,8 @@ exec::AggregateRegistrationResult registerSimpleArrayAggAggregate(
         return std::make_unique<SimpleAggregateAdapter<ArrayAggAggregate>>(
             resultType);
       },
-      /*registerCompanionFunctions*/ true);
+      true /*registerCompanionFunctions*/,
+      true /*overwrite*/);
 }
 
 } // namespace facebook::velox::aggregate

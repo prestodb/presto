@@ -479,7 +479,8 @@ class MultiMapAggAggregate : public exec::Aggregate {
 
 void registerMultiMapAggAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("K")
@@ -538,7 +539,8 @@ void registerMultiMapAggAggregate(
                 "Unexpected type {}", mapTypeKindToName(typeKind));
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

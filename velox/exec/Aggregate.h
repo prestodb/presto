@@ -426,8 +426,8 @@ AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
     const AggregateFunctionFactory& factory,
-    bool registerCompanionFunctions = false,
-    bool overwrite = false);
+    bool registerCompanionFunctions,
+    bool overwrite);
 
 // Register an aggregation function with multiple names. Returns a vector of
 // AggregateRegistrationResult, one for each name at the corresponding index.
@@ -435,8 +435,8 @@ std::vector<AggregateRegistrationResult> registerAggregateFunction(
     const std::vector<std::string>& names,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
     const AggregateFunctionFactory& factory,
-    bool registerCompanionFunctions = false,
-    bool overwrite = false);
+    bool registerCompanionFunctions,
+    bool overwrite);
 
 /// Returns signatures of the aggregate function with the specified name.
 /// Returns empty std::optional if function with that name is not found.

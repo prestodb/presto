@@ -69,7 +69,8 @@ class BitwiseXorAggregate {
 void registerBitwiseXorAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
-    bool onlyPrestoSignatures) {
+    bool onlyPrestoSignatures,
+    bool overwrite) {
   const std::string name = prefix + kBitwiseXor;
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -120,7 +121,8 @@ void registerBitwiseXorAggregate(
                 inputType->toString());
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

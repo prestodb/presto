@@ -467,7 +467,8 @@ void checkSumCountRowType(
 template <template <typename TInput> class TClass>
 exec::AggregateRegistrationResult registerVariance(
     const std::string& name,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   std::vector<std::string> inputTypes = {
       "smallint", "integer", "bigint", "real", "double"};
@@ -517,24 +518,28 @@ exec::AggregateRegistrationResult registerVariance(
           return std::make_unique<TClass<int64_t>>(resultType);
         }
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace
 
 void registerVarianceAggregates(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   registerVariance<StdDevSampAggregate>(
-      prefix + kStdDev, withCompanionFunctions);
+      prefix + kStdDev, withCompanionFunctions, overwrite);
   registerVariance<StdDevPopAggregate>(
-      prefix + kStdDevPop, withCompanionFunctions);
+      prefix + kStdDevPop, withCompanionFunctions, overwrite);
   registerVariance<StdDevSampAggregate>(
-      prefix + kStdDevSamp, withCompanionFunctions);
+      prefix + kStdDevSamp, withCompanionFunctions, overwrite);
   registerVariance<VarSampAggregate>(
-      prefix + kVariance, withCompanionFunctions);
-  registerVariance<VarPopAggregate>(prefix + kVarPop, withCompanionFunctions);
-  registerVariance<VarSampAggregate>(prefix + kVarSamp, withCompanionFunctions);
+      prefix + kVariance, withCompanionFunctions, overwrite);
+  registerVariance<VarPopAggregate>(
+      prefix + kVarPop, withCompanionFunctions, overwrite);
+  registerVariance<VarSampAggregate>(
+      prefix + kVarSamp, withCompanionFunctions, overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

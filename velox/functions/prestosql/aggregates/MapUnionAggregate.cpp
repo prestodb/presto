@@ -77,7 +77,8 @@ class MapUnionAggregate : public MapAggregateBase<K> {
 
 void registerMapUnionAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .typeVariable("K")
@@ -105,7 +106,8 @@ void registerMapUnionAggregate(
 
         return createMapAggregate<MapUnionAggregate>(resultType);
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

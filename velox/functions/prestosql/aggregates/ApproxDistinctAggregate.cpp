@@ -426,7 +426,8 @@ exec::AggregateRegistrationResult registerApproxDistinct(
     const std::string& name,
     bool hllAsFinalResult,
     bool hllAsRawInput,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   auto returnType = hllAsFinalResult ? "hyperloglog" : "bigint";
 
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
@@ -496,23 +497,29 @@ exec::AggregateRegistrationResult registerApproxDistinct(
             hllAsFinalResult,
             hllAsRawInput);
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace
 
 void registerApproxDistinctAggregates(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   registerCustomType(
       prefix + "hyperloglog",
       std::make_unique<const HyperLogLogTypeFactories>());
   registerApproxDistinct(
-      prefix + kApproxDistinct, false, false, withCompanionFunctions);
+      prefix + kApproxDistinct,
+      false,
+      false,
+      withCompanionFunctions,
+      overwrite);
   // approx_set and merge are already companion functions themselves. Don't
   // register companion functions for them.
-  registerApproxDistinct(prefix + kApproxSet, true, false, false);
-  registerApproxDistinct(prefix + kMerge, true, true, false);
+  registerApproxDistinct(prefix + kApproxSet, true, false, false, overwrite);
+  registerApproxDistinct(prefix + kMerge, true, true, false, overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

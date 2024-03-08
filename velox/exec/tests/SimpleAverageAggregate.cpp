@@ -167,7 +167,8 @@ exec::AggregateRegistrationResult registerSimpleAverageAggregate(
           }
         }
       },
-      true);
+      true /*registerCompanionFunctions*/,
+      true /*overwrite*/);
 }
 
 } // namespace facebook::velox::aggregate

@@ -162,7 +162,9 @@ exec::AggregateRegistrationResult registerSumNonPODAggregate(
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<velox::exec::Aggregate> {
         return std::make_unique<SumNonPODAggregate>(velox::BIGINT(), alignment);
-      });
+      },
+      false /*registerCompanionFunctions*/,
+      true /*overwrite*/);
 }
 
 } // namespace facebook::velox::exec::test

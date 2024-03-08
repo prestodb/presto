@@ -172,7 +172,8 @@ class CountIfAggregate : public exec::Aggregate {
 
 void registerCountIfAggregate(
     const std::string& prefix,
-    bool withCompanionFunctions) {
+    bool withCompanionFunctions,
+    bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .returnType("bigint")
@@ -204,7 +205,8 @@ void registerCountIfAggregate(
 
         return std::make_unique<CountIfAggregate>();
       },
-      withCompanionFunctions);
+      withCompanionFunctions,
+      overwrite);
 }
 
 } // namespace facebook::velox::aggregate::prestosql

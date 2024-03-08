@@ -432,7 +432,9 @@ exec::AggregateRegistrationResult registerSimpleCountNullsAggregate(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<SimpleAggregateAdapter<CountNullsAggregate>>(
             resultType);
-      });
+      },
+      false /*registerCompanionFunctions*/,
+      true /*overwrite*/);
 }
 
 void registerSimpleCountNullsAggregate() {
