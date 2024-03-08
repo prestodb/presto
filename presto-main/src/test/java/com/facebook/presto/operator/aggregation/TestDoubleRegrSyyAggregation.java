@@ -30,7 +30,10 @@ public class TestDoubleRegrSyyAggregation
     @Override
     public Object getExpectedValue(int start, int length)
     {
-        if (length <= 1) {
+        if (length == 0) {
+            return null;
+        }
+        else if (length <= 1) {
             return (double) 0;
         }
         else {
