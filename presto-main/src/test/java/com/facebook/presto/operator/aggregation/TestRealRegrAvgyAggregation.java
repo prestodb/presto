@@ -29,7 +29,7 @@ public class TestRealRegrAvgyAggregation
     public Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
-            return 0.0f;
+            return null;
         }
 
         float expected = 0.0f;
