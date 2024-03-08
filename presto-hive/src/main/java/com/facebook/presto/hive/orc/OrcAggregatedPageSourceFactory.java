@@ -198,12 +198,14 @@ public class OrcAggregatedPageSourceFactory
             return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
         }
         catch (Exception e) {
+            throw mapToPrestoException(e, path, fileSplit);
+        }
+        finally {
             try {
                 orcDataSource.close();
             }
             catch (IOException ignored) {
             }
-            throw mapToPrestoException(e, path, fileSplit);
         }
     }
 }
