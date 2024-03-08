@@ -73,7 +73,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -108,7 +109,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         // One byte larger than the initial split max size
         DataSize fileSize = new DataSize(initialSplitSize.toBytes() + 1, BYTE);
@@ -136,7 +138,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -160,7 +163,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         // add 10 splits
         for (int i = 0; i < 10; i++) {
@@ -187,7 +191,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         // add some splits
         for (int i = 0; i < 5; i++) {
@@ -245,7 +250,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         SettableFuture<ConnectorSplit> splits = SettableFuture.create();
 
@@ -299,7 +305,8 @@ public class TestHiveSplitSource
                 maxOutstandingSplitsSize,
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
 
         TestSplit testSplit = new TestSplit(0);
         int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes() + testSplit.getPartitionInfo().getEstimatedSizeInBytes();
@@ -338,7 +345,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
         hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));
         hiveSplitSource.noMoreSplits();
         assertEquals(getSplits(hiveSplitSource, OptionalInt.of(0), 10).size(), 0);
@@ -360,7 +368,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
         for (int i = 0; i < 10; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(0)));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
@@ -419,7 +428,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
         for (int i = 0; i < 10; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(0)));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
@@ -455,7 +465,8 @@ public class TestHiveSplitSource
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
         for (int i = 0; i < 10; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(1)));
             hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(2)));

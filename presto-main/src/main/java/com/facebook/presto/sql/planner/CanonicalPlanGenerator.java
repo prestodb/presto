@@ -34,6 +34,7 @@ import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -86,7 +87,8 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.usePerfectlyConsistentHistories;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.DEFAULT;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
@@ -106,7 +108,10 @@ import static java.util.stream.Collectors.toCollection;
 public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
-    private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
+    private static final String CANONICAL_STRING = "CANONICAL";
+
+    // Not using a new override to objectMapper because PlanNodeId has a JsonValue annotation which cannot be directly overriden in a serializer
+    private final PlanNodeIdAllocator planNodeidAllocator;
     private final VariableAllocator variableAllocator = new VariableAllocator();
     // TODO: DEFAULT strategy has a very different canonicalizaiton implementation, refactor it into a separate class.
     private final PlanCanonicalizationStrategy strategy;
@@ -118,6 +123,26 @@ public class CanonicalPlanGenerator
         this.strategy = requireNonNull(strategy, "strategy is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.session = requireNonNull(session, "session is null");
+        this.planNodeidAllocator = createPlanNodeIdAllocator(strategy);
+    }
+
+    private PlanNodeIdAllocator createPlanNodeIdAllocator(PlanCanonicalizationStrategy strategy)
+    {
+        //ToDO: For HBO we always want planNodeId to be canonicalized but currently fragment result caching is using the same class with default strategy
+        // refactor the default strategy to a different class
+        if (strategy.equals(DEFAULT)) {
+            return new PlanNodeIdAllocator();
+        }
+        else {
+            return new PlanNodeIdAllocator()
+            {
+                @Override
+                public PlanNodeId getNextId()
+                {
+                    return new PlanNodeId(CANONICAL_STRING);
+                }
+            };
+        }
     }
 
     public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme, ObjectMapper objectMapper, Session session)
@@ -740,7 +765,7 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getOutputVariables().stream()
-                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == REMOVE_SAFE_CONSTANTS), variable))
+                .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == IGNORE_SAFE_CONSTANTS), variable))
                 .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
 
@@ -948,7 +973,7 @@ public class CanonicalPlanGenerator
         }
 
         List<RowExpressionReference> rowExpressionReferences = node.getAssignments().entrySet().stream()
-                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == REMOVE_SAFE_CONSTANTS), entry.getKey()))
+                .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == IGNORE_SAFE_CONSTANTS || strategy == IGNORE_SCAN_CONSTANTS), entry.getKey()))
                 .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();

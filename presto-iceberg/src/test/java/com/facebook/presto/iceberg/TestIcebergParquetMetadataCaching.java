@@ -21,10 +21,11 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,7 +45,8 @@ public class TestIcebergParquetMetadataCaching
                 PARQUET,
                 false,
                 true,
-                OptionalInt.of(2));
+                OptionalInt.of(2),
+                Optional.empty());
     }
 
     @BeforeClass

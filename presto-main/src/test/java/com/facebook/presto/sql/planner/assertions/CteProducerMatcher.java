@@ -28,10 +28,10 @@ import static java.util.Objects.requireNonNull;
 final class CteProducerMatcher
         implements Matcher
 {
-    private final String expectedCteName;
-    public CteProducerMatcher(String cteName)
+    private final String expectedCteId;
+    public CteProducerMatcher(String cteId)
     {
-        this.expectedCteName = requireNonNull(cteName, "expectedCteName is null");
+        this.expectedCteId = requireNonNull(cteId, "expectedCteName is null");
     }
 
     @Override
@@ -45,7 +45,7 @@ final class CteProducerMatcher
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         CteProducerNode otherNode = (CteProducerNode) node;
-        if (!expectedCteName.equalsIgnoreCase(otherNode.getCteName())) {
+        if (!expectedCteId.equalsIgnoreCase(otherNode.getCteId())) {
             return NO_MATCH;
         }
         return match();
@@ -56,7 +56,7 @@ final class CteProducerMatcher
     {
         return toStringHelper(this)
                 .omitNullValues()
-                .add("expectedCteName", expectedCteName)
+                .add("expectedCteName", expectedCteId)
                 .toString();
     }
 }

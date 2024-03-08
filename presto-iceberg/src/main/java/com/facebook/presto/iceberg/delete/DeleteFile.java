@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.iceberg.delete;
 
+import com.facebook.presto.iceberg.FileContent;
+import com.facebook.presto.iceberg.FileFormat;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.iceberg.FileContent;
-import org.apache.iceberg.FileFormat;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -49,9 +51,9 @@ public final class DeleteFile
                 .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
 
         return new DeleteFile(
-                deleteFile.content(),
+                fromIcebergFileContent(deleteFile.content()),
                 deleteFile.path().toString(),
-                deleteFile.format(),
+                fromIcebergFileFormat(deleteFile.format()),
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),

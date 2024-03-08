@@ -39,10 +39,8 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
-import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
-import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -70,10 +68,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -81,7 +77,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -103,29 +98,25 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcLazyReadSmallRanges;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
+import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
+import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcReader;
+import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.mapToPrestoException;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -213,8 +204,7 @@ public class OrcSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -252,8 +242,7 @@ public class OrcSelectivePageSourceFactory
                 tupleDomainFilterCache,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                appendRowNumberEnabled,
-                footerStatsUnreliable));
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -283,14 +272,14 @@ public class OrcSelectivePageSourceFactory
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            boolean appendRowNumberEnabled)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
+        OrcDataSource orcDataSource = getOrcDataSource(session, fileSplit, hdfsEnvironment, configuration, hiveFileContext, stats);
+        Path path = new Path(fileSplit.getPath());
+
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
-        DataSize maxBufferSize = getOrcMaxBufferSize(session);
-        DataSize streamBufferSize = getOrcStreamBufferSize(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
         DataSize maxReadBlockSize = getOrcMaxReadBlockSize(session);
         OrcReaderOptions orcReaderOptions = OrcReaderOptions.builder()
@@ -300,52 +289,24 @@ public class OrcSelectivePageSourceFactory
                 .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
                 .withAppendRowNumber(appendRowNumberEnabled)
                 .build();
-        boolean lazyReadSmallRanges = getOrcLazyReadSmallRanges(session);
-
-        OrcDataSource orcDataSource;
-        Path path = new Path(fileSplit.getPath());
-        try {
-            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
-            orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(fileSplit.getPath()),
-                    fileSplit.getFileSize(),
-                    maxMergeDistance,
-                    maxBufferSize,
-                    streamBufferSize,
-                    lazyReadSmallRanges,
-                    inputStream,
-                    stats);
-        }
-        catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, fileSplit.getStart(), fileSplit.getLength()), e);
-        }
-
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
-            DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, columns, useOrcColumnNames, path);
-            OrcReader reader = new OrcReader(
-                    orcDataSource,
+            OrcReader reader = getOrcReader(
                     orcEncoding,
+                    columns,
+                    useOrcColumnNames,
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
-                    systemMemoryUsage,
+                    hiveFileContext,
                     orcReaderOptions,
-                    hiveFileContext.isCacheable(),
+                    encryptionInformation,
                     dwrfEncryptionProvider,
-                    dwrfKeyProvider,
-                    hiveFileContext.getStats());
+                    orcDataSource,
+                    path);
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
-
-            if (!footerStatsUnreliable && !physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-                return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
-            }
 
             Map<Integer, Integer> indexMapping = IntStream.range(0, columns.size())
                     .boxed()
@@ -424,18 +385,7 @@ public class OrcSelectivePageSourceFactory
             }
             catch (IOException ignored) {
             }
-            // instanceof and class comparison do not work here since they are loaded by different class loaders.
-            if (e.getClass().getName().equals(UncheckedExecutionException.class.getName()) && e.getCause() instanceof PrestoException) {
-                throw (PrestoException) e.getCause();
-            }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
-            }
-            String message = splitError(e, path, fileSplit.getStart(), fileSplit.getLength());
-            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
-            }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw mapToPrestoException(e, path, fileSplit);
         }
     }
 

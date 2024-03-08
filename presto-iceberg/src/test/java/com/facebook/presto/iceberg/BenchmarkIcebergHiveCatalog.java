@@ -27,11 +27,12 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Benchmark;
 
@@ -54,7 +55,8 @@ public class BenchmarkIcebergHiveCatalog
                     PARQUET,
                     false,
                     true,
-                    OptionalInt.of(1));
+                    OptionalInt.of(1),
+                    Optional.empty());
         }
         catch (Exception e) {
             e.printStackTrace();

@@ -166,14 +166,14 @@ public class UnaliasSymbolReferences
         public PlanNode visitCteReference(CteReferenceNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new CteReferenceNode(node.getSourceLocation(), node.getId(), source, node.getCteName());
+            return new CteReferenceNode(node.getSourceLocation(), node.getId(), source, node.getCteId());
         }
 
         public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
             List<VariableReferenceExpression> canonical = Lists.transform(node.getOutputVariables(), this::canonicalize);
-            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteName(), node.getRowCountVariable(), canonical);
+            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteId(), node.getRowCountVariable(), canonical);
         }
 
         public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Void> context)

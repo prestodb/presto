@@ -31,7 +31,7 @@ namespace facebook::presto::operators {
 folly::SemiFuture<UnsafeRowExchangeSource::Response>
 UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
-    uint32_t /*maxWaitSeconds*/) {
+    std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
     return std::move(shuffle_->next())
         .deferValue([this](velox::BufferPtr buffer) {
@@ -71,6 +71,19 @@ UnsafeRowExchangeSource::request(
   };
 
   CALL_SHUFFLE(return nextBatch(), "next");
+}
+
+folly::SemiFuture<UnsafeRowExchangeSource::Response>
+UnsafeRowExchangeSource::requestDataSizes(
+    std::chrono::microseconds /*maxWait*/) {
+  std::vector<int64_t> remainingBytes;
+  if (!atEnd_) {
+    // Use default value of ExchangeClient::getAveragePageSize() for now.
+    //
+    // TODO: Change ShuffleReader to return the next batch size.
+    remainingBytes.push_back(1 << 20);
+  }
+  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
 }
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {

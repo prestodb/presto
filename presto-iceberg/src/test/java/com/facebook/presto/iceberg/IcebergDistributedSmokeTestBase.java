@@ -14,6 +14,8 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -22,10 +24,10 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -33,11 +35,13 @@ import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_CATALOG_DIRECTORY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.TEST_DATA_DIRECTORY;
+import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.TestIcebergRegisterProcedure.getMetadataFileLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -131,6 +135,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = 'merge-on-read',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s'\n" +
@@ -380,6 +385,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = 'merge-on-read',\n" +
                         "   format = '" + fileFormat + "',\n" +
                         "   format_version = '2',\n" +
                         "   location = '%s',\n" +
@@ -396,6 +402,147 @@ public class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * from test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH), "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         dropTable(session, "test_create_partitioned_table_as_" + fileFormat.toString().toLowerCase(ENGLISH));
+    }
+
+    @Test
+    public void testPartitionOnDecimalColumn()
+    {
+        testWithAllFileFormats(this::testPartitionedByShortDecimalType);
+        testWithAllFileFormats(this::testPartitionedByLongDecimalType);
+        testWithAllFileFormats(this::testTruncateShortDecimalTransform);
+        testWithAllFileFormats(this::testTruncateLongDecimalTransform);
+    }
+
+    public void testPartitionedByShortDecimalType(Session session, FileFormat format)
+    {
+        // create iceberg table partitioned by column of ShortDecimalType, and insert some data
+        assertUpdate(session, "drop table if exists test_partition_columns_short_decimal");
+        assertUpdate(session, format("create table test_partition_columns_short_decimal(a bigint, b decimal(9, 2))" +
+                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+        assertUpdate(session, "insert into test_partition_columns_short_decimal values(1, 12.31), (2, 133.28)", 2);
+        assertQuery(session, "select * from test_partition_columns_short_decimal", "values(1, 12.31), (2, 133.28)");
+
+        // validate column of ShortDecimalType exists in query filter
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 133.28", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 12.31", "values(1, 12.31)");
+
+        // validate column of ShortDecimalType in system table "partitions"
+        assertQuery(session, "select b, row_count from \"test_partition_columns_short_decimal$partitions\"", "values(12.31, 1), (133.28, 1)");
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate(session, "delete from test_partition_columns_short_decimal WHERE b = 12.31", 1);
+        assertQuery(session, "select * from test_partition_columns_short_decimal", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_short_decimal where b = 133.28", "values(2, 133.28)");
+
+        assertQuery(session, "select b, row_count from \"test_partition_columns_short_decimal$partitions\"", "values(133.28, 1)");
+
+        assertUpdate(session, "drop table test_partition_columns_short_decimal");
+    }
+
+    public void testPartitionedByLongDecimalType(Session session, FileFormat format)
+    {
+        // create iceberg table partitioned by column of ShortDecimalType, and insert some data
+        assertUpdate(session, "drop table if exists test_partition_columns_long_decimal");
+        assertUpdate(session, format("create table test_partition_columns_long_decimal(a bigint, b decimal(20, 2))" +
+                " with (format = '%s', partitioning = ARRAY['b'])", format.name()));
+        assertUpdate(session, "insert into test_partition_columns_long_decimal values(1, 11111111111111112.31), (2, 133.28)", 2);
+        assertQuery(session, "select * from test_partition_columns_long_decimal", "values(1, 11111111111111112.31), (2, 133.28)");
+
+        // validate column of ShortDecimalType exists in query filter
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 133.28", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 11111111111111112.31", "values(1, 11111111111111112.31)");
+
+        // validate column of ShortDecimalType in system table "partitions"
+        assertQuery(session, "select b, row_count from \"test_partition_columns_long_decimal$partitions\"",
+                "values(11111111111111112.31, 1), (133.28, 1)");
+
+        // validate column of TimestampType exists in delete filter
+        assertUpdate(session, "delete from test_partition_columns_long_decimal WHERE b = 11111111111111112.31", 1);
+        assertQuery(session, "select * from test_partition_columns_long_decimal", "values(2, 133.28)");
+        assertQuery(session, "select * from test_partition_columns_long_decimal where b = 133.28", "values(2, 133.28)");
+
+        assertQuery(session, "select b, row_count from \"test_partition_columns_long_decimal$partitions\"",
+                "values(133.28, 1)");
+
+        assertUpdate(session, "drop table test_partition_columns_long_decimal");
+    }
+
+    public void testTruncateShortDecimalTransform(Session session, FileFormat format)
+    {
+        assertUpdate(session, format("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+        String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_decimal_transform$partitions\"";
+
+        assertUpdate(session, "INSERT INTO test_truncate_decimal_transform VALUES" +
+                "(NULL, 101)," +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(12.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 6);
+
+        assertQuery(session, "SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES NULL, 12.30, 12.20, 0.00, -0.10");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(session, select + " WHERE d_trunc = 12.30",
+                "VALUES (12.30, 2, 12.30, 12.34)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
+        assertQuery(session, select + " WHERE d_trunc = 12.20",
+                "VALUES (12.20, 1, 12.29, 12.29)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(session, select + " WHERE d_trunc = 0.00",
+                "VALUES (0.00, 1, 0.05, 0.05)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(session, select + " WHERE d_trunc = -0.10",
+                "VALUES (-0.10, 1, -0.05, -0.05)");
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(session, "SELECT * FROM test_truncate_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                "VALUES (12.29, 3)");
+
+        assertUpdate(session, "DROP TABLE test_truncate_decimal_transform");
+    }
+
+    public void testTruncateLongDecimalTransform(Session session, FileFormat format)
+    {
+        assertUpdate(session, format("CREATE TABLE test_truncate_long_decimal_transform (d DECIMAL(20, 2), b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 10)'])", format.name()));
+        String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_long_decimal_transform$partitions\"";
+
+        assertUpdate(session, "INSERT INTO test_truncate_long_decimal_transform VALUES" +
+                "(NULL, 101)," +
+                "(12.34, 1)," +
+                "(12.30, 2)," +
+                "(11111111111111112.29, 3)," +
+                "(0.05, 4)," +
+                "(-0.05, 5)", 6);
+
+        assertQuery(session, "SELECT d_trunc FROM \"test_truncate_long_decimal_transform$partitions\"", "VALUES NULL, 12.30, 11111111111111112.20, 0.00, -0.10");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+        assertQuery(session, select + " WHERE d_trunc = 12.30",
+                "VALUES (12.30, 2, 12.30, 12.34)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = 11111111111111112.29", "VALUES 3");
+        assertQuery(session, select + " WHERE d_trunc = 11111111111111112.20",
+                "VALUES (11111111111111112.20, 1, 11111111111111112.29, 11111111111111112.29)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = 0.05", "VALUES 4");
+        assertQuery(session, select + " WHERE d_trunc = 0.00",
+                "VALUES (0.00, 1, 0.05, 0.05)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_long_decimal_transform WHERE d = -0.05", "VALUES 5");
+        assertQuery(session, select + " WHERE d_trunc = -0.10",
+                "VALUES (-0.10, 1, -0.05, -0.05)");
+
+        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
+        assertQuery(session, "SELECT * FROM test_truncate_long_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                "VALUES (11111111111111112.29, 3)");
+
+        assertUpdate(session, "DROP TABLE test_truncate_long_decimal_transform");
     }
 
     @Test
@@ -438,6 +585,7 @@ public class IcebergDistributedSmokeTestBase
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -525,6 +673,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -538,6 +687,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -546,6 +696,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s'\n" +
@@ -554,6 +705,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'PARQUET',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -565,6 +717,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
+                "   delete_mode = 'merge-on-read',\n" +
                 "   format = 'ORC',\n" +
                 "   format_version = '2',\n" +
                 "   location = '%s',\n" +
@@ -583,7 +736,7 @@ public class IcebergDistributedSmokeTestBase
         testWithAllFormatVersions(this::testCreateTableWithFormatVersion);
     }
 
-    private void testCreateTableWithFormatVersion(Session session, String formatVersion)
+    private void testCreateTableWithFormatVersion(String formatVersion, String defaultDeleteMode)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_table_with_format_version_" + formatVersion + " " +
@@ -595,6 +748,8 @@ public class IcebergDistributedSmokeTestBase
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders";
 
+        Session session = getSession();
+
         assertUpdate(session, createTable, "SELECT count(*) from orders");
 
         String createTableSql = format("" +
@@ -604,6 +759,7 @@ public class IcebergDistributedSmokeTestBase
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   delete_mode = '%s',\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = '%s',\n" +
                         "   location = '%s'\n" +
@@ -611,6 +767,7 @@ public class IcebergDistributedSmokeTestBase
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
+                defaultDeleteMode,
                 formatVersion,
                 getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
 
@@ -620,10 +777,10 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, "test_create_table_with_format_version_" + formatVersion);
     }
 
-    private void testWithAllFormatVersions(BiConsumer<Session, String> test)
+    private void testWithAllFormatVersions(BiConsumer<String, String> test)
     {
-        test.accept(getSession(), "1");
-        test.accept(getSession(), "2");
+        test.accept("1", "copy-on-write");
+        test.accept("2", "merge-on-read");
     }
 
     private String getTablePropertiesString(String tableName)
@@ -1067,84 +1224,114 @@ public class IcebergDistributedSmokeTestBase
         dropTable(session, tableName);
     }
 
-    @Test
-    public void testTimestampPartitionedByYear()
+    @DataProvider(name = "timezones")
+    public Object[][] timezones()
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(UTC_KEY)
-                .build();
+        return new Object[][] {
+                {"UTC", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", true},
+                {"None", false}};
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testTimestampPartitionedByYear(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "test_timestamp_partitioned_by_year";
 
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['year(c2)'])");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1980-01-01 12:10:31.315'), (4, timestamp '1990-01-01 12:10:31.315')", 2);
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['year(c2)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1980-01-01 12:10:31.315'), (4, timestamp '1990-01-01 12:10:31.315')", 2);
 
-        assertQuery(session, "SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
-                "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
-        assertQuery(session, "SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02 12:10:31.315')");
-
-        dropTable(session, tableName);
+            assertQuery(session, "SELECT c2_year, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_year",
+                    "VALUES (10, 1, 1), (20, 1, 1), (52, 1, 1), (53, 1, 1)");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE year(c2) = 2023", "VALUES (2, '2023-11-02 12:10:31.315')");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 
-    @Test
-    public void testTimestampPartitionedByMonth()
+    @Test(dataProvider = "timezones")
+    public void testTimestampPartitionedByMonth(String zoneId, boolean legacyTimestamp)
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(UTC_KEY)
-                .build();
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "test_timestamp_partitioned_by_month";
 
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['month(c2)'])");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-02-02 12:10:31.315'), (4, timestamp '1971-01-02 12:10:31.315')", 2);
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['month(c2)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-02-02 12:10:31.315'), (4, timestamp '1971-01-02 12:10:31.315')", 2);
 
-        assertQuery(session, "SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
-                "VALUES (1, 1, 1), (12, 1, 1), (633, 1, 1), (646, 1, 1)");
-        assertQuery(session, "SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02 12:10:31.315')");
-
-        dropTable(session, tableName);
+            assertQuery(session, "SELECT c2_month, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_month",
+                    "VALUES (1, 1, 1), (12, 1, 1), (633, 1, 1), (646, 1, 1)");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE month(c2) = 11", "VALUES (2, '2023-11-02 12:10:31.315')");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 
-    @Test
-    public void testTimestampPartitionedByDay()
+    @Test(dataProvider = "timezones")
+    public void testTimestampPartitionedByDay(String zoneId, boolean legacyTimestamp)
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(UTC_KEY)
-                .build();
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "test_timestamp_partitioned_by_day";
 
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['day(c2)'])");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-05 00:00:00.000'), (4, timestamp '1971-01-10 12:10:31.315')", 2);
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['day(c2)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 00:00:00.000')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-05 00:00:00.000'), (4, timestamp '1971-01-10 12:10:31.315')", 2);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (5, TIMESTAMP '1969-12-30 18:47:33.345')," +
+                    " (6, TIMESTAMP '1969-12-31 00:00:00.000')," +
+                    " (7, TIMESTAMP '1969-12-31 05:06:07.234')", 3);
 
-        assertQuery(session, "SELECT c2_day, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
-                "VALUES ('1970-01-05', 1, 1), ('1971-01-10', 1, 1), ('2022-10-01', 1, 1), ('2023-11-02', 1, 1)");
-        assertQuery(session, "SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02 12:10:31.315')");
+            assertQuery(session, "SELECT c2_day, row_count, file_count, c2.min, c2.max FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_day",
+                    "VALUES ('1970-01-05', 1, 1, timestamp '1970-01-05 00:00:00.000', timestamp '1970-01-05 00:00:00.000'), " +
+                            "('1971-01-10', 1, 1, timestamp '1971-01-10 12:10:31.315', timestamp '1971-01-10 12:10:31.315'), " +
+                            "('2022-10-01', 1, 1, timestamp '2022-10-01 00:00:00.000', timestamp '2022-10-01 00:00:00.000'), " +
+                            "('1969-12-30', 1, 1, timestamp '1969-12-30 18:47:33.345', timestamp '1969-12-30 18:47:33.345'), " +
+                            "('1969-12-31', 2, 1, timestamp '1969-12-31 00:00:00.000', timestamp '1969-12-31 05:06:07.234'), " +
+                            "('2023-11-02', 1, 1, timestamp '2023-11-02 12:10:31.315', timestamp '2023-11-02 12:10:31.315')");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE day(c2) = 2", "VALUES (2, '2023-11-02 12:10:31.315')");
 
-        dropTable(session, tableName);
+            assertQuery(session,
+                    "SELECT * FROM " + tableName + " WHERE c2 = TIMESTAMP '1969-12-31 05:06:07.234'",
+                    "VALUES (7, TIMESTAMP '1969-12-31 05:06:07.234')");
+
+            assertQuery(session,
+                    "SELECT * FROM " + tableName + " WHERE CAST(c2 as DATE) = DATE '1969-12-31'",
+                    "VALUES (6, TIMESTAMP '1969-12-31 00:00:00.000'), (7, TIMESTAMP '1969-12-31 05:06:07.234')");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 
-    @Test
-    public void testTimestampPartitionedByHour()
+    @Test(dataProvider = "timezones")
+    public void testTimestampPartitionedByHour(String zoneId, boolean legacyTimestamp)
     {
-        Session session = Session.builder(getSession())
-                .setTimeZoneKey(UTC_KEY)
-                .build();
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
         String tableName = "test_timestamp_partitioned_by_hour";
 
-        assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['hour(c2)'])");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 10:00:00.000')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-01 10:10:31.315'), (4, timestamp '1970-01-02 10:10:31.315')", 2);
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName + " (c1 integer, c2 timestamp) WITH(partitioning = ARRAY['hour(c2)'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, timestamp '2022-10-01 10:00:00.000')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, timestamp '2023-11-02 12:10:31.315')", 1);
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (3, timestamp '1970-01-01 10:10:31.315'), (4, timestamp '1970-01-02 10:10:31.315')", 2);
 
-        assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_hour",
-                "VALUES (10, 1, 1), (34, 1, 1), (462394, 1, 1), (471924, 1, 1)");
-        assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
-
-        dropTable(session, tableName);
+            assertQuery(session, "SELECT c2_hour, row_count, file_count FROM " + "\"" + tableName + "$partitions\" ORDER BY c2_hour",
+                    "VALUES (10, 1, 1), (34, 1, 1), (462394, 1, 1), (471924, 1, 1)");
+            assertQuery(session, "SELECT * FROM " + tableName + " WHERE hour(c2) = 12", "VALUES (2, '2023-11-02 12:10:31.315')");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 
     @Test
@@ -1232,5 +1419,153 @@ public class IcebergDistributedSmokeTestBase
         // Unregister table with procedure
         assertUpdate("CALL system.unregister_table('" + schemaName + "', '" + tableName + "')");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testColumnNameWithSpace()
+    {
+        Session session = getSession();
+        String tableName = "test_column_name_with_space";
+        String columnName = "column a";
+        assertUpdate(format("CREATE TABLE %s (\"%s\" int)", tableName, columnName));
+        assertUpdate(format("INSERT INTO %s VALUES (123), (456)", tableName), 2);
+        assertQuery(format("SELECT \"%s\" FROM %s", columnName, tableName), "VALUES (123), (456)");
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDeleteUnPartitionedTable()
+    {
+        Session session = getSession();
+
+        // Test with default delete_mode i.e. merge-on-read
+        String tableNameMor = "test_delete_mor";
+
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2')");
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (1, 10), (2, 13), (3, 5)");
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (2, 13), (3, 5)");
+
+        dropTable(session, tableNameMor);
+
+        // Test with delete_mode set to copy-on-write
+        String tableNameCow = "test_delete_cow";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', delete_mode = 'copy-on-write')");
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameCow, "VALUES (1, 5)");
+        assertQueryFails("DELETE FROM " + tableNameCow + " WHERE value = 5", errorMessage);
+
+        dropTable(session, tableNameCow);
+    }
+
+    @Test
+    public void testDeletePartitionedTable()
+    {
+        Session session = getSession();
+
+        // Test with default delete_mode i.e. merge-on-read:
+        String tableNameMor = "test_delete_partitioned_mor";
+
+        assertUpdate("CREATE TABLE " + tableNameMor + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'])");
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (2, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (3, 5)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (4, 13)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (5, 1)", 1);
+        assertUpdate("INSERT INTO " + tableNameMor + " VALUES (6, 1)", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (1, 10), (2, 13), (3, 5), (4, 13), (5, 1), (6, 1)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (2, 13), (3, 5), (4, 13), (5, 1), (6, 1)");
+        assertUpdate("DELETE FROM " + tableNameMor + " WHERE value = 13", 2);
+        assertQuery("SELECT * FROM " + tableNameMor, "VALUES (3, 5), (5, 1), (6, 1)");
+
+        dropTable(session, tableNameMor);
+
+        // Test with delete_mode set to copy-on-write
+        String tableNameCow = "test_delete_partitioned_cow";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure delete_mode table property to allow row level deletions.";
+
+        assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (format_version = '2', partitioning = Array['id'], delete_mode = 'copy-on-write')");
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (2, 1)", 1);
+        assertUpdate("INSERT INTO " + tableNameCow + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableNameCow, "VALUES (1, 10), (2, 1), (3, 5)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate(session, "DELETE FROM " + tableNameCow + " WHERE id = 3", 1);
+        assertQuery(session, "SELECT * FROM " + tableNameCow, "VALUES (1, 10), (2, 1)");
+        assertQueryFails(session, "DELETE FROM " + tableNameCow + " WHERE value = 1", errorMessage);
+
+        dropTable(session, tableNameCow);
+    }
+
+    @Test
+    public void testDeleteOnTableWithPartitionEvolution()
+    {
+        String tableName = "test_delete_on_table_with_partition_evolution";
+
+        Session session = getSession();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a integer, b varchar) WITH (format_version = '2')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (3, '1003')", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001'), (2, '1002'), (3, '1003')");
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1001'", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002'), (3, '1003')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c integer WITH (partitioning = 'identity')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1), (2, '1002', 1), (3, '1003', 2)", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', NULL), (1, '1001', 1), (2, '1002', 1), (3, '1003', 2)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1002'", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (3, '1003', NULL), (1, '1001', 1), (3, '1003', 2)");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN d integer WITH (partitioning = 'identity')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001', 1, 1), (2, '1002', 1, 2), (3, '1003', 2, 1)", 3);
+        assertUpdate("DELETE FROM " + tableName + " WHERE b = '1003'", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, '1001', 1, NULL), (1, '1001', 1, 1), (2, '1002', 1, 2)");
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testDeleteOnPartitionedV1Table()
+    {
+        String tableName = "test_delete_on_partitioned_v1_table";
+
+        Session session = getSession();
+
+        String errorMessage = format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE);
+        assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer) WITH (format_version = '1', partitioning = Array['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 5)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1), (3, 5)");
+
+        // 1. delete by partitioning column
+        // 2. delete by non-partitioning column
+        assertUpdate(session, "DELETE FROM " + tableName + " WHERE id = 3", 1);
+        assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, 10), (2, 1)");
+        assertQueryFails(session, "DELETE FROM " + tableName + " WHERE value = 1", errorMessage);
+
+        dropTable(session, tableName);
+    }
+
+    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
+    {
+        SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
+        if (legacyTimestamp) {
+            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
+        }
+        return sessionBuilder.build();
     }
 }

@@ -47,9 +47,14 @@ std::string bool2String(bool value) {
 ConfigBase::ConfigBase()
     : config_(std::make_unique<velox::core::MemConfig>()) {}
 
-void ConfigBase::initialize(const std::string& filePath) {
-  // See if we want to create a mutable config.
-  auto values = util::readConfig(fs::path(filePath));
+void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
+  auto path = fs::path(filePath);
+  std::unordered_map<std::string, std::string> values;
+  if (!optionalConfig || fs::exists(path)) {
+    // See if we want to create a mutable config.
+    values = util::readConfig(path);
+  }
+
   filePath_ = filePath;
   checkRegisteredProperties(values);
   updateLoadedValues(values);
@@ -143,6 +148,7 @@ SystemConfig::SystemConfig() {
           NONE_PROP(kDiscoveryUri),
           NUM_PROP(kMaxDriversPerTask, 16),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
+          STR_PROP(kTaskMaxPartialAggregationMemory, "16MB"),
           NUM_PROP(kHttpServerNumIoThreadsHwMultiplier, 1.0),
           NUM_PROP(kHttpServerNumCpuThreadsHwMultiplier, 1.0),
           NONE_PROP(kHttpServerHttpsPort),
@@ -719,7 +725,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           NUM_PROP(
               QueryConfig::kOrderBySpillMemoryThreshold,
               c.orderBySpillMemoryThreshold()),
-          NUM_PROP(QueryConfig::kTestingSpillPct, c.testingSpillPct()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
           NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
@@ -760,6 +765,9 @@ void BaseVeloxQueryConfig::updateLoadedValues(
       {QueryConfig::kMaxPartitionedOutputBufferSize,
        systemConfig->capacityPropertyAsBytesString(
            SystemConfig::kDriverMaxPagePartitioningBufferSize)},
+      {QueryConfig::kMaxPartialAggregationMemory,
+       systemConfig->capacityPropertyAsBytesString(
+           SystemConfig::kTaskMaxPartialAggregationMemory)},
   };
 
   std::stringstream updated;

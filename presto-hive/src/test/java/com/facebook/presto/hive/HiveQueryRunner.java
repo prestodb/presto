@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
@@ -45,6 +46,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,7 +80,7 @@ public final class HiveQueryRunner
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     public static final String TPCDS_SCHEMA = "tpcds";
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -241,11 +243,12 @@ public final class HiveQueryRunner
                             .put("hive.compression-codec", "NONE")
                             .build();
 
-            Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(storageProperties)
-                    .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .build();
+            Map<String, String> hiveBucketedProperties = new HashMap<>();
+            hiveBucketedProperties.putAll(storageProperties);
+            hiveBucketedProperties.put("hive.max-initial-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties.put("hive.max-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties = ImmutableMap.copyOf(hiveBucketedProperties);
+
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 

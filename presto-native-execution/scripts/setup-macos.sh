@@ -16,16 +16,10 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
-MACOS_DEPS="${MACOS_DEPS} bison gperf libsodium"
+MACOS_DEPS="${MACOS_DEPS} bison gperf"
 export FB_OS_VERSION=v2023.12.04.00
 
-
-function install_six {
-  pip3 install six
-}
-
 export PATH=$(brew --prefix bison)/bin:$PATH
-
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
@@ -34,7 +28,6 @@ function install_proxygen {
 
 function install_presto_deps {
   install_velox_deps
-  run_and_time install_six
   run_and_time install_proxygen
 }
 

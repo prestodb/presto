@@ -1398,6 +1398,21 @@ public class TestLogicalPlanner
                         "    COUNT(*), " +
                         "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
                         "  )",
+                output(aggregation(ImmutableMap.of(),
+                        values())));
+
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPLOIT_CONSTRAINTS, Boolean.toString(false))
+                .build();
+        assertDistributedPlan("SELECT COUNT(*) " +
+                        "FROM (values ARRAY['a', 'b']) as t(col1) " +
+                        "ORDER BY " +
+                        "  IF( " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) > 0, " +
+                        "    COUNT(*), " +
+                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
+                        "  )",
+                session,
                 output(
                         project(
                                 exchange(

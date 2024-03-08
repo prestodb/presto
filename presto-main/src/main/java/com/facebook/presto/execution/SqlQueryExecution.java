@@ -24,7 +24,6 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
-import com.facebook.presto.execution.scheduler.LegacySqlQueryScheduler;
 import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
@@ -85,7 +84,6 @@ import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
-import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
@@ -380,6 +378,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public DataSize getWrittenIntermediateDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getWrittenIntermediatePhysicalDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getWrittenIntermediateDataSize();
+    }
+
+    @Override
     public long getOutputPositions()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
@@ -478,6 +490,7 @@ public class SqlQueryExecution
 
     /**
      * Adds a listener to be notified about {@link QueryState} changes
+     *
      * @param stateChangeListener The state change listener
      */
     @Override
@@ -611,7 +624,28 @@ public class SqlQueryExecution
 
         SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQuerySchedulerInterface scheduler = getScheduler(plan, outputStagePlan, rootOutputBuffers, splitSourceFactory);
+        SqlQuerySchedulerInterface scheduler = SqlQueryScheduler.createSqlQueryScheduler(
+                locationFactory,
+                executionPolicy,
+                queryExecutor,
+                schedulerStats,
+                sectionExecutionFactory,
+                remoteTaskFactory,
+                splitSourceFactory,
+                stateMachine.getSession(),
+                metadata.getFunctionAndTypeManager(),
+                stateMachine,
+                outputStagePlan,
+                rootOutputBuffers,
+                plan.isSummarizeTaskInfos(),
+                runtimePlanOptimizers,
+                stateMachine.getWarningCollector(),
+                idAllocator,
+                variableAllocator.get(),
+                planChecker,
+                metadata,
+                sqlParser,
+                partialResultQueryManager);
 
         queryScheduler.set(scheduler);
 
@@ -620,62 +654,6 @@ public class SqlQueryExecution
         if (stateMachine.isDone()) {
             scheduler.abort();
             queryScheduler.set(null);
-        }
-    }
-
-    private SqlQuerySchedulerInterface getScheduler(
-            PlanRoot plan,
-            SubPlan outputStagePlan,
-            OutputBuffers rootOutputBuffers,
-            SplitSourceFactory splitSourceFactory)
-    {
-        if (isUseLegacyScheduler(getSession())) {
-            return LegacySqlQueryScheduler.createSqlQueryScheduler(
-                    locationFactory,
-                    executionPolicy,
-                    queryExecutor,
-                    schedulerStats,
-                    sectionExecutionFactory,
-                    remoteTaskFactory,
-                    splitSourceFactory,
-                    stateMachine.getSession(),
-                    metadata.getFunctionAndTypeManager(),
-                    stateMachine,
-                    outputStagePlan,
-                    rootOutputBuffers,
-                    plan.isSummarizeTaskInfos(),
-                    runtimePlanOptimizers,
-                    stateMachine.getWarningCollector(),
-                    idAllocator,
-                    variableAllocator.get(),
-                    planChecker,
-                    metadata,
-                    sqlParser,
-                    partialResultQueryManager);
-        }
-        else {
-            return SqlQueryScheduler.createSqlQueryScheduler(
-                    locationFactory,
-                    executionPolicy,
-                    queryExecutor,
-                    schedulerStats,
-                    sectionExecutionFactory,
-                    remoteTaskFactory,
-                    splitSourceFactory,
-                    internalNodeManager,
-                    stateMachine.getSession(),
-                    stateMachine,
-                    outputStagePlan,
-                    plan.isSummarizeTaskInfos(),
-                    metadata.getFunctionAndTypeManager(),
-                    runtimePlanOptimizers,
-                    stateMachine.getWarningCollector(),
-                    idAllocator,
-                    variableAllocator.get(),
-                    planChecker,
-                    metadata,
-                    sqlParser,
-                    partialResultQueryManager);
         }
     }
 
@@ -691,6 +669,7 @@ public class SqlQueryExecution
 
     /**
      * Try to cancel the execution of a specific stage
+     *
      * @param stageId id of the stage to cancel
      */
     @Override
@@ -708,6 +687,7 @@ public class SqlQueryExecution
 
     /**
      * Fail the execution of the query with a specific cause
+     *
      * @param cause The cause for failing the query execution
      */
     @Override
@@ -735,6 +715,7 @@ public class SqlQueryExecution
 
     /**
      * Register a listener to be notified about new {@link QueryOutputInfo} buffers created as tasks execute in this query
+     *
      * @param listener the listener
      */
     @Override

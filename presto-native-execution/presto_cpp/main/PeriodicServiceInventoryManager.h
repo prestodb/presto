@@ -33,6 +33,9 @@ class PeriodicServiceInventoryManager {
 
   void stop();
 
+  /// Set extra text to log during 'request succeeded' events.
+  void setDetails(const std::string& details);
+
   /// If disabled then won't send any requests, but keeps itself running.
   void enableRequest(bool enable);
 
@@ -62,6 +65,7 @@ class PeriodicServiceInventoryManager {
   const std::shared_ptr<CoordinatorDiscoverer> coordinatorDiscoverer_;
   const folly::SSLContextPtr sslContext_;
   const std::string id_;
+  folly::Synchronized<std::string> details_;
   const uint64_t frequencyMs_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   /// jitter value for backoff delay time in case of failure

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-// TpchColumnHandle is special since we require an implementation of
+// TpchColumnHandle is special since it needs an implementation of
 // operator<().
 
 namespace facebook::presto::protocol {

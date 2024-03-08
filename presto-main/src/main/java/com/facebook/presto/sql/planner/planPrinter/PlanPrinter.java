@@ -850,7 +850,7 @@ public class PlanPrinter
         {
             NodeRepresentation nodeOutput;
             nodeOutput = addNode(node, "CteConsumer");
-            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteId());
             return processChildren(node, context);
         }
 
@@ -859,7 +859,7 @@ public class PlanPrinter
         {
             NodeRepresentation nodeOutput;
             nodeOutput = addNode(node, "CteProducer");
-            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteName());
+            nodeOutput.appendDetailsLine("CTE_NAME: %s", node.getCteId());
             return processChildren(node, context);
         }
 
@@ -1407,7 +1407,7 @@ public class PlanPrinter
         Collections.reverse(cteProducers);
         return format("executionOrder = %s",
                 cteProducers.stream()
-                        .map(CteProducerNode::getCteName)
+                        .map(CteProducerNode::getCteId)
                         .collect(Collectors.joining(" -> ", "{", "}")));
     }
 

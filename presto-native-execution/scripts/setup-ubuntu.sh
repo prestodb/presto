@@ -18,12 +18,8 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2022.11.14.00
-sudo apt install -y gperf uuid-dev libsodium-dev
-
-function install_six {
-  pip3 install six
-}
+export FB_OS_VERSION=v2023.12.04.00
+sudo apt install -y gperf
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
@@ -32,7 +28,6 @@ function install_proxygen {
 
 function install_presto_deps {
   install_velox_deps
-  run_and_time install_six
   run_and_time install_proxygen
 }
 

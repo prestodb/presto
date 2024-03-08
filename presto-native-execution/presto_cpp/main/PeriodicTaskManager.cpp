@@ -120,7 +120,9 @@ void PeriodicTaskManager::start() {
     addArbitratorStatsTask();
   }
 
-  addWatchdogTask();
+  if (server_ && server_->hasCoordinatorDiscoverer()) {
+    addWatchdogTask();
+  }
 
   oneTimeRunner_.start();
 }
@@ -678,11 +680,14 @@ void PeriodicTaskManager::addWatchdogTask() {
         RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockTasks.size());
         for (const auto& call : stuckOpCalls) {
           LOG(ERROR) << "Stuck operator: tid=" << call.tid
-                     << " taskId=" << call.taskId << " opId=" << call.opId;
+                     << " taskId=" << call.taskId << " opCall=" << call.opCall
+                     << " duration= " << velox::succinctMillis(call.durationMs);
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
         if (!deadlockTasks.empty() || !stuckOpCalls.empty()) {
           detachWorker();
+        } else {
+          maybeAttachWorker();
         }
       },
       60'000'000, // 60 seconds
@@ -690,13 +695,19 @@ void PeriodicTaskManager::addWatchdogTask() {
 }
 
 void PeriodicTaskManager::detachWorker() {
-  LOG(ERROR) << velox::process::TraceContext::statusLine();
+  LOG(WARNING) << "TraceContext::status:\n"
+               << velox::process::TraceContext::statusLine();
   if (server_ && server_->nodeState() == NodeState::kActive) {
-    // Benefit of shutting down is that the queries that aren't stuck yet will
-    // be finished.  While stopping announcement would kill them.
-    LOG(ERROR)
-        << "Changing node status to SHUTTING_DOWN due to detected stuck drivers";
-    server_->setNodeState(NodeState::kShuttingDown);
+    LOG(WARNING) << "Will detach worker due to detected stuck operators";
+    server_->detachWorker();
+  }
+}
+
+void PeriodicTaskManager::maybeAttachWorker() {
+  if (server_ && !server_->isShuttingDown() &&
+      server_->nodeState() == NodeState::kShuttingDown) {
+    LOG(WARNING) << "Will attach worker due to the absence of stuck operators";
+    server_->maybeAttachWorker();
   }
 }
 

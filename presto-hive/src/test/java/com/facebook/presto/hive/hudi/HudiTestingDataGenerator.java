@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hive.hudi;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
@@ -61,6 +62,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
@@ -68,7 +70,7 @@ import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 public class HudiTestingDataGenerator
 {
     private static final String OWNER_PUBLIC = "public";
-    private static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
+    private static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
 
     private static final StorageFormat STORAGE_FORMAT_COPY_ON_WRITE = StorageFormat.create(
@@ -162,7 +164,7 @@ public class HudiTestingDataGenerator
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(buildingStorage(type, "file://" + dataDirectory.resolve(relativePath)))
                 .build();
-        metastore.createTable(METASTORE_CONTEXT, table, PRINCIPAL_PRIVILEGES);
+        metastore.createTable(METASTORE_CONTEXT, table, PRINCIPAL_PRIVILEGES, emptyList());
     }
 
     private void addPartition(HoodieTableType type, String tableName, List<String> partitionNames, String relativePath)
