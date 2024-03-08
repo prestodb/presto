@@ -122,8 +122,7 @@ public class DeltaMetadata
         metastore.createTable(
                 metastoreContext(session),
                 table,
-                principalPrivileges,
-                emptyList());
+                principalPrivileges);
     }
 
     @Override

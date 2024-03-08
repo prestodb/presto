@@ -69,7 +69,6 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -299,7 +298,7 @@ public class HiveTableOperations
                         .build(),
                     ImmutableMultimap.of());
             if (base == null) {
-                metastore.createTable(metastoreContext, table, privileges, emptyList());
+                metastore.createTable(metastoreContext, table, privileges);
             }
             else {
                 PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);

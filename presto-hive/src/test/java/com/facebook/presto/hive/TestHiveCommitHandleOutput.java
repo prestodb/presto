@@ -32,7 +32,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -309,7 +308,7 @@ public class TestHiveCommitHandleOutput
         }
 
         @Override
-        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
         {
             String tableKey = createTableKey(table.getDatabaseName(), table.getTableName());
             tables.put(tableKey, table);

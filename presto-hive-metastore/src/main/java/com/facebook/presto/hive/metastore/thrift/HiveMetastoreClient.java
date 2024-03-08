@@ -72,9 +72,6 @@ public interface HiveMetastoreClient
     void createTable(Table table)
             throws TException;
 
-    void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
-            throws TException;
-
     void dropTable(String databaseName, String name, boolean deleteData)
             throws TException;
 

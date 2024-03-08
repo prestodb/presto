@@ -44,7 +44,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
-import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -259,6 +259,6 @@ public class HiveConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PAGE_SINK_COMMIT, PRIMARY_KEY_CONSTRAINT, UNIQUE_CONSTRAINT);
+        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PAGE_SINK_COMMIT, PRIMARY_KEY_CONSTRAINT, UNIQUE_KEY_CONSTRAINT);
     }
 }

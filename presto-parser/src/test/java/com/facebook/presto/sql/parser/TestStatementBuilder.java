@@ -272,11 +272,6 @@ public class TestStatementBuilder
         printStatement("alter table foo add constraint bar unique (col1, col2, col3) disabled");
         printStatement("alter table foo add constraint bar unique (col1, col2, col3) not rely not enforced");
         printStatement("alter table a.b.c add constraint bar unique (col1, col2, col3)");
-        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2))");
-        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, primary key (c1, c2), unique (c4), unique (c3))");
-        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2))");
-        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2), constraint uq1 unique (c4), unique (c3))");
-        printStatement("create table t1 (c1 int, c2 varchar, c3 double, c4 int, constraint pk1 primary key (c1, c2) disabled not rely enforced , constraint uq1 unique (c4) not rely enforced, unique (c3) disabled)");
     }
 
     @Test

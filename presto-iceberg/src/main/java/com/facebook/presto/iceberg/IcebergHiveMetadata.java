@@ -82,6 +82,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -132,7 +133,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
@@ -365,7 +365,7 @@ public class IcebergHiveMetadata
         }
 
         try {
-            metastore.createTable(metastoreContext, table, principalPrivileges, emptyList());
+            metastore.createTable(metastoreContext, table, principalPrivileges);
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -378,7 +378,7 @@ public class IcebergHiveMetadata
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (String schema : listSchemas(session, schemaName.orElse(null))) {
-            for (String tableName : metastore.getAllViews(metastoreContext, schema).orElse(emptyList())) {
+            for (String tableName : metastore.getAllViews(metastoreContext, schema).orElse(Collections.emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }
         }
@@ -506,7 +506,7 @@ public class IcebergHiveMetadata
                 .collect(toImmutableSet());
 
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
-        return new TableStatisticsMetadata(columnStatistics, tableStatistics, emptyList());
+        return new TableStatisticsMetadata(columnStatistics, tableStatistics, Collections.emptyList());
     }
 
     @Override
@@ -586,7 +586,7 @@ public class IcebergHiveMetadata
                 ImmutableMultimap.of());
 
         MetastoreContext metastoreContext = getMetastoreContext(clientSession);
-        metastore.createTable(metastoreContext, table, privileges, emptyList());
+        metastore.createTable(metastoreContext, table, privileges);
     }
 
     @Override

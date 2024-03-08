@@ -55,7 +55,7 @@ public interface HiveMetastore
 
     void alterDatabase(MetastoreContext metastoreContext, String databaseName, Database database);
 
-    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, List<TableConstraint<String>> constraints);
+    MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table);
 
     void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData);
 

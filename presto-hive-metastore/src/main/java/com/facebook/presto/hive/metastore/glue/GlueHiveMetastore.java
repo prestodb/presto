@@ -522,12 +522,8 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
     {
-        if (constraints != null & !constraints.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support table constraints");
-        }
-
         try {
             TableInput input = GlueInputConverter.convertTable(table);
             stats.getCreateTable().record(() -> glueClient.createTable(new CreateTableRequest()
