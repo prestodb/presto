@@ -14,11 +14,8 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.TimeType;
-import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
@@ -38,13 +35,12 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IcebergUpdateablePageSource
         implements UpdatablePageSource
@@ -225,13 +221,5 @@ public class IcebergUpdateablePageSource
                 throwable.addSuppressed(e);
             }
         }
-    }
-
-    private Block nativeValueToBlock(Type type, Object prefilledValue)
-    {
-        if (prefilledValue != null && (type instanceof TimestampType && ((TimestampType) type).getPrecision() == MILLISECONDS || type instanceof TimeType)) {
-            return Utils.nativeValueToBlock(type, MICROSECONDS.toMillis((long) prefilledValue));
-        }
-        return Utils.nativeValueToBlock(type, prefilledValue);
     }
 }
