@@ -137,6 +137,9 @@ public class ParquetAggregatedPageSourceFactory
             return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
         }
         catch (Exception e) {
+            throw mapToPrestoException(e, path, fileSplit);
+        }
+        finally {
             try {
                 if (dataSource != null) {
                     dataSource.close();
@@ -144,7 +147,6 @@ public class ParquetAggregatedPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            throw mapToPrestoException(e, path, fileSplit);
         }
     }
 }
