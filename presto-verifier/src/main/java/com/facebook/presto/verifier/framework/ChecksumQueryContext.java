@@ -25,6 +25,9 @@ public class ChecksumQueryContext
     private Optional<String> partitionChecksumQueryId = Optional.empty();
     private Optional<String> partitionChecksumQuery = Optional.empty();
 
+    private Optional<String> bucketChecksumQueryId = Optional.empty();
+    private Optional<String> bucketChecksumQuery = Optional.empty();
+
     public Optional<String> getChecksumQueryId()
     {
         return checksumQueryId;
@@ -67,5 +70,27 @@ public class ChecksumQueryContext
     {
         checkState(!this.partitionChecksumQuery.isPresent(), "partitionChecksumQuery is already set");
         this.partitionChecksumQuery = Optional.of(partitionChecksumQuery);
+    }
+
+    public Optional<String> getBucketChecksumQueryId()
+    {
+        return bucketChecksumQueryId;
+    }
+
+    public void setBucketChecksumQueryId(String bucketChecksumQueryId)
+    {
+        checkState(!this.bucketChecksumQueryId.isPresent(), "bucketChecksumQueryId is already set");
+        this.bucketChecksumQueryId = Optional.of(bucketChecksumQueryId);
+    }
+
+    public Optional<String> getBucketChecksumQuery()
+    {
+        return bucketChecksumQuery;
+    }
+
+    public void setBucketChecksumQuery(String bucketChecksumQuery)
+    {
+        checkState(!this.bucketChecksumQuery.isPresent(), "bucketChecksumQuery is already set");
+        this.bucketChecksumQuery = Optional.of(bucketChecksumQuery);
     }
 }
