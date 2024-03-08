@@ -132,7 +132,7 @@ bool PrestoExchangeSource::shouldRequestLocked() {
 
 folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
     uint32_t maxBytes,
-    uint32_t maxWaitSeconds) {
+    std::chrono::microseconds maxWait) {
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
@@ -158,7 +158,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
       RetryState(std::chrono::duration_cast<std::chrono::milliseconds>(
                      SystemConfig::instance()->exchangeMaxErrorDuration())
                      .count());
-  doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
+  doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWait);
 
   return future;
 }
@@ -166,7 +166,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
 void PrestoExchangeSource::doRequest(
     int64_t delayMs,
     uint32_t maxBytes,
-    uint32_t maxWaitSeconds) {
+    std::chrono::microseconds maxWait) {
   if (closed_.load()) {
     queue_->setError("PrestoExchangeSource closed");
     return;
@@ -175,19 +175,27 @@ void PrestoExchangeSource::doRequest(
   auto path = fmt::format("{}/{}", basePath_, sequence_);
   VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  http::RequestBuilder()
-      .method(proxygen::HTTPMethod::GET)
-      .url(path)
+  auto requestBuilder =
+      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
+
+  if (maxBytes == 0) {
+    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
+    // Coordinator ignores the header and always sends back data.  There is only
+    // one coordinator to fetch data from, so a limit of 1MB is enough.
+    maxBytes = 1 << 20;
+  }
+
+  requestBuilder
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
           protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
       .header(
           protocol::PRESTO_MAX_WAIT_HTTP_HEADER,
-          protocol::Duration(maxWaitSeconds, protocol::TimeUnit::SECONDS)
+          protocol::Duration(maxWait.count(), protocol::TimeUnit::MICROSECONDS)
               .toString())
       .send(httpClient_.get(), "", delayMs)
       .via(driverExecutor_)
-      .thenValue([path, maxBytes, maxWaitSeconds, self](
+      .thenValue([path, maxBytes, maxWait, self](
                      std::unique_ptr<http::HttpResponse> response) {
         velox::common::testutil::TestValue::adjust(
             "facebook::presto::PrestoExchangeSource::doRequest", self.get());
@@ -201,7 +209,7 @@ void PrestoExchangeSource::doRequest(
           self->processDataError(
               path,
               maxBytes,
-              maxWaitSeconds,
+              maxWait,
               fmt::format(
                   "Received HTTP {} {} {}",
                   headers->getStatusCode(),
@@ -211,16 +219,15 @@ void PrestoExchangeSource::doRequest(
                       self->immediateBufferTransfer_ ? self->pool_.get()
                                                      : nullptr)));
         } else if (response->hasError()) {
-          self->processDataError(
-              path, maxBytes, maxWaitSeconds, response->error());
+          self->processDataError(path, maxBytes, maxWait, response->error());
         } else {
           self->processDataResponse(std::move(response));
         }
       })
       .thenError(
           folly::tag_t<std::exception>{},
-          [path, maxBytes, maxWaitSeconds, self](const std::exception& e) {
-            self->processDataError(path, maxBytes, maxWaitSeconds, e.what());
+          [path, maxBytes, maxWait, self](const std::exception& e) {
+            self->processDataError(path, maxBytes, maxWait, e.what());
           });
 };
 
@@ -250,6 +257,17 @@ void PrestoExchangeSource::processDataResponse(
   if (complete) {
     VLOG(1) << "Received buffer-complete header for " << basePath_ << "/"
             << sequence_;
+  }
+
+  std::vector<int64_t> remainingBytes;
+  auto remainingBytesString = headers->getHeaders().getSingleOrEmpty(
+      protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
+  if (!remainingBytesString.empty()) {
+    folly::split(',', remainingBytesString, remainingBytes);
+    if (!remainingBytes.empty() && remainingBytes[0] == 0) {
+      VELOX_CHECK_EQ(remainingBytes.size(), 1);
+      remainingBytes.clear();
+    }
   }
 
   int64_t ackSequence =
@@ -325,7 +343,8 @@ void PrestoExchangeSource::processDataResponse(
     }
 
     if (requestPromise.valid() && !requestPromise.isFulfilled()) {
-      requestPromise.setValue(Response{pageSize, complete});
+      requestPromise.setValue(
+          Response{pageSize, complete, std::move(remainingBytes)});
     } else {
       // The source must have been closed.
       VELOX_CHECK(closed_.load());
@@ -343,7 +362,7 @@ void PrestoExchangeSource::processDataResponse(
 void PrestoExchangeSource::processDataError(
     const std::string& path,
     uint32_t maxBytes,
-    uint32_t maxWaitSeconds,
+    std::chrono::microseconds maxWait,
     const std::string& error) {
   ++failedAttempts_;
   if (!dataRequestRetryState_.isExhausted()) {
@@ -351,7 +370,7 @@ void PrestoExchangeSource::processDataError(
             << path << ", duration: " << dataRequestRetryState_.durationMs()
             << "ms - Retrying: " << error;
 
-    doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWaitSeconds);
+    doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWait);
     return;
   }
 

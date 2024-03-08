@@ -71,6 +71,7 @@ import com.facebook.presto.hive.rcfile.RcFilePageSource;
 import com.facebook.presto.hive.rule.BaseSubfieldExtractionRewriter.ConnectorPushdownFilterResult;
 import com.facebook.presto.hive.rule.HiveFilterPushdown;
 import com.facebook.presto.hive.rule.HiveFilterPushdown.SubfieldExtractionRewriter;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -158,6 +159,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -246,15 +248,18 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.METADATA;
 import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.arrayType;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -323,6 +328,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -730,14 +736,14 @@ public abstract class AbstractTestHiveClient
 
     protected List<SchemaTableName> constraintsTableList;
 
-    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), false, true),
-            new UniqueConstraint<>("uk1", ImmutableSet.of("c2"), false, true));
-    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1", "c2"), false, true),
-            new UniqueConstraint<>("uk2", ImmutableSet.of("c3", "c4"), false, true));
-    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1"), false, false),
-            new UniqueConstraint<>("uk3", ImmutableSet.of("c2"), false, false));
-    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>("", ImmutableSet.of("c1", "c2"), false, false),
-            new UniqueConstraint<>("uk4", ImmutableSet.of("c3", "c4"), false, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1")), false, true, false),
+            new UniqueConstraint<>(Optional.of("uk1"), new LinkedHashSet<>(ImmutableList.of("c2")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, true, false),
+            new UniqueConstraint<>(Optional.of("uk2"), new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, true, false));
+    private static final List<TableConstraint<String>> constraintsSingleKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1")), false, false, false),
+            new UniqueConstraint<>(Optional.of("uk3"), new LinkedHashSet<>(ImmutableList.of("c2")), false, false, false));
+    private static final List<TableConstraint<String>> constraintsMultiKeyNoRely = ImmutableList.of(new PrimaryKeyConstraint<>(Optional.empty(), new LinkedHashSet<>(ImmutableList.of("c1", "c2")), false, false, false),
+            new UniqueConstraint<>(Optional.of("uk4"), new LinkedHashSet<>(ImmutableList.of("c3", "c4")), false, false, false));
 
     Map<SchemaTableName, List<TableConstraint<String>>> tableConstraintsMap;
 
@@ -1034,7 +1040,9 @@ public abstract class AbstractTestHiveClient
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
         splitManager = new HiveSplitManager(
@@ -1072,7 +1080,15 @@ public abstract class AbstractTestHiveClient
                 new HiveWriterStats(),
                 getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER);
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(hiveClientConfig, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(hiveClientConfig, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        pageSourceProvider = new HivePageSourceProvider(
+                hiveClientConfig,
+                hdfsEnvironment,
+                getDefaultHiveRecordCursorProvider(hiveClientConfig, metastoreClientConfig),
+                getDefaultHiveBatchPageSourceFactories(hiveClientConfig, metastoreClientConfig),
+                getDefaultHiveSelectivePageSourceFactories(hiveClientConfig, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(hiveClientConfig, metastoreClientConfig),
+                FUNCTION_AND_TYPE_MANAGER,
+                ROW_EXPRESSION_SERVICE);
     }
 
     /**
@@ -2919,7 +2935,7 @@ public abstract class AbstractTestHiveClient
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS, emptyList());
                 MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
                 Optional<Table> tableHandle = transaction.getMetastore().getTable(metastoreContext, schemaName, tableName);
                 assertTrue(tableHandle.isPresent());
@@ -2930,7 +2946,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_2"), "q2");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS, emptyList());
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -2942,7 +2958,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_3"), "q3");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS, emptyList());
                 transaction.commit();
             }
 
@@ -2951,7 +2967,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_4"), "q4");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS, emptyList());
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -3628,7 +3644,7 @@ public abstract class AbstractTestHiveClient
                             .setStorageFormat(StorageFormat.createNullable(null, null, null))
                             .setSerdeParameters(ImmutableMap.of()));
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS, emptyList());
             transaction.commit();
         }
 
@@ -5456,7 +5472,7 @@ public abstract class AbstractTestHiveClient
                     .setSerdeParameters(ImmutableMap.of());
 
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS, emptyList());
 
             transaction.commit();
         }
@@ -5760,7 +5776,7 @@ public abstract class AbstractTestHiveClient
             // Hive primary key name is auto-generated, hence explicit comparison of members excluding name
             if (constraint instanceof PrimaryKeyConstraint) {
                 assertEquals(constraint.getColumns(), expectedConstraint.getColumns());
-                assertEquals(constraint.isEnforced(), expectedConstraint.isEnforced());
+                assertEquals(constraint.isEnabled(), expectedConstraint.isEnabled());
                 assertEquals(constraint.isRely(), expectedConstraint.isRely());
             }
             else {

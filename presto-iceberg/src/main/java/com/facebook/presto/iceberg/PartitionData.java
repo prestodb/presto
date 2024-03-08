@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types.DecimalType;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -27,6 +29,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -91,6 +94,19 @@ public class PartitionData
         catch (IOException e) {
             throw new UncheckedIOException("JSON conversion failed for PartitionData: " + Arrays.toString(partitionValues), e);
         }
+    }
+
+    public static PartitionData fromStructLike(StructLike partitionData, Type[] types)
+    {
+        if (partitionData.size() != types.length) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Conversion failed for PartitionData: Invalid arguments");
+        }
+
+        Object[] objects = new Object[types.length];
+        for (int index = 0; index < partitionData.size(); ++index) {
+            objects[index] = partitionData.get(index, types[index].typeId().javaClass());
+        }
+        return new PartitionData(objects);
     }
 
     public static PartitionData fromJson(String partitionDataAsJson, Type[] types)
@@ -168,7 +184,7 @@ public class PartitionData
                     throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
                 }
             case DECIMAL:
-                return partitionValue.decimalValue();
+                return partitionValue.decimalValue().setScale(((DecimalType) type).scale());
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type);
     }

@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -82,6 +83,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
@@ -1094,6 +1096,48 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testViewAccessControlInvokerDefault()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty("default_view_security_mode", INVOKER.name())
+                .build();
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from columns.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access1");
+    }
+
+    @Test
     public void testViewAccessControl()
     {
         skipTestUnless(supportsViews());
@@ -1469,6 +1513,17 @@ public abstract class AbstractTestDistributedQueries
 
             assertQueryWithSameQueryRunner(session, query, defaultSession);
         }
+    }
+
+    @Test
+    public void testSessionPropertyDecode()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "abc" /*number is expected*/)
+                        .build(),
+                "SELECT 1",
+                ".*task_writer_count is invalid.*");
     }
 
     private void checkCTEInfo(String explain, String name, int frequency, boolean isView)

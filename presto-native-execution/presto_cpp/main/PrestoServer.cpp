@@ -152,8 +152,9 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
+    // velox.properties is optional.
     baseVeloxQueryConfig->initialize(
-        fmt::format("{}/velox.properties", configDirectoryPath_));
+        fmt::format("{}/velox.properties", configDirectoryPath_), true);
 
     if (systemConfig->enableRuntimeMetricsCollection()) {
       enableRuntimeMetricReporting();
@@ -1051,7 +1052,7 @@ std::string PrestoServer::getLocalIp() const {
     }
   }
   VELOX_FAIL(
-      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
+      "Could not infer Node IP. Please specify node.internal-address in the node.properties file.");
 }
 
 std::string PrestoServer::getBaseSpillDirectory() const {

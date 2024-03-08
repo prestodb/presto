@@ -406,6 +406,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 testId,
                 sourceQuery.getName(),
                 partialResult.getStatus(),
+                matchResult.map(MatchResult::getDataType),
                 matchResult.map(MatchResult::getMatchTypeName),
                 partialResult.getSkippedReason(),
                 determinismAnalysisDetails,
@@ -449,6 +450,8 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setTeardownQueryIds(queryContext.getTeardownQueryIds())
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
+                .setPartitionChecksumQueryId(checksumQueryContext.getPartitionChecksumQueryId())
+                .setPartitionChecksumQuery(checksumQueryContext.getPartitionChecksumQuery())
                 .setQueryActionStats(queryContext.getMainQueryStats());
         updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
         updateQueryInfo(queryInfo, queryResult);

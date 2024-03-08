@@ -67,6 +67,8 @@ public interface QueryExecution
 
     DataSize getRawInputDataSize();
 
+    DataSize getWrittenIntermediateDataSize();
+
     long getOutputPositions();
 
     DataSize getOutputDataSize();

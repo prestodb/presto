@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -47,10 +46,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getCteFilterAndProjectionPushdownEnabled;
-import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
+import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
 import static com.facebook.presto.sql.planner.PlannerUtils.isConstant;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
@@ -102,12 +100,10 @@ public class CteProjectionAndPredicatePushDown
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(warningCollector, "warningCollector is null");
-        if (!getCteMaterializationStrategy(session).equals(ALL)
-                || session.getCteInformationCollector().getCTEInformationList().stream().noneMatch(CTEInformation::isMaterialized)
+        if (!isCteMaterializationApplicable(session)
                 || !getCteFilterAndProjectionPushdownEnabled(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
-
         CteContext cteContext = new CteContext();
         plan.accept(new CtePredicateAndProjectionExtractor(session, idAllocator, variableAllocator), cteContext);
 
@@ -135,7 +131,7 @@ public class CteProjectionAndPredicatePushDown
         @Override
         public Void visitCteProducer(CteProducerNode node, CteContext context)
         {
-            String cteName = node.getCteName();
+            String cteName = node.getCteId();
             List<VariableReferenceExpression> columns = node.getOutputVariables();
             context.addCteProducerInfo(cteName, columns);
 
@@ -150,7 +146,7 @@ public class CteProjectionAndPredicatePushDown
                 return super.visitFilter(node, context);
             }
 
-            String cteName = ((CteConsumerNode) childNode).getCteName();
+            String cteName = ((CteConsumerNode) childNode).getCteId();
             List<VariableReferenceExpression> producerColumns = context.getCteProducerColumns(cteName);
             RowExpression predicate = node.getPredicate();
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = constructConsumerToProducerVarMap((CteConsumerNode) childNode, context);
@@ -182,7 +178,7 @@ public class CteProjectionAndPredicatePushDown
                 predicate = constant(true, BOOLEAN);
             }
 
-            context.addCteConsumerInfo(cteConsumerNode.getCteName(), usedColumns, ImmutableList.of(predicate));
+            context.addCteConsumerInfo(cteConsumerNode.getCteId(), usedColumns, ImmutableList.of(predicate));
             return null;
         }
 
@@ -190,7 +186,7 @@ public class CteProjectionAndPredicatePushDown
         public Void visitCteConsumer(CteConsumerNode node, CteContext context)
         {
             // if we reach this point, it means that the CTE consumer had no filter or projection on top of it and we must take all columns and rows
-            String cteName = node.getCteName();
+            String cteName = node.getCteId();
             // TODO: support pushing of projections in the cte consumer (similar to table scan projection push down)
             // for now, take the original columns of the CTE producer
             List<VariableReferenceExpression> producerColumns = context.getCteProducerColumns(cteName);
@@ -262,7 +258,7 @@ public class CteProjectionAndPredicatePushDown
         private Map<VariableReferenceExpression, VariableReferenceExpression> constructConsumerToProducerVarMap(CteConsumerNode cteConsumerNode, CteContext context)
         {
             List<VariableReferenceExpression> consumerColumns = cteConsumerNode.getOutputVariables();
-            List<VariableReferenceExpression> producerColumns = context.getCteProducerColumns(cteConsumerNode.getCteName());
+            List<VariableReferenceExpression> producerColumns = context.getCteProducerColumns(cteConsumerNode.getCteId());
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = constructVarMap(consumerColumns, producerColumns);
             return varMap;
         }
@@ -304,7 +300,7 @@ public class CteProjectionAndPredicatePushDown
         @Override
         public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<CteContext> context)
         {
-            String cteName = node.getCteName();
+            String cteName = node.getCteId();
             List<VariableReferenceExpression> usedColumns = context.get().getCteRequiredColumns(cteName);
             List<RowExpression> predicates = context.get().getPredicates(cteName);
 
@@ -318,7 +314,7 @@ public class CteProjectionAndPredicatePushDown
 
             List<VariableReferenceExpression> producerColumns = node.getOutputVariables();
             List<VariableReferenceExpression> newProducerColumns = producerColumns.stream().filter(var -> usedColumnsSet.contains(var)).collect(Collectors.toList());
-            if (newProducerColumns.size() != producerColumns.size()) {
+            if (!newProducerColumns.equals(newChildNode.getOutputVariables())) {
                 newChildNode = PlannerUtils.restrictOutput(newChildNode, idAllocator, newProducerColumns);
             }
 
@@ -331,7 +327,7 @@ public class CteProjectionAndPredicatePushDown
                         newChildNode,
                         cteName,
                         node.getRowCountVariable(),
-                        newChildNode.getOutputVariables());
+                        newProducerColumns);
             }
 
             return node;
@@ -341,9 +337,9 @@ public class CteProjectionAndPredicatePushDown
         public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<CteContext> context)
         {
             // project out consumer columns
-            List<VariableReferenceExpression> allProducerColumns = context.get().getCteProducerColumns(node.getCteName());
-            List<VariableReferenceExpression> requiredProducerColumns = context.get().getCteRequiredColumns(node.getCteName());
-            checkState(requiredProducerColumns != null, "Required columns for producer " + node.getCteName() + " not found");
+            List<VariableReferenceExpression> allProducerColumns = context.get().getCteProducerColumns(node.getCteId());
+            List<VariableReferenceExpression> requiredProducerColumns = context.get().getCteRequiredColumns(node.getCteId());
+            checkState(requiredProducerColumns != null, "Required columns for producer " + node.getCteId() + " not found");
             Map<VariableReferenceExpression, VariableReferenceExpression> varMap = constructVarMap(allProducerColumns, node.getOutputVariables());
 
             Set<VariableReferenceExpression> requiredProducerColumnsSet = new HashSet<>(requiredProducerColumns);
@@ -356,8 +352,7 @@ public class CteProjectionAndPredicatePushDown
                             newConsumerColumns.add(pair.getValue());
                         }
                     });
-
-            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteName());
+            return new CteConsumerNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), newConsumerColumns, node.getCteId(), node.getOriginalSource());
         }
 
         public boolean isPlanRewritten()
@@ -367,7 +362,7 @@ public class CteProjectionAndPredicatePushDown
 
         private PlanNode addFilter(PlanNode node, List<RowExpression> predicates)
         {
-            if (predicates.size() == 0 || predicates.stream().anyMatch(predicate -> isConstant(predicate, BOOLEAN, true))) {
+            if (isConstTrue(predicates)) {
                 return node;
             }
 
@@ -379,6 +374,11 @@ public class CteProjectionAndPredicatePushDown
                 predicate = new SpecialFormExpression(OR, BOOLEAN, predicates);
             }
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), node, predicate);
+        }
+
+        private boolean isConstTrue(List<RowExpression> predicates)
+        {
+            return predicates.size() == 0 || predicates.stream().anyMatch(predicate -> isConstant(predicate, BOOLEAN, true));
         }
     }
 

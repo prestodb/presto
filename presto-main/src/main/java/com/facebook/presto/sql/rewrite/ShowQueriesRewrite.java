@@ -29,6 +29,9 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
@@ -47,6 +50,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -89,6 +93,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -141,6 +146,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.and;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
@@ -522,11 +529,35 @@ final class ShowQueriesRewrite
                             List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(QueryUtil.quotedIdentifier(column.getName()), column.getType().getDisplayName(), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
                         })
-                        .collect(toImmutableList());
+                        .collect(toList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
+
+                List<ConstraintSpecification> constraints = new ArrayList<>();
+                for (TableConstraint<String> constraint : connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()) {
+                    if (constraint instanceof PrimaryKeyConstraint) {
+                        constraints.add(new ConstraintSpecification(constraint.getName(),
+                                constraint.getColumns().stream().collect(toImmutableList()),
+                                PRIMARY_KEY,
+                                constraint.isEnabled(),
+                                constraint.isRely(),
+                                constraint.isEnforced()));
+                    }
+                    else if (constraint instanceof UniqueConstraint) {
+                        constraints.add(new ConstraintSpecification(constraint.getName(),
+                                constraint.getColumns().stream().collect(toImmutableList()),
+                                UNIQUE,
+                                constraint.isEnabled(),
+                                constraint.isRely(),
+                                constraint.isEnforced()));
+                    }
+                    else {
+                        throw new SemanticException(NOT_SUPPORTED, "Unknown constraint type");
+                    }
+                }
+                columns.addAll(constraints);
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),

@@ -75,6 +75,11 @@ public class TestIcebergSystemTables
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
 
+        assertUpdate("CREATE TABLE test_schema.test_table_v1 (_bigint BIGINT, _date DATE) WITH (format_version = '1', partitioning = ARRAY['_date'])");
+        assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+        assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
+        assertQuery("SELECT count(*) FROM test_schema.test_table_v1", "VALUES 6");
+
         assertUpdate("CREATE TABLE test_schema.test_table_multilevel_partitions (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_multilevel_partitions VALUES ('a', 0, CAST('2019-09-08' AS DATE)), ('a', 1, CAST('2019-09-08' AS DATE)), ('a', 0, CAST('2019-09-09' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
@@ -186,21 +191,32 @@ public class TestIcebergSystemTables
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
     }
 
-    @Test
-    public void testPropertiesTable()
+    protected void checkTableProperties(String tableName, String deleteMode)
     {
-        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
+        assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 2");
+        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 4");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
-                "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
+                String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
 
-        assertThat(materializedRows).hasSize(2);
+        assertThat(materializedRows).hasSize(4);
         assertThat(materializedRows)
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
                 .anySatisfy(row -> assertThat(row)
-                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")));
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.parquet.compression-codec", "zstd")))
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "commit.retry.num-retries", "4")));
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        // Test table properties for all supported format versions
+        checkTableProperties("test_table_v1", "copy-on-write");
+        checkTableProperties("test_table", "merge-on-read");
     }
 
     @Test
@@ -225,6 +241,7 @@ public class TestIcebergSystemTables
     public void tearDown()
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_v1");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_add_column");

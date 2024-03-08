@@ -99,6 +99,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveMapCastRule;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantCastToVarcharInJoinClause;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantDistinct;
@@ -496,7 +497,8 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))));
+                        ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
+                                .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
@@ -634,7 +636,15 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new InlineSqlFunctions(metadata, sqlParser).rules())
+                                .build()));
 
         builder.add(
                 new IterativeOptimizer(

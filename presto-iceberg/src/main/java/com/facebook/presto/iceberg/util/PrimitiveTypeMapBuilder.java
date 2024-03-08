@@ -27,6 +27,7 @@ import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.iceberg.avro.AvroSchemaUtil.makeCompatibleName;
 
 public class PrimitiveTypeMapBuilder
 {
@@ -42,7 +43,7 @@ public class PrimitiveTypeMapBuilder
     private Map<List<String>, Type> buildTypeMap(List<Type> types, List<String> columnNames)
     {
         for (int i = 0; i < types.size(); i++) {
-            visitType(types.get(i), columnNames.get(i), ImmutableList.of());
+            visitType(types.get(i), makeCompatibleName(columnNames.get(i)), ImmutableList.of());
         }
         return builder.build();
     }

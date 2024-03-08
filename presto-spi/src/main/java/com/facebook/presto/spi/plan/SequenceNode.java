@@ -25,7 +25,7 @@ import java.util.Optional;
 public class SequenceNode
         extends PlanNode
 {
-    // cteProducers {l1,l2,l3} will be in {l3, l2,l1} order
+    // cteProducers {l1,l2,l3} will be executed in {l3, l2,l1} order
     private final List<PlanNode> cteProducers;
     private final PlanNode primarySource;
 

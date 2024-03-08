@@ -49,6 +49,8 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -71,7 +73,6 @@ public class TestFeaturesConfig
                 .setGroupedExecutionEnabled(true)
                 .setRecoverableGroupedExecutionEnabled(false)
                 .setMaxFailedTaskPercentage(0.3)
-                .setMaxStageRetries(0)
                 .setConcurrentLifespansPerTask(0)
                 .setFastInequalityJoins(true)
                 .setColocatedJoinsEnabled(true)
@@ -86,6 +87,7 @@ public class TestFeaturesConfig
                 .setUsePerfectlyConsistentHistories(false)
                 .setHistoryCanonicalPlanNodeLimit(1000)
                 .setHistoryBasedOptimizerTimeout(new Duration(10, SECONDS))
+                .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS")
                 .setRedistributeWrites(true)
                 .setScaleWriters(false)
                 .setWriterMinSize(new DataSize(32, MEGABYTE))
@@ -156,7 +158,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageSize(new DataSize(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
                 .setUseMarkDistinct(true)
-                .setExploitConstraints(false)
+                .setExploitConstraints(true)
                 .setPreferPartialAggregation(true)
                 .setPartialAggregationStrategy(PartialAggregationStrategy.ALWAYS)
                 .setPartialAggregationByteReductionThreshold(0.5)
@@ -183,7 +185,6 @@ public class TestFeaturesConfig
                 .setListBuiltInFunctionsOnly(true)
                 .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.AUTOMATIC)
                 .setExperimentalFunctionsEnabled(false)
-                .setUseLegacyScheduler(true)
                 .setOptimizeCommonSubExpressions(true)
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
@@ -259,11 +260,14 @@ public class TestFeaturesConfig
                 .setHandleComplexEquiJoins(false)
                 .setSkipHashGenerationForJoinWithTableScanInput(false)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.NONE)
-                .setCteFilterAndProjectionPushdownEnabled(true)
+                .setCteFilterAndProjectionPushdownEnabled(false)
                 .setKHyperLogLogAggregationGroupNumberLimit(0)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(true)
                 .setGenerateDomainFilters(false)
-                .setRewriteExpressionWithConstantVariable(true));
+                .setRewriteExpressionWithConstantVariable(true)
+                .setDefaultWriterReplicationCoefficient(3.0)
+                .setDefaultViewSecurityMode(DEFINER)
+                .setCteHeuristicReplicationThreshold(4));
     }
 
     @Test
@@ -301,7 +305,6 @@ public class TestFeaturesConfig
                 .put("grouped-execution-enabled", "false")
                 .put("recoverable-grouped-execution-enabled", "true")
                 .put("max-failed-task-percentage", "0.8")
-                .put("max-stage-retries", "10")
                 .put("concurrent-lifespans-per-task", "1")
                 .put("fast-inequality-joins", "false")
                 .put("colocated-joins-enabled", "false")
@@ -315,6 +318,7 @@ public class TestFeaturesConfig
                 .put("optimizer.track-partial-aggregation-history", "false")
                 .put("optimizer.use-perfectly-consistent-histories", "true")
                 .put("optimizer.history-canonical-plan-node-limit", "2")
+                .put("optimizer.history-based-optimizer-plan-canonicalization-strategies", "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
                 .put("optimizer.history-based-optimizer-timeout", "1s")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "true")
@@ -368,7 +372,7 @@ public class TestFeaturesConfig
                 .put("arrayagg.implementation", "LEGACY")
                 .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
-                .put("optimizer.exploit-constraints", "true")
+                .put("optimizer.exploit-constraints", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.partial-aggregation-strategy", "automatic")
                 .put("optimizer.partial-aggregation-byte-reduction-threshold", "0.8")
@@ -392,7 +396,6 @@ public class TestFeaturesConfig
                 .put("list-built-in-functions-only", "false")
                 .put("partitioning-precision-strategy", "PREFER_EXACT_PARTITIONING")
                 .put("experimental-functions-enabled", "true")
-                .put("use-legacy-scheduler", "false")
                 .put("optimize-common-sub-expressions", "false")
                 .put("prefer-distributed-union", "false")
                 .put("optimize-nulls-in-join", "true")
@@ -466,13 +469,16 @@ public class TestFeaturesConfig
                 .put("optimizer.use-hbo-for-scaled-writers", "true")
                 .put("optimizer.remove-redundant-cast-to-varchar-in-join", "false")
                 .put("cte-materialization-strategy", "ALL")
-                .put("cte-filter-and-projection-pushdown-enabled", "false")
+                .put("cte-filter-and-projection-pushdown-enabled", "true")
                 .put("optimizer.handle-complex-equi-joins", "true")
                 .put("optimizer.skip-hash-generation-for-join-with-table-scan-input", "true")
                 .put("khyperloglog-agg-group-limit", "1000")
                 .put("limit-khyperloglog-agg-group-number-enabled", "false")
                 .put("optimizer.generate-domain-filters", "true")
                 .put("optimizer.rewrite-expression-with-constant-variable", "false")
+                .put("optimizer.default-writer-replication-coefficient", "5.0")
+                .put("default-view-security-mode", INVOKER.name())
+                .put("cte-heuristic-replication-threshold", "2")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -498,7 +504,6 @@ public class TestFeaturesConfig
                 .setGroupedExecutionEnabled(false)
                 .setRecoverableGroupedExecutionEnabled(true)
                 .setMaxFailedTaskPercentage(0.8)
-                .setMaxStageRetries(10)
                 .setConcurrentLifespansPerTask(1)
                 .setFastInequalityJoins(false)
                 .setColocatedJoinsEnabled(false)
@@ -513,6 +518,7 @@ public class TestFeaturesConfig
                 .setUsePerfectlyConsistentHistories(true)
                 .setHistoryCanonicalPlanNodeLimit(2)
                 .setHistoryBasedOptimizerTimeout(new Duration(1, SECONDS))
+                .setHistoryBasedOptimizerPlanCanonicalizationStrategies("IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")
                 .setRedistributeWrites(false)
                 .setScaleWriters(true)
                 .setWriterMinSize(new DataSize(42, GIGABYTE))
@@ -570,7 +576,7 @@ public class TestFeaturesConfig
                 .setFilterAndProjectMinOutputPageSize(new DataSize(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
                 .setUseMarkDistinct(false)
-                .setExploitConstraints(true)
+                .setExploitConstraints(false)
                 .setPreferPartialAggregation(false)
                 .setPartialAggregationStrategy(PartialAggregationStrategy.AUTOMATIC)
                 .setPartialAggregationByteReductionThreshold(0.8)
@@ -598,7 +604,6 @@ public class TestFeaturesConfig
                 .setListBuiltInFunctionsOnly(false)
                 .setPartitioningPrecisionStrategy(PartitioningPrecisionStrategy.PREFER_EXACT_PARTITIONING)
                 .setExperimentalFunctionsEnabled(true)
-                .setUseLegacyScheduler(false)
                 .setOptimizeCommonSubExpressions(false)
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
@@ -675,11 +680,14 @@ public class TestFeaturesConfig
                 .setHandleComplexEquiJoins(true)
                 .setSkipHashGenerationForJoinWithTableScanInput(true)
                 .setCteMaterializationStrategy(CteMaterializationStrategy.ALL)
-                .setCteFilterAndProjectionPushdownEnabled(false)
+                .setCteFilterAndProjectionPushdownEnabled(true)
                 .setKHyperLogLogAggregationGroupNumberLimit(1000)
                 .setLimitNumberOfGroupsForKHyperLogLogAggregations(false)
                 .setGenerateDomainFilters(true)
-                .setRewriteExpressionWithConstantVariable(false);
+                .setRewriteExpressionWithConstantVariable(false)
+                .setDefaultWriterReplicationCoefficient(5.0)
+                .setDefaultViewSecurityMode(INVOKER)
+                .setCteHeuristicReplicationThreshold(2);
         assertFullMapping(properties, expected);
     }
 

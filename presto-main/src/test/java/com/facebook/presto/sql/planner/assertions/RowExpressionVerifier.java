@@ -183,7 +183,7 @@ public final class RowExpressionVerifier
             }
             return getValueFromLiteral(literal).equals(String.valueOf(LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual)));
         }
-        if (!(actual instanceof CallExpression) || !functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
+        if (!(actual instanceof CallExpression) || (!functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle()) && !functionResolution.isTryCastFunction(((CallExpression) actual).getFunctionHandle()))) {
             return false;
         }
 

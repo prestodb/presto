@@ -28,7 +28,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -727,6 +729,12 @@ public abstract class AbstractTestNativeGeneralQueries
         // Division short decimals.
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
+
+        // Short decimal / long decimal -> long decimal.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('0.01' as decimal(17, 4)), CAST('5' as decimal(21, 19)))," +
+                "(CAST('0.02' as decimal(17, 4)), CAST('4' as decimal(21, 19)))" +
+                ") t(n,m)");
 
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
@@ -1477,6 +1485,19 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+    }
+
+    /**
+     * See GitHub issue: <a href="https://github.com/prestodb/presto/issues/22085">link</a>
+     */
+    @Test
+    public void testKeyBasedSamplingInlined()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(session, "select count(1) from orders join lineitem using(orderkey)");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

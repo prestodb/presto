@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseRecordPageSourceForCustomSplit;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
@@ -97,6 +98,7 @@ public class HivePageSourceProvider
     private final Set<HiveRecordCursorProvider> cursorProviders;
     private final Set<HiveBatchPageSourceFactory> pageSourceFactories;
     private final Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories;
+    private Set<HiveAggregatedPageSourceFactory> aggregatedPageSourceFactories;
     private final TypeManager typeManager;
     private final RowExpressionService rowExpressionService;
     private final LoadingCache<RowExpressionCacheKey, RowExpression> optimizedRowExpressionCache;
@@ -108,6 +110,7 @@ public class HivePageSourceProvider
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HiveBatchPageSourceFactory> pageSourceFactories,
             Set<HiveSelectivePageSourceFactory> selectivePageSourceFactories,
+            Set<HiveAggregatedPageSourceFactory> aggregatedPageSourceFactories,
             TypeManager typeManager,
             RowExpressionService rowExpressionService)
     {
@@ -117,6 +120,7 @@ public class HivePageSourceProvider
         this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.selectivePageSourceFactories = ImmutableSet.copyOf(requireNonNull(selectivePageSourceFactories, "selectivePageSourceFactories is null"));
+        this.aggregatedPageSourceFactories = ImmutableSet.copyOf(requireNonNull(aggregatedPageSourceFactories, "aggregatedPageSourceFactories is null"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.optimizedRowExpressionCache = CacheBuilder.newBuilder()
@@ -153,6 +157,30 @@ public class HivePageSourceProvider
                 path);
 
         Optional<EncryptionInformation> encryptionInformation = hiveSplit.getEncryptionInformation();
+        CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
+        HiveFileContext fileContext = new HiveFileContext(
+                splitContext.isCacheable(),
+                cacheQuota,
+                hiveSplit.getFileSplit().getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
+                OptionalLong.of(hiveSplit.getFileSplit().getFileSize()),
+                OptionalLong.of(hiveSplit.getFileSplit().getStart()),
+                OptionalLong.of(hiveSplit.getFileSplit().getLength()),
+                hiveSplit.getFileSplit().getFileModifiedTime(),
+                HiveSessionProperties.isVerboseRuntimeStatsEnabled(session));
+
+        if (columns.stream().anyMatch(columnHandle -> ((HiveColumnHandle) columnHandle).getColumnType().equals(AGGREGATED))) {
+            checkArgument(columns.stream().allMatch(columnHandle -> ((HiveColumnHandle) columnHandle).getColumnType().equals(AGGREGATED)), "Not all columns are of 'AGGREGATED' type");
+
+            if (hiveLayout.isFooterStatsUnreliable()) {
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Partial aggregation pushdown is not supported when footer stats are unreliable. " +
+                                "Table %s has file %s with unreliable footer stats. " +
+                                "Set session property [catalog-name].pushdown_partial_aggregations_into_scan=false and execute query again.",
+                        hiveLayout.getSchemaTableName(),
+                        hiveSplit.getFileSplit().getPath()));
+            }
+
+            return createAggregatedPageSource(aggregatedPageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, fileContext, encryptionInformation);
+        }
         if (hiveLayout.isPushdownFilterEnabled()) {
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
@@ -165,6 +193,7 @@ public class HivePageSourceProvider
                     typeManager,
                     optimizedRowExpressionCache,
                     splitContext,
+                    fileContext,
                     encryptionInformation);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
@@ -183,7 +212,6 @@ public class HivePageSourceProvider
             return new HiveEmptySplitPageSource();
         }
 
-        CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
@@ -206,15 +234,7 @@ public class HivePageSourceProvider
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(
-                        splitContext.isCacheable(),
-                        cacheQuota,
-                        hiveSplit.getFileSplit().getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
-                        OptionalLong.of(hiveSplit.getFileSplit().getFileSize()),
-                        OptionalLong.of(hiveSplit.getFileSplit().getStart()),
-                        OptionalLong.of(hiveSplit.getFileSplit().getLength()),
-                        hiveSplit.getFileSplit().getFileModifiedTime(),
-                        HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
+                fileContext,
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
@@ -223,6 +243,47 @@ public class HivePageSourceProvider
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
+    }
+
+    private ConnectorPageSource createAggregatedPageSource(
+            Set<HiveAggregatedPageSourceFactory> aggregatedPageSourceFactories,
+            Configuration configuration,
+            ConnectorSession session,
+            HiveSplit hiveSplit,
+            HiveTableLayoutHandle hiveLayout,
+            List<HiveColumnHandle> selectedColumns,
+            HiveFileContext fileContext,
+            Optional<EncryptionInformation> encryptionInformation)
+    {
+        for (HiveAggregatedPageSourceFactory pageSourceFactory : aggregatedPageSourceFactories) {
+            List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
+                    hiveSplit.getPartitionKeys(),
+                    selectedColumns,
+                    hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                    hiveSplit.getTableToPartitionMapping(),
+                    hiveSplit.getFileSplit(),
+                    hiveSplit.getTableBucketNumber());
+
+            List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
+            Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
+                    configuration,
+                    session,
+                    hiveSplit.getFileSplit(),
+                    hiveSplit.getStorage(),
+                    toColumnHandles(regularAndInterimColumnMappings, true),
+                    fileContext,
+                    encryptionInformation,
+                    hiveLayout.isAppendRowNumberEnabled());
+            if (pageSource.isPresent()) {
+                return pageSource.get();
+            }
+        }
+        throw new PrestoException(
+                HIVE_UNSUPPORTED_FORMAT,
+                format("Table %s has file of format %s that does not support partial aggregation pushdown. " +
+                                "Set session property [catalog-name].pushdown_partial_aggregations_into_scan=false and execute query again.",
+                        hiveLayout.getSchemaTableName(),
+                        hiveSplit.getStorage().getStorageFormat().getSerDe()));
     }
 
     @VisibleForTesting
@@ -254,6 +315,7 @@ public class HivePageSourceProvider
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
             SplitContext splitContext,
+            HiveFileContext fileContext,
             Optional<EncryptionInformation> encryptionInformation)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
@@ -302,7 +364,6 @@ public class HivePageSourceProvider
             return Optional.of(new HiveEmptySplitPageSource());
         }
 
-        CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
@@ -318,18 +379,9 @@ public class HivePageSourceProvider
                             handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(
-                            splitContext.isCacheable(),
-                            cacheQuota,
-                            split.getFileSplit().getExtraFileInfo().map(BinaryExtraHiveFileInfo::new),
-                            OptionalLong.of(split.getFileSplit().getFileSize()),
-                            OptionalLong.of(split.getFileSplit().getStart()),
-                            OptionalLong.of(split.getFileSplit().getLength()),
-                            split.getFileSplit().getFileModifiedTime(),
-                            HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
+                    fileContext,
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled(),
-                    layout.isFooterStatsUnreliable());
+                    layout.isAppendRowNumberEnabled());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -516,12 +568,6 @@ public class HivePageSourceProvider
             List<ColumnMapping> regularAndInterimColumnMappings,
             Optional<BucketAdaptation> bucketAdaptation)
     {
-        if (!hiveColumns.isEmpty() && hiveColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-            throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
-                    "Table " + tableName.toString() + " has file (" + fileSplit.getPath() + ") of format " + storage.getStorageFormat().getOutputFormat() +
-                    ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
-        }
-
         for (HiveRecordCursorProvider provider : cursorProviders) {
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
