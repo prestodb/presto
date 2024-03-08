@@ -55,7 +55,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am --no-transfer-progress -pl presto-kudu
       - name: Kudu Tests
         run: |
           presto-kudu/bin/run_kudu_tests.sh 3 null
