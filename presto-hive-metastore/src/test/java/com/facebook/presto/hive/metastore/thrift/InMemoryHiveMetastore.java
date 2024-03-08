@@ -524,12 +524,6 @@ public class InMemoryHiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     private Partition getPartitionFromInMemoryMap(MetastoreContext metastoreContext, PartitionName name)
     {
         com.facebook.presto.hive.metastore.Partition partition = partitions.get(name);

@@ -491,11 +491,5 @@ public class TestAccessControlManager
         {
             throw new UnsupportedOperationException();
         }
-
-        @Override
-        public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
-        {
-            throw new UnsupportedOperationException();
-        }
     }
 }

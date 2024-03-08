@@ -659,10 +659,4 @@ public abstract class AbstractMockMetadata
     {
         throw new UnsupportedOperationException();
     }
-
-    @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
-    {
-        throw new UnsupportedOperationException();
-    }
 }

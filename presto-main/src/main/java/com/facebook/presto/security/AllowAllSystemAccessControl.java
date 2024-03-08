@@ -212,9 +212,4 @@ public class AllowAllSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
     }
-
-    @Override
-    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-    }
 }

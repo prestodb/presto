@@ -736,22 +736,6 @@ public class AccessControlManager
         }
     }
 
-    @Override
-    public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
-    {
-        requireNonNull(identity, "identity is null");
-        requireNonNull(tableName, "tableName is null");
-
-        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
-
-        authorizationCheck(() -> systemAccessControl.get().checkCanDropConstraint(identity, context, toCatalogSchemaTableName(tableName)));
-
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
-        if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanDropConstraint(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName)));
-        }
-    }
-
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)

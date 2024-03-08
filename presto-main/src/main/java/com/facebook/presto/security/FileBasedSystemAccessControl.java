@@ -55,7 +55,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -413,14 +412,6 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denyRevokeTablePrivilege(privilege.toString(), table.toString());
-        }
-    }
-
-    @Override
-    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
-            denyDropConstraint(table.toString());
         }
     }
 

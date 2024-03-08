@@ -213,9 +213,4 @@ public class AllowAllAccessControl
     public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
     {
     }
-
-    @Override
-    public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
-    {
-    }
 }

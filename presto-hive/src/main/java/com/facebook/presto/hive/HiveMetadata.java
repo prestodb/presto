@@ -3676,14 +3676,6 @@ public class HiveMetadata
         return metastore.commit();
     }
 
-    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
-    {
-        return Stream.of(SystemTableHandler.values())
-                .filter(handler -> handler.matches(tableName))
-                .map(handler -> handler.getSourceTableName(tableName))
-                .findAny();
-    }
-
     @Override
     public TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle connectorTableLayoutHandle, Set<String> relevantPartitionColumns)
     {
@@ -3699,12 +3691,12 @@ public class HiveMetadata
         return Sets.intersection(tableHandle.getPredicateColumns().keySet(), relevantColumns).isEmpty() ? NOT_COVERED : COVERED;
     }
 
-    @Override
-    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
     {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintName);
+        return Stream.of(SystemTableHandler.values())
+                .filter(handler -> handler.matches(tableName))
+                .map(handler -> handler.getSourceTableName(tableName))
+                .findAny();
     }
 
     private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)

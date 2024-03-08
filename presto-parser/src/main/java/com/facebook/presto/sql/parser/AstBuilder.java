@@ -54,7 +54,6 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
-import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -491,16 +490,6 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
-    }
-
-    @Override
-    public Node visitDropConstraint(SqlBaseParser.DropConstraintContext context)
-    {
-        return new DropConstraint(getLocation(context),
-                getQualifiedName(context.tableName),
-                visit(context.name).toString(),
-                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.CONSTRAINT().getSymbol().getTokenIndex()),
-                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.CONSTRAINT().getSymbol().getTokenIndex()));
     }
 
     @Override

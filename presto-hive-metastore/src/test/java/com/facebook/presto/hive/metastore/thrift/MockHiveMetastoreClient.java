@@ -482,11 +482,4 @@ public class MockHiveMetastoreClient
         }
         return Optional.of(new UniqueConstraintsResponse(TEST_UNIQUE_CONSTRAINT));
     }
-
-    @Override
-    public void dropConstraint(String dbName, String tableName, String constraintName)
-            throws TException
-    {
-        // No-op
-    }
 }

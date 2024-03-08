@@ -229,10 +229,4 @@ public abstract class ForwardingSystemAccessControl
     {
         delegate().checkCanRevokeTablePrivilege(identity, context, privilege, table, revokee, grantOptionFor);
     }
-
-    @Override
-    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
-    {
-        delegate().checkCanDropConstraint(identity, context, table);
-    }
 }

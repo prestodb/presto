@@ -36,7 +36,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropColumn;
-import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -1584,23 +1583,6 @@ public final class SqlFormatter
                 builder.append(" FROM ")
                         .append(node.getCatalog().get());
             }
-
-            return null;
-        }
-
-        @Override
-        protected Void visitDropConstraint(DropConstraint node, Integer indent)
-        {
-            builder.append("ALTER TABLE ");
-            if (node.isTableExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(formatName(node.getTableName()))
-                    .append(" DROP CONSTRAINT ");
-            if (node.isConstraintExists()) {
-                builder.append("IF EXISTS ");
-            }
-            builder.append(node.getConstraintName());
 
             return null;
         }

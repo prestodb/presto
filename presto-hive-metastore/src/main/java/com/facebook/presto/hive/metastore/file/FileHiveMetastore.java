@@ -42,9 +42,7 @@ import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -109,7 +107,6 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -140,7 +137,6 @@ public class FileHiveMetastore
     private final JsonCodec<List<PermissionMetadata>> permissionsCodec = JsonCodec.listJsonCodec(PermissionMetadata.class);
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
-    private final JsonCodec<List<TableConstraint>> tableConstraintCodec = JsonCodec.listJsonCodec(TableConstraint.class);
 
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
@@ -1042,20 +1038,6 @@ public class FileHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        Set<TableConstraint> constraints = readConstraintsFile(databaseName, tableName);
-        if (constraints.stream().noneMatch(c -> c.getName().get().equals(constraintName))) {
-            throw new TableConstraintNotFoundException(Optional.of(constraintName));
-        }
-        Set<TableConstraint> updatedConstraints = constraints.stream()
-                .filter(constraint -> constraint.getName().isPresent() && !constraint.getName().get().equals(constraintName))
-                .collect(toSet());
-        writeConstraintsFile(updatedConstraints, databaseName, tableName);
-        return EMPTY_RESULT;
-    }
-
-    @Override
     public synchronized Optional<Long> lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
@@ -1110,21 +1092,6 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
-    }
-
-    private Set<TableConstraint> readConstraintsFile(String databaseName, String tableName)
-    {
-        return new HashSet<TableConstraint>(readFile("constraints", getConstraintsFile(databaseName, tableName), tableConstraintCodec).orElse(emptyList()));
-    }
-
-    private void writeConstraintsFile(Set<TableConstraint> constraints, String databaseName, String tableName)
-    {
-        writeFile("constraints", getConstraintsFile(databaseName, tableName), tableConstraintCodec, ImmutableList.copyOf(constraints), true);
-    }
-
-    private Path getConstraintsFile(String databaseName, String tableName)
-    {
-        return new Path(getTableMetadataDirectory(databaseName, tableName), ".constraints");
     }
 
     private synchronized void deleteTablePrivileges(Table table)

@@ -40,7 +40,6 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -1447,35 +1446,6 @@ public class ThriftHiveMetastore
                                 }
                                 return privileges.build();
                             })));
-        }
-        catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
-    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        Optional<org.apache.hadoop.hive.metastore.api.Table> source = getTable(metastoreContext, databaseName, tableName);
-        if (!source.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-        }
-
-        try {
-            retry()
-                    .stopOnIllegalExceptions()
-                    .run("dropConstraint", stats.getDropConstraint().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> {
-                                client.dropConstraint(databaseName, tableName, constraintName);
-                                return null;
-                            })));
-            return EMPTY_RESULT;
-        }
-        catch (NoSuchObjectException e) {
-            throw new TableConstraintNotFoundException(Optional.of(constraintName));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
