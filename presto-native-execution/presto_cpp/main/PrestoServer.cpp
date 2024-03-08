@@ -43,10 +43,10 @@
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
-#include "velox/exec/SharedArbitrator.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -1030,7 +1030,7 @@ void PrestoServer::registerFileSystems() {
 }
 
 void PrestoServer::registerMemoryArbitrators() {
-  velox::exec::SharedArbitrator::registerFactory();
+  velox::memory::SharedArbitrator::registerFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
