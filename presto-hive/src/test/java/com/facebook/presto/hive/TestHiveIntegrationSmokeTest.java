@@ -2855,7 +2855,7 @@ public class TestHiveIntegrationSmokeTest
             String parentDirectory = new Path(pathName).getParent().toString();
 
             assertTrue(pathName.length() > 0);
-            assertEquals((int) (col0 % 3), col1);
+            assertEquals(col0 % 3, col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
                 assertEquals(partitionPathMap.get(col1), parentDirectory);
