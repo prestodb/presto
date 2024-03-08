@@ -119,7 +119,7 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testFiltersAndProjections()
+    public void testFiltersAndProjections1()
     {
         assertQuery("SELECT * FROM nation");
         assertQuery("SELECT * FROM nation WHERE nationkey = 4");
@@ -139,6 +139,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // "SELECT * FROM nation WHERE nationkey NOT IN (2, 33, " + Long.MAX_VALUE + ")"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", 2, 33)"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", " + Long.MAX_VALUE + ")"
+    }
+
+    @Test
+    public void testFiltersAndProjections2()
+    {
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN 3 AND 7");
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN -10 AND 5");
         assertQuery("SELECT * FROM nation WHERE nationkey < 5 OR nationkey > 10");
@@ -151,6 +156,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('', ';', 'new country w1th $p3c1@l ch@r@c73r5')");
         assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should produce NegatedBytesRange
         assertQuery("SELECT * FROM nation WHERE name <= 'B' OR 'G' <= name");
+    }
+
+    @Test
+    public void testFiltersAndProjections3()
+    {
         assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('RAIL', 'AIR')");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('', 'TRUCK', 'FOB', 'RAIL')");
@@ -169,7 +179,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT * FROM lineitem WHERE linenumber = 1");
         assertQuery("SELECT * FROM lineitem WHERE linenumber > 3");
+    }
 
+    @Test
+    public void testFiltersAndProjections4()
+    {
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint = 3");
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint > 5 AND linenumber_as_smallint < 2");
 
@@ -183,7 +197,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE discount_as_real BETWEEN 0.01 AND 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real < 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real BETWEEN 0.02 AND 0.06");
+    }
 
+    @Test
+    public void testFiltersAndProjections5()
+    {
         assertQuery("SELECT * FROM lineitem WHERE is_open=true");
         assertQuery("SELECT * FROM lineitem WHERE is_open<>true");
         assertQuery("SELECT * FROM lineitem WHERE is_open");
@@ -201,7 +219,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM lineitem WHERE is_returned and NOT is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and  NOT is_open");
+    }
 
+    @Test
+    public void testFiltersAndProjections6()
+    {
         // query with filter using like
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK%'");
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK#%' escape '#'");
@@ -209,7 +231,6 @@ public abstract class AbstractTestNativeGeneralQueries
         // no row passes the filter
         assertQuery(
                 "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount > 0.2");
-
         // remaining filter
         assertQuery("SELECT count(*) FROM orders_ex WHERE contains(map_keys(quantity_by_linenumber), 1)");
 
@@ -1164,7 +1185,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey)), date_trunc('quarter', from_unixtime(orderkey)), date_trunc('month', from_unixtime(orderkey)), date_trunc('day', from_unixtime(orderkey)), date_trunc('hour', from_unixtime(orderkey)), date_trunc('minute', from_unixtime(orderkey)), date_trunc('second', from_unixtime(orderkey)) FROM orders");
     }
 
-    @Test
+    // disabling flaky test https://github.com/prestodb/presto/issues/21821
+    @Test(enabled = false)
     public void testPrestoBenchTables()
     {
         assertQuery("SELECT name from prestobench_nation");
