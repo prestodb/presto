@@ -1507,6 +1507,14 @@ bool Task::isUngroupedExecution() const {
   return not isGroupedExecution();
 }
 
+bool Task::hasMixedExecutionGroup() const {
+  if (!isGroupedExecution()) {
+    return false;
+  }
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  return numDriversUngrouped_ > 0;
+}
+
 bool Task::isRunning() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   return isRunningLocked();

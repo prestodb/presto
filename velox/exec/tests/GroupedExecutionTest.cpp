@@ -15,14 +15,14 @@
  */
 #include <regex>
 
-#include <velox/type/Timestamp.h>
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/exec/OutputBufferManager.h"
-#include "velox/exec/TableScan.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec::test {
@@ -34,6 +34,7 @@ class GroupedExecutionTest : public virtual HiveConnectorTestBase {
   }
 
   static void SetUpTestCase() {
+    FLAGS_velox_testing_enable_arbitration = true;
     HiveConnectorTestBase::SetUpTestCase();
   }
 
@@ -281,6 +282,146 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   EXPECT_EQ(6, taskStats.pipelineStats[2].operatorStats[0].numSplits);
   // Check FilterProject for total number of vectors/batches.
   EXPECT_EQ(18, taskStats.pipelineStats[1].operatorStats[1].inputVectors);
+}
+
+DEBUG_ONLY_TEST_F(
+    GroupedExecutionTest,
+    groupedExecutionWithHashJoinSpillCheck) {
+  // Create source file to read as split input.
+  auto vectors = makeVectors(24, 20);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+
+  struct {
+    bool enableSpill;
+    bool mixedExecutionMode;
+    int expectedNumDrivers;
+    bool expectedSpill;
+
+    std::string debugString() const {
+      return fmt::format(
+          "enableSpill {}, mixedExecutionMode {}, expectedNumDrivers {}, expectedSpill {}",
+          enableSpill,
+          mixedExecutionMode,
+          expectedNumDrivers,
+          expectedSpill);
+    }
+  } testSettings[] = {
+      {false, false, 12, false},
+      {false, true, 9, false},
+      {true, false, 12, true},
+      {true, true, 9, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId probeScanNodeId;
+    core::PlanNodeId buildScanNodeId;
+
+    PlanBuilder planBuilder(planNodeIdGenerator, pool_.get());
+    planBuilder.tableScan(rowType_)
+        .capturePlanNodeId(probeScanNodeId)
+        .project({"c0 as x"});
+    // Hash join.
+    core::PlanNodeId joinNodeId;
+    auto planFragment = planBuilder
+                            .hashJoin(
+                                {"x"},
+                                {"y"},
+                                PlanBuilder(planNodeIdGenerator, pool_.get())
+                                    .tableScan(rowType_, {"c0 > 0"})
+                                    .capturePlanNodeId(buildScanNodeId)
+                                    .project({"c0 as y"})
+                                    .planNode(),
+                                "",
+                                {"x", "y"})
+                            .capturePlanNodeId(joinNodeId)
+                            .partitionedOutput({}, 1, {"x", "y"})
+                            .planFragment();
+
+    planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
+    planFragment.groupedExecutionLeafNodeIds.emplace(probeScanNodeId);
+    if (!testData.mixedExecutionMode) {
+      planFragment.groupedExecutionLeafNodeIds.emplace(buildScanNodeId);
+    }
+    planFragment.numSplitGroups = 2;
+
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+    if (testData.enableSpill) {
+      std::unordered_map<std::string, std::string> configs;
+      configs.emplace(core::QueryConfig::kSpillEnabled, "true");
+      configs.emplace(core::QueryConfig::kJoinSpillEnabled, "true");
+      queryCtx->testingOverrideConfigUnsafe(std::move(configs));
+    }
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::noMoreInput",
+        std::function<void(Operator*)>([&](Operator* op) {
+          if (op->operatorType() != "HashBuild") {
+            return;
+          }
+          ASSERT_EQ(op->canReclaim(), testData.expectedSpill);
+          if (testData.enableSpill) {
+            memory::testingRunArbitration(op->pool());
+          }
+        }));
+
+    auto task = exec::Task::create(
+        "0", std::move(planFragment), 0, std::move(queryCtx));
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    if (testData.enableSpill) {
+      task->setSpillDirectory(spillDirectory->path);
+    }
+
+    // 3 drivers max and 1 concurrent split group to execute one group at a
+    // time.
+    task->start(3, 1);
+    ASSERT_EQ(task->hasMixedExecutionGroup(), testData.mixedExecutionMode);
+
+    // Add split(s) to the build scan.
+    if (testData.mixedExecutionMode) {
+      task->addSplit(buildScanNodeId, makeHiveSplit(filePath->path));
+    } else {
+      task->addSplit(
+          buildScanNodeId, makeHiveSplitWithGroup(filePath->path, 0));
+      task->addSplit(
+          buildScanNodeId, makeHiveSplitWithGroup(filePath->path, 1));
+    }
+    // Add one split for probe split group (0).
+    task->addSplit(probeScanNodeId, makeHiveSplitWithGroup(filePath->path, 0));
+    // Add one split for probe split group (1).
+    task->addSplit(probeScanNodeId, makeHiveSplitWithGroup(filePath->path, 1));
+
+    // Finalize the build split(s).
+    if (testData.mixedExecutionMode) {
+      task->noMoreSplits(buildScanNodeId);
+    } else {
+      task->noMoreSplitsForGroup(buildScanNodeId, 0);
+      task->noMoreSplitsForGroup(buildScanNodeId, 1);
+    }
+    // Finalize probe split groups.
+    task->noMoreSplitsForGroup(probeScanNodeId, 0);
+    task->noMoreSplitsForGroup(probeScanNodeId, 1);
+
+    waitForFinishedDrivers(task, testData.expectedNumDrivers);
+
+    // 'Delete results' from output buffer triggers 'set all output consumed',
+    // which should finish the task.
+    auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
+    outputBufferManager->deleteResults(task->taskId(), 0);
+
+    // Task must be finished at this stage.
+    ASSERT_EQ(task->state(), exec::TaskState::kFinished);
+
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    auto& planStats = taskStats.at(joinNodeId);
+    if (testData.expectedSpill) {
+      ASSERT_GT(planStats.spilledBytes, 0);
+    } else {
+      ASSERT_EQ(planStats.spilledBytes, 0);
+    }
+  }
 }
 
 // Here we test various aspects of grouped/bucketed execution involving

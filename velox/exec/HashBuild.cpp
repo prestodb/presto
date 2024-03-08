@@ -990,6 +990,10 @@ std::string HashBuild::stateName(State state) {
   }
 }
 
+bool HashBuild::canReclaim() const {
+  return canSpill() && !operatorCtx_->task()->hasMixedExecutionGroup();
+}
+
 void HashBuild::reclaim(
     uint64_t /*unused*/,
     memory::MemoryReclaimer::Stats& stats) {

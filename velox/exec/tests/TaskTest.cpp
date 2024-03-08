@@ -18,13 +18,12 @@
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/future/VeloxPromise.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1543,10 +1542,20 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
   task->start(4, 1);
 
   const int numReclaims{10};
+  const uint64_t queryCapacity = task->pool()->parent()->capacity();
   for (int i = 0; i < numReclaims; ++i) {
     MemoryReclaimer::Stats stats;
     task->pool()->reclaim(1000, 1UL << 30, stats);
   }
+  const int64_t reclaimedQueryCapacity =
+      queryCapacity - task->pool()->parent()->capacity();
+  ASSERT_GE(reclaimedQueryCapacity, 0);
+  auto* arbitrator = dynamic_cast<memory::SharedArbitrator*>(
+      memory::memoryManager()->arbitrator());
+  if (arbitrator != nullptr) {
+    arbitrator->testingFreeCapacity(reclaimedQueryCapacity);
+  }
+
   const auto taskStats = task->taskStats();
   ASSERT_EQ(taskStats.memoryReclaimCount, numReclaims);
   ASSERT_GT(taskStats.memoryReclaimMs, 0);

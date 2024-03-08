@@ -192,8 +192,8 @@ uint64_t SharedArbitrator::growCapacity(
 uint64_t SharedArbitrator::shrinkCapacity(
     MemoryPool* pool,
     uint64_t targetBytes) {
-  uint64_t freedBytes;
-  uint64_t freeCapacity;
+  uint64_t freedBytes{0};
+  uint64_t freeCapacity{0};
   {
     std::lock_guard<std::mutex> l(mutex_);
     ++numReleases_;
@@ -223,6 +223,11 @@ uint64_t SharedArbitrator::shrinkCapacity(
       nullptr, candidates, targetBytes - freedBytes);
   incrementFreeCapacity(freedBytes);
   return freedBytes;
+}
+
+void SharedArbitrator::testingFreeCapacity(uint64_t capacity) {
+  std::lock_guard<std::mutex> l(mutex_);
+  incrementFreeCapacityLocked(capacity);
 }
 
 std::vector<SharedArbitrator::Candidate> SharedArbitrator::getCandidateStats(

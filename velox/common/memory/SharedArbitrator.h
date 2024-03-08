@@ -70,6 +70,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     std::string toString() const;
   };
 
+  /// Returns 'freeCapacity' back to the arbitrator for testing.
+  void testingFreeCapacity(uint64_t freeCapacity);
+
  private:
   // The kind string of shared arbitrator.
   inline static const std::string kind_{"SHARED"};
