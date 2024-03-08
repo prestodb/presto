@@ -95,7 +95,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -147,12 +146,12 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
@@ -233,10 +232,9 @@ public class ThriftHiveMetastore
             List<SQLPrimaryKey> pkCols = pkResponse.get().getPrimaryKeys();
             boolean isEnabled = pkCols.get(0).isEnable_cstr();
             boolean isRely = pkCols.get(0).isRely_cstr();
-            boolean isEnforced = pkCols.get(0).isValidate_cstr();
             String pkName = pkCols.get(0).getPk_name();
-            LinkedHashSet<String> keyCols = pkCols.stream().map(SQLPrimaryKey::getColumn_name).collect(toCollection(LinkedHashSet::new));
-            return Optional.of(new PrimaryKeyConstraint<>(pkName, keyCols, isEnabled, isRely, isEnforced));
+            Set<String> keyCols = pkCols.stream().map(SQLPrimaryKey::getColumn_name).collect(toImmutableSet());
+            return Optional.of(new PrimaryKeyConstraint<>(pkName, keyCols, isEnabled, isRely));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -266,11 +264,10 @@ public class ThriftHiveMetastore
             //create a unique table constraint per bucket
             ImmutableList<UniqueConstraint<String>> result = bucketedConstraints.entrySet().stream().map(e -> {
                 String constraintName = e.getKey();
-                LinkedHashSet<String> columnNames = e.getValue().stream().map(SQLUniqueConstraint::getColumn_name).collect(toCollection(LinkedHashSet::new));
+                Set<String> columnNames = e.getValue().stream().map(SQLUniqueConstraint::getColumn_name).collect(toImmutableSet());
                 boolean isEnabled = e.getValue().get(0).isEnable_cstr();
                 boolean isRely = e.getValue().get(0).isRely_cstr();
-                boolean isEnforced = e.getValue().get(0).isValidate_cstr();
-                return new UniqueConstraint<>(constraintName, columnNames, isEnabled, isRely, isEnforced);
+                return new UniqueConstraint<>(constraintName, columnNames, isEnabled, isRely);
             }).collect(toImmutableList());
 
             return result;

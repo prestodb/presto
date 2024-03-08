@@ -17,11 +17,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
@@ -34,22 +36,20 @@ import static java.util.Objects.requireNonNull;
 public abstract class TableConstraint<T>
 {
     private final Optional<String> name;
-    private final boolean enabled;
-    private final boolean rely;
     private final boolean enforced;
-    private final LinkedHashSet<T> columns;
+    private final boolean rely;
+    private final Set<T> columns;
 
-    protected TableConstraint(Optional<String> name, LinkedHashSet<T> columnNames, boolean enabled, boolean rely, boolean enforced)
+    protected TableConstraint(Optional<String> name, Set<T> columnNames, boolean enforced, boolean rely)
     {
-        this.enabled = enabled;
-        this.rely = rely;
-        this.enforced = enforced;
+        this.enforced = requireNonNull(enforced, "enabled is null");
+        this.rely = requireNonNull(rely, "rely is null");
         this.name = requireNonNull(name, "name is null");
         requireNonNull(columnNames, "columnNames is null");
         if (columnNames.isEmpty()) {
             throw new IllegalArgumentException("columnNames is empty.");
         }
-        this.columns = new LinkedHashSet<>(columnNames);
+        this.columns = unmodifiableSet(new HashSet<>(columnNames));
     }
 
     public abstract <T, R> Optional<TableConstraint<R>> rebaseConstraint(Map<T, R> assignments);
@@ -61,9 +61,9 @@ public abstract class TableConstraint<T>
     }
 
     @JsonProperty
-    public boolean isEnabled()
+    public boolean isEnforced()
     {
-        return enabled;
+        return enforced;
     }
 
     @JsonProperty
@@ -73,13 +73,7 @@ public abstract class TableConstraint<T>
     }
 
     @JsonProperty
-    public boolean isEnforced()
-    {
-        return enforced;
-    }
-
-    @JsonProperty
-    public LinkedHashSet<T> getColumns()
+    public Set<T> getColumns()
     {
         return columns;
     }
@@ -87,7 +81,7 @@ public abstract class TableConstraint<T>
     @Override
     public int hashCode()
     {
-        return Objects.hash(getName(), getColumns(), isEnabled(), isRely(), isEnforced());
+        return Objects.hash(getName(), getColumns(), isEnforced(), isRely());
     }
 
     @Override
@@ -102,9 +96,8 @@ public abstract class TableConstraint<T>
         TableConstraint constraint = (TableConstraint) obj;
         return Objects.equals(this.getName(), constraint.getName()) &&
                 Objects.equals(this.getColumns(), constraint.getColumns()) &&
-                Objects.equals(this.isEnabled(), constraint.isEnabled()) &&
-                Objects.equals(this.isRely(), constraint.isRely()) &&
-                Objects.equals(this.isEnforced(), constraint.isEnforced());
+                Objects.equals(this.isEnforced(), constraint.isEnforced()) &&
+                Objects.equals(this.isRely(), constraint.isRely());
     }
 
     @Override
@@ -114,9 +107,8 @@ public abstract class TableConstraint<T>
         stringBuilder.append(" {");
         stringBuilder.append("name='").append(name.orElse("null")).append('\'');
         stringBuilder.append(", columns='").append(columns).append('\'');
-        stringBuilder.append(", enforced='").append(enabled).append('\'');
+        stringBuilder.append(", enforced='").append(enforced).append('\'');
         stringBuilder.append(", rely='").append(rely).append('\'');
-        stringBuilder.append(", validate='").append(enforced).append('\'');
         stringBuilder.append('}');
         return stringBuilder.toString();
     }
