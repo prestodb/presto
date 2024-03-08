@@ -94,7 +94,7 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
-    private boolean cteFilterAndProjectionPushdownEnabled;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
     private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
