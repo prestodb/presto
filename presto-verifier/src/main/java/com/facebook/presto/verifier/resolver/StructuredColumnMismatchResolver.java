@@ -53,6 +53,12 @@ public class StructuredColumnMismatchResolver
                 ArrayColumnChecksum controlChecksum = (ArrayColumnChecksum) mismatchedColumn.getControlChecksum();
                 ArrayColumnChecksum testChecksum = (ArrayColumnChecksum) mismatchedColumn.getTestChecksum();
 
+                // If this checksum is null then we have FloatingPointColumnChecksum as part of the ArrayColumnChecksum,
+                // which tackles the floating point imprecision. So we don't resolve.
+                if (Objects.isNull(controlChecksum.getChecksum())) {
+                    return Optional.empty();
+                }
+
                 if (!containsFloatingPointType(((ArrayType) columnType).getElementType())
                         || !isCardinalityMatched(controlChecksum, testChecksum)) {
                     return Optional.empty();
