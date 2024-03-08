@@ -300,11 +300,4 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
-
-    /**
-     * Check if identity is allowed to add constraints to the specified table.
-     *
-     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
-     */
-    void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
 }

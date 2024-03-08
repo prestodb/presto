@@ -458,8 +458,8 @@ public class TestCachingHiveMetastore
     {
         assertEquals(mockClient.getAccessCount(), 0);
         List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
-        assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>(Optional.of("pk"), new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false));
-        assertEquals(tableConstraints.get(1), new UniqueConstraint<>(Optional.of("uk"), new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
+        assertEquals(tableConstraints.get(0), new PrimaryKeyConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c1")), true, true, false));
+        assertEquals(tableConstraints.get(1), new UniqueConstraint<>("", new LinkedHashSet<>(ImmutableList.of("c2")), true, true, false));
         assertEquals(mockClient.getAccessCount(), 2);
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 2);

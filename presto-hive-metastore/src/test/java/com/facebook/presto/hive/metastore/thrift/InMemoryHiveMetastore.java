@@ -29,7 +29,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
@@ -527,12 +526,6 @@ public class InMemoryHiveMetastore
 
     @Override
     public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
     {
         throw new UnsupportedOperationException();
     }

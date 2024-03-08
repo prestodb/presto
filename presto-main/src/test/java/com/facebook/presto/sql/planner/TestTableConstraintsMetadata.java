@@ -61,7 +61,7 @@ public class TestTableConstraintsMetadata
         columns.add(new ColumnMetadata(ROW_NUMBER_COLUMN_NAME, BIGINT, null, true));
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         List<TableConstraint<String>> constraints = getTableConstraints(tpchTable.getTableName());
-        return new ConnectorTableMetadata(tableName, columns.build(), emptyMap(), Optional.empty(), constraints, nameToHandleMap);
+        return new ConnectorTableMetadata(tableName, columns.build(), emptyMap(), Optional.empty(), ConnectorTableMetadata.rebaseTableConstraints(constraints, nameToHandleMap));
     }
 
     private static List<TableConstraint<String>> getTableConstraints(String tableName)
@@ -70,12 +70,12 @@ public class TestTableConstraintsMetadata
         List<TableConstraint<String>> constraints = new ArrayList<>();
         TpchTableConstraints tpchProperties = new TpchTableConstraints();
         for (LinkedHashSet<String> pkcols : tpchProperties.lookupPK(tableName)) {
-            PrimaryKeyConstraint pk = new PrimaryKeyConstraint(Optional.of(tableName + "pk"), pkcols, false, true, false);
+            PrimaryKeyConstraint pk = new PrimaryKeyConstraint(tableName + "pk", pkcols, false, true, false);
             constraints.add(pk);
         }
         //Unique constraints
         for (LinkedHashSet<String> pkcols : tpchProperties.lookupUKs(tableName)) {
-            UniqueConstraint pk = new UniqueConstraint(Optional.of(tableName + "pk"), pkcols, false, true, false);
+            UniqueConstraint pk = new UniqueConstraint(tableName + "pk", pkcols, false, true, false);
             constraints.add(pk);
         }
         return constraints;

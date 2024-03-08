@@ -39,7 +39,6 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -847,18 +846,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Drop the specified constraint
+     * Drops the specified constraint
      */
     default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table constraints");
-    }
-
-    /**
-     * Add the specified constraint
-     */
-    default void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding table constraints");
     }
 }

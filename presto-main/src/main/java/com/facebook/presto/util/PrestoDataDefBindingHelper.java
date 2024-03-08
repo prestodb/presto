@@ -14,7 +14,6 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.execution.AddColumnTask;
-import com.facebook.presto.execution.AddConstraintTask;
 import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
@@ -51,7 +50,6 @@ import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TruncateTableTask;
 import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.sql.tree.AddColumn;
-import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
@@ -120,7 +118,6 @@ public class PrestoDataDefBindingHelper
         dataDefBuilder.put(RenameColumn.class, RenameColumnTask.class);
         dataDefBuilder.put(DropColumn.class, DropColumnTask.class);
         dataDefBuilder.put(DropConstraint.class, DropConstraintTask.class);
-        dataDefBuilder.put(AddConstraint.class, AddConstraintTask.class);
         dataDefBuilder.put(DropTable.class, DropTableTask.class);
         dataDefBuilder.put(TruncateTable.class, TruncateTableTask.class);
         dataDefBuilder.put(CreateView.class, CreateViewTask.class);
