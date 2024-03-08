@@ -86,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -490,11 +491,15 @@ public class IcebergDistributedTestBase
     @Test(dataProvider = "timezones")
     public void testPartitionedByTimestampType(String zoneId, boolean legacyTimestamp)
     {
-        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+        Session sessionForTimeZone = sessionForTimezone(zoneId, legacyTimestamp);
+        testWithAllFileFormats(sessionForTimeZone, (session, fileFormat) -> testPartitionedByTimestampTypeForFormat(session, fileFormat));
+    }
 
+    private void testPartitionedByTimestampTypeForFormat(Session session, FileFormat fileFormat)
+    {
         try {
             // create iceberg table partitioned by column of TimestampType, and insert some data
-            assertQuerySucceeds(session, "create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+            assertQuerySucceeds(session, format("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'], format = '%s')", fileFormat.name()));
             assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
             // validate return data of TimestampType
@@ -1295,5 +1300,11 @@ public class IcebergDistributedTestBase
             sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
         }
         return sessionBuilder.build();
+    }
+
+    private void testWithAllFileFormats(Session session, BiConsumer<Session, FileFormat> test)
+    {
+        test.accept(session, FileFormat.PARQUET);
+        test.accept(session, FileFormat.ORC);
     }
 }

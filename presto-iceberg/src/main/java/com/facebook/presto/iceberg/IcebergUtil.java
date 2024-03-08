@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -105,6 +106,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -118,6 +120,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
@@ -149,6 +152,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -408,7 +412,7 @@ public final class IcebergUtil
         }
     }
 
-    private static boolean isValidPartitionType(Type type)
+    private static boolean isValidPartitionType(FileFormat fileFormat, Type type)
     {
         return type instanceof DecimalType ||
                 BOOLEAN.equals(type) ||
@@ -419,25 +423,27 @@ public final class IcebergUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                type instanceof TimestampType ||
+                (TIME.equals(type) && fileFormat == PARQUET) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
 
-    private static void verifyPartitionTypeSupported(String partitionName, com.facebook.presto.common.type.Type type)
+    private static void verifyPartitionTypeSupported(FileFormat fileFormat, String partitionName, Type type)
     {
-        if (!isValidPartitionType(type)) {
+        if (!isValidPartitionType(fileFormat, type)) {
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
         }
     }
 
     private static NullableValue parsePartitionValue(
+            FileFormat fileFormat,
             String partitionStringValue,
             Type prestoType,
             String partitionName)
     {
-        verifyPartitionTypeSupported(partitionName, prestoType);
+        verifyPartitionTypeSupported(fileFormat, partitionName, prestoType);
 
         Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
@@ -451,7 +457,7 @@ public final class IcebergUtil
             List<IcebergColumnHandle> partitionColumns)
     {
         IcebergTableName name = ((IcebergTableHandle) tableHandle).getIcebergTableName();
-
+        FileFormat fileFormat = getFileFormat(icebergTable);
         // Empty iceberg table would cause `snapshotId` not present
         Optional<Long> snapshotId = resolveSnapshotIdByName(icebergTable, name);
         if (!snapshotId.isPresent()) {
@@ -494,7 +500,7 @@ public final class IcebergUtil
                         }
                     }
 
-                    NullableValue partitionValue = parsePartitionValue(partitionStringValue, toPrestoType(type, typeManager), partition.toString());
+                    NullableValue partitionValue = parsePartitionValue(fileFormat, partitionStringValue, toPrestoType(type, typeManager), partition.toString());
                     Optional<IcebergColumnHandle> column = partitionColumns.stream()
                             .filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getId(), field.sourceId()))
                             .findAny();
@@ -584,7 +590,10 @@ public final class IcebergUtil
             if (type.equals(DOUBLE)) {
                 return parseDouble(valueString);
             }
-            if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
+            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+                return MICROSECONDS.toMillis(parseLong(valueString));
+            }
+            if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
                 return parseLong(valueString);
             }
             if (type instanceof VarcharType) {
