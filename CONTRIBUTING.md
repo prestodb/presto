@@ -355,6 +355,8 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 
 * When appropriate use Java 8 Stream API
 * Categorize errors when throwing an exception
+* **Tests**
+    * Avoid adding `Thread.sleep` in tests--these can fail due to environmental conditions, such as garbage collection or noisy neighbors in the CI environment.
 
 
 ## Commit Standards
