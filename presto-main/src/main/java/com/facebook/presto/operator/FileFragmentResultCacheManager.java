@@ -78,6 +78,8 @@ public class FileFragmentResultCacheManager
 
     private final Cache<CacheKey, CacheEntry> cache;
 
+    private final boolean inputDataStatsEnabled;
+
     // TODO: Decouple CacheKey by encoding PlanNode and SplitIdentifier separately so we don't have to keep too many objects in memory
     @Inject
     public FileFragmentResultCacheManager(
@@ -105,6 +107,7 @@ public class FileFragmentResultCacheManager
                 .removalListener(new CacheRemovalListener())
                 .recordStats()
                 .build();
+        this.inputDataStatsEnabled = cacheConfig.isInputDataStatsEnabled();
 
         File target = new File(baseDirectory.toUri());
         if (!target.exists()) {
@@ -133,7 +136,7 @@ public class FileFragmentResultCacheManager
     }
 
     @Override
-    public Future<?> put(String serializedPlan, Split split, List<Page> result)
+    public Future<?> put(String serializedPlan, Split split, List<Page> result, long inputDataSize, long inputPositions)
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         long resultSize = getPagesSize(result);
@@ -147,7 +150,7 @@ public class FileFragmentResultCacheManager
 
         fragmentCacheStats.addInFlightBytes(resultSize);
         Path path = baseDirectory.resolve(randomUUID().toString().replaceAll("-", "_"));
-        return flushExecutor.submit(() -> cachePages(key, path, result, resultSize));
+        return flushExecutor.submit(() -> cachePages(key, path, result, resultSize, inputDataSize, inputPositions));
     }
 
     private static long getPagesSize(List<Page> pages)
@@ -157,14 +160,18 @@ public class FileFragmentResultCacheManager
                 .sum();
     }
 
-    private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize)
+    private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize, long inputDataSize, long inputPositions)
     {
+        if (!inputDataStatsEnabled) {
+            inputDataSize = 0;
+            inputPositions = 0;
+        }
         try {
             Files.createFile(path);
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
                 long resultPhysicalBytes = output.size();
-                cache.put(key, new CacheEntry(path, resultPhysicalBytes));
+                cache.put(key, new CacheEntry(path, resultPhysicalBytes, inputDataSize, inputPositions));
                 fragmentCacheStats.incrementCacheEntries();
                 fragmentCacheStats.addCacheSizeInBytes(resultPhysicalBytes);
             }
@@ -196,26 +203,26 @@ public class FileFragmentResultCacheManager
     }
 
     @Override
-    public Optional<Iterator<Page>> get(String serializedPlan, Split split)
+    public FragmentCacheResult get(String serializedPlan, Split split)
     {
         CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         CacheEntry cacheEntry = cache.getIfPresent(key);
         if (cacheEntry == null) {
             fragmentCacheStats.incrementCacheMiss();
-            return Optional.empty();
+            return new FragmentCacheResult(Optional.empty(), 0, 0);
         }
 
         try {
             InputStream inputStream = newInputStream(cacheEntry.getPath());
             Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
             fragmentCacheStats.incrementCacheHit();
-            return Optional.of(closeWhenExhausted(result, inputStream));
+            return new FragmentCacheResult(Optional.of(closeWhenExhausted(result, inputStream)), cacheEntry.getInputDataSize(), cacheEntry.getInputPositions());
         }
         catch (UncheckedIOException | IOException e) {
             log.error(e, "read path %s error", cacheEntry.getPath());
             // there might be a chance the file has been deleted. We would return cache miss in this case.
             fragmentCacheStats.incrementCacheMiss();
-            return Optional.empty();
+            return new FragmentCacheResult(Optional.empty(), 0, 0);
         }
     }
 
@@ -295,6 +302,8 @@ public class FileFragmentResultCacheManager
     {
         private final Path path;
         private final long resultBytes;
+        private final long inputDataSize;
+        private final long inputPositions;
 
         public Path getPath()
         {
@@ -306,10 +315,22 @@ public class FileFragmentResultCacheManager
             return resultBytes;
         }
 
-        public CacheEntry(Path path, long resultBytes)
+        public long getInputDataSize()
+        {
+            return inputDataSize;
+        }
+
+        public long getInputPositions()
+        {
+            return inputPositions;
+        }
+
+        public CacheEntry(Path path, long resultBytes, long inputDataSize, long inputPositions)
         {
             this.path = requireNonNull(path, "path is null");
             this.resultBytes = resultBytes;
+            this.inputDataSize = inputDataSize;
+            this.inputPositions = inputPositions;
         }
     }
 
