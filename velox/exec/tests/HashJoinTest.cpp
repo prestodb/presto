@@ -2103,7 +2103,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
 }
 
 TEST_P(MultiThreadedHashJoinTest, antiJoin) {
-  auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
+  auto probeVectors = makeBatches(64, [&](int32_t /*unused*/) {
     return makeRowVector(
         {"t0", "t1"},
         {
@@ -2111,7 +2111,7 @@ TEST_P(MultiThreadedHashJoinTest, antiJoin) {
             makeFlatVector<int32_t>({0, 1, 2}),
         });
   });
-  auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
+  auto buildVectors = makeBatches(64, [&](int32_t /*unused*/) {
     return makeRowVector(
         {"u0", "u1"},
         {
