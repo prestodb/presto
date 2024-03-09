@@ -28,6 +28,8 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
+using namespace facebook::velox::memory;
+
 namespace {
 
 // Returns the max capacity to grow of memory 'pool'. The calculation is based
