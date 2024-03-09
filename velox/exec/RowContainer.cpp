@@ -837,7 +837,7 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
 }
 
 void RowContainer::extractProbedFlags(
-    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+    const char* const* rows,
     int32_t numRows,
     bool setNullForNullKeysRow,
     bool setNullForNonProbedRow,
