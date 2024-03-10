@@ -14,11 +14,13 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -153,15 +155,20 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.longBitsToDouble;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
+import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -187,6 +194,16 @@ public final class IcebergUtil
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
+
+    public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
+    public static final long DOUBLE_POSITIVE_INFINITE = 0x7ff0000000000000L;
+    public static final long DOUBLE_NEGATIVE_ZERO = 0x8000000000000000L;
+    public static final long DOUBLE_NEGATIVE_INFINITE = 0xfff0000000000000L;
+
+    public static final int REAL_POSITIVE_ZERO = 0x00000000;
+    public static final int REAL_POSITIVE_INFINITE = 0x7f800000;
+    public static final int REAL_NEGATIVE_ZERO = 0x80000000;
+    public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     private IcebergUtil() {}
 
@@ -735,6 +752,160 @@ public final class IcebergUtil
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
+    /**
+     * Returns the maximum value that compares less than {@code value}.
+     * <p>
+     * The type of the value must match {@code #type.getJavaType()}.
+     *
+     * @throws IllegalStateException if the type is not {@code #isOrderable()}
+     */
+    public static Optional<Object> getPreviousValue(Type type, Object value)
+    {
+        if (!type.isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + type);
+        }
+        requireNonNull(value, "value is null");
+
+        if (type.equals(BIGINT) || type instanceof TimestampType) {
+            long currentValue = (long) value;
+            if (currentValue == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+
+        if (type.equals(INTEGER) || type.equals(DATE)) {
+            long currentValue = toIntExact((long) value);
+            if (currentValue == Integer.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+
+        if (type.equals(SMALLINT)) {
+            long currentValue = (long) value;
+            checkValueValid(SMALLINT, currentValue);
+            if (currentValue == Short.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+
+        if (type.equals(TINYINT)) {
+            long currentValue = (long) value;
+            checkValueValid(TINYINT, currentValue);
+            if (currentValue == Byte.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+
+        if (type.equals(DOUBLE)) {
+            long longBitForDouble = (long) value;
+            checkValueValid(DOUBLE, longBitForDouble);
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.of(DOUBLE_POSITIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue - ulp(currentValue)));
+        }
+
+        if (type.equals(REAL)) {
+            int intBitForFloat = (int) value;
+            checkValueValid(REAL, intBitForFloat);
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.of(REAL_POSITIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue - ulp(currentValue)));
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the minimum value that compares greater than {@code value}.
+     * <p>
+     * The type of the value must match {@code #type.getJavaType()}.
+     *
+     * @throws IllegalStateException if this type is not {@code #isOrderable() orderable}
+     */
+    public static Optional<Object> getNextValue(Type type, Object value)
+    {
+        if (!type.isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + type);
+        }
+        requireNonNull(value, "value is null");
+
+        if (type.equals(BIGINT) || type instanceof TimestampType) {
+            long currentValue = (long) value;
+            if (currentValue == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+
+        if (type.equals(INTEGER) || type.equals(DATE)) {
+            long currentValue = toIntExact((long) value);
+            if (currentValue == Integer.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+
+        if (type.equals(SMALLINT)) {
+            long currentValue = (long) value;
+            checkValueValid(SMALLINT, currentValue);
+            if (currentValue == Short.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+
+        if (type.equals(TINYINT)) {
+            long currentValue = (long) value;
+            checkValueValid(TINYINT, currentValue);
+            if (currentValue == Byte.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+
+        if (type.equals(DOUBLE)) {
+            long longBitForDouble = (long) value;
+            checkValueValid(DOUBLE, longBitForDouble);
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.of(DOUBLE_NEGATIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue + ulp(currentValue)));
+        }
+
+        if (type.equals(REAL)) {
+            int intBitForFloat = (int) value;
+            checkValueValid(REAL, intBitForFloat);
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.of(REAL_NEGATIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue + ulp(currentValue)));
+        }
+
+        return Optional.empty();
+    }
+
     public static Map<Integer, HivePartitionKey> getPartitionKeys(ContentScanTask<DataFile> scanTask)
     {
         StructLike partition = scanTask.file().partition();
@@ -827,6 +998,41 @@ public final class IcebergUtil
                 return new DeleteFilesIterator(table.specs(), fileTasks.iterator(), requestedPartitionSpec, requestedSchema);
             }
         };
+    }
+
+    private static void checkValueValid(Type type, long value)
+    {
+        if (type.equals(SMALLINT)) {
+            if (value > Short.MAX_VALUE) {
+                throw new GenericInternalException(format("Value %d exceeds MAX_SHORT", value));
+            }
+            if (value < Short.MIN_VALUE) {
+                throw new GenericInternalException(format("Value %d is less than MIN_SHORT", value));
+            }
+        }
+
+        if (type.equals(TINYINT)) {
+            if (value > Byte.MAX_VALUE) {
+                throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+            }
+            if (value < Byte.MIN_VALUE) {
+                throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
+            }
+        }
+
+        if (type.equals(DOUBLE)) {
+            if (value > DOUBLE_POSITIVE_INFINITE && value < DOUBLE_NEGATIVE_ZERO ||
+                    value > DOUBLE_NEGATIVE_INFINITE && value < DOUBLE_POSITIVE_ZERO) {
+                throw new GenericInternalException(format("Value %d exceeds the range of double", value));
+            }
+        }
+
+        if (type.equals(REAL)) {
+            if (value > REAL_POSITIVE_INFINITE && value < REAL_NEGATIVE_ZERO ||
+                    value > REAL_NEGATIVE_INFINITE && value < REAL_POSITIVE_ZERO) {
+                throw new GenericInternalException(format("Value %d exceeds the range of real", value));
+            }
+        }
     }
 
     private static class DeleteFilesIterator

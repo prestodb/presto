@@ -66,6 +66,8 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.getNextValue;
+import static com.facebook.presto.iceberg.IcebergUtil.getPreviousValue;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -303,9 +305,9 @@ public class IcebergPlanOptimizer
         }
 
         ColumnTransform transform = PartitionTransforms.getColumnTransform(field, column.getType());
-        ValueSet valueSet = domain.getValues();
+        ValueSet domainValues = domain.getValues();
 
-        boolean canEnforce = valueSet.getValuesProcessor().transform(
+        boolean canEnforce = domainValues.getValuesProcessor().transform(
                 ranges -> {
                     for (Range range : ranges.getOrderedRanges()) {
                         if (!canEnforceRangeWithPartitioningField(field, transform, range, session)) {
@@ -335,14 +337,14 @@ public class IcebergPlanOptimizer
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
-            Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
+            Optional<Object> adjacentValue = range.isLowInclusive() ? getPreviousValue(type, boundedValue) : getNextValue(type, boundedValue);
             if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
+            Optional<Object> adjacentValue = range.isHighInclusive() ? getNextValue(type, boundedValue) : getPreviousValue(type, boundedValue);
             if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
                 return false;
             }

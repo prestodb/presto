@@ -17,7 +17,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -75,26 +74,6 @@ public final class TimestampType
             return other == TIMESTAMP;
         }
         throw new UnsupportedOperationException("Unsupported precision " + precision);
-    }
-
-    @Override
-    public Optional<Object> getPreviousValue(Object object)
-    {
-        long value = (long) object;
-        if (value == Long.MIN_VALUE) {
-            return Optional.empty();
-        }
-        return Optional.of(value - 1);
-    }
-
-    @Override
-    public Optional<Object> getNextValue(Object object)
-    {
-        long value = (long) object;
-        if (value == Long.MAX_VALUE) {
-            return Optional.empty();
-        }
-        return Optional.of(value + 1);
     }
 
     @Override
