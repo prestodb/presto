@@ -47,7 +47,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
@@ -84,7 +83,6 @@ public class TestPrestoSparkTaskExecution
         taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
 
         nativeTestSession = testSessionBuilder()
-                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
