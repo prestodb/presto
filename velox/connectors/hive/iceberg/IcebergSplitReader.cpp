@@ -92,12 +92,13 @@ uint64_t IcebergSplitReader::next(int64_t size, VectorPtr& output) {
     std::memset((void*)deleteBitmap_->as<int8_t>(), 0L, numBytes);
 
     for (auto iter = positionalDeleteFileReaders_.begin();
-         iter != positionalDeleteFileReaders_.end();
-         iter++) {
+         iter != positionalDeleteFileReaders_.end();) {
       (*iter)->readDeletePositions(
           baseReadOffset_, size, deleteBitmap_->asMutable<int8_t>());
       if ((*iter)->endOfFile()) {
         iter = positionalDeleteFileReaders_.erase(iter);
+      } else {
+        ++iter;
       }
     }
 
