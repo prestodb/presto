@@ -103,6 +103,12 @@ General Aggregate Functions
 
     Returns b
 
+.. spark:function:: skewness(x) -> double
+
+    Returns the skewness of all input values. When the count of `x` is greater than or equal to 1,
+    a non-null output will be generated. When the value of `m2` in the accumulator is 0, a null
+    output will be generated.
+
 .. spark:function:: sum(x) -> bigint|double|real
 
     Returns the sum of `x`.

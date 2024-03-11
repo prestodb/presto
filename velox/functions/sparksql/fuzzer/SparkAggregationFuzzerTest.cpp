@@ -69,7 +69,8 @@ int main(int argc, char** argv) {
           {"first", nullptr},
           {"first_ignore_null", nullptr},
           {"max_by", nullptr},
-          {"min_by", nullptr}};
+          {"min_by", nullptr},
+          {"skewness", nullptr}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
@@ -78,6 +79,10 @@ int main(int argc, char** argv) {
       // https://github.com/facebookincubator/velox/issues/7677
       "max_by",
       "min_by",
+      // The skewness functions of Velox and DuckDB use different
+      // algorithms.
+      // https://github.com/facebookincubator/velox/issues/4845
+      "skewness",
   });
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
