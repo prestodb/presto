@@ -46,7 +46,7 @@ MmapArena::MmapArena(size_t capacityBytes) : byteSize_(capacityBytes) {
         capacityBytes);
   }
   address_ = reinterpret_cast<uint8_t*>(ptr);
-  addFreeBlock(reinterpret_cast<uint64_t>(address_), byteSize_);
+  addFreeBlock(reinterpret_cast<uintptr_t>(address_), byteSize_);
   freeBytes_ = byteSize_;
 }
 
@@ -60,7 +60,7 @@ void* MmapArena::allocate(uint64_t bytes) {
   }
   bytes = roundBytes(bytes);
 
-  // First match in the list that can give this many bytes
+  // First match in the list that can give this many bytes.
   auto lookupItr = freeLookup_.lower_bound(bytes);
   if (lookupItr == freeLookup_.end()) {
     VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
@@ -71,8 +71,8 @@ void* MmapArena::allocate(uint64_t bytes) {
   }
 
   freeBytes_ -= bytes;
-  auto address = *(lookupItr->second.begin());
   auto curFreeBytes = lookupItr->first;
+  auto address = *(lookupItr->second.begin());
   void* result = reinterpret_cast<void*>(address);
   if (curFreeBytes == bytes) {
     removeFreeBlock(address, curFreeBytes);
@@ -92,10 +92,10 @@ void MmapArena::free(void* address, uint64_t bytes) {
   ::madvise(address, bytes, MADV_DONTNEED);
   freeBytes_ += bytes;
 
-  const auto curAddr = reinterpret_cast<uint64_t>(address);
+  const auto curAddr = reinterpret_cast<uintptr_t>(address);
   auto curIter = addFreeBlock(curAddr, bytes);
   auto prevIter = freeList_.end();
-  uint64_t prevAddr;
+  uintptr_t prevAddr;
   uint64_t prevBytes;
   bool mergePrev = false;
   if (curIter != freeList_.begin()) {
@@ -106,26 +106,28 @@ void MmapArena::free(void* address, uint64_t bytes) {
     VELOX_CHECK_LE(
         prevEndAddr,
         curAddr,
-        "New free node (addr:{} size:{}) overlaps with previous free node (addr:{} size:{}) in free list",
+        "New free block (addr:{} size:{}) overlaps with previous free block "
+        "(addr:{} size:{}) in free list",
         curAddr,
         bytes,
         prevAddr,
         prevBytes);
-    mergePrev = prevEndAddr == curAddr;
+    mergePrev = (prevEndAddr == curAddr);
   }
 
-  auto nextItr = std::next(curIter);
-  uint64_t nextAddr;
+  auto nextIter = std::next(curIter);
+  uintptr_t nextAddr;
   uint64_t nextBytes;
   bool mergeNext = false;
-  if (nextItr != freeList_.end()) {
-    nextAddr = nextItr->first;
-    nextBytes = nextItr->second;
+  if (nextIter != freeList_.end()) {
+    nextAddr = nextIter->first;
+    nextBytes = nextIter->second;
     auto curEndAddr = curAddr + bytes;
     VELOX_CHECK_LE(
         curEndAddr,
         nextAddr,
-        "New free node (addr:{} size:{}) overlaps with next free node (addr:{} size:{}) in free list",
+        "New free block (addr:{} size:{}) overlaps with next free block "
+        "(addr:{} size:{}) in free list",
         curAddr,
         bytes,
         nextAddr,
@@ -142,38 +144,39 @@ void MmapArena::free(void* address, uint64_t bytes) {
     removeFromLookup(prevAddr, prevBytes);
     auto newFreeSize = curAddr - prevAddr + bytes;
     if (mergeNext) {
-      removeFreeBlock(nextItr);
+      removeFreeBlock(nextIter);
       newFreeSize = nextAddr - prevAddr + nextBytes;
     }
-    freeList_[prevIter->first] = newFreeSize;
+    freeList_[prevAddr] = newFreeSize;
     freeLookup_[newFreeSize].emplace(prevAddr);
     return;
   }
 
   if (mergeNext) {
     VELOX_DCHECK(!mergePrev);
-    removeFreeBlock(nextItr);
+    removeFreeBlock(nextIter);
     removeFromLookup(curAddr, bytes);
     const auto newFreeSize = nextAddr - curAddr + nextBytes;
-    freeList_[curIter->first] = newFreeSize;
+    freeList_[curAddr] = newFreeSize;
     freeLookup_[newFreeSize].emplace(curAddr);
   }
 }
 
-void MmapArena::removeFromLookup(uint64_t addr, uint64_t bytes) {
+void MmapArena::removeFromLookup(uintptr_t addr, uint64_t bytes) {
   freeLookup_[bytes].erase(addr);
   if (freeLookup_[bytes].empty()) {
     freeLookup_.erase(bytes);
   }
 }
 
-std::map<uint64_t, uint64_t>::iterator MmapArena::addFreeBlock(
-    uint64_t address,
+std::map<uintptr_t, uint64_t>::iterator MmapArena::addFreeBlock(
+    uintptr_t address,
     uint64_t bytes) {
   auto insertResult = freeList_.emplace(address, bytes);
   VELOX_CHECK(
       insertResult.second,
-      "Trying to free a memory space that is already freed. Already in free list address {} size {}. Attempted to free address {} size {}",
+      "Trying to free a memory space that is already freed. Already in free "
+      "list address {} size {}. Attempted to free address {} size {}",
       address,
       freeList_[address],
       address,
@@ -182,24 +185,24 @@ std::map<uint64_t, uint64_t>::iterator MmapArena::addFreeBlock(
   return insertResult.first;
 }
 
-void MmapArena::removeFreeBlock(uint64_t addr, uint64_t bytes) {
+void MmapArena::removeFreeBlock(uintptr_t addr, uint64_t bytes) {
   freeList_.erase(addr);
   removeFromLookup(addr, bytes);
 }
 
-void MmapArena::removeFreeBlock(std::map<uint64_t, uint64_t>::iterator& iter) {
+void MmapArena::removeFreeBlock(std::map<uintptr_t, uint64_t>::iterator& iter) {
   removeFromLookup(iter->first, iter->second);
   freeList_.erase(iter);
 }
 
 bool MmapArena::checkConsistency() const {
   uint64_t numErrors = 0;
-  auto arenaEndAddress = reinterpret_cast<uint64_t>(address_) + byteSize_;
+  auto arenaEndAddress = reinterpret_cast<uintptr_t>(address_) + byteSize_;
   auto iter = freeList_.begin();
   auto end = freeList_.end();
   int64_t freeListTotalBytes = 0;
   while (iter != end) {
-    // Lookup list should contain the address
+    // Lookup list should contain the address.
     auto freeLookupIter = freeLookup_.find(iter->second);
     if (freeLookupIter == freeLookup_.end() ||
         freeLookupIter->second.find(iter->first) ==
@@ -211,7 +214,7 @@ bool MmapArena::checkConsistency() const {
       numErrors++;
     }
 
-    // Verify current free block end
+    // Verify current free block end.
     auto blockEndAddress = iter->first + iter->second;
     if (blockEndAddress > arenaEndAddress) {
       LOG(WARNING)
@@ -221,7 +224,7 @@ bool MmapArena::checkConsistency() const {
       numErrors++;
     }
 
-    // Verify next free block not overlapping
+    // Verify next free block not overlapping.
     auto next = std::next(iter);
     if (next != end && blockEndAddress > next->first) {
       LOG(WARNING)
@@ -236,7 +239,7 @@ bool MmapArena::checkConsistency() const {
     iter++;
   }
 
-  // Check consistency of lookup list
+  // Check consistency of lookup list.
   int64_t freeLookupTotalBytes = 0;
   for (auto iter = freeLookup_.begin(); iter != freeLookup_.end(); iter++) {
     if (iter->second.empty()) {
@@ -249,7 +252,7 @@ bool MmapArena::checkConsistency() const {
     freeLookupTotalBytes += (iter->first * iter->second.size());
   }
 
-  // Check consistency of freeList_ and freeLookup_ in terms of bytes
+  // Check consistency of freeList_ and freeLookup_ in terms of bytes.
   if (freeListTotalBytes != freeLookupTotalBytes ||
       freeListTotalBytes != freeBytes_) {
     LOG(WARNING)
@@ -277,7 +280,7 @@ std::string MmapArena::toString() const {
 ManagedMmapArenas::ManagedMmapArenas(uint64_t singleArenaCapacity)
     : singleArenaCapacity_(singleArenaCapacity) {
   auto arena = std::make_shared<MmapArena>(singleArenaCapacity);
-  arenas_.emplace(reinterpret_cast<uint64_t>(arena->address()), arena);
+  arenas_.emplace(reinterpret_cast<uintptr_t>(arena->address()), arena);
   currentArena_ = arena;
 }
 
@@ -291,14 +294,14 @@ void* ManagedMmapArenas::allocate(uint64_t bytes) {
   // it ever fails again then it means requested bytes is larger than a single
   // MmapArena's capacity. No further attempts will happen.
   auto newArena = std::make_shared<MmapArena>(singleArenaCapacity_);
-  arenas_.emplace(reinterpret_cast<uint64_t>(newArena->address()), newArena);
+  arenas_.emplace(reinterpret_cast<uintptr_t>(newArena->address()), newArena);
   currentArena_ = newArena;
   return currentArena_->allocate(bytes);
 }
 
 void ManagedMmapArenas::free(void* address, uint64_t bytes) {
   VELOX_CHECK(!arenas_.empty());
-  const uint64_t addressU64 = reinterpret_cast<uint64_t>(address);
+  const auto addressU64 = reinterpret_cast<uintptr_t>(address);
   auto iter = arenas_.lower_bound(addressU64);
   if (iter == arenas_.end() || iter->first != addressU64) {
     VELOX_CHECK(iter != arenas_.begin());
