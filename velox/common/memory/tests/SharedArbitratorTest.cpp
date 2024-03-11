@@ -73,8 +73,10 @@ class FakeMemoryNode : public core::PlanNode {
 
 using AllocationCallback = std::function<TestAllocation(Operator* op)>;
 // If return true, the caller will terminate execution and return early.
-using ReclaimInjectionCallback = std::function<
-    bool(MemoryPool* pool, uint64_t targetByte, MemoryReclaimer::Stats& stats)>;
+using ReclaimInjectionCallback = std::function<bool(
+    memory::MemoryPool* pool,
+    uint64_t targetByte,
+    MemoryReclaimer::Stats& stats)>;
 
 // Custom operator for the custom factory.
 class FakeMemoryOperator : public Operator {
@@ -270,7 +272,7 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
   }
 
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
-  std::unique_ptr<MemoryManager> memoryManager_;
+  std::unique_ptr<memory::MemoryManager> memoryManager_;
   SharedArbitrator* arbitrator_;
   RowTypePtr rowType_;
   VectorFuzzer::Options fuzzerOpts_;
@@ -644,7 +646,7 @@ DEBUG_ONLY_TEST_F(
           return;
         }
         task = values->testingOperatorCtx()->task();
-        MemoryPool* pool = values->pool();
+        memory::MemoryPool* pool = values->pool();
         VELOX_ASSERT_THROW(
             pool->allocate(kMemoryCapacity * 2 / 3),
             "Exceeded memory pool cap");
@@ -658,7 +660,7 @@ DEBUG_ONLY_TEST_F(
   std::atomic<bool> taskAborted{false};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Operator::MemoryReclaimer::reclaim",
-      std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+      std::function<void(memory::MemoryPool*)>(([&](memory::MemoryPool* pool) {
         const std::string re(".*Aggregation");
         if (!RE2::FullMatch(pool->name(), re)) {
           return;
@@ -788,10 +790,10 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, asyncArbitratonFromNonDriverContext) {
   std::atomic<bool> aggregationAllocationOnce{true};
   folly::EventCount aggregationAllocationUnblockWait;
   std::atomic<bool> aggregationAllocationUnblocked{false};
-  std::atomic<MemoryPool*> injectPool{nullptr};
+  std::atomic<memory::MemoryPool*> injectPool{nullptr};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
-      std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
+      std::function<void(memory::MemoryPool*)>(([&](memory::MemoryPool* pool) {
         const std::string re(".*Aggregation");
         if (!RE2::FullMatch(pool->name(), re)) {
           return;
@@ -943,7 +945,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
     std::atomic<bool> injectAllocationOnce{true};
     const int initialBufferLen = 1 << 20;
     std::atomic<void*> buffer{nullptr};
-    std::atomic<MemoryPool*> bufferPool{nullptr};
+    std::atomic<memory::MemoryPool*> bufferPool{nullptr};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Values::getOutput",
         std::function<void(const exec::Values*)>(

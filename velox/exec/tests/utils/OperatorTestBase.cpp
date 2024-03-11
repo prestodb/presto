@@ -38,6 +38,7 @@ DEFINE_bool(
     "Enable to turn on arbitration for tests by default");
 
 using namespace facebook::velox::common::testutil;
+using namespace facebook::velox::memory;
 
 namespace facebook::velox::exec::test {
 
@@ -58,7 +59,7 @@ void OperatorTestBase::SetUpTestCase() {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
   memory::SharedArbitrator::registerFactory();
-  memory::MemoryManagerOptions options;
+  MemoryManagerOptions options;
   options.allocatorCapacity = 8L << 30;
   if (FLAGS_velox_testing_enable_arbitration) {
     options.arbitratorCapacity = 6L << 30;
