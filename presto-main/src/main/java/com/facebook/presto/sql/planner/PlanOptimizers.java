@@ -21,6 +21,7 @@ import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -213,7 +214,8 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            FeaturesConfig featuresConfig)
     {
         this(metadata,
                 sqlParser,
@@ -227,7 +229,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                partitioningProviderManager);
+                partitioningProviderManager,
+                featuresConfig);
     }
 
     @PostConstruct
@@ -257,7 +260,8 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            FeaturesConfig featuresConfig)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -821,7 +825,7 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
         }
 
         //noinspection UnusedAssignment
@@ -860,7 +864,7 @@ public class PlanOptimizers
         builder.add(new MergeJoinForSortedInputOptimizer(metadata, sqlParser));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
+        builder.add(new AddLocalExchanges(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
@@ -871,7 +875,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager()))),
+                        new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
                 // MergePartialAggregationsWithFilter should immediately follow PushPartialAggregationThroughExchange
                 new MergePartialAggregationsWithFilter(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(

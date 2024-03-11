@@ -104,6 +104,11 @@ public abstract class AbstractTestQueryFramework
         return new ObjectMapper();
     }
 
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setOptimizeHashGeneration(true);
+    }
+
     @AfterClass(alwaysRun = true)
     public void close()
             throws Exception
@@ -497,7 +502,7 @@ public abstract class AbstractTestQueryFramework
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
+        FeaturesConfig featuresConfig = createFeaturesConfig();
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
@@ -514,18 +519,19 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new PartitioningProviderManager())
+                new PartitioningProviderManager(),
+                featuresConfig)
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, featuresConfig),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 ImmutableMap.of(),
-                new PlanChecker(new FeaturesConfig(), false));
+                new PlanChecker(featuresConfig, false));
     }
 
     protected static void skipTestUnless(boolean requirement)

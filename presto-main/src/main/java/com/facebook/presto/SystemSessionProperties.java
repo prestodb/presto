@@ -340,7 +340,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
     public static final String NATIVE_JOIN_SPILLER_PARTITION_BITS = "native_join_spiller_partition_bits";
-    public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
@@ -3028,11 +3028,6 @@ public final class SystemSessionProperties
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
     {
         return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
-    }
-
-    public static boolean isNativeExecutionEnabled(Session session)
-    {
-        return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static String getNativeExecutionExecutablePath(Session session)
