@@ -72,7 +72,6 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -112,17 +111,19 @@ public class AddLocalExchanges
 {
     private final Metadata metadata;
     private final SqlParser parser;
+    private final boolean nativeExecution;
 
-    public AddLocalExchanges(Metadata metadata, SqlParser parser)
+    public AddLocalExchanges(Metadata metadata, SqlParser parser, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session).accept(plan, any());
+        PlanWithProperties result = new Rewriter(variableAllocator, idAllocator, session, nativeExecution).accept(plan, any());
         boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isLocal()).findFirst().isPresent();
         return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
     }
@@ -134,13 +135,15 @@ public class AddLocalExchanges
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final TypeProvider types;
+        private final boolean nativeExecution;
 
-        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session)
+        public Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Session session, boolean nativeExecution)
         {
             this.variableAllocator = variableAllocator;
             this.types = TypeProvider.viewOf(variableAllocator.getVariables());
             this.idAllocator = idAllocator;
             this.session = session;
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -763,7 +766,7 @@ public class AddLocalExchanges
         public PlanWithProperties visitJoin(JoinNode node, StreamPreferredProperties parentPreferences)
         {
             PlanWithProperties probe;
-            if (isSpillEnabled(session) && isJoinSpillingEnabled(session) && !isNativeExecutionEnabled(session)) {
+            if (isSpillEnabled(session) && isJoinSpillingEnabled(session) && !nativeExecution) {
                 probe = planAndEnforce(
                         node.getLeft(),
                         fixedParallelism(),
