@@ -765,6 +765,11 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, StreamPreferredProperties parentPreferences)
         {
+            // Java-based implementation of spilling in join requires constant and known number of
+            // LookupJoinOperator's, especially for broadcast joins, when LookupJoinOperator's can be SOURCE
+            // distributed. Native implementation doesn't have this limitation.
+            // Add LocalExchange with ARBITRARY distribution below join probe source to satisfy that requirement
+            // for Java-based execution only.
             PlanWithProperties probe;
             if (isSpillEnabled(session) && isJoinSpillingEnabled(session) && !nativeExecution) {
                 probe = planAndEnforce(
