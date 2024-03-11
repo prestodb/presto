@@ -17,6 +17,7 @@
 #include <velox/common/base/VeloxException.h>
 #include <velox/type/StringView.h>
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
 #include "velox/type/TimestampConversion.h"
@@ -1401,6 +1402,16 @@ TEST_F(JodaDateTimeFormatterTest, formatResultSize) {
   EXPECT_EQ(buildJodaDateTimeFormatter("C")->maxResultSize(timezone), 3);
   // Needs to pad to make result contain 4 digits.
   EXPECT_EQ(buildJodaDateTimeFormatter("CCCC")->maxResultSize(timezone), 4);
+}
+
+TEST_F(JodaDateTimeFormatterTest, betterErrorMessaging) {
+  VELOX_ASSERT_THROW(
+      parseJoda("2057-02-29T14:48:14.891Z", "yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+      "Value 29 for dayOfMonth must be in the range [1,28] for year 2057 and month 2.");
+
+  VELOX_ASSERT_THROW(
+      parseJoda("2057-02-429T14:48:14.891Z", "yyyy-MM-D'T'HH:mm:ss.SSSZ"),
+      "Value 429 for dayOfMonth must be in the range [1,365] for year 2057 and month 2.");
 }
 
 class MysqlDateTimeTest : public DateTimeFormatterTest {};

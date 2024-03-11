@@ -1326,9 +1326,12 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
         return std::nullopt;
       }
       VELOX_USER_FAIL(
-          "Value {} for dayOfMonth must be in the range [1,{}]",
+          "Value {} for dayOfMonth must be in the range [1,{}] "
+          "for year {} and month {}.",
           date.dayOfMonthValues[i],
-          util::getMaxDayOfMonth(date.year, date.month));
+          util::getMaxDayOfMonth(date.year, date.month),
+          date.year,
+          date.month);
     }
   }
 
@@ -1339,9 +1342,12 @@ std::optional<DateTimeResult> DateTimeFormatter::parse(
         return std::nullopt;
       }
       VELOX_USER_FAIL(
-          "Value {} for dayOfMonth must be in the range [1,{}]",
+          "Value {} for dayOfMonth must be in the range [1,{}] "
+          "for year {} and month {}.",
           date.dayOfYearValues[i],
-          util::isLeapYear(date.year) ? 366 : 365);
+          util::isLeapYear(date.year) ? 366 : 365,
+          date.year,
+          date.month);
     }
   }
 
