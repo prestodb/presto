@@ -386,9 +386,6 @@ struct UnHexFunction {
       if (v == -1) {
         return false;
       }
-      // out_type<Varbinary> resize does not guarantee all chars initialized
-      // with 0, filling last char with 0 to align with Spark.
-      resultBuffer[resultSize - 1] = 0;
       resultBuffer[0] = v;
       i += 1;
     }
@@ -399,7 +396,7 @@ struct UnHexFunction {
       if (first == -1 || second == -1) {
         return false;
       }
-      resultBuffer[i / 2] = (first << 4) | second;
+      resultBuffer[(i + 1) / 2] = (first << 4) | second;
       i += 2;
     }
     return true;

@@ -276,11 +276,9 @@ TEST_F(ArithmeticTest, unhex) {
   EXPECT_EQ(unhex("737472696E67"), "string");
   EXPECT_EQ(unhex(""), "");
   EXPECT_EQ(unhex("23"), "#");
-  std::string b("#\0", 2);
-  EXPECT_EQ(unhex("123"), b);
-  EXPECT_EQ(unhex("b23"), b);
-  b = std::string("##\0", 3);
-  EXPECT_EQ(unhex("b2323"), b);
+  EXPECT_EQ(unhex("123"), "\x01#");
+  EXPECT_EQ(unhex("b23"), "\x0B#");
+  EXPECT_EQ(unhex("b2323"), "\x0B##");
   EXPECT_EQ(unhex("F"), "\x0F");
   EXPECT_EQ(unhex("ff"), "\xFF");
   EXPECT_EQ(unhex("G"), std::nullopt);
