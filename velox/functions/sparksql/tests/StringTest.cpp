@@ -227,7 +227,7 @@ class StringTest : public SparkFunctionBaseTest {
   }
 };
 
-TEST_F(StringTest, Ascii) {
+TEST_F(StringTest, ascii) {
   EXPECT_EQ(ascii(std::string("\0", 1)), 0);
   EXPECT_EQ(ascii(" "), 32);
   EXPECT_EQ(ascii("😋"), 128523);
@@ -245,7 +245,7 @@ TEST_F(StringTest, Ascii) {
   EXPECT_EQ(ascii(std::nullopt), std::nullopt);
 }
 
-TEST_F(StringTest, Chr) {
+TEST_F(StringTest, chr) {
   EXPECT_EQ(chr(-16), "");
   EXPECT_EQ(chr(0), std::string("\0", 1));
   EXPECT_EQ(chr(0x100), std::string("\0", 1));
@@ -259,7 +259,7 @@ TEST_F(StringTest, Chr) {
   EXPECT_EQ(chr(std::nullopt), std::nullopt);
 }
 
-TEST_F(StringTest, Instr) {
+TEST_F(StringTest, instr) {
   EXPECT_EQ(instr("SparkSQL", "SQL"), 6);
   EXPECT_EQ(instr(std::nullopt, "SQL"), std::nullopt);
   EXPECT_EQ(instr("SparkSQL", std::nullopt), std::nullopt);
@@ -279,7 +279,7 @@ TEST_F(StringTest, Instr) {
       10);
 }
 
-TEST_F(StringTest, LengthString) {
+TEST_F(StringTest, lengthString) {
   EXPECT_EQ(length(""), 0);
   EXPECT_EQ(length(std::string("\0", 1)), 1);
   EXPECT_EQ(length("1"), 1);
@@ -289,7 +289,7 @@ TEST_F(StringTest, LengthString) {
   EXPECT_EQ(length("1234567890abdef"), 15);
 }
 
-TEST_F(StringTest, LengthBytes) {
+TEST_F(StringTest, lengthBytes) {
   EXPECT_EQ(length_bytes(""), 0);
   EXPECT_EQ(length_bytes(std::string("\0", 1)), 1);
   EXPECT_EQ(length_bytes("1"), 1);
@@ -298,7 +298,7 @@ TEST_F(StringTest, LengthBytes) {
   EXPECT_EQ(length_bytes("1234567890abdef"), 15);
 }
 
-TEST_F(StringTest, MD5) {
+TEST_F(StringTest, md5) {
   EXPECT_EQ(md5(std::nullopt), std::nullopt);
   EXPECT_EQ(md5(""), "d41d8cd98f00b204e9800998ecf8427e");
   EXPECT_EQ(md5("Infinity"), "eb2ac5b04180d8d6011a016aeb8f75b3");
