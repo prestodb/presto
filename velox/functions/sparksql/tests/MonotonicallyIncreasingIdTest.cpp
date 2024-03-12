@@ -20,37 +20,28 @@
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 
-class SparkPartitionIdTest : public SparkFunctionBaseTest {
+class MonotonicallyIncreasingIdTest : public SparkFunctionBaseTest {
  protected:
-  void testSparkPartitionId(int32_t partitionId, int32_t vectorSize) {
+  void testMonotonicallyIncreasingId(
+      int32_t partitionId,
+      int32_t vectorSize,
+      const std::vector<int64_t>& expected) {
     setSparkPartitionId(partitionId);
-    auto result =
-        evaluate("spark_partition_id()", makeRowVector(ROW({}), vectorSize));
-    ASSERT_TRUE(result->isConstantEncoding());
+    auto result = evaluate(
+        "monotonically_increasing_id()", makeRowVector(ROW({}), vectorSize));
+    ASSERT_FALSE(result->isConstantEncoding());
     velox::test::assertEqualVectors(
-        makeConstant(partitionId, vectorSize), result);
+        {makeFlatVector<int64_t>(expected)}, result);
   }
 };
 
-TEST_F(SparkPartitionIdTest, basic) {
-  testSparkPartitionId(0, 1);
-  testSparkPartitionId(100, 1);
-  testSparkPartitionId(0, 100);
-  testSparkPartitionId(100, 100);
+TEST_F(MonotonicallyIncreasingIdTest, basic) {
+  testMonotonicallyIncreasingId(0, 1, {0});
+  testMonotonicallyIncreasingId(2, 2, {17179869184, 17179869185});
+  testMonotonicallyIncreasingId(5, 3, {42949672960, 42949672961, 42949672962});
+  testMonotonicallyIncreasingId(
+      100, 4, {858993459200, 858993459201, 858993459202, 858993459203});
 }
 
-TEST_F(SparkPartitionIdTest, error) {
-  auto rowVector = makeRowVector(ROW({}), 1);
-
-  queryCtx_->testingOverrideConfigUnsafe({{}});
-  VELOX_ASSERT_THROW(
-      evaluate("spark_partition_id()", rowVector),
-      "Spark partition id is not set");
-
-  setSparkPartitionId(-1);
-  VELOX_ASSERT_THROW(
-      evaluate("spark_partition_id()", rowVector),
-      "Invalid Spark partition id");
-}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

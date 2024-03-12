@@ -32,6 +32,7 @@ add_executable(
   LeastGreatestTest.cpp
   MapTest.cpp
   MightContainTest.cpp
+  MonotonicallyIncreasingIdTest.cpp
   RandTest.cpp
   RegexFunctionsTest.cpp
   SizeTest.cpp

@@ -26,11 +26,6 @@ class RandTest : public SparkFunctionBaseTest {
   }
 
  protected:
-  void setSparkPartitionId(int32_t partitionId) {
-    queryCtx_->testingOverrideConfigUnsafe(
-        {{core::QueryConfig::kSparkPartitionId, std::to_string(partitionId)}});
-  }
-
   std::optional<double> rand(int32_t seed, int32_t partitionIndex = 0) {
     setSparkPartitionId(partitionIndex);
     return evaluateOnce<double>(

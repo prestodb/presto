@@ -33,6 +33,7 @@
 #include "velox/functions/sparksql/In.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/MightContain.h"
+#include "velox/functions/sparksql/MonotonicallyIncreasingId.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
@@ -340,6 +341,9 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<SparkPartitionIdFunction, int32_t>(
       {prefix + "spark_partition_id"});
+
+  registerFunction<MonotonicallyIncreasingIdFunction, int64_t>(
+      {prefix + "monotonically_increasing_id"});
 }
 
 } // namespace sparksql

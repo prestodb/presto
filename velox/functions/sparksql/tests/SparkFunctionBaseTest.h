@@ -32,6 +32,11 @@ class SparkFunctionBaseTest : public FunctionBaseTest {
     sparksql::registerFunctions("");
     memory::MemoryManager::testingSetInstance({});
   }
+
+  void setSparkPartitionId(int32_t partitionId) {
+    queryCtx_->testingOverrideConfigUnsafe(
+        {{core::QueryConfig::kSparkPartitionId, std::to_string(partitionId)}});
+  }
 };
 
 } // namespace facebook::velox::functions::sparksql::test
