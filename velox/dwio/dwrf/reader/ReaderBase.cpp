@@ -26,7 +26,6 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::ColumnStatistics;
 using dwio::common::FileFormat;
-using dwio::common::InputStream;
 using dwio::common::LogType;
 using dwio::common::Statistics;
 using dwio::common::encryption::DecrypterFactory;

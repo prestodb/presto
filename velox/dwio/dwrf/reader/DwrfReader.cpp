@@ -28,7 +28,6 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::ColumnSelector;
 using dwio::common::FileFormat;
-using dwio::common::InputStream;
 using dwio::common::ReaderOptions;
 using dwio::common::ReaderStepState;
 using dwio::common::ResultOrActions;
