@@ -131,9 +131,10 @@ class FileSpillMergeStream : public SpillMergeStream {
  public:
   static std::unique_ptr<SpillMergeStream> create(
       std::unique_ptr<SpillReadFile> spillFile) {
-    auto* spillStream = new FileSpillMergeStream(std::move(spillFile));
-    spillStream->nextBatch();
-    return std::unique_ptr<SpillMergeStream>(spillStream);
+    auto spillStream = std::unique_ptr<SpillMergeStream>(
+        new FileSpillMergeStream(std::move(spillFile)));
+    static_cast<FileSpillMergeStream*>(spillStream.get())->nextBatch();
+    return spillStream;
   }
 
   uint32_t id() const override;
