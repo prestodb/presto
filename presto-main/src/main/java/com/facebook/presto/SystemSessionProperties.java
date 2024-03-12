@@ -340,6 +340,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
     public static final String NATIVE_JOIN_SPILLER_PARTITION_BITS = "native_join_spiller_partition_bits";
+    public static final String NATIVE_ROW_NUMBER_SPILLER_PARTITION_BITS = "native_row_number_spiller_partition_bits";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     public static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -1669,8 +1670,14 @@ public final class SystemSessionProperties
                 integerProperty(
                         NATIVE_JOIN_SPILLER_PARTITION_BITS,
                         "Native Execution only. The number of bits (N) used to calculate the " +
-                                "spilling partition number for hash join and RowNumber: 2 ^ N",
-                        2,
+                                "spilling partition number for HashJoin: 2 ^ N",
+                        3,
+                        false),
+                integerProperty(
+                        NATIVE_ROW_NUMBER_SPILLER_PARTITION_BITS,
+                        "Native Execution only. The number of bits (N) used to calculate the " +
+                                "spilling partition number for RowNumber: 2 ^ N",
+                        3,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_ENABLED,

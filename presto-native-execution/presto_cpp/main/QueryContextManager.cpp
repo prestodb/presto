@@ -54,6 +54,8 @@ std::string toVeloxConfig(const std::string& name) {
            QueryConfig::kRowNumberSpillEnabled},
           {"native_join_spiller_partition_bits",
            QueryConfig::kJoinSpillPartitionBits},
+          {"native_row_number_spiller_partition_bits",
+           QueryConfig::kRowNumberSpillPartitionBits},
           {"native_topn_row_number_spill_enabled",
            QueryConfig::kTopNRowNumberSpillEnabled},
           {"native_debug_validate_output_from_operators",
