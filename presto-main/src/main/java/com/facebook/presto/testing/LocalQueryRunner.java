@@ -475,7 +475,8 @@ public class LocalQueryRunner
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                 new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
-                blockEncodingManager);
+                blockEncodingManager,
+                featuresConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
