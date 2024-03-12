@@ -43,7 +43,9 @@ jobs:
           sudo apt-get clean
           rm -rf /opt/hostedtoolcache
           df -h
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - uses: actions/setup-java@v1
         with:
           java-version: 8
@@ -91,7 +93,9 @@ jobs:
           sudo apt-get clean
           rm -rf /opt/hostedtoolcache
           df -h
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - uses: actions/setup-java@v1
         with:
           java-version: 8
