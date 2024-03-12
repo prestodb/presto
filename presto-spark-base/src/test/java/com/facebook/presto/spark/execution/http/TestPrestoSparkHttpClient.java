@@ -50,6 +50,7 @@ import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
@@ -904,7 +905,8 @@ public class TestPrestoSparkHttpClient
                 scheduledExecutorService,
                 scheduledExecutorService,
                 SERVER_INFO_JSON_CODEC,
-                workerProperty);
+                workerProperty,
+                new FeaturesConfig());
         return factory.createNativeExecutionProcess(testSessionBuilder().build(), maxErrorDuration);
     }
 
