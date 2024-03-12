@@ -68,6 +68,7 @@ public class TestIgnoredFunctionsMismatchResolver
                 sqlParser.createStatement(query, PARSING_OPTIONS),
                 ImmutableList.of(),
                 CONTROL,
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 }

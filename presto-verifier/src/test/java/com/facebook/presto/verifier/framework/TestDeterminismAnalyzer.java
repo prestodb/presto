@@ -66,7 +66,7 @@ public class TestDeterminismAnalyzer
 
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty());
         VerificationContext verificationContext = VerificationContext.create(SUITE, NAME);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
@@ -88,9 +88,10 @@ public class TestDeterminismAnalyzer
                 typeManager,
                 prestoAction,
                 ImmutableMap.of(CONTROL, QualifiedName.of("tmp_verifier_c"), TEST, QualifiedName.of("tmp_verifier_t")),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableMap.of(CONTROL, false, TEST, false));
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
-        SourceQuery sourceQuery = new SourceQuery("test", "", "", "", configuration, configuration);
+        SourceQuery sourceQuery = new SourceQuery("test", "", "", "", Optional.empty(), Optional.empty(), configuration, configuration);
 
         return new DeterminismAnalyzer(
                 sourceQuery,
