@@ -227,8 +227,12 @@ bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
   return arbitrator_->growCapacity(pool, getAlivePools(), incrementBytes);
 }
 
-uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
-  return arbitrator_->shrinkCapacity(getAlivePools(), targetBytes);
+uint64_t MemoryManager::shrinkPools(
+    uint64_t targetBytes,
+    bool allowSpill,
+    bool allowAbort) {
+  return arbitrator_->shrinkCapacity(
+      getAlivePools(), targetBytes, allowSpill, allowAbort);
 }
 
 void MemoryManager::dropPool(MemoryPool* pool) {

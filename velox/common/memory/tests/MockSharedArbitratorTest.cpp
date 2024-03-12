@@ -591,47 +591,187 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
 }
 
 TEST_F(MockSharedArbitrationTest, shrinkPools) {
-  struct {
-    uint64_t targetBytes;
-    uint64_t expectedFreedBytes;
+  struct TaskTestData {
+    uint64_t capacity{0};
+    bool reclaimable{false};
+
+    uint64_t expectedCapacityAfterShrink{0};
+    bool expectedAbortAfterShrink{false};
 
     std::string debugString() const {
       return fmt::format(
-          "targetBytes: {}, expectedFreedBytes: {}",
+          "capacity: {}, reclaimable: {}, expectedCapacityAfterShrink: {}, expectedAbortAfterShrink: {}",
+          succinctBytes(capacity),
+          reclaimable,
+          succinctBytes(expectedCapacityAfterShrink),
+          expectedAbortAfterShrink);
+    }
+  };
+
+  struct {
+    std::vector<TaskTestData> taskTestDatas;
+    uint64_t targetBytes;
+    uint64_t expectedFreedBytes;
+    bool allowSpill;
+    bool allowAbort;
+
+    std::string debugString() const {
+      std::stringstream tasksOss;
+      for (const auto& taskTestData : taskTestDatas) {
+        tasksOss << taskTestData.debugString();
+        tasksOss << ",";
+      }
+      return fmt::format(
+          "taskTestDatas: [{}], targetBytes: {}, expectedFreedBytes: {}, allowSpill: {}, allowAbort: {}",
+          tasksOss.str(),
           succinctBytes(targetBytes),
-          succinctBytes(expectedFreedBytes));
+          succinctBytes(expectedFreedBytes),
+          allowSpill,
+          allowAbort);
     }
   } testSettings[] = {
-      {0, kMemoryCapacity},
-      {1UL << 30, kMemoryCapacity},
-      {1, kMemoryPoolTransferCapacity}};
+      {{{kMemoryCapacity / 4, true, 0, false},
+        {kMemoryCapacity / 2, true, 0, false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       0,
+       kMemoryCapacity / 4 * 3,
+       true,
+       false},
+      {{{kMemoryCapacity / 4, true, 0, false},
+        {kMemoryCapacity / 2, true, 0, false},
+        {kMemoryCapacity / 4, false, 0, true}},
+       0,
+       kMemoryCapacity,
+       true,
+       true},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2, true, kMemoryCapacity / 2, false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       0,
+       0,
+       false,
+       false},
+      {{{kMemoryCapacity / 4, true, 0, true},
+        {kMemoryCapacity / 2, true, 0, true},
+        {kMemoryCapacity / 4, false, 0, true}},
+       0,
+       kMemoryCapacity,
+       false,
+       true},
+      {{{kMemoryCapacity / 4, true, 0, false},
+        {kMemoryCapacity / 2, true, 0, false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1UL << 30,
+       kMemoryCapacity / 4 * 3,
+       true,
+       false},
+      {{{kMemoryCapacity / 4, true, 0, false},
+        {kMemoryCapacity / 2, true, 0, false},
+        {kMemoryCapacity / 4, false, 0, true}},
+       1UL << 30,
+       kMemoryCapacity,
+       true,
+       true},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2, true, kMemoryCapacity / 2, false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1UL << 30,
+       0,
+       false,
+       false},
+      {{{kMemoryCapacity / 4, true, 0, true},
+        {kMemoryCapacity / 2, true, 0, true},
+        {kMemoryCapacity / 4, false, 0, true}},
+       1UL << 30,
+       kMemoryCapacity,
+       false,
+       true},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2,
+         true,
+         kMemoryCapacity / 2 - kMemoryPoolTransferCapacity,
+         false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1,
+       kMemoryPoolTransferCapacity,
+       true,
+       false},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2,
+         true,
+         kMemoryCapacity / 2 - kMemoryPoolTransferCapacity,
+         false},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1,
+       kMemoryPoolTransferCapacity,
+       true,
+       true},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2, true, kMemoryCapacity / 2, false},
+
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1,
+       0,
+       false,
+       false},
+      {{{kMemoryCapacity / 4, true, kMemoryCapacity / 4, false},
+        {kMemoryCapacity / 2, true, 0, true},
+        {kMemoryCapacity / 4, false, kMemoryCapacity / 4, false}},
+       1,
+       kMemoryCapacity / 2,
+       false,
+       true}};
+  struct MockTaskContainer {
+    std::shared_ptr<MockTask> task;
+    MockMemoryOperator* op;
+    void* buf;
+    TaskTestData taskTestData;
+  };
+
+  std::function<void(MockTask*, bool)> checkTaskException =
+      [](MockTask* task, bool expectedAbort) {
+        if (!expectedAbort) {
+          ASSERT_EQ(task->error(), nullptr);
+          return;
+        }
+        ASSERT_NE(task->error(), nullptr);
+        VELOX_ASSERT_THROW(
+            std::rethrow_exception(task->error()),
+            "Memory pool aborted to reclaim used memory, current usage");
+      };
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    auto task1 = addTask(kMemoryCapacity / 4);
-    auto* op1 = addMemoryOp(task1);
-    auto* buf1 = op1->allocate(kMemoryCapacity / 4);
-    ASSERT_EQ(op1->capacity(), kMemoryCapacity / 4);
-
-    auto task2 = addTask(kMemoryCapacity);
-    auto* op2 = addMemoryOp(task2);
-    auto* buf2 = op2->allocate(kMemoryCapacity / 4 * 3);
-    ASSERT_EQ(op2->capacity(), kMemoryCapacity / 4 * 3);
+    std::vector<MockTaskContainer> taskContainers;
+    for (const auto& taskTestData : testData.taskTestDatas) {
+      auto task = addTask(taskTestData.capacity);
+      auto* op = addMemoryOp(task, taskTestData.reclaimable);
+      auto* buf = op->allocate(taskTestData.capacity);
+      ASSERT_EQ(op->capacity(), taskTestData.capacity);
+      taskContainers.push_back({task, op, buf, taskTestData});
+    }
 
     ASSERT_EQ(
-        manager_->shrinkPools(testData.targetBytes),
+        manager_->shrinkPools(
+            testData.targetBytes, testData.allowSpill, testData.allowAbort),
         testData.expectedFreedBytes);
-    if (testData.targetBytes == 1) {
-      ASSERT_GT(op1->capacity(), 0);
-      ASSERT_GT(op2->capacity(), 0);
-    } else {
-      ASSERT_EQ(op1->capacity(), 0);
-      ASSERT_EQ(op2->capacity(), 0);
+
+    for (const auto& taskContainer : taskContainers) {
+      ASSERT_EQ(
+          taskContainer.task->capacity(),
+          taskContainer.taskTestData.expectedCapacityAfterShrink);
+      checkTaskException(
+          taskContainer.task.get(),
+          taskContainer.taskTestData.expectedAbortAfterShrink);
+    }
+
+    uint64_t totalCapacity{0};
+    for (const auto& taskContainer : taskContainers) {
+      totalCapacity += taskContainer.task->capacity();
     }
     ASSERT_EQ(
-        op1->capacity() + op2->capacity() +
-            arbitrator_->stats().freeCapacityBytes,
+        totalCapacity + arbitrator_->stats().freeCapacityBytes,
         arbitrator_->capacity());
   }
 }

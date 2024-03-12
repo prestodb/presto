@@ -133,7 +133,9 @@ class FakeTestArbitrator : public MemoryArbitrator {
 
   uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
-      uint64_t /*unused*/) override {
+      uint64_t /*unused*/,
+      bool /*unused*/,
+      bool /*unused*/) override {
     VELOX_NYI();
   }
 

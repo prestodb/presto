@@ -225,11 +225,15 @@ class MemoryManager {
 
   /// Invoked to shrink alive pools to free 'targetBytes' capacity. The function
   /// returns the actual freed memory capacity in bytes. If 'targetBytes' is
-  /// zero, then try to reclaim all the memory from the alive pools.
-  ///
-  /// TODO: add option to enable spilling or not. If spilling is disabled, then
-  /// the arbitrator might reclaim memory by killing queries.
-  uint64_t shrinkPools(uint64_t targetBytes = 0);
+  /// zero, then try to reclaim all the memory from the alive pools. If
+  /// 'allowSpill' is true, it reclaims the used memory by spilling. If
+  /// 'allowAbort' is true, it reclaims the used memory by aborting the queries
+  /// with the most memory usage. If both are true, it first reclaims the used
+  /// memory by spilling and then abort queries to reach the reclaim target.
+  uint64_t shrinkPools(
+      uint64_t targetBytes = 0,
+      bool allowSpill = true,
+      bool allowAbort = false);
 
   /// Default unmanaged leaf pool with no threadsafe stats support. Libraries
   /// using this method can get a pool that is shared with other threads. The

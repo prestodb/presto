@@ -152,10 +152,16 @@ class MemoryArbitrator {
   /// of memory pools by reclaiming free and used memory. The freed memory
   /// capacity is given back to the arbitrator.  If 'targetBytes' is zero, then
   /// try to reclaim all the memory from 'pools'. The function returns the
-  /// actual freed memory capacity in bytes.
+  /// actual freed memory capacity in bytes. If 'allowSpill' is true, it
+  /// reclaims the used memory by spilling. If 'allowAbort' is true, it reclaims
+  /// the used memory by aborting the queries with the most memory usage. If
+  /// both are true, it first reclaims the used memory by spilling and then
+  /// abort queries to reach the reclaim target.
   virtual uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
-      uint64_t targetBytes) = 0;
+      uint64_t targetBytes,
+      bool allowSpill = true,
+      bool allowAbort = false) = 0;
 
   /// The internal execution stats of the memory arbitrator.
   struct Stats {
