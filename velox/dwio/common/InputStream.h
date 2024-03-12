@@ -143,7 +143,7 @@ class ReadFileInputStream final : public InputStream {
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
       IoStatistics* FOLLY_NULLABLE stats = nullptr);
 
-  virtual ~ReadFileInputStream() {}
+  ~ReadFileInputStream() override = default;
 
   uint64_t getLength() const final override {
     return readFile_->size();
