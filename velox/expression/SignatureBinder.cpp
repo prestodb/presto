@@ -138,6 +138,9 @@ bool SignatureBinder::tryBind() {
 bool SignatureBinderBase::checkOrSetIntegerParameter(
     const std::string& parameterName,
     int value) {
+  if (isPositiveInteger(parameterName)) {
+    return atoi(parameterName.c_str()) == value;
+  }
   if (!variables().count(parameterName)) {
     // Return false if the parameter is not found in the signature.
     return false;

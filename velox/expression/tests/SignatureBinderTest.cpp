@@ -240,6 +240,31 @@ TEST(SignatureBinderTest, decimals) {
           "Type variables cannot have constraints");
     }
   }
+  // Scalar function signature with fixed scale.
+  {
+    {
+      auto signature = exec::FunctionSignatureBuilder()
+                           .integerVariable("precision")
+                           .returnType("boolean")
+                           .argumentType("DECIMAL(precision, 6)")
+                           .build();
+      testSignatureBinder(signature, {DECIMAL(11, 6)}, BOOLEAN());
+      assertCannotResolve(signature, {DECIMAL(11, 8)});
+    }
+    {
+      auto signature = exec::FunctionSignatureBuilder()
+                           .integerVariable("precision")
+                           .integerVariable("scale")
+                           .returnType("DECIMAL(precision, scale)")
+                           .argumentType("DECIMAL(precision, 6)")
+                           .argumentType("DECIMAL(18, scale)")
+                           .build();
+      testSignatureBinder(
+          signature, {DECIMAL(11, 6), DECIMAL(18, 4)}, DECIMAL(11, 4));
+      assertCannotResolve(signature, {DECIMAL(11, 6), DECIMAL(20, 4)});
+      assertCannotResolve(signature, {DECIMAL(11, 8), DECIMAL(18, 4)});
+    }
+  }
 }
 
 TEST(SignatureBinderTest, computation) {
