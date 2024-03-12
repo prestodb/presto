@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.jdbc.QueryStats;
 
 import java.util.Optional;
@@ -25,6 +27,11 @@ public class QueryActionStats
 
     private final Optional<QueryStats> queryStats;
     private final Optional<String> extraStats;
+
+    public static QueryActionStats queryIdStats(String queryId)
+    {
+        return new QueryActionStats(Optional.of(QueryStats.create(queryId, StatementStats.builder().setState(QueryState.FINISHED.toString()).build())), Optional.empty());
+    }
 
     public QueryActionStats(Optional<QueryStats> queryStats, Optional<String> extraStats)
     {

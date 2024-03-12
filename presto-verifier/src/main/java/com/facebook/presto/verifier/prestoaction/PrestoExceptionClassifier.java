@@ -47,7 +47,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -136,6 +138,8 @@ public class PrestoExceptionClassifier
                 .addRetryableError(HIVE_FILESYSTEM_ERROR)
                 .addRetryableError(HIVE_CANNOT_OPEN_SPLIT)
                 .addRetryableError(HIVE_METASTORE_ERROR)
+                .addRetryableError(HIVE_TABLE_READ_ONLY)
+                .addRetryableError(HIVE_PARTITION_READ_ONLY)
                 // From JdbcErrorCode
                 .addRetryableError(JDBC_ERROR)
                 // From ThriftErrorCode
@@ -148,6 +152,8 @@ public class PrestoExceptionClassifier
                 .addResubmittedError(HIVE_TABLE_DROPPED_DURING_QUERY)
                 .addResubmittedError(CLUSTER_OUT_OF_MEMORY)
                 .addResubmittedError(ADMINISTRATIVELY_PREEMPTED)
+                .addRetryableError(HIVE_TABLE_READ_ONLY)
+                .addRetryableError(HIVE_PARTITION_READ_ONLY)
                 // Conditional Resubmitted Errors
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(CONTROL_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))

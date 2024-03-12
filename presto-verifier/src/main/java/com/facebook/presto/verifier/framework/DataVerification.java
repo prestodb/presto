@@ -85,14 +85,15 @@ public class DataVerification
     @Override
     protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
     {
-        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), getSourceQuery().getQueryConfiguration(clusterType), clusterType, true);
     }
 
     @Override
     protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
     {
         super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
-        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
+        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString))
+                .setIsReuseTable(queryBundle.map(QueryObjectBundle::isReuseTable).orElse(false));
     }
 
     @Override
@@ -173,7 +174,7 @@ public class DataVerification
             checkState(control.isPresent(), "control is missing");
             return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.get(), control.get());
         }
-        if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
+        if (throwable.isPresent() && ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(controlQueryContext.getState())) {
             checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
             return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
         }

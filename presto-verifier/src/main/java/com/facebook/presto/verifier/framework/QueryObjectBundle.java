@@ -24,20 +24,28 @@ public class QueryObjectBundle
         extends QueryBundle
 {
     private final QualifiedName objectName;
+    private final boolean reuseTable;
 
     public QueryObjectBundle(
             QualifiedName objectName,
             List<Statement> setupQueries,
             Statement query,
             List<Statement> teardownQueries,
-            ClusterType cluster)
+            ClusterType cluster,
+            boolean reuseTable)
     {
         super(setupQueries, query, teardownQueries, cluster);
         this.objectName = requireNonNull(objectName, "objectName is null");
+        this.reuseTable = reuseTable;
     }
 
     public QualifiedName getObjectName()
     {
         return objectName;
+    }
+
+    public boolean isReuseTable()
+    {
+        return reuseTable;
     }
 }
