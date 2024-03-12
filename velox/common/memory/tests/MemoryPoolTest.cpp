@@ -2415,7 +2415,6 @@ TEST(MemoryPoolTest, debugMode) {
          uint64_t size) {
         for (const auto& pair : records) {
           EXPECT_EQ(pair.second.size, size);
-          EXPECT_FALSE(pair.second.callStack.empty());
         }
       };
 

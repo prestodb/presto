@@ -694,7 +694,7 @@ class MemoryPoolImpl : public MemoryPool {
   /// Structure to store allocation details in debug mode.
   struct AllocationRecord {
     uint64_t size;
-    std::string callStack;
+    process::StackTrace callStack;
   };
 
   std::unordered_map<uint64_t, AllocationRecord>& testingDebugAllocRecords() {
