@@ -34,6 +34,8 @@ jobs:
       group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - name: Web UI Checks
         run: presto-main/bin/check_webui.sh
