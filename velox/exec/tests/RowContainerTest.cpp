@@ -393,7 +393,6 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     return rows;
   }
 
-  template <typename T>
   void testRowContainerCompareAPIs(
       const TypePtr& type,
       const VectorPtr& values,
@@ -466,12 +465,58 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     }
   }
 
-  template <typename T, typename V>
-  void testOrderAndNullsFirstVariations(
+  template <bool canHandleNulls>
+  void testRowContainerEqualsAPI(
+      const TypePtr& type,
+      const VectorPtr& lhs,
+      const VectorPtr& rhs,
+      const std::vector<bool>& expected) {
+    auto numRows = lhs->size();
+    EXPECT_EQ(numRows, rhs->size());
+    EXPECT_EQ(numRows, expected.size());
+
+    auto rowContainer = makeRowContainer({type}, {type}, false);
+    DecodedVector lhsDecoded(*lhs);
+    auto rows = storeRows(lhsDecoded, numRows, *rowContainer);
+
+    DecodedVector rhsDecoded(*rhs);
+
+    int32_t index{0};
+    for (auto row : rows) {
+      ASSERT_EQ(
+          expected[index],
+          rowContainer->equals<canHandleNulls>(
+              row, rowContainer->columnAt(0), rhsDecoded, index))
+          << fmt::format(
+                 "Mismatch at index {} with canHandleNulls {}",
+                 index,
+                 canHandleNulls);
+      ++index;
+    }
+  }
+
+  void testRowContainerEqualityEdgeValues(
+      const TypePtr& type,
+      const VectorPtr& values) {
+    auto numRows = values->size();
+    if (values->mayHaveNulls()) {
+      auto numNulls = BaseVector::countNulls(values->nulls(), 0, numRows);
+      auto vecWithoutNulls = values->slice(numNulls, numRows - numNulls);
+      std::vector<bool> expectedResults(vecWithoutNulls->size(), true);
+      testRowContainerEqualsAPI<false>(
+          type, vecWithoutNulls, vecWithoutNulls, expectedResults);
+    } else {
+      std::vector<bool> expectedResults(numRows, true);
+      testRowContainerEqualsAPI<true>(type, values, values, expectedResults);
+    }
+  }
+
+  template <typename T>
+  void testOrderAndEqualsWithNullsFirstVariations(
       const TypePtr& type,
       const VectorPtr& values,
-      const std::vector<std::optional<V>>& ascNullsFirstOrder,
-      std::function<VectorPtr(const std::vector<std::optional<V>>&)>
+      const std::vector<std::optional<T>>& ascNullsFirstOrder,
+      std::function<VectorPtr(const std::vector<std::optional<T>>&)>
           generateExpectedVector) {
     // The default flags are ascending == true, nullsFirst == true.
     // std::nullopt means use the default for the compare function.
@@ -479,16 +524,18 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
         {{std::nullopt}}, {{true, false}}, {{false, true}}, {{false, false}}};
 
     for (auto flags : compareFlags) {
-      std::vector<std::optional<V>> expectedOrder{ascNullsFirstOrder};
+      std::vector<std::optional<T>> expectedOrder{ascNullsFirstOrder};
       // The expectedOrder is ascNullsFirstOrder for the case
       // where no compare flags are provided.
       if (flags.has_value()) {
-        changeSortingOrder<V>(expectedOrder, flags.value());
+        changeSortingOrder<T>(expectedOrder, flags.value());
       }
       auto expected = generateExpectedVector(expectedOrder);
 
-      testRowContainerCompareAPIs<T>(type, values, expected, flags);
+      testRowContainerCompareAPIs(type, values, expected, flags);
     }
+
+    testRowContainerEqualityEdgeValues(type, values);
   }
 
 #define TEST_FLOATING_TYPE_LIMIT_VARIABLES        \
@@ -508,10 +555,86 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     std::vector<std::optional<T>> ascNullsFirstOrder = {
         std::nullopt, lowest, 0.0, min, max, inf, nan};
 
-    testOrderAndNullsFirstVariations<T, T>(
+    testOrderAndEqualsWithNullsFirstVariations<T>(
         type, values, ascNullsFirstOrder, [&](const auto& expectedOrder) {
           return makeNullableFlatVector<T>(expectedOrder);
         });
+  }
+
+  /// This function constructions a vector of random floating point
+  /// values including special floating point values as well as an
+  /// boolean result vector. The result vector contains the expected
+  /// boolean result if a value at data vector position i is compared
+  /// with a NaN.
+  template <typename T>
+  void populateFloatingPointTestVectorsForNaNComparison(
+      int32_t numRows,
+      std::vector<std::optional<T>>& rawData,
+      std::vector<bool>& rawExpected) {
+    TEST_FLOATING_TYPE_LIMIT_VARIABLES;
+    std::mt19937 gen(numRows);
+
+    std::vector<std::optional<T>> rawSpecialValues = {
+        std::nullopt, min, 0.0, lowest, max, inf};
+    std::vector<bool> rawExpectedSpecialValues(rawSpecialValues.size(), false);
+    // Make sure the null value is at the beginning of the dataset.
+    // This knowledge is later used to build vectors without null values.
+    rawData.insert(
+        rawData.end(), rawSpecialValues.begin(), rawSpecialValues.end());
+    rawExpected.insert(
+        rawExpected.end(),
+        rawExpectedSpecialValues.begin(),
+        rawExpectedSpecialValues.end());
+
+    while (numRows) {
+      auto value = folly::Random::randDouble(min, max, gen);
+      // Intersperse nan values.
+      if (static_cast<int64_t>(std::fmod(value, 3.0)) == 0) {
+        rawData.push_back(nan);
+        rawExpected.push_back(true);
+      } else {
+        rawData.push_back(value);
+        rawExpected.push_back(false);
+      }
+      --numRows;
+    }
+  }
+
+  template <typename T>
+  void runTestNanEquals(
+      const TypePtr& type,
+      const VectorPtr& lhs,
+      const VectorPtr& rhs,
+      const std::vector<bool>& rawExpected) {
+    auto numRows = lhs->size();
+    EXPECT_EQ(numRows, rawExpected.size());
+    EXPECT_EQ(numRows, rhs->size());
+
+    testRowContainerEqualsAPI<true>(type, lhs, rhs, rawExpected);
+
+    // Remove nulls and re-run.
+    auto numNulls = BaseVector::countNulls(lhs->nulls(), 0, numRows);
+    auto lhsNoNulls = lhs->slice(numNulls, numRows - numNulls);
+    auto rhsNoNulls = rhs->slice(numNulls, numRows - numNulls);
+    std::vector<bool> rawExpectedNoNulls(
+        rawExpected.cbegin() + numNulls, rawExpected.cend());
+    EXPECT_EQ(lhsNoNulls->size(), rawExpectedNoNulls.size());
+    testRowContainerEqualsAPI<false>(
+        type, lhsNoNulls, rhsNoNulls, rawExpectedNoNulls);
+  }
+
+  template <typename T>
+  void testNanEqualsPrimitiveFloats(const TypePtr& type) {
+    constexpr auto nan = std::numeric_limits<T>::quiet_NaN();
+    constexpr int32_t kNumRows = 100;
+    std::vector<std::optional<T>> rawValues;
+    std::vector<bool> rawExpected;
+
+    populateFloatingPointTestVectorsForNaNComparison<T>(
+        kNumRows, rawValues, rawExpected);
+    auto nanVector = makeConstant<T>(nan, rawValues.size());
+    auto values = makeNullableFlatVector<T>(rawValues);
+    runTestNanEquals<T>(type, values, nanVector, rawExpected);
   }
 
   template <typename T>
@@ -539,10 +662,37 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
             {{inf}},
             {{nan}}};
 
-    testOrderAndNullsFirstVariations<T, std::vector<std::optional<T>>>(
+    testOrderAndEqualsWithNullsFirstVariations<std::vector<std::optional<T>>>(
         type, values, ascNullsFirstOrder, [&](const auto& expectedOrder) {
           return makeNullableArrayVector<T>(expectedOrder);
         });
+  }
+
+  template <typename T>
+  void testNanEqualsArrayFloats(const TypePtr& type) {
+    constexpr auto nan = std::numeric_limits<T>::quiet_NaN();
+    constexpr int32_t kNumRows = 100;
+    std::vector<std::optional<T>> rawValues;
+    std::vector<bool> rawExpected;
+    std::vector<std::optional<std::vector<std::optional<T>>>> rawArrayData;
+    std::vector<std::vector<T>> rawNanArrayData;
+
+    rawArrayData.push_back(std::nullopt);
+    rawExpected.push_back(false);
+    rawNanArrayData.push_back({nan});
+
+    populateFloatingPointTestVectorsForNaNComparison<T>(
+        kNumRows, rawValues, rawExpected);
+
+    for (auto value : rawValues) {
+      std::vector<std::optional<T>> temp = {value};
+      rawArrayData.push_back(temp);
+      rawNanArrayData.push_back({nan});
+    }
+
+    auto arrayData = makeNullableArrayVector<T>(rawArrayData);
+    auto nanArrayData = makeArrayVector<T>(rawNanArrayData);
+    runTestNanEquals<T>(type, arrayData, nanArrayData, rawExpected);
   }
 
   template <typename T>
@@ -569,12 +719,47 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
             {{{inf, 2}}},
             {{{nan, 4}}}};
 
-    testOrderAndNullsFirstVariations<
-        T,
+    testOrderAndEqualsWithNullsFirstVariations<
         std::vector<std::pair<T, std::optional<int32_t>>>>(
         type, values, ascNullsFirstOrder, [&](const auto& expectedOrder) {
           return makeNullableMapVector<T, int32_t>(expectedOrder);
         });
+  }
+
+  template <typename T>
+  void testNanEqualsMapFloats(const TypePtr& type) {
+    constexpr auto nan = std::numeric_limits<T>::quiet_NaN();
+    constexpr int32_t kNumRows = 100;
+    std::vector<std::optional<T>> rawValues;
+    std::vector<bool> rawExpected;
+    std::vector<
+        std::optional<std::vector<std::pair<T, std::optional<int32_t>>>>>
+        rawMapData;
+    std::vector<std::vector<std::pair<T, std::optional<int32_t>>>>
+        rawNanMapData;
+
+    rawMapData.push_back({std::nullopt});
+    rawExpected.push_back(false);
+    rawNanMapData.push_back({{{nan, std::nullopt}}});
+
+    populateFloatingPointTestVectorsForNaNComparison<T>(
+        kNumRows, rawValues, rawExpected);
+    // Remove nulls in data because keys cannot be null.
+    auto numNulls = countLeadingNulls(rawValues);
+    rawValues.erase(rawValues.begin(), rawValues.begin() + numNulls);
+    rawExpected.erase(rawExpected.begin(), rawExpected.begin() + numNulls);
+    std::optional<int32_t> second = 0;
+    for (auto value : rawValues) {
+      std::vector<std::pair<T, std::optional<int32_t>>> temp{
+          {{value.value(), second}}};
+      rawMapData.push_back(temp);
+      rawNanMapData.push_back({{{nan, second}}});
+      ++second.value();
+    }
+
+    auto mapData = makeNullableMapVector<T, int32_t>(rawMapData);
+    auto nanMapData = makeMapVector<T, int32_t>(rawNanMapData);
+    runTestNanEquals<T>(type, mapData, nanMapData, rawExpected);
   }
 
   template <typename T>
@@ -587,23 +772,42 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     std::vector<std::optional<T>> ascNullsFirstOrder = {
         std::nullopt, lowest, 0.0, min, max, inf, nan};
 
-    testOrderAndNullsFirstVariations<T, T>(
+    testOrderAndEqualsWithNullsFirstVariations<T>(
         type, values, ascNullsFirstOrder, [&](const auto& expectedOrder) {
           return makeRowVector({makeNullableFlatVector<T>(expectedOrder)});
         });
   }
+
+  template <typename T>
+  void testNanEqualsRowFloats(const TypePtr& type) {
+    constexpr auto nan = std::numeric_limits<T>::quiet_NaN();
+    constexpr int32_t kNumRows = 100;
+    std::vector<std::optional<T>> rawValues;
+    std::vector<bool> rawExpected;
+
+    populateFloatingPointTestVectorsForNaNComparison<T>(
+        kNumRows, rawValues, rawExpected);
+
+    auto rowData = makeRowVector({makeNullableFlatVector<T>(rawValues)});
+    auto nanRowData = makeRowVector({makeConstant<T>(nan, rawValues.size())});
+    runTestNanEquals<T>(type, rowData, nanRowData, rawExpected);
+  }
 #undef TEST_FLOATING_TYPE_LIMIT_VARIABLES
 
   template <typename T>
-  void testCompareRowContainerTypeFloat(const TypePtr& type) {
+  void testEqualAndCompareRowContainerTypeFloat(const TypePtr& type) {
     if (type->isPrimitiveType()) {
       testComparePrimitiveFloats<T>(type);
+      testNanEqualsPrimitiveFloats<T>(type);
     } else if (type->isArray()) {
       testCompareArrayFloats<T>(type);
+      testNanEqualsArrayFloats<T>(type);
     } else if (type->isMap()) {
       testCompareMapFloats<T>(type);
+      testNanEqualsMapFloats<T>(type);
     } else if (type->isRow()) {
       testCompareRowFloats<T>(type);
+      testNanEqualsRowFloats<T>(type);
     }
   }
 };
@@ -1105,39 +1309,39 @@ TEST_F(RowContainerTest, alignment) {
 }
 
 // Verify comparison of fringe float values
-TEST_F(RowContainerTest, compareFloat) {
-  testCompareRowContainerTypeFloat<float>(REAL());
+TEST_F(RowContainerTest, equalAndCompareFloat) {
+  testEqualAndCompareRowContainerTypeFloat<float>(REAL());
 }
 
 // Verify comparison of fringe double values
-TEST_F(RowContainerTest, compareDouble) {
-  testCompareRowContainerTypeFloat<double>(DOUBLE());
+TEST_F(RowContainerTest, equalAndCompareDouble) {
+  testEqualAndCompareRowContainerTypeFloat<double>(DOUBLE());
 }
 
-TEST_F(RowContainerTest, compareArrayTypeFloat) {
-  testCompareRowContainerTypeFloat<float>(ARRAY(REAL()));
+TEST_F(RowContainerTest, equalAndCompareArrayTypeFloat) {
+  testEqualAndCompareRowContainerTypeFloat<float>(ARRAY(REAL()));
 }
 
-TEST_F(RowContainerTest, compareArrayTypeDouble) {
-  testCompareRowContainerTypeFloat<double>(ARRAY(DOUBLE()));
+TEST_F(RowContainerTest, equalAndCompareArrayTypeDouble) {
+  testEqualAndCompareRowContainerTypeFloat<double>(ARRAY(DOUBLE()));
 }
 
-TEST_F(RowContainerTest, compareMapTypeFloat) {
-  testCompareRowContainerTypeFloat<float>(MAP(REAL(), INTEGER()));
+TEST_F(RowContainerTest, equalAndCompareMapTypeFloat) {
+  testEqualAndCompareRowContainerTypeFloat<float>(MAP(REAL(), INTEGER()));
 }
 
-TEST_F(RowContainerTest, compareMapTypeDouble) {
-  testCompareRowContainerTypeFloat<double>(MAP(DOUBLE(), INTEGER()));
+TEST_F(RowContainerTest, equalAndCompareMapTypeDouble) {
+  testEqualAndCompareRowContainerTypeFloat<double>(MAP(DOUBLE(), INTEGER()));
 }
 
-TEST_F(RowContainerTest, compareRowTypeFloat) {
+TEST_F(RowContainerTest, equalAndCompareRowTypeFloat) {
   static const std::string colName{"floatCol"};
-  testCompareRowContainerTypeFloat<float>(ROW({colName}, {REAL()}));
+  testEqualAndCompareRowContainerTypeFloat<float>(ROW({colName}, {REAL()}));
 }
 
-TEST_F(RowContainerTest, compareRowTypeDouble) {
+TEST_F(RowContainerTest, equalAndCompareRowTypeDouble) {
   static const std::string colName{"doubleCol"};
-  testCompareRowContainerTypeFloat<double>(ROW({colName}, {DOUBLE()}));
+  testEqualAndCompareRowContainerTypeFloat<double>(ROW({colName}, {DOUBLE()}));
 }
 
 TEST_F(RowContainerTest, partition) {

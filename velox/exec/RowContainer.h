@@ -976,7 +976,8 @@ class RowContainer {
     }
 
     using T = typename KindToFlatVector<Kind>::HashRowType;
-    return decoded.valueAt<T>(index) == valueAt<T>(row, offset);
+    return SimpleVector<T>::comparePrimitiveAsc(
+               decoded.valueAt<T>(index), valueAt<T>(row, offset)) == 0;
   }
 
   template <TypeKind Kind>

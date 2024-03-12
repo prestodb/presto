@@ -347,7 +347,9 @@ class SimpleVector : public BaseVector {
     return asciiInfo;
   }
 
-  static int comparePrimitiveAsc(const T& left, const T& right) {
+  FOLLY_ALWAYS_INLINE static int comparePrimitiveAsc(
+      const T& left,
+      const T& right) {
     if constexpr (std::is_floating_point<T>::value) {
       bool isLeftNan = std::isnan(left);
       bool isRightNan = std::isnan(right);
