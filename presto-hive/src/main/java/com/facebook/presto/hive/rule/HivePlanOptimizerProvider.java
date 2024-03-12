@@ -58,7 +58,7 @@ public class HivePlanOptimizerProvider
                 .add(new HiveAddRequestedColumnsToLayout())
                 .add(new HiveParquetDereferencePushDown(transactionManager, rowExpressionService));
         if (!connectorSystemConfig.isNativeExecution()) {
-            planOptimizerBuilder.add(new HivePartialAggregationPushdown(functionMetadataManager, functionResolution, metadataFactory));
+            planOptimizerBuilder.add(new HivePartialAggregationPushdown(functionResolution, metadataFactory));
         }
 
         this.planOptimizers = planOptimizerBuilder.build();
