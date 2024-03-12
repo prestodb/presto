@@ -32,7 +32,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -43,8 +42,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.List;
@@ -73,19 +70,15 @@ import static java.util.Objects.requireNonNull;
 public class HivePartialAggregationPushdown
         implements ConnectorPlanOptimizer
 {
-    private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution standardFunctionResolution;
     private final Supplier<TransactionalMetadata> metadataFactory;
 
     private static final int DUMMY_AGGREGATED_COLUMN_INDEX = -20;
 
-    @Inject
     public HivePartialAggregationPushdown(
-            FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution standardFunctionResolution,
             Supplier<TransactionalMetadata> metadataFactory)
     {
-        this.functionMetadataManager = requireNonNull(functionMetadataManager, "function manager is null");
         this.standardFunctionResolution = requireNonNull(standardFunctionResolution, "standard function resolution is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadata factory is null");
     }
@@ -102,11 +95,6 @@ public class HivePartialAggregationPushdown
         return Optional.empty();
     }
 
-    private static PlanNode replaceChildren(PlanNode node, List<PlanNode> children)
-    {
-        return children.containsAll(node.getSources()) ? node : node.replaceChildren(children);
-    }
-
     @Override
     public PlanNode optimize(PlanNode maxSubplan,
             ConnectorSession session,
@@ -116,7 +104,7 @@ public class HivePartialAggregationPushdown
         if (!isPartialAggregationPushdownEnabled(session)) {
             return maxSubplan;
         }
-        return rewriteWith(new Rewriter(variableAllocator, session, idAllocator), maxSubplan);
+        return rewriteWith(new Rewriter(session, idAllocator), maxSubplan);
     }
 
     private class Rewriter
@@ -124,13 +112,11 @@ public class HivePartialAggregationPushdown
     {
         private final PlanNodeIdAllocator idAllocator;
         private final ConnectorSession session;
-        private final VariableAllocator variableAllocator;
 
-        public Rewriter(VariableAllocator variableAllocator, ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        public Rewriter(ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.idAllocator = idAllocator;
-            this.variableAllocator = variableAllocator;
         }
 
         private boolean isAggregationPushdownSupported(AggregationNode partialAggregationNode)
