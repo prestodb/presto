@@ -135,6 +135,11 @@ public class IcebergResourceFactory
                 configuration.set(entry.getKey(), entry.getValue());
             }
         }
+
+        configuration.set("httpfs.authentication.kerberos.principal", "presto-server/_HOST@LABS.TERADATA.COM");
+        configuration.set("httpfs.authentication.kerberos.keytab", "/etc/presto/conf/presto-server.keytab");
+        configuration.set("httpfs.hadoop.authentication.kerberos.principal", "presto-server/_HOST@LABS.TERADATA.COM");
+        configuration.set("httpfs.hadoop.authentication.kerberos.keytab", "/etc/presto/conf/presto-server.keytab");
         return configuration;
     }
 
