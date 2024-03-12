@@ -20,6 +20,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -43,6 +44,8 @@ public class NativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final String executablePath;
+    private final String programArguments;
 
     private static NativeExecutionProcess process;
 
@@ -52,14 +55,16 @@ public class NativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
-
+            WorkerProperty<?, ?, ?, ?> workerProperty,
+            FeaturesConfig featuresConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.executablePath = featuresConfig.getNativeExecutionExecutablePath();
+        this.programArguments = featuresConfig.getNativeExecutionProgramArguments();
     }
 
     public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session)
@@ -74,6 +79,8 @@ public class NativeExecutionProcessFactory
     {
         try {
             return new NativeExecutionProcess(
+                    executablePath,
+                    programArguments,
                     session,
                     httpClient,
                     coreExecutor,
@@ -95,5 +102,15 @@ public class NativeExecutionProcessFactory
         if (process != null) {
             process.close();
         }
+    }
+
+    protected String getExecutablePath()
+    {
+        return executablePath;
+    }
+
+    protected String getProgramArguments()
+    {
+        return programArguments;
     }
 }
