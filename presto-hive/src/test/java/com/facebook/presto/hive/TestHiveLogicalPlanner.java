@@ -1320,7 +1320,6 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("x", toSubfields("x.a", "x.b")));
 
         // Join
-        Session session = getQueryRunner().getDefaultSession();
         assertPlan("SELECT l.orderkey, x.a, mod(x.d.d1, 2) FROM lineitem l, test_pushdown_struct_subfields a WHERE l.linenumber = a.id",
                 anyTree(
                         node(JoinNode.class,
@@ -1854,7 +1853,7 @@ public class TestHiveLogicalPlanner
 
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations = ImmutableMap.of(Optional.of("count"),
                     PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
-            List<String> groupByKey = ImmutableList.of("count_star");
+
             assertPlan(partialAggregatePushdownEnabled(),
                     "select count(*) from orders_partitioned_parquet",
                     anyTree(aggregation(globalAggregation(), aggregations, ImmutableMap.of(), Optional.empty(), AggregationNode.Step.FINAL,
@@ -1890,13 +1889,6 @@ public class TestHiveLogicalPlanner
                     anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
                     plan -> assertNoAggregatedColumns(plan, "orders_partitioned_parquet"));
 
-            aggregations = ImmutableMap.of(
-                    Optional.of("count_1"),
-                    PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())),
-                    Optional.of("arbitrary"),
-                    PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
-                    Optional.of("min"),
-                    PlanMatchPattern.functionCall("max", false, ImmutableList.of(anySymbol())));
             assertPlan(partialAggregatePushdownEnabled(),
                     "select count(orderkey), arbitrary(orderpriority), min(ds) from orders_partitioned_parquet",
                     anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
