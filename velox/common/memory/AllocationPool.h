@@ -131,9 +131,10 @@ class AllocationPool {
     return bytesInRun_ - currentOffset_;
   }
 
-  // Increses the reservation in 'pool_' when 'currentOffset_' goes past
-  // current end of last large allocation.
-  void growLastAllocation();
+  // Increases the reservation in 'pool_' if 'bytesRequested' moves
+  // 'currentOffset_' goes past current end of last large allocation, otherwise
+  // simply updates 'currentOffset_'.
+  void maybeGrowLastAllocation(uint64_t bytesRequested);
 
   void newRunImpl(memory::MachinePageCount numPages);
 

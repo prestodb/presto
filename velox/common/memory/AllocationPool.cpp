@@ -52,10 +52,7 @@ char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
   VELOX_CHECK_GT(bytes, 0, "Cannot allocate zero bytes");
   if (freeAddressableBytes() >= bytes && alignment == 1) {
     auto* result = startOfRun_ + currentOffset_;
-    currentOffset_ += bytes;
-    if (currentOffset_ > endOfReservedRun()) {
-      growLastAllocation();
-    }
+    maybeGrowLastAllocation(bytes);
     return result;
   }
   VELOX_CHECK_EQ(
@@ -75,19 +72,21 @@ char* AllocationPool::allocateFixed(uint64_t bytes, int32_t alignment) {
   VELOX_CHECK_LE(bytes + currentOffset_, bytesInRun_);
   auto* result = startOfRun_ + currentOffset_;
   VELOX_CHECK_EQ(reinterpret_cast<uintptr_t>(result) % alignment, 0);
-  currentOffset_ += bytes;
-  if (currentOffset_ > endOfReservedRun()) {
-    growLastAllocation();
-  }
+  maybeGrowLastAllocation(bytes);
   return result;
 }
 
-void AllocationPool::growLastAllocation() {
-  VELOX_CHECK_GT(bytesInRun_, AllocationTraits::kHugePageSize);
-  const auto bytesToReserve = bits::roundUp(
-      currentOffset_ - endOfReservedRun(), AllocationTraits::kHugePageSize);
-  largeAllocations_.back().grow(AllocationTraits::numPages(bytesToReserve));
-  usedBytes_ += bytesToReserve;
+void AllocationPool::maybeGrowLastAllocation(uint64_t bytesRequested) {
+  const auto updateOffset = currentOffset_ + bytesRequested;
+  if (updateOffset > endOfReservedRun()) {
+    VELOX_CHECK_GT(bytesInRun_, AllocationTraits::kHugePageSize);
+    const auto bytesToReserve = bits::roundUp(
+        updateOffset - endOfReservedRun(), AllocationTraits::kHugePageSize);
+    largeAllocations_.back().grow(AllocationTraits::numPages(bytesToReserve));
+    usedBytes_ += bytesToReserve;
+  }
+  // Only update currentOffset_ once it points to valid data.
+  currentOffset_ = updateOffset;
 }
 
 void AllocationPool::newRunImpl(MachinePageCount numPages) {
