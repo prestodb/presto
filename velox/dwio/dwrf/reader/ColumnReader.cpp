@@ -957,7 +957,7 @@ uint64_t FloatingPointColumnReader<DataT, ReqT>::skip(uint64_t numValues) {
   if (remaining >= toSkip) {
     bufferPointer += toSkip;
   } else {
-    inputStream->Skip(static_cast<int32_t>(toSkip - remaining));
+    inputStream->SkipInt64(toSkip - remaining);
     bufferEnd = nullptr;
     bufferPointer = nullptr;
   }
