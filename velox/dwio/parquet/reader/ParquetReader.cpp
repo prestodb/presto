@@ -126,12 +126,12 @@ class ReaderBase {
 ReaderBase::ReaderBase(
     std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
-    : pool_(options.getMemoryPool()),
-      footerEstimatedSize_(options.getFooterEstimatedSize()),
-      filePreloadThreshold_(options.getFilePreloadThreshold()),
-      options_(options),
-      input_(std::move(input)) {
-  fileLength_ = input_->getReadFile()->size();
+    : pool_{options.getMemoryPool()},
+      footerEstimatedSize_{options.getFooterEstimatedSize()},
+      filePreloadThreshold_{options.getFilePreloadThreshold()},
+      options_{options},
+      input_{std::move(input)},
+      fileLength_{input_->getReadFile()->size()} {
   VELOX_CHECK_GT(fileLength_, 0, "Parquet file is empty");
   VELOX_CHECK_GE(fileLength_, 12, "Parquet file is too small");
 
@@ -636,14 +636,14 @@ class ParquetRowReader::Impl {
   Impl(
       const std::shared_ptr<ReaderBase>& readerBase,
       const dwio::common::RowReaderOptions& options)
-      : pool_(readerBase->getMemoryPool()),
-        readerBase_(readerBase),
-        options_(options),
-        rowGroups_(readerBase_->thriftFileMetaData().row_groups),
-        nextRowGroupIdsIdx_(0),
-        currentRowGroupPtr_(nullptr),
-        rowsInCurrentRowGroup_(0),
-        currentRowInGroup_(0) {
+      : pool_{readerBase->getMemoryPool()},
+        readerBase_{readerBase},
+        options_{options},
+        rowGroups_{readerBase_->thriftFileMetaData().row_groups},
+        nextRowGroupIdsIdx_{0},
+        currentRowGroupPtr_{nullptr},
+        rowsInCurrentRowGroup_{0},
+        currentRowInGroup_{0} {
     // Validate the requested type is compatible with what's in the file
     std::function<std::string()> createExceptionContext = [&]() {
       std::string exceptionMessageContext = fmt::format(
