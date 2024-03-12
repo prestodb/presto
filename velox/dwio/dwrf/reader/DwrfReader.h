@@ -90,6 +90,11 @@ class DwrfRowReader : public StrideIndexProvider,
       VectorPtr& result,
       const dwio::common::Mutation* = nullptr) override;
 
+  dwio::common::StateAndResultOrIoActions<uint64_t> tryNext(
+      uint64_t size,
+      velox::VectorPtr& result,
+      const dwio::common::Mutation* mutation = nullptr) override;
+
   void updateRuntimeStats(
       dwio::common::RuntimeStatistics& stats) const override {
     stats.skippedStrides += skippedStrides_;
@@ -122,12 +127,19 @@ class DwrfRowReader : public StrideIndexProvider,
 
   int64_t nextRowNumber() override;
 
+  dwio::common::StateAndResultOrIoActions<int64_t> tryNextRowNumber() override;
+
   int64_t nextReadSize(uint64_t size) override;
 
  private:
+  dwio::common::StateAndIoActions tryStartNextStripe();
+
+  dwio::common::StateAndIoActions trySafeFetchNextStripe();
+
   // Represents the status of a stripe being fetched.
   enum class FetchStatus { NOT_STARTED, IN_PROGRESS, FINISHED, ERROR };
 
+  FetchStatus fetchStatus(uint32_t stripeIndex) const;
   FetchResult fetch(uint32_t stripeIndex);
   FetchResult prefetch(uint32_t stripeToFetch);
 
@@ -199,6 +211,8 @@ class DwrfRowReader : public StrideIndexProvider,
   dwio::common::ColumnReaderStatistics columnReaderStatistics_;
 
   bool atEnd_{false};
+
+  bool retryNextRowNumberInProgress_{false};
 
   // internal methods
 

@@ -24,6 +24,7 @@
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/Mutation.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/ReaderState.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/type/Type.h"
@@ -59,6 +60,14 @@ class RowReader {
       velox::VectorPtr& result,
       const Mutation* mutation = nullptr) = 0;
 
+  virtual StateAndResultOrIoActions<uint64_t> tryNext(
+      uint64_t size,
+      velox::VectorPtr& result,
+      const Mutation* mutation = nullptr) {
+    // Default to blocking
+    return {ReaderStepState::kSuccess, next(size, result, mutation)};
+  }
+
   /**
    * Return the next row number that will be scanned in the next next() call,
    * kAtEnd when at end of file.  This row number is relative to beginning of
@@ -70,6 +79,11 @@ class RowReader {
    * each rows in the bit mask based on value returned from this call.
    */
   virtual int64_t nextRowNumber() = 0;
+
+  virtual StateAndResultOrIoActions<int64_t> tryNextRowNumber() {
+    // Default to blocking
+    return {ReaderStepState::kSuccess, nextRowNumber()};
+  }
 
   /**
    * Given the max number of rows to read, return the actual number of rows that
