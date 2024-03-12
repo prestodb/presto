@@ -50,6 +50,8 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.HIVE_METASTORE_STATISTICS_MERGE_STRATEGY;
+import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.NONE;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -123,6 +125,36 @@ public class TestIcebergHiveStatistics
         assertStatValuePresent(StatsSchema.DISTINCT_VALUES_COUNT, stats, NUMERIC_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.NULLS_FRACTION, stats, NUMERIC_ORDERS_COLUMNS);
         assertStatValuePresent(StatsSchema.NULLS_FRACTION, stats, NON_NUMERIC_ORDERS_COLUMNS);
+    }
+
+    /**
+     * ensures that the stats from ANALYZE are stored regardless of the
+     * iceberg.hive_statistics_merge_strategy.
+     */
+    @Test
+    public void testAnalyzeAlwaysStores()
+    {
+        // the default session should not have the statistics merge strategy set to NONE
+        // this table shouldn't have been analyzed yet
+        Session noMergeSession = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, NONE.name())
+                .build();
+        assertQuerySucceeds("CREATE TABLE analyzeWithoutProp as SELECT * FROM orders");
+        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR analyzeWithoutProp");
+        assertStatValueAbsent(StatsSchema.DISTINCT_VALUES_COUNT, stats, NUMERIC_ORDERS_COLUMNS);
+
+        assertQuerySucceeds(noMergeSession, "ANALYZE analyzeWithoutProp");
+
+        // when merge strategy is none, NDVs should be null even if we analyzed the table
+        stats = getQueryRunner().execute(noMergeSession, "SHOW STATS FOR analyzeWithoutProp");
+        assertStatValueAbsent(StatsSchema.DISTINCT_VALUES_COUNT, stats, NUMERIC_ORDERS_COLUMNS);
+
+        // merge strategy uses NDVs, but we don't need to re-analyze to get them
+        stats = getQueryRunner().execute("SHOW STATS FOR analyzeWithoutProp"); // default session has the property set.
+        assertStatValuePresent(StatsSchema.DISTINCT_VALUES_COUNT, stats, NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.NULLS_FRACTION, stats, NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.NULLS_FRACTION, stats, NON_NUMERIC_ORDERS_COLUMNS);
+        getQueryRunner().execute("DROP TABLE analyzeWithoutProp");
     }
 
     /**

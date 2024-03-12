@@ -45,6 +45,20 @@ as a Hive connector.
     hive.metastore=glue
     iceberg.catalog.type=hive
 
+Additional supported properties for the Hive catalog:
+
+==================================================== ============================================================ =============
+Property Name                                        Description                                                  Default
+==================================================== ============================================================ =============
+``iceberg.hive-statistics-merge-strategy``           The strategy to use when merging statistics from the Hive    ``NONE``
+                                                     metastore into the Iceberg table statistics for the query
+                                                     optimizer. Valid values are ``NONE``, ``USE_NDV``,
+                                                     ``USE_NULLS_FRACTIONS``, and ``USE_NULLS_FRACTION_AND_NDV``.
+                                                     Iceberg statistics will be used except for the statistics
+                                                     specified by this configuration property.
+
+==================================================== ============================================================ =============
+
 Nessie catalog
 ^^^^^^^^^^^^^^
 
@@ -306,7 +320,11 @@ Property Name                                 Description
 ============================================= ======================================================================
 ``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
                                               ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+
+``iceberg.hive_statistics_merge_strategy``    See the ``iceberg.hive-statistics-merge-strategy`` description.
+
 ============================================= ======================================================================
+
 
 Caching Support
 ----------------
@@ -1172,7 +1190,7 @@ each Iceberg data type to the corresponding Presto data type, and from each Pres
 The following tables detail the specific type maps between PrestoDB and Iceberg. 
 
 Iceberg to PrestoDB type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of Iceberg types to the relevant PrestoDB types:
 
@@ -1215,7 +1233,7 @@ Map of Iceberg types to the relevant PrestoDB types:
 No other types are supported.
 
 PrestoDB to Iceberg type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of PrestoDB types to the relevant Iceberg types:
 
