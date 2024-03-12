@@ -1367,7 +1367,12 @@ bool Task::checkNoMoreSplitGroupsLocked() {
   // we should review the total number of drivers, which initially is set to
   // process all split groups, but in reality workers share split groups and
   // each worker processes only a part of them, meaning much less than all.
-  if (allNodesReceivedNoMoreSplitsMessageLocked()) {
+  //
+  // NOTE: we shall only do task finish check after the task has been started
+  // which initializes 'numDriversPerSplitGroup_', otherwise the task will
+  // finish early.
+  if ((numDriversPerSplitGroup_ != 0) &&
+      allNodesReceivedNoMoreSplitsMessageLocked()) {
     numTotalDrivers_ = seenSplitGroups_.size() * numDriversPerSplitGroup_ +
         numDriversUngrouped_;
     if (groupedPartitionedOutput_) {
@@ -1590,7 +1595,7 @@ bool Task::checkIfFinishedLocked() {
   // TODO Add support for terminating processing early in grouped execution.
   bool allFinished = numFinishedDrivers_ == numTotalDrivers_;
   if (!allFinished && isUngroupedExecution()) {
-    auto outputPipelineId = getOutputPipelineId();
+    const auto outputPipelineId = getOutputPipelineId();
     if (splitGroupStates_[kUngroupedGroupId].numFinishedOutputDrivers ==
         numDrivers(outputPipelineId)) {
       allFinished = true;
