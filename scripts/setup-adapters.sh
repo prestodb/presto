@@ -58,7 +58,7 @@ function install_gcs-sdk-cpp {
   # https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md#required-libraries
 
   # abseil-cpp
-  github_checkout abseil/abseil-cpp 20230125.3 --depth 1
+  github_checkout abseil/abseil-cpp 20240116.1 --depth 1
   sed -i 's/^#define ABSL_OPTION_USE_\(.*\) 2/#define ABSL_OPTION_USE_\1 0/' "absl/base/options.h"
   cmake_install -DBUILD_SHARED_LIBS=OFF \
     -DABSL_BUILD_TESTING=OFF
@@ -71,12 +71,12 @@ function install_gcs-sdk-cpp {
     -DCRC32C_USE_GLOG=OFF
 
   # nlohmann json
-  github_checkout nlohmann/json v3.11.2 --depth 1
+  github_checkout nlohmann/json v3.11.3 --depth 1
   cmake_install -DBUILD_SHARED_LIBS=OFF \
     -DJSON_BuildTests=OFF
 
   # google-cloud-cpp
-  github_checkout googleapis/google-cloud-cpp v2.10.1 --depth 1
+  github_checkout googleapis/google-cloud-cpp v2.22.0 --depth 1
   cmake_install -DBUILD_SHARED_LIBS=OFF \
     -DCMAKE_INSTALL_MESSAGE=NEVER \
     -DGOOGLE_CLOUD_CPP_ENABLE_EXAMPLES=OFF \
