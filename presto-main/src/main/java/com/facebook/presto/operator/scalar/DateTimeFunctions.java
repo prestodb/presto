@@ -495,7 +495,11 @@ public final class DateTimeFunctions
     @ScalarFunction("date_diff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long diffDate(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)
+    public static long diffDate(
+            SqlFunctionProperties properties,
+            @SqlType("varchar(x)") Slice unit,
+            @SqlType(StandardTypes.DATE) long date1,
+            @SqlType(StandardTypes.DATE) long date2)
     {
         return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
@@ -504,7 +508,11 @@ public final class DateTimeFunctions
     @ScalarFunction("date_diff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long diffTime(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIME) long time1, @SqlType(StandardTypes.TIME) long time2)
+    public static long diffTime(
+            SqlFunctionProperties properties,
+            @SqlType("varchar(x)") Slice unit,
+            @SqlType(StandardTypes.TIME) long time1,
+            @SqlType(StandardTypes.TIME) long time2)
     {
         if (properties.isLegacyTimestamp()) {
             // Session zone could have policy change on/around 1970-01-01, so we cannot use UTC

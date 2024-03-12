@@ -100,6 +100,7 @@ public abstract class TestDateTimeFunctionsBase
     protected static final DateTime DATE = new DateTime(2001, 8, 22, 0, 0, 0, 0, DateTimeZone.UTC);
     protected static final String DATE_LITERAL = "DATE '2001-08-22'";
     protected static final String DATE_ISO8601_STRING = "2001-08-22";
+    protected static final long DATE_UNIXTIME = 998438400;
 
     protected static final LocalTime TIME = LocalTime.of(3, 4, 5, 321_000_000);
     protected static final String TIME_LITERAL = "TIME '03:04:05.321'";
@@ -741,6 +742,33 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("date_diff('second', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, secondsBetween(weirdBaseDateTime, WEIRD_TIME));
         assertFunction("date_diff('minute', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, minutesBetween(weirdBaseDateTime, WEIRD_TIME));
         assertFunction("date_diff('hour', " + weirdBaseDateTimeLiteral + ", " + WEIRD_TIME_LITERAL + ")", BIGINT, hoursBetween(weirdBaseDateTime, WEIRD_TIME));
+    }
+
+    @Test
+    public void testDateDiffFromUnixtime()
+    {
+        DateTime baseDateTime = new DateTime(1975, 4, 30, 11, 30, 0, 0, DateTimeZone.UTC);
+        long baseDateTimeUnixtime = 168089400;
+
+        assertFunction("date_diff('second', " + baseDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) secondsBetween(baseDateTime, DATE).getSeconds());
+        assertFunction("date_diff('minute', " + baseDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) minutesBetween(baseDateTime, DATE).getMinutes());
+        assertFunction("date_diff('hour', " + baseDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) hoursBetween(baseDateTime, DATE).getHours());
+        assertFunction("date_diff('day', " + baseDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) daysBetween(baseDateTime, DATE).getDays());
+        assertFunction("date_diff('week', " + baseDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) weeksBetween(baseDateTime, DATE).getWeeks());
+
+        DateTime boundaryDateTime = new DateTime(1945, 1, 1, 1, 1, 1, 0, DateTimeZone.UTC);
+        long boundaryDateTimeUnixtime = -788914739;
+
+        assertFunction("date_diff('second', " + boundaryDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) secondsBetween(boundaryDateTime, DATE).getSeconds());
+        assertFunction("date_diff('minute', " + boundaryDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) minutesBetween(boundaryDateTime, DATE).getMinutes());
+        assertFunction("date_diff('hour', " + boundaryDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) hoursBetween(boundaryDateTime, DATE).getHours());
+        assertFunction("date_diff('day', " + boundaryDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) daysBetween(boundaryDateTime, DATE).getDays());
+        assertFunction("date_diff('week', " + boundaryDateTimeUnixtime + ", " + DATE_UNIXTIME + ")", BIGINT, (long) weeksBetween(boundaryDateTime, DATE).getWeeks());
+
+        assertInvalidFunction("date_diff('millisecond', -788914739, 168089400)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Invalid unix time parameters");
+        assertInvalidFunction("date_diff('month', -788914739, 168089400)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Invalid unix time parameters");
+        assertInvalidFunction("date_diff('quarter', -788914739, 168089400)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Invalid unix time parameters");
+        assertInvalidFunction("date_diff('year', -788914739, 168089400)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "Invalid unix time parameters");
     }
 
     @Test
