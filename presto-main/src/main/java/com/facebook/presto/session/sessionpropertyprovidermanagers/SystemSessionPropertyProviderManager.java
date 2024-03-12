@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.session.sessionpropertyprovidermanagers;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
 import com.google.common.collect.ImmutableMap;
@@ -34,11 +36,13 @@ public class SystemSessionPropertyProviderManager
     private SystemSessionPropertyProvider provider;
     private boolean isSessionProviderAdded;
     private final NodeManager nodeManager;
+    private final TypeManager typeManager;
 
     @Inject
-    public SystemSessionPropertyProviderManager(NodeManager nodeManager)
+    public SystemSessionPropertyProviderManager(NodeManager nodeManager, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public void addSessionPropertyProviderFactory(SystemSessionPropertyProviderFactory providerFactory)
@@ -52,7 +56,7 @@ public class SystemSessionPropertyProviderManager
             return;
         }
         checkState(!isSessionProviderAdded, "SystemSessionPropertyProvider can only be set once");
-        this.provider = this.providerFactory.create(getConfig(), nodeManager);
+        this.provider = this.providerFactory.create(getConfig(), new SessionPropertyContext(typeManager, nodeManager));
         this.isSessionProviderAdded = true;
     }
 

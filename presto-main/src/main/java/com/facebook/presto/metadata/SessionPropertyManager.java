@@ -25,12 +25,14 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
@@ -65,6 +67,7 @@ public final class SessionPropertyManager
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PropertyMetadata<?>> workerSessionProperties = new ConcurrentHashMap<>();
     private SystemSessionPropertyProviderManager providerManager;
 
     public SessionPropertyManager()
@@ -76,7 +79,26 @@ public final class SessionPropertyManager
     {
         this(systemSessionProperties.getSessionProperties());
         // Dummy provider manager.
-        this.providerManager = new SystemSessionPropertyProviderManager(new TestingNodeManager());
+        this.providerManager = new SystemSessionPropertyProviderManager(new TestingNodeManager(), new TypeManager()
+        {
+            @Override
+            public Type getType(TypeSignature signature)
+            {
+                return null;
+            }
+
+            @Override
+            public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+            {
+                return null;
+            }
+
+            @Override
+            public boolean canCoerce(Type actualType, Type expectedType)
+            {
+                return false;
+            }
+        });
     }
 
     @Inject
@@ -104,6 +126,20 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
+    public void updateWorkerSessionProperties()
+    {
+        SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
+        // TODO: To be removed once default Java worker plugin is implemented.
+        if (sessionPropertyProvider != null) {
+            List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
+            nativeSystemSessionProperties.forEach(sessionProperty -> {
+                requireNonNull(sessionProperty, "sessionProperty is null");
+                // TODO: Implement fail fast in case of duplicate entries.
+                workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
+            });
+        }
+    }
+
     public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
     {
         requireNonNull(connectorId, "connectorId is null");
@@ -122,6 +158,10 @@ public final class SessionPropertyManager
     {
         requireNonNull(name, "name is null");
 
+        if (systemSessionProperties.get(name) == null) {
+            updateWorkerSessionProperties();
+            return Optional.ofNullable(workerSessionProperties.get(name));
+        }
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
@@ -143,6 +183,8 @@ public final class SessionPropertyManager
 
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
+        updateWorkerSessionProperties();
+
         for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
             String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
@@ -178,22 +220,18 @@ public final class SessionPropertyManager
             }
         }
 
-        SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
-        // TODO: To be removed once default Java worker plugin is implemented.
-        if (sessionPropertyProvider != null) {
-            for (SessionPropertyMetadata property : sessionPropertyProvider.getSessionProperties()) {
-                String defaultValue = firstNonNull(property.getDefaultValue(), "");
-                String value = systemProperties.getOrDefault(property.getName(), defaultValue);
-                sessionPropertyValues.add(new SessionPropertyValue(
-                        value,
-                        defaultValue,
-                        property.getName(),
-                        Optional.empty(),
-                        property.getName(),
-                        property.getDescription(),
-                        property.getSqlTypeSignature().getBase(),
-                        property.isHidden()));
-            }
+        for (PropertyMetadata<?> property : new TreeMap<>(workerSessionProperties).values()) {
+            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+            sessionPropertyValues.add(new SessionPropertyValue(
+                    value,
+                    defaultValue,
+                    property.getName(),
+                    Optional.empty(),
+                    property.getName(),
+                    property.getDescription(),
+                    property.getSqlType().getDisplayName(),
+                    property.isHidden()));
         }
 
         return sessionPropertyValues.build();

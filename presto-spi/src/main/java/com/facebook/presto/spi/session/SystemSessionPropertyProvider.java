@@ -18,5 +18,5 @@ import java.util.List;
 
 public interface SystemSessionPropertyProvider
 {
-    List<SessionPropertyMetadata> getSessionProperties();
+    List<PropertyMetadata<?>> getSessionProperties();
 }

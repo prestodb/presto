@@ -409,7 +409,7 @@ public class LocalQueryRunner
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
-        this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(pluginNodeManager);
+        this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(pluginNodeManager, getFunctionAndTypeManager());
 
         this.metadata = new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),

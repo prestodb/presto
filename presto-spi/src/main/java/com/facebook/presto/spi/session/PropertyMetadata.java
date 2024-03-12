@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.Type;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -211,5 +212,37 @@ public final class PropertyMetadata<T>
                 hidden,
                 value -> Duration.valueOf((String) value),
                 Duration::toString);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof PropertyMetadata)) {
+            return false;
+        }
+
+        PropertyMetadata<?> that = (PropertyMetadata<?>) o;
+
+        boolean isSessionPropertyMetadataEqual = this.sessionPropertyMetadata.equals(that.sessionPropertyMetadata);
+
+        boolean isJavaTypeEqual = this.javaType.equals(that.javaType);
+        boolean isDefaultValueEqual = (this.defaultValue == null && that.defaultValue == null)
+                || (this.defaultValue != null && this.defaultValue.equals(that.defaultValue));
+
+        return isSessionPropertyMetadataEqual && isJavaTypeEqual && isDefaultValueEqual;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = sessionPropertyMetadata.hashCode();
+
+        result = 31 * result + Objects.hashCode(javaType);
+        result = 31 * result + Objects.hashCode(defaultValue);
+
+        return result;
     }
 }

@@ -13,21 +13,96 @@
  */
 package com.facebook.presto.sessionpropertyproviders;
 
-import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static org.testng.Assert.assertEquals;
 
 public class TestNativeSessionPropertyProvider
 {
+    // This is only for testing purpose.
+    private static class TestNodeManager
+            implements NodeManager
+    {
+        @Override
+        public Set<Node> getAllNodes()
+        {
+            return null;
+        }
+
+        @Override
+        public Set<Node> getWorkerNodes()
+        {
+            return null;
+        }
+
+        @Override
+        public Node getCurrentNode()
+        {
+            return null;
+        }
+
+        @Override
+        public String getEnvironment()
+        {
+            return null;
+        }
+    }
+
+    private static class TestTypeManager
+            implements TypeManager
+    {
+        @Override
+        public Type getType(TypeSignature signature)
+        {
+            switch (signature.getBase()) {
+                case "integer":
+                    return INTEGER;
+                case "boolean":
+                    return BOOLEAN;
+                case "varchar":
+                    return VARCHAR;
+                case "double":
+                    return DOUBLE;
+                default:
+                    return null;
+            }
+        }
+
+        @Override
+        public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+        {
+            return null;
+        }
+
+        @Override
+        public boolean canCoerce(Type actualType, Type expectedType)
+        {
+            return false;
+        }
+    }
+
+    NativeSystemSessionPropertyProvider propertyProvider = new NativeSystemSessionPropertyProvider(new TestNodeManager(), new TestTypeManager());
+
     @Test
     public void testDeserializeSessionProperties()
             throws URISyntaxException
@@ -41,13 +116,13 @@ public class TestNativeSessionPropertyProvider
                         "]";
 
         // Correct object creation to match responseBody
-        SessionPropertyMetadata s1 = new SessionPropertyMetadata("sample1", "Sample description 1", INTEGER.getTypeSignature(), "100", true);
-        SessionPropertyMetadata s2 = new SessionPropertyMetadata("sample2", "Sample description 2", BOOLEAN.getTypeSignature(), "true", false);
-        SessionPropertyMetadata s3 = new SessionPropertyMetadata("sample3", "Sample description 3", VARCHAR.getTypeSignature(), "N/A", true);
-        SessionPropertyMetadata s4 = new SessionPropertyMetadata("sample4", "Sample description 4", DOUBLE.getTypeSignature(), "3.14", false);
+        PropertyMetadata<Integer> s1 = integerProperty("sample1", "Sample description 1", 100, true);
+        PropertyMetadata<Boolean> s2 = booleanProperty("sample2", "Sample description 2", true, false);
+        PropertyMetadata<String> s3 = stringProperty("sample3", "Sample description 3", "N/A", true);
+        PropertyMetadata<Double> s4 = doubleProperty("sample4", "Sample description 4", 3.14, false);
 
-        List<SessionPropertyMetadata> expected = ImmutableList.of(s1, s2, s3, s4);
-        List<SessionPropertyMetadata> decoded = NativeSystemSessionPropertyProvider.deserializeSessionProperties(responseBody);
+        List<PropertyMetadata<?>> expected = ImmutableList.of(s1, s2, s3, s4);
+        List<PropertyMetadata<?>> decoded = propertyProvider.deserializeSessionProperties(responseBody);
 
         assertEquals(decoded.toArray(), expected.toArray());
     }

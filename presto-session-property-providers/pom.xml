@@ -67,6 +67,15 @@
             <artifactId>json</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

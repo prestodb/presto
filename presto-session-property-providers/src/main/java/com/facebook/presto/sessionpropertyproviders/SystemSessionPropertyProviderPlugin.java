@@ -23,6 +23,15 @@ public class SystemSessionPropertyProviderPlugin
     @Override
     public Iterable<SystemSessionPropertyProviderFactory> getSystemSessionPropertyProviderFactories()
     {
-        return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory());
+        return ImmutableList.of(new NativeSystemSessionPropertyProviderFactory(getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = SystemSessionPropertyProviderPlugin.class.getClassLoader();
+        }
+        return classLoader;
     }
 }

@@ -13,15 +13,30 @@
  */
 package com.facebook.presto.sessionpropertyproviders;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
+import com.google.inject.Injector;
+import com.google.inject.Scopes;
 
 import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 public class NativeSystemSessionPropertyProviderFactory
         implements SystemSessionPropertyProviderFactory
 {
+    private final ClassLoader classLoader;
+
+    public NativeSystemSessionPropertyProviderFactory(ClassLoader classLoader)
+    {
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
+    }
+
     @Override
     public String getName()
     {
@@ -29,8 +44,25 @@ public class NativeSystemSessionPropertyProviderFactory
     }
 
     @Override
-    public SystemSessionPropertyProvider create(Map<String, String> config, NodeManager manager)
+    public SystemSessionPropertyProvider create(Map<String, String> config, SessionPropertyContext context)
     {
-        return new NativeSystemSessionPropertyProvider(manager);
+        requireNonNull(config, "config is null");
+
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            Bootstrap app = new Bootstrap(
+                    binder -> {
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(SystemSessionPropertyProvider.class).to(NativeSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
+                    });
+
+            Injector injector = app
+                    .noStrictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .quiet()
+                    .initialize();
+            return injector.getInstance(SystemSessionPropertyProvider.class);
+        }
     }
 }
