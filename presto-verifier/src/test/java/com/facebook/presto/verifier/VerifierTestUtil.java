@@ -71,7 +71,8 @@ public class VerifierTestUtil
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
             ImmutableList.of(),
             CONTROL,
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
             .setCommandTimeout(new Duration(90, SECONDS))

@@ -25,6 +25,7 @@ public class QueryObjectBundle
         extends QueryBundle
 {
     private final QualifiedName objectName;
+    private final boolean reuseTable;
     private final Optional<String> rewrittenFunctionCalls;
 
     public QueryObjectBundle(
@@ -33,11 +34,13 @@ public class QueryObjectBundle
             Statement query,
             List<Statement> teardownQueries,
             ClusterType cluster,
-            Optional<String> rewrittenFunctionCalls)
+            Optional<String> rewrittenFunctionCalls,
+            boolean reuseTable)
     {
         super(setupQueries, query, teardownQueries, cluster);
         this.objectName = requireNonNull(objectName, "objectName is null");
         this.rewrittenFunctionCalls = requireNonNull(rewrittenFunctionCalls, "rewrittenFunctionCalls is null");
+        this.reuseTable = reuseTable;
     }
 
     public QualifiedName getObjectName()
@@ -48,5 +51,10 @@ public class QueryObjectBundle
     public Optional<String> getRewrittenFunctionCalls()
     {
         return rewrittenFunctionCalls;
+    }
+
+    public boolean isReuseTable()
+    {
+        return reuseTable;
     }
 }
