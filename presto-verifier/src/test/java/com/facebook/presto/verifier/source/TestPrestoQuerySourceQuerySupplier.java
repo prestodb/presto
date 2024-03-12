@@ -59,25 +59,30 @@ public class TestPrestoQuerySourceQuerySupplier
             "    'schema' control_schema,\n" +
             "    'user' control_username,\n" +
             "    '{\"a\": \"b\"}' control_session_properties,\n" +
+            "    '[\"x\"]' control_client_tags,\n" +
+            "    query_id control_query_id,\n" +
             "    NULL control_password,\n" +
             "    query test_query,\n" +
             "    'catalog' test_catalog,\n" +
             "    'schema' test_schema,\n" +
             "    'user' test_username,\n" +
             "    NULL test_password,\n" +
-            "    '{\"c\": \"d\"}' test_session_properties\n" +
+            "    '{\"c\": \"d\"}' test_session_properties,\n" +
+            "    '[\"y\"]' test_client_tags,\n" +
+            "    query_id test_query_id\n" +
             "FROM (\n" +
             "    VALUES\n" +
-            "        ('Q1', 'SELECT 1'),\n" +
-            "        ('Q2', 'INSERT INTO test_table SELECT 1')\n" +
-            ") queries(name, query)";
+            "        ('Q1', 'SELECT 1', 'T1'),\n" +
+            "        ('Q2', 'INSERT INTO test_table SELECT 1', 'T2')\n" +
+            ") queries(name, query, query_id)";
     private static final QueryConfiguration CONTROL_CONFIGURATION = new QueryConfiguration(
-            "catalog", "schema", Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of("a", "b")));
+            "catalog", "schema", Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of("a", "b")), Optional.of(ImmutableList.of("x")));
     private static final QueryConfiguration TEST_CONFIGURATION = new QueryConfiguration(
-            "catalog", "schema", Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of("c", "d")));
+            "catalog", "schema", Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of("c", "d")), Optional.of(ImmutableList.of("y")));
     private static final List<SourceQuery> SOURCE_QUERIES = ImmutableList.of(
-            new SourceQuery("test", "Q1", "SELECT 1", "SELECT 1", CONTROL_CONFIGURATION, TEST_CONFIGURATION),
-            new SourceQuery("test", "Q2", "INSERT INTO test_table SELECT 1", "INSERT INTO test_table SELECT 1", CONTROL_CONFIGURATION, TEST_CONFIGURATION));
+            new SourceQuery("test", "Q1", "SELECT 1", "SELECT 1", Optional.of("T1"), Optional.of("T1"), CONTROL_CONFIGURATION, TEST_CONFIGURATION),
+            new SourceQuery("test", "Q2", "INSERT INTO test_table SELECT 1", "INSERT INTO test_table SELECT 1", Optional.of("T2"), Optional.of("T2"), CONTROL_CONFIGURATION,
+                    TEST_CONFIGURATION));
 
     private static StandaloneQueryRunner queryRunner;
     private static Injector injector;

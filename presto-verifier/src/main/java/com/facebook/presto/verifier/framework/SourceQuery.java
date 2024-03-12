@@ -18,6 +18,7 @@ import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
@@ -31,6 +32,8 @@ public class SourceQuery
     private final String name;
     private final String controlQuery;
     private final String testQuery;
+    private final Optional<String> controlQueryId;
+    private final Optional<String> testQueryId;
     private final QueryConfiguration controlConfiguration;
     private final QueryConfiguration testConfiguration;
 
@@ -40,6 +43,8 @@ public class SourceQuery
             @ColumnName("name") String name,
             @ColumnName("controlQuery") String controlQuery,
             @ColumnName("testQuery") String testQuery,
+            @ColumnName("controlQueryId") Optional<String> controlQueryId,
+            @ColumnName("testQueryId") Optional<String> testQueryId,
             @Nested("control") QueryConfiguration controlConfiguration,
             @Nested("test") QueryConfiguration testConfiguration)
     {
@@ -47,6 +52,8 @@ public class SourceQuery
         this.name = requireNonNull(name, "name is null");
         this.controlQuery = clean(controlQuery);
         this.testQuery = clean(testQuery);
+        this.controlQueryId = requireNonNull(controlQueryId, "controlQueryId is null");
+        this.testQueryId = requireNonNull(testQueryId, "testQueryId is null");
         this.controlConfiguration = requireNonNull(controlConfiguration, "controlConfiguration is null");
         this.testConfiguration = requireNonNull(testConfiguration, "testConfiguration is null");
     }
@@ -65,6 +72,18 @@ public class SourceQuery
     {
         checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
         return clusterType == CONTROL ? controlQuery : testQuery;
+    }
+
+    public Optional<String> getQueryId(ClusterType clusterType)
+    {
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+        return clusterType == CONTROL ? controlQueryId : testQueryId;
+    }
+
+    public QueryConfiguration getQueryConfiguration(ClusterType clusterType)
+    {
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+        return clusterType == CONTROL ? controlConfiguration : testConfiguration;
     }
 
     public QueryConfiguration getControlConfiguration()
@@ -102,6 +121,8 @@ public class SourceQuery
                 Objects.equals(name, o.name) &&
                 Objects.equals(controlQuery, o.controlQuery) &&
                 Objects.equals(testQuery, o.testQuery) &&
+                Objects.equals(controlQueryId, o.controlQueryId) &&
+                Objects.equals(testQueryId, o.testQueryId) &&
                 Objects.equals(controlConfiguration, o.controlConfiguration) &&
                 Objects.equals(testConfiguration, o.testConfiguration);
     }
@@ -109,7 +130,7 @@ public class SourceQuery
     @Override
     public int hashCode()
     {
-        return Objects.hash(suite, name, controlQuery, testQuery, controlConfiguration, testConfiguration);
+        return Objects.hash(suite, name, controlQuery, testQuery, controlQueryId, testQueryId, controlConfiguration, testConfiguration);
     }
 
     @Override
@@ -120,6 +141,8 @@ public class SourceQuery
                 .add("name", name)
                 .add("controlQuery", controlQuery)
                 .add("testQuery", testQuery)
+                .add("controlQueryId", controlQueryId)
+                .add("testQueryId", testQueryId)
                 .add("controlConfiguration", controlConfiguration)
                 .add("testConfiguration", testConfiguration)
                 .toString();

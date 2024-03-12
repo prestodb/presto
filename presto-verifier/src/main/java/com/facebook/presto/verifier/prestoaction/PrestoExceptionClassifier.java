@@ -47,7 +47,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -70,7 +72,6 @@ import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
-import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -148,10 +149,12 @@ public class PrestoExceptionClassifier
                 .addResubmittedError(HIVE_TABLE_DROPPED_DURING_QUERY)
                 .addResubmittedError(CLUSTER_OUT_OF_MEMORY)
                 .addResubmittedError(ADMINISTRATIVELY_PREEMPTED)
+                .addResubmittedError(HIVE_TABLE_READ_ONLY)
+                .addResubmittedError(HIVE_PARTITION_READ_ONLY)
+                .addResubmittedError(HIVE_PARTITION_OFFLINE)
                 // Conditional Resubmitted Errors
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(CONTROL_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
-                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
-                .addResubmittedError(HIVE_PARTITION_OFFLINE, Optional.of(TEST_MAIN), Optional.empty());
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
     }
 
     public QueryException createException(QueryStage queryStage, QueryActionStats queryActionStats, SQLException cause)

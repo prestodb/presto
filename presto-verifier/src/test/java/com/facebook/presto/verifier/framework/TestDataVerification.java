@@ -214,6 +214,25 @@ public class TestDataVerification
     }
 
     @Test
+    public void testReuseTable()
+    {
+        getQueryRunner().execute("CREATE TABLE test_reuse_table (test_column INT)");
+        String testQuery = "INSERT INTO test_reuse_table SELECT 1";
+        getQueryRunner().execute(testQuery);
+        String testQueryId = "test_query_id";
+
+        getQueryRunner().execute("CREATE TABLE control_reuse_table (test_column INT)");
+        String controlQuery = "INSERT INTO control_reuse_table SELECT 1";
+        getQueryRunner().execute(controlQuery);
+        String controlQueryId = "control_query_id";
+
+        Optional<VerifierQueryEvent> event = runVerification(testQuery, controlQuery, controlQueryId, testQueryId, reuseTableSettings);
+        assertTrue(event.get().getControlQueryInfo().getIsReuseTable());
+        assertTrue(event.get().getTestQueryInfo().getIsReuseTable());
+        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Test
     public void testNonDeterministic()
     {
         // Select
@@ -357,8 +376,9 @@ public class TestDataVerification
     @Test
     public void testExecutionTimeSessionProperty()
     {
-        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME, "20m")));
-        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", configuration, configuration);
+        QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.of(ImmutableMap.of(QUERY_MAX_EXECUTION_TIME,
+                "20m")), Optional.empty());
+        SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", Optional.empty(), Optional.empty(), configuration, configuration);
         Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());
         assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
@@ -437,16 +457,28 @@ public class TestDataVerification
         assertNotNull(queryInfo.getSessionProperties());
         assertNotNull(queryInfo.getSetupQueries());
         assertNotNull(queryInfo.getTeardownQueries());
-        assertEquals(queryInfo.getTeardownQueries().size(), 1);
 
         assertNotNull(queryInfo.getQueryId());
         assertNotNull(queryInfo.getSetupQueryIds());
         assertNotNull(queryInfo.getTeardownQueryIds());
-        assertEquals(queryInfo.getTeardownQueryIds().size(), 1);
+        if (queryInfo.getIsReuseTable()) {
+            assertEquals(queryInfo.getTeardownQueries().size(), 0);
+            assertEquals(queryInfo.getTeardownQueryIds().size(), 0);
+        }
+        else {
+            assertEquals(queryInfo.getTeardownQueries().size(), 1);
+            assertEquals(queryInfo.getTeardownQueryIds().size(), 1);
+        }
 
         if (queryType == QueryType.INSERT) {
-            assertEquals(queryInfo.getSetupQueries().size(), 1);
-            assertEquals(queryInfo.getSetupQueryIds().size(), 1);
+            if (queryInfo.getIsReuseTable()) {
+                assertEquals(queryInfo.getSetupQueries().size(), 0);
+                assertEquals(queryInfo.getSetupQueryIds().size(), 0);
+            }
+            else {
+                assertEquals(queryInfo.getSetupQueries().size(), 1);
+                assertEquals(queryInfo.getSetupQueryIds().size(), 1);
+            }
         }
 
         assertNotNull(queryInfo.getOutputTableName());
