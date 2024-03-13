@@ -476,7 +476,7 @@ public class TestPredicatePushdown
     public void testPredicatePushDownCanReduceInnerToCrossJoin()
     {
         RuleTester tester = new RuleTester();
-        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
+        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), false))
                 .on(p ->
                         p.join(INNER,
                                 p.filter(p.comparison(OperatorType.EQUAL, p.variable("a1"), constant(1L, INTEGER)),
@@ -509,7 +509,7 @@ public class TestPredicatePushdown
     public void testPredicatePushdownDoesNotAddProjectsBetweenJoinNodes()
     {
         RuleTester tester = new RuleTester();
-        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser());
+        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), false);
 
         tester.assertThat(predicatePushDownOptimizer)
                 .on("SELECT 1 " +
@@ -589,7 +589,7 @@ public class TestPredicatePushdown
     public void testDomainFiltersCanBeInferredForLargeDisjunctiveFilters()
     {
         RuleTester tester = new RuleTester(emptyList(), ImmutableMap.of(GENERATE_DOMAIN_FILTERS, "true"));
-        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser());
+        PredicatePushDown predicatePushDownOptimizer = new PredicatePushDown(tester.getMetadata(), tester.getSqlParser(), false);
 
         // For Inner Join
         tester.assertThat(predicatePushDownOptimizer)
