@@ -1661,31 +1661,6 @@ public final class SystemSessionProperties
                         3,
                         false),
                 booleanProperty(
-                        NATIVE_EXECUTION_ENABLED,
-                        "Enable execution on native engine",
-                        featuresConfig.isNativeExecutionEnabled(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_EXECUTABLE_PATH,
-                        "The native engine executable file path for native engine execution",
-                        featuresConfig.getNativeExecutionExecutablePath(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
-                        "Program arguments for native engine execution. The main target use case for this " +
-                        "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
-                        "'--v 1'. More advanced glog gflags usage can be found at " +
-                        "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
-                        "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
-                        "will:\n" +
-                        "\n" +
-                        "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
-                        "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
-                        "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
-                        "d. Print VLOG(0) and lower messages from elsewhere",
-                        featuresConfig.getNativeExecutionProgramArguments(),
-                        false),
-                booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
