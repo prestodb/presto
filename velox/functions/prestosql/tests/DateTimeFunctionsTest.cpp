@@ -268,8 +268,18 @@ TEST_F(DateTimeFunctionsTest, parseDatetimeSignatures) {
 }
 
 TEST_F(DateTimeFunctionsTest, dayOfXxxSignatures) {
-  for (const auto& name :
-       {"day_of_year", "doy", "day_of_month", "day_of_week", "dow"}) {
+  for (const auto& name : {"day", "day_of_month"}) {
+    SCOPED_TRACE(name);
+    auto signatures = getSignatureStrings(name);
+    ASSERT_EQ(4, signatures.size());
+
+    ASSERT_EQ(1, signatures.count("(timestamp with time zone) -> bigint"));
+    ASSERT_EQ(1, signatures.count("(date) -> bigint"));
+    ASSERT_EQ(1, signatures.count("(timestamp) -> bigint"));
+    ASSERT_EQ(1, signatures.count("(interval day to second) -> bigint"));
+  }
+
+  for (const auto& name : {"day_of_year", "doy", "day_of_week", "dow"}) {
     SCOPED_TRACE(name);
     auto signatures = getSignatureStrings(name);
     ASSERT_EQ(3, signatures.size());
@@ -802,6 +812,24 @@ TEST_F(DateTimeFunctionsTest, dayOfMonthDate) {
   EXPECT_EQ(10, day(40));
   EXPECT_EQ(1, day(18262));
   EXPECT_EQ(2, day(-18262));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfMonthInterval) {
+  const auto day = [&](int64_t millis) {
+    auto result = evaluateOnce<int64_t, int64_t>(
+        "day_of_month(c0)", {millis}, {INTERVAL_DAY_TIME()});
+
+    auto result2 = evaluateOnce<int64_t, int64_t>(
+        "day(c0)", {millis}, {INTERVAL_DAY_TIME()});
+
+    EXPECT_EQ(result, result2);
+    return result;
+  };
+
+  EXPECT_EQ(1, day(kMillisInDay));
+  EXPECT_EQ(1, day(kMillisInDay + kMillisInHour));
+  EXPECT_EQ(10, day(10 * kMillisInDay + 7 * kMillisInHour));
+  EXPECT_EQ(-10, day(-10 * kMillisInDay - 7 * kMillisInHour));
 }
 
 TEST_F(DateTimeFunctionsTest, plusMinusDateIntervalYearMonth) {

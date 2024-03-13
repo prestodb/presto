@@ -252,6 +252,8 @@ arbitrary large timestamps.
 
     Returns the day of the month from ``x``.
 
+    The supported types for ``x`` are DATE, TIMESTAMP, TIMESTAMP WITH TIME ZONE, INTERVAL DAY TO SECOND.
+
 .. function:: day_of_month(x) -> bigint
 
     This is an alias for :func:`day`.

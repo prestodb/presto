@@ -59,6 +59,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "day", prefix + "day_of_month"});
   registerFunction<DayFunction, int64_t, Date>(
       {prefix + "day", prefix + "day_of_month"});
+  registerFunction<DayFromIntervalFunction, int64_t, IntervalDayTime>(
+      {prefix + "day", prefix + "day_of_month"});
   registerFunction<DateMinusInterval, Date, Date, IntervalDayTime>(
       {prefix + "minus"});
   registerFunction<DateMinusInterval, Date, Date, IntervalYearMonth>(

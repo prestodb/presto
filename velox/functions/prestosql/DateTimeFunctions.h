@@ -331,6 +331,17 @@ struct DayFunction : public InitSessionTimezone<T>,
 };
 
 template <typename T>
+struct DayFromIntervalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      int64_t& result,
+      const arg_type<IntervalDayTime>& interval) {
+    result = interval / kMillisInDay;
+  }
+};
+
+template <typename T>
 struct LastDayOfMonthFunction : public InitSessionTimezone<T>,
                                 public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
