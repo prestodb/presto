@@ -16,7 +16,8 @@
 
 #pragma once
 #include <boost/intrusive_ptr.hpp>
-#include "velox/common/base/Exceptions.h"
+#include <atomic>
+#include <cstdint>
 
 namespace facebook::velox::wave {
 
@@ -45,7 +46,7 @@ class Buffer {
   }
 
   void setSize(size_t newSize) {
-    VELOX_DCHECK_LE(newSize, capacity_);
+    assert(newSize <= capacity_);
     size_ = newSize;
   }
 
@@ -54,7 +55,7 @@ class Buffer {
   }
 
   bool unpin() {
-    VELOX_DCHECK_LT(0, pinCount_);
+    assert(0 < pinCount_);
     return --pinCount_ == 0;
   }
 

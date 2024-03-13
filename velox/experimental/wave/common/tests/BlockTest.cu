@@ -34,6 +34,7 @@ void BlockTestStream::testBoolToIndices(
     int32_t** indices,
     int32_t* sizes,
     int64_t* times) {
+  CUDA_CHECK(cudaGetLastError());
   auto tempBytes = sizeof(typename ScanAlgorithm::TempStorage);
   boolToIndices<<<numBlocks, 256, tempBytes, stream_->stream>>>(
       flags, indices, sizes, times);

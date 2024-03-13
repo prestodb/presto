@@ -28,7 +28,7 @@ void cudaCheck(cudaError_t err, const char* file, int line);
 #define CUDA_CHECK(e) ::facebook::velox::wave::cudaCheck(e, __FILE__, __LINE__)
 
 template <typename T, typename U>
-constexpr inline T roundUp(T value, U factor) {
+__host__ __device__ constexpr inline T roundUp(T value, U factor) {
   return (value + (factor - 1)) / factor * factor;
 }
 
