@@ -29,29 +29,7 @@ namespace facebook::velox::dwrf {
 using dwio::common::ColumnSelector;
 using dwio::common::FileFormat;
 using dwio::common::ReaderOptions;
-using dwio::common::ReaderStepState;
-using dwio::common::ResultOrActions;
 using dwio::common::RowReaderOptions;
-using dwio::common::StateAndIoActions;
-using dwio::common::StateAndResultOrIoActions;
-
-namespace {
-
-template <typename F>
-auto performIO(F func) {
-  constexpr bool isVoid = std::is_same_v<StateAndIoActions, decltype(func())>;
-
-  auto result = func();
-  while (result.state == ReaderStepState::kNeedsIO) {
-    result.resultOrIoActions.runAllActions();
-    result = func();
-  }
-  if constexpr (!isVoid) {
-    return result.resultOrIoActions.result();
-  }
-}
-
-} // namespace
 
 DwrfRowReader::DwrfRowReader(
     const std::shared_ptr<ReaderBase>& reader,
@@ -395,11 +373,11 @@ void DwrfRowReader::readWithRowNumber(
       std::move(children));
 }
 
-StateAndResultOrIoActions<int64_t> DwrfRowReader::tryNextRowNumber() {
+int64_t DwrfRowReader::nextRowNumber() {
   auto strideSize = getReader().getFooter().rowIndexStride();
   while (currentStripe_ < stripeCeiling_) {
     if (currentRowInStripe_ == 0) {
-      if (getReader().randomSkip() && !retryNextRowNumberInProgress_) {
+      if (getReader().randomSkip()) {
         auto numStripeRows =
             getReader().getFooter().stripes(currentStripe_).numberOfRows();
         auto skip = getReader().randomSkip()->nextSkip();
@@ -410,22 +388,11 @@ StateAndResultOrIoActions<int64_t> DwrfRowReader::tryNextRowNumber() {
           goto advanceToNextStripe;
         }
       }
-      auto result = tryStartNextStripe();
-      if (result.state == ReaderStepState::kNeedsIO) {
-        retryNextRowNumberInProgress_ = true;
-        ResultOrActions<int64_t> resultOrActions;
-        resultOrActions.moveActionsBack(
-            std::move(result.resultOrIoActions.actions()));
-        return {ReaderStepState::kNeedsIO, std::move(resultOrActions)};
-      }
+      startNextStripe();
     }
     checkSkipStrides(strideSize);
     if (currentRowInStripe_ < rowsInCurrentStripe_) {
-      retryNextRowNumberInProgress_ = false;
-      return {
-          ReaderStepState::kSuccess,
-          static_cast<int64_t>(
-              firstRowOfStripe_[currentStripe_] + currentRowInStripe_)};
+      return firstRowOfStripe_[currentStripe_] + currentRowInStripe_;
     }
   advanceToNextStripe:
     ++currentStripe_;
@@ -433,12 +400,7 @@ StateAndResultOrIoActions<int64_t> DwrfRowReader::tryNextRowNumber() {
     newStripeReadyForRead_ = false;
   }
   atEnd_ = true;
-  retryNextRowNumberInProgress_ = false;
-  return {ReaderStepState::kSuccess, kAtEnd};
-}
-
-int64_t DwrfRowReader::nextRowNumber() {
-  return performIO([&]() { return tryNextRowNumber(); });
+  return kAtEnd;
 }
 
 int64_t DwrfRowReader::nextReadSize(uint64_t size) {
@@ -457,30 +419,21 @@ int64_t DwrfRowReader::nextReadSize(uint64_t size) {
   return rowsToRead;
 }
 
-StateAndResultOrIoActions<uint64_t> DwrfRowReader::tryNext(
+uint64_t DwrfRowReader::next(
     uint64_t size,
     velox::VectorPtr& result,
     const dwio::common::Mutation* mutation) {
-  auto nextRowResult = tryNextRowNumber();
-  if (nextRowResult.state == ReaderStepState::kNeedsIO) {
-    ResultOrActions<uint64_t> ret;
-    ret.moveActionsBack(std::move(nextRowResult.resultOrIoActions.actions()));
-    return {ReaderStepState::kNeedsIO, std::move(ret)};
-  }
-  if (nextRowResult.resultOrIoActions.result() == kAtEnd) {
+  auto nextRow = nextRowNumber();
+  if (nextRow == kAtEnd) {
     if (!isEmptyFile()) {
       previousRow_ = firstRowOfStripe_[stripeCeiling_ - 1] +
           getReader().getFooter().stripes(stripeCeiling_ - 1).numberOfRows();
     } else {
       previousRow_ = 0;
     }
-    return {ReaderStepState::kSuccess, 0};
+    return 0;
   }
-  VELOX_CHECK(nextRowResult.resultOrIoActions.hasResult());
-  auto nextRow = nextRowResult.resultOrIoActions.result();
-
   auto rowsToRead = nextReadSize(size);
-
   previousRow_ = nextRow;
   // Record strideIndex for use by the columnReader_ which may delay actual
   // reading of the data.
@@ -488,14 +441,7 @@ StateAndResultOrIoActions<uint64_t> DwrfRowReader::tryNext(
   strideIndex_ = strideSize > 0 ? currentRowInStripe_ / strideSize : 0;
   readNext(rowsToRead, mutation, result);
   currentRowInStripe_ += rowsToRead;
-  return {ReaderStepState::kSuccess, static_cast<uint64_t>(rowsToRead)};
-}
-
-uint64_t DwrfRowReader::next(
-    uint64_t size,
-    velox::VectorPtr& result,
-    const dwio::common::Mutation* mutation) {
-  return performIO([&]() { return tryNext(size, result, mutation); });
+  return rowsToRead;
 }
 
 void DwrfRowReader::resetFilterCaches() {
@@ -523,16 +469,6 @@ DwrfRowReader::prefetchUnits() {
          .prefetch = std::bind(&DwrfRowReader::prefetch, this, stripe)});
   }
   return res;
-}
-
-DwrfRowReader::FetchStatus DwrfRowReader::fetchStatus(
-    uint32_t stripeIndex) const {
-  return stripeLoadStatuses_.withRLock([&](auto& stripeLoadStatus) {
-    if (stripeIndex < 0 || stripeIndex >= stripeLoadStatus.size()) {
-      return FetchStatus::ERROR;
-    }
-    return stripeLoadStatus[stripeIndex];
-  });
 }
 
 DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
@@ -662,22 +598,6 @@ DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
   return fetch(stripeToFetch);
 }
 
-StateAndIoActions DwrfRowReader::trySafeFetchNextStripe() {
-  switch (fetchStatus(currentStripe_)) {
-    case FetchStatus::NOT_STARTED:
-    case FetchStatus::ERROR:
-    case FetchStatus::IN_PROGRESS:
-      return {
-          ReaderStepState::kNeedsIO,
-          std::function<void()>([this, currentStripe = currentStripe_]() {
-            fetch(currentStripe);
-          })};
-    default:
-      safeFetchNextStripe();
-      return {ReaderStepState::kSuccess, {}};
-  }
-}
-
 // Guarantee stripe we are currently on is available and loaded
 void DwrfRowReader::safeFetchNextStripe() {
   auto startTime = std::chrono::high_resolution_clock::now();
@@ -711,16 +631,13 @@ void DwrfRowReader::safeFetchNextStripe() {
   DWIO_ENSURE(prefetchedStripeStates_.rlock()->contains(currentStripe_));
 }
 
-StateAndIoActions DwrfRowReader::tryStartNextStripe() {
+void DwrfRowReader::startNextStripe() {
   if (newStripeReadyForRead_ || currentStripe_ >= stripeCeiling_) {
-    return {ReaderStepState::kSuccess, {}};
-  }
-  auto fetchResult = trySafeFetchNextStripe();
-  if (fetchResult.state != ReaderStepState::kSuccess) {
-    return fetchResult;
+    return;
   }
   columnReader_.reset();
   selectiveColumnReader_.reset();
+  safeFetchNextStripe();
   prefetchedStripeStates_.withWLock([&](auto& prefetchedStripeStates) {
     DWIO_ENSURE(prefetchedStripeStates.contains(currentStripe_));
 
@@ -750,11 +667,6 @@ StateAndIoActions DwrfRowReader::tryStartNextStripe() {
           << std::chrono::duration_cast<std::chrono::microseconds>(
                  endTime - startTime)
                  .count();
-  return {ReaderStepState::kSuccess, {}};
-}
-
-void DwrfRowReader::startNextStripe() {
-  performIO([this]() { return tryStartNextStripe(); });
 }
 
 size_t DwrfRowReader::estimatedReaderMemory() const {
