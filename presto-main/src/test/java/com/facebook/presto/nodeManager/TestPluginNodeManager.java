@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.nodeManager;
 
+import com.facebook.airlift.node.NodeConfig;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -33,13 +35,16 @@ public class TestPluginNodeManager
 {
     private InMemoryNodeManager inMemoryNodeManager;
     private PluginNodeManager pluginNodeManager;
+    private String testEnvironment = "test_env";
 
     @BeforeClass
     public void setUp()
     {
         // Initialize the InMemoryNodeManager and PluginNodeManager before each test.
         inMemoryNodeManager = new InMemoryNodeManager();
-        pluginNodeManager = new PluginNodeManager(inMemoryNodeManager, "test-env");
+        // Create a NodeInfo instance for testing.
+        NodeInfo nodeInfo = new NodeInfo(new NodeConfig().setEnvironment(testEnvironment));
+        pluginNodeManager = new PluginNodeManager(inMemoryNodeManager, nodeInfo);
     }
 
     @Test
@@ -79,8 +84,8 @@ public class TestPluginNodeManager
     @Test
     public void testGetEnvironment()
     {
-        // Validate that the PluginNodeManager correctly returns the environment string set during initialization.
-        assertEquals("test-env", pluginNodeManager.getEnvironment());
+        // Validate that the PluginNodeManager correctly returns the test environment.
+        assertEquals(testEnvironment, pluginNodeManager.getEnvironment());
     }
 
     @Test

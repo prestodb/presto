@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nodeManager;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
@@ -35,16 +36,10 @@ public class PluginNodeManager
     private final String environment;
 
     @Inject
-    public PluginNodeManager(InternalNodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-        this.environment = "test";
-    }
-
-    public PluginNodeManager(InternalNodeManager nodeManager, String environment)
+    public PluginNodeManager(InternalNodeManager nodeManager, NodeInfo nodeInfo)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.environment = requireNonNull(environment, "environment is null");
+        this.environment = requireNonNull(nodeInfo.getEnvironment(), "environment is null");
     }
 
     @Override
