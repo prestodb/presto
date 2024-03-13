@@ -17,6 +17,7 @@
 #include "velox/exec/fuzzer/WindowFuzzer.h"
 
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 DEFINE_bool(
     enable_window_reference_verification,
@@ -34,6 +35,20 @@ void logVectors(const std::vector<RowVectorPtr>& vectors) {
       VLOG(1) << "\tRow " << j << ": " << vectors[i]->toString(j);
     }
   }
+}
+
+bool supportIgnoreNulls(const std::string& name) {
+  // Below are all functions that support ignore nulls. Aggregation functions in
+  // window operations do not support ignore nulls.
+  // https://github.com/prestodb/presto/issues/21304.
+  static std::unordered_set<std::string> supportedFunctions{
+      "first_value",
+      "last_value",
+      "nth_value",
+      "lead",
+      "lag",
+  };
+  return supportedFunctions.count(name) > 0;
 }
 
 } // namespace
@@ -128,7 +143,10 @@ void WindowFuzzer::go() {
     std::vector<TypePtr> argTypes = signature.args;
     std::vector<std::string> argNames = makeNames(argTypes.size());
 
-    auto call = makeFunctionCall(signature.name, argNames, false);
+    bool ignoreNulls =
+        supportIgnoreNulls(signature.name) && vectorFuzzer_.coinToss(0.5);
+    auto call =
+        makeFunctionCall(signature.name, argNames, false, false, ignoreNulls);
 
     std::vector<SortingKeyAndOrder> sortingKeysAndOrders;
     // 50% chance without order-by clause.
@@ -184,6 +202,78 @@ void WindowFuzzer::go(const std::string& /*planPath*/) {
   VELOX_NYI();
 }
 
+void WindowFuzzer::testAlternativePlans(
+    const std::vector<std::string>& partitionKeys,
+    const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
+    const std::string& frame,
+    const std::string& functionCall,
+    const std::vector<RowVectorPtr>& input,
+    bool customVerification,
+    const velox::test::ResultOrError& expected) {
+  std::vector<AggregationFuzzerBase::PlanWithSplits> plans;
+
+  std::vector<std::string> allKeys;
+  for (const auto& key : partitionKeys) {
+    allKeys.push_back(key + " NULLS FIRST");
+  }
+  for (const auto& keyAndOrder : sortingKeysAndOrders) {
+    allKeys.push_back(folly::to<std::string>(
+        keyAndOrder.key_,
+        " ",
+        keyAndOrder.order_,
+        " ",
+        keyAndOrder.nullsOrder_));
+  }
+
+  // Streaming window from values.
+  if (!allKeys.empty()) {
+    plans.push_back(
+        {PlanBuilder()
+             .values(input)
+             .orderBy(allKeys, false)
+             .streamingWindow(
+                 {fmt::format("{} over ({})", functionCall, frame)})
+             .planNode(),
+         {}});
+  }
+
+  // With TableScan.
+  auto directory = exec::test::TempDirectoryPath::create();
+  const auto inputRowType = asRowType(input[0]->type());
+  if (isTableScanSupported(inputRowType)) {
+    auto splits = makeSplits(input, directory->path);
+
+    plans.push_back(
+        {PlanBuilder()
+             .tableScan(inputRowType)
+             .localPartition(partitionKeys)
+             .window({fmt::format("{} over ({})", functionCall, frame)})
+             .planNode(),
+         splits});
+
+    if (!allKeys.empty()) {
+      plans.push_back(
+          {PlanBuilder()
+               .tableScan(inputRowType)
+               .orderBy(allKeys, false)
+               .streamingWindow(
+                   {fmt::format("{} over ({})", functionCall, frame)})
+               .planNode(),
+           splits});
+    }
+  }
+
+  for (const auto& plan : plans) {
+    testPlan(
+        plan,
+        false,
+        false,
+        customVerification,
+        /*customVerifiers*/ {},
+        expected);
+  }
+}
+
 bool WindowFuzzer::verifyWindow(
     const std::vector<std::string>& partitionKeys,
     const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
@@ -200,8 +290,10 @@ bool WindowFuzzer::verifyWindow(
   if (persistAndRunOnce_) {
     persistReproInfo({{plan, {}}}, reproPersistPath_);
   }
+
+  velox::test::ResultOrError resultOrError;
   try {
-    auto resultOrError = execute(plan);
+    resultOrError = execute(plan);
     if (resultOrError.exceptionPtr) {
       ++stats_.numFailed;
     }
@@ -228,6 +320,15 @@ bool WindowFuzzer::verifyWindow(
       LOG(INFO) << "Verification skipped";
       ++stats_.numVerificationSkipped;
     }
+
+    testAlternativePlans(
+        partitionKeys,
+        sortingKeysAndOrders,
+        frame,
+        functionCall,
+        input,
+        customVerification,
+        resultOrError);
 
     return resultOrError.exceptionPtr != nullptr;
   } catch (...) {

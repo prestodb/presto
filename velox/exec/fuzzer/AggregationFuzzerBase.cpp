@@ -601,7 +601,8 @@ std::string makeFunctionCall(
     const std::string& name,
     const std::vector<std::string>& argNames,
     bool sortedInputs,
-    bool distinctInputs) {
+    bool distinctInputs,
+    bool ignoreNulls) {
   std::ostringstream call;
   call << name << "(";
 
@@ -612,6 +613,9 @@ std::string makeFunctionCall(
     call << "distinct " << args;
   } else {
     call << args;
+  }
+  if (ignoreNulls) {
+    call << " IGNORE NULLS";
   }
   call << ")";
 

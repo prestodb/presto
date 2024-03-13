@@ -296,7 +296,8 @@ std::string makeFunctionCall(
     const std::string& name,
     const std::vector<std::string>& argNames,
     bool sortedInputs = false,
-    bool distinctInputs = false);
+    bool distinctInputs = false,
+    bool ignoreNulls = false);
 
 // Returns a list of column names from c0 to cn.
 std::vector<std::string> makeNames(size_t n);

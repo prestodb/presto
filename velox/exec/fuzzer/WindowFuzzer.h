@@ -120,6 +120,15 @@ class WindowFuzzer : public AggregationFuzzerBase {
       bool customVerification,
       bool enableWindowVerification);
 
+  void testAlternativePlans(
+      const std::vector<std::string>& partitionKeys,
+      const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders,
+      const std::string& frame,
+      const std::string& functionCall,
+      const std::vector<RowVectorPtr>& input,
+      bool customVerification,
+      const velox::test::ResultOrError& expected);
+
   const std::unordered_set<std::string> orderDependentFunctions_;
 
   struct Stats : public AggregationFuzzerBase::Stats {

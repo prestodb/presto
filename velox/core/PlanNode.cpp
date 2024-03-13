@@ -1273,6 +1273,9 @@ void addWindowFunction(
     std::stringstream& stream,
     const WindowNode::Function& windowFunction) {
   stream << windowFunction.functionCall->toString() << " ";
+  if (windowFunction.ignoreNulls) {
+    stream << "IGNORE NULLS ";
+  }
   auto frame = windowFunction.frame;
   if (frame.startType == WindowNode::BoundType::kUnboundedFollowing) {
     VELOX_USER_FAIL("Window frame start cannot be UNBOUNDED FOLLOWING");
