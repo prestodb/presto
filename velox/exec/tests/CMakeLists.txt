@@ -81,7 +81,8 @@ add_executable(
   ValuesTest.cpp
   WindowFunctionRegistryTest.cpp
   WindowTest.cpp
-  SortBufferTest.cpp)
+  SortBufferTest.cpp
+  PrefixSortTest.cpp)
 
 add_executable(
   velox_exec_infra_test

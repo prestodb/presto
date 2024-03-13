@@ -49,3 +49,8 @@ if(${VELOX_ENABLE_PARQUET})
     arrow
     thrift)
 endif()
+
+add_executable(velox_prefixsort_benchmark PrefixSortBenchmark.cpp)
+
+target_link_libraries(velox_prefixsort_benchmark velox_exec velox_vector_fuzzer
+                      velox_vector_test_lib ${FOLLY_BENCHMARK})

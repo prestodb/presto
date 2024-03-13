@@ -23,6 +23,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/type/Timestamp.h"
+#include "velox/type/Type.h"
 
 namespace facebook::velox::exec::prefixsort {
 
@@ -63,6 +64,31 @@ class PrefixSortEncoder {
 
   bool isNullsFirst() const {
     return nullsFirst_;
+  }
+
+  /// @return For supported types, returns the encoded size, assume nullable.
+  ///         For not supported types, returns 'std::nullopt'.
+  FOLLY_ALWAYS_INLINE static std::optional<uint32_t> encodedSize(
+      TypeKind typeKind) {
+    switch ((typeKind)) {
+      case ::facebook::velox::TypeKind::INTEGER: {
+        return 5;
+      }
+      case ::facebook::velox::TypeKind::BIGINT: {
+        return 9;
+      }
+      case ::facebook::velox::TypeKind::REAL: {
+        return 5;
+      }
+      case ::facebook::velox::TypeKind::DOUBLE: {
+        return 9;
+      }
+      case ::facebook::velox::TypeKind::TIMESTAMP: {
+        return 17;
+      }
+      default:
+        return std::nullopt;
+    }
   }
 
  private:
