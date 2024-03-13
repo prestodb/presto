@@ -26,6 +26,7 @@ add_executable(
   DecimalRoundTest.cpp
   DecimalUtilTest.cpp
   MakeDecimalTest.cpp
+  MakeTimestampTest.cpp
   ElementAtTest.cpp
   HashTest.cpp
   InTest.cpp

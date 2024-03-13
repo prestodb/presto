@@ -23,6 +23,7 @@ add_library(
   Hash.cpp
   In.cpp
   LeastGreatest.cpp
+  MakeTimestamp.cpp
   Map.cpp
   RegexFunctions.cpp
   Register.cpp

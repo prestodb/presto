@@ -327,6 +327,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<SecondFunction, int32_t, Timestamp>({prefix + "second"});
 
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_make_timestamp, prefix + "make_timestamp");
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
