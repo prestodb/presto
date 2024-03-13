@@ -763,6 +763,13 @@ void PrestoServer::stop() {
   }
 }
 
+size_t PrestoServer::numDriverThreads() const {
+  VELOX_CHECK(
+      driverExecutor_ != nullptr,
+      "Driver executor is expected to be not null, but it is null!");
+  return driverExecutor_->numThreads();
+}
+
 void PrestoServer::detachWorker() {
   auto readLockedShuttingDown = shuttingDown_.rlock();
   if (!*readLockedShuttingDown && nodeState() == NodeState::kActive) {
