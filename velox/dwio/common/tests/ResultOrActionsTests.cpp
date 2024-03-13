@@ -58,11 +58,7 @@ TEST(ResultOrActionsTest, HasResult) {
   ReaderResult readerResult(10);
   ASSERT_TRUE(readerResult.hasResult());
   EXPECT_EQ(readerResult.result(), 10);
-  EXPECT_THAT(
-      [&]() { readerResult.actions(); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't get actions of class that has a result"))));
+  EXPECT_EQ(readerResult.actions().size(), 0);
 }
 
 TEST(ResultOrActionsTest, Void) {
@@ -83,58 +79,6 @@ TEST(ResultOrActionsTest, Void) {
     VoidResult readerResult(getActions(executedActions, 2));
     EXPECT_EQ(readerResult.actions().size(), 2);
   }
-}
-
-TEST(ResultOrActionsTest, MoveBackToResult) {
-  SplitResult splitResult(1);
-  ActionsMock executedActions;
-
-  ReaderResult readerResult(getAction(executedActions));
-
-  EXPECT_THAT(
-      [&]() { splitResult.moveActionsBack(std::move(readerResult.actions())); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't move actions to an object that has a result"))));
-}
-
-TEST(ResultOrActionsTest, MoveFrontToResult) {
-  SplitResult splitResult(1);
-  ActionsMock executedActions;
-
-  ReaderResult readerResult(getAction(executedActions));
-
-  EXPECT_THAT(
-      [&]() {
-        splitResult.moveActionsFront(std::move(readerResult.actions()));
-      },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't move actions to an object that has a result"))));
-}
-
-TEST(ResultOrActionsTest, MoveBackFromResult) {
-  SplitResult splitResult(1);
-  ReaderResult readerResult(1);
-
-  EXPECT_THAT(
-      [&]() { splitResult.moveActionsBack(std::move(readerResult.actions())); },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't get actions of class that has a result"))));
-}
-
-TEST(ResultOrActionsTest, MoveFrontFromResult) {
-  SplitResult splitResult(1);
-  ReaderResult readerResult(1);
-
-  EXPECT_THAT(
-      [&]() {
-        splitResult.moveActionsFront(std::move(readerResult.actions()));
-      },
-      Throws<facebook::velox::VeloxRuntimeError>(Property(
-          &facebook::velox::VeloxRuntimeError::message,
-          HasSubstr("Can't get actions of class that has a result"))));
 }
 
 using ReaderResultTypes = ::testing::Types<ReaderResult, VoidResult>;
@@ -192,99 +136,6 @@ TYPED_TEST(ResultOrActionsTypedTest, ActionsNeeded) {
   EXPECT_EQ(executedActions, ActionsMock({1, 1}));
   EXPECT_EQ(readerResult.runAllActions(), 2);
   EXPECT_EQ(executedActions, ActionsMock({2, 2}));
-}
-
-TYPED_TEST(ResultOrActionsTypedTest, MoveActionsBackIncremental) {
-  SplitResult splitResult;
-  ActionsMock executedActions;
-  {
-    ReaderResult readerResult(getAction(executedActions));
-    splitResult.moveActionsBack(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 1);
-  EXPECT_EQ(executedActions, ActionsMock({0}));
-  splitResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({1}));
-  {
-    ReaderResult readerResult(getAction(executedActions));
-    splitResult.moveActionsBack(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 2);
-  EXPECT_EQ(executedActions, ActionsMock({1, 0}));
-  splitResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 0}));
-  splitResult.actions()[1]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1}));
-  {
-    ReaderResult readerResult(getActions(executedActions, 2));
-    splitResult.moveActionsBack(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 4);
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 0, 0}));
-  splitResult.actions()[2]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 1, 0}));
-  splitResult.actions()[3]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 1, 1}));
-  EXPECT_EQ(splitResult.runAllActions(), 4);
-  EXPECT_EQ(executedActions, ActionsMock({3, 2, 2, 2}));
-}
-
-TYPED_TEST(ResultOrActionsTypedTest, MoveActionsFrontIncremental) {
-  SplitResult splitResult;
-  ActionsMock executedActions;
-  {
-    ReaderResult readerResult(getAction(executedActions));
-    splitResult.moveActionsFront(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 1);
-  EXPECT_EQ(executedActions, ActionsMock({0}));
-  splitResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({1}));
-  {
-    ReaderResult readerResult(getAction(executedActions));
-    splitResult.moveActionsFront(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 2);
-  EXPECT_EQ(executedActions, ActionsMock({1, 0}));
-  splitResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({1, 1}));
-  splitResult.actions()[1]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1}));
-  {
-    ReaderResult readerResult(getActions(executedActions, 2));
-    splitResult.moveActionsFront(std::move(readerResult.actions()));
-  }
-  ASSERT_EQ(splitResult.actions().size(), 4);
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 0, 0}));
-  splitResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 1, 0}));
-  splitResult.actions()[1]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 1, 1, 1}));
-  // Actions 2 and 3 were already rotated in the second moveActionsFront, so
-  // they don't map to indices 0 and 1, but to 1 and 0.
-  splitResult.actions()[2]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 2, 1, 1}));
-  splitResult.actions()[3]();
-  EXPECT_EQ(executedActions, ActionsMock({3, 2, 1, 1}));
-  EXPECT_EQ(splitResult.runAllActions(), 4);
-  EXPECT_EQ(executedActions, ActionsMock({4, 3, 2, 2}));
-}
-
-TYPED_TEST(ResultOrActionsTypedTest, MergeActions) {
-  ActionsMock executedActions;
-  ReaderResult readerResult(getActions(executedActions, 2));
-  EXPECT_EQ(readerResult.actions().size(), 2);
-  EXPECT_EQ(executedActions, ActionsMock({0, 0}));
-  readerResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({1, 0}));
-  readerResult.actions()[1]();
-  EXPECT_EQ(executedActions, ActionsMock({1, 1}));
-  readerResult.mergeActions();
-  EXPECT_EQ(readerResult.actions().size(), 1);
-  readerResult.actions()[0]();
-  EXPECT_EQ(executedActions, ActionsMock({2, 2}));
-  EXPECT_EQ(readerResult.runAllActions(), 1);
-  EXPECT_EQ(executedActions, ActionsMock({3, 3}));
 }
 
 TYPED_TEST(ResultOrActionsTypedTest, MoveConstructor) {

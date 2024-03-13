@@ -83,85 +83,20 @@ class ResultOrActions {
     return std::get<ResultType>(resultOrActions_);
   }
 
-  std::vector<std::function<ActionSignature>>& actions() {
+  folly::Range<std::function<ActionSignature>*> actions() {
     switch (resultOrActions_.index()) {
       case 0: // Actions
-        return std::get<std::vector<std::function<ActionSignature>>>(
-            resultOrActions_);
+        return {
+            std::get<std::vector<std::function<ActionSignature>>>(
+                resultOrActions_)
+                .data(),
+            std::get<std::vector<std::function<ActionSignature>>>(
+                resultOrActions_)
+                .size()};
       case 1: // Result
-        VELOX_FAIL("Can't get actions of class that has a result");
+        return {};
       default:
-        VELOX_UNREACHABLE();
-    }
-  }
-
-  const std::vector<std::function<ActionSignature>>& actions() const {
-    switch (resultOrActions_.index()) {
-      case 0: // Actions
-        return std::get<const std::vector<std::function<ActionSignature>>>(
-            resultOrActions_);
-      case 1: // Result
-        VELOX_FAIL("Can't get actions of class that has a result");
-      default:
-        VELOX_UNREACHABLE();
-    }
-  }
-
-  // Merge all contained actions into one, so that they can't be executed in
-  // parallel later.
-  void mergeActions() {
-    VELOX_CHECK(
-        resultOrActions_.index() == 0,
-        "Can't merge actions of an object that has a result");
-    resultOrActions_ = std::vector<std::function<ActionSignature>>{
-        [actions = std::move(actions())]() {
-          for (auto& action : actions) {
-            action();
-          }
-        }};
-  }
-
-  void moveActionsBack(
-      std::vector<std::function<ActionSignature>>&& otherActions) {
-    VELOX_CHECK(
-        resultOrActions_.index() == 0,
-        "Can't move actions to an object that has a result");
-    auto& thisActions =
-        std::get<std::vector<std::function<ActionSignature>>>(resultOrActions_);
-    if (thisActions.empty()) {
-      thisActions = std::move(otherActions);
-    } else {
-      thisActions.reserve(thisActions.size() + otherActions.size());
-      std::move(
-          otherActions.begin(),
-          otherActions.end(),
-          std::back_inserter(thisActions));
-    }
-  }
-
-  void moveActionsFront(
-      std::vector<std::function<ActionSignature>>&& otherActions) {
-    VELOX_CHECK(
-        resultOrActions_.index() == 0,
-        "Can't move actions to an object that has a result");
-    auto& thisActions =
-        std::get<std::vector<std::function<ActionSignature>>>(resultOrActions_);
-    if (thisActions.empty()) {
-      thisActions = std::move(otherActions);
-    } else {
-      // Extend thisActions by otherActions.size() elements and pad with nullptr
-      // functions.
-      thisActions.resize(thisActions.size() + otherActions.size());
-
-      // Move right by otherActions.size() elements.
-      std::move(
-          thisActions.rbegin() + otherActions.size(),
-          thisActions.rend(),
-          thisActions.rbegin());
-
-      // Move elements from otherActions to the beginning of thisActions.
-      // nullptr functions will be overwritten.
-      std::move(otherActions.begin(), otherActions.end(), thisActions.begin());
+        VELOX_FAIL("Unexpected variant index");
     }
   }
 
@@ -189,6 +124,17 @@ class ResultOrActions {
   // they're different classes
   template <typename OtherResultType, typename OtherActionSignature>
   friend class ResultOrActions;
+
+  void mergeAction(std::function<ActionSignature> action) {
+    switch (resultOrActions_.index()) {
+      case 0: // Actions
+        std::get<std::vector<std::function<ActionSignature>>>(resultOrActions_)
+            .push_back(std::move(action));
+        break;
+      case 1: // Result
+        VELOX_FAIL("Can't merge actions if destination class has a result");
+    }
+  }
 
   std::variant<std::vector<std::function<ActionSignature>>, ResultType>
       resultOrActions_;
