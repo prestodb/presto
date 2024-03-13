@@ -307,8 +307,7 @@ TEST_F(SortBufferTest, batchOutput) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        testData.triggerSpill ? &spillConfig : nullptr,
-        0);
+        testData.triggerSpill ? &spillConfig : nullptr);
     ASSERT_EQ(sortBuffer->canSpill(), testData.triggerSpill);
 
     const std::shared_ptr<memory::MemoryPool> fuzzerPool =
@@ -353,15 +352,15 @@ TEST_F(SortBufferTest, spill) {
   struct {
     bool spillEnabled;
     bool memoryReservationFailure;
-    uint64_t spillMemoryThreshold;
+    bool triggerSpill;
     bool spillTriggered;
 
     std::string debugString() const {
       return fmt::format(
-          "spillEnabled:{}, memoryReservationFailure:{}, spillMemoryThreshold:{}, spillTriggered:{}",
+          "spillEnabled:{}, memoryReservationFailure:{}, triggerSpill:{}, spillTriggered:{}",
           spillEnabled,
           memoryReservationFailure,
-          spillMemoryThreshold,
+          triggerSpill,
           spillTriggered);
     }
   } testSettings[] = {
@@ -370,9 +369,8 @@ TEST_F(SortBufferTest, spill) {
        true,
        0,
        false}, // memory reservation failure won't trigger spilling.
-      {true, false, 1000, true}, // threshold is small, spilling is triggered.
-      {true, false, 1000000, false} // threshold is too large, not triggered
-  };
+      {true, false, true, true},
+      {true, false, false, false}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -404,8 +402,7 @@ TEST_F(SortBufferTest, spill) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        testData.spillEnabled ? &spillConfig : nullptr,
-        testData.spillMemoryThreshold);
+        testData.spillEnabled ? &spillConfig : nullptr);
 
     const std::shared_ptr<memory::MemoryPool> fuzzerPool =
         memory::memoryManager()->addLeafPool("spillSource");
@@ -416,6 +413,8 @@ TEST_F(SortBufferTest, spill) {
     const auto peakSpillMemoryUsage =
         memory::spillMemoryPool()->stats().peakBytes;
 
+    TestScopedSpillInjection scopedSpillInjection(
+        testData.triggerSpill ? 100 : 0);
     for (int i = 0; i < 3; ++i) {
       sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
       totalNumInput += 1024;
@@ -463,8 +462,7 @@ TEST_F(SortBufferTest, emptySpill) {
         sortCompareFlags_,
         pool_.get(),
         &nonReclaimableSection_,
-        &spillConfig,
-        0);
+        &spillConfig);
 
     sortBuffer->spill();
     if (hasPostSpillData) {

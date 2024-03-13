@@ -25,14 +25,12 @@ SortBuffer::SortBuffer(
     const std::vector<CompareFlags>& sortCompareFlags,
     velox::memory::MemoryPool* pool,
     tsan_atomic<bool>* nonReclaimableSection,
-    const common::SpillConfig* spillConfig,
-    uint64_t spillMemoryThreshold)
+    const common::SpillConfig* spillConfig)
     : input_(input),
       sortCompareFlags_(sortCompareFlags),
       pool_(pool),
       nonReclaimableSection_(nonReclaimableSection),
-      spillConfig_(spillConfig),
-      spillMemoryThreshold_(spillMemoryThreshold) {
+      spillConfig_(spillConfig) {
   VELOX_CHECK_GE(input_->size(), sortCompareFlags_.size());
   VELOX_CHECK_GT(sortCompareFlags_.size(), 0);
   VELOX_CHECK_EQ(sortColumnIndices.size(), sortCompareFlags_.size());
@@ -199,14 +197,7 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
     return;
   }
 
-  // If current memory usage exceeds spilling threshold, trigger spilling.
   const auto currentMemoryUsage = pool_->currentBytes();
-  if (spillMemoryThreshold_ != 0 &&
-      currentMemoryUsage > spillMemoryThreshold_) {
-    spill();
-    return;
-  }
-
   const auto minReservationBytes =
       currentMemoryUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = pool_->availableReservation();

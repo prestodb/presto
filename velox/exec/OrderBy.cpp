@@ -65,8 +65,7 @@ OrderBy::OrderBy(
       sortCompareFlags,
       pool(),
       &nonReclaimableSection_,
-      spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr,
-      operatorCtx_->driverCtx()->queryConfig().orderBySpillMemoryThreshold());
+      spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr);
 }
 
 void OrderBy::addInput(RowVectorPtr input) {
