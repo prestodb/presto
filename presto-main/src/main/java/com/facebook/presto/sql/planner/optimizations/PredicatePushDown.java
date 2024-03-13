@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.VarcharType;
@@ -84,7 +85,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.shouldGenerateDomainFilters;
 import static com.facebook.presto.SystemSessionProperties.shouldInferInequalityPredicates;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
@@ -131,13 +131,15 @@ public class PredicatePushDown
     private final EffectivePredicateExtractor effectivePredicateExtractor;
     private final SqlParser sqlParser;
     private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
+    private final boolean nativeExecution;
 
-    public PredicatePushDown(Metadata metadata, SqlParser sqlParser)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         rowExpressionDomainTranslator = new RowExpressionDomainTranslator(metadata);
         this.effectivePredicateExtractor = new EffectivePredicateExtractor(rowExpressionDomainTranslator, metadata.getFunctionAndTypeManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -148,7 +150,7 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, sqlParser, session);
+        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, sqlParser, session, nativeExecution);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, TRUE_CONSTANT);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -183,6 +185,7 @@ public class PredicatePushDown
         private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
         private final Session session;
+        private final boolean nativeExecution;
         private final ExpressionEquivalence expressionEquivalence;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final LogicalRowExpressions logicalRowExpressions;
@@ -197,7 +200,8 @@ public class PredicatePushDown
                 EffectivePredicateExtractor effectivePredicateExtractor,
                 RowExpressionDomainTranslator rowExpressionDomainTranslator,
                 SqlParser sqlParser,
-                Session session)
+                Session session,
+                boolean nativeExecution)
         {
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -205,6 +209,7 @@ public class PredicatePushDown
             this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
             this.rowExpressionDomainTranslator = rowExpressionDomainTranslator;
             this.session = requireNonNull(session, "session is null");
+            this.nativeExecution = nativeExecution;
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()), metadata.getFunctionAndTypeManager());
@@ -553,7 +558,7 @@ public class PredicatePushDown
             PlanNode rightSource;
 
             List<RowExpression> joinFilter = joinFilterBuilder.build();
-            boolean dynamicFilterEnabled = isEnableDynamicFiltering(session);
+            boolean dynamicFilterEnabled = isEnableDynamicFiltering();
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             if (dynamicFilterEnabled) {
                 DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, joinFilter, idAllocator, metadata.getFunctionAndTypeManager());
@@ -1524,6 +1529,11 @@ public class PredicatePushDown
             return output;
         }
 
+        private boolean isEnableDynamicFiltering()
+        {
+            return !nativeExecution && SystemSessionProperties.isEnableDynamicFiltering(session);
+        }
+
         private PlanNode visitFilteringSemiJoin(SemiJoinNode node, RewriteContext<RowExpression> context)
         {
             List<RowExpression> postJoinConjuncts = new ArrayList<>();
@@ -1602,7 +1612,7 @@ public class PredicatePushDown
             PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), logicalRowExpressions.combineConjuncts(filteringSourceConjuncts));
 
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
-            if (isEnableDynamicFiltering(session)) {
+            if (isEnableDynamicFiltering()) {
                 DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), idAllocator, metadata.getFunctionAndTypeManager());
                 dynamicFilters = dynamicFiltersResult.getDynamicFilters();
                 // add filter node on top of probe

@@ -341,7 +341,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
 
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
+        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
         builder.add(
