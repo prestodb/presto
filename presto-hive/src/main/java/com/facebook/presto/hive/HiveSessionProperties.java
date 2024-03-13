@@ -130,6 +130,8 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
+    public static final String WS_LATENCY_PERCENTILE = "ws_latency_percentile";
+    public static final String WS_LATENCY = "ws_latency";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -579,6 +581,36 @@ public final class HiveSessionProperties
                             return doubleValue;
                         },
                         value -> value),
+                new PropertyMetadata<>(
+                        WS_LATENCY_PERCENTILE,
+                        "ws percentile for which we expect SLO",
+                        DOUBLE,
+                        Double.class,
+                        (double) 0,
+                        false,
+                        value -> {
+                            double doubleValue = ((Number) value).doubleValue();
+                            if (doubleValue < 0 || doubleValue > 100) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be >= 0 and <= 100.0: %s", WS_LATENCY_PERCENTILE, value));
+                            }
+                            return doubleValue;
+                        },
+                        value -> value),
+                integerProperty(
+                        WS_LATENCY,
+                        "ws SLO latency",
+                        50,
+                        false),
+                integerProperty(
+                        "ws_min_non_slo",
+                        "ws min NON-SLO latency",
+                        2000,
+                        false),
+                integerProperty(
+                        "ws_max_non_slo",
+                        "ws max NON-SLO latency",
+                        10000,
+                        false),
                 booleanProperty(
                         USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
                         "Use record page source for custom split",
@@ -1016,6 +1048,26 @@ public final class HiveSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(ConnectorSession session)
     {
         return session.getProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static double getPercentile(ConnectorSession session)
+    {
+        return session.getProperty(WS_LATENCY_PERCENTILE, Double.class);
+    }
+
+    public static int getWsLatency(ConnectorSession session)
+    {
+        return session.getProperty(WS_LATENCY, Integer.class);
+    }
+
+    public static int getMinNonSlo(ConnectorSession session)
+    {
+        return session.getProperty("ws_min_non_slo", Integer.class);
+    }
+
+    public static int getMaxNonSlo(ConnectorSession session)
+    {
+        return session.getProperty("ws_max_non_slo", Integer.class);
     }
 
     public static boolean isDwrfWriterStripeCacheEnabled(ConnectorSession session)

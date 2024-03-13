@@ -47,6 +47,10 @@ public class HiveFileContext
     private final OptionalLong length;
     private final long modificationTime;
     private final boolean verboseRuntimeStatsEnabled;
+    private final double percentile;
+    private final int delayInMs;
+    private final int minNonSlo;
+    private final int maxNonSlo;
 
     private final RuntimeStats stats = new RuntimeStats();
 
@@ -60,6 +64,23 @@ public class HiveFileContext
             long modificationTime,
             boolean verboseRuntimeStatsEnabled)
     {
+        this(cacheable, cacheQuota, extraFileInfo, fileSize, startOffset, length, modificationTime, verboseRuntimeStatsEnabled, 0, 0, 0, 0);
+    }
+
+    public HiveFileContext(
+            boolean cacheable,
+            CacheQuota cacheQuota,
+            Optional<ExtraHiveFileInfo<?>> extraFileInfo,
+            OptionalLong fileSize,
+            OptionalLong startOffset,
+            OptionalLong length,
+            long modificationTime,
+            boolean verboseRuntimeStatsEnabled,
+            double percentile,
+            int delayInMs,
+            int minNonSlo,
+            int maxNonSlo)
+    {
         this.cacheable = cacheable;
         this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
@@ -68,6 +89,30 @@ public class HiveFileContext
         this.length = requireNonNull(length, "length is null");
         this.modificationTime = modificationTime;
         this.verboseRuntimeStatsEnabled = verboseRuntimeStatsEnabled;
+        this.percentile = percentile;
+        this.delayInMs = delayInMs;
+        this.minNonSlo = minNonSlo;
+        this.maxNonSlo = maxNonSlo;
+    }
+
+    public double getPercentile()
+    {
+        return percentile;
+    }
+
+    public int getDelayInMs()
+    {
+        return delayInMs;
+    }
+
+    public int getMinNonSlo()
+    {
+        return minNonSlo;
+    }
+
+    public int getMaxNonSlo()
+    {
+        return maxNonSlo;
     }
 
     /**
