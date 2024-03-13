@@ -1004,7 +1004,12 @@ std::string DateType::toString(int32_t days) const {
       days);
   TimestampToStringOptions options;
   options.mode = TimestampToStringOptions::Mode::kDateOnly;
-  return Timestamp::tmToString(tmValue, 0, options);
+  std::string result;
+  result.resize(getMaxStringLength(options));
+  const auto view =
+      Timestamp::tmToStringView(tmValue, 0, options, result.data());
+  result.resize(view.size());
+  return result;
 }
 
 int32_t DateType::toDays(folly::StringPiece in) const {

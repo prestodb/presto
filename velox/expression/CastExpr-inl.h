@@ -341,21 +341,6 @@ void CastExpr::applyCastKernel(
   try {
     auto inputRowValue = input->valueAt(row);
 
-    if constexpr (
-        FromKind == TypeKind::TIMESTAMP &&
-        (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY)) {
-      auto writer = exec::StringWriter<>(result, row);
-      const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-      auto sessionTzName = queryConfig.sessionTimezone();
-      if (queryConfig.adjustTimestampToTimezone() && !sessionTzName.empty()) {
-        const auto* timeZone = date::locate_zone(sessionTzName);
-        hooks_->castTimestampToString(inputRowValue, writer, timeZone);
-      } else {
-        hooks_->castTimestampToString(inputRowValue, writer);
-      }
-      return;
-    }
-
     // Optimize empty input strings casting by avoiding throwing exceptions.
     if constexpr (
         FromKind == TypeKind::VARCHAR || FromKind == TypeKind::VARBINARY) {

@@ -32,17 +32,14 @@ class CastHooks {
 
   virtual int32_t castStringToDate(const StringView& dateString) const = 0;
 
-  // Cast from timestamp to string and write the result to string writer.
-  virtual void castTimestampToString(
-      const Timestamp& timestamp,
-      StringWriter<false>& out,
-      const date::time_zone* timeZone = nullptr) const = 0;
-
   // Returns whether legacy cast semantics are enabled.
   virtual bool legacy() const = 0;
 
   // Trims all leading and trailing UTF8 whitespaces.
   virtual StringView removeWhiteSpaces(const StringView& view) const = 0;
+
+  // Returns the options to cast from timestamp to string.
+  virtual const TimestampToStringOptions& timestampToStringOptions() const = 0;
 
   // Returns whether to cast to int by truncate.
   virtual bool truncate() const = 0;

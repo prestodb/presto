@@ -24,8 +24,7 @@ namespace facebook::velox::exec {
 // This class provides cast hooks following Presto semantics.
 class PrestoCastHooks : public CastHooks {
  public:
-  explicit PrestoCastHooks(const core::QueryConfig& config)
-      : CastHooks(), legacyCast_(config.isLegacyCast()) {}
+  explicit PrestoCastHooks(const core::QueryConfig& config);
 
   // Uses the default implementation of 'castFromDateString'.
   Timestamp castStringToTimestamp(const StringView& view) const override;
@@ -33,22 +32,21 @@ class PrestoCastHooks : public CastHooks {
   // Uses standard cast mode to cast from string to date.
   int32_t castStringToDate(const StringView& dateString) const override;
 
-  // Applies different cast options according to 'isLegacyCast' config.
-  void castTimestampToString(
-      const Timestamp& timestamp,
-      StringWriter<false>& out,
-      const date::time_zone* timeZone) const override;
-
   // Follows 'isLegacyCast' config.
   bool legacy() const override;
 
   // Returns the input as is.
   StringView removeWhiteSpaces(const StringView& view) const override;
 
+  // Returns cast options following 'isLegacyCast' and session timezone.
+  const TimestampToStringOptions& timestampToStringOptions() const override;
+
   // Returns false.
   bool truncate() const override;
 
  private:
   const bool legacyCast_;
+  TimestampToStringOptions options_ = {
+      .precision = TimestampToStringOptions::Precision::kMilliseconds};
 };
 } // namespace facebook::velox::exec

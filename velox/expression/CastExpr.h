@@ -283,6 +283,12 @@ class CastExpr : public SpecialForm {
       VectorPtr& result,
       const date::time_zone* timeZone = nullptr);
 
+  VectorPtr applyTimestampToVarcharCast(
+      const TypePtr& toType,
+      const SelectivityVector& rows,
+      exec::EvalCtx& context,
+      const BaseVector& input);
+
   bool nullOnFailure() const {
     return nullOnFailure_;
   }

@@ -39,21 +39,6 @@ int32_t SparkCastHooks::castStringToDate(const StringView& dateString) const {
       removeWhiteSpaces(dateString), false /*isIso8601*/);
 }
 
-void SparkCastHooks::castTimestampToString(
-    const Timestamp& timestamp,
-    exec::StringWriter<false>& out,
-    const date::time_zone* /*timeZone*/) const {
-  static constexpr TimestampToStringOptions options = {
-      .precision = TimestampToStringOptions::Precision::kMicroseconds,
-      .leadingPositiveSign = true,
-      .skipTrailingZeros = true,
-      .zeroPaddingYear = true,
-      .dateTimeSeparator = ' ',
-  };
-  out.copy_from(timestamp.toString(options));
-  out.finalize();
-}
-
 bool SparkCastHooks::legacy() const {
   return false;
 }
@@ -63,6 +48,18 @@ StringView SparkCastHooks::removeWhiteSpaces(const StringView& view) const {
   stringImpl::trimUnicodeWhiteSpace<true, true, StringView, StringView>(
       output, view);
   return output;
+}
+
+const TimestampToStringOptions& SparkCastHooks::timestampToStringOptions()
+    const {
+  static constexpr TimestampToStringOptions options = {
+      .precision = TimestampToStringOptions::Precision::kMicroseconds,
+      .leadingPositiveSign = true,
+      .skipTrailingZeros = true,
+      .zeroPaddingYear = true,
+      .dateTimeSeparator = ' ',
+  };
+  return options;
 }
 
 bool SparkCastHooks::truncate() const {

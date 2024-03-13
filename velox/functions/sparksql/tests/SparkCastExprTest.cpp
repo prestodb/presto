@@ -470,7 +470,6 @@ TEST_F(SparkCastExprTest, timestampToString) {
           Timestamp(946729316, 100000000),
           Timestamp(946729316, 129900000),
           Timestamp(946729316, 123456789),
-
           Timestamp(7266, 0),
           Timestamp(-50049331200, 0),
           Timestamp(253405036800, 0),

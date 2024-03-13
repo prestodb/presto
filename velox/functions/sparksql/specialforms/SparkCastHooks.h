@@ -30,14 +30,6 @@ class SparkCastHooks : public exec::CastHooks {
   /// non-standard cast mode to cast from string to date.
   int32_t castStringToDate(const StringView& dateString) const override;
 
-  /// 1) Does not follow 'isLegacyCast' config. 2) The conversion precision is
-  /// microsecond. 3) Does not append trailing zeros. 4) Adds a positive sign at
-  /// first if the year exceeds 9999.
-  void castTimestampToString(
-      const Timestamp& timestamp,
-      exec::StringWriter<false>& out,
-      const date::time_zone* timeZone) const override;
-
   // Returns false.
   bool legacy() const override;
 
@@ -45,6 +37,11 @@ class SparkCastHooks : public exec::CastHooks {
   /// timestamp types, Spark hook trims all leading and trailing UTF8
   /// whitespaces before cast.
   StringView removeWhiteSpaces(const StringView& view) const override;
+
+  /// 1) Does not follow 'isLegacyCast' and session timezone. 2) The conversion
+  /// precision is microsecond. 3) Does not append trailing zeros. 4) Adds a
+  /// positive sign at first if the year exceeds 9999.
+  const TimestampToStringOptions& timestampToStringOptions() const override;
 
   // Returns true.
   bool truncate() const override;

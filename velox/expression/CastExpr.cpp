@@ -702,6 +702,11 @@ void CastExpr::applyPeeled(
             fromType,
             toType);
     }
+  } else if (
+      fromType->kind() == TypeKind::TIMESTAMP &&
+      (toType->kind() == TypeKind::VARCHAR ||
+       toType->kind() == TypeKind::VARBINARY)) {
+    result = applyTimestampToVarcharCast(toType, rows, context, input);
   } else {
     switch (toType->kind()) {
       case TypeKind::MAP:
@@ -742,6 +747,44 @@ void CastExpr::applyPeeled(
       }
     }
   }
+}
+
+VectorPtr CastExpr::applyTimestampToVarcharCast(
+    const TypePtr& toType,
+    const SelectivityVector& rows,
+    exec::EvalCtx& context,
+    const BaseVector& input) {
+  VectorPtr result;
+  context.ensureWritable(rows, toType, result);
+  (*result).clearNulls(rows);
+  auto flatResult = result->asFlatVector<StringView>();
+  const auto simpleInput = input.as<SimpleVector<Timestamp>>();
+
+  const auto& options = hooks_->timestampToStringOptions();
+  const uint32_t rowSize = getMaxStringLength(options);
+
+  Buffer* buffer = flatResult->getBufferWithSpace(
+      rows.countSelected() * rowSize, true /*exactSize*/);
+  char* rawBuffer = buffer->asMutable<char>() + buffer->size();
+
+  applyToSelectedNoThrowLocal(context, rows, result, [&](vector_size_t row) {
+    // Adjust input timestamp according the session timezone.
+    Timestamp inputValue(simpleInput->valueAt(row));
+    if (options.timeZone) {
+      inputValue.toTimezone(*(options.timeZone));
+    }
+    const auto stringView =
+        Timestamp::tsToStringView(inputValue, options, rawBuffer);
+    flatResult->setNoCopy(row, stringView);
+    // The result of both Presto and Spark contains more than 12 digits even
+    // when 'zeroPaddingYear' is disabled.
+    VELOX_DCHECK(!stringView.isInline());
+    rawBuffer += stringView.size();
+  });
+
+  // Update the exact buffer size.
+  buffer->setSize(rawBuffer - buffer->asMutable<char>());
+  return result;
 }
 
 void CastExpr::apply(

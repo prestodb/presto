@@ -15,8 +15,21 @@
  */
 
 #include "velox/expression/PrestoCastHooks.h"
+#include "velox/external/date/tz.h"
 
 namespace facebook::velox::exec {
+
+PrestoCastHooks::PrestoCastHooks(const core::QueryConfig& config)
+    : CastHooks(), legacyCast_(config.isLegacyCast()) {
+  if (!legacyCast_) {
+    options_.zeroPaddingYear = true;
+    options_.dateTimeSeparator = ' ';
+    const auto sessionTzName = config.sessionTimezone();
+    if (config.adjustTimestampToTimezone() && !sessionTzName.empty()) {
+      options_.timeZone = date::locate_zone(sessionTzName);
+    }
+  }
+}
 
 Timestamp PrestoCastHooks::castStringToTimestamp(const StringView& view) const {
   return util::fromTimestampString(view.data(), view.size());
@@ -28,36 +41,17 @@ int32_t PrestoCastHooks::castStringToDate(const StringView& dateString) const {
   return util::castFromDateString(dateString, true /*isIso8601*/);
 }
 
-void PrestoCastHooks::castTimestampToString(
-    const Timestamp& timestamp,
-    StringWriter<false>& out,
-    const date::time_zone* timeZone) const {
-  if (legacyCast_) {
-    out.copy_from(
-        util::Converter<TypeKind::VARCHAR, void, util::LegacyCastPolicy>::cast(
-            timestamp));
-  } else {
-    if (timeZone) {
-      Timestamp adjustedTimestamp(timestamp);
-      adjustedTimestamp.toTimezone(*timeZone);
-      out.copy_from(
-          util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
-              cast(adjustedTimestamp));
-    } else {
-      out.copy_from(
-          util::Converter<TypeKind::VARCHAR, void, util::DefaultCastPolicy>::
-              cast(timestamp));
-    }
-  }
-  out.finalize();
-}
-
 bool PrestoCastHooks::legacy() const {
   return legacyCast_;
 }
 
 StringView PrestoCastHooks::removeWhiteSpaces(const StringView& view) const {
   return view;
+}
+
+const TimestampToStringOptions& PrestoCastHooks::timestampToStringOptions()
+    const {
+  return options_;
 }
 
 bool PrestoCastHooks::truncate() const {

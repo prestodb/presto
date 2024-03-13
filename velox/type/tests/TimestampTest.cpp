@@ -29,7 +29,11 @@ std::string timestampToString(
     const TimestampToStringOptions& options) {
   std::tm tm;
   Timestamp::epochToUtc(ts.getSeconds(), tm);
-  return Timestamp::tmToString(tm, ts.getNanos(), options);
+  std::string result;
+  result.resize(getMaxStringLength(options));
+  const auto view = Timestamp::tsToStringView(ts, options, result.data());
+  result.resize(view.size());
+  return result;
 }
 
 TEST(TimestampTest, fromMillisAndMicros) {
@@ -416,10 +420,13 @@ void testTmToString(
         ASSERT_TRUE(Timestamp::epochToUtc(epoch, actual));
         checkTm(actual, expected);
 
-        auto actualString = Timestamp::tmToString(actual, nanos, options);
+        std::string actualString;
+        actualString.resize(getMaxStringLength(options));
+        const auto view = Timestamp::tmToStringView(
+            actual, nanos, options, actualString.data());
+        actualString.resize(view.size());
         auto expectedString = tmToString(expected, nanos, format, options);
         ASSERT_EQ(expectedString, actualString);
-
       } else {
         ASSERT_FALSE(Timestamp::epochToUtc(epoch, actual));
       }
