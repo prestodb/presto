@@ -15,15 +15,16 @@ limited to 20 different expressions per instance and thread of execution.
 
     Evaluates if the ``string`` matches the ``pattern``. Patterns can contain
     regular characters as well as wildcards. Wildcard characters can be escaped
-    using the single character specified for the ``escape`` parameter.
-    Matching is case sensitive.
+    using the single character specified for the ``escape`` parameter. Only ASCII
+    characters are supported for the ``escape`` parameter. Matching is case sensitive.
 
     Note: The wildcard '%' represents 0, 1 or multiple characters and the
     wildcard '_' represents exactly one character.
 
     Note: Each function instance allow for a maximum of 20 regular expressions to
     be compiled per thread of execution. Not all patterns require
-    compilation of regular expressions. Patterns 'aaa', 'aaa%', '%aaa', where 'aaa'
+    compilation of regular expressions. Patterns 'hello', 'hello%', '_hello__%',
+    '%hello', '%__hello_', '%hello%', where 'hello', 'velox'
     contains only regular characters and '_' wildcards are evaluated without
     using regular expressions. Only those patterns that require the compilation of
     regular expressions are counted towards the limit.
