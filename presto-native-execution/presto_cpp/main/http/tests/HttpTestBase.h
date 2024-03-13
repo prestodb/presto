@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 #include <velox/common/base/VeloxException.h>
 #include <velox/common/base/tests/GTestUtils.h>
 #include <velox/common/memory/Memory.h>
+#include <filesystem>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "velox/common/base/StatsReporter.h"
-
-namespace fs = boost::filesystem;
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -32,28 +29,8 @@ using namespace facebook::velox::memory;
 namespace {
 
 std::string getCertsPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath +
-        "/github/presto-trunk/presto-native-execution/presto_cpp/main/http/tests/certs/" +
-        fileName;
-  }
-
-  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
-  // directory. Hard-coded json files are not copied there and test fails with
-  // file not found. Fixing the path so that we can trigger these tests from
-  // CLion.
-  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
-
-  // As with building/testing using CLion when using a manual build and
-  // running the test from the build path the certs are not found and
-  // their path must be updated.
-  // The path is used by CMake.
-  boost::algorithm::replace_all(currentPath, "_build/debug/", "");
-  boost::algorithm::replace_all(currentPath, "_build/release/", "");
-
-  return currentPath + "/certs/" + fileName;
+  using namespace std::filesystem;
+  return absolute(path{__FILE__}).parent_path() / "certs" / fileName;
 }
 
 class HttpServerWrapper {

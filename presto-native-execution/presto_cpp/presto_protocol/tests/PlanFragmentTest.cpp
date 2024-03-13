@@ -11,34 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
+#include <filesystem>
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
-
-namespace fs = boost::filesystem;
 
 using namespace facebook::presto;
 
 namespace {
 std::string getDataPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath +
-        "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/" +
-        fileName;
-  }
-
-  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
-  // directory. Hard-coded json files are not copied there and test fails with
-  // file not found. Fixing the path so that we can trigger these tests from
-  // CLion.
-  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
-
-  return currentPath + "/data/" + fileName;
+  using namespace std::filesystem;
+  return absolute(path{__FILE__}).parent_path() / "data" / fileName;
 }
 
 template <typename T>

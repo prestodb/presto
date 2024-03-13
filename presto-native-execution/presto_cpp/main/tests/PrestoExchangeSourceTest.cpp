@@ -14,9 +14,8 @@
 #include <folly/init/Init.h>
 #include <folly/portability/GMock.h>
 #include <gtest/gtest.h>
+#include <filesystem>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
@@ -31,7 +30,6 @@
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 
-namespace fs = boost::filesystem;
 using namespace facebook::presto;
 
 using namespace facebook::presto;
@@ -49,21 +47,8 @@ int main(int argc, char** argv) {
 
 namespace {
 std::string getCertsPath(const std::string& fileName) {
-  std::string currentPath = fs::current_path().c_str();
-  if (boost::algorithm::ends_with(currentPath, "fbcode")) {
-    return currentPath +
-        "/github/presto-trunk/presto-native-execution/presto_cpp/main/tests/certs/" +
-        fileName;
-  }
-
-  // CLion runs the tests from cmake-build-release/ or cmake-build-debug/
-  // directory. Hard-coded json files are not copied there and test fails with
-  // file not found. Fixing the path so that we can trigger these tests from
-  // CLion.
-  boost::algorithm::replace_all(currentPath, "cmake-build-release/", "");
-  boost::algorithm::replace_all(currentPath, "cmake-build-debug/", "");
-
-  return currentPath + "/certs/" + fileName;
+  using namespace std::filesystem;
+  return absolute(path{__FILE__}).parent_path() / "certs" / fileName;
 }
 
 class Producer {
