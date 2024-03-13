@@ -30,6 +30,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ArbitraryResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/MapUnionSumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -67,6 +68,7 @@ getCustomInputGenerators() {
       {"approx_distinct", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_set", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_percentile", std::make_shared<ApproxPercentileInputGenerator>()},
+      {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
   };
 }
 
