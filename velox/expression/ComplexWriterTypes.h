@@ -516,9 +516,9 @@ class ArrayWriter {
   }
 
   // Make sure user do not use those.
-  ArrayWriter<V>() = default;
-  ArrayWriter<V>(const ArrayWriter<V>&) = default;
-  ArrayWriter<V>& operator=(const ArrayWriter<V>&) = default;
+  ArrayWriter() = default;
+  ArrayWriter(const ArrayWriter<V>&) = default;
+  ArrayWriter& operator=(const ArrayWriter<V>&) = default;
 
   void commitMostRecentChildItem() {
     if constexpr (requires_commit<V>) {
@@ -715,11 +715,11 @@ class MapWriter {
 
  private:
   // Make sure user do not use those.
-  MapWriter<K, V>() = default;
+  MapWriter() = default;
 
-  MapWriter<K, V>(const MapWriter<K, V>&) = default;
+  MapWriter(const MapWriter<K, V>&) = default;
 
-  MapWriter<K, V>& operator=(const MapWriter<K, V>&) = default;
+  MapWriter& operator=(const MapWriter<K, V>&) = default;
 
   vector_size_t indexOfLast() {
     return innerOffset_ + length_ - 1;

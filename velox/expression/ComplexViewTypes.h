@@ -238,9 +238,7 @@ class SkipNullsIterator {
   using reference = value_type;
 
  public:
-  SkipNullsIterator<BaseIterator>(
-      const BaseIterator& begin,
-      const BaseIterator& end)
+  SkipNullsIterator(const BaseIterator& begin, const BaseIterator& end)
       : iter_(begin), end_(end) {}
 
   // Given an element, return an iterator to the first not-null element starting

@@ -495,8 +495,7 @@ struct VectorWriter<Generic<T, comparable, orderable>>
   using exec_out_t = GenericWriter;
   using vector_t = BaseVector;
 
-  VectorWriter<Generic<T, comparable, orderable>>()
-      : writer_{castWriter_, castType_, offset_} {}
+  VectorWriter() : writer_{castWriter_, castType_, offset_} {}
 
   void setOffset(vector_size_t offset) override {
     offset_ = offset;
