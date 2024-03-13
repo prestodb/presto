@@ -17,6 +17,7 @@
 
 #include <boost/random/uniform_int_distribution.hpp>
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
@@ -74,6 +75,15 @@ DEFINE_bool(
     log_signature_stats,
     false,
     "Log statistics about function signatures");
+
+DEFINE_bool(
+    enable_oom_injection,
+    false,
+    "When enabled OOMs will randomly be triggered while executing query "
+    "plans. The goal of this mode is to ensure unexpected exceptions "
+    "aren't thrown and the process isn't killed in the process of cleaning "
+    "up after failures. Therefore, results are not compared when this is "
+    "enabled. Note that this option only works in debug builds.");
 
 namespace facebook::velox::exec::test {
 
@@ -393,6 +403,13 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
       builder.splits(splits);
     }
 
+    ScopedOOMInjector oomInjector(
+        []() -> bool { return folly::Random::oneIn(10); },
+        10); // Check the condition every 10 ms.
+    if (FLAGS_enable_oom_injection) {
+      oomInjector.enable();
+    }
+
     TestScopedSpillInjection scopedSpillInjection(spillPct);
     resultOrError.result =
         builder.maxDrivers(maxDrivers).copyResults(pool_.get());
@@ -400,6 +417,17 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
     // NOTE: velox user exception is accepted as it is caused by the invalid
     // fuzzer test inputs.
     resultOrError.exceptionPtr = std::current_exception();
+  } catch (VeloxRuntimeError& e) {
+    if (FLAGS_enable_oom_injection &&
+        e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
+        e.message() == ScopedOOMInjector::kErrorMessage) {
+      // If we enabled OOM injection we expect the exception thrown by the
+      // ScopedOOMInjector. Set the exceptionPtr, in case anything up stream
+      // attempts to use the results if exceptionPtr is not set.
+      resultOrError.exceptionPtr = std::current_exception();
+    } else {
+      throw e;
+    }
   }
 
   return resultOrError;
@@ -447,7 +475,13 @@ void AggregationFuzzerBase::testPlan(
       abandonPartial,
       maxDrivers);
 
-  // Compare results or exceptions (if any). Fail is anything is different.
+  if (FLAGS_enable_oom_injection) {
+    // If OOM injection is enabled and we've made it this far and the test
+    // is considered a success.  We don't bother checking the results.
+    return;
+  }
+
+  // Compare results or exceptions (if any). Fail if anything is different.
   if (expected.exceptionPtr || actual.exceptionPtr) {
     // Throws in case exceptions are not compatible.
     velox::test::compareExceptions(expected.exceptionPtr, actual.exceptionPtr);

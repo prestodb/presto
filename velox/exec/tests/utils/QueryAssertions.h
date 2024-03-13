@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+#include <chrono>
+
+#include "velox/common/testutil/TestValue.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/Cursor.h"
@@ -96,6 +99,73 @@ class TestScopedAbortInjection {
       int32_t maxInjections = std::numeric_limits<int32_t>::max());
 
   ~TestScopedAbortInjection();
+};
+
+// This class leverages TestValue to inject OOMs into query execution.
+// Therefore, it can only be used in debug builds, and only one instance
+// of this class can be enabled at a time.
+class ScopedOOMInjector {
+ public:
+  ScopedOOMInjector(
+      const std::function<bool()>& oomConditionChecker,
+      uint64_t oomCheckIntervalMs)
+      : oomConditionChecker_(oomConditionChecker),
+        oomCheckIntervalMs_(oomCheckIntervalMs) {}
+
+  inline static const std::string kErrorMessage = "Injected OOM";
+
+  void enable() {
+    // Since this relies on TestValue to trigger the OOMs, it only supports
+    // debug builds.
+#ifdef NDEBUG
+    VELOX_FAIL("OOM injection can only be used in debug builds");
+#endif
+
+    if (enabled_.exchange(true)) {
+      VELOX_FAIL("Already enabled");
+    }
+
+    // Make sure TestValues are enabled.
+    common::testutil::TestValue::enable();
+
+    common::testutil::TestValue::set(
+        kInjectionPoint,
+        std::function<void(memory::MemoryPool*)>([&](memory::MemoryPool*) {
+          const auto currentTime = now();
+          if (currentTime - lastOomCheckTime_ >= oomCheckIntervalMs_) {
+            lastOomCheckTime_ = currentTime;
+            if (oomConditionChecker_()) {
+              LOG(INFO) << "<-- Triggering OOM --";
+              VELOX_MEM_POOL_CAP_EXCEEDED(kErrorMessage);
+            }
+          }
+        }));
+  }
+
+  ~ScopedOOMInjector() {
+    common::testutil::TestValue::clear(kInjectionPoint);
+    enabled_ = false;
+  }
+
+ private:
+  inline static const std::string kInjectionPoint =
+      "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe";
+  // If more than one instance of this class is enabled, they'll overwrite
+  // each other, so make sure no one does this by accident.
+  inline static std::atomic_bool enabled_{false};
+
+  static size_t now() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+  }
+
+  // When this function returns true, an OOM will be triggered.
+  const std::function<bool()> oomConditionChecker_;
+  // The interval between each check of the condition.
+  const uint64_t oomCheckIntervalMs_;
+
+  std::atomic<size_t> lastOomCheckTime_{0};
 };
 
 /// Test utility that might trigger task abort. The function returns true if
