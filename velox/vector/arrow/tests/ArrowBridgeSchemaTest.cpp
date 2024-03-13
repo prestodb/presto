@@ -192,6 +192,7 @@ TEST_F(ArrowBridgeSchemaExportTest, scalar) {
 
   testScalarType(TIMESTAMP(), "ttn");
   testScalarType(DATE(), "tdD");
+  testScalarType(INTERVAL_YEAR_MONTH(), "tiM");
 
   testScalarType(DECIMAL(10, 4), "d:10,4");
   testScalarType(DECIMAL(20, 15), "d:20,15");
@@ -240,6 +241,7 @@ TEST_F(ArrowBridgeSchemaExportTest, constant) {
   testConstant(DOUBLE(), "g");
   testConstant(VARCHAR(), "u");
   testConstant(DATE(), "tdD");
+  testConstant(INTERVAL_YEAR_MONTH(), "tiM");
   testConstant(UNKNOWN(), "n");
 
   testConstant(ARRAY(INTEGER()), "+l");
@@ -362,6 +364,7 @@ TEST_F(ArrowBridgeSchemaImportTest, scalar) {
   // Temporal.
   EXPECT_EQ(*TIMESTAMP(), *testSchemaImport("ttn"));
   EXPECT_EQ(*DATE(), *testSchemaImport("tdD"));
+  EXPECT_EQ(*INTERVAL_YEAR_MONTH(), *testSchemaImport("tiM"));
 
   EXPECT_EQ(*DECIMAL(10, 4), *testSchemaImport("d:10,4"));
   EXPECT_EQ(*DECIMAL(20, 15), *testSchemaImport("d:20,15"));
@@ -375,6 +378,8 @@ TEST_F(ArrowBridgeSchemaImportTest, complexTypes) {
   EXPECT_EQ(*ARRAY(BIGINT()), *testSchemaImportComplex("+l", {"l"}));
   EXPECT_EQ(*ARRAY(TIMESTAMP()), *testSchemaImportComplex("+l", {"ttn"}));
   EXPECT_EQ(*ARRAY(DATE()), *testSchemaImportComplex("+l", {"tdD"}));
+  EXPECT_EQ(
+      *ARRAY(INTERVAL_YEAR_MONTH()), *testSchemaImportComplex("+l", {"tiM"}));
   EXPECT_EQ(*ARRAY(VARCHAR()), *testSchemaImportComplex("+l", {"U"}));
 
   EXPECT_EQ(*ARRAY(DECIMAL(10, 4)), *testSchemaImportComplex("+l", {"d:10,4"}));
@@ -413,7 +418,6 @@ TEST_F(ArrowBridgeSchemaImportTest, unsupported) {
   EXPECT_THROW(testSchemaImport("tts"), VeloxUserError);
   EXPECT_THROW(testSchemaImport("ttm"), VeloxUserError);
   EXPECT_THROW(testSchemaImport("tDs"), VeloxUserError);
-  EXPECT_THROW(testSchemaImport("tiM"), VeloxUserError);
 
   EXPECT_THROW(testSchemaImport("+"), VeloxUserError);
   EXPECT_THROW(testSchemaImport("+L"), VeloxUserError);
@@ -524,6 +528,12 @@ TEST_F(ArrowBridgeSchemaImportTest, dictionaryTypeTest) {
           "i",
           makeComplexArrowSchema(
               schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"tdD"})));
+  EXPECT_EQ(
+      *ARRAY(INTERVAL_YEAR_MONTH()),
+      *testSchemaDictionaryImport(
+          "i",
+          makeComplexArrowSchema(
+              schemas, schemaPtrs, mapSchemas, mapSchemaPtrs, "+l", {"tiM"})));
   EXPECT_EQ(
       *ARRAY(VARCHAR()),
       *testSchemaDictionaryImport(

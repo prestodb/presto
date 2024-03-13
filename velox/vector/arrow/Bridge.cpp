@@ -235,6 +235,9 @@ const char* exportArrowFormatStr(
       if (type->isDate()) {
         return "tdD";
       }
+      if (type->isIntervalYearMonth()) {
+        return "tiM";
+      }
       return "i"; // int32
     case TypeKind::BIGINT:
       return "l"; // int64
@@ -963,6 +966,9 @@ TypePtr importFromArrowImpl(
       }
       if (format[1] == 'd' && format[2] == 'D') {
         return DATE();
+      }
+      if (format[1] == 'i' && format[2] == 'M') {
+        return INTERVAL_YEAR_MONTH();
       }
       break;
 
