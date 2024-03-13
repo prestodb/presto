@@ -282,10 +282,6 @@ class GroupingSet {
 
   uint64_t numInputRows_ = 0;
 
-  // The maximum memory usage that a final aggregation can hold before spilling.
-  // If it is zero, then there is no such limit.
-  const uint64_t spillMemoryThreshold_;
-
   // List of global grouping set numbers, if being used with a GROUPING SET.
   const std::vector<vector_size_t> globalGroupingSets_;
   // Column for groupId for a GROUPING SET.

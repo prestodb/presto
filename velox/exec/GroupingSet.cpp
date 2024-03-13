@@ -62,9 +62,6 @@ GroupingSet::GroupingSet(
       aggregates_(std::move(aggregates)),
       masks_(extractMaskChannels(aggregates_)),
       ignoreNullKeys_(ignoreNullKeys),
-      spillMemoryThreshold_(operatorCtx->driverCtx()
-                                ->queryConfig()
-                                .aggregationSpillMemoryThreshold()),
       globalGroupingSets_(globalGroupingSets),
       groupIdChannel_(groupIdChannel),
       spillConfig_(spillConfig),
@@ -829,11 +826,6 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   }
 
   const auto currentUsage = pool_.currentBytes();
-  if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
-    spill();
-    return;
-  }
-
   const auto minReservationBytes =
       currentUsage * spillConfig_->minSpillableReservationPct / 100;
   const auto availableReservationBytes = pool_.availableReservation();

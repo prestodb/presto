@@ -1085,58 +1085,6 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   EXPECT_GT(kMaxPartialMemoryUsage, task->pool()->currentBytes());
 }
 
-TEST_F(AggregationTest, spillWithMemoryLimit) {
-  constexpr int32_t kNumDistinct = 2000;
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
-  rng_.seed(1);
-  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  auto batches = makeVectors(rowType_, 100, 5);
-
-  core::PlanNodeId aggrNodeId;
-  const auto plan = PlanBuilder()
-                        .values(batches)
-                        .singleAggregation({"c0"}, {}, {})
-                        .capturePlanNodeId(aggrNodeId)
-                        .planNode();
-  const auto expectedResults =
-      AssertQueryBuilder(plan).copyResults(pool_.get());
-
-  struct {
-    uint64_t aggregationMemLimit;
-    bool expectSpill;
-
-    std::string debugString() const {
-      return fmt::format(
-          "aggregationMemLimit:{}, expectSpill:{}",
-          aggregationMemLimit,
-          expectSpill);
-    }
-  } testSettings[] = {// Memory limit is disabled so spilling is not triggered.
-                      {0, false},
-                      // Memory limit is too small so always trigger spilling.
-                      {1, true},
-                      // Memory limit is too large so spilling is not triggered.
-                      {1'000'000'000, false}};
-  for (const auto& testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-
-    auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto task = AssertQueryBuilder(plan)
-                    .spillDirectory(spillDirectory->path)
-                    .config(QueryConfig::kSpillEnabled, true)
-                    .config(QueryConfig::kAggregationSpillEnabled, true)
-                    .config(
-                        QueryConfig::kAggregationSpillMemoryThreshold,
-                        std::to_string(testData.aggregationMemLimit))
-                    .assertResults(expectedResults);
-
-    auto taskStats = exec::toPlanStats(task->taskStats());
-    auto& stats = taskStats.at(aggrNodeId);
-    checkSpillStats(stats, testData.expectSpill);
-    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
-  }
-}
-
 TEST_F(AggregationTest, spillAll) {
   auto inputs = makeVectors(rowType_, 100, 10);
 
@@ -1157,13 +1105,11 @@ TEST_F(AggregationTest, spillAll) {
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  TestScopedSpillInjection scopedSpillInjection(100);
   auto task = AssertQueryBuilder(plan)
                   .spillDirectory(tempDirectory->path)
                   .config(QueryConfig::kSpillEnabled, true)
                   .config(QueryConfig::kAggregationSpillEnabled, true)
-                  // Set one spill partition to avoid the test flakiness.
-                  // Set the memory trigger limit to be a very small value.
-                  .config(QueryConfig::kAggregationSpillMemoryThreshold, "1024")
                   .assertResults(results);
 
   auto stats = task->taskStats().pipelineStats;
@@ -1608,13 +1554,12 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
     createDuckDbTable(inputs);
     auto tempDirectory = exec::test::TempDirectoryPath::create();
     core::PlanNodeId aggrNodeId;
+    TestScopedSpillInjection scopedSpillInjection(100);
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
             .spillDirectory(tempDirectory->path)
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
-            // Set the memory trigger limit to be a very small value.
-            .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
             .config(
                 QueryConfig::kPreferredOutputBatchBytes,
                 std::to_string(testData.maxOutputBytes))
@@ -1901,60 +1846,6 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
              .planNode();
   testPlan(
       plan, "SELECT c0 % 7, array_agg(c1 ORDER BY c1) FROM tmp GROUP BY 1");
-}
-
-TEST_F(AggregationTest, distinctSpillWithMemoryLimit) {
-  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({}, pool());
-  auto batches = makeVectors(rowType_, 100, 5);
-
-  core::PlanNodeId aggrNodeId;
-  const auto plan = PlanBuilder()
-                        .values(batches)
-                        .singleAggregation({"c0"}, {}, {})
-                        .capturePlanNodeId(aggrNodeId)
-                        .planNode();
-  const auto expectedResults =
-      AssertQueryBuilder(PlanBuilder()
-                             .values(batches)
-                             .singleAggregation({"c0"}, {}, {})
-                             .planNode())
-          .copyResults(pool_.get());
-
-  struct {
-    uint64_t aggregationMemLimit;
-    bool expectSpill;
-
-    std::string debugString() const {
-      return fmt::format(
-          "aggregationMemLimit:{}, expectSpill:{}",
-          aggregationMemLimit,
-          expectSpill);
-    }
-  } testSettings[] = {// Memory limit is disabled so spilling is not triggered.
-                      {0, false},
-                      // Memory limit is too small so always trigger spilling.
-                      {1, true},
-                      // Memory limit is too large so spilling is not triggered.
-                      {1'000'000'000, false}};
-  for (const auto& testData : testSettings) {
-    SCOPED_TRACE(testData.debugString());
-
-    auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto task = AssertQueryBuilder(plan)
-                    .spillDirectory(spillDirectory->path)
-                    .config(QueryConfig::kSpillEnabled, true)
-                    .config(QueryConfig::kAggregationSpillEnabled, true)
-                    .config(
-                        QueryConfig::kAggregationSpillMemoryThreshold,
-                        std::to_string(testData.aggregationMemLimit))
-                    .assertResults(expectedResults);
-
-    auto taskStats = exec::toPlanStats(task->taskStats());
-    auto& stats = taskStats.at(aggrNodeId);
-    checkSpillStats(stats, testData.expectSpill);
-    OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
-  }
 }
 
 TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
@@ -3276,13 +3167,12 @@ TEST_F(AggregationTest, maxSpillBytes) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     try {
+      TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
           .spillDirectory(spillDirectory->path)
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kAggregationSpillEnabled, true)
-          // Set a small capacity to trigger threshold based spilling
-          .config(QueryConfig::kAggregationSpillMemoryThreshold, 5 << 20)
           .config(QueryConfig::kMaxSpillBytes, testData.maxSpilledBytes)
           .copyResults(pool_.get());
       ASSERT_FALSE(testData.expectedExceedLimit);
