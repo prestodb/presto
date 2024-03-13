@@ -12,7 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(common)
-add_subdirectory(exec)
-add_subdirectory(vector)
-add_subdirectory(dwio/decode)
+add_executable(velox_wave_decode_test GpuDecoderTest.cu)
+
+set_target_properties(velox_wave_decode_test PROPERTIES CUDA_ARCHITECTURES
+                                                        native)
+
+add_test(velox_wave_common_test velox_wave_common_test)
+
+target_link_libraries(
+  velox_wave_decode_test
+  velox_wave_decode
+  velox_wave_common
+  velox_memory
+  velox_time
+  velox_exception
+  gtest
+  gtest_main
+  gflags::gflags
+  glog::glog
+  Folly::folly)
