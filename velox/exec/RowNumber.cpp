@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/RowNumber.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/exec/OperatorUtils.h"
 
 namespace facebook::velox::exec {
@@ -116,7 +117,6 @@ void RowNumber::noMoreInput() {
   if (inputSpiller_ != nullptr) {
     inputSpiller_->finishSpill(spillInputPartitionSet_);
 
-    recordSpillStats(hashTableSpiller_->stats());
     recordSpillStats(inputSpiller_->stats());
 
     // Remove empty partitions.
@@ -207,7 +207,8 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
 
   // Test-only spill path.
   if (testingTriggerSpill()) {
-    spill();
+    Operator::ReclaimableSectionGuard guard(this);
+    memory::testingRunArbitration(pool());
     return;
   }
 
@@ -378,7 +379,7 @@ void RowNumber::reclaim(
     return;
   }
 
-  if (hashTableSpiller_) {
+  if (inputSpiller_ != nullptr) {
     // Already spilled.
     return;
   }
@@ -386,32 +387,44 @@ void RowNumber::reclaim(
   spill();
 }
 
-void RowNumber::setupHashTableSpiller() {
+SpillPartitionNumSet RowNumber::spillHashTable() {
   // TODO Replace joinPartitionBits and Spiller::Type::kHashJoinBuild.
+  VELOX_CHECK_NOT_NULL(table_);
 
   const auto& spillConfig = spillConfig_.value();
-  HashBitRange hashBits(
-      spillConfig.startPartitionBit,
-      spillConfig.startPartitionBit + spillConfig.joinPartitionBits);
 
   auto columnTypes = table_->rows()->columnTypes();
   auto tableType = ROW(std::move(columnTypes));
 
-  hashTableSpiller_ = std::make_unique<Spiller>(
+  auto hashTableSpiller = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
       table_->rows(),
       tableType,
-      std::move(hashBits),
+      spillPartitionBits_,
       &spillConfig);
+
+  hashTableSpiller->spill();
+  hashTableSpiller->finishSpill(spillHashTablePartitionSet_);
+  recordSpillStats(hashTableSpiller->stats());
+
+  table_->clear();
+  pool()->release();
+  return hashTableSpiller->state().spilledPartitionSet();
 }
 
-void RowNumber::setupInputSpiller() {
+void RowNumber::setupInputSpiller(
+    const SpillPartitionNumSet& spillPartitionSet) {
+  VELOX_CHECK(!spillPartitionSet.empty());
+
   const auto& spillConfig = spillConfig_.value();
-  const auto& hashBits = hashTableSpiller_->hashBits();
 
   // TODO Replace Spiller::Type::kHashJoinProbe.
   inputSpiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinProbe, inputType_, hashBits, &spillConfig);
+      Spiller::Type::kHashJoinProbe,
+      inputType_,
+      spillPartitionBits_,
+      &spillConfig);
+  inputSpiller_->setPartitionsSpilled(spillPartitionSet);
 
   const auto& hashers = table_->hashers();
 
@@ -427,20 +440,15 @@ void RowNumber::setupInputSpiller() {
 
 void RowNumber::spill() {
   VELOX_CHECK(spillEnabled());
-  VELOX_CHECK_NULL(hashTableSpiller_);
   VELOX_CHECK_NULL(inputSpiller_);
 
-  setupHashTableSpiller();
-  setupInputSpiller();
+  spillPartitionBits_ = HashBitRange(
+      spillConfig_->startPartitionBit,
+      spillConfig_->startPartitionBit + spillConfig_->joinPartitionBits);
 
-  hashTableSpiller_->spill();
-  hashTableSpiller_->finishSpill(spillHashTablePartitionSet_);
+  const auto spillPartitionSet = spillHashTable();
 
-  table_->clear();
-  pool()->release();
-
-  inputSpiller_->setPartitionsSpilled(
-      hashTableSpiller_->state().spilledPartitionSet());
+  setupInputSpiller(spillPartitionSet);
 
   if (input_ != nullptr) {
     spillInput(input_, memory::spillMemoryPool());

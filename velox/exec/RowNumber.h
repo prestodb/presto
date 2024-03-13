@@ -56,9 +56,7 @@ class RowNumber : public Operator {
     return spillConfig_.has_value();
   }
 
-  void setupHashTableSpiller();
-
-  void setupInputSpiller();
+  void setupInputSpiller(const SpillPartitionNumSet& spillPartitionSet);
 
   void ensureInputFits(const RowVectorPtr& input);
 
@@ -69,6 +67,8 @@ class RowNumber : public Operator {
   void addSpillInput();
 
   void restoreNextSpillPartition();
+
+  SpillPartitionNumSet spillHashTable();
 
   int64_t numRows(char* partition);
 
@@ -98,8 +98,9 @@ class RowNumber : public Operator {
 
   RowTypePtr inputType_;
 
-  // Spiller for contents of the HashTable,
-  std::unique_ptr<Spiller> hashTableSpiller_;
+  // The spill partition bits used by both hash table content spill and input
+  // data spill.
+  HashBitRange spillPartitionBits_;
 
   // Used to restore previously spilled hash table.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> spillHashTableReader_;

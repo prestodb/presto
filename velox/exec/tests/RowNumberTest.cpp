@@ -24,6 +24,11 @@ namespace facebook::velox::exec::test {
 
 class RowNumberTest : public OperatorTestBase {
  protected:
+  static void SetUpTestCase() {
+    FLAGS_velox_testing_enable_arbitration = true;
+    OperatorTestBase::SetUpTestCase();
+  }
+
   RowNumberTest() {
     filesystems::registerLocalFileSystem();
   }

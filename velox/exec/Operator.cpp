@@ -296,7 +296,6 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
 }
 
 void Operator::recordSpillStats(const common::SpillStats& spillStats) {
-  VELOX_CHECK(noMoreInput_);
   auto lockedStats = stats_.wlock();
   lockedStats->spilledInputBytes += spillStats.spilledInputBytes;
   lockedStats->spilledBytes += spillStats.spilledBytes;

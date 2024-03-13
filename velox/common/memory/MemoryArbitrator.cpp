@@ -460,17 +460,23 @@ bool underMemoryArbitration() {
   return memoryArbitrationContext() != nullptr;
 }
 
-void testingRunArbitration(uint64_t targetBytes, MemoryManager* manager) {
+void testingRunArbitration(
+    uint64_t targetBytes,
+    bool allowSpill,
+    MemoryManager* manager) {
   if (manager == nullptr) {
     manager = memory::memoryManager();
   }
-  manager->shrinkPools(targetBytes);
+  manager->shrinkPools(targetBytes, allowSpill);
 }
 
-void testingRunArbitration(MemoryPool* pool, uint64_t targetBytes) {
+void testingRunArbitration(
+    MemoryPool* pool,
+    uint64_t targetBytes,
+    bool allowSpill) {
   pool->enterArbitration();
   static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
-      targetBytes);
+      targetBytes, allowSpill);
   pool->leaveArbitration();
 }
 } // namespace facebook::velox::memory

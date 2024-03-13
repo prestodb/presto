@@ -433,14 +433,20 @@ bool underMemoryArbitration();
 /// The function triggers memory arbitration by shrinking memory pools from
 /// 'manager' by invoking shrinkPools API. If 'manager' is not set, then it
 /// shrinks from the process wide memory manager. If 'targetBytes' is zero, then
-/// reclaims all the memory from 'manager' if possible.
+/// it reclaims all the memory from 'manager' if possible. If 'allowSpill' is
+/// true, then it allows to reclaim the used memory by spilling.
 class MemoryManager;
 void testingRunArbitration(
     uint64_t targetBytes = 0,
+    bool allowSpill = true,
     MemoryManager* manager = nullptr);
 
 /// The function triggers memory arbitration by shrinking memory pools from
 /// 'manager' of 'pool' by invoking its shrinkPools API. If 'targetBytes' is
-/// zero, then reclaims all the memory from 'manager' if possible.
-void testingRunArbitration(MemoryPool* pool, uint64_t targetBytes = 0);
+/// zero, then it reclaims all the memory from 'manager' if possible. If
+/// 'allowSpill' is true, then it allows to reclaim the used memory by spilling.
+void testingRunArbitration(
+    MemoryPool* pool,
+    uint64_t targetBytes = 0,
+    bool allowSpill = true);
 } // namespace facebook::velox::memory

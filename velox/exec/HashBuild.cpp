@@ -422,7 +422,6 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
   // is already sufficient reservations.
   VELOX_CHECK(spillEnabled());
 
-  Operator::ReclaimableSectionGuard guard(this);
   auto* rows = table_->rows();
   const auto numRows = rows->numRows();
 
@@ -436,6 +435,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
   if (numRows != 0) {
     // Test-only spill path.
     if (testingTriggerSpill()) {
+      Operator::ReclaimableSectionGuard guard(this);
       memory::testingRunArbitration(pool());
       // NOTE: the memory arbitration should have triggered spilling on this
       // hash build operator so we return true to indicate have enough memory.
@@ -479,11 +479,16 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
       incrementBytes * 2,
       currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
 
-  if (!pool()->maybeReserve(targetIncrementBytes)) {
-    LOG(WARNING) << "Failed to reserve " << succinctBytes(targetIncrementBytes)
-                 << " for memory pool " << pool()->name()
-                 << ", usage: " << succinctBytes(pool()->currentBytes())
-                 << ", reservation: " << succinctBytes(pool()->reservedBytes());
+  {
+    Operator::ReclaimableSectionGuard guard(this);
+    if (!pool()->maybeReserve(targetIncrementBytes)) {
+      LOG(WARNING) << "Failed to reserve "
+                   << succinctBytes(targetIncrementBytes) << " for memory pool "
+                   << pool()->name()
+                   << ", usage: " << succinctBytes(pool()->currentBytes())
+                   << ", reservation: "
+                   << succinctBytes(pool()->reservedBytes());
+    }
   }
 }
 
