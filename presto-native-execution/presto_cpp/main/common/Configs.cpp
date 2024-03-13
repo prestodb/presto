@@ -721,15 +721,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               c.aggregationSpillEnabled()),
           BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
-          NUM_PROP(
-              QueryConfig::kAggregationSpillMemoryThreshold,
-              c.aggregationSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kJoinSpillMemoryThreshold,
-              c.joinSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kOrderBySpillMemoryThreshold,
-              c.orderBySpillMemoryThreshold()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
           NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
