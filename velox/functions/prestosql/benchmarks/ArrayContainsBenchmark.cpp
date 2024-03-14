@@ -18,7 +18,6 @@
 #include "velox/benchmarks/ExpressionBenchmarkBuilder.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
-#include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
@@ -26,52 +25,55 @@ using namespace facebook::velox::exec;
 
 namespace {
 
-template <typename T>
-VELOX_UDF_BEGIN(contains)
-FOLLY_ALWAYS_INLINE bool call(
-    bool& out,
-    const arg_type<Array<T>>& array,
-    const arg_type<T>& key) {
-  if (array.mayHaveNulls()) {
-    auto nullFound = false;
-    for (const auto& item : array) {
-      if (item.has_value()) {
-        if (*item == key) {
-          out = true;
-          return true;
+template <typename TExec>
+struct udf_contains {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      bool& out,
+      const arg_type<Array<int32_t>>& array,
+      const arg_type<int32_t>& key) {
+    if (array.mayHaveNulls()) {
+      auto nullFound = false;
+      for (const auto& item : array) {
+        if (item.has_value()) {
+          if (*item == key) {
+            out = true;
+            return true;
+          }
+          continue;
         }
-        continue;
+        nullFound = true;
       }
-      nullFound = true;
+
+      if (!nullFound) {
+        out = false;
+        return true;
+      }
+      return false;
     }
 
-    if (!nullFound) {
-      out = false;
-      return true;
+    // Not nulls path
+    for (const auto& item : array) {
+      if (*item == key) {
+        out = true;
+        return true;
+      }
     }
-    return false;
+    out = false;
+    return true;
   }
-
-  // Not nulls path
-  for (const auto& item : array) {
-    if (*item == key) {
-      out = true;
-      return true;
-    }
-  }
-  out = false;
-  return true;
-}
-VELOX_UDF_END();
+};
 
 } // namespace
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
+  memory::MemoryManager::initialize({});
   functions::prestosql::registerArrayFunctions();
 
   registerFunction<
-      udf_contains<int32_t>,
+      udf_contains,
       bool,
       facebook::velox::Array<int32_t>,
       int32_t>({"contains_alt"});

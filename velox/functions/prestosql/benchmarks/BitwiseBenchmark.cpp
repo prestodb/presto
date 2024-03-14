@@ -27,25 +27,32 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::functions;
 
-VELOX_UDF_BEGIN(bitwise_arithmetic_shift_right_nocheck)
-FOLLY_ALWAYS_INLINE bool call(int64_t& result, int64_t number, int64_t shift) {
-  result = number >> shift;
-  return true;
-}
-VELOX_UDF_END();
+template <typename TExec>
+struct udf_bitwise_arithmetic_shift_right_nocheck {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-VELOX_UDF_BEGIN(bitwise_logical_shift_right_nocheck)
-FOLLY_ALWAYS_INLINE bool
-call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
-  if (bits == 64) {
+  FOLLY_ALWAYS_INLINE bool
+  call(int64_t& result, int64_t number, int64_t shift) {
     result = number >> shift;
     return true;
   }
+};
 
-  result = (number & ((1LL << bits) - 1)) >> shift;
-  return true;
-}
-VELOX_UDF_END();
+template <typename TExec>
+struct udf_bitwise_logical_shift_right_nocheck {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE bool
+  call(int64_t& result, int64_t number, int64_t shift, int64_t bits) {
+    if (bits == 64) {
+      result = number >> shift;
+      return true;
+    }
+
+    result = (number & ((1LL << bits) - 1)) >> shift;
+    return true;
+  }
+};
 
 class BitwiseBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
@@ -155,6 +162,7 @@ BENCHMARK_RELATIVE(bitwise_shift_left) {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
+  memory::MemoryManager::initialize({});
 
   folly::runBenchmarks();
   return 0;
