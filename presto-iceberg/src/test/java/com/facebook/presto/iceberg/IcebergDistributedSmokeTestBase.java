@@ -1003,12 +1003,12 @@ public class IcebergDistributedSmokeTestBase
 
         assertQuery(session, "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "  ('col', 96.0, NULL, 0.0, NULL, '-10.0', '100.0'), " +
+                        "  ('col', NULL, NULL, 0.0, NULL, '-10.0', '100.0'), " +
                         "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         assertUpdate("INSERT INTO " + tableName + " VALUES 200", 1);
         assertQuery(session, "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "  ('col', 144.0, NULL, 0.0, NULL, '-10.0', '200.0'), " +
+                        "  ('col', NULL, NULL, 0.0, NULL, '-10.0', '200.0'), " +
                         "  (NULL, NULL, NULL, NULL, 3e0, NULL, NULL)");
 
         dropTable(session, tableName);
@@ -1165,7 +1165,7 @@ public class IcebergDistributedSmokeTestBase
 
         assertQuery(session, "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "  ('col', 113.0, NULL, 0.0, NULL, '2021-01-02 09:04:05.321', '2022-12-22 10:07:08.456'), " +
+                        "  ('col', NULL, NULL, 0.0, NULL, '2021-01-02 09:04:05.321', '2022-12-22 10:07:08.456'), " +
                         "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         dropTable(session, tableName);
     }
