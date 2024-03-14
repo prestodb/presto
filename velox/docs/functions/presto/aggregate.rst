@@ -424,14 +424,49 @@ Statistical Aggregate Functions
 
    where :math:`\mu` is the mean, and :math:`\sigma` is the standard deviation.
 
+.. function:: regr_avgx(y, x) -> double
+
+    Returns the average of the independent value in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_avgy(y, x) -> double
+
+    Returns the average of the dependent value in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_count(y, x) -> double
+
+    Returns the number of non-null pairs of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
 .. function:: regr_intercept(y, x) -> double
 
     Returns linear regression intercept of input values. ``y`` is the dependent
     value. ``x`` is the independent value.
 
+.. function:: regr_r2(y, x) -> double
+
+    Returns the coefficient of determination of the linear regression. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
 .. function:: regr_slope(y, x) -> double
 
     Returns linear regression slope of input values. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_sxx(y, x) -> double
+
+    Returns the sum of the squares of the independent values in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_sxy(y, x) -> double
+
+    Returns the sum of the product of the dependent and independent values in a group. ``y`` is the dependent
+    value. ``x`` is the independent value.
+
+.. function:: regr_syy(y, x) -> double
+
+    Returns the sum of the squares of the dependent values in a group. ``y`` is the dependent
     value. ``x`` is the independent value.
 
 .. function:: skewness(x) -> double

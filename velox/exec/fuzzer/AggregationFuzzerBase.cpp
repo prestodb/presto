@@ -740,6 +740,8 @@ std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
         // but DuckDB returns some random value.
         "kurtosis",
         "entropy",
+        // Regr_count result in DuckDB is incorrect when the input data is null.
+        "regr_count",
     });
     LOG(INFO) << "Using DuckDB as the reference DB.";
     return duckQueryRunner;

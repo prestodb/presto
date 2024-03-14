@@ -48,8 +48,15 @@ multimap_agg
 numeric_histogram
 qdigest_agg
 reduce_agg
+regr_avgx
+regr_avgy
+regr_count
 regr_intercept
+regr_r2
 regr_slope
+regr_sxx
+regr_sxy
+regr_syy
 set_agg
 set_union
 skewness
