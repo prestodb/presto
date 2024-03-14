@@ -134,10 +134,13 @@ Presto Type               Physical Type
 ========================  =====================
 HYPERLOGLOG               VARBINARY
 JSON                      VARCHAR
-TIMESTAMP WITH TIME ZONE  ROW<BIGINT, SMALLINT>
+TIMESTAMP WITH TIME ZONE  BIGINT
 ========================  =====================
 
 TIMESTAMP WITH TIME ZONE represents a time point in milliseconds precision
-from UNIX epoch with timezone information. Its physical type contains one 64-bit
-signed integer for milliseconds and another 16-bit signed integer for timezone ID.
-Valid range of timezone ID is [1, 1680], its definition can be found in ``TimeZoneDatabase.cpp``.
+from UNIX epoch with timezone information. Its physical type is BIGINT.
+The high 52 bits of bigint store signed integer for milliseconds in UTC.
+Supported range of milliseconds is [0xFFF8000000000000L, 0x7FFFFFFFFFFFF]
+(or [-69387-04-22T03:45:14.752, 73326-09-11T20:14:45.247]). The low 12 bits
+store timezone ID. Supported range of timezone ID is [1, 1680].
+The definition of timezone IDs can be found in ``TimeZoneDatabase.cpp``.
