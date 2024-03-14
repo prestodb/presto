@@ -206,6 +206,11 @@ TEST(TypeTest, intervalYearMonth) {
   month = kMonthInYear * -2 + -1;
   EXPECT_EQ("-2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
 
+  EXPECT_EQ(
+      "-178956970-8",
+      INTERVAL_YEAR_MONTH()->valueToString(
+          std::numeric_limits<int32_t>::min()));
+
   testTypeSerde(interval);
 }
 
