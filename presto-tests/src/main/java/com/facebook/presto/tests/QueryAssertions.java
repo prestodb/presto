@@ -35,6 +35,7 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -44,6 +45,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.StreamSupport.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -393,9 +395,10 @@ public final class QueryAssertions
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
-        for (String table : tables) {
-            copyTable(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed);
-        }
+        CompletableFuture.allOf(stream(tables.spliterator(), false)
+                        .map((table) -> CompletableFuture.runAsync(() -> copyTable(queryRunner, sourceCatalog, sourceSchema, session, table, ifNotExists, bucketed)))
+                        .toArray(CompletableFuture[]::new))
+                .join();
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 

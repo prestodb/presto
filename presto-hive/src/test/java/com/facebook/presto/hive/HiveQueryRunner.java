@@ -39,6 +39,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.tpch.TextPool;
 import io.airlift.tpch.TpchTable;
 import org.joda.time.DateTimeZone;
 
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
@@ -196,6 +198,12 @@ public final class HiveQueryRunner
                 .putAll(extraProperties)
                 .build();
 
+        List<String> tpchTableNames = getTpchTableNames(tpchTables);
+        // Amortize the cost of initializing the TPC-H text pool while the cluster is starting
+        if (tpchTableNames.isEmpty()) {
+            CompletableFuture.runAsync(TextPool::getDefaultTestPool);
+        }
+
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
                         .setNodeCount(workerCount.orElse(4))
@@ -252,7 +260,6 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
-            List<String> tpchTableNames = getTpchTableNames(tpchTables);
             if (!metastore.getDatabase(METASTORE_CONTEXT, TPCH_SCHEMA).isPresent()) {
                 metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(TPCH_SCHEMA));
                 copyTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tpchTableNames, true, false);
