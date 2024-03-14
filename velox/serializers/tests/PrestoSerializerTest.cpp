@@ -62,7 +62,7 @@ class PrestoSerializerTest
       rawRowSizes[i] = &rowSizes[i];
     }
     serde_->estimateSerializedSize(
-        rowVector,
+        rowVector.get(),
         folly::Range(rows.data(), numRows),
         rawRowSizes.data(),
         scratch);
@@ -114,19 +114,19 @@ class PrestoSerializerTest
       raw_vector<vector_size_t*> sizes(indexRanges.value().size());
       std::fill(sizes.begin(), sizes.end(), &sizeEstimate);
       serde_->estimateSerializedSize(
-          rowVector, indexRanges.value(), sizes.data(), scratch);
+          rowVector.get(), indexRanges.value(), sizes.data(), scratch);
       serializer->append(rowVector, indexRanges.value(), scratch);
     } else if (rows.has_value()) {
       raw_vector<vector_size_t*> sizes(rows.value().size());
       std::fill(sizes.begin(), sizes.end(), &sizeEstimate);
       serde_->estimateSerializedSize(
-          rowVector, rows.value(), sizes.data(), scratch);
+          rowVector.get(), rows.value(), sizes.data(), scratch);
       serializer->append(rowVector, rows.value(), scratch);
     } else {
       vector_size_t* sizes = &sizeEstimate;
       IndexRange range{0, rowVector->size()};
       serde_->estimateSerializedSize(
-          rowVector,
+          rowVector.get(),
           folly::Range<const IndexRange*>(&range, 1),
           &sizes,
           scratch);

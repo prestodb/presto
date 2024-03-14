@@ -63,6 +63,8 @@ struct VectorValidateOptions {
   std::function<void(const BaseVector&)> callback;
 };
 
+class DecodedVector;
+
 /**
  * Base class for all columnar-based vectors of any type.
  */
@@ -601,6 +603,12 @@ class BaseVector {
   virtual bool isWritable() const {
     return false;
   }
+
+  /// If 'vector' consists of a single value and is longer than one,
+  /// returns an equivalent constant vector, else nullptr.
+  static VectorPtr constantify(
+      const std::shared_ptr<BaseVector>& vector,
+      DecodedVector* decoded = nullptr);
 
   // Flattens the input vector and all of its children.
   static void flattenVector(VectorPtr& vector);

@@ -209,7 +209,7 @@ void PartitionedOutput::estimateRowSizes() {
   auto numbers = iota(numInput, storage);
   for (int i = 0; i < output_->childrenSize(); ++i) {
     VectorStreamGroup::estimateSerializedSize(
-        output_->childAt(i),
+        output_->childAt(i).get(),
         folly::Range(numbers, numInput),
         sizePointers_.data(),
         scratch_);

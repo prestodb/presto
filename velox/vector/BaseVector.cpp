@@ -19,6 +19,7 @@
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/DecodedVector.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/LazyVector.h"
@@ -1049,6 +1050,94 @@ std::string printIndices(
   }
 
   return out.str();
+}
+
+template <TypeKind Kind>
+bool isAllSameFlat(const BaseVector& vector, vector_size_t size) {
+  using T = typename KindToFlatVector<Kind>::WrapperType;
+  auto flat = vector.asUnchecked<FlatVector<T>>();
+  auto rawValues = flat->rawValues();
+  if (vector.size() == 0) {
+    return false;
+  }
+  T first = rawValues[0];
+  for (auto i = 1; i < size; ++i) {
+    if (first != rawValues[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template <>
+bool isAllSameFlat<TypeKind::BOOLEAN>(
+    const BaseVector& vector,
+    vector_size_t size) {
+  auto& values = vector.asUnchecked<FlatVector<bool>>()->values();
+  auto* bits = values->as<uint64_t>();
+  // Check the all true and all false separately. Easier for compiler if the
+  // last argument is constant.
+  if ((bits[0] & 1) == 1) {
+    return bits ::isAllSet(bits, 0, size, true);
+  }
+  return bits ::isAllSet(bits, 0, size, false);
+}
+
+// static
+VectorPtr BaseVector::constantify(const VectorPtr& input, DecodedVector* temp) {
+  auto& vector = BaseVector::loadedVectorShared(input);
+
+  // If this is already a constant or empty or single element, it can stay as
+  // is.
+  if (vector->encoding() == VectorEncoding::Simple::CONSTANT ||
+      vector->size() < 2) {
+    return nullptr;
+  }
+  // If there is a null, values will either not all be the same or all be null,
+  // which can just as well be left as is.
+  if (vector->isNullAt(0)) {
+    return nullptr;
+  }
+  // Quick return if first and last are different.
+  if (!vector->equalValueAt(vector.get(), 0, vector->size() - 1)) {
+    return nullptr;
+  }
+  DecodedVector localDecoded;
+  DecodedVector* decoded = temp ? temp : &localDecoded;
+  decoded->decode(*vector);
+  if (!decoded->isIdentityMapping()) {
+    auto indices = decoded->indices();
+    auto first = indices[0];
+    for (auto i = 1; i < vector->size(); ++i) {
+      if (indices[i] != first) {
+        if (decoded->isNullAt(i)) {
+          return nullptr;
+        }
+        if (!decoded->base()->equalValueAt(
+                decoded->base(), first, indices[i])) {
+          return nullptr;
+        }
+      }
+    }
+    return BaseVector::wrapInConstant(vector->size(), 0, vector);
+  }
+  if (vector->mayHaveNulls()) {
+    return nullptr;
+  }
+  if (vector->encoding() == VectorEncoding::Simple::FLAT) {
+    if (!VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+            isAllSameFlat, vector->typeKind(), *vector, vector->size() - 1)) {
+      return nullptr;
+    }
+  } else {
+    for (auto i = 1; i < vector->size() - 1; ++i) {
+      if (!vector->equalValueAt(vector.get(), 0, i)) {
+        return nullptr;
+      }
+    }
+  }
+
+  return BaseVector::wrapInConstant(vector->size(), 0, vector);
 }
 
 } // namespace facebook::velox

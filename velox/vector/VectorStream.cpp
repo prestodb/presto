@@ -171,7 +171,7 @@ void VectorStreamGroup::flush(OutputStream* out) {
 
 // static
 void VectorStreamGroup::estimateSerializedSize(
-    VectorPtr vector,
+    const BaseVector* vector,
     const folly::Range<const IndexRange*>& ranges,
     vector_size_t** sizes,
     Scratch& scratch) {
@@ -180,7 +180,7 @@ void VectorStreamGroup::estimateSerializedSize(
 
 // static
 void VectorStreamGroup::estimateSerializedSize(
-    VectorPtr vector,
+    const BaseVector* vector,
     folly::Range<const vector_size_t*> rows,
     vector_size_t** sizes,
     Scratch& scratch) {

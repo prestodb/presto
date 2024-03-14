@@ -27,7 +27,8 @@ add_library(
   VectorPool.cpp
   VectorPrinter.cpp
   VectorStream.cpp
-  VariantToVector.cpp)
+  VariantToVector.cpp
+  VectorMap.cpp)
 
 target_link_libraries(velox_vector velox_encode velox_memory velox_time
                       velox_type velox_buffer)

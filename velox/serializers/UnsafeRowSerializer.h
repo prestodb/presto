@@ -24,7 +24,7 @@ class UnsafeRowVectorSerde : public VectorSerde {
   UnsafeRowVectorSerde() = default;
   // We do not implement this method since it is not used in production code.
   void estimateSerializedSize(
-      VectorPtr vector,
+      const BaseVector* vector,
       const folly::Range<const IndexRange*>& ranges,
       vector_size_t** sizes,
       Scratch& scratch) override;

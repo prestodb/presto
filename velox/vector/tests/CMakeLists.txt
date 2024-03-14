@@ -32,6 +32,7 @@ add_executable(
   LazyVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp
   VariantToVectorTest.cpp
+  EncodingTest.cpp
   VectorTestUtils.cpp)
 
 add_test(velox_vector_test velox_vector_test)
