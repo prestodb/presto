@@ -505,18 +505,17 @@ void HashBuild::spillInput(const RowVectorPtr& input) {
   computeSpillPartitions(input);
 
   vector_size_t numSpillInputs = 0;
-  for (auto rowIdx = 0; rowIdx < numInput; ++rowIdx) {
-    const auto partition = spillPartitions_[rowIdx];
-    if (FOLLY_UNLIKELY(!activeRows_.isValid(rowIdx))) {
+  for (auto row = 0; row < numInput; ++row) {
+    const auto partition = spillPartitions_[row];
+    if (FOLLY_UNLIKELY(!activeRows_.isValid(row))) {
       continue;
     }
     if (!spiller_->isSpilled(partition)) {
       continue;
     }
-    activeRows_.setValid(rowIdx, false);
+    activeRows_.setValid(row, false);
     ++numSpillInputs;
-    rawSpillInputIndicesBuffers_[partition][numSpillInputs_[partition]++] =
-        rowIdx;
+    rawSpillInputIndicesBuffers_[partition][numSpillInputs_[partition]++] = row;
   }
   if (numSpillInputs == 0) {
     return;
@@ -734,8 +733,9 @@ bool HashBuild::finishHashBuild() {
       isInputFromSpill() ? spillConfig()->startPartitionBit
                          : BaseHashTable::kNoSpillInputStartPartitionBit);
   addRuntimeStats();
-  if (joinBridge_->setHashTable(
-          std::move(table_), std::move(spillPartitions), joinHasNullKeys_)) {
+  joinBridge_->setHashTable(
+      std::move(table_), std::move(spillPartitions), joinHasNullKeys_);
+  if (spillEnabled()) {
     intermediateStateCleared_ = true;
   }
 
@@ -1105,11 +1105,11 @@ void HashBuild::reclaim(
 }
 
 bool HashBuild::nonReclaimableState() const {
-  // Apart from being in the nonReclaimable section,
-  // its also not reclaimable if:
-  // 1) the hash table has been built by the last build thread (inidicated
-  //    by state_)
-  // 2) the last build operator has transferred ownership of 'this' operator's
+  // Apart from being in the nonReclaimable section, it's also not reclaimable
+  // if:
+  // 1) the hash table has been built by the last build thread (indicated by
+  //    state_)
+  // 2) the last build operator has transferred ownership of 'this operator's
   //    intermediate state (table_ and spiller_) to itself
   // 3) it has completed spilling before reaching either of the previous
   //    two states.

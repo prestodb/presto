@@ -114,7 +114,7 @@ class HashBuild final : public Operator {
   void postHashBuildProcess();
 
   bool spillEnabled() const {
-    return spillConfig_.has_value();
+    return canReclaim();
   }
 
   void recordSpillStats();
@@ -219,8 +219,8 @@ class HashBuild final : public Operator {
   // The row type used for hash table build and disk spilling.
   RowTypePtr tableType_;
 
-  // Used to serialize access to intermediate state variables (like 'table_' and
-  // 'spiller_'). This is only required when variables are accessed
+  // Used to serialize access to internal state including 'table_' and
+  // 'spiller_'. This is only required when variables are accessed
   // concurrently, that is, when a thread tries to close the operator while
   // another thread is building the hash table. Refer to 'close()' and
   // finishHashBuild()' for more details.
@@ -263,8 +263,8 @@ class HashBuild final : public Operator {
   bool joinHasNullKeys_{false};
 
   // This can be nullptr if either spilling is not allowed or it has been
-  // trsnaferred to the last hash build operator while in kWaitForBuild state or
-  // it has been cleared to setup a new one for recursive spilling.
+  // transferred to the last hash build operator while in kWaitForBuild state or
+  // it has been cleared to set up a new one for recursive spilling.
   std::unique_ptr<Spiller> spiller_;
 
   // Used to read input from previously spilled data for restoring.

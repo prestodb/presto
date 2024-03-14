@@ -42,8 +42,8 @@ class GroupedExecutionTest : public virtual HiveConnectorTestBase {
       int32_t count,
       int32_t rowsPerVector,
       const RowTypePtr& rowType = nullptr) {
-    auto inputs = rowType ? rowType : rowType_;
-    return HiveConnectorTestBase::makeVectors(inputs, count, rowsPerVector);
+    auto inputType = rowType ? rowType : rowType_;
+    return HiveConnectorTestBase::makeVectors(inputType, count, rowsPerVector);
   }
 
   exec::Split makeHiveSplitWithGroup(std::string path, int32_t group) {
