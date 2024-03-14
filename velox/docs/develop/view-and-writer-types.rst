@@ -3,8 +3,8 @@ View and Writer Types
 =====================
 
 View types and writer types are used as the input and output parameter types
-respectively for complex and string types in the simple-function interface of
-both scalar and aggregation functions.
+respectively for complex and string types in the simple function interface of
+both scalar and aggregate functions.
 
 Inputs (View Types)
 -------------------
@@ -90,17 +90,17 @@ the code below shows the function arraySum, a range loop is used to iterate over
 
 ArrayView supports the following:
 
-- size_t size() : return the number of elements in the array.
+- size_t **size** () : return the number of elements in the array.
 
-- operator[](size_t index) : access element at index. It returns either null_free_arg_type<T> or OptionalAccessor<T>.
+- **operator[]** (size_t index) : access element at index. It returns either null_free_arg_type<T> or OptionalAccessor<T>.
 
-- ArrayView<T>::Iterator begin() : iterator to the first element.
+- ArrayView<T>::Iterator **begin** () : iterator to the first element.
 
-- ArrayView<T>::Iterator end() : iterator indicating end of iteration.
+- ArrayView<T>::Iterator **end** () : iterator indicating end of iteration.
 
-- bool mayHaveNulls() : constant time check on the underlying vector nullity. When it returns false, there are definitely no nulls, a true does not guarantee null existence.
+- bool **mayHaveNulls** () : constant time check on the underlying vector nullity. When it returns false, there are definitely no nulls, a true does not guarantee null existence.
 
-- ArrayView<T>::SkipNullsContainer SkipNulls() : return an iterable container that provides direct access to non-null values in the underlying array. For example, the function above can be written as:
+- ArrayView<T>::SkipNullsContainer **skipNulls** () : return an iterable container that provides direct access to non-null values in the underlying array. For example, the function above can be written as:
 
 .. code-block:: c++
 
@@ -169,15 +169,15 @@ the code below shows an example function mapSum, sums up the keys and values.
 
 MapView supports the following:
 
-- MapView<K,V>::Element begin() : iterator to the first map element.
+- MapView<K,V>::Element **begin** () : iterator to the first map element.
 
-- MapView<K,V>::Element end()   : iterator that indicates end of iteration.
+- MapView<K,V>::Element **end** ()   : iterator that indicates end of iteration.
 
-- size_t size()                 : number of elements in the map.
+- size_t **size** ()                 : number of elements in the map.
 
-- MapView<K,V>::Iterator find(const key_t& key): performs a linear search for the key, and returns iterator to the element if found otherwise returns end(). Only supported for primitive key types.
+- MapView<K,V>::Iterator **find** (const key_t& key): performs a linear search for the key, and returns iterator to the element if found otherwise returns end(). Only supported for primitive key types.
 
-- MapView<K,V>::Iterator operator[](const key_t& key): same as find, throws an exception if element not found.
+- MapView<K,V>::Iterator **operator[]** (const key_t& key): same as find, throws an exception if element not found.
 
 - MapView<K,V>::Element
 
@@ -192,6 +192,17 @@ MapView<K, V>::Element is the type returned by dereferencing MapView<K, V>::Iter
 Note: iterator de-referencing and iterator pointer de-referencing result in temporaries. Hence those can be bound to
 const references or value variables but not normal references.
 
+Generic<T1> input types are implemented using GenericView that supports the following:
+
+- uint64_t **hash** () const : returns a hash of the value; used to define std::hash<GenericView>(); allows GenericView's to be stored in folly::F14 sets and maps as well as STL's sets and maps.
+- bool **isNull** () const   : returns true if the value is NULL
+- bool **operator==** (const GenericView& other) const : equality comparison with another GenericView
+- std::optional<int64_t> **compare** (const GenericView& other, const CompareFlags flags) const : comparison with another GenericView
+- TypeKind **kind** () const : returns TypeKind of the value
+- const TypePtr& **type** () const : returns Velox type of the value
+- std::string **toString** () const : returns string representaion of the value for logging and debugging
+- template <typename ToType> typename VectorReader<ToType>::exec_in_t **castTo** () const : cast to concrete view type
+- template <typename ToType> std::optional<typename VectorReader<ToType>::exec_in_t> **tryCastTo** () const : best-effort attempt to cast to a concrete view type
 
 **Temporaries lifetime C++**
 
@@ -240,55 +251,55 @@ minimizes data copying by writing directly to Velox vectors.
 
 **ArrayWriter<V>**
 
-- out_type<V>& add_item() : add non-null item and return the writer of the added value.
-- add_null(): add null item.
-- reserve(vector_size_t size): make sure space for `size` items is allocated in the underlying vector.
-- vector_size_t size(): get the length of the array.
-- resize(vector_size_t size): change the size of the array reserving space for the new elements if needed.
+- out_type<V>& **add_item** () : add non-null item and return the writer of the added value.
+- **add_null** (): add null item.
+- **reserve** (vector_size_t size): make sure space for `size` items is allocated in the underlying vector.
+- vector_size_t **size** (): return the length of the array.
+- **resize** (vector_size_t size): change the size of the array reserving space for the new elements if needed.
 
-- void add_items(const T& data): append data from any container with std::vector-like interface.
-- void copy_from(const T& data): assign data to match that of any container with std::vector-like interface.
+- void **add_items** (const T& data): append data from any container with std::vector-like interface.
+- void **copy_from** (const T& data): assign data to match that of any container with std::vector-like interface.
 
-- void add_items(const NullFreeArrayView<V>& data): append data from array view (faster than item by item).
-- void copy_from(const NullFreeArrayView<V>& data): assign data from array view (faster than item by item).
+- void **add_items** (const NullFreeArrayView<V>& data): append data from array view (faster than item by item).
+- void **copy_from** (const NullFreeArrayView<V>& data): assign data from array view (faster than item by item).
 
-- void add_items(const NullableArrayView<V>& data): append data from array view (faster than item by item).
-- void copy_from(const NullableArrayView<V>& data): assign data from array view (faster than item by item).
+- void **add_items** (const NullableArrayView<V>& data): append data from array view (faster than item by item).
+- void **copy_from** (const NullableArrayView<V>& data): assign data from array view (faster than item by item).
 
 When V is primitive, the following functions are available, making the writer usable as std::vector<V>.
 
-- push_back(std::optional<V>): add item or null.
-- PrimitiveWriter<V> operator[](vector_size_t index): return a primitive writer that is assignable to std::optional<V> for the item at index (should be called after a resize).
-- PrimitiveWriter<V> back(): return a primitive writer that is assignable to std::optional<V> for the item at index length -1.
+- **push_back** (std::optional<V>): add item or null.
+- PrimitiveWriter<V> **operator[]** (vector_size_t index): return a primitive writer that is assignable to std::optional<V> for the item at index (should be called after a resize).
+- PrimitiveWriter<V> **back** (): return a primitive writer that is assignable to std::optional<V> for the item at index length -1.
 
 
 **MapWriter<K, V>**
 
-- reserve(vector_size_t size): make sure space for `size` entries is allocated in the underlying vector.
-- std::tuple<out_type<K>&, out_type<V>&> add_item(): add non-null item and return the writers of key and value as tuple.
-- out_type<K>& add_null(): add null item and return the key writer.
-- vector_size_t size(): return the length of the array.
+- **reserve** (vector_size_t size): make sure space for `size` entries is allocated in the underlying vector.
+- std::tuple<out_type<K>&, out_type<V>&> **add_item()** : add non-null item and return the writers of key and value as tuple.
+- out_type<K>& **add_null()** : add null item and return the key writer.
+- vector_size_t **size** (): return the length of the map.
 
-- void add_items(const T& data): append data from any container with std::vector<tuple<K, V>> like interface.
-- void copy_from(const NullFreeMapView<V>& data): assign data from array view (faster than item by item).
-- void copy_from(const NullableMapView<V>& data): assign data from array view (faster than item by item).
+- void **add_items** (const T& data): append data from any container with std::vector<tuple<K, V>> like interface.
+- void **copy_from** (const NullFreeMapView<V>& data): assign data from map view (faster than item by item).
+- void **copy_from** (const NullableMapView<V>& data): assign data from map view (faster than item by item).
 
 When K and V are primitives, the following functions are available, making the writer usable as std::vector<std::tuple<K, V>>.
 
-- resize(vector_size_t size): change the size.
-- emplace(K, std::optional<V>): add element to the map.
-- std::tuple<K&, PrimitiveWriter<V>> operator[](vector_size_t index): returns pair of writers for element at index. Key writer is assignable to K. while value writer is assignable to std::optional<V>.
+- **resize** (vector_size_t size): change the size.
+- **emplace** (K, std::optional<V>): add element to the map.
+- std::tuple<K&, PrimitiveWriter<V>> **operator[]** (vector_size_t index): returns pair of writers for element at index. Key writer is assignable to K. while value writer is assignable to std::optional<V>.
 
 **RowWriter<T...>**
 
-- template<vector_size_t I> set_null_at(): set null for row item at index I.
-- template<vector_size_t I> get_writer_at(): set not null for row item at index I, and return writer to to the row element at index I.
+- template<vector_size_t I> **set_null_at** (): set null for row item at index I.
+- template<vector_size_t I> **get_writer_at** (): set not null for row item at index I, and return writer to the row element at index I.
 
 When all types T... are primitives, the following functions are available.
 
-- void operator=(const std::tuple<T...>& inputs): assignable to std::tuple<T...>.
-- void operator=(const std::tuple<std::optional<T>...>& inputs): assignable to std::tuple<std::optional<T>...>.
-- void copy_from(const std::tuple<K...>& inputs): similar as the above.
+- void **operator=** (const std::tuple<T...>& inputs): assignable to std::tuple<T...>.
+- void **operator=** (const std::tuple<std::optional<T>...>& inputs): assignable to std::tuple<std::optional<T>...>.
+- void **copy_from** (const std::tuple<K...>& inputs): similar as the above.
 
 When a given Ti is primitive, the following is valid.
 
@@ -299,22 +310,29 @@ When a given Ti is primitive, the following is valid.
 Assignable to std::optional<T> allows writing null or value to the primitive. Returned by complex writers when writing nullable
 primitives.
 
-**StringWriter<>**:
+**StringWriter<>**
 
-- void reserve(size_t newCapacity) : Reserve a space for the output string with size of at least newCapacity.
-- void resize(size_t newCapacity) : Set the size of the string.
-- char* data(): returns pointer to the first char of the string, can be written to directly (safe to write to index at capacity()-1).
-- vector_size_t capacity(): returns the capacity of the string.
-- vector_size_t size(): returns the size of the string.
-- operator+=(const T& input): append data from char* or any type with data() and size().
-- append(const T& input): append data from char* or any type with data() and size().
-- copy_from(const T& input): append data from char* or any type with data() and size().
+- void **reserve** (size_t newCapacity) : Reserve a space for the output string with size of at least newCapacity.
+- void **resize** (size_t newCapacity) : Set the size of the string.
+- char* **data** (): returns pointer to the first char of the string, can be written to directly (safe to write to index at capacity()-1).
+- vector_size_t **capacity** (): returns the capacity of the string.
+- vector_size_t **size** (): returns the size of the string.
+- **operator+=** (const T& input): append data from char* or any type with data() and size().
+- **append** (const T& input): append data from char* or any type with data() and size().
+- **copy_from** (const T& input): append data from char* or any type with data() and size().
 
 When Zero-copy optimization is enabled (see zero-copy-string-result section above), the following functions can be used.
 
-- void setEmpty(): set to empty string.
-- void setNoCopy(const StringView& value): set string to an input string without performing deep copy.
+- void **setEmpty** (): set to empty string.
+- void **setNoCopy** (const StringView& value): set string to an input string without performing deep copy.
 
+**GenericWriter**
+
+- TypeKind **kind** () const : returns TypeKind of the value
+- const TypePtr& **type** () const : returns Velox type of the value
+- void **copy_from** (const GenericView& view) : assign data from another GenericView
+- template <typename ToType> typename VectorWriter<ToType, void>::exec_out_t& **castTo** () : cast to concrete writer type
+- template <typename ToType> typename VectorWriter<ToType, void>::exec_out_t* **tryCastTo** () : best-effort attempt to cast to a concrete writer type
 
 Limitations
 -----------

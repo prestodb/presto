@@ -15,8 +15,10 @@ ceil function can be implemented as:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct CeilFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
     template <typename T>
     FOLLY_ALWAYS_INLINE void call(T& result, const T& a) {
       result = std::ceil(a);
@@ -36,22 +38,25 @@ function to be called on different input types, e.g. float and double. Note
 that template instantiation will only happen during function registration,
 described in the "Registration" section below.
 
-Please avoid using the obsolete VELOX_UDF_BEGIN/VELOX_UDF_END macros.
+Do not use legacy VELOX_UDF_BEGIN and VELOX_UDF_END macros.
 
 The "call" function (or one of its variations) may return (a) void indicating
 the function never returns null values, or (b) boolean indicating whether
-the result of the computation is null. True means the result is not null;
-false means the result is null. If "ceil(0)" were to return null, the function
-above could be re-written as follows:
+the result of the computation is null. The meaning of the returned boolean is
+"result was set", i.e. true means non-null result was populated, false means
+no (null) result. If "ceil(0)" were to return a null, the function could be
+re-written as follows:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct NullableCeilFunction {
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
     template <typename T>
     FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
       result = std::ceil(a);
-      return a != 0;
+      return a != 0; // Return NULL if input is zero.
     }
   };
 
@@ -60,26 +65,53 @@ The argument list must start with an output parameter “result” followed by t
 function arguments. The “result” argument must be a reference. Function
 arguments must be const references. The C++ types of the function arguments and
 the result argument must match :doc:`Velox types</develop/types>`.
-Since the result argument must be a reference, some of the types listed below
-have a different result argument type:
 
 ==========  ==============================  =============================
 Velox Type  C++ Argument Type               C++ Result Type
 ==========  ==============================  =============================
-VARCHAR     StringView                      out_type<Varchar>
-VARBINARY   StringView                      out_type<Varbinary>
+BOOLEAN     arg_type<bool>                  out_type<bool>
+TINYINT     arg_type<int8_t>                out_type<int8_t>
+SMALLINT    arg_type<int16_t>               out_type<int16_t>
+INTEGER     arg_type<int32_t>               out_type<int32_t>
+BIGINT      arg_type<int64_t>               out_type<int64_t>
+REAL        arg_type<float>                 out_type<float>
+DOUBLE      arg_type<double>                out_type<double>
+TIMESTAMP   arg_type<Timestamp>             out_type<Timestamp>
+DATE        arg_type<Date>                  out_type<Date>
+VARCHAR     arg_type<Varchar>               out_type<Varchar>
+VARBINARY   arg_type<Varbinary>             out_type<Varbinary>
 ARRAY       arg_type<Array<E>>              out_type<Array<E>>
 MAP         arg_type<Map<K,V>>              out_type<Map<K, V>>
 ROW         arg_type<Row<T1, T2, T3,...>>   out_type<Row<T1, T2, T3,...>>
 ==========  ==============================  =============================
 
-arg_type and out_type templates are defined by using the
-VELOX_DEFINE_FUNCTION_TYPES(TExecParams) macro in the class definition. These
-types provide interfaces similar to std::string, std::vector, std::unordered_map
-and std::tuple. The underlying implementations are optimized to read and write
-from and to the columnar representation without extra copying. More explanaiton
-and the APIs of the arg_type and out_type for string and complex types can be
-found in :doc:`view-and-writer-types`.
+arg_type and out_type templates are defined by the
+VELOX_DEFINE_FUNCTION_TYPES(TExec) macro in the struct definition. For
+primitive types, arg_type<T> is the same as out_type<T> and the same as T.
+This holds for boolean, integers, floating point types and timestamp.
+For DATE, arg_type<Date> is the same as out_type<Date> and is defined as int32_t.
+
+A signature of a function that takes an integer and a double and returns
+a double would look like this:
+
+.. code-block:: c++
+
+    void call(arg_type<double>& result, const arg_type<int32_t>& a, const arg_type<double>& b)
+
+Which is equivalent to
+
+.. code-block:: c++
+
+    void call(double& result, const int32_t& a, const double& b)
+
+For strings, arg_type<Varchar> is defined as StringView, while out_type<Varchar>
+is defined as StringWriter.
+
+arg_type and out_type for Varchar, Array, Map and Row provide interfaces similar
+to std::string, std::vector, std::unordered_map and std::tuple. The underlying
+implementations are optimized to read and write from and to the columnar
+representation without extra copying. More explanation and the APIs of the arg_type
+and out_type for string and complex types can be found in :doc:`view-and-writer-types`.
 
 Note: Do not pay too much attention to complex type mappings at the moment.
 They are included here for completeness.
@@ -96,7 +128,7 @@ an artificial example of a ceil function that returns 0 for null input:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct CeilFunction {
     template <typename T>
     FOLLY_ALWAYS_INLINE void callNullable(T& result, const T* a) {
@@ -134,9 +166,9 @@ an array:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct ArrayMinFunction {
-    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
     template <typename TInput>
     FOLLY_ALWAYS_INLINE bool callNullFree(
@@ -174,7 +206,7 @@ An example of such function is rand():
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct RandFunction {
     static constexpr bool is_deterministic = false;
 
@@ -206,9 +238,9 @@ Here is an example of a trim function:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct TrimFunction {
-    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
     // ASCII input always produces ASCII result.
     static constexpr bool is_default_ascii_behavior = true;
@@ -256,9 +288,9 @@ Here is an example of a zero-copy function:
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct TrimFunction {
-    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
     // Results refer to strings in the first argument.
     static constexpr int32_t reuse_strings_from_arg = 0;
@@ -296,9 +328,9 @@ properties and using it when processing inputs.
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct HourFunction {
-    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
     const date::time_zone* timeZone_ = nullptr;
 
@@ -325,9 +357,9 @@ individual rows.
 
 .. code-block:: c++
 
-  template <typename TExecParams>
+  template <typename TExec>
   struct DateTruncFunction {
-    VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+    VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
     const date::time_zone* timeZone_ = nullptr;
     std::optional<DateTimeUnit> unit_;
@@ -388,38 +420,68 @@ we need to call registerFunction again:
 
 We need to call registerFunction for each signature we want to support.
 
-Codegen
-^^^^^^^
+Here is a mapping from Velox types to C++ types that should be used for
+argument and return types during registration.
 
-To allow the function to be used in the codegen, extract the “kernel” of the
-function into a header file and call that from the “call” or “callNullable”.
-Here is an example with ceil function.
+==========  =====================
+Velox Type  C++ Type
+==========  =====================
+BOOLEAN     bool
+TINYINT     int8_t
+SMALLINT    int16_t
+INTEGER     int32_t
+BIGINT      int64_t
+REAL        float
+DOUBLE      double
+TIMESTAMP   Timestamp
+DATE        Date
+VARCHAR     Varchar
+VARBINARY   Varbinary
+ARRAY       Array<E>
+MAP         Map<K,V>
+ROW         Row<T1, T2, T3,...>
+==========  =====================
+
+For example, to register array_min function for string inputs:
 
 .. code-block:: c++
 
-  #include "velox/functions/prestosql/ArithmeticImpl.h"
+    registerFunction<ArrayMinFunction, Varchar, Array<Varchar>>({"array_min"});
 
-  template <typename TExecParams>
-  struct CeilFunction {
-    template <typename T>
-    FOLLY_ALWAYS_INLINE bool call(T& result, const T& a) {
-      result = ceil(a);
-      return true;
-    }
-  };
-
-velox/functions/prestosql/ArithmeticImpl.h:
+To register array_min function for arrays of any type, use Generic<T1> for the element type:
 
 .. code-block:: c++
 
-  template <typename T>
-  T ceil(const T& arg) {
-    T results = std::ceil(arg);
-    return results;
-  }
+    registerFunction<ArrayMinFunction, Generic<T1>, Array<Generic<T1>>>({"array_min"});
 
-Make sure the header files that define the “kernels” are free of dependencies
-as much as possible to allow for faster compilation in codegen.
+Since array_min needs to sort the elements to find the smallest, the element
+type needs to be orderable. You can restrict array elements to orderable types
+using Orderable<T1>.
+
+.. code-block:: c++
+
+    registerFunction<ArrayMinFunction, Orderable<T1>, Array<Orderable<T1>>>({"array_min"});
+
+You can use multiple generic types in a function signature. For example, to register
+map_top_n function:
+
+.. code-block:: c++
+
+    registerFunction<
+        MapTopNFunction,
+        Map<Generic<T1>, Orderable<T2>>,    // result map type
+        Map<Generic<T1>, Orderable<T2>>,    // input map type
+        int64_t                             // type of N argument
+    >({"map_top_n"});
+
+Generic types must use T1, T2, T3... naming.
+
+Finally, you can specify that an argument must be constant using Constant<T>.
+For example, to specify rand signature with a constant seed argument:
+
+.. code-block:: c++
+
+    registerFunction<RandFunction, double, Constant<int32_t>>({"rand"});
 
 Variadic Arguments
 ^^^^^^^^^^^^^^^^^^
