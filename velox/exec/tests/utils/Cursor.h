@@ -46,15 +46,15 @@ struct CursorParameters {
 
   uint64_t bufferedBytes = 512 * 1024;
 
-  // Ungrouped (by default) or grouped (bucketed) execution.
+  /// Ungrouped (by default) or grouped (bucketed) execution.
   core::ExecutionStrategy executionStrategy{
       core::ExecutionStrategy::kUngrouped};
 
   /// Contains leaf plan nodes that need to be executed in the grouped mode.
   std::unordered_set<core::PlanNodeId> groupedExecutionLeafNodeIds;
 
-  // Number of splits groups the task will be processing. Must be 1 for
-  // ungrouped execution.
+  /// Number of splits groups the task will be processing. Must be 1 for
+  /// ungrouped execution.
   int numSplitGroups{1};
 
   /// Spilling directory, if not empty, then the task's spilling directory would

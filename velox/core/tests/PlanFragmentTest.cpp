@@ -322,3 +322,14 @@ TEST_F(PlanFragmentTest, hashJoin) {
         testData.expectedCanSpill);
   }
 }
+
+TEST_F(PlanFragmentTest, executionStrategyToString) {
+  ASSERT_EQ(
+      executionStrategyToString(core::ExecutionStrategy::kUngrouped),
+      "UNGROUPED");
+  ASSERT_EQ(
+      executionStrategyToString(core::ExecutionStrategy::kGrouped), "GROUPED");
+  ASSERT_EQ(
+      executionStrategyToString(static_cast<core::ExecutionStrategy>(999)),
+      "UNKNOWN: 999");
+}

@@ -118,7 +118,31 @@ class AssertQueryBuilder {
     return *this;
   }
 
-  // Methods to run the query and verify the results.
+  /// Methods to configure the group execution mode.
+  AssertQueryBuilder& executionStrategy(
+      core::ExecutionStrategy executionStrategy) {
+    params_.executionStrategy = executionStrategy;
+    return *this;
+  }
+
+  AssertQueryBuilder& numSplitGroups(int numSplitGroups) {
+    params_.numSplitGroups = numSplitGroups;
+    return *this;
+  }
+
+  AssertQueryBuilder& numConcurrentSplitGroups(
+      int32_t numConcurrentSplitGroups) {
+    params_.numConcurrentSplitGroups = numConcurrentSplitGroups;
+    return *this;
+  }
+
+  AssertQueryBuilder& groupedExecutionLeafNodeIds(
+      const std::unordered_set<core::PlanNodeId>& groupedExecutionLeafNodeIds) {
+    params_.groupedExecutionLeafNodeIds = groupedExecutionLeafNodeIds;
+    return *this;
+  }
+
+  /// Methods to run the query and verify the results.
 
   /// Run the query and verify results against DuckDB. Requires
   /// duckDbQueryRunner to be provided in the constructor.
@@ -158,7 +182,7 @@ class AssertQueryBuilder {
   // Used by the created task as the default driver executor.
   std::unique_ptr<folly::Executor> executor_{
       new folly::CPUThreadPoolExecutor(std::thread::hardware_concurrency())};
-  DuckDbQueryRunner* FOLLY_NULLABLE const duckDbQueryRunner_;
+  DuckDbQueryRunner* const duckDbQueryRunner_;
   CursorParameters params_;
   std::unordered_map<std::string, std::string> configs_;
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>

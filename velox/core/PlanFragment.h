@@ -35,6 +35,8 @@ enum class ExecutionStrategy {
   kGrouped,
 };
 
+std::string executionStrategyToString(ExecutionStrategy strategy);
+
 /// Contains some information on how to execute the fragment of a plan.
 /// Used to construct Task.
 struct PlanFragment {

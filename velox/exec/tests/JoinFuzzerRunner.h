@@ -18,6 +18,8 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/SharedArbitrator.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/tests/JoinFuzzer.h"
 #include "velox/serializers/PrestoSerializer.h"
 
@@ -56,12 +58,28 @@
 class JoinFuzzerRunner {
  public:
   static int run(size_t seed) {
-    facebook::velox::memory::MemoryManager::initialize({});
+    setupMemory();
     facebook::velox::serializer::presto::PrestoVectorSerde::
         registerVectorSerde();
     facebook::velox::filesystems::registerLocalFileSystem();
 
     facebook::velox::exec::test::joinFuzzer(seed);
     return RUN_ALL_TESTS();
+  }
+
+ private:
+  // Invoked to set up memory system with arbitration.
+  static void setupMemory() {
+    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::memory::SharedArbitrator::registerFactory();
+    facebook::velox::memory::MemoryManagerOptions options;
+    options.allocatorCapacity = 8L << 30;
+    options.arbitratorCapacity = 6L << 30;
+    options.arbitratorKind = "SHARED";
+    options.checkUsageLeak = true;
+    options.arbitrationStateCheckCb =
+        facebook::velox::exec::memoryArbitrationStateCheck;
+    facebook::velox::memory::MemoryManager::initialize(options);
   }
 };
