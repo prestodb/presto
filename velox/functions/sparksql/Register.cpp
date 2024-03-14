@@ -42,6 +42,7 @@
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
+#include "velox/functions/sparksql/Uuid.h"
 #include "velox/functions/sparksql/specialforms/DecimalRound.h"
 #include "velox/functions/sparksql/specialforms/MakeDecimal.h"
 #include "velox/functions/sparksql/specialforms/SparkCastExpr.h"
@@ -356,6 +357,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<MonotonicallyIncreasingIdFunction, int64_t>(
       {prefix + "monotonically_increasing_id"});
+
+  registerFunction<UuidFunction, Varchar, Constant<int64_t>>({prefix + "uuid"});
 }
 
 } // namespace sparksql
