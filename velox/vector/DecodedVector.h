@@ -230,6 +230,9 @@ class DecodedVector {
     return isConstantMapping_;
   }
 
+  /// Returns string representation of the value in the specified row.
+  std::string toString(vector_size_t idx) const;
+
   /////////////////////////////////////////////////////////////////
   /// BEGIN: Members that must only be used by PeeledEncoding class.
   /// See class comment for more details.

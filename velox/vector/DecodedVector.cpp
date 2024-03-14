@@ -465,4 +465,12 @@ void DecodedVector::applyToRows(const SelectivityVector* rows, Func&& func)
     }
   }
 }
+
+std::string DecodedVector::toString(vector_size_t idx) const {
+  if (isNullAt(idx)) {
+    return "null";
+  }
+
+  return baseVector_->toString(index(idx));
+}
 } // namespace facebook::velox

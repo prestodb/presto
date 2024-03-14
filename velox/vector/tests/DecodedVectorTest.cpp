@@ -1439,4 +1439,51 @@ TEST_F(DecodedVectorTest, previousIndicesInReUsedDecodedVector) {
   EXPECT_EQ(rawIndices[0], 0);
 }
 
+TEST_F(DecodedVectorTest, toString) {
+  auto vector = makeNullableFlatVector<int32_t>({1, std::nullopt, 3});
+  {
+    DecodedVector decoded(*vector);
+    EXPECT_EQ("1", decoded.toString(0));
+    EXPECT_EQ("null", decoded.toString(1));
+    EXPECT_EQ("3", decoded.toString(2));
+  }
+
+  auto dict = wrapInDictionary(makeIndicesInReverse(3), vector);
+  {
+    DecodedVector decoded(*dict);
+    EXPECT_EQ("3", decoded.toString(0));
+    EXPECT_EQ("null", decoded.toString(1));
+    EXPECT_EQ("1", decoded.toString(2));
+  }
+
+  auto constant = makeConstant<int32_t>(123, 10);
+  {
+    DecodedVector decoded(*constant);
+    EXPECT_EQ("123", decoded.toString(0));
+    EXPECT_EQ("123", decoded.toString(1));
+    EXPECT_EQ("123", decoded.toString(2));
+  }
+
+  constant = makeNullConstant(TypeKind::INTEGER, 5);
+  {
+    DecodedVector decoded(*constant);
+    EXPECT_EQ("null", decoded.toString(0));
+    EXPECT_EQ("null", decoded.toString(1));
+    EXPECT_EQ("null", decoded.toString(2));
+  }
+
+  dict = BaseVector::wrapInDictionary(
+      makeNulls(10, nullEvery(2)),
+      makeIndices(10, [](auto row) { return row % 3; }),
+      10,
+      makeFlatVector<int32_t>({1, 2, 3}));
+  {
+    DecodedVector decoded(*dict);
+    EXPECT_EQ("null", decoded.toString(0));
+    EXPECT_EQ("2", decoded.toString(1));
+    EXPECT_EQ("null", decoded.toString(2));
+    EXPECT_EQ("1", decoded.toString(3));
+  }
+}
+
 } // namespace facebook::velox::test
