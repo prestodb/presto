@@ -13,6 +13,9 @@
 
 echo "node.id=$HOSTNAME" >> /opt/presto-server/etc/node.properties
 
+cp ~/.ssh/authorized_keys2 ~/.ssh/authorized_keys
+/usr/sbin/sshd
+
 GLOG_logtostderr=1 presto_server \
     --etc-dir=/opt/presto-server/etc \
     2>&1 | tee /var/log/presto-server/console.log
