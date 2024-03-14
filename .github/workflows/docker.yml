@@ -52,10 +52,6 @@ jobs:
             file: "scripts/circleci-container.dockfile"
             args: "cpu_target=avx"
             tags: "ghcr.io/facebookincubator/velox-dev:circleci-avx"
-          - name: Torcharrow
-            file: "scripts/velox-torcharrow-container.dockfile"
-            args: "cpu_target=avx"
-            tags: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
           - name: Dev
             file: "scripts/ubuntu-22.04-cpp.dockerfile"
             args: ""

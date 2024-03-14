@@ -51,26 +51,6 @@ services:
       - .:/velox:delegated
     command: /bin/bash -c "scl enable gcc-toolset-9 '/velox/scripts/docker-command.sh'"
 
-  python:
-    # Usage:
-    #   docker-compose pull ubuntu-cpp or docker-compose build ubuntu-cpp
-    #   docker-compose run --rm ubuntu-cpp
-    #   or
-    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm ubuntu-cpp
-    #   to set the number of threads used during compilation
-    image: ghcr.io/facebookincubator/velox-dev:torcharrow-avx
-    build:
-      context: .
-      dockerfile: scripts/velox-torcharrow-container.dockfile
-    environment:
-      PYTHON_EXECUTABLE: python3.7
-      NUM_THREADS: 8 # default value for NUM_THREADS
-      CCACHE_DIR: "/velox/.ccache"
-    volumes:
-      - .:/velox:delegated
-    command: cd /velox && make python-test
-
-
   presto-java:
   # Usage:
   #   docker-compose pull presto-java or docker-compose build presto-java
