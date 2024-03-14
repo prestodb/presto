@@ -170,7 +170,8 @@ public class HivePageSourceProvider
                 HiveSessionProperties.getPercentile(session),
                 HiveSessionProperties.getWsLatency(session),
                 HiveSessionProperties.getMinNonSlo(session),
-                HiveSessionProperties.getMaxNonSlo(session));
+                HiveSessionProperties.getMaxNonSlo(session),
+                HiveSessionProperties.getCacheHitRate(session));
 
         if (columns.stream().anyMatch(columnHandle -> ((HiveColumnHandle) columnHandle).getColumnType().equals(AGGREGATED))) {
             checkArgument(columns.stream().allMatch(columnHandle -> ((HiveColumnHandle) columnHandle).getColumnType().equals(AGGREGATED)), "Not all columns are of 'AGGREGATED' type");

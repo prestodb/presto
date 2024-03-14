@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.RuntimeUnit.NANO;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DelayInputStream
@@ -33,20 +32,22 @@ public class DelayInputStream
 
     private final FSDataInputStream cachingInputStream;
     private final RuntimeStats runtimeStats;
-    private final int percentile;
+    private final double percentile;
     private final int delayInMs;
     private final int minNonSlo;
     private final int maxNonSlo;
+    private final int expectedCacheHitRate;
 
     public DelayInputStream(FSDataInputStream cachingInputStream, HiveFileContext hiveFileContext)
     {
         super(cachingInputStream);
         this.cachingInputStream = requireNonNull(cachingInputStream, "cachingInputStream is null");
         this.runtimeStats = hiveFileContext.getStats();
-        this.percentile = (int) (100 * hiveFileContext.getPercentile());
+        this.percentile = hiveFileContext.getPercentile();
         this.delayInMs = hiveFileContext.getDelayInMs();
         this.minNonSlo = hiveFileContext.getMinNonSlo();
         this.maxNonSlo = hiveFileContext.getMaxNonSlo();
+        this.expectedCacheHitRate = hiveFileContext.getCacheHitRate();
     }
 
     @Override
@@ -55,13 +56,11 @@ public class DelayInputStream
     {
         int outByte = cachingInputStream.read();
 
-        try {
-            int x = getSleepDuration();
-            log.info(format("NIKHIL sleeping for %d ms", x));
-            Thread.sleep(x);
+        if (ThreadLocalRandom.current().nextInt(10000) <= expectedCacheHitRate * 100) {
+            return outByte;
         }
-        catch (InterruptedException e) {
-            // ignored
+        else {
+            doSleep();
         }
         return outByte;
     }
@@ -72,13 +71,11 @@ public class DelayInputStream
     {
         int bytes = cachingInputStream.read(position, buffer, offset, length);
 
-        try {
-            int y = getSleepDuration();
-            log.info(format("NIKHIL sleeping for %d ms", y));
-            Thread.sleep(y);
+        if (ThreadLocalRandom.current().nextInt(10000) <= expectedCacheHitRate * 100) {
+            return bytes;
         }
-        catch (InterruptedException e) {
-            // ignored
+        else {
+            doSleep();
         }
         return bytes;
     }
@@ -101,21 +98,28 @@ public class DelayInputStream
         }
     }
 
-    private int getSleepDuration()
+    private void doSleep()
     {
         int value = ThreadLocalRandom.current().nextInt(10000);
+        int sleepMs;
         /* lets say percentile = 9900 and delayInMs = 200ms . Then we pick a random value X between 0 and 10000.
          * If X <= 9900 , we will wait for Y ms where 50ms <= Y <= 200ms (delayInMs)
          * else If X > 9900, we will wait for Z ms where 2sec < Z <= 10sec
          */
-        if (value <= percentile) {
-            return ThreadLocalRandom.current().nextInt(50, delayInMs);
+        if (value <= (int) (percentile * 100)) {
+            sleepMs = ThreadLocalRandom.current().nextInt(50, delayInMs);
+            runtimeStats.addMetricValue("WS_SLO_COMPLIANT_LATENCY", NANO, sleepMs * 1000000L);
         }
         else {
-            int slowLatency = ThreadLocalRandom.current().nextInt(minNonSlo, maxNonSlo);
-            log.info(format("NIKHIL HIGH NON-SLO compliant sleeping for %d ms", slowLatency));
-            runtimeStats.addMetricValue("HIGHER_WS_LATENCY", NANO, slowLatency * 1000000L);
-            return slowLatency;
+            sleepMs = ThreadLocalRandom.current().nextInt(minNonSlo, maxNonSlo);
+            runtimeStats.addMetricValue("HIGHER_WS_LATENCY", NANO, sleepMs * 1000000L);
+        }
+
+        try {
+            Thread.sleep(sleepMs);
+        }
+        catch (InterruptedException e) {
+            // ignored
         }
     }
 

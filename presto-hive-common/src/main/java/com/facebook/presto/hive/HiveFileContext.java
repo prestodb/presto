@@ -51,6 +51,7 @@ public class HiveFileContext
     private final int delayInMs;
     private final int minNonSlo;
     private final int maxNonSlo;
+    private final int cacheHitRate;
 
     private final RuntimeStats stats = new RuntimeStats();
 
@@ -64,7 +65,7 @@ public class HiveFileContext
             long modificationTime,
             boolean verboseRuntimeStatsEnabled)
     {
-        this(cacheable, cacheQuota, extraFileInfo, fileSize, startOffset, length, modificationTime, verboseRuntimeStatsEnabled, 0, 0, 0, 0);
+        this(cacheable, cacheQuota, extraFileInfo, fileSize, startOffset, length, modificationTime, verboseRuntimeStatsEnabled, 0, 0, 0, 0, 0);
     }
 
     public HiveFileContext(
@@ -79,7 +80,8 @@ public class HiveFileContext
             double percentile,
             int delayInMs,
             int minNonSlo,
-            int maxNonSlo)
+            int maxNonSlo,
+            int cacheHitRate)
     {
         this.cacheable = cacheable;
         this.cacheQuota = requireNonNull(cacheQuota, "cacheQuota is null");
@@ -93,6 +95,7 @@ public class HiveFileContext
         this.delayInMs = delayInMs;
         this.minNonSlo = minNonSlo;
         this.maxNonSlo = maxNonSlo;
+        this.cacheHitRate = cacheHitRate;
     }
 
     public double getPercentile()
@@ -113,6 +116,11 @@ public class HiveFileContext
     public int getMaxNonSlo()
     {
         return maxNonSlo;
+    }
+
+    public int getCacheHitRate()
+    {
+        return cacheHitRate;
     }
 
     /**

@@ -132,6 +132,9 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String WS_LATENCY_PERCENTILE = "ws_latency_percentile";
     public static final String WS_LATENCY = "ws_latency";
+    public static final String WS_MIN_NON_SLO = "ws_min_non_slo";
+    public static final String WS_MAX_NON_SLO = "ws_max_non_slo";
+    public static final String CACHE_HIT_RATE = "cache_hit_rate";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -599,17 +602,22 @@ public final class HiveSessionProperties
                 integerProperty(
                         WS_LATENCY,
                         "ws SLO latency",
-                        50,
+                        200,
                         false),
                 integerProperty(
-                        "ws_min_non_slo",
+                        WS_MIN_NON_SLO,
                         "ws min NON-SLO latency",
                         2000,
                         false),
                 integerProperty(
-                        "ws_max_non_slo",
+                        WS_MAX_NON_SLO,
                         "ws max NON-SLO latency",
                         10000,
+                        false),
+                integerProperty(
+                        CACHE_HIT_RATE,
+                        "cache hit rate",
+                        100,
                         false),
                 booleanProperty(
                         USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT,
@@ -1062,12 +1070,17 @@ public final class HiveSessionProperties
 
     public static int getMinNonSlo(ConnectorSession session)
     {
-        return session.getProperty("ws_min_non_slo", Integer.class);
+        return session.getProperty(WS_MIN_NON_SLO, Integer.class);
     }
 
     public static int getMaxNonSlo(ConnectorSession session)
     {
-        return session.getProperty("ws_max_non_slo", Integer.class);
+        return session.getProperty(WS_MAX_NON_SLO, Integer.class);
+    }
+
+    public static int getCacheHitRate(ConnectorSession session)
+    {
+        return session.getProperty(CACHE_HIT_RATE, Integer.class);
     }
 
     public static boolean isDwrfWriterStripeCacheEnabled(ConnectorSession session)
