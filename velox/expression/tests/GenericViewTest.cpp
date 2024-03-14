@@ -222,20 +222,23 @@ TEST_F(GenericViewTest, toString) {
         "{1: 10, 2: null, 3: 30}",
     });
 
+    auto keys = data->mapKeys();
+    auto values = data->mapValues();
+
     DecodedVector decoded(*data);
     exec::VectorReader<Map<Any, Any>> reader(&decoded);
 
     auto mapView = reader[0];
     auto it = mapView.begin();
-    EXPECT_EQ("3", it->first.toString());
-    EXPECT_EQ("30", it->second.value().toString());
+    EXPECT_EQ(keys->toString(0), it->first.toString());
+    EXPECT_EQ(values->toString(0), it->second.value().toString());
 
     ++it;
-    EXPECT_EQ("2", it->first.toString());
+    EXPECT_EQ(keys->toString(1), it->first.toString());
 
     ++it;
-    EXPECT_EQ("1", it->first.toString());
-    EXPECT_EQ("10", it->second.value().toString());
+    EXPECT_EQ(keys->toString(2), it->first.toString());
+    EXPECT_EQ(values->toString(2), it->second.value().toString());
   }
 }
 
