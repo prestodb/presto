@@ -123,7 +123,7 @@ RowVectorPtr Exchange::getOutput() {
 
     while (!inputStream.atEnd()) {
       getSerde()->deserialize(
-          &inputStream, pool(), outputType_, &result_, resultOffset);
+          &inputStream, pool(), outputType_, &result_, resultOffset, &options_);
       resultOffset = result_->size();
     }
   }

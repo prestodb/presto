@@ -19,6 +19,8 @@
 #include <random>
 #include "velox/exec/ExchangeClient.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/OutputBufferManager.h"
+#include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec {
 
@@ -50,7 +52,10 @@ class Exchange : public SourceOperator {
         preferredOutputBatchBytes_{
             driverCtx->queryConfig().preferredOutputBatchBytes()},
         processSplits_{operatorCtx_->driverCtx()->driverId == 0},
-        exchangeClient_{std::move(exchangeClient)} {}
+        exchangeClient_{std::move(exchangeClient)} {
+    options_.compressionKind =
+        OutputBufferManager::getInstance().lock()->compressionKind();
+  }
 
   ~Exchange() override {
     close();
@@ -105,6 +110,7 @@ class Exchange : public SourceOperator {
   std::vector<std::unique_ptr<SerializedPage>> currentPages_;
   bool atEnd_{false};
   std::default_random_engine rng_{std::random_device{}()};
+  serializer::presto::PrestoVectorSerde::PrestoOptions options_;
 };
 
 } // namespace facebook::velox::exec

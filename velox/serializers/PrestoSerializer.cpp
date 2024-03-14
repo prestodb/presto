@@ -77,18 +77,24 @@ int64_t computeChecksum(
     ByteInputStream* source,
     int codecMarker,
     int numRows,
-    int uncompressedSize) {
-  auto offset = source->tellp();
+    int32_t uncompressedSize,
+    int32_t compressedSize) {
+  const auto offset = source->tellp();
+  const bool compressed = codecMarker & kCompressedBitMask;
+  if (compressed) {
+    VELOX_CHECK_LT(compressedSize, uncompressedSize);
+  }
+  const int32_t dataSize = compressed ? compressedSize : uncompressedSize;
   bits::Crc32 crc32;
-  if (FOLLY_UNLIKELY(source->remainingSize() < uncompressedSize)) {
+  if (FOLLY_UNLIKELY(source->remainingSize() < dataSize)) {
     VELOX_FAIL(
         "Tried to read {} bytes, larger than what's remained in source {} "
         "bytes. Source details: {}",
-        uncompressedSize,
+        dataSize,
         source->remainingSize(),
         source->toString());
   }
-  auto remainingBytes = uncompressedSize;
+  auto remainingBytes = dataSize;
   while (remainingBytes > 0) {
     auto data = source->nextView(remainingBytes);
     if (FOLLY_UNLIKELY(data.size() == 0)) {
@@ -170,7 +176,11 @@ PrestoVectorSerde::PrestoOptions toPrestoOptions(
   if (options == nullptr) {
     return PrestoVectorSerde::PrestoOptions();
   }
-  return *(static_cast<const PrestoVectorSerde::PrestoOptions*>(options));
+  auto prestoOptions =
+      dynamic_cast<const PrestoVectorSerde::PrestoOptions*>(options);
+  VELOX_CHECK_NOT_NULL(
+      prestoOptions, "Serde options are not Presto-compatible");
+  return *prestoOptions;
 }
 
 FOLLY_ALWAYS_INLINE bool needCompression(const folly::io::Codec& codec) {
@@ -3420,7 +3430,7 @@ void estimateSerializedSizeInt(
   }
 }
 
-void flushUncompressed(
+int64_t flushUncompressed(
     const std::vector<std::unique_ptr<VectorStream>>& streams,
     int32_t numRows,
     OutputStream* out,
@@ -3462,7 +3472,7 @@ void flushUncompressed(
 
   // Fill in uncompressedSizeInBytes & sizeInBytes
   int32_t size = (int32_t)out->tellp() - offset;
-  int32_t uncompressedSize = size - kHeaderSize;
+  const int32_t uncompressedSize = size - kHeaderSize;
   int64_t crc = 0;
   if (listener) {
     crc = computeChecksum(listener, codecMask, numRows, uncompressedSize);
@@ -3473,13 +3483,59 @@ void flushUncompressed(
   writeInt32(out, uncompressedSize);
   writeInt64(out, crc);
   out->seekp(offset + size);
+  return uncompressedSize;
+}
+namespace {
+// Represents sizes  of a flush. If the sizes are equal, no compression is
+// applied. Otherwise 'compressedSize' must be less than 'uncompressedSize'.
+struct FlushSizes {
+  int64_t uncompressedSize;
+  int64_t compressedSize;
+};
+} // namespace
+
+void flushSerialization(
+    int32_t numRows,
+    int32_t uncompressedSize,
+    int32_t serializationSize,
+    char codecMask,
+    const std::unique_ptr<folly::IOBuf>& iobuf,
+    OutputStream* output,
+    PrestoOutputStreamListener* listener) {
+  output->write(&codecMask, 1);
+  writeInt32(output, uncompressedSize);
+  writeInt32(output, serializationSize);
+  auto crcOffset = output->tellp();
+  // Write zero checksum
+  writeInt64(output, 0);
+  // Number of columns and stream content. Unpause CRC.
+  if (listener) {
+    listener->resume();
+  }
+  for (auto range : *iobuf) {
+    output->write(reinterpret_cast<const char*>(range.data()), range.size());
+  }
+  // Pause CRC computation
+  if (listener) {
+    listener->pause();
+  }
+  const int32_t endSize = output->tellp();
+  // Fill in crc
+  int64_t crc = 0;
+  if (listener) {
+    crc = computeChecksum(listener, codecMask, numRows, uncompressedSize);
+  }
+  output->seekp(crcOffset);
+  writeInt64(output, crc);
+  output->seekp(endSize);
 }
 
-void flushCompressed(
+FlushSizes flushCompressed(
     const std::vector<std::unique_ptr<VectorStream>>& streams,
     const StreamArena& arena,
     folly::io::Codec& codec,
     int32_t numRows,
+    float minCompressionRatio,
     OutputStream* output,
     PrestoOutputStreamListener* listener) {
   char codecMask = kCompressedBitMask;
@@ -3493,7 +3549,6 @@ void flushCompressed(
   }
 
   writeInt32(output, numRows);
-  output->write(&codecMask, 1);
 
   IOBufOutputStream out(*(arena.pool()), nullptr, arena.size());
   writeInt32(&out, streams.size());
@@ -3507,40 +3562,37 @@ void flushCompressed(
       uncompressedSize,
       codec.maxUncompressedLength(),
       "UncompressedSize exceeds limit");
-  auto compressed = codec.compress(out.getIOBuf().get());
-  const int32_t compressedSize = compressed->length();
-  writeInt32(output, uncompressedSize);
-  writeInt32(output, compressedSize);
-  const int32_t crcOffset = output->tellp();
-  writeInt64(output, 0); // Write zero checksum
-  // Number of columns and stream content. Unpause CRC.
-  if (listener) {
-    listener->resume();
+  auto iobuf = out.getIOBuf();
+  const auto compressedBuffer = codec.compress(iobuf.get());
+  const int32_t compressedSize = compressedBuffer->length();
+  if (compressedSize > uncompressedSize * minCompressionRatio) {
+    flushSerialization(
+        numRows,
+        uncompressedSize,
+        uncompressedSize,
+        codecMask & ~kCompressedBitMask,
+        iobuf,
+        output,
+        listener);
+    return {uncompressedSize, uncompressedSize};
   }
-  output->write(
-      reinterpret_cast<const char*>(compressed->writableData()),
-      compressed->length());
-  // Pause CRC computation
-  if (listener) {
-    listener->pause();
-  }
-  const int32_t endSize = output->tellp();
-  // Fill in crc
-  int64_t crc = 0;
-  if (listener) {
-    crc = computeChecksum(listener, codecMask, numRows, compressedSize);
-  }
-  output->seekp(crcOffset);
-  writeInt64(output, crc);
-  output->seekp(endSize);
+  flushSerialization(
+      numRows,
+      uncompressedSize,
+      compressedSize,
+      codecMask,
+      compressedBuffer,
+      output,
+      listener);
+  return {uncompressedSize, compressedSize};
 }
 
-// Writes the contents to 'out' in wire format
-void flushStreams(
+FlushSizes flushStreams(
     const std::vector<std::unique_ptr<VectorStream>>& streams,
     int32_t numRows,
     const StreamArena& arena,
     folly::io::Codec& codec,
+    float minCompressionRatio,
     OutputStream* out) {
   auto listener = dynamic_cast<PrestoOutputStreamListener*>(out->listener());
   // Reset CRC computation
@@ -3549,9 +3601,11 @@ void flushStreams(
   }
 
   if (!needCompression(codec)) {
-    flushUncompressed(streams, numRows, out, listener);
+    const auto size = flushUncompressed(streams, numRows, out, listener);
+    return {size, size};
   } else {
-    flushCompressed(streams, arena, codec, numRows, out, listener);
+    return flushCompressed(
+        streams, arena, codec, numRows, minCompressionRatio, out, listener);
   }
 }
 
@@ -3585,7 +3639,8 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
       serializeColumn(vector->childAt(i), ranges, streams[i].get(), scratch);
     }
 
-    flushStreams(streams, numRows, arena, *codec_, stream);
+    flushStreams(
+        streams, numRows, arena, *codec_, opts_.minCompressionRatio, stream);
   }
 
  private:
@@ -3601,7 +3656,8 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
       int32_t numRows,
       StreamArena* streamArena,
       const SerdeOpts& opts)
-      : streamArena_(streamArena),
+      : opts_(opts),
+        streamArena_(streamArena),
         codec_(common::compressionKindToCodec(opts.compressionKind)) {
     const auto types = rowType->children();
     const auto numTypes = types.size();
@@ -3657,7 +3713,54 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   // numRows(4) | codec(1) | uncompressedSize(4) | compressedSize(4) |
   // checksum(8) | data
   void flush(OutputStream* out) override {
-    flushStreams(streams_, numRows_, *streamArena_, *codec_, out);
+    constexpr int32_t kMaxCompressionAttemptsToSkip = 30;
+    if (!needCompression(*codec_)) {
+      flushStreams(
+          streams_,
+          numRows_,
+          *streamArena_,
+          *codec_,
+          opts_.minCompressionRatio,
+          out);
+    } else {
+      if (numCompressionToSkip_ > 0) {
+        const auto noCompressionCodec = common::compressionKindToCodec(
+            common::CompressionKind::CompressionKind_NONE);
+        auto [size, ignore] = flushStreams(
+            streams_, numRows_, *streamArena_, *noCompressionCodec, 1, out);
+        stats_.compressionSkippedBytes += size;
+        --numCompressionToSkip_;
+        ++stats_.numCompressionSkipped;
+      } else {
+        auto [size, compressedSize] = flushStreams(
+            streams_,
+            numRows_,
+            *streamArena_,
+            *codec_,
+            opts_.minCompressionRatio,
+            out);
+        stats_.compressionInputBytes += size;
+        stats_.compressedBytes += compressedSize;
+        if (compressedSize > size * opts_.minCompressionRatio) {
+          numCompressionToSkip_ = std::min<int64_t>(
+              kMaxCompressionAttemptsToSkip, 1 + stats_.numCompressionSkipped);
+        }
+      }
+    }
+  }
+
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {
+    std::unordered_map<std::string, RuntimeCounter> map;
+    map.insert(
+        {{"compressedBytes",
+          RuntimeCounter(stats_.compressedBytes, RuntimeCounter::Unit::kBytes)},
+         {"compressionInputBytes",
+          RuntimeCounter(
+              stats_.compressionInputBytes, RuntimeCounter::Unit::kBytes)},
+         {"compressionSkippedBytes",
+          RuntimeCounter(
+              stats_.compressionSkippedBytes, RuntimeCounter::Unit::kBytes)}});
+    return map;
   }
 
   void clear() override {
@@ -3668,11 +3771,31 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   }
 
  private:
+  struct CompressionStats {
+    // Number of times compression was not attempted.
+    int32_t numCompressionSkipped{0};
+
+    // uncompressed size for which compression was attempted.
+    int64_t compressionInputBytes{0};
+
+    // Compressed bytes.
+    int64_t compressedBytes{0};
+
+    // Bytes for which compression was not attempted because of past
+    // non-performance.
+    int64_t compressionSkippedBytes{0};
+  };
+
+  const SerdeOpts opts_;
   StreamArena* const streamArena_;
   const std::unique_ptr<folly::io::Codec> codec_;
 
   int32_t numRows_{0};
   std::vector<std::unique_ptr<VectorStream>> streams_;
+
+  // Count of forthcoming compressions to skip.
+  int32_t numCompressionToSkip_{0};
+  CompressionStats stats_;
 };
 } // namespace
 
@@ -3795,7 +3918,11 @@ void PrestoVectorSerde::deserialize(
   int64_t actualCheckSum = 0;
   if (isChecksumBitSet(header.pageCodecMarker)) {
     actualCheckSum = computeChecksum(
-        source, header.pageCodecMarker, header.numRows, header.compressedSize);
+        source,
+        header.pageCodecMarker,
+        header.numRows,
+        header.uncompressedSize,
+        header.compressedSize);
   }
 
   VELOX_CHECK_EQ(
@@ -3818,13 +3945,9 @@ void PrestoVectorSerde::deserialize(
   }
 
   VELOX_CHECK_EQ(
-      needCompression(*codec),
-      isCompressedBitSet(header.pageCodecMarker),
-      "Compression kind {} should align with codec marker.",
-      common::compressionKindToString(
-          common::codecTypeToCompressionKind(codec->type())));
+      header.checksum, actualCheckSum, "Received corrupted serialized page.");
 
-  if (!needCompression(*codec)) {
+  if (!isCompressedBitSet(header.pageCodecMarker)) {
     readTopColumns(*source, type, pool, *result, resultOffset, prestoOptions);
   } else {
     auto compressBuf = folly::IOBuf::create(header.compressedSize);

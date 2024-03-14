@@ -22,6 +22,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/PartitionedOutput.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -1998,6 +1999,62 @@ TEST_F(MultiFragmentTest, mergeSmallBatchesInExchange) {
   test(1'000, 56);
   test(10'000, 6);
   test(100'000, 1);
+}
+
+TEST_F(MultiFragmentTest, compression) {
+  bufferManager_->testingSetCompression(
+      common::CompressionKind::CompressionKind_LZ4);
+  auto guard = folly::makeGuard([&]() {
+    bufferManager_->testingSetCompression(
+        common::CompressionKind::CompressionKind_NONE);
+  });
+
+  constexpr int32_t kNumRepeats = 1'000'000;
+  const auto data = makeRowVector({makeFlatVector<int64_t>({1, 2, 3})});
+
+  const auto producerPlan = test::PlanBuilder()
+                                .values({data}, false, kNumRepeats)
+                                .partitionedOutput({}, 1)
+                                .planNode();
+  const auto producerTaskId = "local://t1";
+
+  const auto plan = test::PlanBuilder()
+                        .exchange(asRowType(data->type()))
+                        .singleAggregation({}, {"sum(c0)"})
+                        .planNode();
+
+  const auto expected =
+      makeRowVector({makeFlatVector<int64_t>(std::vector<int64_t>{6000000})});
+
+  const auto test = [&](float minCompressionRatio, bool expectSkipCompression) {
+    PartitionedOutput::testingSetMinCompressionRatio(minCompressionRatio);
+    auto producerTask = makeTask(producerTaskId, producerPlan);
+    producerTask->start(1);
+
+    auto consumerTask = test::AssertQueryBuilder(plan)
+                            .split(remoteSplit(producerTaskId))
+                            .destination(0)
+                            .assertResults(expected);
+
+    auto consumerTaskStats = exec::toPlanStats(consumerTask->taskStats());
+    const auto& consumerPlanStats = consumerTaskStats.at("0");
+    ASSERT_EQ(data->size() * kNumRepeats, consumerPlanStats.outputRows);
+
+    auto producerTaskStats = exec::toPlanStats(producerTask->taskStats());
+    const auto& producerStats = producerTaskStats.at("1");
+    // The data is extremely compressible, 1, 2, 3 repeated 1000000 times.
+    if (!expectSkipCompression) {
+      EXPECT_LT(
+          producerStats.customStats.at("compressedBytes").sum,
+          producerStats.customStats.at("compressionInputBytes").sum);
+      EXPECT_EQ(0, producerStats.customStats.at("compressionSkippedBytes").sum);
+    } else {
+      EXPECT_LT(0, producerStats.customStats.at("compressionSkippedBytes").sum);
+    }
+  };
+
+  test(0.7, false);
+  test(0.0000001, true);
 }
 
 } // namespace

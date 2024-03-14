@@ -19,7 +19,6 @@
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
-
 namespace detail {
 BlockingReason Destination::advance(
     uint64_t maxBytes,
@@ -55,7 +54,11 @@ BlockingReason Destination::advance(
   if (!current_) {
     current_ = std::make_unique<VectorStreamGroup>(pool_);
     auto rowType = asRowType(output->type());
-    current_->createStreamTree(rowType, rowsInCurrent_);
+    serializer::presto::PrestoVectorSerde::PrestoOptions options;
+    options.compressionKind =
+        OutputBufferManager::getInstance().lock()->compressionKind();
+    options.minCompressionRatio = PartitionedOutput::minCompressionRatio();
+    current_->createStreamTree(rowType, rowsInCurrent_, &options);
   }
   current_->append(
       output, folly::Range(&rows_[firstRow], rowIdx_ - firstRow), scratch);
@@ -107,6 +110,18 @@ BlockingReason Destination::flush(
   return blocked ? BlockingReason::kWaitForConsumer
                  : BlockingReason::kNotBlocked;
 }
+
+void Destination::updateStats(Operator* op) {
+  VELOX_CHECK(finished_);
+  if (current_) {
+    const auto serializerStats = current_->runtimeStats();
+    auto lockedStats = op->stats().wlock();
+    for (auto& pair : serializerStats) {
+      lockedStats->addRuntimeStat(pair.first, pair.second);
+    }
+  }
+}
+
 } // namespace detail
 
 PartitionedOutput::PartitionedOutput(
@@ -366,6 +381,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
       }
       destination->flush(*bufferManager, bufferReleaseFn_, nullptr);
       destination->setFinished();
+      destination->updateStats(this);
     }
 
     bufferManager->noMoreData(operatorCtx_->task()->taskId());

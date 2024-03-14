@@ -85,6 +85,9 @@ class Destination {
     return bytesInCurrent_;
   }
 
+  /// Adds stats from 'this' to runtime stats of 'op'.
+  void updateStats(Operator* op);
+
  private:
   // Sets the next target size for flushing. This is called at the
   // start of each batch of output for the destination. The effect is
@@ -182,6 +185,14 @@ class PartitionedOutput : public Operator {
     destinations_.clear();
   }
 
+  static void testingSetMinCompressionRatio(float ratio) {
+    minCompressionRatio_ = ratio;
+  }
+
+  static float minCompressionRatio() {
+    return minCompressionRatio_;
+  }
+
  private:
   void initializeInput(RowVectorPtr input);
 
@@ -193,6 +204,10 @@ class PartitionedOutput : public Operator {
 
   /// Collect all rows with null keys into nullRows_.
   void collectNullRows();
+
+  // If compression in serde is enabled, this is the minimum compression that
+  // must be achieved before starting to skip compression. Used for testing.
+  inline static float minCompressionRatio_ = 0.8;
 
   const std::vector<column_index_t> keyChannels_;
   const int numDestinations_;

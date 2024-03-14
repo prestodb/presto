@@ -17,11 +17,21 @@
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
+// static
+void OutputBufferManager::initialize(const Options& options) {
+  std::lock_guard<std::mutex> l(initMutex_);
+  VELOX_CHECK(
+      instance_ == nullptr, "May initialize OutputBufferManager only once");
+  instance_ = std::make_shared<OutputBufferManager>(options);
+}
 
 // static
 std::weak_ptr<OutputBufferManager> OutputBufferManager::getInstance() {
-  static auto kInstance = std::make_shared<OutputBufferManager>();
-  return kInstance;
+  std::lock_guard<std::mutex> l(initMutex_);
+  if (!instance_) {
+    instance_ = std::make_shared<OutputBufferManager>(Options());
+  }
+  return instance_;
 }
 
 std::shared_ptr<OutputBuffer> OutputBufferManager::getBuffer(
