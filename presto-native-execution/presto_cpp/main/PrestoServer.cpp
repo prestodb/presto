@@ -37,6 +37,7 @@
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/presto_protocol/Connectors.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -233,15 +234,8 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
-
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+  protocol::registerHiveConnectors();
+  protocol::registerTpchConnector();
 
   initializeVeloxMemory();
   initializeThreadPools();

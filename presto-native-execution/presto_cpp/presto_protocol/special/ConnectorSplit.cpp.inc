@@ -26,7 +26,22 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
     j = *std::static_pointer_cast<EmptySplit>(p);
     return;
   }
-  getConnectorProtocol(type).to_json(j, p);
+  if (getConnectorKey(type) == "hive") {
+    j = *std::static_pointer_cast<HiveSplit>(p);
+    return;
+  }
+
+  if (getConnectorKey(type) == "hive-iceberg") {
+    j = *std::static_pointer_cast<IcebergSplit>(p);
+    return;
+  }
+
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchSplit>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorSplit");
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
@@ -49,6 +64,27 @@ void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
     p = k;
     return;
   }
-  getConnectorProtocol(type).from_json(j, p);
+  if (getConnectorKey(type) == "hive") {
+    auto k = std::make_shared<HiveSplit>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  if (getConnectorKey(type) == "hive-iceberg") {
+    auto k = std::make_shared<IcebergSplit>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchSplit>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorSplit");
 }
 } // namespace facebook::presto::protocol

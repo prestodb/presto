@@ -17,7 +17,13 @@ void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p) {
     return;
   }
   String type = p->_type;
-  getConnectorProtocol(type).to_json(j, p);
+
+  if (getConnectorKey(type) == "hive") {
+    j = *std::static_pointer_cast<HiveMetadataUpdateHandle>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorMetadataUpdateHandle");
 }
 
 void from_json(
@@ -29,6 +35,14 @@ void from_json(
   } catch (json::parse_error& e) {
     throw ParseError(std::string(e.what()) + " ConnectorMetadataUpdateHandle");
   }
-  getConnectorProtocol(type).from_json(j, p);
+
+  if (getConnectorKey(type) == "hive") {
+    auto k = std::make_shared<HiveMetadataUpdateHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  throw TypeError(type + " no abstract type ConnectorMetadataUpdateHandle");
 }
 } // namespace facebook::presto::protocol
