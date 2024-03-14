@@ -28,6 +28,8 @@ public class MapNormalizeFunction
     @SqlType("map<varchar, double>")
     public static String arraySumDouble()
     {
-        return "RETURN transform_values(input, (k, v) -> (v / reduce(map_values(input), double '0.0', (s, x) -> (s + coalesce(x, double '0.0')), (s) -> s)))";
+        return "RETURN " +
+                "transform(array[ROW(input, cast(array_sum(map_values(input)) as double))], " +
+                "x->transform_values(x[1], (k, v) -> (v / x[2])))[1]";
     }
 }
