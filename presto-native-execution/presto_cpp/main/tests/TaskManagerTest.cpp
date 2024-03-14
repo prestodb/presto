@@ -20,7 +20,6 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
@@ -195,8 +194,6 @@ class TaskManagerTest : public testing::Test {
     };
     filesystems::registerLocalFileSystem();
 
-    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName));
     auto hiveConnector =
         connector::getConnectorFactory(
             connector::hive::HiveConnectorFactory::kHiveConnectorName)
@@ -236,8 +233,6 @@ class TaskManagerTest : public testing::Test {
       httpServerWrapper_->stop();
     }
     connector::unregisterConnector(kHiveConnectorId);
-    unregisterPrestoToVeloxConnector(
-        connector::hive::HiveConnectorFactory::kHiveConnectorName);
   }
 
   std::vector<RowVectorPtr> makeVectors(int count, int rowsPerVector) {
