@@ -183,6 +183,7 @@ exec::AggregateRegistrationResult registerAverage(
                 return std::make_unique<DecimalAverageAggregateBase<int64_t>>(
                     resultType);
               }
+              [[fallthrough]];
             default:
               VELOX_FAIL(
                   "Unsupported result type for final aggregation: {}",

@@ -113,12 +113,11 @@ exec::AggregateRegistrationResult registerSum(
                 BIGINT());
           }
           case TypeKind::HUGEINT: {
-            if (inputType->isLongDecimal()) {
-              // If inputType is long decimal,
-              // its output type is always long decimal.
-              return std::make_unique<exec::SimpleAggregateAdapter<
-                  DecimalSumAggregate<int128_t, int128_t>>>(resultType);
-            }
+            VELOX_CHECK(inputType->isLongDecimal());
+            // If inputType is long decimal,
+            // its output type is always long decimal.
+            return std::make_unique<exec::SimpleAggregateAdapter<
+                DecimalSumAggregate<int128_t, int128_t>>>(resultType);
           }
           case TypeKind::REAL:
             if (resultType->kind() == TypeKind::REAL) {
@@ -147,6 +146,7 @@ exec::AggregateRegistrationResult registerSum(
                   DecimalSumAggregate<int128_t, int128_t>>>(resultType);
             }
           }
+            [[fallthrough]];
           default:
             VELOX_CHECK(
                 false,

@@ -59,6 +59,7 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
           // different values in its flat children of size 1.
           break;
         }
+        [[fallthrough]];
       case VectorEncoding::Simple::DICTIONARY:
         if (expected->valueVector()) {
           ASSERT_TRUE(actual->valueVector() != nullptr);
