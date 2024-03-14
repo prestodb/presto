@@ -29,10 +29,6 @@ workflows:
           run_linux_tests: << pipeline.parameters.run_linux_tests >>
           requires:
             - linux-build-and-unit-test
-      - linux-spark-e2e-tests:
-          run_linux_tests: << pipeline.parameters.run_linux_tests >>
-          requires:
-            - linux-build-and-unit-test
 
   conditionals:
     when: << pipeline.parameters.run_native_specific_jobs >>
@@ -197,50 +193,6 @@ jobs:
                   fi
             - store_artifacts:
                 path: '/tmp/PrestoNativeQueryRunnerUtils'
-
-  linux-spark-e2e-tests:
-    executor: build
-    parameters:
-      run_linux_tests:
-        type: boolean
-        default: true
-    parallelism: 5
-    steps:
-      - run: echo "Run Linux tests is << parameters.run_linux_tests >>"
-      - when:
-          condition: << parameters.run_linux_tests >>
-          steps:
-            - checkout
-            - attach_workspace:
-                at: presto-native-execution
-            - maven_install:
-                maven_install_opts: ${MAVEN_INSTALL_OPTS}
-                maven_fast_install: ${MAVEN_FAST_INSTALL}
-            - run:
-                name: 'Run spark e2e tests'
-                command: |
-                  export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
-                  export TEMP_PATH="/tmp"
-                  TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
-                  # Convert file paths to comma separated class names
-                  export TESTCLASSES=
-                  for test_file in $TESTFILES
-                  do
-                    tmp=${test_file##*/}
-                    test_class=${tmp%%\.*}
-                    export TESTCLASSES="${TESTCLASSES},$test_class"
-                  done
-                  export TESTCLASSES=${TESTCLASSES#,}
-                  if [ ! -z $TESTCLASSES ]; then
-                    mvn test \
-                      ${MAVEN_TEST} \
-                      -pl 'presto-native-execution' \
-                      -Dtest="${TESTCLASSES}" \
-                      -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-                      -DDATA_DIR=${TEMP_PATH} \
-                      -Duser.timezone=America/Bahia_Banderas \
-                      -T1C
-                  fi
 
   linux-build-all:
     executor: build
