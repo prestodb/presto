@@ -581,9 +581,9 @@ void HashBuild::computeSpillPartitions(const RowVectorPtr& input) {
   }
 
   spillPartitions_.resize(input->size());
-  for (auto i = 0; i < spillPartitions_.size(); ++i) {
-    spillPartitions_[i] = spiller_->hashBits().partition(hashes_[i]);
-  }
+  activeRows_.applyToSelected([&](int32_t row) {
+    spillPartitions_[row] = spiller_->hashBits().partition(hashes_[row]);
+  });
 }
 
 void HashBuild::spillPartition(
