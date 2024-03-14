@@ -70,6 +70,15 @@ Map Functions
 
         SELECT map_from_entries(ARRAY[(1, 'x'), (2, 'y')]); -- {1 -> 'x', 2 -> 'y'}
 
+.. function:: map_top_n(map(K,V), n) -> map(K, V)
+
+    Truncates map items. Keeps only the top N elements by value.
+    ``n`` must be a non-negative BIGINT value.::
+
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[NULL, 3, NULL]), 2) --- {'b' -> 3, 'a' -> NULL}
+
+
 .. function:: multimap_from_entries(array(row(K,V))) -> map(K,array(V))
 
     Returns a multimap created from the given array of entries. Each key can be associated with multiple values. ::

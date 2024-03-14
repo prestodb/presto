@@ -17,6 +17,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/MapConcat.h"
+#include "velox/functions/prestosql/MapTopN.h"
 #include "velox/functions/prestosql/MultimapFromEntries.h"
 
 namespace facebook::velox::functions {
@@ -48,6 +49,12 @@ void registerMapFunctions(const std::string& prefix) {
       MultimapFromEntriesFunction,
       Map<Generic<T1>, Array<Generic<T2>>>,
       Array<Row<Generic<T1>, Generic<T2>>>>({prefix + "multimap_from_entries"});
+
+  registerFunction<
+      MapTopNFunction,
+      Map<Generic<T1>, Orderable<T2>>,
+      Map<Generic<T1>, Orderable<T2>>,
+      int64_t>({prefix + "map_top_n"});
 }
 
 void registerMapAllowingDuplicates(
