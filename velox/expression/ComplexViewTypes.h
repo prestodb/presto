@@ -1115,6 +1115,10 @@ class GenericView {
     return decoded_.base()->type();
   }
 
+  std::string toString() const {
+    return decoded_.toString(index_);
+  }
+
   // If conversion is invalid, behavior is undefined. However, debug time
   // checks will throw an exception.
   template <typename ToType>
