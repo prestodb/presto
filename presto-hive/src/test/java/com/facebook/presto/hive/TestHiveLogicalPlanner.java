@@ -165,6 +165,50 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testMetadataQueryOptimizationWithLimit()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session sessionWithOptimizeMetadataQueries = getSessionWithOptimizeMetadataQueries();
+        Session defaultSession = queryRunner.getDefaultSession();
+        try {
+            queryRunner.execute("CREATE TABLE test_metadata_query_optimization_with_limit(a varchar, b int, c int) WITH (partitioned_by = ARRAY['b', 'c'])");
+            queryRunner.execute("INSERT INTO test_metadata_query_optimization_with_limit VALUES" +
+                    " ('1001', 1, 1), ('1002', 1, 1), ('1003', 1, 1)," +
+                    " ('1004', 1, 2), ('1005', 1, 2), ('1006', 1, 2)," +
+                    " ('1007', 2, 1), ('1008', 2, 1), ('1009', 2, 1)");
+
+            // Could do metadata optimization when `limit` existing above `aggregation`
+            assertQuery(sessionWithOptimizeMetadataQueries, "select distinct b, c from test_metadata_query_optimization_with_limit order by c desc limit 3",
+                    "values(1, 2), (1, 1), (2, 1)");
+            assertPlan(sessionWithOptimizeMetadataQueries, "select distinct b, c from test_metadata_query_optimization_with_limit order by c desc limit 3",
+                    anyTree(values(ImmutableList.of("b", "c"),
+                            ImmutableList.of(
+                                    ImmutableList.of(new LongLiteral("1"), new LongLiteral("2")),
+                                    ImmutableList.of(new LongLiteral("1"), new LongLiteral("1")),
+                                    ImmutableList.of(new LongLiteral("2"), new LongLiteral("1"))))));
+            // Compare with default session which do not enable metadata optimization
+            assertQuery(defaultSession, "select distinct b, c from test_metadata_query_optimization_with_limit order by c desc limit 3",
+                    "values(1, 2), (1, 1), (2, 1)");
+            assertPlan(defaultSession, "select distinct b, c from test_metadata_query_optimization_with_limit order by c desc limit 3",
+                    anyTree(strictTableScan("test_metadata_query_optimization_with_limit", identityMap("b", "c"))));
+
+            // Should not do metadata optimization when `limit` existing below `aggregation`
+            assertQuery(sessionWithOptimizeMetadataQueries, "with tt as (select b, c from test_metadata_query_optimization_with_limit order by c desc limit 3) select b, min(c), max(c) from tt group by b",
+                    "values(1, 2, 2)");
+            assertPlan(sessionWithOptimizeMetadataQueries, "with tt as (select b, c from test_metadata_query_optimization_with_limit order by c desc limit 3) select b, min(c), max(c) from tt group by b",
+                    anyTree(strictTableScan("test_metadata_query_optimization_with_limit", identityMap("b", "c"))));
+            // Compare with default session which do not enable metadata optimization
+            assertQuery(defaultSession, "with tt as (select b, c from test_metadata_query_optimization_with_limit order by c desc limit 3) select b, min(c), max(c) from tt group by b",
+                    "values(1, 2, 2)");
+            assertPlan(defaultSession, "with tt as (select b, c from test_metadata_query_optimization_with_limit order by c desc limit 3) select b, min(c), max(c) from tt group by b",
+                    anyTree(strictTableScan("test_metadata_query_optimization_with_limit", identityMap("b", "c"))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE test_metadata_query_optimization_with_limit");
+        }
+    }
+
+    @Test
     public void testRepeatedFilterPushdown()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1985,6 +2029,13 @@ public class TestHiveLogicalPlanner
     private void assertParquetDereferencePushDown(Session session, String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
     {
         assertPlan(session, query, anyTree(tableScanParquetDeferencePushDowns(tableName, expectedDeferencePushDowns)));
+    }
+
+    protected Session getSessionWithOptimizeMetadataQueries()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_METADATA_QUERIES, "true")
+                .build();
     }
 
     private Session pushdownFilterEnabled()
