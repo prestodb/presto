@@ -34,13 +34,11 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -384,8 +382,6 @@ public class MetadataQueryOptimizer
                 // allow any chain of linear transformations
                 if (source instanceof MarkDistinctNode ||
                         source instanceof FilterNode ||
-                        source instanceof LimitNode ||
-                        source instanceof TopNNode ||
                         source instanceof SortNode) {
                     source = source.getSources().get(0);
                 }
