@@ -39,6 +39,7 @@ import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -128,7 +129,8 @@ public class LogicalCteOptimizer
             }
             PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(session, planNodeIdAllocator, variableAllocator),
                     root, context);
-            List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering();
+            Set<Integer> markerSet = new HashSet<>();
+            List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering(markerSet);
             if (topologicalOrderedList.isEmpty()) {
                 isPlanRewritten = false;
                 // Returning transformed Cte because cte reference nodes are cleared in the transformedCte regardless of materialization
@@ -136,7 +138,7 @@ public class LogicalCteOptimizer
             }
             isPlanRewritten = true;
             SequenceNode sequenceNode = new SequenceNode(root.getSourceLocation(), planNodeIdAllocator.getNextId(), topologicalOrderedList,
-                    transformedCte.getSources().get(0));
+                    transformedCte.getSources().get(0), markerSet);
             return root.replaceChildren(Arrays.asList(sequenceNode));
         }
 
@@ -339,12 +341,27 @@ public class LogicalCteOptimizer
             return complexCtes.contains(cteId);
         }
 
-        public List<PlanNode> getTopologicalOrdering()
+        public List<PlanNode> getTopologicalOrdering(Set<Integer> markerSet)
         {
-            ImmutableList.Builder<PlanNode> topSortedCteProducerListBuilder = ImmutableList.builder();
-            Traverser.forGraph(graph).depthFirstPostOrder(graph.nodes())
-                    .forEach(cteName -> topSortedCteProducerListBuilder.add(cteProducerMap.get(cteName)));
-            return topSortedCteProducerListBuilder.build();
+            // Identify Entry Points
+            Set<String> entryPointSet = new HashSet<>();
+            for (String node : graph.nodes()) {
+                if (graph.inDegree(node) == 0) { // Check if the node has no incoming edges
+                    entryPointSet.add(node);
+                }
+            }
+            // Construct Subgraphs and add markers
+            List<PlanNode> flattenedCteProducerList = new ArrayList<>();
+            for (String entryPoint : entryPointSet) {
+                List<PlanNode> cteProducerSubgraph = new ArrayList<>();
+                Traverser.forGraph(graph).depthFirstPostOrder(entryPoint)
+                        .forEach(node -> cteProducerSubgraph.add(cteProducerMap.get(node)));
+                if (!cteProducerSubgraph.isEmpty()) {
+                    markerSet.add(flattenedCteProducerList.size() - 1);
+                    flattenedCteProducerList.addAll(cteProducerSubgraph);
+                }
+            }
+            return flattenedCteProducerList;
         }
     }
 }

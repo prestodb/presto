@@ -531,7 +531,8 @@ public class TestCostCalculator
                 Optional.empty(),
                 new PlanNodeId("sequence"),
                 ImmutableList.of(cteProducerNode1, cteProducerNode2),
-                joinNode);
+                joinNode,
+                ImmutableSet.of());
 
         // Define cost of sequence children
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(

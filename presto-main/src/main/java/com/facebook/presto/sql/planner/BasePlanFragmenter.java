@@ -205,24 +205,25 @@ public abstract class BasePlanFragmenter
     public PlanNode visitSequence(SequenceNode node, RewriteContext<FragmentProperties> context)
     {
         // Since this is topologically sorted by the LogicalCtePlanner, need to make sure that execution order follows
-        // Can be optimized further to avoid non dependents from getting blocked
-        int cteProducerCount = node.getCteProducers().size();
-        checkArgument(cteProducerCount >= 1, "Sequence Node has 0 CTE producers");
-        PlanNode source = node.getCteProducers().get(cteProducerCount - 1);
-        FragmentProperties childProperties = new FragmentProperties(new PartitioningScheme(
-                Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
-                source.getOutputVariables()));
-        SubPlan lastSubPlan = buildSubPlan(source, childProperties, context);
-
-        for (int sourceIndex = cteProducerCount - 2; sourceIndex >= 0; sourceIndex--) {
-            source = node.getCteProducers().get(sourceIndex);
-            childProperties = new FragmentProperties(new PartitioningScheme(
+        List<List<PlanNode>> independentCteProducerSubgraphs = node.getIndependentCteProducers();
+        for (List<PlanNode> cteProducerSubgraph : independentCteProducerSubgraphs) {
+            int cteProducerCount = cteProducerSubgraph.size();
+            checkArgument(cteProducerCount >= 1, "CteProducer subgraph has 0 CTE producers");
+            PlanNode source = cteProducerSubgraph.get(cteProducerCount - 1);
+            FragmentProperties childProperties = new FragmentProperties(new PartitioningScheme(
                     Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                     source.getOutputVariables()));
-            childProperties.addChildren(ImmutableList.of(lastSubPlan));
-            lastSubPlan = buildSubPlan(source, childProperties, context);
+            SubPlan lastSubPlan = buildSubPlan(source, childProperties, context);
+            for (int sourceIndex = cteProducerCount - 2; sourceIndex >= 0; sourceIndex--) {
+                source = cteProducerSubgraph.get(sourceIndex);
+                childProperties = new FragmentProperties(new PartitioningScheme(
+                        Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
+                        source.getOutputVariables()));
+                childProperties.addChildren(ImmutableList.of(lastSubPlan));
+                lastSubPlan = buildSubPlan(source, childProperties, context);
+            }
+            context.get().addChildren(ImmutableList.of(lastSubPlan));
         }
-        context.get().addChildren(ImmutableList.of(lastSubPlan));
         return node.getPrimarySource().accept(this, context);
     }
 

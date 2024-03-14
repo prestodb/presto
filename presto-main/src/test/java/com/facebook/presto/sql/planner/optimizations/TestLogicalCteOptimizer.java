@@ -117,11 +117,11 @@ public class TestLogicalCteOptimizer
                         "SELECT cte3.*, cte2.orderkey FROM cte3 JOIN cte2 ON cte3.custkey = cte2.orderkey",
                 anyTree(
                         sequence(
-                                cteProducer(addQueryScopeDelimiter("cte3", 0), anyTree(tableScan("customer"))),
                                 cteProducer(addQueryScopeDelimiter("cte2", 4), anyTree(cteConsumer(addQueryScopeDelimiter("cte3", 3)))),
                                 cteProducer(addQueryScopeDelimiter("cte3", 3), anyTree(cteConsumer(addQueryScopeDelimiter("cte4", 2)))),
                                 cteProducer(addQueryScopeDelimiter("cte4", 2), anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 1)))),
                                 cteProducer(addQueryScopeDelimiter("cte1", 1), anyTree(tableScan("orders"))),
+                                cteProducer(addQueryScopeDelimiter("cte3", 0), anyTree(tableScan("customer"))),
                                 anyTree(
                                         join(
                                                 anyTree(cteConsumer(addQueryScopeDelimiter("cte3", 0))),
@@ -196,9 +196,9 @@ public class TestLogicalCteOptimizer
                         "SELECT * FROM cte2  JOIN cte1 ON true",
                 anyTree(
                         sequence(
-                                cteProducer(addQueryScopeDelimiter("cte2", 0), anyTree(tableScan("customer"))),
                                 cteProducer(addQueryScopeDelimiter("cte1", 2), anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 1)))),
                                 cteProducer(addQueryScopeDelimiter("cte2", 1), anyTree(tableScan("orders"))),
+                                cteProducer(addQueryScopeDelimiter("cte2", 0), anyTree(tableScan("customer"))),
                                 anyTree(join(anyTree(cteConsumer(addQueryScopeDelimiter("cte2", 0))), anyTree(cteConsumer(addQueryScopeDelimiter("cte1", 2))))))));
     }
 
