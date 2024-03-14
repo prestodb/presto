@@ -16,10 +16,21 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
+#include "velox/type/Timestamp.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions::sparksql::test {
 namespace {
+
+std::string timestampToString(Timestamp ts) {
+  TimestampToStringOptions options;
+  options.mode = TimestampToStringOptions::Mode::kFull;
+  std::string result;
+  result.resize(getMaxStringLength(options));
+  const auto view = Timestamp::tsToStringView(ts, options, result.data());
+  result.resize(view.size());
+  return result;
+}
 
 class DateTimeFunctionsTest : public SparkFunctionBaseTest {
  public:
@@ -56,6 +67,89 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
                  std::vector<std::optional<TValue>>{value})}));
   }
 };
+
+TEST_F(DateTimeFunctionsTest, toUtcTimestamp) {
+  const auto toUtcTimestamp = [&](std::string_view ts, const std::string& tz) {
+    auto timestamp = std::make_optional<Timestamp>(
+        util::fromTimestampString(ts.data(), ts.length()));
+    auto result = evaluateOnce<Timestamp>(
+        "to_utc_timestamp(c0, c1)",
+        timestamp,
+        std::make_optional<std::string>(tz));
+    return timestampToString(result.value());
+  };
+  EXPECT_EQ(
+      "2015-07-24T07:00:00.000000000",
+      toUtcTimestamp("2015-07-24 00:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T08:00:00.000000000",
+      toUtcTimestamp("2015-01-24 00:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      toUtcTimestamp("2015-01-24 00:00:00", "UTC"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      toUtcTimestamp("2015-01-24 05:30:00", "Asia/Kolkata"));
+  VELOX_ASSERT_THROW(
+      toUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
+      "Asia/Ooty not found in timezone database");
+}
+
+TEST_F(DateTimeFunctionsTest, fromUtcTimestamp) {
+  const auto fromUtcTimestamp = [&](std::string_view ts,
+                                    const std::string& tz) {
+    auto timestamp = std::make_optional<Timestamp>(
+        util::fromTimestampString(ts.data(), ts.length()));
+    auto result = evaluateOnce<Timestamp>(
+        "from_utc_timestamp(c0, c1)",
+        timestamp,
+        std::make_optional<std::string>(tz));
+    return timestampToString(result.value());
+  };
+  EXPECT_EQ(
+      "2015-07-24T00:00:00.000000000",
+      fromUtcTimestamp("2015-07-24 07:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      fromUtcTimestamp("2015-01-24 08:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      fromUtcTimestamp("2015-01-24 00:00:00", "UTC"));
+  EXPECT_EQ(
+      "2015-01-24T05:30:00.000000000",
+      fromUtcTimestamp("2015-01-24 00:00:00", "Asia/Kolkata"));
+  VELOX_ASSERT_THROW(
+      fromUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
+      "Asia/Ooty not found in timezone database");
+}
+
+TEST_F(DateTimeFunctionsTest, toFromUtcTimestamp) {
+  const auto toFromUtcTimestamp = [&](std::string_view ts,
+                                      const std::string& tz) {
+    auto timestamp = std::make_optional<Timestamp>(
+        util::fromTimestampString(ts.data(), ts.length()));
+    auto result = evaluateOnce<Timestamp>(
+        "to_utc_timestamp(from_utc_timestamp(c0, c1), c1)",
+        timestamp,
+        std::make_optional<std::string>(tz));
+    return timestampToString(result.value());
+  };
+  EXPECT_EQ(
+      "2015-07-24T07:00:00.000000000",
+      toFromUtcTimestamp("2015-07-24 07:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T08:00:00.000000000",
+      toFromUtcTimestamp("2015-01-24 08:00:00", "America/Los_Angeles"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      toFromUtcTimestamp("2015-01-24 00:00:00", "UTC"));
+  EXPECT_EQ(
+      "2015-01-24T00:00:00.000000000",
+      toFromUtcTimestamp("2015-01-24 00:00:00", "Asia/Kolkata"));
+  VELOX_ASSERT_THROW(
+      toFromUtcTimestamp("2015-01-24 00:00:00", "Asia/Ooty"),
+      "Asia/Ooty not found in timezone database");
+}
 
 TEST_F(DateTimeFunctionsTest, year) {
   const auto year = [&](std::optional<Timestamp> date) {

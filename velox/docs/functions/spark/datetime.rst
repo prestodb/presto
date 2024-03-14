@@ -93,6 +93,12 @@ These functions support TIMESTAMP and DATE input types.
         SELECT from_unixtime(3600, 'yyyy'); -- '1970'
         SELECT from_unixtime(9223372036854775807, "yyyy-MM-dd HH:mm:ss");  -- '1969-12-31 23:59:59'
 
+.. spark:function:: from_utc_timestamp(timestamp, string) -> timestamp
+
+    Returns the timestamp value from UTC timezone to the given timezone. ::
+
+        SELECT from_utc_timestamp('2015-07-24 07:00:00', 'America/Los_Angeles'); -- '2015-07-24 00:00:00'
+
 .. spark:function:: get_timestamp(string, dateFormat) -> timestamp
 
     Returns timestamp by parsing ``string`` according to the specified ``dateFormat``.
@@ -207,10 +213,16 @@ These functions support TIMESTAMP and DATE input types.
 
     Alias for ``unix_timestamp(string, format) -> integer``.
 
+.. spark:function:: to_utc_timestamp(timestamp, string) -> timestamp
+
+    Returns the timestamp value from the given timezone to UTC timezone. ::
+
+        SELECT to_utc_timestamp('2015-07-24 00:00:00', 'America/Los_Angeles'); -- '2015-07-24 07:00:00'
+
 .. spark:function:: unix_date(date) -> integer
 
     Returns the number of days since 1970-01-01.::
-   
+
         SELECT unix_date('1970-01-01'); -- '0'
         SELECT unix_date('1970-01-02'); -- '1'
         SELECT unix_date('1969-12-31'); -- '-1'

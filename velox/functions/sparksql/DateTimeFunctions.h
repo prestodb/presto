@@ -265,6 +265,64 @@ struct FromUnixtimeFunction {
   bool isConstantTimeFormat_{false};
 };
 
+template <typename T>
+struct ToUtcTimestampFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* timezone) {
+    if (timezone) {
+      timezone_ = date::locate_zone(
+          std::string_view((*timezone).data(), (*timezone).size()));
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<Varchar>& timezone) {
+    result = timestamp;
+    auto fromTimezone = timezone_
+        ? timezone_
+        : date::locate_zone(std::string_view(timezone.data(), timezone.size()));
+    result.toGMT(*fromTimezone);
+  }
+
+ private:
+  const date::time_zone* timezone_{nullptr};
+};
+
+template <typename T>
+struct FromUtcTimestampFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* timezone) {
+    if (timezone) {
+      timezone_ = date::locate_zone(
+          std::string_view((*timezone).data(), (*timezone).size()));
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Timestamp>& timestamp,
+      const arg_type<Varchar>& timezone) {
+    result = timestamp;
+    auto toTimezone = timezone_
+        ? timezone_
+        : date::locate_zone(std::string_view(timezone.data(), timezone.size()));
+    result.toTimezone(*toTimezone);
+  }
+
+ private:
+  const date::time_zone* timezone_{nullptr};
+};
+
 /// Converts date string to Timestmap type.
 template <typename T>
 struct GetTimestampFunction {
