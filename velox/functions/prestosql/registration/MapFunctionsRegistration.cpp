@@ -17,6 +17,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/MapConcat.h"
+#include "velox/functions/prestosql/MapNormalize.h"
 #include "velox/functions/prestosql/MapSubset.h"
 #include "velox/functions/prestosql/MapTopN.h"
 #include "velox/functions/prestosql/MultimapFromEntries.h"
@@ -77,6 +78,11 @@ void registerMapFunctions(const std::string& prefix) {
       Map<Generic<T1>, Generic<T2>>,
       Map<Generic<T1>, Generic<T2>>,
       Array<Generic<T1>>>({prefix + "map_subset"});
+
+  registerFunction<
+      MapNormalizeFunction,
+      Map<Varchar, double>,
+      Map<Varchar, double>>({prefix + "map_normalize"});
 }
 
 void registerMapAllowingDuplicates(
