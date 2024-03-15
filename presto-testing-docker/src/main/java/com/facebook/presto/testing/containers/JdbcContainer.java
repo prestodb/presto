@@ -14,6 +14,7 @@
 package com.facebook.presto.testing.containers;
 
 import com.facebook.airlift.log.Logger;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.Network;
@@ -21,6 +22,8 @@ import org.testcontainers.containers.Network;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static java.lang.String.format;
 
 public class JdbcContainer
         extends BaseTestContainer
@@ -45,10 +48,18 @@ public class JdbcContainer
     }
 
     @Override
-    public void start()
+    protected void setupContainer()
     {
-        super.start();
+        super.setupContainer();
+        withRunCommand(ImmutableList.of("sh", "/postgresScript.sh"));
+    }
+
+    @Override
+    protected void startContainer()
+    {
+        super.startContainer();
         log.info("Postgres server container started with address: %s", getMappedHostAndPortForExposedPort(PORT));
+
     }
 
     public String getJdbcURI()
