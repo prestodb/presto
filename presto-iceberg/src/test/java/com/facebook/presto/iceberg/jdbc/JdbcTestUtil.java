@@ -31,6 +31,10 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 
 public class JdbcTestUtil
 {
+    private JdbcTestUtil()
+    {
+    }
+
     public static Map<String, String> jdbcConnectorProperties(String serverUrl)
     {
         return ImmutableMap.of("iceberg.catalog.type", JDBC.name(), "iceberg.jdbc.connection-url", serverUrl,

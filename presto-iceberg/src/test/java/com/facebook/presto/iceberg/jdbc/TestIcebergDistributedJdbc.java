@@ -63,7 +63,7 @@ public class TestIcebergDistributedJdbc
         icebergConfig.setCatalogType(JDBC);
         icebergConfig.setCatalogWarehouse(getCatalogDirectory().getPath());
 
-        IcebergResourceFactory resourceFactory =  JdbcTestUtil.getIcebergResourceFactory(icebergConfig, jdbcContainer);
+        IcebergResourceFactory resourceFactory = JdbcTestUtil.getIcebergResourceFactory(icebergConfig, jdbcContainer);
         return IcebergUtil.getNativeIcebergTable(
                 resourceFactory,
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
