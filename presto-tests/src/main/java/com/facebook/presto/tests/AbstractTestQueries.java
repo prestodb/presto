@@ -7504,4 +7504,12 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
                 "values 0.5, 0.1");
     }
+
+    // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
+    @Test
+    public void testGuardConstraintFramework()
+    {
+        assertQuery("with t as (select orderkey, count(1) cnt from (select * from (select * from orders where 1=0) left join (select partkey, suppkey from lineitem where 1=0) on partkey=10 where suppkey is not null) group by rollup(orderkey)) select t1.orderkey, t1.cnt from t t1 cross join t t2",
+                "values (null, 0)");
+    }
 }
