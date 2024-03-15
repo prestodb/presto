@@ -10,16 +10,9 @@ To install Sphinx: `easy_install -U sphinx`
 
 `sphinx-quickstart` command was used to generate the initial Makefile and config.
 
-### Building PyVelox Components
-
-If you're using a conda environment, it can be easily installed by `conda install` command.
-
-Pandoc is also used to generate `.rst` files from existing markdown files. Refer to installation
-instructions [here](https://pandoc.org/installing.html).
-
 To build the documentation, e.g. generate HTML files from .rst files:
 
-Run the `./scripts/gen-docs.sh` script from the base directory.
+Run `make html` from velox/docs.
 
 Navigate to
 `velox/docs/_build/html/index.html` in your browser to view the documentation.
@@ -39,7 +32,7 @@ directory to the top-level docs folder and push to gh-pages branch.
 git checkout -b update-docs main
 
 # Generate the documentation.
-./scripts/gen-docs.sh
+cd velox/docs && make html
 
 # Copy documentation files to the top-level docs folder.
 cp -R _build/html/* ../../docs
