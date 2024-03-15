@@ -574,4 +574,44 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinBridgeTest,
     testing::ValuesIn(HashJoinBridgeTest::getTestParams()));
 
+TEST(HashJoinBridgeTest, needRightSideJoin) {
+  for (int i = 0; i < static_cast<int>(core::JoinType::kNumJoinTypes); ++i) {
+    const core::JoinType joinType = static_cast<core::JoinType>(i);
+    if (isRightJoin(joinType) || isFullJoin(joinType) ||
+        isRightSemiFilterJoin(joinType) || isRightSemiProjectJoin(joinType)) {
+      ASSERT_TRUE(needRightSideJoin(joinType));
+    } else {
+      ASSERT_FALSE(needRightSideJoin(joinType));
+    }
+  }
+}
+
+TEST(HashJoinBridgeTest, hashJoinTableSpillType) {
+  const RowTypePtr tableType = ROW({"k1", "k2"}, {BIGINT(), BIGINT()});
+  const RowTypePtr spillTypeWithProbedFlag =
+      ROW({"k1", "k2", "__probedFlag"}, {BIGINT(), BIGINT(), BOOLEAN()});
+  struct {
+    core::JoinType joinType;
+    RowTypePtr expectedTableSpillType;
+
+    std::string debugString() const {
+      return fmt::format(
+          "joinType: {}, expectedTableSpillType: {}",
+          joinTypeName(joinType),
+          expectedTableSpillType->toString());
+    }
+  } testSettings[] = {
+      {core::JoinType::kFull, spillTypeWithProbedFlag},
+      {core::JoinType::kRight, spillTypeWithProbedFlag},
+      {core::JoinType::kLeft, tableType}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    const RowTypePtr spillType =
+        hashJoinTableSpillType(tableType, testData.joinType);
+    ASSERT_TRUE(spillType->equivalent(*testData.expectedTableSpillType));
+    ASSERT_EQ(spillType->names(), testData.expectedTableSpillType->names());
+  }
+}
 } // namespace facebook::velox::exec::test

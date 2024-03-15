@@ -39,8 +39,10 @@ class Spiller {
     kOrderByInput = 4,
     // Used for order by output processing stage.
     kOrderByOutput = 5,
+    // Used for row number.
+    kRowNumber = 6,
     // Number of spiller types.
-    kNumTypes = 6,
+    kNumTypes = 7,
   };
 
   static std::string typeName(Type);
@@ -74,6 +76,15 @@ class Spiller {
       const common::SpillConfig* spillConfig);
 
   /// type == Type::kHashJoinBuild
+  Spiller(
+      Type type,
+      core::JoinType joinType,
+      RowContainer* container,
+      RowTypePtr rowType,
+      HashBitRange bits,
+      const common::SpillConfig* spillConfig);
+
+  /// type == Type::kRowNumber
   Spiller(
       Type type,
       RowContainer* container,
@@ -184,6 +195,7 @@ class Spiller {
       HashBitRange bits,
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
+      bool spillProbedFlag,
       const common::GetSpillDirectoryPathCB& getSpillDirPathCb,
       const common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
       const std::string& fileNamePrefix,
@@ -301,6 +313,7 @@ class Spiller {
   folly::Executor* const executor_;
   const HashBitRange bits_;
   const RowTypePtr rowType_;
+  const bool spillProbedFlag_;
   const uint64_t maxSpillRunRows_;
 
   // True if all rows of spilling partitions are in 'spillRuns_', so

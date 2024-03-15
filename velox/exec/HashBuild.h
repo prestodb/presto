@@ -210,6 +210,13 @@ class HashBuild final : public Operator {
 
   const bool nullAware_;
 
+  // Sets to true for join type which needs right side join processing. The hash
+  // table spiller then needs to record the probed flag, and the spilled input
+  // reader also needs to restore the recorded probed flag. This is used to
+  // support probe side spilling to record if a spilled row has been probed or
+  // not.
+  const bool needProbedFlagSpill_;
+
   std::shared_ptr<HashJoinBridge> joinBridge_;
 
   bool exceededMaxSpillLevelLimit_{false};
@@ -262,6 +269,15 @@ class HashBuild final : public Operator {
   // at least one entry with null join keys.
   bool joinHasNullKeys_{false};
 
+  // The type used to spill hash table which might attach a boolean column to
+  // record the probed flag if 'needProbedFlagSpill_' is true.
+  RowTypePtr spillType_;
+  // Specifies the column index in 'spillType_' which records the probed flag
+  // for each spilled row.
+  column_index_t spillProbedFlagChannel_;
+  // Used to set the probed flag vector at the build side which is always false.
+  std::shared_ptr<ConstantVector<bool>> spillProbedFlagVector_;
+
   // This can be nullptr if either spilling is not allowed or it has been
   // transferred to the last hash build operator while in kWaitForBuild state or
   // it has been cleared to set up a new one for recursive spilling.
@@ -269,6 +285,8 @@ class HashBuild final : public Operator {
 
   // Used to read input from previously spilled data for restoring.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> spillInputReader_;
+  // Vector used to read from spilled input with type of 'spillType_'.
+  RowVectorPtr spillInput_;
 
   // Reusable memory for spill partition calculation for input data.
   std::vector<uint32_t> spillPartitions_;

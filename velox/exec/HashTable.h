@@ -211,7 +211,7 @@ class BaseHashTable {
 
   /// Fills 'hits' with consecutive hash join results. The corresponding element
   /// of 'inputRows' is set to the corresponding row number in probe keys.
-  /// Returns the number of hits produced. If this s less than hits.size() then
+  /// Returns the number of hits produced. If this is less than hits.size() then
   /// all the hits have been produced.
   /// Adds input rows without a match to 'inputRows' with corresponding hit
   /// set to nullptr if 'includeMisses' is true. Otherwise, skips input rows

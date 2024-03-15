@@ -786,9 +786,7 @@ void HashProbe::clearIdentityProjectedOutput() {
 }
 
 bool HashProbe::needLastProbe() const {
-  return !skipInput_ &&
-      (isRightJoin(joinType_) || isFullJoin(joinType_) ||
-       isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_));
+  return !skipInput_ && needRightSideJoin(joinType_);
 }
 
 bool HashProbe::skipProbeOnEmptyBuild() const {

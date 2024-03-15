@@ -19,6 +19,7 @@
 #include "velox/common/base/AsyncSource.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/external/timsort/TimSort.hpp"
 
 using facebook::velox::common::testutil::TestValue;
@@ -46,6 +47,7 @@ Spiller::Spiller(
           HashBitRange{},
           numSortingKeys,
           sortCompareFlags,
+          false,
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
@@ -75,6 +77,7 @@ Spiller::Spiller(
           HashBitRange{},
           0,
           {},
+          false,
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
@@ -104,6 +107,7 @@ Spiller::Spiller(
           bits,
           0,
           {},
+          false,
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
@@ -122,6 +126,7 @@ Spiller::Spiller(
 
 Spiller::Spiller(
     Type type,
+    core::JoinType joinType,
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
@@ -133,6 +138,7 @@ Spiller::Spiller(
           bits,
           0,
           {},
+          needRightSideJoin(joinType),
           spillConfig->getSpillDirPathCb,
           spillConfig->updateAndCheckSpillLimitCb,
           spillConfig->fileNamePrefix,
@@ -142,11 +148,34 @@ Spiller::Spiller(
           spillConfig->executor,
           spillConfig->maxSpillRunRows,
           spillConfig->fileCreateConfig) {
-  VELOX_CHECK_EQ(
-      type_,
-      Type::kHashJoinBuild,
-      "Unexpected spiller type: {}",
-      typeName(type_));
+  VELOX_CHECK_EQ(type_, Type::kHashJoinBuild);
+  VELOX_CHECK(isHashJoinTableSpillType(rowType_, joinType));
+}
+
+Spiller::Spiller(
+    Type type,
+    RowContainer* container,
+    RowTypePtr rowType,
+    HashBitRange bits,
+    const common::SpillConfig* spillConfig)
+    : Spiller(
+          type,
+          container,
+          std::move(rowType),
+          bits,
+          0,
+          {},
+          false,
+          spillConfig->getSpillDirPathCb,
+          spillConfig->updateAndCheckSpillLimitCb,
+          spillConfig->fileNamePrefix,
+          spillConfig->maxFileSize,
+          spillConfig->writeBufferSize,
+          spillConfig->compressionKind,
+          spillConfig->executor,
+          spillConfig->maxSpillRunRows,
+          spillConfig->fileCreateConfig) {
+  VELOX_CHECK_EQ(type_, Type::kRowNumber);
 }
 
 Spiller::Spiller(
@@ -156,6 +185,7 @@ Spiller::Spiller(
     HashBitRange bits,
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
+    bool recordProbedFlag,
     const common::GetSpillDirectoryPathCB& getSpillDirPathCb,
     const common::UpdateAndCheckSpillLimitCB& updateAndCheckSpillLimitCb,
     const std::string& fileNamePrefix,
@@ -170,6 +200,7 @@ Spiller::Spiller(
       executor_(executor),
       bits_(bits),
       rowType_(std::move(rowType)),
+      spillProbedFlag_(recordProbedFlag),
       maxSpillRunRows_(maxSpillRunRows),
       state_(
           getSpillDirPathCb,
@@ -187,6 +218,7 @@ Spiller::Spiller(
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
 
+  VELOX_CHECK(!spillProbedFlag_ || type_ == Type::kHashJoinBuild);
   VELOX_CHECK_EQ(container_ == nullptr, type_ == Type::kHashJoinProbe);
   spillRuns_.reserve(state_.maxPartitions());
   for (int i = 0; i < state_.maxPartitions(); ++i) {
@@ -195,24 +227,29 @@ Spiller::Spiller(
 }
 
 void Spiller::extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr) {
-  if (!resultPtr) {
+  if (resultPtr == nullptr) {
     resultPtr = BaseVector::create<RowVector>(
         rowType_, rows.size(), memory::spillMemoryPool());
   } else {
     resultPtr->prepareForReuse();
     resultPtr->resize(rows.size());
   }
-  auto result = resultPtr.get();
-  auto& types = container_->columnTypes();
+
+  auto* result = resultPtr.get();
+  const auto& types = container_->columnTypes();
   for (auto i = 0; i < types.size(); ++i) {
     container_->extractColumn(rows.data(), rows.size(), i, result->childAt(i));
   }
-
-  auto& accumulators = container_->accumulators();
-
-  auto numKeys = types.size();
+  const auto& accumulators = container_->accumulators();
+  column_index_t accumulatorColumnOffset = types.size();
+  if (spillProbedFlag_) {
+    container_->extractProbedFlags(
+        rows.data(), rows.size(), false, false, result->childAt(types.size()));
+    ++accumulatorColumnOffset;
+  }
   for (auto i = 0; i < accumulators.size(); ++i) {
-    accumulators[i].extractForSpill(rows, result->childAt(i + numKeys));
+    accumulators[i].extractForSpill(
+        rows, result->childAt(i + accumulatorColumnOffset));
   }
 }
 
@@ -455,7 +492,8 @@ void Spiller::updateSpillSortTime(uint64_t timeUs) {
 
 bool Spiller::needSort() const {
   return type_ != Type::kHashJoinProbe && type_ != Type::kHashJoinBuild &&
-      type_ != Type::kAggregateOutput && type_ != Type::kOrderByOutput;
+      type_ != Type::kRowNumber && type_ != Type::kAggregateOutput &&
+      type_ != Type::kOrderByOutput;
 }
 
 void Spiller::spill() {
@@ -517,7 +555,8 @@ void Spiller::markAllPartitionsSpilled() {
 void Spiller::spill(uint32_t partition, const RowVectorPtr& spillVector) {
   CHECK_NOT_FINALIZED();
   VELOX_CHECK(
-      type_ == Type::kHashJoinProbe || type_ == Type::kHashJoinBuild,
+      type_ == Type::kHashJoinProbe || type_ == Type::kHashJoinBuild ||
+          type_ == Type::kRowNumber,
       "Unexpected spiller type: {}",
       typeName(type_));
   if (FOLLY_UNLIKELY(!state_.isPartitionSpilled(partition))) {
@@ -658,6 +697,8 @@ std::string Spiller::typeName(Type type) {
       return "AGGREGATE_INPUT";
     case Type::kAggregateOutput:
       return "AGGREGATE_OUTPUT";
+    case Type::kRowNumber:
+      return "ROW_NUMBER";
     default:
       VELOX_UNREACHABLE("Unknown type: {}", static_cast<int>(type));
   }

@@ -386,7 +386,7 @@ SpillPartitionNumSet RowNumber::spillHashTable() {
   auto tableType = ROW(std::move(columnTypes));
 
   auto hashTableSpiller = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinBuild,
+      Spiller::Type::kRowNumber,
       table_->rows(),
       tableType,
       spillPartitionBits_,

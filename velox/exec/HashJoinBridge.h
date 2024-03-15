@@ -169,4 +169,20 @@ bool isHashBuildMemoryPool(const memory::MemoryPool& pool);
 /// Returns true if 'pool' is a hash probe operator's memory pool. The check is
 /// currently based on the pool name.
 bool isHashProbeMemoryPool(const memory::MemoryPool& pool);
+
+bool needRightSideJoin(core::JoinType joinType);
+
+/// Returns the type used to spill a given hash table type. The function
+/// might attach a boolean column at the end of 'tableType' if 'joinType' needs
+/// right side join processing. It is used by the hash join table spilling
+/// triggered at the probe side to record if each row has been probed or not.
+RowTypePtr hashJoinTableSpillType(
+    const RowTypePtr& tableType,
+    core::JoinType joinType);
+
+/// Checks if a given type is a hash table spill type or not based on
+/// 'joinType'.
+bool isHashJoinTableSpillType(
+    const RowTypePtr& spillType,
+    core::JoinType joinType);
 } // namespace facebook::velox::exec

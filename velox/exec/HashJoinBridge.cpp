@@ -17,6 +17,10 @@
 #include "velox/exec/HashJoinBridge.h"
 
 namespace facebook::velox::exec {
+namespace {
+static const char* kSpillProbedFlagColumnName = "__probedFlag";
+}
+
 void HashJoinBridge::start() {
   std::lock_guard<std::mutex> l(mutex_);
   started_ = true;
@@ -227,5 +231,36 @@ bool isHashBuildMemoryPool(const memory::MemoryPool& pool) {
 
 bool isHashProbeMemoryPool(const memory::MemoryPool& pool) {
   return folly::StringPiece(pool.name()).endsWith("HashProbe");
+}
+
+bool needRightSideJoin(core::JoinType joinType) {
+  return isRightJoin(joinType) || isFullJoin(joinType) ||
+      isRightSemiFilterJoin(joinType) || isRightSemiProjectJoin(joinType);
+}
+
+RowTypePtr hashJoinTableSpillType(
+    const RowTypePtr& tableType,
+    core::JoinType joinType) {
+  if (!needRightSideJoin(joinType)) {
+    return tableType;
+  }
+  auto names = tableType->names();
+  names.push_back(kSpillProbedFlagColumnName);
+  auto types = tableType->children();
+  types.push_back(BOOLEAN());
+  return ROW(std::move(names), std::move(types));
+}
+
+bool isHashJoinTableSpillType(
+    const RowTypePtr& spillType,
+    core::JoinType joinType) {
+  if (!needRightSideJoin(joinType)) {
+    return true;
+  }
+  const column_index_t probedColumnChannel = spillType->size() - 1;
+  if (!spillType->childAt(probedColumnChannel)->isBoolean()) {
+    return false;
+  }
+  return spillType->nameOf(probedColumnChannel) == kSpillProbedFlagColumnName;
 }
 } // namespace facebook::velox::exec

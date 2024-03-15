@@ -63,6 +63,7 @@ HashBuild::HashBuild(
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
       nullAware_{joinNode_->isNullAware()},
+      needProbedFlagSpill_{needRightSideJoin(joinType_)},
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
@@ -196,6 +197,17 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   if (!spillEnabled()) {
     return;
   }
+  if (spillType_ == nullptr) {
+    spillType_ = hashJoinTableSpillType(tableType_, joinType_);
+    if (needProbedFlagSpill_) {
+      spillProbedFlagChannel_ = spillType_->size() - 1;
+      VELOX_CHECK_NULL(spillProbedFlagVector_);
+      // Creates a constant probed flag vector with all values false for build
+      // side table spilling.
+      spillProbedFlagVector_ = std::make_shared<ConstantVector<bool>>(
+          pool(), 0, /*isNull=*/false, BOOLEAN(), false);
+    }
+  }
 
   const auto& spillConfig = spillConfig_.value();
   HashBitRange hashBits(
@@ -227,8 +239,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
 
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
+      joinType_,
       table_->rows(),
-      tableType_,
+      spillType_,
       std::move(hashBits),
       &spillConfig);
 
@@ -236,7 +249,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   spillInputIndicesBuffers_.resize(numPartitions);
   rawSpillInputIndicesBuffers_.resize(numPartitions);
   numSpillInputs_.resize(numPartitions, 0);
-  spillChildVectors_.resize(tableType_->size());
+  spillChildVectors_.resize(spillType_->size());
 }
 
 bool HashBuild::isInputFromSpill() const {
@@ -392,6 +405,12 @@ void HashBuild::addInput(RowVectorPtr input) {
   }
   auto rows = table_->rows();
   auto nextOffset = rows->nextOffset();
+  FlatVector<bool>* spillProbedFlagVector{nullptr};
+  if (isInputFromSpill() && needProbedFlagSpill_) {
+    spillProbedFlagVector =
+        input->childAt(spillProbedFlagChannel_)->asFlatVector<bool>();
+  }
+
   activeRows_.applyToSelected([&](auto rowIndex) {
     char* newRow = rows->newRow();
     if (nextOffset) {
@@ -405,6 +424,12 @@ void HashBuild::addInput(RowVectorPtr input) {
     }
     for (auto i = 0; i < dependentChannels_.size(); ++i) {
       rows->store(*decoders_[i], rowIndex, newRow, i + hashers.size());
+    }
+    if (spillProbedFlagVector != nullptr) {
+      VELOX_CHECK(!spillProbedFlagVector->isNullAt(rowIndex));
+      if (spillProbedFlagVector->valueAt(rowIndex)) {
+        rows->setProbedFlag(&newRow, 1);
+      }
     }
   });
 }
@@ -547,6 +572,11 @@ void HashBuild::maybeSetupSpillChildVectors(const RowVectorPtr& input) {
   for (const auto& channel : dependentChannels_) {
     spillChildVectors_[spillChannel++] = input->childAt(channel);
   }
+  if (needProbedFlagSpill_) {
+    VELOX_CHECK_NOT_NULL(spillProbedFlagVector_);
+    spillProbedFlagVector_->resize(input->size());
+    spillChildVectors_[spillChannel] = spillProbedFlagVector_;
+  }
 }
 
 void HashBuild::prepareInputIndicesBuffers(
@@ -597,7 +627,7 @@ void HashBuild::spillPartition(
   } else {
     spiller_->spill(
         partition,
-        wrap(size, indices, tableType_, spillChildVectors_, input->pool()));
+        wrap(size, indices, spillType_, spillChildVectors_, input->pool()));
   }
 }
 
@@ -825,8 +855,8 @@ void HashBuild::setupSpillInput(HashJoinBridge::SpillInput spillInput) {
 void HashBuild::processSpillInput() {
   checkRunning();
 
-  while (spillInputReader_->nextBatch(input_)) {
-    addInput(std::move(input_));
+  while (spillInputReader_->nextBatch(spillInput_)) {
+    addInput(std::move(spillInput_));
     if (!isRunning()) {
       return;
     }

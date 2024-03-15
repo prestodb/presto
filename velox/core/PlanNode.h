@@ -1357,16 +1357,16 @@ FOLLY_ALWAYS_INLINE std::ostream& operator<<(
 enum class JoinType {
   // For each row on the left, find all matching rows on the right and return
   // all combinations.
-  kInner,
+  kInner = 0,
   // For each row on the left, find all matching rows on the right and return
   // all combinations. In addition, return all rows from the left that have no
   // match on the right with right-side columns filled with nulls.
-  kLeft,
+  kLeft = 1,
   // Opposite of kLeft. For each row on the right, find all matching rows on the
   // left and return all combinations. In addition, return all rows from the
   // right that have no match on the left with left-side columns filled with
   // nulls.
-  kRight,
+  kRight = 2,
   // A "union" of kLeft and kRight. For each row on the left, find all matching
   // rows on the right and return all combinations. In addition, return all rows
   // from the left that have no
@@ -1374,11 +1374,11 @@ enum class JoinType {
   // all rows from the
   // right that have no match on the left with left-side columns filled with
   // nulls.
-  kFull,
+  kFull = 3,
   // Return a subset of rows from the left side which have a match on the right
   // side. For this join type, cardinality of the output is less than or equal
   // to the cardinality of the left side.
-  kLeftSemiFilter,
+  kLeftSemiFilter = 4,
   // Return each row from the left side with a boolean flag indicating whether
   // there exists a match on the right side. For this join type, cardinality of
   // the output equals the cardinality of the left side.
@@ -1387,11 +1387,11 @@ enum class JoinType {
   // 'nullAware' boolean specified separately.
   //
   // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
-  kLeftSemiProject,
+  kLeftSemiProject = 5,
   // Opposite of kLeftSemiFilter. Return a subset of rows from the right side
   // which have a match on the left side. For this join type, cardinality of the
   // output is less than or equal to the cardinality of the right side.
-  kRightSemiFilter,
+  kRightSemiFilter = 6,
   // Opposite of kLeftSemiProject. Return each row from the right side with a
   // boolean flag indicating whether there exists a match on the left side. For
   // this join type, cardinality of the output equals the cardinality of the
@@ -1401,7 +1401,7 @@ enum class JoinType {
   // 'nullAware' boolean specified separately.
   //
   // Null-aware join follows IN semantic. Regular join follows EXISTS semantic.
-  kRightSemiProject,
+  kRightSemiProject = 7,
   // Return each row from the left side which has no match on the right side.
   // The handling of the rows with nulls in the join key depends on the
   // 'nullAware' boolean specified separately.
@@ -1415,7 +1415,8 @@ enum class JoinType {
   // Regular anti join follows NOT EXISTS semantic:
   // (1) ignore right-side rows with nulls in the join keys;
   // (2) unconditionally return left side rows with nulls in the join keys.
-  kAnti,
+  kAnti = 8,
+  kNumJoinTypes = 9,
 };
 
 const char* joinTypeName(JoinType joinType);
