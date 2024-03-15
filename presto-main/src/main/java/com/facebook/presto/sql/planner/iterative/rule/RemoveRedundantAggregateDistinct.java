@@ -45,7 +45,8 @@ public class RemoveRedundantAggregateDistinct
     private static boolean hasAggregations(AggregationNode node)
     {
         return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                !node.getAggregations().isEmpty();
+                !node.getAggregations().isEmpty() &&
+                node.getGroupingSetCount() == 1;
     }
 
     @Override

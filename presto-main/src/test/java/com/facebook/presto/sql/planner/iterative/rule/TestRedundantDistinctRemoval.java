@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesPro
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
@@ -29,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -156,6 +158,17 @@ public class TestRedundantDistinctRemoval
                                     p.values(5, c))));
                 })
                 .doesNotFire();
+
+        tester().assertThat(new RemoveRedundantDistinct(), logicalPropertiesProvider)
+                .on(p -> {
+                    VariableReferenceExpression c = p.variable("c");
+                    return p.aggregation(builder -> builder
+                            .groupingSets(groupingSets(ImmutableList.of(c), 2, ImmutableSet.of(0)))
+                            .source(p.limit(
+                                    1, // Forces MaxCard to be 1, so a unique key does exist on 'c' (one of the grouping keys)
+                                    p.values(5, c))));
+                })
+                .doesNotFire(); // Since multiple grouping sets are used however, the rule does not fire
     }
 
     @Test
