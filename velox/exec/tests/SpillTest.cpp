@@ -740,6 +740,58 @@ TEST_P(SpillTest, nonExistSpillFileOnDeletion) {
   state_.reset();
 }
 
+namespace {
+SpillFiles makeFakeSpillFiles(int32_t numFiles) {
+  auto tempDir = exec::test::TempDirectoryPath::create();
+  static uint32_t fakeFileId{0};
+  SpillFiles files;
+  files.reserve(numFiles);
+  const std::string filePathPrefix = tempDir->path + "/Spill";
+  for (int32_t i = 0; i < numFiles; ++i) {
+    const auto fileId = fakeFileId;
+    files.push_back(
+        {fileId,
+         ROW({"k1", "k2"}, {BIGINT(), BIGINT()}),
+         tempDir->path + "/Spill_" + std::to_string(fileId),
+         1024,
+         1,
+         std::vector<CompareFlags>({}),
+         common::CompressionKind_NONE});
+  }
+  return files;
+}
+} // namespace
+
+TEST(SpillTest, removeEmptyPartitions) {
+  SpillPartitionSet partitionSet;
+  const int32_t partitionOffset = 8;
+  const int32_t numPartitions = 8;
+
+  for (int32_t partition = 0; partition < numPartitions; ++partition) {
+    const SpillPartitionId id(partitionOffset, partition);
+    if (partition & 0x01) {
+      partitionSet.emplace(
+          id,
+          std::make_unique<SpillPartition>(
+              id, makeFakeSpillFiles(1 + partition / 2)));
+    } else {
+      partitionSet.emplace(id, std::make_unique<SpillPartition>(id));
+    }
+  }
+  ASSERT_EQ(partitionSet.size(), numPartitions);
+
+  removeEmptyPartitions(partitionSet);
+  ASSERT_EQ(partitionSet.size(), numPartitions / 2);
+
+  for (int32_t partition = 0; partition < numPartitions / 2; ++partition) {
+    const int32_t partitionNum = partition * 2 + 1;
+    const SpillPartitionId id(partitionOffset, partitionNum);
+    ASSERT_EQ(partitionSet.at(id)->id().partitionBitOffset(), partitionOffset);
+    ASSERT_EQ(partitionSet.at(id)->id().partitionNumber(), partitionNum);
+    ASSERT_EQ(partitionSet.at(id)->numFiles(), 1 + partitionNum / 2);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     SpillTestSuite,
     SpillTest,

@@ -708,17 +708,7 @@ bool HashBuild::finishHashBuild() {
 
   if (spiller_ != nullptr) {
     spiller_->finishSpill(spillPartitions);
-
-    // Remove the spilled partitions which are empty so as we don't need to
-    // trigger unnecessary spilling at hash probe side.
-    auto iter = spillPartitions.begin();
-    while (iter != spillPartitions.end()) {
-      if (iter->second->numFiles() > 0) {
-        ++iter;
-      } else {
-        iter = spillPartitions.erase(iter);
-      }
-    }
+    removeEmptyPartitions(spillPartitions);
   }
   recordSpillStats();
 

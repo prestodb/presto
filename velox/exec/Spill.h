@@ -456,6 +456,9 @@ class TestScopedSpillInjection {
 /// Test utility that returns true if triggered spill is evaluated to happen,
 /// false otherwise.
 bool testingTriggerSpill();
+
+/// Removes empty partitions from given spill partition set.
+void removeEmptyPartitions(SpillPartitionSet& partitionSet);
 } // namespace facebook::velox::exec
 
 // Adding the custom hash for SpillPartitionId to std::hash to make it usable

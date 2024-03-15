@@ -313,4 +313,15 @@ bool testingTriggerSpill() {
   }
   return false;
 }
+
+void removeEmptyPartitions(SpillPartitionSet& partitionSet) {
+  auto it = partitionSet.begin();
+  while (it != partitionSet.end()) {
+    if (it->second->numFiles() > 0) {
+      ++it;
+    } else {
+      it = partitionSet.erase(it);
+    }
+  }
+}
 } // namespace facebook::velox::exec

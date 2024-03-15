@@ -116,19 +116,8 @@ void RowNumber::noMoreInput() {
 
   if (inputSpiller_ != nullptr) {
     inputSpiller_->finishSpill(spillInputPartitionSet_);
-
     recordSpillStats(inputSpiller_->stats());
-
-    // Remove empty partitions.
-    auto it = spillInputPartitionSet_.begin();
-    while (it != spillInputPartitionSet_.end()) {
-      if (it->second->numFiles() > 0) {
-        ++it;
-      } else {
-        it = spillInputPartitionSet_.erase(it);
-      }
-    }
-
+    removeEmptyPartitions(spillInputPartitionSet_);
     restoreNextSpillPartition();
   }
 }
