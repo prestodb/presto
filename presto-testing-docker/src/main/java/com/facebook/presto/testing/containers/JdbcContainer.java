@@ -53,7 +53,7 @@ public class JdbcContainer
 
     public String getJdbcURI()
     {
-        return "jdbc:postgresql://" + getMappedHostAndPortForExposedPort(PORT) + "/postgres?user=" + DEFAULT_USER + "&password=" + DEFAULT_PASSWORD;
+        return "jdbc:postgresql://" + getMappedHostAndPortForExposedPort(PORT) + "/";
     }
 
     public String getDefaultUser()
