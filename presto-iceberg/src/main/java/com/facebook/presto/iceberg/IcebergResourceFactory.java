@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import com.facebook.presto.iceberg.jdbc.JdbcConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.iceberg.CatalogType.JDBC;
 import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceHash;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieReferenceName;
@@ -45,7 +47,9 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
+import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
+import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
 
 /**
  * Factory for loading Iceberg resources such as Catalog.
@@ -59,13 +63,14 @@ public class IcebergResourceFactory
     private final String catalogWarehouse;
     private final List<String> hadoopConfigResources;
     private final NessieConfig nessieConfig;
+    private final JdbcConfig jdbcConfig;
     private final S3ConfigurationUpdater s3ConfigurationUpdater;
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
 
     private final IcebergConfig icebergConfig;
 
     @Inject
-    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
+    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, JdbcConfig jdbcConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         this.icebergConfig = requireNonNull(config, "config is null");
@@ -73,6 +78,7 @@ public class IcebergResourceFactory
         this.catalogWarehouse = config.getCatalogWarehouse();
         this.hadoopConfigResources = config.getHadoopConfigResources();
         this.nessieConfig = requireNonNull(nessieConfig, "nessieConfig is null");
+        this.jdbcConfig = requireNonNull(jdbcConfig, "jdbcConfig is null");
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
         catalogCache = CacheBuilder.newBuilder()
@@ -175,6 +181,13 @@ public class IcebergResourceFactory
             if (!nessieConfig.isCompressionEnabled()) {
                 properties.put("transport.disable-compression", "true");
             }
+        }
+
+        if (catalogType == JDBC) {
+            properties.put(URI, jdbcConfig.getServerUrl().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.connection-url must be set for Jdbc Iceberg Catalog")));
+            properties.put(PROPERTY_PREFIX + "driver-class", jdbcConfig.getDriverClass().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.driver-class must be set for Jdbc Iceberg Catalog")));
+            properties.put(PROPERTY_PREFIX + "user", jdbcConfig.getUser().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.auth.user must be set for Jdbc Iceberg Catalog")));
+            properties.put(PROPERTY_PREFIX + "password", jdbcConfig.getPassword().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.auth.password must be set for Jdbc Iceberg Catalog")));
         }
         return properties;
     }
