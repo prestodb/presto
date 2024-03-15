@@ -27,26 +27,26 @@
 
 namespace facebook::velox {
 
-// Implements an arena backed by MappedMemory::Allocation. This is for backing
-// ByteOutputStream or for allocating single blocks. Blocks can be individually
-// freed. Adjacent frees are coalesced and free blocks are kept in a free list.
-// Allocated blocks are prefixed with a Header. This has a size and flags.
-// kContinue means that last 8 bytes are a pointer to another Header after which
-// the contents of this allocation continue. kFree means the block is free. A
-// free block has pointers to the next and previous free block via a
-// CompactDoubleList struct immediately after the header. The last 4 bytes of a
-// free block contain its length. kPreviousFree means that the block immediately
-// below is free. In this case the uint32_t below the header has the size of the
-// previous free block. The last word of a Allocation::PageRun backing a
-// HashStringAllocator is set to kArenaEnd.
+/// Implements an arena backed by MappedMemory::Allocation. This is for backing
+/// ByteOutputStream or for allocating single blocks. Blocks can be individually
+/// freed. Adjacent frees are coalesced and free blocks are kept in a free list.
+/// Allocated blocks are prefixed with a Header. This has a size and flags.
+/// kContinue means that last 8 bytes are a pointer to another Header after
+/// which the contents of this allocation continue. kFree means the block is
+/// free. A free block has pointers to the next and previous free block via a
+/// CompactDoubleList struct immediately after the header. The last 4 bytes of a
+/// free block contain its length. kPreviousFree means that the block
+/// immediately below is free. In this case the uint32_t below the header has
+/// the size of the previous free block. The last word of a Allocation::PageRun
+/// backing a HashStringAllocator is set to kArenaEnd.
 class HashStringAllocator : public StreamArena {
  public:
-  // The minimum allocation must have space after the header for the
-  // free list pointers and the trailing length.
+  /// The minimum allocation must have space after the header for the free list
+  /// pointers and the trailing length.
   static constexpr int32_t kMinAlloc =
       sizeof(CompactDoubleList) + sizeof(uint32_t);
 
-  // Sizes larger than this will come direct from 'pool().
+  /// Sizes larger than this will come direct from pool().
   static constexpr int32_t kMaxAlloc =
       memory::AllocationTraits::kPageSize / 4 * 3;
 
@@ -58,8 +58,8 @@ class HashStringAllocator : public StreamArena {
     static constexpr uint32_t kSizeMask = (1U << 29) - 1;
     static constexpr uint32_t kContinuedPtrSize = sizeof(void*);
 
-    // Marker at end of a PageRun. Distinct from valid headers since
-    // all the 3 high bits are set, which is not valid for a header.
+    /// Marker at end of a PageRun. Distinct from valid headers since all the 3
+    /// high bits are set, which is not valid for a header.
     static constexpr uint32_t kArenaEnd = 0xf0aeab0d;
 
     explicit Header(uint32_t size) : data_(size) {
@@ -119,18 +119,18 @@ class HashStringAllocator : public StreamArena {
       data_ = size | (data_ & ~kSizeMask);
     }
 
-    char* FOLLY_NONNULL begin() {
+    char* begin() {
       return reinterpret_cast<char*>(this + 1);
     }
 
-    char* FOLLY_NONNULL end() {
+    char* end() {
       return begin() + size();
     }
 
     /// Returns the Header of the block that is physically next to this block or
     /// null if this is the last block of the arena.
-    Header* FOLLY_NULLABLE next() {
-      auto next = reinterpret_cast<Header*>(end());
+    Header* next() {
+      auto* next = reinterpret_cast<Header*>(end());
       return next->data_ == kArenaEnd ? nullptr : next;
     }
 
@@ -149,8 +149,8 @@ class HashStringAllocator : public StreamArena {
   };
 
   struct Position {
-    Header* FOLLY_NULLABLE header{nullptr};
-    char* FOLLY_NULLABLE position{nullptr};
+    Header* header{nullptr};
+    char* position{nullptr};
 
     int32_t offset() const {
       VELOX_DCHECK_NOT_NULL(header);
@@ -174,50 +174,48 @@ class HashStringAllocator : public StreamArena {
     }
   };
 
-  explicit HashStringAllocator(memory::MemoryPool* FOLLY_NONNULL pool)
+  explicit HashStringAllocator(memory::MemoryPool* pool)
       : StreamArena(pool), pool_(pool) {}
 
   ~HashStringAllocator();
 
-  // Copies a StringView at 'offset' in 'group' to storage owned by
-  // the hash table. Updates the StringView.
-  void copy(char* FOLLY_NONNULL group, int32_t offset) {
+  /// Copies a StringView at 'offset' in 'group' to storage owned by the hash
+  /// table. Updates the StringView.
+  void copy(char* group, int32_t offset) {
     StringView* string = reinterpret_cast<StringView*>(group + offset);
     if (string->isInline()) {
       return;
     }
-    auto data = pool_.allocateFixed(string->size());
-    memcpy(data, string->data(), string->size());
+    auto* data = pool_.allocateFixed(string->size());
+    ::memcpy(data, string->data(), string->size());
     *string = StringView(data, string->size());
   }
 
-  // Copies a StringView at 'offset' in 'group' to storage owned by
-  // 'this'. Updates the StringView. A large string may be copied into
-  // non-contiguous allocation pieces. The size in the StringView is
-  // the sum of the sizes. The pieces are linked via Headers, the
-  // first header is below the first byte of the StringView's
-  // data. StringViews written by this are to be read with
-  // contiguousString(). This is nearly always zero copy but will
-  // accommodate the odd extra large string.
-  void copyMultipart(char* FOLLY_NONNULL group, int32_t offset) {
-    auto string = reinterpret_cast<StringView*>(group + offset);
+  /// Copies a StringView at 'offset' in 'group' to storage owned by 'this'.
+  /// Updates the StringView. A large string may be copied into non-contiguous
+  /// allocation pieces. The size in the StringView is the sum of the sizes. The
+  /// pieces are linked via Headers, the first header is below the first byte of
+  /// the StringView's data. StringViews written by this are to be read with
+  /// contiguousString(). This is nearly always zero copy but will accommodate
+  /// the odd extra large string.
+  void copyMultipart(char* group, int32_t offset) {
+    auto* string = reinterpret_cast<StringView*>(group + offset);
     if (string->isInline()) {
       return;
     }
     copyMultipartNoInline(group, offset);
   }
 
-  // Returns a contiguous view on 'view', where 'view' comes from
-  // copyMultipart(). Uses 'storage' to own a possible temporary
-  // copy. Making a temporary copy only happens for non-contiguous
-  // strings.
+  /// Returns a contiguous view on 'view', where 'view' comes from
+  /// copyMultipart(). Uses 'storage' to own a possible temporary copy. Making a
+  /// temporary copy only happens for non-contiguous strings.
   static StringView contiguousString(StringView view, std::string& storage);
 
-  // Allocates 'size' contiguous bytes preceded by a Header. Returns
-  // the address of Header.
-  Header* FOLLY_NONNULL allocate(int32_t size) {
-    VELOX_CHECK(
-        !currentHeader_, "Do not call allocate() when a write is in progress");
+  /// Allocates 'size' contiguous bytes preceded by a Header. Returns the
+  /// address of Header.
+  Header* allocate(int32_t size) {
+    VELOX_CHECK_NULL(
+        currentHeader_, "Do not call allocate() when a write is in progress");
     return allocate(std::max(size, kMinAlloc), true);
   }
 
@@ -230,43 +228,43 @@ class HashStringAllocator : public StreamArena {
   /// match.
   void freeToPool(void* ptr, size_t size);
 
-  // Returns the header immediately below 'data'.
-  static Header* FOLLY_NONNULL headerOf(const void* FOLLY_NONNULL data) {
+  /// Returns the header immediately below 'data'.
+  static Header* headerOf(const void* data) {
     return reinterpret_cast<Header*>(
                const_cast<char*>(reinterpret_cast<const char*>(data))) -
         1;
   }
 
-  // Returns ByteInputStream over the data in the range of 'header' and
-  // possible continuation ranges.
-  // @param maxBytes If provided, the returned stream will cover at most that
-  // many bytes.
+  /// Returns ByteInputStream over the data in the range of 'header' and
+  /// possible continuation ranges.
+  /// @param maxBytes If provided, the returned stream will cover at most that
+  /// many bytes.
   static ByteInputStream prepareRead(
       const Header* header,
       size_t maxBytes = std::numeric_limits<size_t>::max());
 
-  // Returns the number of payload bytes between 'header->begin()' and
-  // 'position'.
-  static int64_t offset(Header* FOLLY_NONNULL header, Position position);
+  /// Returns the number of payload bytes between 'header->begin()' and
+  /// 'position'.
+  static int64_t offset(Header* header, Position position);
 
-  // Returns a position 'offset' bytes after 'header->begin()'.
-  static Position seek(Header* FOLLY_NONNULL header, int64_t offset);
+  /// Returns a position 'offset' bytes after 'header->begin()'.
+  static Position seek(Header* header, int64_t offset);
 
-  // Returns the number of bytes that can be written starting at 'position'
-  // without allocating more space.
+  /// Returns the number of bytes that can be written starting at 'position'
+  /// without allocating more space.
   static int64_t available(const Position& position);
 
-  // Ensures that one can write at least 'bytes' data starting at
-  // 'position' without allocating more space. 'position' can be
-  // changed but will logically point at the same data. Data to the
-  // right of 'position is not preserved.
+  /// Ensures that one can write at least 'bytes' data starting at 'position'
+  /// without allocating more space. 'position' can be changed but will
+  /// logically point at the same data. Data to the right of 'position is not
+  /// preserved.
   void ensureAvailable(int32_t bytes, Position& position);
 
-  // Sets stream to write to this pool. The write can span multiple
-  // non-contiguous runs. Each contiguous run will have at least
-  // kMinContiguous bytes of contiguous space. finishWrite finalizes
-  // the allocation information after the write is done.
-  // Returns the position at the start of the allocated block.
+  /// Sets stream to write to this pool. The write can span multiple
+  /// non-contiguous runs. Each contiguous run will have at least kMinContiguous
+  /// bytes of contiguous space. finishWrite finalizes the allocation
+  /// information after the write is done. Returns the position at the start of
+  /// the allocated block.
   Position newWrite(
       ByteOutputStream& stream,
       int32_t preferredSize = kMinContiguous);
@@ -275,11 +273,11 @@ class HashStringAllocator : public StreamArena {
   // be allocated when writing, headers will be updated accordingly.
   void extendWrite(Position position, ByteOutputStream& stream);
 
-  // Completes a write prepared with newWrite or
-  // extendWrite. Up to 'numReserveBytes' unused bytes, if available, are left
-  // after the end of the write to accommodate another write. Returns a pair of
-  // positions: (1) position at the start of this 'write', (2) position
-  // immediately after the last written byte.
+  /// Completes a write prepared with newWrite or extendWrite. Up to
+  /// 'numReserveBytes' unused bytes, if available, are left after the end of
+  /// the write to accommodate another write. Returns a pair of positions: (1)
+  /// position at the start of this 'write', (2) position immediately after the
+  /// last written byte.
   std::pair<Position, Position> finishWrite(
       ByteOutputStream& stream,
       int32_t numReserveBytes);
@@ -305,30 +303,29 @@ class HashStringAllocator : public StreamArena {
     newRange(bytes, lastRange, range);
   }
 
-  // Returns the total memory footprint of 'this'.
+  /// Returns the total memory footprint of 'this'.
   int64_t retainedSize() const {
     return pool_.allocatedBytes() + sizeFromPool_;
   }
 
-  // Adds the allocation of 'header' and any extensions (if header has
-  // kContinued set) to the free list.
-  void free(Header* FOLLY_NONNULL header);
+  /// Adds the allocation of 'header' and any extensions (if header has
+  /// kContinued set) to the free list.
+  void free(Header* header);
 
-  // Returns a lower bound on bytes available without growing
-  // 'this'. This is the sum of free block sizes minus size of pointer
-  // for each. We subtract the pointer because in the worst case we
-  // would have one allocation that chains many small free blocks
-  // together via kContinued.
+  /// Returns a lower bound on bytes available without growing 'this'. This is
+  /// the sum of free block sizes minus size of pointer for each. We subtract
+  /// the pointer because in the worst case we would have one allocation that
+  /// chains many small free blocks together via kContinued.
   uint64_t freeSpace() const {
     int64_t minFree = freeBytes_ - numFree_ * (sizeof(Header) + sizeof(void*));
     VELOX_CHECK_GE(minFree, 0, "Guaranteed free space cannot be negative");
     return minFree;
   }
 
-  // Frees all memory associated with 'this' and leaves 'this' ready for reuse.
+  /// Frees all memory associated with 'this' and leaves 'this' ready for reuse.
   void clear() override;
 
-  memory::MemoryPool* FOLLY_NONNULL pool() const {
+  memory::MemoryPool* pool() const {
     return pool_.pool();
   }
 
@@ -336,9 +333,9 @@ class HashStringAllocator : public StreamArena {
     return cumulativeBytes_;
   }
 
-  // Checks the free space accounting and consistency of
-  // Headers. Throws when detects corruption. Returns the number of allocated
-  // payload bytes, excluding headers, continue links and other overhead.
+  /// Checks the free space accounting and consistency of Headers. Throws when
+  /// detects corruption. Returns the number of allocated payload bytes,
+  /// excluding headers, continue links and other overhead.
   int64_t checkConsistency() const;
 
   /// Returns 'true' if this is empty. The implementation includes a call to
@@ -369,25 +366,24 @@ class HashStringAllocator : public StreamArena {
   // anything yet. Throws if fails to grow.
   void newSlab();
 
-  void removeFromFreeList(Header* FOLLY_NONNULL header);
+  void removeFromFreeList(Header* header);
 
-  /// Allocates a block of specified size. If exactSize is false, the block may
-  /// be smaller or larger. Checks free list before allocating new memory.
-  Header* FOLLY_NULLABLE allocate(int32_t size, bool exactSize);
+  // Allocates a block of specified size. If exactSize is false, the block may
+  // be smaller or larger. Checks free list before allocating new memory.
+  Header* allocate(int32_t size, bool exactSize);
 
-  // Allocates memory from free list. Returns nullptr if no memory in
-  // free list, otherwise returns a header of a free block of some
-  // size. if 'mustHaveSize' is true, the block will not be smaller
-  // than 'preferredSize'. If 'isFinalSize' is true, this will not
-  // return a block that is much larger than preferredSize. Otherwise,
-  // the block can be larger and the user is expected to call
-  // freeRestOfBlock to finalize the allocation.
-  Header* FOLLY_NULLABLE allocateFromFreeLists(
+  // Allocates memory from free list. Returns nullptr if no memory in free list,
+  // otherwise returns a header of a free block of some size. if 'mustHaveSize'
+  // is true, the block will not be smaller than 'preferredSize'. If
+  // 'isFinalSize' is true, this will not return a block that is much larger
+  // than preferredSize. Otherwise, the block can be larger and the user is
+  // expected to call freeRestOfBlock to finalize the allocation.
+  Header* allocateFromFreeLists(
       int32_t preferredSize,
       bool mustHaveSize,
       bool isFinalSize);
 
-  Header* FOLLY_NULLABLE allocateFromFreeList(
+  Header* allocateFromFreeList(
       int32_t preferredSize,
       bool mustHaveSize,
       bool isFinalSize,
@@ -396,9 +392,10 @@ class HashStringAllocator : public StreamArena {
   // Sets 'header' to be 'keepBytes' long and adds the remainder of
   // 'header's memory to free list. Does nothing if the resulting
   // blocks would be below minimum size.
-  void freeRestOfBlock(Header* FOLLY_NONNULL header, int32_t keepBytes);
+  void freeRestOfBlock(Header* header, int32_t keepBytes);
 
-  void copyMultipartNoInline(char* FOLLY_NONNULL group, int32_t offset);
+  void copyMultipartNoInline(char* group, int32_t offset);
+
   // Fast path for storing a string as a single part. Returns true if succeeded,
   // has no effect if returns false.
   bool storeStringFast(const char* bytes, int32_t size, char* destination);
@@ -428,7 +425,7 @@ class HashStringAllocator : public StreamArena {
   // Pointer to Header for the range being written. nullptr if a write is not in
   // progress.
   Position startPosition_;
-  Header* FOLLY_NULLABLE currentHeader_ = nullptr;
+  Header* currentHeader_{nullptr};
 
   // Pool for getting new slabs.
   memory::AllocationPool pool_;
@@ -464,7 +461,7 @@ class RowSizeTracker {
 
  private:
   // Increments T at *pointer without wrapping around at overflow.
-  void saturatingIncrement(T* FOLLY_NONNULL pointer, int64_t delta) {
+  void saturatingIncrement(T* pointer, int64_t delta) {
     auto value = *reinterpret_cast<TCounter*>(pointer) + delta;
     *reinterpret_cast<TCounter*>(pointer) =
         std::min<uint64_t>(value, std::numeric_limits<TCounter>::max());
@@ -475,12 +472,12 @@ class RowSizeTracker {
   T& counter_;
 };
 
-// An Allocator based by HashStringAllocator to use with STL containers.
+/// An Allocator based by HashStringAllocator to use with STL containers.
 template <class T>
 struct StlAllocator {
   using value_type = T;
 
-  explicit StlAllocator(HashStringAllocator* FOLLY_NONNULL allocator)
+  explicit StlAllocator(HashStringAllocator* allocator)
       : allocator_{allocator} {
     VELOX_CHECK(allocator);
   }
@@ -491,7 +488,7 @@ struct StlAllocator {
     VELOX_CHECK_NOT_NULL(allocator_);
   }
 
-  T* FOLLY_NONNULL allocate(std::size_t n) {
+  T* allocate(std::size_t n) {
     if (n * sizeof(T) > HashStringAllocator::kMaxAlloc) {
       return reinterpret_cast<T*>(allocator_->allocateFromPool(n * sizeof(T)));
     }
@@ -499,14 +496,14 @@ struct StlAllocator {
         allocator_->allocate(checkedMultiply(n, sizeof(T)))->begin());
   }
 
-  void deallocate(T* FOLLY_NONNULL p, std::size_t n) noexcept {
+  void deallocate(T* p, std::size_t n) noexcept {
     if (n * sizeof(T) > HashStringAllocator::kMaxAlloc) {
       return allocator_->freeToPool(p, n * sizeof(T));
     }
     allocator_->free(HashStringAllocator::headerOf(p));
   }
 
-  HashStringAllocator* FOLLY_NONNULL allocator() const {
+  HashStringAllocator* allocator() const {
     return allocator_;
   }
 
@@ -519,12 +516,12 @@ struct StlAllocator {
   }
 
  private:
-  HashStringAllocator* FOLLY_NONNULL allocator_;
+  HashStringAllocator* allocator_;
 };
 
-// An allocator backed by HashStringAllocator that guaratees a configurable
-// alignment. The alignment must be a power of 2 and not be 0. This allocator
-// can be used with folly F14 containers that requires 16-bytes alignment.
+/// An allocator backed by HashStringAllocator that guaratees a configurable
+/// alignment. The alignment must be a power of 2 and not be 0. This allocator
+/// can be used with folly F14 containers that requires 16-bytes alignment.
 template <class T, uint8_t Alignment>
 struct AlignedStlAllocator {
   using value_type = T;
@@ -541,7 +538,7 @@ struct AlignedStlAllocator {
     using other = AlignedStlAllocator<Other, Alignment>;
   };
 
-  explicit AlignedStlAllocator(HashStringAllocator* FOLLY_NONNULL allocator)
+  explicit AlignedStlAllocator(HashStringAllocator* allocator)
       : allocator_{allocator},
         poolAligned_(allocator_->pool()->alignment() >= Alignment) {
     VELOX_CHECK(allocator);
@@ -554,7 +551,7 @@ struct AlignedStlAllocator {
     VELOX_CHECK(allocator_);
   }
 
-  T* FOLLY_NONNULL allocate(std::size_t n) {
+  T* allocate(std::size_t n) {
     if (n * sizeof(T) > HashStringAllocator::kMaxAlloc) {
       if (poolAligned_) {
         return reinterpret_cast<T*>(
@@ -575,7 +572,7 @@ struct AlignedStlAllocator {
     return alignPtr((char*)ptr, n, paddedSize);
   }
 
-  void deallocate(T* FOLLY_NONNULL p, std::size_t n) noexcept {
+  void deallocate(T* p, std::size_t n) noexcept {
     if (n * sizeof(T) > HashStringAllocator::kMaxAlloc) {
       if (poolAligned_) {
         return allocator_->freeToPool(p, n * sizeof(T));
@@ -590,7 +587,7 @@ struct AlignedStlAllocator {
     allocator_->free(HashStringAllocator::headerOf((char*)p - 4 - delta));
   }
 
-  HashStringAllocator* FOLLY_NONNULL allocator() const {
+  HashStringAllocator* allocator() const {
     return allocator_;
   }
 
@@ -616,7 +613,7 @@ struct AlignedStlAllocator {
     return checkedPlus<size_t>(Alignment + 4, checkedMultiply(n, sizeof(T)));
   }
 
-  FOLLY_ALWAYS_INLINE T* FOLLY_NONNULL
+  FOLLY_ALWAYS_INLINE T*
   alignPtr(char* ptr, std::size_t allocateCount, std::size_t& paddedSize) {
     // Align 'ptr + 4'.
     void* alignedPtr = ptr + 4;
@@ -630,7 +627,7 @@ struct AlignedStlAllocator {
     return reinterpret_cast<T*>(alignedPtr);
   }
 
-  HashStringAllocator* FOLLY_NONNULL allocator_;
+  HashStringAllocator* allocator_;
   const bool poolAligned_;
 };
 

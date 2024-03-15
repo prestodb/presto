@@ -20,22 +20,21 @@
 namespace facebook::velox {
 
 namespace {
-/// Returns the size of the previous free block. The size is stored in the
-/// last 4 bytes of the free block, e.g. 4 bytes just before the current
-/// header.
+// Returns the size of the previous free block. The size is stored in the last 4
+// bytes of the free block, e.g. 4 bytes just before the current header.
 uint32_t* previousFreeSize(HashStringAllocator::Header* header) {
   return reinterpret_cast<uint32_t*>(header) - 1;
 }
 
-/// Returns the header of the previous free block or nullptr if previous block
-/// is not free.
-HashStringAllocator::Header* FOLLY_NULLABLE
-getPreviousFree(HashStringAllocator::Header* FOLLY_NONNULL header) {
+// Returns the header of the previous free block or nullptr if previous block is
+// not free.
+HashStringAllocator::Header* getPreviousFree(
+    HashStringAllocator::Header* header) {
   if (!header->isPreviousFree()) {
     return nullptr;
   }
-  auto numBytes = *previousFreeSize(header);
-  auto previous = reinterpret_cast<HashStringAllocator::Header*>(
+  const auto numBytes = *previousFreeSize(header);
+  auto* previous = reinterpret_cast<HashStringAllocator::Header*>(
       header->begin() - numBytes - 2 * sizeof(HashStringAllocator::Header));
   VELOX_CHECK_EQ(previous->size(), numBytes);
   VELOX_CHECK(previous->isFree());
@@ -43,13 +42,12 @@ getPreviousFree(HashStringAllocator::Header* FOLLY_NONNULL header) {
   return previous;
 }
 
-/// Sets kFree flag in the 'header' and writes the size of the block to the
-/// last 4 bytes of the block. Sets kPreviousFree flag in the next block's
-/// 'header'.
-void markAsFree(HashStringAllocator::Header* FOLLY_NONNULL header) {
+// Sets kFree flag in the 'header' and writes the size of the block to the last
+// 4 bytes of the block. Sets kPreviousFree flag in the next block's 'header'.
+void markAsFree(HashStringAllocator::Header* header) {
   header->setFree();
-  auto nextHeader = header->next();
-  if (nextHeader) {
+  auto* nextHeader = header->next();
+  if (nextHeader != nullptr) {
     nextHeader->setPreviousFree();
     *previousFreeSize(nextHeader) = header->size();
   }
@@ -102,7 +100,7 @@ void HashStringAllocator::clear() {
 }
 
 void* HashStringAllocator::allocateFromPool(size_t size) {
-  auto ptr = pool()->allocate(size);
+  auto* ptr = pool()->allocate(size);
   cumulativeBytes_ += size;
   allocationsFromPool_[ptr] = size;
   sizeFromPool_ += size;
@@ -127,10 +125,9 @@ ByteInputStream HashStringAllocator::prepareRead(
     const Header* begin,
     size_t maxBytes) {
   std::vector<ByteRange> ranges;
-  auto header = const_cast<Header*>(begin);
+  auto* header = const_cast<Header*>(begin);
 
-  size_t totalBytes = 0;
-
+  size_t totalBytes{0};
   for (;;) {
     ranges.push_back(ByteRange{
         reinterpret_cast<uint8_t*>(header->begin()), header->usableSize(), 0});
@@ -151,8 +148,8 @@ ByteInputStream HashStringAllocator::prepareRead(
 HashStringAllocator::Position HashStringAllocator::newWrite(
     ByteOutputStream& stream,
     int32_t preferredSize) {
-  VELOX_CHECK(
-      !currentHeader_,
+  VELOX_CHECK_NULL(
+      currentHeader_,
       "Do not call newWrite before finishing the previous write to "
       "HashStringAllocator");
   currentHeader_ = allocate(preferredSize, false);
@@ -172,7 +169,7 @@ HashStringAllocator::Position HashStringAllocator::newWrite(
 void HashStringAllocator::extendWrite(
     Position position,
     ByteOutputStream& stream) {
-  auto header = position.header;
+  auto* header = position.header;
   const auto offset = position.offset();
   VELOX_CHECK_GE(
       offset, 0, "Starting extendWrite outside of the current range");
@@ -200,9 +197,9 @@ std::pair<HashStringAllocator::Position, HashStringAllocator::Position>
 HashStringAllocator::finishWrite(
     ByteOutputStream& stream,
     int32_t numReserveBytes) {
-  VELOX_CHECK(
+  VELOX_CHECK_NOT_NULL(
       currentHeader_, "Must call newWrite or extendWrite before finishWrite");
-  auto writePosition = stream.writePosition();
+  auto* writePosition = stream.writePosition();
   const auto offset = writePosition - currentHeader_->begin();
 
   VELOX_CHECK_GE(
@@ -212,7 +209,7 @@ HashStringAllocator::finishWrite(
       currentHeader_->usableSize(),
       "finishWrite called with writePosition out of range");
 
-  Position currentPosition = Position::atOffset(currentHeader_, offset);
+  const Position currentPosition = Position::atOffset(currentHeader_, offset);
   if (currentHeader_->isContinued()) {
     free(currentHeader_->nextContinued());
     currentHeader_->clearContinued();
@@ -226,12 +223,12 @@ HashStringAllocator::finishWrite(
   // The starting position may have shifted if it was at the end of the block
   // and the block was extended. Calculate the new position.
   if (startPosition_.header->isContinued()) {
-    auto header = startPosition_.header;
+    auto* header = startPosition_.header;
     const auto offset = startPosition_.offset();
     const auto extra = offset - header->usableSize();
     if (extra > 0) {
-      auto newHeader = header->nextContinued();
-      auto newPosition = newHeader->begin() + extra;
+      auto* newHeader = header->nextContinued();
+      auto* newPosition = newHeader->begin() + extra;
       startPosition_ = {newHeader, newPosition};
     }
   }
@@ -243,24 +240,22 @@ void HashStringAllocator::newSlab() {
   const int64_t needed = pool_.allocatedBytes() >= pool_.hugePageThreshold()
       ? memory::AllocationTraits::kHugePageSize
       : kUnitSize;
-  auto run = pool_.allocateFixed(needed);
-  // We check we got exactly the requested amount. checkConsistency()
-  // depends on slabs made here coinciding with ranges from
-  // AllocationPool::rangeAt(). Sometimes the last range can be
-  // several huge pages for severl huge page sized arenas but
-  // checkConsistency() can interpret that.
-  VELOX_CHECK_EQ(0, pool_.freeBytes());
-  auto available = needed - sizeof(Header) - kSimdPadding;
-
+  auto* run = pool_.allocateFixed(needed);
   VELOX_CHECK_NOT_NULL(run);
+  // We check we got exactly the requested amount. checkConsistency() depends on
+  // slabs made here coinciding with ranges from AllocationPool::rangeAt().
+  // Sometimes the last range can be several huge pages for severl huge page
+  // sized arenas but checkConsistency() can interpret that.
+  VELOX_CHECK_EQ(pool_.freeBytes(), 0);
+  const auto available = needed - sizeof(Header) - kSimdPadding;
   VELOX_CHECK_GT(available, 0);
-  // Write end  marker.
+
+  // Write end marker.
   *reinterpret_cast<uint32_t*>(run + available) = Header::kArenaEnd;
   cumulativeBytes_ += available;
 
-  // Add the new memory to the free list: Placement construct a header
-  // that covers the space from start to the end marker and add this
-  // to free list.
+  // Add the new memory to the free list: Placement construct a header that
+  // covers the space from start to the end marker and add this to free list.
   free(new (run) Header(available - sizeof(Header)));
 }
 
@@ -269,24 +264,25 @@ void HashStringAllocator::newRange(
     ByteRange* lastRange,
     ByteRange* range,
     bool contiguous) {
-  // Allocates at least kMinContiguous or to the end of the current
-  // run. At the end of the write the unused space will be made
-  // free.
-  VELOX_CHECK(
+  // Allocates at least kMinContiguous or to the end of the current run. At the
+  // end of the write, the unused space will be made free.
+  VELOX_CHECK_NOT_NULL(
       currentHeader_,
       "Must have called newWrite or extendWrite before newRange");
-  auto newHeader = allocate(bytes, contiguous);
+  auto* newHeader = allocate(bytes, contiguous);
 
-  auto lastWordPtr = reinterpret_cast<void**>(
+  // Copy the last word of the current range to the head of new range, and then
+  // used the space to store the new range pointer.
+  auto** lastWordPtr = reinterpret_cast<void**>(
       currentHeader_->end() - Header::kContinuedPtrSize);
   *reinterpret_cast<void**>(newHeader->begin()) = *lastWordPtr;
   *lastWordPtr = newHeader;
   currentHeader_->setContinued();
   currentHeader_ = newHeader;
   if (lastRange) {
-    // The last bytes of the last range are no longer payload. So do not
-    // count them in size and do not overwrite them if overwriting the
-    // multirange entry. Set position at the new end.
+    // The last bytes of the last range are no longer payload. So do not count
+    // them in size and do not overwrite them if overwriting the multi-range
+    // entry. Set position at the new end.
     lastRange->size -= sizeof(void*);
     lastRange->position = std::min(lastRange->size, lastRange->position);
   }
@@ -314,7 +310,7 @@ StringView HashStringAllocator::contiguousString(
   if (view.isInline()) {
     return view;
   }
-  auto header = headerOf(view.data());
+  auto* header = headerOf(view.data());
   if (view.size() <= header->size()) {
     return view;
   }
@@ -327,13 +323,13 @@ StringView HashStringAllocator::contiguousString(
 
 void HashStringAllocator::freeRestOfBlock(Header* header, int32_t keepBytes) {
   keepBytes = std::max(keepBytes, kMinAlloc);
-  int32_t freeSize = header->size() - keepBytes - sizeof(Header);
+  const int32_t freeSize = header->size() - keepBytes - sizeof(Header);
   if (freeSize <= kMinAlloc) {
     return;
   }
 
   header->setSize(keepBytes);
-  auto newHeader = new (header->end()) Header(freeSize);
+  auto* newHeader = new (header->end()) Header(freeSize);
   free(newHeader);
 }
 
@@ -344,39 +340,39 @@ int32_t HashStringAllocator::freeListIndex(int size) {
 void HashStringAllocator::removeFromFreeList(Header* header) {
   VELOX_CHECK(header->isFree());
   header->clearFree();
-  auto index = freeListIndex(header->size());
+  const auto index = freeListIndex(header->size());
   reinterpret_cast<CompactDoubleList*>(header->begin())->remove();
   if (free_[index].empty()) {
     bits::clearBit(freeNonEmpty_, index);
   }
 }
 
-HashStringAllocator::Header* FOLLY_NULLABLE
-HashStringAllocator::allocate(int32_t size, bool exactSize) {
+HashStringAllocator::Header* HashStringAllocator::allocate(
+    int32_t size,
+    bool exactSize) {
   if (size > kMaxAlloc && exactSize) {
     VELOX_CHECK_LE(size, Header::kSizeMask);
-    auto header =
+    auto* header =
         reinterpret_cast<Header*>(allocateFromPool(size + sizeof(Header)));
     new (header) Header(size);
     return header;
   }
-  auto header = allocateFromFreeLists(size, exactSize, exactSize);
-  if (!header) {
+
+  auto* header = allocateFromFreeLists(size, exactSize, exactSize);
+  if (header == nullptr) {
     newSlab();
     header = allocateFromFreeLists(size, exactSize, exactSize);
-    VELOX_CHECK(header != nullptr);
+    VELOX_CHECK_NOT_NULL(header);
     VELOX_CHECK_GT(header->size(), 0);
   }
-
   return header;
 }
 
-HashStringAllocator::Header* FOLLY_NULLABLE
-HashStringAllocator::allocateFromFreeLists(
+HashStringAllocator::Header* HashStringAllocator::allocateFromFreeLists(
     int32_t preferredSize,
     bool mustHaveSize,
     bool isFinalSize) {
-  if (!numFree_) {
+  if (numFree_ == 0) {
     return nullptr;
   }
   preferredSize = std::max(kMinAlloc, preferredSize);
@@ -394,8 +390,7 @@ HashStringAllocator::allocateFromFreeLists(
   return header;
 }
 
-HashStringAllocator::Header* FOLLY_NULLABLE
-HashStringAllocator::allocateFromFreeList(
+HashStringAllocator::Header* HashStringAllocator::allocateFromFreeList(
     int32_t preferredSize,
     bool mustHaveSize,
     bool isFinalSize,
@@ -404,14 +399,14 @@ HashStringAllocator::allocateFromFreeList(
   if (item == &free_[freeListIndex]) {
     return nullptr;
   }
-  auto found = headerOf(item);
+  auto* found = headerOf(item);
   VELOX_CHECK(
       found->isFree() && (!mustHaveSize || found->size() >= preferredSize));
   --numFree_;
   freeBytes_ -= found->size() + sizeof(Header);
   removeFromFreeList(found);
-  auto next = found->next();
-  if (next) {
+  auto* next = found->next();
+  if (next != nullptr) {
     next->clearPreviousFree();
   }
   cumulativeBytes_ += found->size();
@@ -421,58 +416,57 @@ HashStringAllocator::allocateFromFreeList(
   return found;
 }
 
-void HashStringAllocator::free(Header* _header) {
-  Header* header = _header;
-
+void HashStringAllocator::free(Header* header) {
+  Header* headerToFree = header;
   do {
     Header* continued = nullptr;
-    if (header->isContinued()) {
-      continued = header->nextContinued();
-      header->clearContinued();
+    if (headerToFree->isContinued()) {
+      continued = headerToFree->nextContinued();
+      headerToFree->clearContinued();
     }
-    if (header->size() > kMaxAlloc && !pool_.isInCurrentRange(header) &&
-        allocationsFromPool_.find(header) != allocationsFromPool_.end()) {
-      freeToPool(header, header->size() + sizeof(Header));
+    if (headerToFree->size() > kMaxAlloc &&
+        !pool_.isInCurrentRange(headerToFree) &&
+        allocationsFromPool_.find(headerToFree) != allocationsFromPool_.end()) {
+      freeToPool(headerToFree, headerToFree->size() + sizeof(Header));
     } else {
-      VELOX_CHECK(!header->isFree());
-      freeBytes_ += header->size() + sizeof(Header);
-      cumulativeBytes_ -= header->size();
-      Header* next = header->next();
-      if (next) {
+      VELOX_CHECK(!headerToFree->isFree());
+      freeBytes_ += headerToFree->size() + sizeof(Header);
+      cumulativeBytes_ -= headerToFree->size();
+      Header* next = headerToFree->next();
+      if (next != nullptr) {
         VELOX_CHECK(!next->isPreviousFree());
         if (next->isFree()) {
           --numFree_;
           removeFromFreeList(next);
-          header->setSize(header->size() + next->size() + sizeof(Header));
-          next = reinterpret_cast<Header*>(header->end());
+          headerToFree->setSize(
+              headerToFree->size() + next->size() + sizeof(Header));
+          next = reinterpret_cast<Header*>(headerToFree->end());
           VELOX_CHECK(next->isArenaEnd() || !next->isFree());
         }
       }
-      if (header->isPreviousFree()) {
-        auto previousFree = getPreviousFree(header);
+      if (headerToFree->isPreviousFree()) {
+        auto* previousFree = getPreviousFree(headerToFree);
         removeFromFreeList(previousFree);
         previousFree->setSize(
-            previousFree->size() + header->size() + sizeof(Header));
+            previousFree->size() + headerToFree->size() + sizeof(Header));
 
-        header = previousFree;
+        headerToFree = previousFree;
       } else {
         ++numFree_;
       }
-      auto freedSize = header->size();
-      auto freeIndex = freeListIndex(freedSize);
+      const auto freedSize = headerToFree->size();
+      const auto freeIndex = freeListIndex(freedSize);
       bits::setBit(freeNonEmpty_, freeIndex);
       free_[freeIndex].insert(
-          reinterpret_cast<CompactDoubleList*>(header->begin()));
-      markAsFree(header);
+          reinterpret_cast<CompactDoubleList*>(headerToFree->begin()));
+      markAsFree(headerToFree);
     }
-    header = continued;
-  } while (header);
+    headerToFree = continued;
+  } while (headerToFree != nullptr);
 }
 
 // static
-int64_t HashStringAllocator::offset(
-    Header* FOLLY_NONNULL header,
-    Position position) {
+int64_t HashStringAllocator::offset(Header* header, Position position) {
   static const int64_t kOutOfRange = -1;
   if (!position.isSet()) {
     return kOutOfRange;
@@ -480,7 +474,7 @@ int64_t HashStringAllocator::offset(
 
   int64_t size = 0;
   for (;;) {
-    assert(header);
+    VELOX_CHECK_NOT_NULL(header);
     const auto length = header->usableSize();
     const auto offset = position.position - header->begin();
     if (offset >= 0 && offset <= length) {
@@ -496,12 +490,12 @@ int64_t HashStringAllocator::offset(
 
 // static
 HashStringAllocator::Position HashStringAllocator::seek(
-    Header* FOLLY_NONNULL header,
+    Header* header,
     int64_t offset) {
   int64_t size = 0;
   for (;;) {
-    assert(header);
-    auto length = header->usableSize();
+    VELOX_CHECK_NOT_NULL(header);
+    const auto length = header->usableSize();
     if (offset <= size + length) {
       return Position::atOffset(header, offset - size);
     }
@@ -515,12 +509,12 @@ HashStringAllocator::Position HashStringAllocator::seek(
 
 // static
 int64_t HashStringAllocator::available(const Position& position) {
-  auto header = position.header;
+  auto* header = position.header;
   const auto startOffset = position.offset();
   // startOffset bytes from the first block are already used.
   int64_t size = -startOffset;
   for (;;) {
-    assert(header);
+    VELOX_CHECK_NOT_NULL(header);
     size += header->usableSize();
     if (!header->isContinued()) {
       return size;
@@ -537,8 +531,8 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
   ByteOutputStream stream(this);
   extendWrite(position, stream);
   static char data[128];
-  while (bytes) {
-    auto written = std::min<size_t>(bytes, sizeof(data));
+  while (bytes > 0) {
+    const auto written = std::min<size_t>(bytes, sizeof(data));
     stream.append(folly::StringPiece(data, written));
     bytes -= written;
   }
@@ -549,14 +543,16 @@ inline bool HashStringAllocator::storeStringFast(
     const char* bytes,
     int32_t numBytes,
     char* destination) {
-  auto roundedBytes = std::max(numBytes, kMinAlloc);
+  const auto roundedBytes = std::max(numBytes, kMinAlloc);
+
   Header* header = nullptr;
   if (free_[kNumFreeLists - 1].empty()) {
     if (roundedBytes >= kMaxAlloc) {
       return false;
     }
-    auto index = freeListIndex(roundedBytes);
-    auto available = bits::findFirstBit(freeNonEmpty_, index, kNumFreeLists);
+    const auto index = freeListIndex(roundedBytes);
+    const auto available =
+        bits::findFirstBit(freeNonEmpty_, index, kNumFreeLists);
     if (available < 0) {
       return false;
     }
@@ -573,11 +569,11 @@ inline bool HashStringAllocator::storeStringFast(
       // The entry after allocation stays in the largest free list.
       // The size at the end of the block is changed in place.
       reinterpret_cast<int32_t*>(header->end())[-1] -= spaceTaken;
-      auto freeHeader = new (header->begin() + roundedBytes)
+      auto* freeHeader = new (header->begin() + roundedBytes)
           Header(header->size() - spaceTaken);
       freeHeader->setFree();
       header->clearFree();
-      memcpy(freeHeader->begin(), header->begin(), sizeof(CompactDoubleList));
+      ::memcpy(freeHeader->begin(), header->begin(), sizeof(CompactDoubleList));
       freeList.nextMoved(
           reinterpret_cast<CompactDoubleList*>(freeHeader->begin()));
       header->setSize(roundedBytes);
@@ -591,16 +587,15 @@ inline bool HashStringAllocator::storeStringFast(
       }
     }
   }
+
   simd::memcpy(header->begin(), bytes, numBytes);
   *reinterpret_cast<StringView*>(destination) =
       StringView(reinterpret_cast<char*>(header->begin()), numBytes);
   return true;
 }
 
-void HashStringAllocator::copyMultipartNoInline(
-    char* FOLLY_NONNULL group,
-    int32_t offset) {
-  auto string = reinterpret_cast<StringView*>(group + offset);
+void HashStringAllocator::copyMultipartNoInline(char* group, int32_t offset) {
+  auto* string = reinterpret_cast<StringView*>(group + offset);
   const auto numBytes = string->size();
   if (storeStringFast(string->data(), numBytes, group + offset)) {
     return;
@@ -674,10 +669,10 @@ int64_t HashStringAllocator::checkConsistency() const {
       auto range = folly::Range<char*>(
           topRange.data() + subRangeStart,
           std::min<int64_t>(topRangeSize, kHugePageSize));
-      auto size = range.size() - simd::kPadding;
+      const auto size = range.size() - simd::kPadding;
       bool previousFree = false;
-      auto end = reinterpret_cast<Header*>(range.data() + size);
-      auto header = reinterpret_cast<Header*>(range.data());
+      auto* end = reinterpret_cast<Header*>(range.data() + size);
+      auto* header = reinterpret_cast<Header*>(range.data());
       while (header != end) {
         VELOX_CHECK_GE(reinterpret_cast<char*>(header), range.data());
         VELOX_CHECK_LT(
@@ -690,7 +685,7 @@ int64_t HashStringAllocator::checkConsistency() const {
         if (header->isFree()) {
           VELOX_CHECK(!previousFree);
           VELOX_CHECK(!header->isContinued());
-          if (header->next()) {
+          if (header->next() != nullptr) {
             VELOX_CHECK_EQ(
                 header->size(),
                 *(reinterpret_cast<int32_t*>(header->end()) - 1));
@@ -698,9 +693,9 @@ int64_t HashStringAllocator::checkConsistency() const {
           ++numFree;
           freeBytes += sizeof(Header) + header->size();
         } else if (header->isContinued()) {
-          // If the content of the header is continued, check the
-          // continue header is readable and not free.
-          auto continued = header->nextContinued();
+          // If the content of the header is continued, check the continued
+          // header is readable and not free.
+          auto* continued = header->nextContinued();
           VELOX_CHECK(!continued->isFree());
           allocatedBytes += header->size() - sizeof(void*);
         } else {
@@ -717,15 +712,15 @@ int64_t HashStringAllocator::checkConsistency() const {
   uint64_t numInFreeList = 0;
   uint64_t bytesInFreeList = 0;
   for (auto i = 0; i < kNumFreeLists; ++i) {
-    bool hasData = bits::isBitSet(freeNonEmpty_, i);
-    bool listNonEmpty = !free_[i].empty();
+    const bool hasData = bits::isBitSet(freeNonEmpty_, i);
+    const bool listNonEmpty = !free_[i].empty();
     VELOX_CHECK_EQ(hasData, listNonEmpty);
-    for (auto free = free_[i].next(); free != &free_[i]; free = free->next()) {
+    for (auto* free = free_[i].next(); free != &free_[i]; free = free->next()) {
       ++numInFreeList;
       VELOX_CHECK(
           free->next()->previous() == free,
           "free list previous link inconsistent");
-      auto size = headerOf(free)->size();
+      const auto size = headerOf(free)->size();
       VELOX_CHECK_GE(size, kMinAlloc);
       if (size - kMinAlloc < kNumFreeLists - 1) {
         VELOX_CHECK_EQ(size - kMinAlloc, i);

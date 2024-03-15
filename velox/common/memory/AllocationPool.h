@@ -90,7 +90,7 @@ class AllocationPool {
     return pool_;
   }
 
-  /// Returns true if 'ptr' is inside the range alocations are made from.
+  /// Returns true if 'ptr' is inside the range allocations are made from.
   bool isInCurrentRange(void* ptr) const {
     return reinterpret_cast<char*>(ptr) >= startOfRun_ &&
         reinterpret_cast<char*>(ptr) < startOfRun_ + bytesInRun_;
@@ -142,7 +142,7 @@ class AllocationPool {
   std::vector<memory::Allocation> allocations_;
   std::vector<memory::ContiguousAllocation> largeAllocations_;
 
-  // Points to the start of the run from which allocations are being nade.
+  // Points to the start of the run from which allocations are being made.
   char* startOfRun_{nullptr};
 
   // Total addressable bytes from 'startOfRun_'. Not all are necessarily

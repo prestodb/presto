@@ -21,9 +21,11 @@
 
 namespace facebook::velox {
 
-// Circular double linked list with 6 byte pointers. Used for free
-// list in HashStringAllocator so that we get a minimum allocation
-// payload size of 16 bytes. (12 bits for the links, 4 for trailer).
+/// Circular double linked list with 6 byte pointers. Used for free list in
+/// HashStringAllocator so that we get a minimum allocation payload size of 16
+/// bytes. (12 bits for the links, 4 for trailer).
+///
+/// NOTE: this class is not thread-safe.
 class CompactDoubleList {
  public:
   CompactDoubleList() {
@@ -36,12 +38,12 @@ class CompactDoubleList {
   void operator=(const CompactDoubleList& other) = delete;
   void operator=(CompactDoubleList&& other) = delete;
 
-  // Return true if 'this' is the only element.
+  /// Returns true if 'this' is the only element.
   bool empty() const {
     return next() == this;
   }
 
-  // inserts 'entry' after 'this'
+  /// Inserts 'entry' after 'this'
   void insert(CompactDoubleList* entry) {
     entry->setNext(next());
     entry->setPrevious(this);
@@ -49,7 +51,7 @@ class CompactDoubleList {
     setNext(entry);
   }
 
-  // Unlinks 'this' from its list. Throws if 'this' is the only element.
+  /// Unlinks 'this' from its list. Throws if 'this' is the only element.
   void remove() {
     VELOX_CHECK(!empty());
     previous()->setNext(next());
@@ -67,8 +69,8 @@ class CompactDoubleList {
   /// Updates links after the next() of 'this' has been moved to 'newNext'. Sets
   /// the next link of this, the previous link of 'newNext' and the previous
   /// link of the next() of the moved 'newNext'. The use case is taking the
-  // head of a free list block without a full remove of block plus reinsert of
-  // the remainder of the block.
+  /// head of a free list block without a full remove of block plus reinsert of
+  /// the remainder of the block.
   void nextMoved(CompactDoubleList* newNext) {
     setNext(newNext);
     VELOX_CHECK(newNext->previous() == this);
@@ -92,11 +94,11 @@ class CompactDoubleList {
   }
 
   void storePointer(CompactDoubleList* pointer, uint32_t& low, uint16_t& high) {
-    DCHECK_EQ(
+    VELOX_DCHECK_EQ(
         reinterpret_cast<uint64_t>(pointer) &
             ~bits::lowMask(kPointerSignificantBits),
         0);
-    uint64_t data = reinterpret_cast<uint64_t>(pointer);
+    const uint64_t data = reinterpret_cast<uint64_t>(pointer);
     low = static_cast<uint32_t>(data);
     high = static_cast<uint16_t>(data >> 32);
   }
