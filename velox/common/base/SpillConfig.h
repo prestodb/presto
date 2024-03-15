@@ -57,21 +57,24 @@ struct SpillConfig {
       int32_t _spillableReservationGrowthPct,
       uint8_t _startPartitionBit,
       uint8_t _joinPartitionBits,
+      uint8_t _rowNumberPartitionBits,
       int32_t _maxSpillLevel,
       uint64_t _maxSpillRunRows,
       uint64_t _writerFlushThresholdSize,
       const std::string& _compressionKind,
       const std::string& _fileCreateConfig = {});
 
-  /// Returns the hash join spilling level with given 'startBitOffset'.
+  /// Returns the spilling level with given 'startBitOffset' and
+  /// 'numPartitionBits'.
   ///
   /// NOTE: we advance (or right shift) the partition bit offset when goes to
   /// the next level of recursive spilling.
-  int32_t joinSpillLevel(uint8_t startBitOffset) const;
+  int32_t spillLevel(uint8_t startBitOffset, uint8_t numPartitionBits) const;
 
-  /// Checks if the given 'startBitOffset' has exceeded the max hash join
-  /// spill limit.
-  bool exceedJoinSpillLevelLimit(uint8_t startBitOffset) const;
+  /// Checks if the given 'startBitOffset' and 'numPartitionBits' has exceeded
+  /// the max hash join spill limit.
+  bool exceedSpillLevelLimit(uint8_t startBitOffset, uint8_t numPartitionBits)
+      const;
 
   /// A callback function that returns the spill directory path. Implementations
   /// can use it to ensure the path exists before returning.
@@ -113,12 +116,16 @@ struct SpillConfig {
   /// memory usage.
   int32_t spillableReservationGrowthPct;
 
-  /// Used to calculate spill partition number.
+  /// The start partition bit offset of the top (the first level) partitions.
   uint8_t startPartitionBit;
 
   /// Used to calculate the spill hash partition number for hash join with
   /// 'startPartitionBit'.
   uint8_t joinPartitionBits;
+
+  /// Used to calculate the spill partition number of the hash table in
+  /// RowNumber with 'startPartitionBit'.
+  uint8_t rowNumberPartitionBits;
 
   /// The max allowed spilling level with zero being the initial spilling
   /// level. This only applies for hash build spilling which needs recursive

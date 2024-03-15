@@ -37,6 +37,7 @@ TEST(SpillConfig, spillLevel) {
       0,
       kInitialBitOffset,
       kNumPartitionsBits,
+      kNumPartitionsBits,
       0,
       0,
       0,
@@ -63,10 +64,12 @@ TEST(SpillConfig, spillLevel) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
     if (testData.expectedLevel == -1) {
-      ASSERT_ANY_THROW(config.joinSpillLevel(testData.bitOffset));
+      ASSERT_ANY_THROW(
+          config.spillLevel(testData.bitOffset, kNumPartitionsBits));
     } else {
       ASSERT_EQ(
-          config.joinSpillLevel(testData.bitOffset), testData.expectedLevel);
+          config.spillLevel(testData.bitOffset, kNumPartitionsBits),
+          testData.expectedLevel);
     }
   }
 }
@@ -123,6 +126,7 @@ TEST(SpillConfig, spillLevelLimit) {
         0,
         testData.startBitOffset,
         testData.numBits,
+        testData.numBits,
         testData.maxSpillLevel,
         0,
         0,
@@ -130,7 +134,7 @@ TEST(SpillConfig, spillLevelLimit) {
 
     ASSERT_EQ(
         testData.expectedExceeds,
-        config.exceedJoinSpillLevelLimit(testData.bitOffset));
+        config.exceedSpillLevelLimit(testData.bitOffset, testData.numBits));
   }
 }
 
@@ -168,6 +172,7 @@ TEST(SpillConfig, spillableReservationPercentages) {
           nullptr,
           testData.minPct,
           testData.growthPct,
+          0,
           0,
           0,
           0,

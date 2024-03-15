@@ -273,6 +273,9 @@ class QueryConfig {
   static constexpr const char* kJoinSpillPartitionBits =
       "join_spiller_partition_bits";
 
+  static constexpr const char* kRowNumberSpillPartitionBits =
+      "row_number_spiller_partition_bits";
+
   static constexpr const char* kMinSpillableReservationPct =
       "min_spillable_reservation_pct";
 
@@ -577,9 +580,8 @@ class QueryConfig {
     return get<uint8_t>(kSpillStartPartitionBit, kDefaultStartBit);
   }
 
-  /// Returns the number of bits used to calculate the spilling partition
-  /// number for hash join. The number of spilling partitions will be power of
-  /// two.
+  /// Returns the number of bits used to calculate the spill partition number
+  /// for hash join. The number of spill partitions will be power of two.
   ///
   /// NOTE: as for now, we only support up to 8-way spill partitioning.
   uint8_t joinSpillPartitionBits() const {
@@ -587,6 +589,17 @@ class QueryConfig {
     constexpr uint8_t kMaxBits = 3;
     return std::min(
         kMaxBits, get<uint8_t>(kJoinSpillPartitionBits, kDefaultBits));
+  }
+
+  /// Returns the number of bits used to calculate the spill partition number
+  /// for RowNumber. The number of spill partitions will be power of two.
+  ///
+  /// NOTE: as for now, we only support up to 8-way spill partitioning.
+  uint8_t rowNumberSpillPartitionBits() const {
+    constexpr uint8_t kDefaultBits = 3;
+    constexpr uint8_t kMaxBits = 3;
+    return std::min(
+        kMaxBits, get<uint8_t>(kRowNumberSpillPartitionBits, kDefaultBits));
   }
 
   uint64_t writerFlushThresholdBytes() const {
