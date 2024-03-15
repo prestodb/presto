@@ -78,8 +78,6 @@ void registerSimpleFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "like", likeSignatures(), makeLike);
 
-  registerFunction<SplitPart, Varchar, Varchar, Varchar, int64_t>(
-      {prefix + "split_part"});
   registerFunction<Re2RegexpReplacePresto, Varchar, Varchar, Constant<Varchar>>(
       {prefix + "regexp_replace"});
   registerFunction<
