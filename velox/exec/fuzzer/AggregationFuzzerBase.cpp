@@ -87,6 +87,21 @@ DEFINE_bool(
 
 namespace facebook::velox::exec::test {
 
+bool AggregationFuzzerBase::isSupportedType(const TypePtr& type) const {
+  // Date / IntervalDayTime/ Unknown are not currently supported by DWRF.
+  if (type->isDate() || type->isIntervalDayTime() || type->isUnKnown()) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!isSupportedType(type->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool AggregationFuzzerBase::addSignature(
     const std::string& name,
     const FunctionSignaturePtr& signature) {
@@ -445,15 +460,39 @@ AggregationFuzzerBase::computeReferenceResults(
           referenceQueryRunner_->execute(
               sql.value(), input, plan->outputType()),
           ReferenceQueryErrorCode::kSuccess);
-    } catch (std::exception& e) {
-      // ++stats_.numReferenceQueryFailed;
+    } catch (...) {
+      LOG(WARNING) << "Query failed in the reference DB";
+      return std::make_pair(
+          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
+    }
+  }
+
+  LOG(INFO) << "Query not supported by the reference DB";
+  return std::make_pair(
+      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
+}
+
+std::pair<
+    std::optional<std::vector<RowVectorPtr>>,
+    AggregationFuzzerBase::ReferenceQueryErrorCode>
+AggregationFuzzerBase::computeReferenceResultsAsVector(
+    const core::PlanNodePtr& plan,
+    const std::vector<RowVectorPtr>& input) {
+  VELOX_CHECK(referenceQueryRunner_->supportsVeloxVectorResults());
+
+  if (auto sql = referenceQueryRunner_->toSql(plan)) {
+    try {
+      return std::make_pair(
+          referenceQueryRunner_->executeVector(
+              sql.value(), input, plan->outputType()),
+          ReferenceQueryErrorCode::kSuccess);
+    } catch (...) {
       LOG(WARNING) << "Query failed in the reference DB";
       return std::make_pair(
           std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
     }
   } else {
     LOG(INFO) << "Query not supported by the reference DB";
-    // ++stats_.numVerificationNotSupported;
   }
 
   return std::make_pair(
@@ -474,7 +513,15 @@ void AggregationFuzzerBase::testPlan(
       injectSpill,
       abandonPartial,
       maxDrivers);
+  compare(actual, customVerification, customVerifiers, expected);
+}
 
+void AggregationFuzzerBase::compare(
+    const velox::test::ResultOrError& actual,
+    bool customVerification,
+    const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
+    const velox::test::ResultOrError& expected) {
+  // Compare results or exceptions (if any). Fail is anything is different.
   if (FLAGS_enable_oom_injection) {
     // If OOM injection is enabled and we've made it this far and the test
     // is considered a success.  We don't bother checking the results.
@@ -494,6 +541,9 @@ void AggregationFuzzerBase::testPlan(
         "Logically equivalent plans produced different results");
     return;
   }
+
+  VELOX_CHECK_NOT_NULL(expected.result);
+  VELOX_CHECK_NOT_NULL(actual.result);
 
   VELOX_CHECK_EQ(
       expected.result->size(),

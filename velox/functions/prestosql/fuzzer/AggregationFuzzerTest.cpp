@@ -106,7 +106,12 @@ int main(int argc, char** argv) {
       "stddev_pop",
       // Lambda functions are not supported yet.
       "reduce_agg",
-  };
+      "max_data_size_for_stats",
+      "map_union_sum",
+      "approx_set",
+      "min_by",
+      "max_by",
+      "any_value"};
 
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;

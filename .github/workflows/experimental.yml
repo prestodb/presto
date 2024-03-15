@@ -147,7 +147,7 @@ jobs:
           ls -lR $PRESTO_HOME/etc
           /opt/start-prestojava.sh > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
-          sleep 60          
+          sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
           mkdir -p /tmp/aggregate_fuzzer_repro/
           rm -rfv /tmp/aggregate_fuzzer_repro/*

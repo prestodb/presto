@@ -224,6 +224,27 @@ class AggregationFuzzerBase {
       bool abandonPartial = false,
       int32_t maxDrivers = 2);
 
+  // Will throw if referenceQueryRunner doesn't support
+  // returning results as a vector.
+  std::pair<
+      std::optional<std::vector<RowVectorPtr>>,
+      AggregationFuzzerBase::ReferenceQueryErrorCode>
+  computeReferenceResultsAsVector(
+      const core::PlanNodePtr& plan,
+      const std::vector<RowVectorPtr>& input);
+
+  void compare(
+      const velox::test::ResultOrError& actual,
+      bool customVerification,
+      const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
+      const velox::test::ResultOrError& expected);
+
+  /// Returns false if the type or its children are unsupported.
+  /// Currently returns false if type is Date,IntervalDayTime or Unknown.
+  /// @param type
+  /// @return bool
+  bool isSupportedType(const TypePtr& type) const;
+
   // @param customVerification If false, results are compared as is. Otherwise,
   // only row counts are compared.
   // @param customVerifiers Custom verifier for each aggregate function. These
