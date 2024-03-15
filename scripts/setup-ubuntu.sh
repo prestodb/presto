@@ -29,14 +29,15 @@ BOOST_VERSION=boost-1.84.0
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 export CMAKE_BUILD_TYPE=Release
-export SUDO=sudo
+SUDO="${SUDO:-"sudo --preserve-env"}"
 
 # Install all velox and folly dependencies.
 # The is an issue on 22.04 where a version conflict prevents glog install,
 # installing libunwind first fixes this.
-apt update && apt install sudo
-sudo --preserve-env apt update && sudo --preserve-env apt install -y libunwind-dev && \
-  sudo --preserve-env apt install -y \
+
+${SUDO} apt update
+${SUDO} apt install -y libunwind-dev
+${SUDO} apt install -y \
   g++ \
   cmake \
   ccache \
@@ -76,7 +77,7 @@ function install_fmt {
 function install_boost {
   github_checkout boostorg/boost "${BOOST_VERSION}" --recursive
   ./bootstrap.sh --prefix=/usr/local
-  ./b2 "-j$(nproc)" -d0 install threading=multi
+  ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi
 }
 
 function install_folly {
@@ -105,17 +106,19 @@ function install_fbthrift {
 }
 
 function install_conda {
-  mkdir -p conda && cd conda
+  MINICONDA_PATH=/opt/miniconda-for-velox
+  if [ -e ${MINICONDA_PATH} ]; then
+    echo "File or directory already exists: ${MINICONDA_PATH}"
+    return
+  fi
   ARCH=$(uname -m)
-  
   if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "aarch64" ]; then
     echo "Unsupported architecture: $ARCH"
     exit 1
   fi
   
+  mkdir -p conda && cd conda
   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-$ARCH.sh
-  
-  MINICONDA_PATH=/opt/miniconda-for-velox
   bash Miniconda3-latest-Linux-$ARCH.sh -b -p $MINICONDA_PATH
 }
 
