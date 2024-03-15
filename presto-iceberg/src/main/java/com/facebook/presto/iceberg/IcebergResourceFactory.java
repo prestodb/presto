@@ -30,6 +30,7 @@ import org.apache.iceberg.catalog.SupportsNamespaces;
 
 import javax.inject.Inject;
 
+import java.sql.Driver;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -190,5 +191,16 @@ public class IcebergResourceFactory
             properties.put(PROPERTY_PREFIX + "password", jdbcConfig.getPassword().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.auth.password must be set for Jdbc Iceberg Catalog")));
         }
         return properties;
+    }
+
+    public void loadDriverClass()
+    {
+        String driverClassName = jdbcConfig.getDriverClass().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.driver-class must be set for Jdbc Iceberg Catalog"));
+        try {
+            Class.forName(driverClassName).asSubclass(Driver.class);
+        }
+        catch (ClassNotFoundException | ClassCastException e) {
+            throw new RuntimeException("Failed to load Driver class: " + driverClassName, e);
+        }
     }
 }
