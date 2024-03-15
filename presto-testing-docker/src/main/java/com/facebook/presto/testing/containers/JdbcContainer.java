@@ -23,8 +23,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.lang.String.format;
-
 public class JdbcContainer
         extends BaseTestContainer
 {
@@ -59,7 +57,6 @@ public class JdbcContainer
     {
         super.startContainer();
         log.info("Postgres server container started with address: %s", getMappedHostAndPortForExposedPort(PORT));
-
     }
 
     public String getJdbcURI()
