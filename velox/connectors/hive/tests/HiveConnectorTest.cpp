@@ -149,6 +149,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->maxArrayElementsCount(), 2);
+  ASSERT_TRUE(c0->flatMapFeatureSelection().empty());
   auto* elements = c0->childByName(ScanSpec::kArrayElementsFieldName);
   ASSERT_FALSE(elements->childByName("c0c0")->isConstant());
   ASSERT_FALSE(elements->childByName("c0c2")->isConstant());
@@ -180,6 +181,8 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
       {},
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
+  ASSERT_EQ(
+      c0->flatMapFeatureSelection(), std::vector<std::string>({"10", "20"}));
   auto* keysFilter = c0->childByName(ScanSpec::kMapKeysFieldName)->filter();
   ASSERT_TRUE(keysFilter);
   ASSERT_TRUE(applyFilter(*keysFilter, 10));
@@ -206,6 +209,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
         {},
         pool_.get());
     auto* c0 = scanSpec->childByName("c0");
+    ASSERT_TRUE(c0->flatMapFeatureSelection().empty());
     ASSERT_FALSE(c0->childByName(ScanSpec::kMapKeysFieldName)->filter());
     auto* values = c0->childByName(ScanSpec::kMapValuesFieldName);
     ASSERT_EQ(

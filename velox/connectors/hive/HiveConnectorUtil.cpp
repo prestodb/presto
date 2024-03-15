@@ -180,6 +180,7 @@ void addSubfields(
       if (stringKey) {
         deduplicate(stringSubscripts);
         filter = std::make_unique<common::BytesValues>(stringSubscripts, false);
+        spec.setFlatMapFeatureSelection(std::move(stringSubscripts));
       } else {
         deduplicate(longSubscripts);
         if (keyType->isReal()) {
@@ -189,6 +190,11 @@ void addSubfields(
         } else {
           filter = common::createBigintValues(longSubscripts, false);
         }
+        std::vector<std::string> features;
+        for (auto num : longSubscripts) {
+          features.push_back(std::to_string(num));
+        }
+        spec.setFlatMapFeatureSelection(std::move(features));
       }
       keys->setFilter(std::move(filter));
       break;
@@ -510,9 +516,16 @@ void configureRowReaderOptions(
 
   std::vector<std::string> columnNames;
   for (auto& spec : scanSpec->children()) {
-    if (!spec->isConstant()) {
-      columnNames.push_back(spec->fieldName());
+    if (spec->isConstant()) {
+      continue;
     }
+    std::string name = spec->fieldName();
+    if (!spec->flatMapFeatureSelection().empty()) {
+      name += "#[";
+      name += folly::join(',', spec->flatMapFeatureSelection());
+      name += ']';
+    }
+    columnNames.push_back(std::move(name));
   }
   std::shared_ptr<dwio::common::ColumnSelector> cs;
   if (columnNames.empty()) {

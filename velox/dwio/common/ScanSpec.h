@@ -324,6 +324,14 @@ class ScanSpec {
   // projected out.
   void addAllChildFields(const Type&);
 
+  const std::vector<std::string>& flatMapFeatureSelection() const {
+    return flatMapFeatureSelection_;
+  }
+
+  void setFlatMapFeatureSelection(std::vector<std::string> features) {
+    flatMapFeatureSelection_ = std::move(features);
+  }
+
  private:
   void reorder();
 
@@ -400,6 +408,9 @@ class ScanSpec {
   // Only take the first maxArrayElementsCount_ elements from each array.
   vector_size_t maxArrayElementsCount_ =
       std::numeric_limits<vector_size_t>::max();
+
+  // Used only for bulk reader to project flat map features.
+  std::vector<std::string> flatMapFeatureSelection_;
 };
 
 // Returns false if no value from a range defined by stats can pass the
