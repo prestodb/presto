@@ -49,7 +49,7 @@ public class JdbcContainer
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(ImmutableList.of("sh", "-c", "/postgresScript.sh"));
+        withRunCommand(ImmutableList.of("sh", "-c", "$(cat postgresScript.sh)"));
     }
 
     @Override
