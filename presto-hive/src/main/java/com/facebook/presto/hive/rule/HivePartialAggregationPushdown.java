@@ -58,6 +58,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -135,7 +136,7 @@ public class HivePartialAggregationPushdown
             }
 
             final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
-            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET && hiveStorageFormat != DWRF) {
+            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET && hiveStorageFormat != DWRF && hiveStorageFormat != ALPHA) {
                 return false;
             }
 
@@ -146,7 +147,7 @@ public class HivePartialAggregationPushdown
                 }
             }
 
-            /**
+            /*
              * Aggregation push downs are supported only on primitive types and supported aggregation functions are:
              * count(*), count(columnName), min(columnName), max(columnName)
              */
@@ -158,11 +159,11 @@ public class HivePartialAggregationPushdown
                     return false;
                 }
 
-                if (aggregation.getArguments().isEmpty() && !standardFunctionResolution.isCountFunction(functionHandle)) {
+                List<RowExpression> arguments = aggregation.getArguments();
+                if (arguments.isEmpty() && !standardFunctionResolution.isCountFunction(functionHandle)) {
                     return false;
                 }
 
-                List<RowExpression> arguments = aggregation.getArguments();
                 if (arguments.size() > 1) {
                     return false;
                 }
@@ -173,6 +174,11 @@ public class HivePartialAggregationPushdown
                     if (columnHandle.getColumnType() != REGULAR) {
                         return false;
                     }
+                }
+
+                // Alpha aggregated page source supports partial aggregation only for count_star queries
+                if (hiveStorageFormat == ALPHA && !(standardFunctionResolution.isCountFunction(functionHandle) && arguments.isEmpty())) {
+                    return false;
                 }
 
                 if (standardFunctionResolution.isMinFunction(functionHandle) || standardFunctionResolution.isMaxFunction(functionHandle)) {
