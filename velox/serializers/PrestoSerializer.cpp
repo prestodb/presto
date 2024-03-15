@@ -381,7 +381,6 @@ void readLosslessTimestampValues(
     const BufferPtr& nulls,
     vector_size_t nullCount,
     const BufferPtr& values) {
-  auto bufferSize = values->size() / sizeof(Timestamp);
   auto rawValues = values->asMutable<Timestamp>();
   checkValuesSize<Timestamp>(values, nulls, size, offset);
   if (nullCount > 0) {
@@ -424,7 +423,7 @@ void readDecimalValues(
     const BufferPtr& values) {
   auto rawValues = values->asMutable<int128_t>();
   if (nullCount) {
-    auto bufferSize = checkValuesSize<int128_t>(values, nulls, size, offset);
+    checkValuesSize<int128_t>(values, nulls, size, offset);
 
     int32_t toClear = offset;
     bits::forEachSetBit(
@@ -908,7 +907,7 @@ void readRowVector(
     }
   }
 
-  const int32_t numChildren = source->read<int32_t>();
+  source->read<int32_t>(); // numChildren
   auto& children = row->children();
 
   const auto& childTypes = type->asRow().children();
@@ -1170,7 +1169,7 @@ void readConstantVectorStructNulls(
     const TypePtr& type,
     bool useLosslessTimestamp,
     Scratch& scratch) {
-  const auto size = source->read<int32_t>();
+  source->read<int32_t>(); // size
   std::vector<TypePtr> childTypes = {type};
   readStructNullsColumns(source, childTypes, useLosslessTimestamp, scratch);
 }
@@ -1232,7 +1231,7 @@ void readRowVectorStructNulls(
     bool useLosslessTimestamp,
     Scratch& scratch) {
   auto streamPos = source->tellp();
-  const int32_t numChildren = source->read<int32_t>();
+  source->read<int32_t>(); // numChildren
   const auto& childTypes = type->asRow().children();
   readStructNullsColumns(source, childTypes, useLosslessTimestamp, scratch);
 
@@ -2706,8 +2705,6 @@ void serializeRowVector(
     VectorStream* stream,
     Scratch& scratch) {
   auto rowVector = vector->as<RowVector>();
-  vector_size_t* childRows;
-  int32_t numChildRows = 0;
   ScratchPtr<uint64_t, 4> nullsHolder(scratch);
   ScratchPtr<vector_size_t, 64> innerRowsHolder(scratch);
   auto innerRows = rows.data();
@@ -3219,7 +3216,6 @@ void estimateBiasedSerializedSize(
     const folly::Range<const vector_size_t*>& rows,
     vector_size_t** sizes,
     Scratch& scratch) {
-  auto valueSize = vector->type()->cppSizeInBytes();
   VELOX_UNSUPPORTED();
 }
 
@@ -3910,7 +3906,6 @@ void PrestoVectorSerde::deserialize(
     vector_size_t resultOffset,
     const Options* options) {
   const auto prestoOptions = toPrestoOptions(options);
-  const bool useLosslessTimestamp = prestoOptions.useLosslessTimestamp;
   const auto codec =
       common::compressionKindToCodec(prestoOptions.compressionKind);
   auto const header = PrestoHeader::read(source);
