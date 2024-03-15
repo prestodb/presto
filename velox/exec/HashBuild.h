@@ -231,13 +231,13 @@ class HashBuild final : public Operator {
   // concurrently, that is, when a thread tries to close the operator while
   // another thread is building the hash table. Refer to 'close()' and
   // finishHashBuild()' for more details.
-  std::mutex intermediateStateMutex_;
+  std::mutex mutex_;
 
   // Indicates if the intermediate state ('table_' and 'spiller_') has
   // been cleared. This can happen either when the operator is closed or when
   // the last hash build operator transfers ownership of them to itself while
   // building the final hash table.
-  bool intermediateStateCleared_{false};
+  bool stateCleared_{false};
 
   // Container for the rows being accumulated.
   std::unique_ptr<BaseHashTable> table_;
