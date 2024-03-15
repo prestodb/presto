@@ -189,6 +189,7 @@ public class IcebergResourceFactory
             properties.put(PROPERTY_PREFIX + "driver-class", jdbcConfig.getDriverClass().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.driver-class must be set for Jdbc Iceberg Catalog")));
             properties.put(PROPERTY_PREFIX + "user", jdbcConfig.getUser().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.auth.user must be set for Jdbc Iceberg Catalog")));
             properties.put(PROPERTY_PREFIX + "password", jdbcConfig.getPassword().orElseThrow(() -> new IllegalStateException("iceberg.jdbc.auth.password must be set for Jdbc Iceberg Catalog")));
+            loadDriverClass();
         }
         return properties;
     }
