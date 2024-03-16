@@ -1913,21 +1913,11 @@ public class TestHiveLogicalPlanner
                     Optional.of("min"),
                     PlanMatchPattern.functionCall("max", false, ImmutableList.of(anySymbol())));
 
+            // Negative tests
             assertPlan(partialAggregatePushdownEnabled(),
                     "select count(orderkey), max(orderpriority), min(ds) from orders_partitioned_parquet",
-                    anyTree(new PlanMatchPattern[] {aggregation(globalAggregation(), aggregations, ImmutableMap.of(), Optional.empty(), AggregationNode.Step.FINAL,
-                            exchange(LOCAL, GATHER,
-                                    new PlanMatchPattern[] {exchange(REMOTE_STREAMING, GATHER,
-                                            new PlanMatchPattern[] {tableScan(
-                                                    "orders_partitioned_parquet",
-                                                    ImmutableMap.of("orderkey",
-                                                            ImmutableSet.of(),
-                                                            "orderpriority",
-                                                            ImmutableSet.of(),
-                                                            "ds",
-                                                            ImmutableSet.of()))})}))}));
-
-            // Negative tests
+                    anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
+                    plan -> assertNoAggregatedColumns(plan, "orders_partitioned_parquet"));
             assertPlan(partialAggregatePushdownEnabled(),
                     "select count(orderkey), max(orderpriority), min(ds) from orders_partitioned_parquet where orderkey = 100",
                     anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
@@ -1940,6 +1930,10 @@ public class TestHiveLogicalPlanner
 
             assertPlan(partialAggregatePushdownEnabled(),
                     "select count(orderkey), max(orderpriority), min(ds) from orders_partitioned_parquet where ds = '2019-11-01' and orderkey = 100",
+                    anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
+                    plan -> assertNoAggregatedColumns(plan, "orders_partitioned_parquet"));
+            assertPlan(partialAggregatePushdownEnabled(),
+                    "SELECT min(ds) from orders_partitioned_parquet",
                     anyTree(PlanMatchPattern.tableScan("orders_partitioned_parquet")),
                     plan -> assertNoAggregatedColumns(plan, "orders_partitioned_parquet"));
 
