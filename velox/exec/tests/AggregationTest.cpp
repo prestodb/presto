@@ -27,7 +27,6 @@
 #include "velox/exec/GroupingSet.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
-#include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -139,8 +138,14 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
 class AggregationTest : public OperatorTestBase {
  protected:
   static void SetUpTestCase() {
+    FLAGS_velox_testing_enable_arbitration = true;
     OperatorTestBase::SetUpTestCase();
     TestValue::enable();
+  }
+
+  static void TearDownTestCase() {
+    FLAGS_velox_testing_enable_arbitration = false;
+    OperatorTestBase::TearDownTestCase();
   }
 
   void SetUp() override {
@@ -1063,10 +1068,7 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
       {QueryConfig::kMaxExtendedPartialAggregationMemory,
        std::to_string(kMaxPartialMemoryUsage)},
   });
-  {
-    static_cast<memory::MemoryPoolImpl*>(params.queryCtx->pool())
-        ->testingSetCapacity(kMaxUserMemoryUsage);
-  }
+
   core::PlanNodeId aggNodeId;
   params.planNode = PlanBuilder()
                         .values(vectors)
@@ -3028,7 +3030,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
         auto* driver = values->testingOperatorCtx()->driver();
         auto task = values->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        task->pool()->shrink();
+        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
@@ -3038,8 +3040,6 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
           ASSERT_EQ(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
-        static_cast<memory::MemoryPoolImpl*>(task->pool())
-            ->testingSetCapacity(kMaxBytes);
       }));
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
@@ -3099,7 +3099,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
         auto* driver = op->testingOperatorCtx()->driver();
         auto task = op->testingOperatorCtx()->task();
         // Shrink all the capacity before reclaim.
-        task->pool()->shrink();
+        memory::memoryManager()->arbitrator()->shrinkCapacity(task->pool(), 0);
         {
           MemoryReclaimer::Stats stats;
           SuspendedSection suspendedSection(driver);
@@ -3109,9 +3109,6 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
           ASSERT_EQ(stats.reclaimedBytes, 0);
           ASSERT_GT(stats.reclaimWaitTimeUs, 0);
         }
-        // Sets back the memory capacity to proceed the test.
-        static_cast<memory::MemoryPoolImpl*>(task->pool())
-            ->testingSetCapacity(kMaxBytes);
       })));
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
@@ -3191,19 +3188,16 @@ TEST_F(AggregationTest, maxSpillBytes) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+    auto fakeQueryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     std::shared_ptr<core::QueryCtx> aggregationQueryCtx;
     if (sameQuery) {
       aggregationQueryCtx = fakeQueryCtx;
     } else {
-      aggregationQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      aggregationQueryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     }
 
     folly::EventCount arbitrationWait;
@@ -3259,10 +3253,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
 
     auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
-
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
+        "fakePool", true, exec::MemoryReclaimer::create());
+    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
 
     aggregationThread.join();
 
@@ -3273,13 +3265,17 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
 TEST_F(AggregationTest, reclaimFromDistinctAggregation) {
   const uint64_t maxQueryCapacity = 20L << 20;
   std::vector<RowVectorPtr> vectors =
-      createVectors(rowType_, maxQueryCapacity * 2, fuzzerOpts_);
+      createVectors(rowType_, maxQueryCapacity * 10, fuzzerOpts_);
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
-  std::shared_ptr<core::QueryCtx> queryCtx =
-      newQueryCtx(memoryManager, executor_, maxQueryCapacity);
+  std::shared_ptr<core::QueryCtx> queryCtx = std::make_shared<core::QueryCtx>(
+      executor_.get(),
+      core::QueryConfig({}),
+      std::unordered_map<std::string, std::shared_ptr<Config>>{},
+      cache::AsyncDataCache::getInstance(),
+      memory::memoryManager()->addRootPool(
+          "test-root", maxQueryCapacity, exec::MemoryReclaimer::create()));
   auto task = AssertQueryBuilder(duckDbQueryRunner_)
                   .spillDirectory(spillDirectory->path)
                   .config(core::QueryConfig::kSpillEnabled, true)
@@ -3301,19 +3297,17 @@ TEST_F(AggregationTest, reclaimFromDistinctAggregation) {
 DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationOnNoMoreInput) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+        std::make_shared<core::QueryCtx>(executor_.get());
     std::shared_ptr<core::QueryCtx> aggregationQueryCtx;
     if (sameQuery) {
       aggregationQueryCtx = fakeQueryCtx;
     } else {
-      aggregationQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      aggregationQueryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     }
 
     folly::EventCount arbitrationWait;
@@ -3369,11 +3363,10 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationOnNoMoreInput) {
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
     ASSERT_TRUE(injectedPool != nullptr);
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
 
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
+    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
+        "fakePool", true, exec::MemoryReclaimer::create());
+    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
 
     aggregationThread.join();
 
@@ -3392,19 +3385,17 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationDuringOutput) {
   }
 
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+        std::make_shared<core::QueryCtx>(executor_.get());
     std::shared_ptr<core::QueryCtx> aggregationQueryCtx;
     if (sameQuery) {
       aggregationQueryCtx = fakeQueryCtx;
     } else {
-      aggregationQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      aggregationQueryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     }
 
     folly::EventCount arbitrationWait;
@@ -3459,10 +3450,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationDuringOutput) {
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
 
     auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
-
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
+        "fakePool", true, exec::MemoryReclaimer::create());
+    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
 
     aggregationThread.join();
 
@@ -3473,19 +3462,17 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationDuringOutput) {
 TEST_F(AggregationTest, reclaimFromCompletedAggregation) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
   std::vector<bool> sameQueries = {false, true};
   for (bool sameQuery : sameQueries) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+        std::make_shared<core::QueryCtx>(executor_.get());
     std::shared_ptr<core::QueryCtx> aggregationQueryCtx;
     if (sameQuery) {
       aggregationQueryCtx = fakeQueryCtx;
     } else {
-      aggregationQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      aggregationQueryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     }
 
     folly::EventCount arbitrationWait;
@@ -3509,10 +3496,8 @@ TEST_F(AggregationTest, reclaimFromCompletedAggregation) {
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
 
     auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
-
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
+        "fakePool", true, exec::MemoryReclaimer::create());
+    fakePool->maybeReserve(memory::memoryManager()->arbitrator()->capacity());
 
     aggregationThread.join();
 

@@ -886,7 +886,8 @@ void GroupingSet::ensureOutputFits() {
 
   // Test-only spill path.
   if (testingTriggerSpill()) {
-    spill(RowContainerIterator{});
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
+    memory::testingRunArbitration(&pool_);
     return;
   }
 

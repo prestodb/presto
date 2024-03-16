@@ -457,6 +457,16 @@ class TestBadMemoryTranslator : public exec::Operator::PlanNodeTranslator {
 } // namespace
 class TaskTest : public HiveConnectorTestBase {
  protected:
+  static void SetUpTestCase() {
+    FLAGS_velox_testing_enable_arbitration = true;
+    OperatorTestBase::SetUpTestCase();
+  }
+
+  static void TearDownTestCase() {
+    FLAGS_velox_testing_enable_arbitration = false;
+    OperatorTestBase::TearDownTestCase();
+  }
+
   static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>
   executeSingleThreaded(
       core::PlanFragment plan,

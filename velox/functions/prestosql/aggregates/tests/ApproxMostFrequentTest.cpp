@@ -137,7 +137,9 @@ TYPED_TEST(ApproxMostFrequentTest, emptyGroup) {
 using ApproxMostFrequentTestInt = ApproxMostFrequentTest<int>;
 
 TEST_F(ApproxMostFrequentTestInt, invalidBuckets) {
-  static_cast<memory::MemoryPoolImpl*>(pool())->testingSetCapacity(1 << 21);
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "test-root", 1 << 21, exec::MemoryReclaimer::create());
+  auto leafPool = rootPool->addLeafChild("test-leaf");
   auto run = [&](int64_t buckets) {
     auto rows = makeRowVector({
         makeConstant<int64_t>(buckets, buckets),
@@ -148,7 +150,7 @@ TEST_F(ApproxMostFrequentTestInt, invalidBuckets) {
                     .values({rows})
                     .singleAggregation({}, {"approx_most_frequent(c0, c1, c2)"})
                     .planNode();
-    return exec::test::AssertQueryBuilder(plan).copyResults(pool());
+    return exec::test::AssertQueryBuilder(plan).copyResults(leafPool.get());
   };
   ASSERT_EQ(run(10)->size(), 1);
   try {
