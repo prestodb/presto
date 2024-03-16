@@ -2642,7 +2642,13 @@ TEST_P(MultiThreadedHashJoinTest, leftJoinWithNullableFilter) {
 
   std::vector<RowVectorPtr> buildVectors =
       makeBatches(5, [&](int32_t /*unused*/) {
-        return makeRowVector({makeFlatVector<int32_t>({1, 2, 10, 30, 40})});
+        return makeRowVector(
+            {makeFlatVector<int32_t>(128, [](vector_size_t row) {
+              if (row < 3) {
+                return row;
+              }
+              return row + 10;
+            })});
       });
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
