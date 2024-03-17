@@ -433,7 +433,7 @@ void RowNumber::spill() {
 
   spillPartitionBits_ = HashBitRange(
       spillConfig_->startPartitionBit,
-      spillConfig_->startPartitionBit + spillConfig_->joinPartitionBits);
+      spillConfig_->startPartitionBit + spillConfig_->numPartitionBits);
 
   const auto spillPartitionSet = spillHashTable();
 

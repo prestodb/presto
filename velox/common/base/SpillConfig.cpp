@@ -29,8 +29,7 @@ SpillConfig::SpillConfig(
     int32_t _minSpillableReservationPct,
     int32_t _spillableReservationGrowthPct,
     uint8_t _startPartitionBit,
-    uint8_t _joinPartitionBits,
-    uint8_t _rowNumberPartitionBits,
+    uint8_t _numPartitionBits,
     int32_t _maxSpillLevel,
     uint64_t _maxSpillRunRows,
     uint64_t _writerFlushThresholdSize,
@@ -48,8 +47,7 @@ SpillConfig::SpillConfig(
       minSpillableReservationPct(_minSpillableReservationPct),
       spillableReservationGrowthPct(_spillableReservationGrowthPct),
       startPartitionBit(_startPartitionBit),
-      joinPartitionBits(_joinPartitionBits),
-      rowNumberPartitionBits(_rowNumberPartitionBits),
+      numPartitionBits(_numPartitionBits),
       maxSpillLevel(_maxSpillLevel),
       maxSpillRunRows(_maxSpillRunRows),
       writerFlushThresholdSize(_writerFlushThresholdSize),
@@ -61,9 +59,7 @@ SpillConfig::SpillConfig(
       "Spillable memory reservation growth pct should not be lower than minimum available pct");
 }
 
-int32_t SpillConfig::spillLevel(
-    uint8_t startBitOffset,
-    uint8_t numPartitionBits) const {
+int32_t SpillConfig::spillLevel(uint8_t startBitOffset) const {
   VELOX_CHECK_LE(
       startBitOffset + numPartitionBits,
       64,
@@ -90,6 +86,6 @@ bool SpillConfig::exceedSpillLevelLimit(
   if (maxSpillLevel == -1) {
     return false;
   }
-  return spillLevel(startBitOffset, numPartitionBits) > maxSpillLevel;
+  return spillLevel(startBitOffset) > maxSpillLevel;
 }
 } // namespace facebook::velox::common

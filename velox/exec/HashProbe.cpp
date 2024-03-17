@@ -252,7 +252,7 @@ void HashProbe::maybeSetupSpillInput(
       HashBitRange(
           spillInputPartitionIds_.begin()->partitionBitOffset(),
           spillInputPartitionIds_.begin()->partitionBitOffset() +
-              spillConfig.joinPartitionBits),
+              spillConfig.numPartitionBits),
       &spillConfig);
   // Set the spill partitions to the corresponding ones at the build side. The
   // hash probe operator itself won't trigger any spilling.
