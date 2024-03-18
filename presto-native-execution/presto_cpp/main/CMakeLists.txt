@@ -20,6 +20,7 @@ add_library(
   Announcer.cpp
   CPUMon.cpp
   CoordinatorDiscoverer.cpp
+  PeriodicMemoryChecker.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
   PrestoServer.cpp
@@ -47,6 +48,7 @@ target_link_libraries(
   presto_http
   presto_operators
   velox_aggregates
+  velox_caching
   velox_core
   velox_dwio_common_exception
   velox_encode
