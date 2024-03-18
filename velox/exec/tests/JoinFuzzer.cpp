@@ -50,6 +50,15 @@ DEFINE_double(
 
 DEFINE_bool(enable_spill, true, "Whether to test plans with spilling enabled");
 
+DEFINE_bool(
+    enable_oom_injection,
+    false,
+    "When enabled OOMs will randomly be triggered while executing query "
+    "plans. The goal of this mode is to ensure unexpected exceptions "
+    "aren't thrown and the process isn't killed in the process of cleaning "
+    "up after failures. Therefore, results are not compared when this is "
+    "enabled. Note that this option only works in debug builds.");
+
 namespace facebook::velox::exec::test {
 
 namespace {
@@ -412,8 +421,28 @@ RowVectorPtr JoinFuzzer::execute(const PlanWithSplits& plan, bool injectSpill) {
     spillPct = 100;
   }
 
+  ScopedOOMInjector oomInjector(
+      []() -> bool { return folly::Random::oneIn(10); },
+      10); // Check the condition every 10 ms.
+  if (FLAGS_enable_oom_injection) {
+    oomInjector.enable();
+  }
+
   TestScopedSpillInjection scopedSpillInjection(spillPct);
-  const auto result = builder.maxDrivers(2).copyResults(pool_.get());
+  RowVectorPtr result;
+  try {
+    result = builder.maxDrivers(2).copyResults(pool_.get());
+  } catch (VeloxRuntimeError& e) {
+    if (FLAGS_enable_oom_injection &&
+        e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
+        e.message() == ScopedOOMInjector::kErrorMessage) {
+      // If we enabled OOM injection we expect the exception thrown by the
+      // ScopedOOMInjector.
+      return nullptr;
+    }
+
+    throw e;
+  }
   LOG(INFO) << "Results: " << result->toString();
   if (VLOG_IS_ON(1)) {
     VLOG(1) << std::endl << result->toString(0, result->size());
@@ -915,13 +944,15 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   const auto expected = execute(defaultPlan, /*injectSpill=*/false);
 
-  // Verify results against DuckDB.
-  if (auto duckDbResult =
-          computeDuckDbResult(probeInput, buildInput, defaultPlan.plan)) {
-    VELOX_CHECK(
-        assertEqualResults(
-            duckDbResult.value(), defaultPlan.plan->outputType(), {expected}),
-        "Velox and DuckDB results don't match");
+  // If OOM injection is not enabled verify the results against DuckDB.
+  if (!FLAGS_enable_oom_injection) {
+    if (auto duckDbResult =
+            computeDuckDbResult(probeInput, buildInput, defaultPlan.plan)) {
+      VELOX_CHECK(
+          assertEqualResults(
+              duckDbResult.value(), defaultPlan.plan->outputType(), {expected}),
+          "Velox and DuckDB results don't match");
+    }
   }
 
   std::vector<PlanWithSplits> altPlans;
@@ -949,9 +980,14 @@ void JoinFuzzer::verify(core::JoinType joinType) {
   for (auto i = 0; i < altPlans.size(); ++i) {
     LOG(INFO) << "Testing plan #" << i;
     auto actual = execute(altPlans[i], /*injectSpill=*/false);
-    VELOX_CHECK(
-        assertEqualResults({expected}, {actual}),
-        "Logically equivalent plans produced different results");
+    if (actual != nullptr) {
+      VELOX_CHECK(
+          assertEqualResults({expected}, {actual}),
+          "Logically equivalent plans produced different results");
+    } else {
+      VELOX_CHECK(
+          FLAGS_enable_oom_injection, "Got unexpected nullptr for results");
+    }
 
     if (FLAGS_enable_spill) {
       // Spilling for right semi project doesn't work yet.
@@ -964,9 +1000,14 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
       LOG(INFO) << "Testing plan #" << i << " with spilling";
       actual = execute(altPlans[i], /*=injectSpill=*/true);
-      VELOX_CHECK(
-          assertEqualResults({expected}, {actual}),
-          "Logically equivalent plans produced different results");
+      if (actual != nullptr) {
+        VELOX_CHECK(
+            assertEqualResults({expected}, {actual}),
+            "Logically equivalent plans produced different results");
+      } else {
+        VELOX_CHECK(
+            FLAGS_enable_oom_injection, "Got unexpected nullptr for results");
+      }
     }
   }
 }
