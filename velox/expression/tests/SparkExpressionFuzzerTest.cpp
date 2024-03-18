@@ -48,6 +48,8 @@ int main(int argc, char** argv) {
   // rlike, md5 and upper
   std::unordered_set<std::string> skipFunctions = {
       "regexp_extract",
+      // https://github.com/facebookincubator/velox/issues/8438
+      "regexp_replace",
       "rlike",
       "chr",
       "replace",

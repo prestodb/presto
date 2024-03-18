@@ -128,6 +128,8 @@ void registerFunctions(const std::string& prefix) {
   // Register size functions
   registerSize(prefix + "size");
 
+  registerRegexpReplace(prefix);
+
   registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {prefix + "get_json_object"});
 

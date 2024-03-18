@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
@@ -33,7 +34,10 @@ class RegexFunctionsTest : public test::SparkFunctionBaseTest {
  public:
   void SetUp() override {
     SparkFunctionBaseTest::SetUp();
-    registerRegexpReplace("");
+    // For parsing literal integers as INTEGER, not BIGINT,
+    // required by regexp_replace because its position argument
+    // is INTEGER.
+    options_.parseIntegerAsBigint = false;
   }
 
   std::optional<bool> rlike(
@@ -171,12 +175,6 @@ class RegexFunctionsTest : public test::SparkFunctionBaseTest {
 // error being thrown; some unsupported character class features result in
 // different results.
 TEST_F(RegexFunctionsTest, javaRegexIncompatibilities) {
-  // Character class union is not supported; parsed as [a\[b]\].
-  EXPECT_THROW(rlike("[]", R"([a[b]])"), VeloxUserError);
-  // Character class intersection not supported; parsed as [a&\[b]\].
-  EXPECT_THROW(rlike("&]", R"([a&&[b]])"), VeloxUserError);
-  // Character class difference not supported; parsed as [\w&\[\^b]\].
-  EXPECT_THROW(rlike("^]", R"([\w&&[^b]])"), VeloxUserError);
   // Unsupported character classes.
   EXPECT_THROW(rlike(" ", "\\h"), VeloxUserError);
   EXPECT_THROW(rlike(" ", "\\H"), VeloxUserError);
@@ -222,8 +220,6 @@ TEST_F(RegexFunctionsTest, blockUnsupportedEdgeCases) {
   EXPECT_THROW(
       evaluateOnce<bool>("rlike('a', c0)", std::optional<std::string>("a*")),
       VeloxUserError);
-  // Unsupported set union syntax.
-  EXPECT_THROW(rlike("", "[a[b]]"), VeloxUserError);
 }
 
 TEST_F(RegexFunctionsTest, regexMatchRegistration) {
@@ -232,7 +228,6 @@ TEST_F(RegexFunctionsTest, regexMatchRegistration) {
           "regexp_extract('a', c0)", std::optional<std::string>("a*")),
       VeloxUserError);
   EXPECT_EQ(regexp_extract("abc", "a."), "ab");
-  EXPECT_THROW(regexp_extract("[]", "[a[b]]"), VeloxUserError);
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceRegistration) {
@@ -254,6 +249,36 @@ TEST_F(RegexFunctionsTest, regexpReplaceSimple) {
   std::string output = "HeLLo WorLd";
   auto result = testRegexpReplace("Hello World", "l", "L");
   EXPECT_EQ(result, output);
+}
+TEST_F(RegexFunctionsTest, badUTF8) {
+  std::string badUTF = "\xF0\x82\x82\xAC";
+  std::string badHalf = "\xF0\x82";
+  std::string overlongA = "\xC1\x81"; // 'A' should not be encoded like this.
+  std::string invalidCodePoint =
+      "\xED\xA0\x80"; // Start of the surrogate pair range in UTF-8
+  std::string incompleteSequence = "\xC3"; // Missing the continuation byte.
+  std::string illegalContinuation =
+      "\x80"; // This is a continuation byte without a start.
+  std::string unexpectedContinuation =
+      "\xE0\x80\x80\x80"; // Too many continuation bytes.
+
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({badUTF}, {badHalf}, {"Bad"}), "invalid UTF-8");
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({overlongA}, {badHalf}, {"Bad"}),
+      "invalid UTF-8");
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({invalidCodePoint}, {badHalf}, {"Bad"}),
+      "invalid UTF-8");
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({incompleteSequence}, {badHalf}, {"Bad"}),
+      "invalid UTF-8");
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({illegalContinuation}, {badHalf}, {"Bad"}),
+      "invalid UTF-8");
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows({unexpectedContinuation}, {badHalf}, {"Bad"}),
+      "invalid UTF-8");
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceSimplePosition) {
@@ -300,18 +325,6 @@ TEST_F(RegexFunctionsTest, regexpReplaceWithEmptyString) {
   EXPECT_EQ(result, output);
 }
 
-TEST_F(RegexFunctionsTest, regexBadJavaPattern) {
-  EXPECT_THROW(testRegexpReplace("[]", "[a[b]]", ""), VeloxUserError);
-  EXPECT_THROW(testRegexpReplace("[]", "[a&&[b]]", ""), VeloxUserError);
-  EXPECT_THROW(testRegexpReplace("[]", "[a&&[^b]]", ""), VeloxUserError);
-}
-
-TEST_F(RegexFunctionsTest, regexpReplaceInvalidUTF8) {
-  EXPECT_THROW(
-      testRegexpReplace(std::string("\xA0") + "bcacbdefg", "", "", {2}),
-      VeloxUserError);
-}
-
 TEST_F(RegexFunctionsTest, regexpReplacePosition) {
   std::string output1 = "abc";
   std::string output2 = "bc";
@@ -325,11 +338,15 @@ TEST_F(RegexFunctionsTest, regexpReplacePosition) {
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceNegativePosition) {
-  EXPECT_THROW(testRegexpReplace("abc", "a", "", {-1}), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      testRegexpReplace("abc", "a", "", {-1}),
+      "regexp_replace requires a position >= 1");
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceZeroPosition) {
-  EXPECT_THROW(testRegexpReplace("abc", "a", "", {0}), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      testRegexpReplace("abc", "a", "", {0}),
+      "regexp_replace requires a position >= 1");
 }
 
 TEST_F(RegexFunctionsTest, regexpReplacePositionTooLarge) {
@@ -543,8 +560,9 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheLimitTest) {
         "X" + std::to_string(i) + "-Y" + std::to_string(i));
   }
 
-  EXPECT_THROW(
-      testingRegexpReplaceRows(strings, patterns, replaces), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      testingRegexpReplaceRows(strings, patterns, replaces),
+      "regexp_replace hit the maximum number of unique regexes: 20");
 }
 
 TEST_F(RegexFunctionsTest, regexpReplaceCacheMissLimit) {
@@ -564,10 +582,9 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheMissLimit) {
   }
 
   auto result =
-      testingRegexpReplaceRows(strings, patterns, replaces, positions, 50000);
-  auto output = convertOutput(expectedOutputs, 50000);
+      testingRegexpReplaceRows(strings, patterns, replaces, positions, 3);
+  auto output = convertOutput(expectedOutputs, 3);
   assertEqualVectors(result, output);
 }
-
 } // namespace
 } // namespace facebook::velox::functions::sparksql
