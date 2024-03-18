@@ -230,15 +230,15 @@ TEST_F(GenericViewTest, toString) {
 
     auto mapView = reader[0];
     auto it = mapView.begin();
-    EXPECT_EQ(keys->toString(0), it->first.toString());
-    EXPECT_EQ(values->toString(0), it->second.value().toString());
-
-    ++it;
-    EXPECT_EQ(keys->toString(1), it->first.toString());
-
-    ++it;
-    EXPECT_EQ(keys->toString(2), it->first.toString());
-    EXPECT_EQ(values->toString(2), it->second.value().toString());
+    for (auto i = 0; i < 3; ++i) {
+      EXPECT_EQ(keys->toString(i), it->first.toString());
+      if (values->isNullAt(i)) {
+        EXPECT_FALSE(it->second.has_value());
+      } else {
+        EXPECT_EQ(values->toString(i), it->second->toString());
+      }
+      ++it;
+    }
   }
 }
 
