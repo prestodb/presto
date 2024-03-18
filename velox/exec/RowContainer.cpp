@@ -282,7 +282,7 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
     auto rows = folly::Range<char**>(&row, 1);
     freeVariableWidthFields(rows);
     freeAggregates(rows);
-  } else if (rowSizeOffset_ != 0 && checkFree_) {
+  } else if (rowSizeOffset_ != 0) {
     // zero out string views so that clear() will not hit uninited data. The
     // fastest way is to set the whole row to 0.
     ::memset(row, 0, fixedRowSize_);
@@ -517,9 +517,11 @@ int32_t RowContainer::storeVariableSizeAt(
   const auto size = *reinterpret_cast<const int32_t*>(data);
 
   if (typeKind == TypeKind::VARCHAR || typeKind == TypeKind::VARBINARY) {
-    valueAt<StringView>(row, rowColumn.offset()) = StringView(data + 4, size);
     if (size > 0) {
-      stringAllocator_->copyMultipart(row, rowColumn.offset());
+      stringAllocator_->copyMultipart(
+          StringView(data + 4, size), row, rowColumn.offset());
+    } else {
+      valueAt<StringView>(row, rowColumn.offset()) = StringView();
     }
   } else {
     if (size > 0) {

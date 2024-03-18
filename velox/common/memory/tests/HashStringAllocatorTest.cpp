@@ -578,7 +578,7 @@ TEST_F(HashStringAllocatorTest, strings) {
     }
     strings.push_back(str);
     views.push_back(StringView(str.data(), str.size()));
-    allocator_->copyMultipart(reinterpret_cast<char*>(&views[i]), 0);
+    allocator_->copyMultipart(views[i], reinterpret_cast<char*>(&views[i]), 0);
     if (i % 10 == 0) {
       allocator_->checkConsistency();
     }
@@ -664,7 +664,7 @@ TEST_F(HashStringAllocatorTest, storeStringFast) {
   allocator_->allocate(HashStringAllocator::kMinAlloc);
   std::string s(allocator_->freeSpace() + sizeof(void*), 'x');
   StringView sv(s);
-  allocator_->copyMultipart(reinterpret_cast<char*>(&sv), 0);
+  allocator_->copyMultipart(sv, reinterpret_cast<char*>(&sv), 0);
   ASSERT_NE(sv.data(), s.data());
   ASSERT_EQ(sv, StringView(s));
   allocator_->checkConsistency();

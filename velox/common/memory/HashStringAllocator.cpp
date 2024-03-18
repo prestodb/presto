@@ -594,21 +594,24 @@ inline bool HashStringAllocator::storeStringFast(
   return true;
 }
 
-void HashStringAllocator::copyMultipartNoInline(char* group, int32_t offset) {
-  auto* string = reinterpret_cast<StringView*>(group + offset);
-  const auto numBytes = string->size();
-  if (storeStringFast(string->data(), numBytes, group + offset)) {
+void HashStringAllocator::copyMultipartNoInline(
+    const StringView& srcStr,
+    char* group,
+    int32_t offset) {
+  const auto numBytes = srcStr.size();
+  if (storeStringFast(srcStr.data(), numBytes, group + offset)) {
     return;
   }
   // Write the string as non-contiguous chunks.
   ByteOutputStream stream(this, false, false);
   auto position = newWrite(stream, numBytes);
-  stream.appendStringView(*string);
+  stream.appendStringView(srcStr);
   finishWrite(stream, 0);
 
   // The stringView has a pointer to the first byte and the total
   // size. Read with contiguousString().
-  *string = StringView(reinterpret_cast<char*>(position.position), numBytes);
+  *reinterpret_cast<StringView*>(group + offset) =
+      StringView(reinterpret_cast<char*>(position.position), numBytes);
 }
 
 std::string HashStringAllocator::toString() const {

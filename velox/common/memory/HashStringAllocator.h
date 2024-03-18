@@ -179,31 +179,19 @@ class HashStringAllocator : public StreamArena {
 
   ~HashStringAllocator();
 
-  /// Copies a StringView at 'offset' in 'group' to storage owned by the hash
-  /// table. Updates the StringView.
-  void copy(char* group, int32_t offset) {
-    StringView* string = reinterpret_cast<StringView*>(group + offset);
-    if (string->isInline()) {
+  // Copies the StringView 'srcStr' to storage owned by 'this'. Creates a new
+  // StringView at 'offset' in 'group' pointing to the copy. A large string may
+  // be copied into non-contiguous allocation pieces. The size in the StringView
+  // is the sum of the sizes. The pieces are linked via Headers, the first
+  // header is below the first byte of the StringView's data. StringViews
+  // written by this are to be read with contiguousString(). This is nearly
+  // always zero copy but will accommodate the odd extra large string.
+  void copyMultipart(const StringView& str, char* group, int32_t offset) {
+    if (str.isInline()) {
+      *reinterpret_cast<StringView*>(group + offset) = str;
       return;
     }
-    auto* data = pool_.allocateFixed(string->size());
-    ::memcpy(data, string->data(), string->size());
-    *string = StringView(data, string->size());
-  }
-
-  /// Copies a StringView at 'offset' in 'group' to storage owned by 'this'.
-  /// Updates the StringView. A large string may be copied into non-contiguous
-  /// allocation pieces. The size in the StringView is the sum of the sizes. The
-  /// pieces are linked via Headers, the first header is below the first byte of
-  /// the StringView's data. StringViews written by this are to be read with
-  /// contiguousString(). This is nearly always zero copy but will accommodate
-  /// the odd extra large string.
-  void copyMultipart(char* group, int32_t offset) {
-    auto* string = reinterpret_cast<StringView*>(group + offset);
-    if (string->isInline()) {
-      return;
-    }
-    copyMultipartNoInline(group, offset);
+    copyMultipartNoInline(str, group, offset);
   }
 
   /// Returns a contiguous view on 'view', where 'view' comes from
@@ -394,7 +382,8 @@ class HashStringAllocator : public StreamArena {
   // blocks would be below minimum size.
   void freeRestOfBlock(Header* header, int32_t keepBytes);
 
-  void copyMultipartNoInline(char* group, int32_t offset);
+  void
+  copyMultipartNoInline(const StringView& str, char* group, int32_t offset);
 
   // Fast path for storing a string as a single part. Returns true if succeeded,
   // has no effect if returns false.

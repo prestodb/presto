@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
@@ -23,11 +24,13 @@
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::test;
+using namespace facebook::velox::common::testutil;
 
 class RowContainerTest : public exec::test::RowContainerTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
+    TestValue::enable();
   }
 
   void testExtractColumn(
@@ -1816,4 +1819,30 @@ TEST_F(RowContainerTest, extractSerializedRow) {
 
     assertEqualVectors(data, copy);
   }
+}
+
+DEBUG_ONLY_TEST_F(RowContainerTest, eraseAfterOomStoringString) {
+  auto rowContainer = makeRowContainer({VARCHAR()}, {});
+
+  std::string str(StringView::kInlineSize * 2, 'a');
+  auto stringVector = vectorMaker_.flatVector<StringView>(
+      1, [&](auto /*row*/) { return StringView(str); });
+  SelectivityVector allRows(1);
+  DecodedVector decoded(*stringVector, allRows);
+  auto row = rowContainer->newRow();
+  const std::string exceptionMsg = "Expected simulated OOM.";
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+      std::function<void(memory::MemoryPool*)>(
+          [&](memory::MemoryPool*) { VELOX_FAIL(exceptionMsg); }));
+  VELOX_ASSERT_THROW(rowContainer->store(decoded, 0, row, 0), exceptionMsg);
+
+  std::vector<char*> rows(1);
+  RowContainerIterator iter;
+  auto numRows = rowContainer->listRows(&iter, 1, rows.data());
+  VELOX_CHECK_EQ(numRows, 1);
+  // If the StringView was placed in the row before the memory was
+  // allocated in the container's string allocator, this will fail
+  // attempting to free a string the allocator doesn't own.
+  rowContainer->eraseRows(folly::Range<char**>(rows.data(), numRows));
 }
