@@ -182,6 +182,7 @@ class ApplyNeverCalled final : public VectorFunction {
 class SimpleFunctionAdapterFactory {
  public:
   virtual std::unique_ptr<VectorFunction> createVectorFunction(
+      const std::vector<TypePtr>& inputTypes,
       const std::vector<VectorPtr>& constantInputs,
       const core::QueryConfig& config) const = 0;
   virtual ~SimpleFunctionAdapterFactory() = default;

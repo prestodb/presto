@@ -992,7 +992,7 @@ VectorPtr testVariadicArgReuse(
       exec::simpleFunctions()
           .resolveFunction(functionName, {})
           ->createFunction()
-          ->createVectorFunction({}, execCtx->queryCtx()->queryConfig());
+          ->createVectorFunction({}, {}, execCtx->queryCtx()->queryConfig());
 
   // Create a dummy EvalCtx.
   SelectivityVector rows(inputs[0]->size());

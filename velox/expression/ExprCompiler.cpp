@@ -434,12 +434,12 @@ ExprPtr compileRewrittenExpression(
           simpleFunctionEntry->type(),
           resultType,
           folly::join(", ", inputTypes));
-      auto func_2 = simpleFunctionEntry->createFunction()->createVectorFunction(
-          getConstantInputs(compiledInputs), config);
+      auto func = simpleFunctionEntry->createFunction()->createVectorFunction(
+          inputTypes, getConstantInputs(compiledInputs), config);
       result = std::make_shared<Expr>(
           resultType,
           std::move(compiledInputs),
-          std::move(func_2),
+          std::move(func),
           call->name(),
           trackCpuUsage);
     } else {

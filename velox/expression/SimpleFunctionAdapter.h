@@ -227,7 +227,8 @@ class SimpleFunctionAdapter : public VectorFunction {
   }
 
  public:
-  explicit SimpleFunctionAdapter(
+  SimpleFunctionAdapter(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs)
       : fn_{std::make_unique<FUNC>()} {
@@ -901,10 +902,11 @@ class SimpleFunctionAdapterFactoryImpl : public SimpleFunctionAdapterFactory {
   explicit SimpleFunctionAdapterFactoryImpl() {}
 
   std::unique_ptr<VectorFunction> createVectorFunction(
+      const std::vector<TypePtr>& inputTypes,
       const std::vector<VectorPtr>& constantInputs,
       const core::QueryConfig& config) const override {
     return std::make_unique<SimpleFunctionAdapter<UDFHolder>>(
-        config, constantInputs);
+        inputTypes, config, constantInputs);
   }
 };
 
