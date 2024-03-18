@@ -128,6 +128,8 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -409,7 +411,10 @@ public class LocalQueryRunner
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
-        this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(pluginNodeManager, getFunctionAndTypeManager());
+        this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(
+                pluginNodeManager,
+                getFunctionAndTypeManager(),
+                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(featuresConfig)));
 
         this.metadata = new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),

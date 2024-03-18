@@ -149,7 +149,6 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
-    public static final String TOPN_SPILL_ENABLED = "topn_spill_enabled";
     public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
     public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
     public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
@@ -783,11 +782,6 @@ public final class SystemSessionProperties
                         AGGREGATION_SPILL_ENABLED,
                         "Enable aggregate spilling if spill_enabled",
                         featuresConfig.isAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        TOPN_SPILL_ENABLED,
-                        "Enable topN spilling if spill_enabled",
-                        featuresConfig.isTopNSpillEnabled(),
                         false),
                 booleanProperty(
                         DISTINCT_AGGREGATION_SPILL_ENABLED,
@@ -2301,11 +2295,6 @@ public final class SystemSessionProperties
     public static boolean isAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isTopNSpillEnabled(Session session)
-    {
-        return session.getSystemProperty(TOPN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static boolean isDistinctAggregationSpillEnabled(Session session)

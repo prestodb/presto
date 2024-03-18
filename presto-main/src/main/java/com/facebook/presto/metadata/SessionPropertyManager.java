@@ -157,7 +157,6 @@ public final class SessionPropertyManager
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
-
         if (systemSessionProperties.get(name) == null) {
             updateWorkerSessionProperties();
             return Optional.ofNullable(workerSessionProperties.get(name));
