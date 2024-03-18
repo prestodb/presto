@@ -79,8 +79,8 @@ uint64_t StringIdMap::makeId(std::string_view string) {
   entry.numInUse = 1;
   pinnedSize_ += entry.string.size();
   auto id = entry.id;
-  auto& entryInTable = idToString_[id] = std::move(entry);
-  stringToId_[entryInTable.string] = entry.id;
+  idToString_[id] = std::move(entry);
+  stringToId_[string] = id;
   return lastId_;
 }
 
