@@ -659,21 +659,21 @@ public class OperatorStats
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
-        long addInputAllocation = this.addInputAllocation.toBytes();
-        long rawInputDataSize = this.rawInputDataSize.toBytes();
+        double addInputAllocation = this.addInputAllocation.toBytes();
+        double rawInputDataSize = this.rawInputDataSize.toBytes();
         long rawInputPositions = this.rawInputPositions;
-        long inputDataSize = this.inputDataSize.toBytes();
+        double inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
         long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
-        long getOutputAllocation = this.getOutputAllocation.toBytes();
-        long outputDataSize = this.outputDataSize.toBytes();
+        double getOutputAllocation = this.getOutputAllocation.toBytes();
+        double outputDataSize = this.outputDataSize.toBytes();
         long outputPositions = this.outputPositions;
 
-        long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
+        double physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
         long additionalCpu = this.additionalCpu.roundTo(NANOSECONDS);
         long blockedWall = this.blockedWall.roundTo(NANOSECONDS);
@@ -683,14 +683,14 @@ public class OperatorStats
         long finishCpu = this.finishCpu.roundTo(NANOSECONDS);
         long finishAllocation = this.finishAllocation.toBytes();
 
-        long memoryReservation = this.userMemoryReservation.toBytes();
-        long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
-        long systemMemoryReservation = this.systemMemoryReservation.toBytes();
-        long peakUserMemory = this.peakUserMemoryReservation.toBytes();
-        long peakSystemMemory = this.peakSystemMemoryReservation.toBytes();
-        long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
+        double memoryReservation = this.userMemoryReservation.toBytes();
+        double revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
+        double systemMemoryReservation = this.systemMemoryReservation.toBytes();
+        double peakUserMemory = this.peakUserMemoryReservation.toBytes();
+        double peakSystemMemory = this.peakSystemMemoryReservation.toBytes();
+        double peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
-        long spilledDataSize = this.spilledDataSize.toBytes();
+        double spilledDataSize = this.spilledDataSize.toBytes();
 
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
@@ -774,21 +774,21 @@ public class OperatorStats
                 addInputCalls,
                 succinctNanos(addInputWall),
                 succinctNanos(addInputCpu),
-                succinctBytes(addInputAllocation),
-                succinctBytes(rawInputDataSize),
+                succinctBytes((long) addInputAllocation),
+                succinctBytes((long) rawInputDataSize),
                 rawInputPositions,
-                succinctBytes(inputDataSize),
+                succinctBytes((long) inputDataSize),
                 inputPositions,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
                 succinctNanos(getOutputWall),
                 succinctNanos(getOutputCpu),
-                succinctBytes(getOutputAllocation),
-                succinctBytes(outputDataSize),
+                succinctBytes((long) getOutputAllocation),
+                succinctBytes((long) outputDataSize),
                 outputPositions,
 
-                succinctBytes(physicalWrittenDataSize),
+                succinctBytes((long) physicalWrittenDataSize),
 
                 succinctNanos(additionalCpu),
                 succinctNanos(blockedWall),
@@ -798,14 +798,14 @@ public class OperatorStats
                 succinctNanos(finishCpu),
                 succinctBytes(finishAllocation),
 
-                succinctBytes(memoryReservation),
-                succinctBytes(revocableMemoryReservation),
-                succinctBytes(systemMemoryReservation),
-                succinctBytes(peakUserMemory),
-                succinctBytes(peakSystemMemory),
-                succinctBytes(peakTotalMemory),
+                succinctBytes((long) memoryReservation),
+                succinctBytes((long) revocableMemoryReservation),
+                succinctBytes((long) systemMemoryReservation),
+                succinctBytes((long) peakUserMemory),
+                succinctBytes((long) peakSystemMemory),
+                succinctBytes((long) peakTotalMemory),
 
-                succinctBytes(spilledDataSize),
+                succinctBytes((long) spilledDataSize),
 
                 blockedReason,
 
