@@ -7325,6 +7325,46 @@ public abstract class AbstractTestQueries
         assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b) ESCAPE '#') FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
     }
 
+    @Test(timeOut = 60_000)
+    public void testLambdaExpressionPullUpLargeInClause()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(PULL_EXPRESSION_FROM_LAMBDA_ENABLED, "true")
+                .build();
+        String query = "select orderpriority, count(*) from orders where orderkey in (";
+        int elementNum = 1_000;
+        for (int i = 1; i <= elementNum; ++i) {
+            query += i;
+            if (i != elementNum) {
+                query += ",";
+            }
+        }
+        query += ") group by orderpriority";
+        assertQuery(session, query);
+
+        query = "select orderpriority, count(*) from orders where orderkey in (";
+        elementNum = 10_000;
+        for (int i = 1; i <= elementNum; ++i) {
+            query += i;
+            if (i != elementNum) {
+                query += ",";
+            }
+        }
+        query += ") group by orderpriority";
+        assertQuery(session, query);
+
+        query = "select orderpriority, count(*) from orders where orderkey in (";
+        elementNum = 50_000;
+        for (int i = 1; i <= elementNum; ++i) {
+            query += i;
+            if (i != elementNum) {
+                query += ",";
+            }
+        }
+        query += ") group by orderpriority";
+        assertQuery(session, query);
+    }
+
     @Test
     public void testRewriteContainsToIn()
     {
