@@ -55,7 +55,27 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     expected_ = AssertQueryBuilder(plan).copyResults(input[0]->pool());
     groupingKeys_ = groupingKeys;
     name_ = aggregateName;
-    error_ = extractError(aggregate, input[0]);
+    error_ = extractError(aggregate.call, input[0]);
+    verifyWindow_ = false;
+  }
+
+  // Compute count_distinct(x) over 'input' over 'frame'.
+  void initializeWindow(
+      const std::vector<RowVectorPtr>& input,
+      const std::vector<std::string>& partitionByKeys,
+      const core::WindowNode::Function& function,
+      const std::string& frame,
+      const std::string& windowName) override {
+    auto plan = PlanBuilder()
+                    .values(input)
+                    .window({makeCountDistinctWindowCall(function, frame)})
+                    .planNode();
+
+    expected_ = AssertQueryBuilder(plan).copyResults(input[0]->pool());
+    groupingKeys_ = partitionByKeys;
+    name_ = windowName;
+    error_ = extractError(function.functionCall, input[0]);
+    verifyWindow_ = true;
   }
 
   bool compare(
@@ -80,11 +100,14 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
                             .planNode();
 
     auto mapAgg = fmt::format("map_agg(label, {}) as m", name_);
-    auto plan = PlanBuilder(planNodeIdGenerator)
-                    .localPartition({}, {expectedSource, actualSource})
-                    .singleAggregation(groupingKeys_, {mapAgg})
-                    .project({"m['actual'] as a", "m['expected'] as e"})
-                    .planNode();
+    std::vector<std::string> groupingKeyForWindow{"row_number"};
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .localPartition({}, {expectedSource, actualSource})
+            .singleAggregation(
+                verifyWindow_ ? groupingKeyForWindow : groupingKeys_, {mapAgg})
+            .project({"m['actual'] as a", "m['expected'] as e"})
+            .planNode();
     auto combined = AssertQueryBuilder(plan).copyResults(result->pool());
 
     auto* actual = combined->childAt(0)->as<SimpleVector<int64_t>>();
@@ -142,9 +165,9 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
   static constexpr double kDefaultError = 0.023;
 
   static double extractError(
-      const core::AggregationNode::Aggregate& aggregate,
+      const core::CallTypedExprPtr& call,
       const RowVectorPtr& input) {
-    const auto& args = aggregate.call->inputs();
+    const auto& args = call->inputs();
 
     if (args.size() == 1) {
       return kDefaultError;
@@ -176,10 +199,31 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     return countDistinctCall;
   }
 
+  static std::string makeCountDistinctWindowCall(
+      const core::WindowNode::Function& function,
+      const std::string& frame) {
+    const auto& args = function.functionCall->inputs();
+    VELOX_CHECK_GE(args.size(), 1)
+
+    auto inputField = core::TypedExprs::asFieldAccess(args[0]);
+    VELOX_CHECK_NOT_NULL(inputField)
+
+    std::string countDistinctCall =
+        fmt::format("\"$internal$count_distinct\"({})", inputField->name());
+
+    if (function.ignoreNulls) {
+      countDistinctCall += " ignore nulls";
+    }
+    countDistinctCall += " over(" + frame + ")";
+
+    return countDistinctCall;
+  }
+
   RowVectorPtr expected_;
   std::vector<std::string> groupingKeys_;
   std::string name_;
   double error_;
+  bool verifyWindow_{false};
 };
 
 } // namespace facebook::velox::exec::test

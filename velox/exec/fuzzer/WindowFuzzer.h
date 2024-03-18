@@ -118,6 +118,7 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::string& functionCall,
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
+      const std::shared_ptr<ResultVerifier>& customVerifier,
       bool enableWindowVerification);
 
   void testAlternativePlans(
@@ -127,6 +128,7 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::string& functionCall,
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
+      const std::shared_ptr<ResultVerifier>& customVerifier,
       const velox::test::ResultOrError& expected);
 
   const std::unordered_set<std::string> orderDependentFunctions_;

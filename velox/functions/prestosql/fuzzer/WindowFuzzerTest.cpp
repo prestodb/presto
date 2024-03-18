@@ -23,8 +23,10 @@
 #include "velox/exec/fuzzer/WindowFuzzerRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctInputGenerator.h"
+#include "velox/functions/prestosql/fuzzer/ApproxDistinctResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 DEFINE_int64(
@@ -69,7 +71,9 @@ getCustomInputGenerators() {
 int main(int argc, char** argv) {
   facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
       "", false);
+  facebook::velox::aggregate::prestosql::registerInternalAggregateFunctions("");
   facebook::velox::window::prestosql::registerAllWindowFunctions();
+  facebook::velox::functions::prestosql::registerAllScalarFunctions();
   facebook::velox::memory::MemoryManager::initialize({});
 
   ::testing::InitGoogleTest(&argc, argv);
@@ -87,18 +91,22 @@ int main(int argc, char** argv) {
       "stddev_pop",
       // Lambda functions are not supported yet.
       "reduce_agg",
+      // Skip internal functions used only for result verifications.
+      "$internal$count_distinct",
   };
 
   // Functions whose results verification should be skipped. These can be
   // functions that return complex-typed results containing floating-point
   // fields.
   // TODO: allow custom result verifiers.
+  using facebook::velox::exec::test::ApproxDistinctResultVerifier;
+
   static const std::unordered_map<
       std::string,
       std::shared_ptr<facebook::velox::exec::test::ResultVerifier>>
       customVerificationFunctions = {
           // Approx functions.
-          {"approx_distinct", nullptr},
+          {"approx_distinct", std::make_shared<ApproxDistinctResultVerifier>()},
           {"approx_set", nullptr},
           {"approx_percentile", nullptr},
           {"approx_most_frequent", nullptr},

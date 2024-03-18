@@ -54,6 +54,19 @@ class ResultVerifier {
       const core::AggregationNode::Aggregate& aggregate,
       const std::string& aggregateName) = 0;
 
+  /// Called once on a window operation before possibly multiple calls to the
+  /// 'compare' or 'verify' APIs. to specify the input data, window partition-by
+  /// keys, the window function, the window frame, and the name of the column
+  /// that will store the window function results.
+  virtual void initializeWindow(
+      const std::vector<RowVectorPtr>& /*input*/,
+      const std::vector<std::string>& /*partitionByKeys*/,
+      const core::WindowNode::Function& /*function*/,
+      const std::string& /*frame*/,
+      const std::string& /*windowName*/) {
+    VELOX_NYI();
+  }
+
   /// Compares results of two logically equivalent Velox plans or a Velox plan
   /// and a reference DB query.
   ///

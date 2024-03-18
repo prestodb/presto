@@ -26,6 +26,7 @@ add_executable(
   CentralMomentsAggregationTest.cpp
   ChecksumAggregateTest.cpp
   CountAggregationTest.cpp
+  CountDistinctTest.cpp
   CountIfAggregationTest.cpp
   CovarianceAggregationTest.cpp
   EntropyAggregationTest.cpp
