@@ -930,7 +930,7 @@ TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
       .probeVectors(5, 10)
       .buildType(buildType_)
       .buildKeys({"u_k2"})
-      .buildVectors(5, 15)
+      .buildVectors(64, 15)
       .joinOutputLayout({"t_k1", "t_k2", "u_k1", "u_k2", "u_v1"})
       .referenceQuery(
           "SELECT t_k1, t_k2, u_k1, u_k2, u_v1 FROM t, u WHERE t_k2 = u_k2")
