@@ -43,6 +43,7 @@ void reset(VectorPtr& vector, vector_size_t size, bool hasNulls) {
 
 void initializeStringVector(
     VectorPtr& vector,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
   vector_size_t size = 0;
@@ -64,7 +65,7 @@ void initializeStringVector(
     }
   }
   initializeFlatVector<StringView>(
-      vector, pool, VARCHAR(), size, hasNulls, std::move(buffers));
+      vector, pool, type, size, hasNulls, std::move(buffers));
 }
 
 } // namespace detail
@@ -103,19 +104,19 @@ void initializeVectorImpl(
 template <>
 void initializeVectorImpl<TypeKind::VARCHAR>(
     VectorPtr& vector,
-    const TypePtr& /* type */,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
-  detail::initializeStringVector(vector, pool, vectors);
+  detail::initializeStringVector(vector, type, pool, vectors);
 }
 
 template <>
 void initializeVectorImpl<TypeKind::VARBINARY>(
     VectorPtr& vector,
-    const TypePtr& /* type */,
+    const TypePtr& type,
     memory::MemoryPool& pool,
     const std::vector<const BaseVector*>& vectors) {
-  detail::initializeStringVector(vector, pool, vectors);
+  detail::initializeStringVector(vector, type, pool, vectors);
 }
 
 namespace {
