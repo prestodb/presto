@@ -267,15 +267,17 @@ class QueryConfig {
   static constexpr const char* kSpillFileCreateConfig =
       "spill_file_create_config";
 
+  /// Default offset spill start partition bit.
   static constexpr const char* kSpillStartPartitionBit =
       "spiller_start_partition_bit";
+
+  /// Default number of spill partition bits.
+  static constexpr const char* kSpillNumPartitionBits =
+      "spiller_num_partition_bits";
 
   /// !!! DEPRECATED: do not use.
   static constexpr const char* kJoinSpillPartitionBits =
       "join_spiller_partition_bits";
-
-  static constexpr const char* kNumSpillPartitionBits =
-      "num_spill_partition_bits";
 
   static constexpr const char* kMinSpillableReservationPct =
       "min_spillable_reservation_pct";
@@ -598,11 +600,11 @@ class QueryConfig {
   /// for hash join and RowNumber. The number of spill partitions will be power
   /// of tow.
   /// NOTE: as for now, we only support up to 8-way spill partitioning.
-  uint8_t numSpillPartitionBits() const {
+  uint8_t spillNumPartitionBits() const {
     constexpr uint8_t kDefaultBits = 3;
     constexpr uint8_t kMaxBits = 3;
     return std::min(
-        kMaxBits, get<uint8_t>(kNumSpillPartitionBits, kDefaultBits));
+        kMaxBits, get<uint8_t>(kSpillNumPartitionBits, kDefaultBits));
   }
 
   uint64_t writerFlushThresholdBytes() const {

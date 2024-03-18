@@ -129,7 +129,7 @@ TEST(SpillConfig, spillLevelLimit) {
 
     ASSERT_EQ(
         testData.expectedExceeds,
-        config.exceedSpillLevelLimit(testData.bitOffset, testData.numBits));
+        config.exceedSpillLevelLimit(testData.bitOffset));
   }
 }
 

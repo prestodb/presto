@@ -155,7 +155,7 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
       queryConfig.minSpillableReservationPct(),
       queryConfig.spillableReservationGrowthPct(),
       queryConfig.spillStartPartitionBit(),
-      queryConfig.numSpillPartitionBits(),
+      queryConfig.spillNumPartitionBits(),
       queryConfig.maxSpillLevel(),
       queryConfig.maxSpillRunRows(),
       queryConfig.writerFlushThresholdBytes(),

@@ -72,8 +72,7 @@ struct SpillConfig {
 
   /// Checks if the given 'startBitOffset' and 'numPartitionBits' has exceeded
   /// the max hash join spill limit.
-  bool exceedSpillLevelLimit(uint8_t startBitOffset, uint8_t numPartitionBits)
-      const;
+  bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
 
   /// A callback function that returns the spill directory path. Implementations
   /// can use it to ensure the path exists before returning.

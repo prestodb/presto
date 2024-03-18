@@ -3144,7 +3144,7 @@ TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
           "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
       .maxSpillLevel(-1)
       .config(core::QueryConfig::kSpillStartPartitionBit, "48")
-      .config(core::QueryConfig::kNumSpillPartitionBits, "3")
+      .config(core::QueryConfig::kSpillNumPartitionBits, "3")
       .checkSpillStats(false)
       .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
         if (!hasSpill) {
@@ -4944,7 +4944,7 @@ TEST_F(HashJoinTest, spillFileSize) {
         .referenceQuery(
             "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
         .config(core::QueryConfig::kSpillStartPartitionBit, "48")
-        .config(core::QueryConfig::kNumSpillPartitionBits, "3")
+        .config(core::QueryConfig::kSpillNumPartitionBits, "3")
         .config(
             core::QueryConfig::kMaxSpillFileSize, std::to_string(spillFileSize))
         .checkSpillStats(false)
@@ -4978,7 +4978,7 @@ TEST_F(HashJoinTest, spillPartitionBitsOverlap) {
           .referenceQuery(
               "SELECT t_k0, t_k1, t_data, u_k0, u_k1, u_data FROM t, u WHERE t_k0 = u_k0 and t_k1 = u_k1")
           .config(core::QueryConfig::kSpillStartPartitionBit, "8")
-          .config(core::QueryConfig::kNumSpillPartitionBits, "1")
+          .config(core::QueryConfig::kSpillNumPartitionBits, "1")
           .checkSpillStats(false)
           .maxSpillLevel(0);
   VELOX_ASSERT_THROW(builder.run(), "vs. 8");
@@ -6480,7 +6480,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromJoinBuild) {
     std::unordered_map<std::string, std::string> config{
         {core::QueryConfig::kSpillEnabled, "true"},
         {core::QueryConfig::kJoinSpillEnabled, "true"},
-        {core::QueryConfig::kNumSpillPartitionBits, "2"},
+        {core::QueryConfig::kSpillNumPartitionBits, "2"},
     };
     joinQueryCtx->testingOverrideConfigUnsafe(std::move(config));
 
@@ -6903,7 +6903,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
           .spillDirectory(spillDirectory->path)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kJoinSpillEnabled, true)
-          .config(core::QueryConfig::kNumSpillPartitionBits, 2)
+          .config(core::QueryConfig::kSpillNumPartitionBits, 2)
           // Set multiple hash build drivers to trigger parallel build.
           .maxDrivers(4)
           .queryCtx(joinQueryCtx)
@@ -6970,7 +6970,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
             .spillDirectory(spillDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kJoinSpillEnabled, true)
-            .config(core::QueryConfig::kNumSpillPartitionBits, 2)
+            .config(core::QueryConfig::kSpillNumPartitionBits, 2)
             // Set multiple hash build drivers to trigger parallel build.
             .maxDrivers(4)
             .queryCtx(joinQueryCtx)

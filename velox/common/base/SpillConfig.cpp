@@ -77,9 +77,7 @@ int32_t SpillConfig::spillLevel(uint8_t startBitOffset) const {
   return deltaBits / numPartitionBits;
 }
 
-bool SpillConfig::exceedSpillLevelLimit(
-    uint8_t startBitOffset,
-    uint8_t numPartitionBits) const {
+bool SpillConfig::exceedSpillLevelLimit(uint8_t startBitOffset) const {
   if (startBitOffset + numPartitionBits > 64) {
     return true;
   }

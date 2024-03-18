@@ -225,7 +225,7 @@ TEST_F(RowNumberTest, spill) {
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kRowNumberSpillEnabled, true)
             .config(
-                core::QueryConfig::kNumSpillPartitionBits,
+                core::QueryConfig::kSpillNumPartitionBits,
                 testData.spillPartitionBits)
             .queryCtx(queryCtx)
             .plan(PlanBuilder()
