@@ -34,6 +34,14 @@ import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Data structure that holds a small table containing positionCount rows (a.k.a. tuples)
+ * and channelCount columns (a.k.a. fields). Rows and columns are indexed from zero to
+ * positionCount-1 and channelCount-1 respectively.
+ *
+ * A page is composed of blocks, one block per column.
+ * Each block in the page should have positionCount values.
+ */
 public final class Page
 {
     public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
@@ -85,11 +93,17 @@ public final class Page
         }
     }
 
+    /**
+     * @return the number of fields/columns in this page
+     */
     public int getChannelCount()
     {
         return blocks.length;
     }
 
+    /**
+     * @return the number of rows/tuples in this page
+     */
     public int getPositionCount()
     {
         return positionCount;
