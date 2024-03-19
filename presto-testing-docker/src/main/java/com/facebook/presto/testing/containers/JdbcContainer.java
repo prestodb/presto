@@ -49,7 +49,7 @@ public class JdbcContainer
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(ImmutableList.of("/bin/bash", "-c", "echo 'Driver path is:'"));
+        withRunCommand(ImmutableList.of("sh", "-c", "echo 'Driver path is:'"));
         withRunCommand(ImmutableList.of("sh", "-c", "$(cat postgresScript.sh)"));
     }
 
