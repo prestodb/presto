@@ -29,6 +29,7 @@ struct Size {
 
   template <typename TInput>
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const TInput* input /*input*/) {
     legacySizeOfNull_ = config.sparkLegacySizeOfNull();

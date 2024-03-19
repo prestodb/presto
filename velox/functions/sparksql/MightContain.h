@@ -26,6 +26,7 @@ struct BloomFilterMightContainFunction {
   using Allocator = std::allocator<uint64_t>;
 
   void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig&,
       const arg_type<Varbinary>* serialized,
       const arg_type<int64_t>*) {

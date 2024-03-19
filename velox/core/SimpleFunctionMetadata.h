@@ -647,8 +647,21 @@ class UDFHolder final
       Fun,
       initialize_method_resolver,
       void,
+      const std::vector<TypePtr>&,
       const core::QueryConfig&,
       const exec_arg_type<TArgs>*...>::value;
+
+  // TODO Remove
+  static constexpr bool udf_has_legacy_initialize = util::has_method<
+      Fun,
+      initialize_method_resolver,
+      void,
+      const core::QueryConfig&,
+      const exec_arg_type<TArgs>*...>::value;
+
+  static_assert(
+      !udf_has_legacy_initialize,
+      "Legacy initialize method! Upgrade.");
 
   static_assert(
       udf_has_call || udf_has_callNullable || udf_has_callNullFree,
@@ -706,10 +719,11 @@ class UDFHolder final
   explicit UDFHolder() : Metadata(), instance_{} {}
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
       const typename exec_resolver<TArgs>::in_type*... constantArgs) {
     if constexpr (udf_has_initialize) {
-      return instance_.initialize(config, constantArgs...);
+      return instance_.initialize(inputTypes, config, constantArgs...);
     }
   }
 

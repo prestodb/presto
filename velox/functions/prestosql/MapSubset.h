@@ -27,6 +27,7 @@ namespace facebook::velox::functions {
     VELOX_DEFINE_FUNCTION_TYPES(TExec);                             \
                                                                     \
     void initialize(                                                \
+        const std::vector<TypePtr>& /*inputTypes*/,                 \
         const core::QueryConfig& /*config*/,                        \
         const arg_type<Map<TType, Generic<T1>>>* /*inputMap*/,      \
         const arg_type<Array<TType>>* keys) {                       \
@@ -98,6 +99,7 @@ struct MapSubsetVarcharFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
   void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
       const arg_type<Map<Varchar, Generic<T1>>>* /*inputMap*/,
       const arg_type<Array<Varchar>>* keys) {

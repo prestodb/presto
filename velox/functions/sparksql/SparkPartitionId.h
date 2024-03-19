@@ -24,7 +24,9 @@ template <typename T>
 struct SparkPartitionIdFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  void initialize(const core::QueryConfig& config) {
+  void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config) {
     partitionId_ = config.sparkPartitionId();
   }
 

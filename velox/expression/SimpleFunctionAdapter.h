@@ -205,11 +205,12 @@ class SimpleFunctionAdapter : public VectorFunction {
 
   template <int32_t POSITION, typename... Values>
   void unpackInitialize(
+      const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& packed,
       const Values*... values) const {
     if constexpr (POSITION == FUNC::num_args) {
-      return (*fn_).initialize(config, values...);
+      return (*fn_).initialize(inputTypes, config, values...);
     } else {
       if (packed.at(POSITION) != nullptr) {
         SelectivityVector rows(1);
@@ -217,24 +218,25 @@ class SimpleFunctionAdapter : public VectorFunction {
         auto oneReader = VectorReader<arg_at<POSITION>>(&decodedVector);
         auto oneValue = oneReader[0];
 
-        unpackInitialize<POSITION + 1>(config, packed, values..., &oneValue);
+        unpackInitialize<POSITION + 1>(
+            inputTypes, config, packed, values..., &oneValue);
       } else {
         using temp_type = exec_arg_at<POSITION>;
         unpackInitialize<POSITION + 1>(
-            config, packed, values..., (const temp_type*)nullptr);
+            inputTypes, config, packed, values..., (const temp_type*)nullptr);
       }
     }
   }
 
  public:
   SimpleFunctionAdapter(
-      const std::vector<TypePtr>& /*inputTypes*/,
+      const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs)
       : fn_{std::make_unique<FUNC>()} {
     if constexpr (FUNC::udf_has_initialize) {
       try {
-        unpackInitialize<0>(config, constantInputs);
+        unpackInitialize<0>(inputTypes, config, constantInputs);
       } catch (const VeloxRuntimeError&) {
         throw;
       } catch (const std::exception&) {

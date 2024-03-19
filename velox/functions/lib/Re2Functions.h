@@ -260,6 +260,7 @@ struct Re2RegexpReplace {
   std::optional<RE2> re_;
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*string*/,
       const arg_type<Varchar>* pattern,
@@ -282,12 +283,13 @@ struct Re2RegexpReplace {
   }
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
       const arg_type<Varchar>* string,
       const arg_type<Varchar>* pattern) {
     StringView emptyReplacement;
 
-    initialize(config, string, pattern, &emptyReplacement);
+    initialize(inputTypes, config, string, pattern, &emptyReplacement);
   }
 
   FOLLY_ALWAYS_INLINE bool call(

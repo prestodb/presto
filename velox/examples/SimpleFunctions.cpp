@@ -331,6 +331,7 @@ struct MyRegexpMatchFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig&,
       const arg_type<Varchar>*,
       const arg_type<Varchar>* pattern) {

@@ -23,7 +23,9 @@ template <typename T>
 struct MonotonicallyIncreasingIdFunction {
   static constexpr bool is_deterministic = false;
 
-  void initialize(const core::QueryConfig& config) {
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config) {
     count_ = (int64_t)config.sparkPartitionId() << 33;
   }
 

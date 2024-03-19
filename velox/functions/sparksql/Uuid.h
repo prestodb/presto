@@ -31,9 +31,12 @@ struct UuidFunction {
 
   // Spark would set the seed with 'random.nextLong()' by 'ResolveRandomSeed'
   // rule.
-  void initialize(const core::QueryConfig& config, const int64_t* seed) {
+  void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const int64_t* seed) {
     VELOX_CHECK_NOT_NULL(seed, "seed argument must be constant");
-    int32_t partitionId = config.sparkPartitionId();
+    const int32_t partitionId = config.sparkPartitionId();
     generator_.seed((*seed) + partitionId);
   }
 

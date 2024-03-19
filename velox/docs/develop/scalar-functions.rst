@@ -335,6 +335,7 @@ properties and using it when processing inputs.
     const date::time_zone* timeZone_ = nullptr;
 
     FOLLY_ALWAYS_INLINE void initialize(
+        const std::vector<TypePtr>& inputTypes,
         const core::QueryConfig& config,
         const arg_type<Timestamp>* /*timestamp*/) {
       timeZone_ = getTimeZoneFromConfig(config);
@@ -365,6 +366,7 @@ individual rows.
     std::optional<DateTimeUnit> unit_;
 
     FOLLY_ALWAYS_INLINE void initialize(
+        const std::vector<TypePtr>& inputTypes,
         const core::QueryConfig& config,
         const arg_type<Varchar>* unitString,
         const arg_type<Timestamp>* /*timestamp*/) {

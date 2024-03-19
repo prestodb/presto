@@ -24,9 +24,11 @@ struct RandFunction {
   static constexpr bool is_deterministic = false;
 
   template <typename TInput>
-  void initialize(const core::QueryConfig& config, const TInput* seedInput) {
-    auto partitionId = config.sparkPartitionId();
-    generator_ = std::mt19937{};
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const TInput* seedInput) {
+    const auto partitionId = config.sparkPartitionId();
     int64_t seed = seedInput ? (int64_t)*seedInput : 0;
     generator_.seed(seed + partitionId);
   }

@@ -124,6 +124,7 @@ struct UnixTimestampParseFunction {
   // unix_timestamp(input);
   // If format is not specified, assume kDefaultFormat.
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*input*/) {
     format_ = buildJodaDateTimeFormatter(kDefaultFormat_);
@@ -173,6 +174,7 @@ struct UnixTimestampParseWithFormatFunction
   // unix_timestamp(input, format):
   // If format is constant, compile it just once per batch.
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* format) {
@@ -227,6 +229,7 @@ struct FromUnixtimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<int64_t>* /*unixtime*/,
       const arg_type<Varchar>* format) {
@@ -270,6 +273,7 @@ struct ToUtcTimestampFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
@@ -299,6 +303,7 @@ struct FromUtcTimestampFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* timezone) {
@@ -329,6 +334,7 @@ struct GetTimestampFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* format) {
@@ -608,6 +614,7 @@ struct NextDayFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
       const arg_type<Date>* /*startDate*/,
       const arg_type<Varchar>* dayOfWeek) {

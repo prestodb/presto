@@ -1248,6 +1248,7 @@ struct ConstantArgumentFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
       const core::QueryConfig& /*config*/,
       const arg_type<int32_t>* /*first*/,
       const arg_type<int32_t>* /*second*/,
