@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 /**
- * A row ID is a unique identifier for o row that is a binary string. Typically, it has two
+ * A row ID is a unique identifier for a row that is a binary string. Typically, it has two
  * parts, one identifying the version of the partition and one identifying a specific row
  * within that partition.
  */
