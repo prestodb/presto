@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.snowflake;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,6 +34,10 @@ public class SnowflakeClient
     public SnowflakeClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new SnowflakeDriver(), config));
+    }
+    public SnowflakeClient(JdbcConnectorId connectorId, BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    {
+        super(connectorId, config, "\"", connectionFactory);
     }
 
     @Override
