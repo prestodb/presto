@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class Cast
@@ -67,7 +66,7 @@ public final class Cast
         requireNonNull(type, "type is null");
 
         this.expression = expression;
-        this.type = type.toLowerCase(ENGLISH);
+        this.type = transformCase(type);
         this.safe = safe;
         this.typeOnly = typeOnly;
     }
@@ -90,6 +89,34 @@ public final class Cast
     public boolean isTypeOnly()
     {
         return typeOnly;
+    }
+
+    /**
+     * We uniformly change the whole type string to lower case,
+     *  except field names which are enclosed in double quotation marks
+     * */
+    private static String transformCase(String input)
+    {
+        if (input == null) {
+            return null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        boolean insideQuotes = false;
+        for (int i = 0, l = input.length(); i < l; i++) {
+            char ch = input.charAt(i);
+            if (ch == '"') {
+                insideQuotes = !insideQuotes;
+            }
+
+            if (insideQuotes) {
+                sb.append(ch);
+            }
+            else {
+                sb.append(Character.toLowerCase(ch));
+            }
+        }
+        return sb.toString();
     }
 
     @Override

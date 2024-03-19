@@ -268,7 +268,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(true)
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
-                .setCteHeuristicReplicationThreshold(4));
+                .setCteHeuristicReplicationThreshold(4)
+                .setLegacyJsonCast(false));
     }
 
     @Test
@@ -451,6 +452,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
                 .put("optimizer.prefilter-for-groupby-limit", "true")
                 .put("field-names-in-json-cast-enabled", "true")
+                .put("legacy-json-cast", "true")
                 .put("optimizer.optimize-probe-for-empty-build-runtime", "true")
                 .put("optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins", "false")
                 .put("optimizer.merge-duplicate-aggregations", "false")
@@ -690,7 +692,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(false)
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
-                .setCteHeuristicReplicationThreshold(2);
+                .setCteHeuristicReplicationThreshold(2)
+                .setLegacyJsonCast(true);
         assertFullMapping(properties, expected);
     }
 

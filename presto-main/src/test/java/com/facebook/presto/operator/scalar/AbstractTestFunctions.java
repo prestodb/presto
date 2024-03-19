@@ -212,6 +212,9 @@ public abstract class AbstractTestFunctions
                 throw failure;
             }
         }
+        catch (AssertionError e) {
+            assertEquals(e.getMessage(), message);
+        }
     }
 
     protected void tryEvaluateWithAll(String projection, Type expectedType)
