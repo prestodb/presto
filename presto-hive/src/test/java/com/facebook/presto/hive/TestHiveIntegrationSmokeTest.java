@@ -2806,6 +2806,10 @@ public class TestHiveIntegrationSmokeTest
         actual = computeActual("SELECT name FROM test_create_external");
         assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
 
+        assertQueryFails(
+                "INSERT INTO test_create_external VALUES ('somevalue')",
+                ".*Cannot write to non-managed Hive table.*");
+
         assertUpdate("DROP TABLE test_create_external");
 
         // file should still exist after drop
