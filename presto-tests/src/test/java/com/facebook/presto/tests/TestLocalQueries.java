@@ -109,12 +109,12 @@ public class TestLocalQueries
     @Test
     public void testDecimal()
     {
-        assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL)");
-        assertQuery("SELECT DECIMAL '1.'", "SELECT CAST('1.0' AS DECIMAL)");
-        assertQuery("SELECT DECIMAL '0.1'", "SELECT CAST('0.1' AS DECIMAL)");
-        assertQuery("SELECT 1.0", "SELECT CAST('1.0' AS DECIMAL)");
-        assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
-        assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL(10, 1))");
+        assertQuery("SELECT DECIMAL '1.'", "SELECT CAST('1.0' AS DECIMAL(10, 1))");
+        assertQuery("SELECT DECIMAL '0.1'", "SELECT CAST('0.1' AS DECIMAL(10, 1))");
+        assertQuery("SELECT 1.0");
+        assertQuery("SELECT 1.");
+        assertQuery("SELECT 0.1");
     }
 
     @Test

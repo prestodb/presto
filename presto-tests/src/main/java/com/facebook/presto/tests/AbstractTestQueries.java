@@ -6823,7 +6823,7 @@ public abstract class AbstractTestQueries
 
         // decimal
         sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, 0]), (ARRAY[]), (CAST(NULL AS array(decimal)))) t(k)";
-        assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(11.1 as decimal)], array[], null");
+        assertQuery(sql, "values array[cast(5.1 as decimal(38, 1)), cast(11.1 as decimal(38, 1)), cast(11.1 as decimal(38, 1))], array[], null");
 
         sql = "select array_cum_sum(k) from (values (array[cast(5.1 as decimal(38, 1)), 6, null, 3]), (array[cast(null as decimal(38, 1)), 6, null, 3])) t(k)";
         assertQuery(sql, "values array[cast(5.1 as decimal), cast(11.1 as decimal), cast(null as decimal), cast(null as decimal)], " +

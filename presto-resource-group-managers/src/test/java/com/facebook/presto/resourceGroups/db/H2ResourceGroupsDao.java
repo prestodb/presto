@@ -20,7 +20,7 @@ public interface H2ResourceGroupsDao
         extends ResourceGroupsDao
 {
     @SqlUpdate("INSERT INTO resource_groups_global_properties\n" +
-            "(name, value) VALUES (:name, :value)")
+            "(name, `value`) VALUES (:name, :value)")
     void insertResourceGroupsGlobalProperties(
             @Bind("name") String name,
             @Bind("value") String value);
