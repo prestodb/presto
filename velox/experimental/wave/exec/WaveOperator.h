@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include "velox/exec/Driver.h"
 #include "velox/experimental/wave/exec/Wave.h"
 #include "velox/experimental/wave/vector/WaveVector.h"
+#include "velox/type/Filter.h"
 
 namespace facebook::velox::wave {
 
@@ -26,9 +28,16 @@ class WaveDriver;
 
 class WaveOperator {
  public:
-  WaveOperator(CompileState& state, const RowTypePtr& outputType);
+  WaveOperator(
+      CompileState& state,
+      const RowTypePtr& outputType,
+      const std::string& planNodeId);
 
   virtual ~WaveOperator() = default;
+
+  virtual exec::BlockingReason isBlocked(ContinueFuture* future) {
+    return exec::BlockingReason::kNotBlocked;
+  }
 
   const RowTypePtr& outputType() const {
     return outputType_;
@@ -130,7 +139,19 @@ class WaveOperator {
     return id_;
   }
 
+  virtual bool canAddDynamicFilter() const {
+    return false;
+  }
+
+  virtual void addDynamicFilter(
+      column_index_t outputChannel,
+      const std::shared_ptr<common::Filter>& filter) {
+    VELOX_UNSUPPORTED();
+  }
+
  protected:
+  folly::Synchronized<exec::OperatorStats>& stats();
+
   // Sequence number in WaveOperator sequence inside WaveDriver. IUsed to label
   // states of different oprators in WaveStream.
   int32_t id_;
@@ -146,6 +167,9 @@ class WaveOperator {
   // Pairwise type for each subfield.
   std::vector<TypePtr> types_;
 
+  // Id in original plan. Use for getting splits.
+  std::string planNodeId_;
+
   // the execution time set of OperandIds.
   OperandSet outputIds_;
 
@@ -156,12 +180,10 @@ class WaveOperator {
   RowTypePtr outputType_;
 
   // The operands that are first defined here.
-  folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
-      defines_;
+  DefinesMap defines_;
 
   // The operand for values that are projected through 'this'.
-  folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
-      projects_;
+  DefinesMap projects_;
 
   std::vector<std::shared_ptr<Program>> programs_;
 

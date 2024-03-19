@@ -38,7 +38,13 @@ struct Value {
   ~Value() = default;
 
   bool operator==(const Value& other) const {
-    return expr == other.expr && subfield == other.subfield;
+    if (expr == other.expr && subfield == other.subfield) {
+      return true;
+    };
+    if (subfield && other.subfield && *subfield == *other.subfield) {
+      return true;
+    }
+    return false;
   }
 
   const exec::Expr* expr;
@@ -59,6 +65,35 @@ struct ValueComparer {
   }
 };
 
+using SubfieldMap =
+    folly::F14FastMap<std::string, std::unique_ptr<common::Subfield>>;
+
+using DefinesMap =
+    folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>;
+
+/// Translates a set of path steps to an OperandId or kNoOperand if
+/// none found. The path is not const because it is temporarily
+/// moved into a Subfield. Not thread safe for 'path'.
+OperandId pathToOperand(
+    const DefinesMap& map,
+    std::vector<std::unique_ptr<common::Subfield::PathElement>>& path);
+
+const SubfieldMap*& threadSubfieldMap();
+
+class WithSubfieldMap {
+ public:
+  WithSubfieldMap(const SubfieldMap* map) {
+    previous_ = threadSubfieldMap();
+    threadSubfieldMap() = map;
+  }
+  ~WithSubfieldMap() {
+    threadSubfieldMap() = previous_;
+  }
+
+ private:
+  const SubfieldMap* previous_;
+};
+
 struct Transfer {
   Transfer(const void* from, void* to, size_t size)
       : from(from), to(to), size(size) {}
@@ -69,6 +104,8 @@ struct Transfer {
   size_t size;
 };
 
+std::string definesToString(const DefinesMap* map);
+
 class WaveStream;
 class Program;
 
@@ -78,6 +115,8 @@ class Program;
 /// WaveStream level unique id for each output column. be nulllptr if this
 /// represents data movement only.
 struct Executable {
+  virtual ~Executable() = default;
+
   std::unique_ptr<Executable>
   create(std::shared_ptr<Program> program, int32_t numRows, GpuArena& arena);
 
@@ -90,14 +129,29 @@ struct Executable {
       std::vector<Transfer>&& transfers,
       WaveStream& stream);
 
+  virtual void ensureLazyArrived(folly::Range<const OperandId*> operands) {
+    VELOX_UNREACHABLE(
+        "A table scan executable is expected to override this "
+        "or always produce all columns");
+  }
+
+  /// Returns the vector for 'id' or nullptr if does not exist.
+  WaveVector* operandVector(OperandId id);
+
+  /// Returns the vector for 'id' and creates an empty vector of 'type' if one
+  /// does not exist. The caller will resize.
+  WaveVector* operandVector(OperandId id, const TypePtr& type);
+
   // Clear state to prepare for reuse.
   void reuse() {
     operands = nullptr;
     stream = nullptr;
   }
+  // The containing WaveStream, if needed.
+  WaveStream* waveStream{nullptr};
 
   // The Program this is an invocationn of. nullptr if 'this' represents a data
-  // transfer.
+  // transfer or column read.
   std::shared_ptr<Program> programShared;
 
   ThreadBlockProgram* program{nullptr};
@@ -200,8 +254,7 @@ class Program : public std::enable_shared_from_this<Program> {
  private:
   GpuArena* arena_{nullptr};
   std::vector<Program*> dependsOn_;
-  folly::F14FastMap<Value, AbstractOperand*, ValueHasher, ValueComparer>
-      produces_;
+  DefinesMap produces_;
   std::vector<std::unique_ptr<AbstractInstruction>> instructions_;
   bool isMutable_{true};
 
@@ -256,6 +309,10 @@ class WaveStream {
   GpuArena& arena() {
     return arena_;
   }
+
+  void getOutput(
+      folly::Range<const OperandId*> operands,
+      WaveVectorPtr* waveVectors);
 
   Executable* operandExecutable(OperandId id) {
     auto it = operandToExecutable_.find(id);

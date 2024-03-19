@@ -19,6 +19,77 @@
 
 namespace facebook::velox::wave {
 
+const SubfieldMap*& threadSubfieldMap() {
+  thread_local const SubfieldMap* subfields;
+  return subfields;
+}
+
+std::string definesToString(const DefinesMap* map) {
+  std::stringstream out;
+  for (const auto& [value, id] : *map) {
+    out
+        << (value.subfield ? value.subfield->toString()
+                           : value.expr->toString(1));
+    out << " = " << id->id << " (" << id->type->toString() << ")" << std::endl;
+  }
+  return out.str();
+}
+
+OperandId pathToOperand(
+    const DefinesMap& map,
+    std::vector<std::unique_ptr<common::Subfield::PathElement>>& path) {
+  if (path.empty()) {
+    return kNoOperand;
+  }
+  common::Subfield field(std::move(path));
+  const auto subfieldMap = threadSubfieldMap();
+  auto it = threadSubfieldMap()->find(field.toString());
+  if (it == subfieldMap->end()) {
+    return kNoOperand;
+  }
+  Value value(it->second.get());
+  auto valueIt = map.find(value);
+  path = std::move(field.path());
+  if (valueIt == map.end()) {
+    return kNoOperand;
+  }
+  return valueIt->second->id;
+}
+
+WaveVector* Executable::operandVector(OperandId id) {
+  WaveVectorPtr* ptr = nullptr;
+  if (outputOperands.contains(id)) {
+    auto ordinal = outputOperands.ordinal(id);
+    ptr = &output[ordinal];
+  }
+  if (localOperands.contains(id)) {
+    auto ordinal = localOperands.ordinal(id);
+    ptr = &intermediates[ordinal];
+  }
+  if (*ptr) {
+    return ptr->get();
+  }
+  return nullptr;
+}
+
+WaveVector* Executable::operandVector(OperandId id, const TypePtr& type) {
+  WaveVectorPtr* ptr = nullptr;
+  if (outputOperands.contains(id)) {
+    auto ordinal = outputOperands.ordinal(id);
+    ptr = &output[ordinal];
+  } else if (localOperands.contains(id)) {
+    auto ordinal = localOperands.ordinal(id);
+    ptr = &intermediates[ordinal];
+  } else {
+    VELOX_FAIL("No local/output operand found");
+  }
+  if (*ptr) {
+    return ptr->get();
+  }
+  *ptr = WaveVector::create(type, waveStream->arena());
+  return ptr->get();
+}
+
 WaveStream::~WaveStream() {
   // TODO: wait for device side work to finish before freeing associated memory
   // owned by exes and buffers in 'this'.
@@ -359,6 +430,23 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   return &control;
 }
 
+void WaveStream::getOutput(
+    folly::Range<const OperandId*> operands,
+    WaveVectorPtr* waveVectors) {
+  for (auto i = 0; i < operands.size(); ++i) {
+    auto id = operands[i];
+    auto exe = operandExecutable(id);
+    VELOX_CHECK_NOT_NULL(exe);
+    auto ordinal = exe->outputOperands.ordinal(id);
+    waveVectors[i] = std::move(exe->output[ordinal]);
+    if (waveVectors[i] == nullptr) {
+      exe->ensureLazyArrived(operands);
+      waveVectors[i] = std::move(exe->output[ordinal]);
+      VELOX_CHECK_NOT_NULL(waveVectors[i]);
+    }
+  }
+}
+
 ScalarType typeKindCode(TypeKind kind) {
   switch (kind) {
     case TypeKind::BIGINT:
@@ -383,7 +471,8 @@ void Program::prepareForDevice(GpuArena& arena) {
         break;
       }
       default:
-        VELOX_UNSUPPORTED("OpCode {}", instruction->opCode);
+        VELOX_UNSUPPORTED(
+            "OpCode {}", static_cast<int32_t>(instruction->opCode));
     }
   sortSlots();
   arena_ = &arena;

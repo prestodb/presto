@@ -368,4 +368,31 @@ void HiveDataSource::resetSplit() {
   // Keep readers around to hold adaptation.
 }
 
+HiveDataSource::WaveDelegateHookFunction HiveDataSource::waveDelegateHook_;
+
+std::shared_ptr<wave::WaveDataSource> HiveDataSource::toWaveDataSource() {
+  VELOX_CHECK_NOT_NULL(waveDelegateHook_);
+  if (!waveDataSource_) {
+    waveDataSource_ = waveDelegateHook_(
+        hiveTableHandle_,
+        scanSpec_,
+        readerOutputType_,
+        &partitionKeys_,
+        fileHandleFactory_,
+        executor_,
+        connectorQueryCtx_,
+        hiveConfig_,
+        ioStats_,
+        remainingFilterExprSet_.get(),
+        metadataFilter_);
+  }
+  return waveDataSource_;
+}
+
+//  static
+void HiveDataSource::registerWaveDelegateHook(WaveDelegateHookFunction hook) {
+  waveDelegateHook_ = hook;
+}
+std::shared_ptr<wave::WaveDataSource> toWaveDataSource();
+
 } // namespace facebook::velox::connector::hive

@@ -18,9 +18,9 @@
 
 #include <vector>
 #include "velox/common/base/BitUtil.h"
+#include "velox/experimental/wave/vector/Operand.h"
 
 namespace facebook::velox::wave {
-using OperandId = int32_t;
 
 /// Set of OperandId . Uses the id() as an index into a bitmap.
 class OperandSet {

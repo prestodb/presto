@@ -73,6 +73,27 @@ class HiveDataSource : public DataSource {
 
   int64_t estimatedRowSize() override;
 
+  std::shared_ptr<wave::WaveDataSource> toWaveDataSource() override;
+
+  using WaveDelegateHookFunction =
+      std::function<std::shared_ptr<wave::WaveDataSource>(
+          const std::shared_ptr<HiveTableHandle>& hiveTableHandle,
+          const std::shared_ptr<common::ScanSpec>& scanSpec,
+          const RowTypePtr& readerOutputType,
+          std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
+              partitionKeys,
+          FileHandleFactory* fileHandleFactory,
+          folly::Executor* executor,
+          const ConnectorQueryCtx* connectorQueryCtx,
+          const std::shared_ptr<HiveConfig>& hiveConfig,
+          const std::shared_ptr<io::IoStatistics>& ioStats,
+          const exec::ExprSet* remainingFilter,
+          std::shared_ptr<common::MetadataFilter> metadataFilter)>;
+
+  static WaveDelegateHookFunction waveDelegateHook_;
+
+  static void registerWaveDelegateHook(WaveDelegateHookFunction hook);
+
  protected:
   virtual std::unique_ptr<SplitReader> createSplitReader();
 
@@ -135,8 +156,10 @@ class HiveDataSource : public DataSource {
   VectorPtr filterResult_;
   SelectivityVector filterRows_;
   exec::FilterEvalCtx filterEvalCtx_;
-
   std::shared_ptr<random::RandomSkipTracker> randomSkip_;
-};
 
+  // Remembers the WaveDataSource. Successive calls to toWaveDataSource() will
+  // return the same.
+  std::shared_ptr<wave::WaveDataSource> waveDataSource_;
+};
 } // namespace facebook::velox::connector::hive

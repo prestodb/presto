@@ -16,13 +16,11 @@
 
 #pragma once
 
+#include "velox/exec/Driver.h"
 #include "velox/exec/Operator.h"
 #include "velox/experimental/wave/exec/WaveOperator.h"
 
 namespace facebook::velox::wave {
-
-using SubfieldMap =
-    folly::F14FastMap<std::string, std::unique_ptr<common::Subfield>>;
 
 class WaveDriver : public exec::SourceOperator {
  public:
@@ -63,12 +61,26 @@ class WaveDriver : public exec::SourceOperator {
     return operands_;
   }
 
+  const SubfieldMap* subfields() {
+    return &subfields_;
+  }
+
   /// Returns the control block with thread block level sizes and statuses for
-  /// input of  operator with id 'operator'. This is te control for the source
+  /// input of  operator with id 'operator'. This is the control for the source
   /// or previous cardinality change.
   LaunchControl* inputControl(WaveStream& stream, int32_t operatorId);
 
   std::string toString() const override;
+
+  void addDynamicFilter(
+      column_index_t outputChannel,
+      const std::shared_ptr<common::Filter>& filter) override {
+    pipelines_[0].operators[0]->addDynamicFilter(outputChannel, filter);
+  }
+
+  exec::OperatorCtx* operatorCtx() const {
+    return operatorCtx_.get();
+  }
 
  private:
   // True if all output from 'stream' is fetched.
@@ -91,6 +103,8 @@ class WaveDriver : public exec::SourceOperator {
   void prefetchReturn(WaveStream& stream);
 
   std::unique_ptr<GpuArena> arena_;
+  std::unique_ptr<GpuArena> deviceArena_;
+  std::unique_ptr<GpuArena> hostArena_;
 
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   exec::BlockingReason blockingReason_;

@@ -18,6 +18,7 @@
 #include "velox/exec/FilterProject.h"
 #include "velox/experimental/wave/exec/Aggregation.h"
 #include "velox/experimental/wave/exec/Project.h"
+#include "velox/experimental/wave/exec/TableScan.h"
 #include "velox/experimental/wave/exec/Values.h"
 #include "velox/experimental/wave/exec/WaveDriver.h"
 #include "velox/expression/ConstantExpr.h"
@@ -326,6 +327,17 @@ bool CompileState::addOperator(
     operators_.push_back(std::make_unique<Aggregation>(
         *this, *node, aggregateFunctionRegistry()));
     outputType = node->outputType();
+  } else if (name == "TableScan") {
+    if (!reserveMemory()) {
+      return false;
+    }
+    auto scan = reinterpret_cast<const core::TableScanNode*>(
+        driverFactory_.planNodes[nodeIndex].get());
+    outputType = driverFactory_.planNodes[nodeIndex]->outputType();
+
+    operators_.push_back(
+        std::make_unique<TableScan>(*this, operators_.size(), *scan));
+    outputType = scan->outputType();
   } else {
     return false;
   }

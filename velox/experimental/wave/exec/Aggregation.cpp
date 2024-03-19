@@ -20,19 +20,19 @@
 #include "velox/experimental/wave/exec/ToWave.h"
 #include "velox/experimental/wave/exec/Vectors.h"
 
-#define KEY_TYPE_DISPATCH(_func, _kindExpr, ...) \
-  [&]() {                                        \
-    auto _kind = (_kindExpr);                    \
-    switch (_kind) {                             \
-      case PhysicalType::kInt32:                 \
-        return _func<int32_t>(__VA_ARGS__);      \
-      case PhysicalType::kInt64:                 \
-        return _func<int64_t>(__VA_ARGS__);      \
-      case PhysicalType::kString:                \
-        return _func<StringView>(__VA_ARGS__);   \
-      default:                                   \
-        VELOX_UNSUPPORTED("{}", _kind);          \
-    };                                           \
+#define KEY_TYPE_DISPATCH(_func, _kindExpr, ...)              \
+  [&]() {                                                     \
+    auto _kind = (_kindExpr);                                 \
+    switch (_kind) {                                          \
+      case PhysicalType::kInt32:                              \
+        return _func<int32_t>(__VA_ARGS__);                   \
+      case PhysicalType::kInt64:                              \
+        return _func<int64_t>(__VA_ARGS__);                   \
+      case PhysicalType::kString:                             \
+        return _func<StringView>(__VA_ARGS__);                \
+      default:                                                \
+        VELOX_UNSUPPORTED("{}", static_cast<int32_t>(_kind)); \
+    };                                                        \
   }()
 
 namespace facebook::velox::wave {
@@ -80,10 +80,10 @@ Aggregation::Aggregation(
     const core::AggregationNode& node,
     const std::shared_ptr<aggregation::AggregateFunctionRegistry>&
         functionRegistry)
-    : WaveOperator(state, node.outputType()),
+    : WaveOperator(state, node.outputType(), node.id()),
       arena_(&state.arena()),
       functionRegistry_(functionRegistry) {
-  VELOX_CHECK_EQ(node.step(), core::AggregationNode::Step::kSingle);
+  VELOX_CHECK(node.step() == core::AggregationNode::Step::kSingle);
   VELOX_CHECK(node.preGroupedKeys().empty());
   auto& inputType = node.sources()[0]->outputType();
   container_ = arena_->allocate<aggregation::GroupsContainer>(

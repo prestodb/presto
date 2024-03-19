@@ -73,7 +73,7 @@ enum class ResultOp { kDict, kBaseline, kDictScatter, kBaselineScatter };
 template <typename T, ResultOp op>
 __device__ void storeResult(
     int32_t i,
-    int32_t bitfield,
+    uint64_t bitfield,
     T baseline,
     const T* dict,
     const int32_t* scatter,
@@ -110,13 +110,13 @@ __device__ void decodeDictionaryOnBitpack(GpuDecode::DictionaryOnBitpack& op) {
     uint64_t word = words[wordIndex];
     uint64_t low = word >> bit;
     if (bitWidth + bit <= 64) {
-      int32_t index = low & mask;
+      uint64_t index = low & mask;
       storeResult<T, resultOp>(i, index, baseline, dict, scatter, result);
     } else {
       uint64_t nextWord = words[wordIndex + 1];
       int32_t bitsFromNext = bitWidth - (64 - bit);
-      int32_t index =
-          low | ((nextWord & ((1 << bitsFromNext) - 1)) << (64 - bit));
+      uint64_t index =
+          low | ((nextWord & ((1LU << bitsFromNext) - 1)) << (64 - bit));
       storeResult<T, resultOp>(i, index, baseline, dict, scatter, result);
     }
   }

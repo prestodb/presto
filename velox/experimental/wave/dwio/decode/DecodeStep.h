@@ -209,6 +209,12 @@ struct GpuDecode {
 };
 
 struct DecodePrograms {
+  void clear() {
+    programs.clear();
+    result = nullptr;
+    hostResult = nullptr;
+  }
+
   // Set of decode programs submitted as a unit. Each vector<DecodeStep> is run
   // on its own thread block. The consecutive DecodeSteps in the same program
   // are consecutive and the next one can depend on a previous one.

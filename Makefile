@@ -78,7 +78,7 @@ clean:					#: Delete all build artifacts
 
 cmake:					#: Use CMake to create a Makefile build system
 	mkdir -p $(BUILD_BASE_DIR)/$(BUILD_DIR) && \
-	cmake -B \
+	cmake  -B \
 		"$(BUILD_BASE_DIR)/$(BUILD_DIR)" \
 		${CMAKE_FLAGS} \
 		$(GENERATOR) \

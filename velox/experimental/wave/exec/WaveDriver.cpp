@@ -135,12 +135,10 @@ RowVectorPtr WaveDriver::makeResult(
       last.outputSize(stream),
       std::move(children));
   int32_t nthChild = 0;
-  for (auto id : resultOrder_) {
-    auto exe = stream.operandExecutable(id);
-    VELOX_CHECK_NOT_NULL(exe);
-    auto ordinal = exe->outputOperands.ordinal(id);
-    auto waveVector = std::move(exe->output[ordinal]);
-    result->childAt(nthChild++) = waveVector->toVelox(operatorCtx_->pool());
+  std::vector<WaveVectorPtr> waveVectors(resultOrder_.size());
+  stream.getOutput(resultOrder_, waveVectors.data());
+  for (auto& item : waveVectors) {
+    result->childAt(nthChild++) = item->toVelox(operatorCtx_->pool());
   };
   return result;
 }
@@ -148,6 +146,10 @@ RowVectorPtr WaveDriver::makeResult(
 void WaveDriver::startMore() {
   for (int i = 0; i < pipelines_.size(); ++i) {
     auto& ops = pipelines_[i].operators;
+    blockingReason_ = ops[0]->isBlocked(&blockingFuture_);
+    if (blockingReason_ != exec::BlockingReason::kNotBlocked) {
+      return;
+    }
     if (auto rows = ops[0]->canAdvance()) {
       VLOG(1) << "Advance " << rows << " rows in pipeline " << i;
       auto stream = std::make_unique<WaveStream>(*arena_);
