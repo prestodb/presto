@@ -16,6 +16,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 
 import java.util.ArrayList;
@@ -29,26 +30,26 @@ public class HistoricalPlanStatisticsUtil
     private HistoricalPlanStatisticsUtil() {}
 
     /**
-     * Returns predicted plan statistics depending on historical runs
+     * Returns historical plan statistics entry containing predicted plan statistics depending on historical runs
      */
-    public static PlanStatistics getPredictedPlanStatistics(
+    public static Optional<HistoricalPlanStatisticsEntry> getSelectedHistoricalPlanStatisticsEntry(
             HistoricalPlanStatistics historicalPlanStatistics,
             List<PlanStatistics> inputTableStatistics,
             double historyMatchingThreshold)
     {
         List<HistoricalPlanStatisticsEntry> lastRunsStatistics = historicalPlanStatistics.getLastRunsStatistics();
         if (lastRunsStatistics.isEmpty()) {
-            return PlanStatistics.empty();
+            return Optional.empty();
         }
 
         Optional<Integer> similarStatsIndex = getSimilarStatsIndex(historicalPlanStatistics, inputTableStatistics, historyMatchingThreshold);
 
         if (similarStatsIndex.isPresent()) {
-            return lastRunsStatistics.get(similarStatsIndex.get()).getPlanStatistics();
+            return Optional.of(lastRunsStatistics.get(similarStatsIndex.get()));
         }
 
         // TODO: Use linear regression to predict stats if we have only 1 table.
-        return PlanStatistics.empty();
+        return Optional.empty();
     }
 
     /**
@@ -58,7 +59,8 @@ public class HistoricalPlanStatisticsUtil
             HistoricalPlanStatistics historicalPlanStatistics,
             List<PlanStatistics> inputTableStatistics,
             PlanStatistics current,
-            HistoryBasedOptimizationConfig config)
+            HistoryBasedOptimizationConfig config,
+            HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo)
     {
         List<HistoricalPlanStatisticsEntry> lastRunsStatistics = historicalPlanStatistics.getLastRunsStatistics();
 
@@ -69,7 +71,7 @@ public class HistoricalPlanStatisticsUtil
             newLastRunsStatistics.remove(similarStatsIndex.get().intValue());
         }
 
-        newLastRunsStatistics.add(new HistoricalPlanStatisticsEntry(current, inputTableStatistics));
+        newLastRunsStatistics.add(new HistoricalPlanStatisticsEntry(current, inputTableStatistics, historicalPlanStatisticsEntryInfo));
         int maxLastRuns = inputTableStatistics.isEmpty() ? 1 : config.getMaxLastRunsHistory();
         if (newLastRunsStatistics.size() > maxLastRuns) {
             newLastRunsStatistics.remove(0);
