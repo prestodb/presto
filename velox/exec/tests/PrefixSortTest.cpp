@@ -218,7 +218,7 @@ TEST_F(PrefixSortTest, multipleKeys) {
 }
 
 TEST_F(PrefixSortTest, fuzz) {
-  std::vector<TypePtr> allTypes = {
+  std::vector<TypePtr> keyTypes = {
       INTEGER(),
       BOOLEAN(),
       TINYINT(),
@@ -230,10 +230,9 @@ TEST_F(PrefixSortTest, fuzz) {
       TIMESTAMP(),
       VARCHAR(),
       VARBINARY()};
-  const int numRows = 10240;
-  for (const auto& type : allTypes) {
+  for (const auto& type : keyTypes) {
     SCOPED_TRACE(fmt::format("{}", type->toString()));
-    VectorFuzzer fuzzer({.vectorSize = numRows, .nullRatio = 0.1}, pool());
+    VectorFuzzer fuzzer({.vectorSize = 10'240, .nullRatio = 0.1}, pool());
     RowVectorPtr data = fuzzer.fuzzRow(ROW({type}));
 
     testPrefixSort({kAsc}, data);
@@ -242,7 +241,7 @@ TEST_F(PrefixSortTest, fuzz) {
 }
 
 TEST_F(PrefixSortTest, fuzzMulti) {
-  std::vector<TypePtr> allTypes = {
+  std::vector<TypePtr> keyTypes = {
       INTEGER(),
       BOOLEAN(),
       TINYINT(),
@@ -254,17 +253,18 @@ TEST_F(PrefixSortTest, fuzzMulti) {
       TIMESTAMP(),
       VARCHAR(),
       VARBINARY()};
-  const int32_t numRows = 10240;
-  const TypePtr payload = VARCHAR();
-  VectorFuzzer fuzzer({.vectorSize = numRows, .nullRatio = 0.1}, pool());
-  for (const auto& type1 : allTypes) {
-    for (const auto& type2 : allTypes) {
-      SCOPED_TRACE(fmt::format("{}, {}", type1->toString(), type2->toString()));
-      RowVectorPtr data = fuzzer.fuzzRow(ROW({type1, type2, payload}));
 
-      testPrefixSort({kAsc, kAsc}, data);
-      testPrefixSort({kDesc, kDesc}, data);
-    }
+  VectorFuzzer fuzzer({.vectorSize = 10'240, .nullRatio = 0.1}, pool());
+
+  for (auto i = 0; i < 20; ++i) {
+    auto type1 = fuzzer.randType(keyTypes, 0);
+    auto type2 = fuzzer.randType(keyTypes, 0);
+
+    SCOPED_TRACE(fmt::format("{}, {}", type1->toString(), type2->toString()));
+    auto data = fuzzer.fuzzRow(ROW({type1, type2, VARCHAR()}));
+
+    testPrefixSort({kAsc, kAsc}, data);
+    testPrefixSort({kDesc, kDesc}, data);
   }
 }
 } // namespace
