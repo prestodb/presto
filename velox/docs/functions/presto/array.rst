@@ -279,10 +279,10 @@ Array Functions
     If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from
     the end of the array, until the start of the array. ::
 
-        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 2
-        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 3
-        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
-        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
+        SELECT find_first_index(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 2
+        SELECT find_first_index(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 3
+        SELECT find_first_index(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
+        SELECT find_first_index(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
 
 .. function:: flatten(array(array(T))) -> array(T)
 

@@ -83,6 +83,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     table.coverage tr:nth-child(12) td:nth-child(7) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(1) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(2) {background-color: #6BA81E;}
+    table.coverage tr:nth-child(13) td:nth-child(3) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(4) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(5) {background-color: #6BA81E;}
     table.coverage tr:nth-child(13) td:nth-child(7) {background-color: #6BA81E;}
@@ -131,7 +132,7 @@ Here is a list of most used scalar and aggregate Presto functions with functions
     :func:`length`               :func:`date`                 :func:`date_trunc`           :func:`date_parse`           st_y                             :func:`approx_percentile`
     :func:`from_unixtime`        :func:`is_nan`               :func:`date_diff`            bing_tile_at                 st_x                             :func:`avg`
     :func:`transform`            :func:`rand`                 :func:`array_max`            :func:`array_union`          now                              :func:`map_agg`
-    :func:`to_unixtime`          :func:`filter`               from_iso8601_date            :func:`reverse`              :func:`truncate`                 :func:`min_by`
+    :func:`to_unixtime`          :func:`filter`               :func:`from_iso8601_date`    :func:`reverse`              :func:`truncate`                 :func:`min_by`
     :func:`regexp_like`          :func:`sqrt`                 :func:`json_extract`         :func:`array_intersect`                                       :func:`stddev`
     :func:`array_join`           :func:`least`                :func:`mod`                  :func:`repeat`                                                :func:`set_agg`
     :func:`replace`              :func:`json_parse`           :func:`array_distinct`       st_geometryfromtext                                           :func:`histogram`

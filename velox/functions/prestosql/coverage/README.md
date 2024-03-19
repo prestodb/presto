@@ -14,7 +14,7 @@ to be copy-pasted into velox/docs/functions.rst file.
 > velox_prestosql_coverage --all
 
 Generates coverage map using all Presto functions. The output to be copy-pasted
-into velox/docs/functions/coverage.rst file. The functions appear in alphabetical order.
+into velox/docs/functions/presto/coverage.rst file. The functions appear in alphabetical order.
 Before generating the coverage map for all Presto functions, please ensure that the data 
 files at velox/functions/prestosql/coverage/data/ contain all the Presto functions. To
 generate a list of all Presto functions, please run ```SHOW FUNCTIONS``` in Presto.
@@ -30,7 +30,7 @@ These files were created using output of SHOW FUNCTIONS Presto command.
 > velox_prestosql_coverage --most_used
 
 Generates coverage map using a subset of most used Presto functions. The output
-to be copy-pasted into velox/docs/functions/most_used_coverage.rst file. The functions
+to be copy-pasted into velox/docs/functions/presto/most_used_coverage.rst file. The functions
 appear in order from most used to least used.
 
 The list of most used Presto functions comes from data/most_used_functions.txt file.
