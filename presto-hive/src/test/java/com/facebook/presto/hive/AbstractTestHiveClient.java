@@ -1016,7 +1016,6 @@ public abstract class AbstractTestHiveClient
                 true,
                 false,
                 false,
-                false,
                 true,
                 true,
                 getHiveClientConfig().getMaxPartitionBatchSize(),
@@ -1041,7 +1040,8 @@ public abstract class AbstractTestHiveClient
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
 
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());

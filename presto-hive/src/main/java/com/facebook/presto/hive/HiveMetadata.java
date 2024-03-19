@@ -279,7 +279,6 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypeForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.translateHiveUnsupportedTypesForTemporaryTable;
 import static com.facebook.presto.hive.HiveUtil.verifyPartitionTypeSupported;
-import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.isFileCreatedByQuery;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriterFactory.computeBucketedFileName;
@@ -412,7 +411,6 @@ public class HiveMetadata
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final SmileCodec<PartitionUpdate> partitionUpdateSmileCodec;
-    private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
     private final TypeTranslator typeTranslator;
@@ -424,6 +422,7 @@ public class HiveMetadata
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
+    private final TableWritabilityChecker tableWritabilityChecker;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -431,7 +430,6 @@ public class HiveMetadata
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,
             boolean allowCorruptWritesForTesting,
-            boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             int maxPartitionBatchSize,
             TypeManager typeManager,
@@ -450,7 +448,8 @@ public class HiveMetadata
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
-            HiveFileRenamer hiveFileRenamer)
+            HiveFileRenamer hiveFileRenamer,
+            TableWritabilityChecker tableWritabilityChecker)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -466,7 +465,6 @@ public class HiveMetadata
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.partitionUpdateSmileCodec = requireNonNull(partitionUpdateSmileCodec, "partitionUpdateSmileCodec is null");
-        this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
@@ -478,6 +476,7 @@ public class HiveMetadata
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
+        this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1874,7 +1873,12 @@ public class HiveMetadata
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        checkTableIsWritable(table, writesToNonManagedTablesEnabled, metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName()));
+        tableWritabilityChecker.checkTableWritable(table);
+
+        List<TableConstraint<String>> constraints = metastore.getTableConstraints(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
+        if (constraints.stream().anyMatch(TableConstraint::isEnforced)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot write to table %s since it has table constraints that are enforced", table.getSchemaTableName().toString()));
+        }
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
