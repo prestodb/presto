@@ -325,7 +325,6 @@ class ISimpleFunctionMetadata {
   // types, otherwise return null.
   virtual TypePtr tryResolveReturnType() const = 0;
   virtual std::string getName() const = 0;
-  virtual exec::FunctionCanonicalName getCanonicalName() const = 0;
   virtual bool isDeterministic() const = 0;
   virtual uint32_t priority() const = 0;
   virtual const std::shared_ptr<exec::FunctionSignature> signature() const = 0;
@@ -389,10 +388,6 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
           "member in the function class, or specify a function alias at "
           "registration time.");
     }
-  }
-
-  exec::FunctionCanonicalName getCanonicalName() const final {
-    return udf_canonical_name<Fun>::value;
   }
 
   bool isDeterministic() const final {
@@ -507,12 +502,16 @@ template <
     typename TReturn,
     typename ConstantChecker,
     typename... TArgs>
-class UDFHolder final
-    : public core::
-          SimpleFunctionMetadata<Fun, TReturn, ConstantChecker, TArgs...> {
+class UDFHolder {
   Fun instance_;
 
  public:
+  using return_type = TReturn;
+  using arg_types = std::tuple<TArgs...>;
+  template <size_t N>
+  using type_at = typename std::tuple_element<N, arg_types>::type;
+  static constexpr int num_args = std::tuple_size<arg_types>::value;
+
   using udf_struct_t = Fun;
   using Metadata =
       core::SimpleFunctionMetadata<Fun, TReturn, ConstantChecker, TArgs...>;
@@ -716,7 +715,23 @@ class UDFHolder final
   template <size_t N>
   using exec_type_at = typename std::tuple_element<N, exec_arg_types>::type;
 
-  explicit UDFHolder() : Metadata(), instance_{} {}
+  explicit UDFHolder() : instance_{} {}
+
+  exec::FunctionCanonicalName getCanonicalName() const {
+    return udf_canonical_name<Fun>::value;
+  }
+
+  bool isDeterministic() const {
+    return udf_is_deterministic<Fun>();
+  }
+
+  static constexpr bool isVariadic() {
+    if constexpr (num_args == 0) {
+      return false;
+    } else {
+      return isVariadicType<type_at<num_args - 1>>::value;
+    }
+  }
 
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& inputTypes,
