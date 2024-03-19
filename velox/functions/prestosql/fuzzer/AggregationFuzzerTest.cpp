@@ -102,6 +102,8 @@ int main(int argc, char** argv) {
 
   // List of functions that have known bugs that cause crashes or failures.
   static const std::unordered_set<std::string> skipFunctions = {
+      // Skip internal functions used only for result verifications.
+      "$internal$count_distinct",
       // https://github.com/facebookincubator/velox/issues/3493
       "stddev_pop",
       // Lambda functions are not supported yet.
@@ -111,7 +113,8 @@ int main(int argc, char** argv) {
       "approx_set",
       "min_by",
       "max_by",
-      "any_value"};
+      "any_value",
+  };
 
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;

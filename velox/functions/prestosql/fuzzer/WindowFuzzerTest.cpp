@@ -70,7 +70,7 @@ getCustomInputGenerators() {
 
 int main(int argc, char** argv) {
   facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(
-      "", false);
+      "", false, true);
   facebook::velox::aggregate::prestosql::registerInternalAggregateFunctions("");
   facebook::velox::window::prestosql::registerAllWindowFunctions();
   facebook::velox::functions::prestosql::registerAllScalarFunctions();
@@ -87,12 +87,18 @@ int main(int argc, char** argv) {
 
   // List of functions that have known bugs that cause crashes or failures.
   static const std::unordered_set<std::string> skipFunctions = {
+      // Skip internal functions used only for result verifications.
+      "$internal$count_distinct",
       // https://github.com/facebookincubator/velox/issues/3493
       "stddev_pop",
       // Lambda functions are not supported yet.
       "reduce_agg",
-      // Skip internal functions used only for result verifications.
-      "$internal$count_distinct",
+      // array_agg requires a flag controlling whether to ignore nulls.
+      "array_agg",
+      // min_by and max_by are fixed recently, requiring Presto-0.286.
+      // https://github.com/prestodb/presto/pull/21793
+      "min_by",
+      "max_by",
   };
 
   // Functions whose results verification should be skipped. These can be
