@@ -19,6 +19,7 @@ on:
     paths:
       - ".github/workflows/scheduled.yml"
       - scripts/*
+      - CMake/*
 
   schedule:
     - cron: '0 3 * * *'
@@ -73,7 +74,7 @@ jobs:
         with:
           path: velox
           submodules: 'recursive'
-          ref: "${{ inputs.ref || 'main' }}"
+          ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
         run: cd  velox && sudo ./scripts/setup-ubuntu.sh 
@@ -123,7 +124,7 @@ jobs:
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          ref: "${{ inputs.ref || 'main' }}"
+          ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
         run: sudo ./scripts/setup-ubuntu.sh
@@ -171,7 +172,7 @@ jobs:
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          ref: "${{ inputs.ref || 'main' }}"
+          ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
         run: sudo ./scripts/setup-ubuntu.sh
@@ -245,7 +246,7 @@ jobs:
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          ref: "${{ inputs.ref || 'main' }}"
+          ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
         run: sudo ./scripts/setup-ubuntu.sh
@@ -286,7 +287,7 @@ jobs:
       - name: "Checkout Repo"
         uses: actions/checkout@v3
         with:
-          ref: "${{ inputs.ref || 'main' }}"
+          ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
         run:  sudo ./scripts/setup-ubuntu.sh
