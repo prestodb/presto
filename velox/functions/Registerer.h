@@ -43,7 +43,7 @@ void registerFunction(const std::vector<std::string>& aliases = {}) {
       TReturn,
       ConstantChecker<TArgs...>,
       typename UnwrapConstantType<TArgs>::type...>;
-  exec::registerSimpleFunction<holderClass>(aliases);
+  exec::registerSimpleFunction<holderClass>(aliases, {});
 }
 
 // New registration function; mostly a copy from the function above, but taking
@@ -51,7 +51,9 @@ void registerFunction(const std::vector<std::string>& aliases = {}) {
 // a while to maintain backwards compatibility, but the idea is to remove the
 // one above eventually.
 template <template <class> typename Func, typename TReturn, typename... TArgs>
-void registerFunction(const std::vector<std::string>& aliases = {}) {
+void registerFunction(
+    const std::vector<std::string>& aliases = {},
+    const std::vector<exec::SignatureVariable>& constraints = {}) {
   using funcClass = Func<exec::VectorExec>;
   using holderClass = core::UDFHolder<
       funcClass,
@@ -59,7 +61,7 @@ void registerFunction(const std::vector<std::string>& aliases = {}) {
       TReturn,
       ConstantChecker<TArgs...>,
       typename UnwrapConstantType<TArgs>::type...>;
-  exec::registerSimpleFunction<holderClass>(aliases);
+  exec::registerSimpleFunction<holderClass>(aliases, constraints);
 }
 
 } // namespace facebook::velox

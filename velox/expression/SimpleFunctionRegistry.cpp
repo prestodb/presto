@@ -40,14 +40,25 @@ void SimpleFunctionRegistry::registerFunctionInternal(
   const auto sanitizedName = sanitizeName(name);
   registeredFunctions_.withWLock([&](auto& map) {
     SignatureMap& signatureMap = map[sanitizedName];
-    signatureMap[*metadata->signature()] =
-        std::make_unique<const FunctionEntry>(metadata, factory);
+    auto& functions = signatureMap[*metadata->signature()];
+
+    for (auto it = functions.begin(); it != functions.end(); ++it) {
+      const auto& otherMetadata = (*it)->getMetadata();
+
+      if (metadata->physicalSignatureEquals(otherMetadata)) {
+        functions.erase(it);
+        break;
+      }
+    }
+
+    functions.emplace_back(
+        std::make_unique<const FunctionEntry>(metadata, factory));
   });
 }
 
 namespace {
-// This function is not thread safe should be called only from within a
-// syncrhronized read region of registeredFunctions_.
+// This function is not thread safe. It should be called only from within a
+// synchronized read region of registeredFunctions_.
 const SignatureMap* getSignatureMap(
     const std::string& name,
     const FunctionMap& registeredFunctions) {
@@ -72,6 +83,33 @@ SimpleFunctionRegistry::getFunctionSignatures(const std::string& name) const {
   return signatures;
 }
 
+namespace {
+
+// Same as Type::kindEquals, but matches UNKNOWN in 'physicalType' to any type.
+bool physicalTypeMatches(const TypePtr& type, const TypePtr& physicalType) {
+  if (physicalType->isUnKnown()) {
+    return true;
+  }
+
+  if (type->kind() != physicalType->kind()) {
+    return false;
+  }
+
+  if (type->size() != physicalType->size()) {
+    return false;
+  }
+
+  for (auto i = 0; i < type->size(); ++i) {
+    if (!physicalTypeMatches(type->childAt(i), physicalType->childAt(i))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+} // namespace
+
 std::optional<SimpleFunctionRegistry::ResolvedSimpleFunction>
 SimpleFunctionRegistry::resolveFunction(
     const std::string& name,
@@ -83,12 +121,37 @@ SimpleFunctionRegistry::resolveFunction(
       for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
         SignatureBinder binder(candidateSignature, argTypes);
         if (binder.tryBind()) {
-          auto* currentCandidate = functionEntry.get();
-          if (!selectedCandidate ||
-              currentCandidate->getMetadata().priority() <
-                  selectedCandidate->getMetadata().priority()) {
-            selectedCandidate = currentCandidate;
-            selectedCandidateType = binder.tryResolveReturnType();
+          for (const auto& currentCandidate : functionEntry) {
+            const auto& m = currentCandidate->getMetadata();
+
+            // For variadic signatures, number of arguments in function call may
+            // be one less than number of arguments in the signature.
+            const auto numArgsToMatch =
+                std::min(argTypes.size(), m.argPhysicalTypes().size());
+
+            bool match = true;
+            for (auto i = 0; i < numArgsToMatch; ++i) {
+              if (!physicalTypeMatches(argTypes[i], m.argPhysicalTypes()[i])) {
+                match = false;
+                break;
+              }
+            }
+
+            if (!match) {
+              continue;
+            }
+
+            if (!selectedCandidate ||
+                currentCandidate->getMetadata().priority() <
+                    selectedCandidate->getMetadata().priority()) {
+              auto resultType = binder.tryResolveReturnType();
+              VELOX_CHECK_NOT_NULL(resultType);
+
+              if (physicalTypeMatches(resultType, m.resultPhysicalType())) {
+                selectedCandidate = currentCandidate.get();
+                selectedCandidateType = resultType;
+              }
+            }
           }
         }
       }

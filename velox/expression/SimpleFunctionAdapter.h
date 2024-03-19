@@ -313,8 +313,10 @@ class SimpleFunctionAdapter : public VectorFunction {
         return_type_traits::isFixedWidth) {
       if (!reusableResult->get()) {
         if (auto* arg = findReusableArg<0>(args)) {
-          reusableResult = arg;
-          isResultReused = true;
+          if ((*arg)->type()->equivalent(*outputType)) {
+            reusableResult = arg;
+            isResultReused = true;
+          }
         }
       }
     }

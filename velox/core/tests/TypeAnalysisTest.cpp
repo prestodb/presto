@@ -18,6 +18,7 @@
 
 #include "velox/core/SimpleFunctionMetadata.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Type.h"
 
 // Test for simple function type analysis.
@@ -68,6 +69,13 @@ class TypeAnalysisTest : public testing::Test {
         }(),
         ...);
     ASSERT_EQ(expected, types);
+  }
+
+  template <typename... Args>
+  void testPhysicalType(const TypePtr& expected) {
+    TypeAnalysisResults results;
+    (TypeAnalysis<Args>().run(results), ...);
+    ASSERT_EQ(expected->toString(), results.physicalType->toString());
   }
 
   template <typename... Args>
@@ -178,6 +186,10 @@ TEST_F(TypeAnalysisTest, testStringType) {
   testStringType<int64_t>({"bigint"});
   testStringType<double>({"double"});
   testStringType<float>({"real"});
+  testStringType<Date>({"date"});
+
+  testStringType<ShortDecimal<P1, S1>>({"decimal(i1,i5)"});
+  testStringType<LongDecimal<P1, S1>>({"decimal(i1,i5)"});
 
   testStringType<Array<int32_t>>({"array(integer)"});
   testStringType<Map<Any, int32_t>>({"map(any, integer)"});
@@ -192,25 +204,25 @@ TEST_F(TypeAnalysisTest, testStringType) {
       "integer",
       "bigint",
       "map(array(integer), __user_T2)",
-
   });
 
   testStringType<int32_t, int64_t, Map<Array<int32_t>, Orderable<T2>>>({
       "integer",
       "bigint",
       "map(array(integer), __user_T2)",
-
   });
   testStringType<int32_t, int64_t, Map<Array<int32_t>, Comparable<T2>>>({
       "integer",
       "bigint",
       "map(array(integer), __user_T2)",
-
   });
   testStringType<Array<int32_t>>({"array(integer)"});
   testStringType<Map<int64_t, double>>({"map(bigint, double)"});
   testStringType<Row<Any, double, Generic<T1>>>(
       {"row(any, double, __user_T1)"});
+
+  testStringType<Json>({"json"});
+  testStringType<Array<Json>>({"array(json)"});
 }
 
 TEST_F(TypeAnalysisTest, testVariables) {
@@ -277,6 +289,44 @@ TEST_F(TypeAnalysisTest, testVariables) {
             false,
             true /*orderableTypesOnly*/,
             true /*comparableTypesOnly*/)}});
+
+  testVariables<LongDecimal<P1, S1>>({
+      {"i1",
+       exec::SignatureVariable(
+           "i1",
+           std::nullopt,
+           exec::ParameterType::kIntegerParameter,
+           false,
+           false /*orderableTypesOnly*/,
+           false /*comparableTypesOnly*/)},
+      {"i5",
+       exec::SignatureVariable(
+           "i5",
+           std::nullopt,
+           exec::ParameterType::kIntegerParameter,
+           false,
+           false /*orderableTypesOnly*/,
+           false /*comparableTypesOnly*/)},
+  });
+
+  testVariables<ShortDecimal<P2, S2>>({
+      {"i2",
+       exec::SignatureVariable(
+           "i2",
+           std::nullopt,
+           exec::ParameterType::kIntegerParameter,
+           false,
+           false /*orderableTypesOnly*/,
+           false /*comparableTypesOnly*/)},
+      {"i6",
+       exec::SignatureVariable(
+           "i6",
+           std::nullopt,
+           exec::ParameterType::kIntegerParameter,
+           false,
+           false /*orderableTypesOnly*/,
+           false /*comparableTypesOnly*/)},
+  });
 }
 
 TEST_F(TypeAnalysisTest, testRank) {
@@ -323,5 +373,45 @@ TEST_F(TypeAnalysisTest, testPriority) {
       getPriority<Any, Variadic<Array<Any>>>(),
       getPriority<Any, Variadic<Any>>());
 }
+
+TEST_F(TypeAnalysisTest, physicalType) {
+  testPhysicalType<bool>(BOOLEAN());
+  testPhysicalType<int32_t>(INTEGER());
+  testPhysicalType<int64_t>(BIGINT());
+  testPhysicalType<float>(REAL());
+  testPhysicalType<double>(DOUBLE());
+  testPhysicalType<Date>(INTEGER());
+  testPhysicalType<Timestamp>(TIMESTAMP());
+  testPhysicalType<Varchar>(VARCHAR());
+  testPhysicalType<Varbinary>(VARBINARY());
+
+  testPhysicalType<ShortDecimal<P1, S1>>(BIGINT());
+  testPhysicalType<LongDecimal<P1, S1>>(HUGEINT());
+
+  testPhysicalType<Array<int32_t>>(ARRAY(INTEGER()));
+  testPhysicalType<Array<Date>>(ARRAY(INTEGER()));
+  testPhysicalType<Array<Array<float>>>(ARRAY(ARRAY(REAL())));
+  testPhysicalType<Array<Generic<T1>>>(ARRAY(UNKNOWN()));
+  testPhysicalType<Array<Array<Generic<T1>>>>(ARRAY(ARRAY(UNKNOWN())));
+  testPhysicalType<Array<ShortDecimal<P1, S1>>>(ARRAY(BIGINT()));
+
+  testPhysicalType<Map<int32_t, Varchar>>(MAP(INTEGER(), VARCHAR()));
+  testPhysicalType<Map<int32_t, Array<Date>>>(MAP(INTEGER(), ARRAY(INTEGER())));
+  testPhysicalType<Map<Generic<T1>, Generic<T2>>>(MAP(UNKNOWN(), UNKNOWN()));
+  testPhysicalType<Map<Generic<T1>, Array<Generic<T2>>>>(
+      MAP(UNKNOWN(), ARRAY(UNKNOWN())));
+  testPhysicalType<Map<int32_t, LongDecimal<P1, S1>>>(
+      MAP(INTEGER(), HUGEINT()));
+
+  testPhysicalType<Row<int32_t, Array<double>, Variadic<bool>>>(
+      ROW({INTEGER(), ARRAY(DOUBLE()), BOOLEAN()}));
+
+  testPhysicalType<Json>(VARCHAR());
+  testPhysicalType<Array<Json>>(ARRAY(VARCHAR()));
+
+  testPhysicalType<Any>(UNKNOWN());
+  testPhysicalType<Row<Date, Any>>(ROW({INTEGER(), UNKNOWN()}));
+}
+
 } // namespace
 } // namespace facebook::velox::core

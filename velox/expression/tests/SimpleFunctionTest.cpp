@@ -842,7 +842,7 @@ TEST_F(SimpleFunctionTest, stringReuseConstant) {
   // Test reusing the strings from an argument when that argument is in a
   // ConstantVector.  Note that the other 2 arguments are FlatVectors to
   // prevent constant peeling.
-  registerFunction<Substr, Varchar, Varchar, int32_t, int32_t>({"substr"});
+  registerFunction<Substr, Varchar, Varchar, int32_t, int32_t>({"test_substr"});
 
   auto constantVector = vectorMaker_.constantVector<StringView>(
       {"super happy fun string"_sv,
@@ -852,7 +852,8 @@ TEST_F(SimpleFunctionTest, stringReuseConstant) {
   auto lengths = vectorMaker_.flatVector({1, 2, 3});
 
   auto result = evaluate<FlatVector<StringView>>(
-      "substr(c0, c1, c2)", makeRowVector({constantVector, starts, lengths}));
+      "test_substr(c0, c1, c2)",
+      makeRowVector({constantVector, starts, lengths}));
 
   auto expected = vectorMaker_.flatVector({"s"_sv, "up"_sv, "per"_sv});
   assertEqualVectors(expected, result);
@@ -1289,4 +1290,192 @@ TEST_F(SimpleFunctionTest, constantArgument) {
   EXPECT_TRUE(signatures[0]->constantArguments().at(4));
   EXPECT_TRUE(signatures[0]->constantArguments().at(5));
 }
+
+template <typename TExec>
+struct DecimalPlusOneFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  template <typename A>
+  void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& /*config*/,
+      const A* /*a*/) {
+    scale_ = getDecimalPrecisionScale(*inputTypes[0]).second;
+  }
+
+  template <typename R, typename A>
+  void call(R& out, A a) {
+    out = a + DecimalUtil::kPowersOfTen[scale_];
+  }
+
+ private:
+  int8_t scale_;
+};
+
+template <typename TExec>
+struct DecimalPlusTwoFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  template <typename A>
+  void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& /*config*/,
+      const A* /*a*/) {
+    scale_ = getDecimalPrecisionScale(*inputTypes[0]).second;
+  }
+
+  template <typename R, typename A>
+  void call(R& out, A a) {
+    out = a + 2 * DecimalUtil::kPowersOfTen[scale_];
+  }
+
+ private:
+  int8_t scale_;
+};
+
+TEST_F(SimpleFunctionTest, decimals) {
+  const auto& registry = exec::simpleFunctions();
+
+  registerFunction<
+      DecimalPlusOneFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({"decimal_plus_one"});
+
+  auto signatures = registry.getFunctionSignatures("decimal_plus_one");
+
+  EXPECT_EQ(1, signatures.size());
+  EXPECT_EQ("(decimal(i1,i5)) -> decimal(i1,i5)", signatures[0]->toString());
+
+  registerFunction<
+      DecimalPlusOneFunction,
+      LongDecimal<P1, S1>,
+      LongDecimal<P1, S1>>({"decimal_plus_one"});
+
+  signatures = registry.getFunctionSignatures("decimal_plus_one");
+
+  EXPECT_EQ(1, signatures.size());
+  EXPECT_EQ("(decimal(i1,i5)) -> decimal(i1,i5)", signatures[0]->toString());
+
+  {
+    auto resolved =
+        registry.resolveFunction("decimal_plus_one", {DECIMAL(10, 2)});
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(DECIMAL(10, 2)->toString(), resolved->type()->toString());
+  }
+
+  {
+    auto resolved =
+        registry.resolveFunction("decimal_plus_one", {DECIMAL(30, 4)});
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(DECIMAL(30, 4)->toString(), resolved->type()->toString());
+  }
+
+  auto data = makeRowVector({
+      // 12.34, 25.67
+      makeFlatVector<int64_t>({1234, 2567}, DECIMAL(10, 2)),
+      // 0.1234, 0.2567
+      makeFlatVector<int128_t>({1234, 2567}, DECIMAL(30, 4)),
+  });
+
+  auto result = evaluate("decimal_plus_one(c0)", data);
+
+  // 13.34, 26.67
+  VectorPtr expected = makeFlatVector<int64_t>({1334, 2667}, DECIMAL(10, 2));
+  assertEqualVectors(expected, result);
+
+  result = evaluate("decimal_plus_one(c1)", data);
+
+  // 1.1234, 1.2567
+  expected = makeFlatVector<int128_t>({11234, 12567}, DECIMAL(30, 4));
+  assertEqualVectors(expected, result);
+
+  // Verify overwrite behavior. Register a different function using the same
+  // name and physical signature as decimal_plus_one. Expect the new function to
+  // be used for (short) -> short signature.
+  registerFunction<
+      DecimalPlusTwoFunction,
+      ShortDecimal<P1, S1>,
+      ShortDecimal<P1, S1>>({"decimal_plus_one"});
+
+  result = evaluate("decimal_plus_one(c0)", data);
+
+  // 14.34, 27.67
+  expected = makeFlatVector<int64_t>({1434, 2767}, DECIMAL(10, 2));
+  assertEqualVectors(expected, result);
+
+  // Expect the original decimal_plus_one to be used for (long) -> long
+  // signature that wasn't overwritten.
+
+  result = evaluate("decimal_plus_one(c1)", data);
+
+  // 1.1234, 1.2567
+  expected = makeFlatVector<int128_t>({11234, 12567}, DECIMAL(30, 4));
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(SimpleFunctionTest, decimalsWithConstraints) {
+  const auto& registry = exec::simpleFunctions();
+
+  registerFunction<
+      DecimalPlusTwoFunction,
+      ShortDecimal<P2, S1>,
+      ShortDecimal<P1, S1>>(
+      {"decimal_plus_two"},
+      {exec::SignatureVariable(
+          P2::name(),
+          fmt::format("{a_precision} + 1", fmt::arg("a_precision", P1::name())),
+          exec::ParameterType::kIntegerParameter)});
+
+  auto signatures = registry.getFunctionSignatures("decimal_plus_two");
+
+  EXPECT_EQ(1, signatures.size());
+  EXPECT_EQ("(decimal(i1,i5)) -> decimal(i2,i5)", signatures[0]->toString());
+  auto it = signatures[0]->variables().find("i2");
+  EXPECT_TRUE(it != signatures[0]->variables().end());
+  EXPECT_EQ("i1 + 1", it->second.constraint());
+
+  {
+    auto resolved =
+        registry.resolveFunction("decimal_plus_two", {DECIMAL(10, 2)});
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(DECIMAL(11, 2)->toString(), resolved->type()->toString());
+  }
+
+  registerFunction<
+      DecimalPlusTwoFunction,
+      ShortDecimal<P2, S2>,
+      ShortDecimal<P1, S1>>(
+      {"decimal_plus_two_2"},
+      {
+          exec::SignatureVariable(
+              P2::name(),
+              fmt::format(
+                  "{a_precision} + 1", fmt::arg("a_precision", P1::name())),
+              exec::ParameterType::kIntegerParameter),
+          exec::SignatureVariable(
+              S2::name(),
+              fmt::format("{a_scale} + 1", fmt::arg("a_scale", S1::name())),
+              exec::ParameterType::kIntegerParameter),
+      });
+
+  signatures = registry.getFunctionSignatures("decimal_plus_two_2");
+
+  EXPECT_EQ(1, signatures.size());
+  EXPECT_EQ("(decimal(i1,i5)) -> decimal(i2,i6)", signatures[0]->toString());
+  it = signatures[0]->variables().find("i2");
+  EXPECT_TRUE(it != signatures[0]->variables().end());
+  EXPECT_EQ("i1 + 1", it->second.constraint());
+
+  it = signatures[0]->variables().find("i6");
+  EXPECT_TRUE(it != signatures[0]->variables().end());
+  EXPECT_EQ("i5 + 1", it->second.constraint());
+
+  {
+    auto resolved =
+        registry.resolveFunction("decimal_plus_two_2", {DECIMAL(10, 2)});
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(DECIMAL(11, 3)->toString(), resolved->type()->toString());
+  }
+}
+
 } // namespace

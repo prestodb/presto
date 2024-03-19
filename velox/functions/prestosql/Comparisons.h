@@ -188,14 +188,11 @@ struct NeqFunctionTimestampWithTimezone
   }
 };
 
-template <typename T>
+template <typename TExec>
 struct BetweenFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE void call(
-      bool& result,
-      const TInput& value,
-      const TInput& low,
-      const TInput& high) {
+  template <typename T>
+  FOLLY_ALWAYS_INLINE void
+  call(bool& result, const T& value, const T& low, const T& high) {
     result = value >= low && value <= high;
   }
 };

@@ -1741,6 +1741,38 @@ using T6 = TypeVariable<6>;
 using T7 = TypeVariable<7>;
 using T8 = TypeVariable<8>;
 
+template <size_t id>
+struct IntegerVariable {
+  static size_t getId() {
+    return id;
+  }
+
+  static std::string name() {
+    return fmt::format("i{}", id);
+  }
+};
+
+using P1 = IntegerVariable<1>;
+using P2 = IntegerVariable<2>;
+using P3 = IntegerVariable<3>;
+using P4 = IntegerVariable<4>;
+using S1 = IntegerVariable<5>;
+using S2 = IntegerVariable<6>;
+using S3 = IntegerVariable<7>;
+using S4 = IntegerVariable<8>;
+
+template <typename P, typename S>
+struct ShortDecimal {
+ private:
+  ShortDecimal() {}
+};
+
+template <typename P, typename S>
+struct LongDecimal {
+ private:
+  LongDecimal() {}
+};
+
 struct AnyType {};
 
 template <typename T = AnyType, bool comparable = false, bool orderable = false>
@@ -1932,6 +1964,14 @@ struct SimpleTypeTrait<int16_t> : public TypeTraits<TypeKind::SMALLINT> {};
 
 template <>
 struct SimpleTypeTrait<int8_t> : public TypeTraits<TypeKind::TINYINT> {};
+
+template <typename P, typename S>
+struct SimpleTypeTrait<ShortDecimal<P, S>>
+    : public TypeTraits<TypeKind::BIGINT> {};
+
+template <typename P, typename S>
+struct SimpleTypeTrait<LongDecimal<P, S>>
+    : public TypeTraits<TypeKind::HUGEINT> {};
 
 template <>
 struct SimpleTypeTrait<float> : public TypeTraits<TypeKind::REAL> {};

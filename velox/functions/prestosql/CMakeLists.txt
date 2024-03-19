@@ -28,7 +28,7 @@ add_library(
   ArraySort.cpp
   ArraySum.cpp
   Comparisons.cpp
-  DecimalVectorFunctions.cpp
+  DecimalFunctions.cpp
   ElementAt.cpp
   FilterFunctions.cpp
   FindFirst.cpp

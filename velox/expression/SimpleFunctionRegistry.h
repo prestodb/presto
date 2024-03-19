@@ -24,8 +24,9 @@
 namespace facebook::velox::exec {
 
 template <typename T>
-const std::shared_ptr<const T>& singletonUdfMetadata() {
-  static auto instance = std::make_shared<const T>();
+const std::shared_ptr<const T>& singletonUdfMetadata(
+    const std::vector<exec::SignatureVariable>& constraints = {}) {
+  static auto instance = std::make_shared<const T>(constraints);
   return instance;
 }
 
@@ -52,16 +53,20 @@ struct FunctionEntry {
   const FunctionFactory factory_;
 };
 
-using SignatureMap =
-    std::unordered_map<FunctionSignature, std::unique_ptr<const FunctionEntry>>;
+using SignatureMap = std::unordered_map<
+    FunctionSignature,
+    std::vector<std::unique_ptr<const FunctionEntry>>>;
 using FunctionMap = std::unordered_map<std::string, SignatureMap>;
 
 class SimpleFunctionRegistry {
  public:
   template <typename UDF>
-  void registerFunction(const std::vector<std::string>& aliases = {}) {
-    const auto& metadata = singletonUdfMetadata<typename UDF::Metadata>();
-    const auto factory = [metadata]() { return CreateUdf<UDF>(); };
+  void registerFunction(
+      const std::vector<std::string>& aliases,
+      const std::vector<exec::SignatureVariable>& constraints) {
+    const auto& metadata =
+        singletonUdfMetadata<typename UDF::Metadata>(constraints);
+    const auto factory = []() { return CreateUdf<UDF>(); };
 
     if (aliases.empty()) {
       registerFunctionInternal(metadata->getName(), metadata, factory);
@@ -137,11 +142,18 @@ const SimpleFunctionRegistry& simpleFunctions();
 
 SimpleFunctionRegistry& mutableSimpleFunctions();
 
-// This function should be called once and alone.
+/// This function should be called once and alone.
+/// @param names Aliases for the function.
+/// @param constraints Additional constraints for variables used in function
+/// signature. Primarily used to specify rules for calculating precision and
+/// scale for decimal result types.
 template <typename UDFHolder>
-void registerSimpleFunction(const std::vector<std::string>& names) {
+void registerSimpleFunction(
+    const std::vector<std::string>& names,
+    const std::vector<exec::SignatureVariable>& constraints) {
   mutableSimpleFunctions()
-      .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(names);
+      .registerFunction<SimpleFunctionAdapterFactoryImpl<UDFHolder>>(
+          names, constraints);
 }
 
 } // namespace facebook::velox::exec
