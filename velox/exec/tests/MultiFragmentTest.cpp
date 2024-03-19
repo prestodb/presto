@@ -579,7 +579,6 @@ TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
   // This test exercises splitting up the input both from the edges and the
   // middle as it ends up splitting it into at least 3.
   setupSources(1, 30'000);
-  const int64_t kRootMemoryLimit = 1 << 20; // 1MB
   // Single Partition
   {
     auto leafTaskId = makeTaskId("leaf", 0);
@@ -588,8 +587,7 @@ TEST_F(MultiFragmentTest, partitionedOutputWithLargeInput) {
             .values(vectors_)
             .partitionedOutput({}, 1, {"c0", "c1", "c2", "c3", "c4"})
             .planNode();
-    auto leafTask =
-        makeTask(leafTaskId, leafPlan, 0, nullptr, kRootMemoryLimit);
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0, nullptr, 4 << 20);
     leafTask->start(1);
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
 
