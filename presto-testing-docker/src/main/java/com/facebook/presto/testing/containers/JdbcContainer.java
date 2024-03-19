@@ -49,8 +49,7 @@ public class JdbcContainer
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(ImmutableList.of("sh", "-c", "echo 'Driver path is:'"));
-        withRunCommand(ImmutableList.of("sh", "-c", "$(cat postgresScript.sh)"));
+//        withRunCommand(ImmutableList.of("/bin/bash", "-c", "$(cat postgresScript.sh)"));
     }
 
     @Override
@@ -90,6 +89,7 @@ public class JdbcContainer
             this.exposePorts = ImmutableSet.of(PORT);
             this.envVars = ImmutableMap.of("POSTGRES_USER", DEFAULT_USER,
                     "POSTGRES_PASSWORD", DEFAULT_PASSWORD);
+            this.filesToMount = ImmutableMap.of("postgresScript.sh", "/postgresScript.sh");
         }
 
         @Override
