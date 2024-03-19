@@ -14,16 +14,38 @@
  * limitations under the License.
  */
 
+#include <arrow/type.h>
+#include <folly/init/Init.h>
+
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
+#include "velox/connectors/hive/HiveConnector.h"
+#include "velox/core/QueryCtx.h"
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
+#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 using namespace facebook::velox::dwio::common;
+using namespace facebook::velox::exec::test;
 using namespace facebook::velox::parquet;
 
 class ParquetWriterTest : public ParquetTestBase {
  protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+    testutil::TestValue::enable();
+    auto hiveConnector =
+        connector::getConnectorFactory(
+            connector::hive::HiveConnectorFactory::kHiveConnectorName)
+            ->newConnector(
+                kHiveConnectorId, std::make_shared<core::MemConfig>());
+    connector::registerConnector(hiveConnector);
+  }
+
   std::unique_ptr<RowReader> createRowReaderWithSchema(
       const std::unique_ptr<Reader> reader,
       const RowTypePtr& rowType) {
@@ -43,6 +65,8 @@ class ParquetWriterTest : public ParquetTestBase {
             std::make_shared<InMemoryReadFile>(data), opts.getMemoryPool()),
         opts);
   };
+
+  inline static const std::string kHiveConnectorId = "test-hive";
 };
 
 std::vector<CompressionKind> params = {
@@ -110,3 +134,79 @@ TEST_F(ParquetWriterTest, compression) {
   auto rowReader = createRowReaderWithSchema(std::move(reader), schema);
   assertReadWithReaderAndExpected(schema, *rowReader, data, *leafPool_);
 };
+
+DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromWriterOptions) {
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::parquet::Writer::write",
+      std::function<void(const ::arrow::Schema*)>(
+          ([&](const ::arrow::Schema* arrowSchema) {
+            const auto tsType =
+                std::dynamic_pointer_cast<::arrow::TimestampType>(
+                    arrowSchema->field(0)->type());
+            ASSERT_EQ(tsType->unit(), ::arrow::TimeUnit::MICRO);
+          })));
+
+  const auto data = makeRowVector({makeFlatVector<Timestamp>(
+      10'000, [](auto row) { return Timestamp(row, row); })});
+  parquet::WriterOptions writerOptions;
+  writerOptions.memoryPool = leafPool_.get();
+  writerOptions.parquetWriteTimestampUnit =
+      static_cast<uint8_t>(TimestampUnit::kMicro);
+
+  // Create an in-memory writer.
+  auto sink = std::make_unique<MemorySink>(
+      200 * 1024 * 1024,
+      dwio::common::FileSink::Options{.pool = leafPool_.get()});
+  auto writer = std::make_unique<parquet::Writer>(
+      std::move(sink), writerOptions, rootPool_, ROW({"c0"}, {TIMESTAMP()}));
+  writer->write(data);
+  writer->close();
+};
+
+#ifdef VELOX_ENABLE_PARQUET
+DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::parquet::Writer::write",
+      std::function<void(const ::arrow::Schema*)>(
+          ([&](const ::arrow::Schema* arrowSchema) {
+            const auto tsType =
+                std::dynamic_pointer_cast<::arrow::TimestampType>(
+                    arrowSchema->field(0)->type());
+            ASSERT_EQ(tsType->unit(), ::arrow::TimeUnit::MICRO);
+          })));
+
+  const auto data = makeRowVector({makeFlatVector<Timestamp>(
+      10'000, [](auto row) { return Timestamp(row, row); })});
+  const auto outputDirectory = TempDirectoryPath::create();
+  const auto plan =
+      PlanBuilder()
+          .values({data})
+          .tableWrite(outputDirectory->path, dwio::common::FileFormat::PARQUET)
+          .planNode();
+
+  CursorParameters params;
+  std::shared_ptr<folly::Executor> executor =
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency());
+  std::shared_ptr<core::QueryCtx> queryCtx =
+      std::make_shared<core::QueryCtx>(executor.get());
+  std::unordered_map<std::string, std::string> session = {
+      {std::string(
+           connector::hive::HiveConfig::kParquetWriteTimestampUnitSession),
+       "6" /*kMicro*/}};
+  queryCtx->setConnectorSessionOverridesUnsafe(
+      kHiveConnectorId, std::move(session));
+  params.queryCtx = queryCtx;
+  params.planNode = plan;
+
+  auto addSplits = [&](exec::Task* task) {};
+  auto result = readCursor(params, addSplits);
+  ASSERT_TRUE(waitForTaskCompletion(result.first->task().get()));
+}
+#endif
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::Init init{&argc, &argv, false};
+  return RUN_ALL_TESTS();
+}

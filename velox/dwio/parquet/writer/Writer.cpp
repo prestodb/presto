@@ -18,10 +18,10 @@
 #include <arrow/c/bridge.h>
 #include <arrow/io/interfaces.h>
 #include <arrow/table.h>
+#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Writer.h"
 #include "velox/exec/MemoryReclaimer.h"
-#include "velox/vector/arrow/Bridge.h"
 
 namespace facebook::velox::parquet {
 
@@ -234,6 +234,8 @@ Writer::Writer(
   } else {
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
   }
+  options_.timestampUnit =
+      static_cast<TimestampUnit>(options.parquetWriteTimestampUnit);
   arrowContext_->properties =
       getArrowParquetWriterOptions(options, flushPolicy_);
   setMemoryReclaimers();
@@ -310,15 +312,16 @@ void Writer::write(const VectorPtr& data) {
       data->type()->equivalent(*schema_),
       "The file schema type should be equal with the input rowvector type.");
 
-  ArrowOptions options{.flattenDictionary = true, .flattenConstant = true};
   ArrowArray array;
   ArrowSchema schema;
-  exportToArrow(data, array, generalPool_.get(), options);
-  exportToArrow(data, schema, options);
+  exportToArrow(data, array, generalPool_.get(), options_);
+  exportToArrow(data, schema, options_);
 
   // Convert the arrow schema to Schema and then update the column names based
   // on schema_.
   auto arrowSchema = ::arrow::ImportSchema(&schema).ValueOrDie();
+  common::testutil::TestValue::adjust(
+      "facebook::velox::parquet::Writer::write", arrowSchema.get());
   std::vector<std::shared_ptr<::arrow::Field>> newFields;
   auto childSize = schema_->size();
   for (auto i = 0; i < childSize; i++) {
@@ -385,6 +388,10 @@ parquet::WriterOptions getParquetOptions(
   parquetOptions.memoryPool = options.memoryPool;
   if (options.compressionKind.has_value()) {
     parquetOptions.compression = options.compressionKind.value();
+  }
+  if (options.parquetWriteTimestampUnit.has_value()) {
+    parquetOptions.parquetWriteTimestampUnit =
+        options.parquetWriteTimestampUnit.value();
   }
   return parquetOptions;
 }

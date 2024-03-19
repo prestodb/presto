@@ -45,7 +45,7 @@ class ArrowStreamTest : public OperatorTestBase {
 
     int getNext(struct ArrowArray* outArray) {
       if (vectorIndex_ < vectors_.size()) {
-        exportToArrow(vectors_[vectorIndex_], *outArray, pool_.get());
+        exportToArrow(vectors_[vectorIndex_], *outArray, pool_.get(), options_);
         vectorIndex_ += 1;
       } else {
         // End of stream. Mark the array released.
@@ -56,12 +56,13 @@ class ArrowStreamTest : public OperatorTestBase {
     }
 
     int getArrowSchema(ArrowSchema& out) {
-      exportToArrow(BaseVector::create(type_, 0, pool_.get()), out);
+      exportToArrow(BaseVector::create(type_, 0, pool_.get()), out, options_);
       return failGetSchema_ ? (int)ErrorCode::kGetSchemaFailed
                             : (int)ErrorCode::kNoError;
     }
 
    private:
+    ArrowOptions options_;
     const std::shared_ptr<memory::MemoryPool> pool_;
     const std::vector<RowVectorPtr>& vectors_;
     const TypePtr type_;
@@ -184,7 +185,11 @@ TEST_F(ArrowStreamTest, basic) {
                return StringView::makeInline(
                    std::to_string(100000000000 + (uint64_t)(row % 100)));
              },
-             nullEvery(7))}));
+             nullEvery(7)),
+         makeFlatVector<Timestamp>(
+             size,
+             [&](vector_size_t row) { return Timestamp(row, row * 1000); },
+             nullEvery(5))}));
   }
   createDuckDbTable(vectors);
   auto type = asRowType(vectors[0]->type());

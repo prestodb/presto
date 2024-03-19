@@ -215,6 +215,7 @@ static void releaseArrowSchema(ArrowSchema* arrowSchema) {
 // Returns the Arrow C data interface format type for a given Velox type.
 const char* exportArrowFormatStr(
     const TypePtr& type,
+    const ArrowOptions& options,
     std::string& formatBuffer) {
   if (type->isDecimal()) {
     // Decimal types encode the precision, scale values.
@@ -253,9 +254,19 @@ const char* exportArrowFormatStr(
       return "z"; // binary
     case TypeKind::UNKNOWN:
       return "n"; // NullType
-
     case TypeKind::TIMESTAMP:
-      return "ttn"; // time64 [nanoseconds]
+      switch (options.timestampUnit) {
+        case TimestampUnit::kSecond:
+          return "tss:";
+        case TimestampUnit::kMilli:
+          return "tsm:";
+        case TimestampUnit::kMicro:
+          return "tsu:";
+        case TimestampUnit::kNano:
+          return "tsn:";
+        default:
+          VELOX_UNREACHABLE();
+      }
     // Complex/nested types.
     case TypeKind::ARRAY:
       static_assert(sizeof(vector_size_t) == 4);
@@ -334,10 +345,72 @@ struct Selection {
   vector_size_t total_;
 };
 
+// Gather values from timestamp buffer. Nulls are skipped.
+void gatherFromTimestampBuffer(
+    const BaseVector& vec,
+    const Selection& rows,
+    TimestampUnit unit,
+    Buffer& out) {
+  auto src = (*vec.values()).as<Timestamp>();
+  auto dst = out.asMutable<int64_t>();
+  if (!vec.mayHaveNulls() || vec.getNullCount() == 0) {
+    switch (unit) {
+      case TimestampUnit::kSecond:
+        rows.apply([&](vector_size_t i) { dst[i] = src[i].getSeconds(); });
+        break;
+      case TimestampUnit::kMilli:
+        rows.apply([&](vector_size_t i) { dst[i] = src[i].toMillis(); });
+        break;
+      case TimestampUnit::kMicro:
+        rows.apply([&](vector_size_t i) { dst[i] = src[i].toMicros(); });
+        break;
+      case TimestampUnit::kNano:
+        rows.apply([&](vector_size_t i) { dst[i] = src[i].toNanos(); });
+        break;
+      default:
+        VELOX_UNREACHABLE();
+    }
+    return;
+  }
+  switch (unit) {
+    case TimestampUnit::kSecond:
+      rows.apply([&](vector_size_t i) {
+        if (!vec.isNullAt(i)) {
+          dst[i] = src[i].getSeconds();
+        }
+      });
+      break;
+    case TimestampUnit::kMilli:
+      rows.apply([&](vector_size_t i) {
+        if (!vec.isNullAt(i)) {
+          dst[i] = src[i].toMillis();
+        }
+      });
+      break;
+    case TimestampUnit::kMicro:
+      rows.apply([&](vector_size_t i) {
+        if (!vec.isNullAt(i)) {
+          dst[i] = src[i].toMicros();
+        };
+      });
+      break;
+    case TimestampUnit::kNano:
+      rows.apply([&](vector_size_t i) {
+        if (!vec.isNullAt(i)) {
+          dst[i] = src[i].toNanos();
+        }
+      });
+      break;
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
 void gatherFromBuffer(
     const Type& type,
     const Buffer& buf,
     const Selection& rows,
+    const ArrowOptions& options,
     Buffer& out) {
   auto src = buf.as<uint8_t>();
   auto dst = out.asMutable<uint8_t>();
@@ -352,11 +425,6 @@ void gatherFromBuffer(
       int128_t value = buf.as<int64_t>()[i];
       memcpy(dst + (j++) * sizeof(int128_t), &value, sizeof(int128_t));
     });
-  } else if (type.isTimestamp()) {
-    auto srcTs = buf.as<Timestamp>();
-    auto dstTs = out.asMutable<int64_t>();
-
-    rows.apply([&](vector_size_t i) { dstTs[j++] = srcTs[i].toNanos(); });
   } else {
     auto typeSize = type.cppSizeInBytes();
     rows.apply([&](vector_size_t i) {
@@ -387,8 +455,8 @@ struct BufferViewReleaser {
 };
 
 // Wraps a naked pointer using a Velox buffer view, without copying it. Adding a
-// dummy releaser as the buffer lifetime is fully controled by the client of the
-// API.
+// dummy releaser as the buffer lifetime is fully controlled by the client of
+// the API.
 BufferPtr wrapInBufferViewAsViewer(const void* buffer, size_t length) {
   static const BufferViewReleaser kViewerReleaser;
   return BufferView<BufferViewReleaser>::create(
@@ -475,11 +543,12 @@ VectorPtr createStringFlatVector(
       optionalNullCount(nullCount));
 }
 
-// This functions does two things: (a) sets the value of null_count, and (b) the
-// validity buffer (if there is at least one null row).
+// This functions does two things: (a) sets the value of null_count, and (b)
+// the validity buffer (if there is at least one null row).
 void exportValidityBitmap(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -493,7 +562,7 @@ void exportValidityBitmap(
   // If we're only exporting a subset, create a new validity buffer.
   if (rows.changed()) {
     nulls = AlignedBuffer::allocate<bool>(out.length, pool);
-    gatherFromBuffer(*BOOLEAN(), *vec.nulls(), rows, *nulls);
+    gatherFromBuffer(*BOOLEAN(), *vec.nulls(), rows, options, *nulls);
   }
 
   // Set null counts.
@@ -509,8 +578,8 @@ void exportValidityBitmap(
 }
 
 bool isFlatScalarZeroCopy(const TypePtr& type) {
-  // - Short decimals need to be converted to 128 bit values as they are mapped
-  // to Arrow Decimal128.
+  // - Short decimals need to be converted to 128 bit values as they are
+  // mapped to Arrow Decimal128.
   // - Velox's Timestamp representation (2x 64bit values) does not have an
   // equivalent in Arrow.
   return !type->isShortDecimal() && !type->isTimestamp();
@@ -531,6 +600,7 @@ size_t getArrowElementSize(const TypePtr& type) {
 void exportValues(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -548,7 +618,11 @@ void exportValues(
       ? AlignedBuffer::allocate<bool>(out.length, pool)
       : AlignedBuffer::allocate<uint8_t>(
             checkedMultiply<size_t>(out.length, size), pool);
-  gatherFromBuffer(*type, *vec.values(), rows, *values);
+  if (type->kind() == TypeKind::TIMESTAMP) {
+    gatherFromTimestampBuffer(vec, rows, options.timestampUnit, *values);
+  } else {
+    gatherFromBuffer(*type, *vec.values(), rows, options, *values);
+  }
   holder.setBuffer(1, values);
 }
 
@@ -588,6 +662,7 @@ void exportStrings(
 void exportFlat(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -604,7 +679,7 @@ void exportFlat(
     case TypeKind::DOUBLE:
     case TypeKind::TIMESTAMP:
     case TypeKind::UNKNOWN:
-      exportValues(vec, rows, out, pool, holder);
+      exportValues(vec, rows, options, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
@@ -621,17 +696,17 @@ void exportFlat(
 void exportToArrowImpl(
     const BaseVector&,
     const Selection&,
+    const ArrowOptions& options,
     ArrowArray&,
-    memory::MemoryPool*,
-    const ArrowOptions& options);
+    memory::MemoryPool*);
 
 void exportRows(
     const RowVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
-    VeloxToArrowBridgeHolder& holder,
-    const ArrowOptions& options) {
+    VeloxToArrowBridgeHolder& holder) {
   out.n_buffers = 1;
   holder.resizeChildren(vec.childrenSize());
   out.n_children = vec.childrenSize();
@@ -641,9 +716,9 @@ void exportRows(
       exportToArrowImpl(
           *vec.childAt(i)->loadedVector(),
           rows,
+          options,
           *holder.allocateChild(i),
-          pool,
-          options);
+          pool);
     } catch (const VeloxException&) {
       for (column_index_t j = 0; j < i; ++j) {
         // When exception is thrown, i th child is guaranteed unset.
@@ -702,19 +777,19 @@ void exportOffsets(
 void exportArrays(
     const ArrayVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
-    VeloxToArrowBridgeHolder& holder,
-    const ArrowOptions& options) {
+    VeloxToArrowBridgeHolder& holder) {
   Selection childRows(vec.elements()->size());
   exportOffsets(vec, rows, out, pool, holder, childRows);
   holder.resizeChildren(1);
   exportToArrowImpl(
       *vec.elements()->loadedVector(),
       childRows,
+      options,
       *holder.allocateChild(0),
-      pool,
-      options);
+      pool);
   out.n_children = 1;
   out.children = holder.getChildrenArrays();
 }
@@ -722,10 +797,10 @@ void exportArrays(
 void exportMaps(
     const MapVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
-    VeloxToArrowBridgeHolder& holder,
-    const ArrowOptions& options) {
+    VeloxToArrowBridgeHolder& holder) {
   RowVector child(
       pool,
       ROW({"key", "value"}, {vec.mapKeys()->type(), vec.mapValues()->type()}),
@@ -735,7 +810,7 @@ void exportMaps(
   Selection childRows(child.size());
   exportOffsets(vec, rows, out, pool, holder, childRows);
   holder.resizeChildren(1);
-  exportToArrowImpl(child, childRows, *holder.allocateChild(0), pool, options);
+  exportToArrowImpl(child, childRows, options, *holder.allocateChild(0), pool);
   out.n_children = 1;
   out.children = holder.getChildrenArrays();
 }
@@ -744,6 +819,7 @@ template <TypeKind kind>
 void flattenAndExport(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -761,19 +837,20 @@ void flattenAndExport(
         flatVector->set(row, decoded.valueAt<NativeType>(row));
       }
     });
-    exportValidityBitmap(*flatVector, rows, out, pool, holder);
-    exportFlat(*flatVector, rows, out, pool, holder);
+    exportValidityBitmap(*flatVector, rows, options, out, pool, holder);
+    exportFlat(*flatVector, rows, options, out, pool, holder);
   } else {
     allRows.applyToSelected([&](vector_size_t row) {
       flatVector->set(row, decoded.valueAt<NativeType>(row));
     });
-    exportFlat(*flatVector, rows, out, pool, holder);
+    exportFlat(*flatVector, rows, options, out, pool, holder);
   }
 }
 
 void exportDictionary(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -781,7 +858,7 @@ void exportDictionary(
   out.n_children = 0;
   if (rows.changed()) {
     auto indices = AlignedBuffer::allocate<vector_size_t>(out.length, pool);
-    gatherFromBuffer(*INTEGER(), *vec.wrapInfo(), rows, *indices);
+    gatherFromBuffer(*INTEGER(), *vec.wrapInfo(), rows, options, *indices);
     holder.setBuffer(1, indices);
   } else {
     holder.setBuffer(1, vec.wrapInfo());
@@ -789,12 +866,13 @@ void exportDictionary(
   auto& values = *vec.valueVector()->loadedVector();
   out.dictionary = holder.allocateDictionary();
   exportToArrowImpl(
-      values, Selection(values.size()), *out.dictionary, pool, ArrowOptions());
+      values, Selection(values.size()), options, *out.dictionary, pool);
 }
 
 void exportFlattenedVector(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -803,11 +881,12 @@ void exportFlattenedVector(
       "An unsupported nested encoding was found.");
   VELOX_CHECK(vec.isScalar(), "Flattening is only supported for scalar types.");
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      flattenAndExport, vec.typeKind(), vec, rows, out, pool, holder);
+      flattenAndExport, vec.typeKind(), vec, rows, options, out, pool, holder);
 }
 
 void exportConstantValue(
     const BaseVector& vec,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool) {
   VectorPtr valuesVector;
@@ -837,7 +916,7 @@ void exportConstantValue(
         wrapInBufferViewAsViewer(vec.valuesAsVoid(), bufferSize),
         vec.mayHaveNulls() ? 1 : 0);
   }
-  exportToArrowImpl(*valuesVector, selection, out, pool, ArrowOptions());
+  exportToArrowImpl(*valuesVector, selection, options, out, pool);
 }
 
 // Velox constant vectors are exported as Arrow REE containing a single run
@@ -845,6 +924,7 @@ void exportConstantValue(
 void exportConstant(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
@@ -856,7 +936,7 @@ void exportConstant(
   out.n_children = 2;
   holder.resizeChildren(2);
   out.children = holder.getChildrenArrays();
-  exportConstantValue(vec, *holder.allocateChild(1), pool);
+  exportConstantValue(vec, options, *holder.allocateChild(1), pool);
 
   // Create the run ends child.
   auto* runEnds = holder.allocateChild(0);
@@ -883,41 +963,41 @@ void exportConstant(
 void exportToArrowImpl(
     const BaseVector& vec,
     const Selection& rows,
+    const ArrowOptions& options,
     ArrowArray& out,
-    memory::MemoryPool* pool,
-    const ArrowOptions& options) {
+    memory::MemoryPool* pool) {
   auto holder = std::make_unique<VeloxToArrowBridgeHolder>();
   out.buffers = holder->getArrowBuffers();
   out.length = rows.count();
   out.offset = 0;
   out.dictionary = nullptr;
-  exportValidityBitmap(vec, rows, out, pool, *holder);
+  exportValidityBitmap(vec, rows, options, out, pool, *holder);
 
   switch (vec.encoding()) {
     case VectorEncoding::Simple::FLAT:
-      exportFlat(vec, rows, out, pool, *holder);
+      exportFlat(vec, rows, options, out, pool, *holder);
       break;
     case VectorEncoding::Simple::ROW:
       exportRows(
-          *vec.asUnchecked<RowVector>(), rows, out, pool, *holder, options);
+          *vec.asUnchecked<RowVector>(), rows, options, out, pool, *holder);
       break;
     case VectorEncoding::Simple::ARRAY:
       exportArrays(
-          *vec.asUnchecked<ArrayVector>(), rows, out, pool, *holder, options);
+          *vec.asUnchecked<ArrayVector>(), rows, options, out, pool, *holder);
       break;
     case VectorEncoding::Simple::MAP:
       exportMaps(
-          *vec.asUnchecked<MapVector>(), rows, out, pool, *holder, options);
+          *vec.asUnchecked<MapVector>(), rows, options, out, pool, *holder);
       break;
     case VectorEncoding::Simple::DICTIONARY:
       options.flattenDictionary
-          ? exportFlattenedVector(vec, rows, out, pool, *holder)
-          : exportDictionary(vec, rows, out, pool, *holder);
+          ? exportFlattenedVector(vec, rows, options, out, pool, *holder)
+          : exportDictionary(vec, rows, options, out, pool, *holder);
       break;
     case VectorEncoding::Simple::CONSTANT:
       options.flattenConstant
-          ? exportFlattenedVector(vec, rows, out, pool, *holder)
-          : exportConstant(vec, rows, out, pool, *holder);
+          ? exportFlattenedVector(vec, rows, options, out, pool, *holder)
+          : exportConstant(vec, rows, options, out, pool, *holder);
       break;
     default:
       VELOX_NYI("{} cannot be exported to Arrow yet.", vec.encoding());
@@ -960,8 +1040,7 @@ TypePtr importFromArrowImpl(
       return VARBINARY();
 
     case 't': // temporal types.
-      // Mapping it to ttn for now.
-      if (format[1] == 't' && format[2] == 'n') {
+      if (format[1] == 's') {
         return TIMESTAMP();
       }
       if (format[1] == 'd' && format[2] == 'D') {
@@ -1056,7 +1135,7 @@ void exportToArrow(
     memory::MemoryPool* pool,
     const ArrowOptions& options) {
   exportToArrowImpl(
-      *vector, Selection(vector->size()), arrowArray, pool, options);
+      *vector, Selection(vector->size()), options, arrowArray, pool);
 }
 
 void exportToArrow(
@@ -1083,12 +1162,12 @@ void exportToArrow(
       // Dictionary data is flattened. Set the underlying data types.
       arrowSchema.dictionary = nullptr;
       arrowSchema.format =
-          exportArrowFormatStr(type, bridgeHolder->formatBuffer);
+          exportArrowFormatStr(type, options, bridgeHolder->formatBuffer);
     } else {
       arrowSchema.format = "i";
       bridgeHolder->dictionary = std::make_unique<ArrowSchema>();
       arrowSchema.dictionary = bridgeHolder->dictionary.get();
-      exportToArrow(vec->valueVector(), *arrowSchema.dictionary);
+      exportToArrow(vec->valueVector(), *arrowSchema.dictionary, options);
     }
   } else if (
       vec->encoding() == VectorEncoding::Simple::CONSTANT &&
@@ -1107,7 +1186,7 @@ void exportToArrow(
       exportToArrow(valueVector, *valuesChild, options);
     } else {
       valuesChild->format =
-          exportArrowFormatStr(type, bridgeHolder->formatBuffer);
+          exportArrowFormatStr(type, options, bridgeHolder->formatBuffer);
     }
     valuesChild->name = "values";
 
@@ -1115,7 +1194,8 @@ void exportToArrow(
         0, newArrowSchema("i", "run_ends"), arrowSchema);
     bridgeHolder->setChildAtIndex(1, std::move(valuesChild), arrowSchema);
   } else {
-    arrowSchema.format = exportArrowFormatStr(type, bridgeHolder->formatBuffer);
+    arrowSchema.format =
+        exportArrowFormatStr(type, options, bridgeHolder->formatBuffer);
     arrowSchema.dictionary = nullptr;
 
     if (type->kind() == TypeKind::MAP) {
@@ -1208,6 +1288,30 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
 }
 
 namespace {
+
+TimestampUnit getTimestampUnit(const ArrowSchema& arrowSchema) {
+  const char* format = arrowSchema.dictionary ? arrowSchema.dictionary->format
+                                              : arrowSchema.format;
+  VELOX_USER_CHECK_NOT_NULL(format);
+  VELOX_USER_CHECK_GE(
+      strlen(format),
+      3,
+      "The arrow format string of timestamp should contain 'ts' and unit char.");
+  VELOX_USER_CHECK_EQ(format[0], 't', "The first character should be 't'.");
+  VELOX_USER_CHECK_EQ(format[1], 's', "The second character should be 's'.");
+  switch (format[2]) {
+    case 's':
+      return TimestampUnit::kSecond;
+    case 'm':
+      return TimestampUnit::kMilli;
+    case 'u':
+      return TimestampUnit::kMicro;
+    case 'n':
+      return TimestampUnit::kNano;
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
 
 VectorPtr importFromArrowImpl(
     ArrowSchema& arrowSchema,
@@ -1393,9 +1497,93 @@ VectorPtr createVectorFromReeArray(
   }
 }
 
+// Set valid timestamp values according to the input and timestamp unit.
+void setTimestamps(
+    const int64_t* input,
+    int64_t length,
+    TimestampUnit unit,
+    Timestamp* rawTimestamps) {
+  switch (unit) {
+    case TimestampUnit::kSecond: {
+      for (int64_t i = 0; i < length; ++i) {
+        rawTimestamps[i] = Timestamp(input[i], 0);
+      }
+      break;
+    }
+    case TimestampUnit::kMilli: {
+      for (int64_t i = 0; i < length; ++i) {
+        rawTimestamps[i] = Timestamp::fromMillis(input[i]);
+      }
+      break;
+    }
+    case TimestampUnit::kMicro: {
+      for (int64_t i = 0; i < length; ++i) {
+        rawTimestamps[i] = Timestamp::fromMicros(input[i]);
+      }
+      break;
+    }
+    case TimestampUnit::kNano: {
+      for (int64_t i = 0; i < length; ++i) {
+        rawTimestamps[i] = Timestamp::fromNanos(input[i]);
+      }
+      break;
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+// Set valid timestamp values according to the input and timestamp unit. Nulls
+// are skipped.
+void setTimestamps(
+    const int64_t* input,
+    BufferPtr nulls,
+    int64_t length,
+    TimestampUnit unit,
+    Timestamp* rawTimestamps) {
+  const auto* rawNulls = nulls->as<const uint64_t>();
+  switch (unit) {
+    case TimestampUnit::kSecond: {
+      for (size_t i = 0; i < length; ++i) {
+        if (!bits::isBitNull(rawNulls, i)) {
+          rawTimestamps[i] = Timestamp(input[i], 0);
+        }
+      }
+      break;
+    }
+    case TimestampUnit::kMilli: {
+      for (size_t i = 0; i < length; ++i) {
+        if (!bits::isBitNull(rawNulls, i)) {
+          rawTimestamps[i] = Timestamp::fromMillis(input[i]);
+        }
+      }
+      break;
+    }
+    case TimestampUnit::kMicro: {
+      for (size_t i = 0; i < length; ++i) {
+        if (!bits::isBitNull(rawNulls, i)) {
+          rawTimestamps[i] = Timestamp::fromMicros(input[i]);
+        }
+      }
+      break;
+    }
+    case TimestampUnit::kNano: {
+      for (size_t i = 0; i < length; ++i) {
+        if (!bits::isBitNull(rawNulls, i)) {
+          rawTimestamps[i] = Timestamp::fromNanos(input[i]);
+        }
+      }
+      break;
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
 VectorPtr createTimestampVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
+    TimestampUnit unit,
     BufferPtr nulls,
     const int64_t* input,
     size_t length,
@@ -1403,16 +1591,9 @@ VectorPtr createTimestampVector(
   BufferPtr timestamps = AlignedBuffer::allocate<Timestamp>(length, pool);
   auto* rawTimestamps = timestamps->asMutable<Timestamp>();
   if (nulls == nullptr) {
-    for (size_t i = 0; i < length; ++i) {
-      rawTimestamps[i] = Timestamp::fromNanos(input[i]);
-    }
+    setTimestamps(input, length, unit, rawTimestamps);
   } else if (length > nullCount) {
-    const auto* rawNulls = nulls->as<const uint64_t>();
-    for (size_t i = 0; i < length; ++i) {
-      if (!bits::isBitNull(rawNulls, i)) {
-        rawTimestamps[i] = Timestamp::fromNanos(input[i]);
-      }
-    }
+    setTimestamps(input, nulls, length, unit, rawTimestamps);
   }
   return std::make_shared<FlatVector<Timestamp>>(
       pool,
@@ -1500,6 +1681,7 @@ VectorPtr importFromArrowImpl(
     return createTimestampVector(
         pool,
         type,
+        getTimestampUnit(arrowSchema),
         nulls,
         static_cast<const int64_t*>(arrowArray.buffers[1]),
         arrowArray.length,
