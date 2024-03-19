@@ -168,6 +168,22 @@ class FunctionSignature {
   }
 
  protected:
+  /// @param additionalTypes A list of additional types introduced by subclass.
+  /// Since FunctionSignature will validate that the number of used variables
+  /// and the size of variables_ must be equal. If the subclass introduces new
+  /// types, such as intermediateType in AggregateFunctionSignature, and these
+  /// types uses signature variables, it needs to pass the additional types to
+  /// the constructor of FunctionSignature for validation, to ensure that the
+  /// variables used by the subclass will also be counted in the validation of
+  /// FunctionSignature.
+  FunctionSignature(
+      std::unordered_map<std::string, SignatureVariable> variables,
+      TypeSignature returnType,
+      std::vector<TypeSignature> argumentTypes,
+      std::vector<bool> constantArguments,
+      bool variableArity,
+      const std::vector<TypeSignature>& additionalTypes);
+
   // Return a string of the list of argument types.
   std::string argumentsToString() const;
 
@@ -195,7 +211,8 @@ class AggregateFunctionSignature : public FunctionSignature {
             std::move(returnType),
             std::move(argumentTypes),
             std::move(constantArguments),
-            variableArity),
+            variableArity,
+            {intermediateType}),
         intermediateType_{std::move(intermediateType)} {}
 
   const TypeSignature& intermediateType() const {

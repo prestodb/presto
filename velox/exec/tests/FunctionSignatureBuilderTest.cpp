@@ -338,3 +338,15 @@ TEST_F(FunctionSignatureBuilderTest, orderableComparableAggregate) {
           .build(),
       "Variable T declared twice");
 }
+
+TEST_F(FunctionSignatureBuilderTest, allowVariablesForIntermediateType) {
+  ASSERT_NO_THROW(
+      exec::AggregateFunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
+          .integerVariable("i_precision", "min(38, a_precision + 10)")
+          .argumentType("DECIMAL(a_precision, a_scale)")
+          .intermediateType("ROW(DECIMAL(i_precision, a_scale), BIGINT)")
+          .returnType("DECIMAL(a_precision, a_scale)")
+          .build());
+}

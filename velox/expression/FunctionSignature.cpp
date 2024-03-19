@@ -145,8 +145,13 @@ void validate(
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const TypeSignature& returnType,
     const std::vector<TypeSignature>& argumentTypes,
-    const std::vector<bool>& constantArguments) {
+    const std::vector<bool>& constantArguments,
+    const std::vector<TypeSignature>& additionalTypes = {}) {
   std::unordered_set<std::string> usedVariables;
+  // Validate the additional types, and collect the used variables.
+  for (const auto& type : additionalTypes) {
+    validateBaseTypeAndCollectTypeParams(variables, type, usedVariables, false);
+  }
   // Validate the argument types.
   for (const auto& arg : argumentTypes) {
     // Is base type a type parameter or a built in type ?
@@ -213,6 +218,26 @@ FunctionSignature::FunctionSignature(
       constantArguments_{std::move(constantArguments)},
       variableArity_{variableArity} {
   validate(variables_, returnType_, argumentTypes_, constantArguments_);
+}
+
+FunctionSignature::FunctionSignature(
+    std::unordered_map<std::string, SignatureVariable> variables,
+    facebook::velox::exec::TypeSignature returnType,
+    std::vector<TypeSignature> argumentTypes,
+    std::vector<bool> constantArguments,
+    bool variableArity,
+    const std::vector<TypeSignature>& additionalTypes)
+    : variables_{std::move(variables)},
+      returnType_{std::move(returnType)},
+      argumentTypes_{std::move(argumentTypes)},
+      constantArguments_{std::move(constantArguments)},
+      variableArity_{variableArity} {
+  validate(
+      variables_,
+      returnType_,
+      argumentTypes_,
+      constantArguments_,
+      additionalTypes);
 }
 
 std::string AggregateFunctionSignature::toString() const {
