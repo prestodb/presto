@@ -68,7 +68,7 @@ void WindowFuzzer::addWindowFunctionSignatures(
   }
 }
 
-const std::string WindowFuzzer::generateFrameClause() {
+std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
   auto frameType = [](int value) -> const std::string {
     switch (value) {
       case 0:
@@ -152,10 +152,12 @@ const std::string WindowFuzzer::generateFrameClause() {
   auto frameStart = frameBound(startBoundOptions[startBoundIndex]);
   auto frameEnd = frameBound(endBoundOptions[endBoundIndex]);
 
-  return frameTypeString + " BETWEEN " + frameStart + " AND " + frameEnd;
+  return std::make_tuple(
+      frameTypeString + " BETWEEN " + frameStart + " AND " + frameEnd,
+      isRowsFrame);
 }
 
-const std::string WindowFuzzer::generateOrderByClause(
+std::string WindowFuzzer::generateOrderByClause(
     const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders) {
   std::stringstream frame;
   frame << " order by ";
@@ -215,7 +217,7 @@ void WindowFuzzer::go() {
     auto signatureWithStats = pickSignature();
     signatureWithStats.second.numRuns++;
 
-    auto signature = signatureWithStats.first;
+    const auto signature = signatureWithStats.first;
     stats_.functionNames.insert(signature.name);
 
     const bool customVerification =
@@ -230,9 +232,9 @@ void WindowFuzzer::go() {
     std::vector<TypePtr> argTypes = signature.args;
     std::vector<std::string> argNames = makeNames(argTypes.size());
 
-    bool ignoreNulls =
+    const bool ignoreNulls =
         supportIgnoreNulls(signature.name) && vectorFuzzer_.coinToss(0.5);
-    auto call =
+    const auto call =
         makeFunctionCall(signature.name, argNames, false, false, ignoreNulls);
 
     std::vector<SortingKeyAndOrder> sortingKeysAndOrders;
@@ -241,12 +243,13 @@ void WindowFuzzer::go() {
       sortingKeysAndOrders =
           generateSortingKeysAndOrders("s", argNames, argTypes);
     }
-    auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
-    auto frameClause = generateFrameClause();
-    auto input = generateInputDataWithRowNumber(argNames, argTypes, signature);
-    // If the function is order-dependent, sort all input rows by row_number
-    // additionally.
-    if (requireSortedInput) {
+    const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
+    const auto [frameClause, isRowsFrame] = generateFrameClause();
+    const auto input =
+        generateInputDataWithRowNumber(argNames, argTypes, signature);
+    // If the function is order-dependent or uses "rows" frame, sort all input
+    // rows by row_number additionally.
+    if (requireSortedInput || isRowsFrame) {
       sortingKeysAndOrders.push_back(
           SortingKeyAndOrder("row_number", "asc", "nulls last"));
       ++stats_.numSortedInputs;

@@ -95,9 +95,11 @@ class WindowFuzzer : public AggregationFuzzerBase {
 
   void addWindowFunctionSignatures(const WindowFunctionMap& signatureMap);
 
-  const std::string generateFrameClause();
+  // Return a randomly generated frame clause string together with a boolean
+  // flag indicating whether it is a ROWS frame.
+  std::tuple<std::string, bool> generateFrameClause();
 
-  const std::string generateOrderByClause(
+  std::string generateOrderByClause(
       const std::vector<SortingKeyAndOrder>& sortingKeysAndOrders);
 
   std::string getFrame(
