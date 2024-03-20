@@ -202,21 +202,6 @@ class QueryConfig {
   static constexpr const char* kTopNRowNumberSpillEnabled =
       "topn_row_number_spill_enabled";
 
-  /// The max memory that a final aggregation can use before spilling. If it 0,
-  /// then there is no limit.
-  static constexpr const char* kAggregationSpillMemoryThreshold =
-      "aggregation_spill_memory_threshold";
-
-  /// The max memory that a hash join can use before spilling. If it 0, then
-  /// there is no limit.
-  static constexpr const char* kJoinSpillMemoryThreshold =
-      "join_spill_memory_threshold";
-
-  /// The max memory that an order by can use before spilling. If it 0, then
-  /// there is no limit.
-  static constexpr const char* kOrderBySpillMemoryThreshold =
-      "order_by_spill_memory_threshold";
-
   /// The max row numbers to fill and spill for each spill run. This is used to
   /// cap the memory used for spilling. If it is zero, then there is no limit
   /// and spilling might run out of memory.
@@ -393,21 +378,6 @@ class QueryConfig {
 
   int32_t abandonPartialTopNRowNumberMinPct() const {
     return get<int32_t>(kAbandonPartialTopNRowNumberMinPct, 80);
-  }
-
-  uint64_t aggregationSpillMemoryThreshold() const {
-    static constexpr uint64_t kDefault = 0;
-    return get<uint64_t>(kAggregationSpillMemoryThreshold, kDefault);
-  }
-
-  uint64_t joinSpillMemoryThreshold() const {
-    static constexpr uint64_t kDefault = 0;
-    return get<uint64_t>(kJoinSpillMemoryThreshold, kDefault);
-  }
-
-  uint64_t orderBySpillMemoryThreshold() const {
-    static constexpr uint64_t kDefault = 0;
-    return get<uint64_t>(kOrderBySpillMemoryThreshold, kDefault);
   }
 
   uint64_t maxSpillRunRows() const {

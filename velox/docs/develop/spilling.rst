@@ -210,22 +210,6 @@ spillable operators. The latter in turn frees up memory by spilling out (part)
 of its memory state to disk. The integration of spilling with the memory
 management system is under development.
 
-Velox can be configured to trigger spilling if the spillable operator's memory
-usage exceeds a configurable limit:
-
-.. code-block:: c++
-
-  uint64_t QueryConfig::aggregationSpillMemoryThreshold() const;
-
-  uint64_t QueryConfig::orderBySpillMemoryThreshold() const;
-
-  uint64_t QueryConfig::joinSpillMemoryThreshold() const;
-
-This allows us to run queries using limited amount of memory without the memory
-arbitration support. Note that the spilling itself can’t totally prevent out of
-memory as the last memory allocation that exceeds the memory limit, can be made
-from any operator in a query plan not always from the spillable one.
-
 Spill Parameters
 ----------------
 Spill File Size
