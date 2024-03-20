@@ -624,8 +624,8 @@ TEST_P(
 
   auto rowType =
       ROW({"c0", "c1"},
-          {fromKindToScalerType(GetParam().valueType),
-           fromKindToScalerType(GetParam().comparisonType)});
+          {createScalarType(GetParam().valueType),
+           createScalarType(GetParam().comparisonType)});
 
   const bool isSmallInt = GetParam().comparisonType == TypeKind::TINYINT ||
       GetParam().comparisonType == TypeKind::SMALLINT;
@@ -648,7 +648,7 @@ TEST_P(
   for (int i = 0; i < kNumBatches; ++i) {
     // Generate a non-lazy vector so that it can be written out as a duckDB
     // table.
-    auto valueVector = fuzzer.fuzz(fromKindToScalerType(GetParam().valueType));
+    auto valueVector = fuzzer.fuzz(createScalarType(GetParam().valueType));
     auto comparisonVector = buildDataVector(
         GetParam().comparisonType,
         kBatchSize,
@@ -1060,8 +1060,8 @@ TEST_P(
 
   auto rowType =
       ROW({"c0", "c1", "c2"},
-          {fromKindToScalerType(GetParam().valueType),
-           fromKindToScalerType(GetParam().comparisonType),
+          {createScalarType(GetParam().valueType),
+           createScalarType(GetParam().comparisonType),
            INTEGER()});
 
   const bool isSmallInt = GetParam().comparisonType == TypeKind::TINYINT ||
@@ -1085,7 +1085,7 @@ TEST_P(
   for (int i = 0; i < kNumBatches; ++i) {
     // Generate a non-lazy vector so that it can be written out as a duckDB
     // table.
-    auto valueVector = fuzzer.fuzz(fromKindToScalerType(GetParam().valueType));
+    auto valueVector = fuzzer.fuzz(createScalarType(GetParam().valueType));
     auto groupByVector = makeFlatVector<int32_t>(kBatchSize);
     auto comparisonVector = buildDataVector(
         GetParam().comparisonType,

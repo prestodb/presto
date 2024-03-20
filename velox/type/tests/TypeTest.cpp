@@ -799,36 +799,6 @@ TEST(TypeTest, isVariadicType) {
   EXPECT_FALSE((isVariadicType<Map<int8_t, Date>>::value));
 }
 
-TEST(TypeTest, fromKindToScalerType) {
-  for (const TypeKind& kind :
-       {TypeKind::BOOLEAN,
-        TypeKind::TINYINT,
-        TypeKind::SMALLINT,
-        TypeKind::INTEGER,
-        TypeKind::BIGINT,
-        TypeKind::REAL,
-        TypeKind::DOUBLE,
-        TypeKind::VARCHAR,
-        TypeKind::VARBINARY,
-        TypeKind::TIMESTAMP,
-        TypeKind::UNKNOWN}) {
-    SCOPED_TRACE(mapTypeKindToName(kind));
-    auto type = fromKindToScalerType(kind);
-    ASSERT_EQ(type->kind(), kind);
-  }
-
-  for (const TypeKind& kind :
-       {TypeKind::ARRAY,
-        TypeKind::MAP,
-        TypeKind::ROW,
-        TypeKind::OPAQUE,
-        TypeKind::FUNCTION,
-        TypeKind::INVALID}) {
-    SCOPED_TRACE(mapTypeKindToName(kind));
-    EXPECT_ANY_THROW(fromKindToScalerType(kind));
-  }
-}
-
 TEST(TypeTest, rowEquvialentCheckWithChildRowsWithDifferentNames) {
   std::vector<TypePtr> types;
   std::vector<TypePtr> typesWithDifferentNames;

@@ -2412,9 +2412,6 @@ struct CastTypeChecker<Row<T...>> {
   }
 };
 
-/// Return the scalar type for a given 'kind'.
-TypePtr fromKindToScalerType(TypeKind kind);
-
 /// Appends type's SQL string to 'out'. Uses DuckDB SQL.
 void toTypeSql(const TypePtr& type, std::ostream& out);
 

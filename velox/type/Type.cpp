@@ -886,37 +886,6 @@ exec::CastOperatorPtr getCustomTypeCastOperator(const std::string& name) {
   return nullptr;
 }
 
-TypePtr fromKindToScalerType(TypeKind kind) {
-  switch (kind) {
-    case TypeKind::TINYINT:
-      return TINYINT();
-    case TypeKind::BOOLEAN:
-      return BOOLEAN();
-    case TypeKind::SMALLINT:
-      return SMALLINT();
-    case TypeKind::BIGINT:
-      return BIGINT();
-    case TypeKind::INTEGER:
-      return INTEGER();
-    case TypeKind::REAL:
-      return REAL();
-    case TypeKind::VARCHAR:
-      return VARCHAR();
-    case TypeKind::VARBINARY:
-      return VARBINARY();
-    case TypeKind::TIMESTAMP:
-      return TIMESTAMP();
-    case TypeKind::DOUBLE:
-      return DOUBLE();
-    case TypeKind::UNKNOWN:
-      return UNKNOWN();
-    default:
-      VELOX_UNSUPPORTED(
-          "Kind is not a scalar type: {}", mapTypeKindToName(kind));
-      return nullptr;
-  }
-}
-
 void toTypeSql(const TypePtr& type, std::ostream& out) {
   switch (type->kind()) {
     case TypeKind::ARRAY:
