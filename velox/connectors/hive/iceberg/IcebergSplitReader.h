@@ -22,7 +22,7 @@
 
 namespace facebook::velox::connector::hive::iceberg {
 
-class IcebergDeleteFile;
+struct IcebergDeleteFile;
 
 class IcebergSplitReader : public SplitReader {
  public:

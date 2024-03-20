@@ -27,8 +27,8 @@
 
 namespace facebook::velox::connector::hive::iceberg {
 
-class IcebergDeleteFile;
-class IcebergMetadataColumn;
+struct IcebergDeleteFile;
+struct IcebergMetadataColumn;
 
 using SubfieldFilters =
     std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
