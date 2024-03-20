@@ -173,7 +173,7 @@ public class FeaturesConfig
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
-    private boolean exploitConstraints = true;
+    private boolean exploitConstraints;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
