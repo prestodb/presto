@@ -386,7 +386,7 @@ bool isDeterministic(
   // deterministic so they are picked for Fuzz testing. Once we make the
   // isDeterministic() flag static (and hence we won't need to build the
   // function object in here) we can clean up this code.
-  catch (const std::exception& e) {
+  catch (const std::exception&) {
     LOG(WARNING) << "Unable to determine if '" << functionName
                  << "' is deterministic or not. Assuming it is.";
     return true;

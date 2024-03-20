@@ -86,13 +86,13 @@ class EvalSimplifiedTest : public FunctionBaseTest {
 
     try {
       exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       exceptionCommonPtr = std::current_exception();
     }
 
     try {
       exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       exceptionSimplifiedPtr = std::current_exception();
     }
 

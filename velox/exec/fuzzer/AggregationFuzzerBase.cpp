@@ -428,7 +428,7 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
     TestScopedSpillInjection scopedSpillInjection(spillPct);
     resultOrError.result =
         builder.maxDrivers(maxDrivers).copyResults(pool_.get());
-  } catch (VeloxUserError& e) {
+  } catch (VeloxUserError&) {
     // NOTE: velox user exception is accepted as it is caused by the invalid
     // fuzzer test inputs.
     resultOrError.exceptionPtr = std::current_exception();

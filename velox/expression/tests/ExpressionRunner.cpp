@@ -198,7 +198,7 @@ void ExpressionRunner::run(
           std::move(resultVector),
           true,
           columnsToWrapInLazy);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       if (findMinimalSubExpression) {
         VectorFuzzer::Options options;
         VectorFuzzer fuzzer(options, pool.get());

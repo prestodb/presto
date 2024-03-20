@@ -94,7 +94,7 @@ TEST_F(MemoryReclaimerTest, abortTest) {
           "leafAbortTest", true, exec::MemoryReclaimer::create());
       try {
         VELOX_FAIL("abortTest error");
-      } catch (const VeloxRuntimeError& e) {
+      } catch (const VeloxRuntimeError&) {
         leafPool->abort(std::current_exception());
       }
       ASSERT_TRUE(rootPool->aborted());
@@ -104,7 +104,7 @@ TEST_F(MemoryReclaimerTest, abortTest) {
           "nonLeafAbortTest", exec::MemoryReclaimer::create());
       try {
         VELOX_FAIL("abortTest error");
-      } catch (const VeloxRuntimeError& e) {
+      } catch (const VeloxRuntimeError&) {
         aggregatePool->abort(std::current_exception());
       }
       ASSERT_TRUE(rootPool->aborted());

@@ -122,7 +122,7 @@ TEST(StatusTest, macros) {
   bool didThrow = false;
   try {
     VELOX_CHECK_OK(Status::Invalid("invalid"));
-  } catch (const VeloxRuntimeError& e) {
+  } catch (const VeloxRuntimeError&) {
     didThrow = true;
   }
   ASSERT_TRUE(didThrow) << "VELOX_CHECK_OK did not throw";

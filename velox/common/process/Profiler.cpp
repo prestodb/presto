@@ -144,7 +144,7 @@ void Profiler::copyToResult(const std::string* data) {
   try {
     try {
       fileSystem_->remove(target);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       // ignore
     }
     auto out = fileSystem_->openFileForWrite(target);
@@ -220,7 +220,7 @@ bool Profiler::interruptibleSleep(int32_t seconds) {
       std::move(sleepFuture)
           .via(&executor)
           .wait((std::chrono::seconds(seconds)));
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
     }
   }
   {

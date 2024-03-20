@@ -520,7 +520,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
       ;
       FAIL() << "Expected a throw due to cancellation";
     }
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
   }
 
   // Wait for task to transition to final state.

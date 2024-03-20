@@ -2745,7 +2745,7 @@ namespace {
 void abortPool(memory::MemoryPool* pool) {
   try {
     VELOX_FAIL("Memory pool manually aborted");
-  } catch (const VeloxException& e) {
+  } catch (const VeloxException&) {
     pool->abort(std::current_exception());
   }
 }

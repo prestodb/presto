@@ -575,7 +575,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       }
       rowContainer_->clear();
       ASSERT_FALSE(expectedError);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       ASSERT_TRUE(expectedError);
     }
   }

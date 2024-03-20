@@ -136,7 +136,7 @@ TEST(CachedFactoryTest, basicExceptionHandling) {
   try {
     auto val2 = factory.generate(3);
     FAIL() << "Factory generation should have failed";
-  } catch (const std::invalid_argument& e) {
+  } catch (const std::invalid_argument&) {
     // Expected.
   }
   val1 = factory.generate(4);

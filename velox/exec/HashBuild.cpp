@@ -1108,7 +1108,7 @@ void HashBuild::reclaim(
       // this runs.
       try {
         spillTask->move();
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
       }
     }
   });
