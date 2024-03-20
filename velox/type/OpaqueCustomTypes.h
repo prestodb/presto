@@ -38,6 +38,10 @@ class OpaqueCustomTypeRegister {
         customTypeName, std::make_unique<const TypeFactory>());
   }
 
+  static bool unregisterType() {
+    return facebook::velox::unregisterCustomType(customTypeName);
+  }
+
   // Type used in the simple function interface as CustomType<TypeT>.
   struct TypeT {
     using type = std::shared_ptr<T>;

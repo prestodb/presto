@@ -973,6 +973,7 @@ using UDT2TypeRegistrar = OpaqueCustomTypeRegister<UDT2, kName>;
 
 TEST_F(ArrayWriterTest, copyFromArrayOfOpaqueUDT) {
   UDT2TypeRegistrar::registerType();
+  auto guard = folly::makeGuard([&] { UDT2TypeRegistrar::unregisterType(); });
 
   using out_t = Array<UDT2TypeRegistrar::SimpleType>;
 
@@ -1020,6 +1021,7 @@ struct CopyFromArrayOfUDTFunc {
 
 TEST_F(ArrayWriterTest, copyFromNestedArrayOfOpaqueUDT) {
   UDT2TypeRegistrar::registerType();
+  auto guard = folly::makeGuard([&] { UDT2TypeRegistrar::unregisterType(); });
   registerFunction<CopyFromArrayOfUDTFunc, copy_from_udt_t>(
       {"copy_udt2_array"});
 
