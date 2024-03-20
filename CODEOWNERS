@@ -5,3 +5,5 @@
 /presto-orc @sdruzkin @prestodb/committers
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
 /presto-spark* @shrinidhijoshi @prestodb/committers
+/presto-docs @steveburnett @prestodb/committers
+/**/*.md @steveburnett @prestodb/committers
