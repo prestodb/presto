@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -108,6 +109,8 @@ public class SqlTaskExecution
     // In this case,
     // * a driver could belong to pipeline 1 and driver life cycle 42.
     // * another driver could belong to pipeline 3 and task-wide driver life cycle.
+
+    private static final Logger log = Logger.get(SqlTaskExecution.class);
 
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
@@ -455,7 +458,10 @@ public class SqlTaskExecution
                     ImmutableList.Builder<DriverSplitRunner> runners = ImmutableList.builder();
                     for (ScheduledSplit scheduledSplit : pendingSplits.removeAllSplits()) {
                         // create a new driver for the split
-                        runners.add(partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit, lifespan));
+                        DriverSplitRunner driverSplitRunner = partitionedDriverRunnerFactory.createDriverRunner(scheduledSplit, lifespan, pendingSplits.getState() == NO_MORE_SPLITS);
+                        if (driverSplitRunner != null) {
+                            runners.add(driverSplitRunner);
+                        }
                     }
                     enqueueDriverSplitRunner(false, runners.build());
 
@@ -517,6 +523,7 @@ public class SqlTaskExecution
                 runners.add(driverRunnerFactory.createDriverRunner(null, Lifespan.taskWide()));
             }
         }
+        checkState(runners.stream().noneMatch(x -> x == null), "cannot generate null driver runner for task life cycle");
         enqueueDriverSplitRunner(true, runners);
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithTaskLifeCycle) {
             driverRunnerFactory.noMoreDriverRunner(ImmutableList.of(Lifespan.taskWide()));
@@ -539,6 +546,7 @@ public class SqlTaskExecution
                 runners.add(driverSplitRunnerFactory.createDriverRunner(null, lifespan));
             }
         }
+        checkState(runners.stream().noneMatch(x -> x == null), "cannot generate null driver runner for group life cycle");
         enqueueDriverSplitRunner(true, runners);
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithDriverGroupLifeCycle) {
             driverRunnerFactory.noMoreDriverRunner(ImmutableList.of(lifespan));
@@ -629,10 +637,21 @@ public class SqlTaskExecution
         }
 
         // are there more partition splits expected?
+        int index = 0;
+        boolean hasExitEarly = false;
         for (DriverSplitRunnerFactory driverSplitRunnerFactory : driverRunnerFactoriesWithSplitLifeCycle.values()) {
-            if (!driverSplitRunnerFactory.isNoMoreDriverRunner()) {
+            if (driverSplitRunnerFactory.exitEarly()) {
+                hasExitEarly = true;
+                log.info("driverSplitRunnerFactory " + index + " exit early, total number factory " + driverRunnerFactoriesWithSplitLifeCycle.size() + " " + this);
+            }
+            index++;
+            if (!driverSplitRunnerFactory.exitEarly() && !driverSplitRunnerFactory.isNoMoreDriverRunner()) {
                 return;
             }
+        }
+
+        if (hasExitEarly) {
+            log.info("status.getRemainingDriver() " + status.getRemainingDriver() + " " + this);
         }
         // do we still have running tasks?
         if (status.getRemainingDriver() != 0) {
@@ -642,11 +661,17 @@ public class SqlTaskExecution
         // no more output will be created
         outputBuffer.setNoMorePages();
 
+        if (hasExitEarly) {
+            log.info("outputBuffer.isFinished() " + outputBuffer.isFinished() + " " + this);
+        }
         // are there still pages in the output buffer?
         if (!outputBuffer.isFinished()) {
             return;
         }
 
+        if (hasExitEarly) {
+            log.info("taskStateMachine.finished() " + " " + this);
+        }
         // Cool! All done!
         taskStateMachine.finished();
     }
@@ -940,6 +965,21 @@ public class SqlTaskExecution
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 
+        public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, Lifespan lifespan, boolean noMoreSplits)
+        {
+            checkLifespan(driverFactory.getPipelineExecutionStrategy(), lifespan);
+            // If pipeline exit early, stop creating and add drive runner
+//            if (pipelineContext.exitEarly() && !noMoreSplits) {
+//                return null;
+//            }
+            status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
+            // create driver context immediately so the driver existence is recorded in the stats
+            // the number of drivers is used to balance work across nodes
+            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            DriverContext driverContext = pipelineContext.addDriverContext(splitWeight, lifespan, driverFactory.getFragmentResultCacheContext());
+            return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
+        }
+
         public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             Driver driver = driverFactory.createDriver(driverContext);
@@ -966,6 +1006,11 @@ public class SqlTaskExecution
             closeDriverFactoryIfFullyCreated();
 
             return driver;
+        }
+
+        public boolean exitEarly()
+        {
+            return pipelineContext.exitEarly();
         }
 
         public void noMoreDriverRunner(Iterable<Lifespan> lifespans)
