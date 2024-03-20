@@ -35,8 +35,6 @@ using namespace facebook::velox::common;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::common::testutil;
 
-constexpr const char* kHiveConnectorId = "test-hive";
-
 class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
  protected:
   void SetUp() override {

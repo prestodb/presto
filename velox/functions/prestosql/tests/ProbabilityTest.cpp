@@ -28,8 +28,6 @@ constexpr double kDoubleMax = std::numeric_limits<double>::max();
 constexpr double kDoubleMin = std::numeric_limits<double>::min();
 constexpr int64_t kBigIntMax = std::numeric_limits<int64_t>::max();
 constexpr int64_t kBigIntMin = std::numeric_limits<int64_t>::min();
-constexpr int32_t kIntMax = std::numeric_limits<int32_t>::max();
-constexpr int32_t kIntMin = std::numeric_limits<int32_t>::min();
 
 MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);

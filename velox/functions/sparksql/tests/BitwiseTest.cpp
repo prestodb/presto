@@ -32,7 +32,6 @@ static constexpr auto kMin32 = std::numeric_limits<int32_t>::min();
 static constexpr auto kMax32 = std::numeric_limits<int32_t>::max();
 static constexpr auto kMin64 = std::numeric_limits<int64_t>::min();
 static constexpr auto kMax64 = std::numeric_limits<int64_t>::max();
-static constexpr int kMaxBits = std::numeric_limits<uint64_t>::digits;
 
 class BitwiseTest : public SparkFunctionBaseTest {
  protected:

@@ -21,9 +21,6 @@ using namespace facebook::velox;
 
 namespace {
 
-constexpr double kInf = std::numeric_limits<double>::infinity();
-constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
-
 template <typename T>
 using TwoDimVector = std::vector<std::vector<std::optional<T>>>;
 

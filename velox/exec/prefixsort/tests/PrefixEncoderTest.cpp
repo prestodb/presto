@@ -53,7 +53,6 @@ struct TypeLimits {
 template <>
 struct TypeLimits<Timestamp> {
   static const bool isFloat = false;
-  static const bool isSigned = true;
   static FOLLY_ALWAYS_INLINE Timestamp min() {
     return std::numeric_limits<Timestamp>::min();
   }
