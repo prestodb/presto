@@ -447,7 +447,8 @@ Statistical Aggregate Functions
 .. function:: regr_r2(y, x) -> double
 
     Returns the coefficient of determination of the linear regression. ``y`` is the dependent
-    value. ``x`` is the independent value.
+    value. ``x`` is the independent value. If regr_sxx(y, x) is 0, result is null. If regr_syy(y, x) is 0
+    and regr_sxx(y, x) isn't 0, result is 1.
 
 .. function:: regr_slope(y, x) -> double
 
