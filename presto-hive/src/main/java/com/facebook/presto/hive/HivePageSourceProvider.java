@@ -238,7 +238,8 @@ public class HivePageSourceProvider
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
-                encryptionInformation);
+                encryptionInformation,
+                hiveSplit.getRowIdPartitionComponent());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -274,7 +275,7 @@ public class HivePageSourceProvider
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     fileContext,
                     encryptionInformation,
-                    hiveLayout.isAppendRowNumberEnabled());
+                    hiveLayout.isAppendRowNumberEnabled() || hiveLayout.isAppendRowId());
             if (pageSource.isPresent()) {
                 return pageSource.get();
             }
@@ -385,7 +386,7 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     fileContext,
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled());
+                    layout.isAppendRowNumberEnabled() || layout.isAppendRowId());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -420,7 +421,8 @@ public class HivePageSourceProvider
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -501,7 +503,9 @@ public class HivePageSourceProvider
                         bucketAdaptation,
                         hiveStorageTimeZone,
                         typeManager,
-                        pageSource.get());
+                        pageSource.get(),
+                        fileSplit.getPath(),
+                        rowIdPartitionComponent);
 
                 if (isPushdownFilterEnabled) {
                     return Optional.of(new FilteringPageSource(
