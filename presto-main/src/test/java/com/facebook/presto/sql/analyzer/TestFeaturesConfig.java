@@ -268,7 +268,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(true)
                 .setDefaultWriterReplicationCoefficient(3.0)
                 .setDefaultViewSecurityMode(DEFINER)
-                .setCteHeuristicReplicationThreshold(4));
+                .setCteHeuristicReplicationThreshold(4)
+                .setSizeBasedJoinFlippingEnabled(true));
     }
 
     @Test
@@ -481,6 +482,7 @@ public class TestFeaturesConfig
                 .put("optimizer.default-writer-replication-coefficient", "5.0")
                 .put("default-view-security-mode", INVOKER.name())
                 .put("cte-heuristic-replication-threshold", "2")
+                .put("optimizer.size-based-join-flipping-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -690,7 +692,8 @@ public class TestFeaturesConfig
                 .setRewriteExpressionWithConstantVariable(false)
                 .setDefaultWriterReplicationCoefficient(5.0)
                 .setDefaultViewSecurityMode(INVOKER)
-                .setCteHeuristicReplicationThreshold(2);
+                .setCteHeuristicReplicationThreshold(2)
+                .setSizeBasedJoinFlippingEnabled(false);
         assertFullMapping(properties, expected);
     }
 

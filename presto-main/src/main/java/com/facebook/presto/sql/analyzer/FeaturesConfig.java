@@ -306,6 +306,7 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
+    private boolean sizeBasedJoinFlippingEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3072,5 +3073,18 @@ public class FeaturesConfig
     {
         this.defaultViewSecurityMode = securityMode;
         return this;
+    }
+
+    @Config("optimizer.size-based-join-flipping-enabled")
+    @ConfigDescription("flip join sides when determining join distribution type based on estimated statistics")
+    public FeaturesConfig setSizeBasedJoinFlippingEnabled(boolean enabled)
+    {
+        this.sizeBasedJoinFlippingEnabled = enabled;
+        return this;
+    }
+
+    public boolean isSizeBasedJoinFlippingEnabled()
+    {
+        return sizeBasedJoinFlippingEnabled;
     }
 }

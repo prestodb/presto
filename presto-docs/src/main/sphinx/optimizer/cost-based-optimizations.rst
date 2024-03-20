@@ -69,6 +69,12 @@ The valid values are:
  * ``BROADCAST`` - broadcast join distribution is used for all joins
  * ``PARTITIONED`` - partitioned join distribution is used for all join
 
+Presto may flip the hash and probe sides of the join based on known statistics at optimization
+time. In some cases this may be undesirable. To prevent the hash and probe side from being flipped
+you can set ``optimizer.size-based-join-flipping-enabled`` coordinator property or
+ ``optimizer_size_based_join_flipping_enabled`` session property to ``false``.
+
+
 Capping replicated table size
 -----------------------------
 

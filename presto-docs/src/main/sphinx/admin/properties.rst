@@ -811,6 +811,17 @@ Optimizer Properties
 
     Track history based plan statistics from complete plan fragments in failed queries.
 
+``optimizer.size-based-join-flipping-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    When enabled, the optimizer may flip join sides when determining join distribution type based on
+    gathered statistics. Set to false to prevent flipping sides of the join.
+
+
+
 
 Planner Properties
 --------------------------------------

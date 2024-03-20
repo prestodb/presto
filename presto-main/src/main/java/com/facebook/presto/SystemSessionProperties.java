@@ -344,6 +344,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
+    public static final String SIZE_BASED_JOIN_FLIPPING_ENABLED = "optimizer_size_based_join_flipping_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1939,7 +1940,12 @@ public final class SystemSessionProperties
                         featuresConfig.getDefaultViewSecurityMode(),
                         false,
                         value -> CreateView.Security.valueOf(((String) value).toUpperCase()),
-                        CreateView.Security::name));
+                        CreateView.Security::name),
+                booleanProperty(
+                        SIZE_BASED_JOIN_FLIPPING_ENABLED,
+                        "flip join sides when determining join distribution type based on estimated statistics",
+                        featuresConfig.isSizeBasedJoinFlippingEnabled(),
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3215,5 +3221,10 @@ public final class SystemSessionProperties
     public static CreateView.Security getDefaultViewSecurityMode(Session session)
     {
         return session.getSystemProperty(DEFAULT_VIEW_SECURITY_MODE, CreateView.Security.class);
+    }
+
+    public static boolean isSizeBasedJoinFlippingEnabled(Session session)
+    {
+        return session.getSystemProperty(SIZE_BASED_JOIN_FLIPPING_ENABLED, Boolean.class);
     }
 }
