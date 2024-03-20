@@ -815,7 +815,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         promise.setValue(createEmptyResult(token));
       });
 
-  auto timeoutFn = [this, token]() { return createEmptyResult(token); };
+  auto timeoutFn = [token]() { return createEmptyResult(token); };
 
   try {
     auto prestoTask = findOrCreateTask(taskId);
