@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.SqlVarbinary;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -25,20 +26,24 @@ import java.nio.charset.StandardCharsets;
 import static com.facebook.presto.common.type.RowIdType.ROW_ID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestRowIdType
         extends AbstractTestType
 {
+
+    public static final int BLOCK_LENGTH = 10;
+
     public TestRowIdType()
     {
         super(ROW_ID, SqlVarbinary.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    private static Block createTestBlock()
     {
         BlockBuilder blockBuilder = ROW_ID.createBlockBuilder(null, 1);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < BLOCK_LENGTH; i++) {
             ByteBuffer rowId = ByteBuffer.allocate(4 + 100 + 4 + 8 + 8 + 4 + 2)
                     // row number
                     .putInt(i)
@@ -61,6 +66,20 @@ public class TestRowIdType
     }
 
     @Test
+    public void testGetObjectValue() {
+        Block block = createTestBlock();
+        SqlVarbinary rowID = ROW_ID.getObjectValue(null, block, 5);
+        assertTrue(rowID.getBytes().length > 0);
+    }
+
+    @Test
+    public void testGetObject() {
+        Block block = createTestBlock();
+        SqlVarbinary rowID = ROW_ID.getObject(block, 5);
+        assertTrue(rowID.getBytes().length > 0);
+    }
+
+    @Test
     public void testIsOrderable()
     {
         assertFalse(ROW_ID.isOrderable());
@@ -76,6 +95,11 @@ public class TestRowIdType
     public void testDisplayName()
     {
         assertEquals(ROW_ID.getDisplayName(), "Row ID");
+    }
+
+    @Test
+    public void testGetJavaType() {
+        assertEquals(Slice.class, ROW_ID.getJavaType());
     }
 
     @Override

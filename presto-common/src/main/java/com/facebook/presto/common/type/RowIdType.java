@@ -35,8 +35,13 @@ public class RowIdType
         super(parseTypeSignature(StandardTypes.ROW_ID), Slice.class);
     }
 
+    /**
+     * Returns the bytes of a row ID from the specified position in the block.
+     *
+     * @return the raw bytes of the row ID or null
+     */
     @Override
-    public SqlVarbinary getObjectValue(SqlFunctionProperties sqlFunctionProperties, Block block, int position)
+    public SqlVarbinary getObject(Block block, int position)
     {
         if (position < 0) {
             throw new IndexOutOfBoundsException("Negative block position " + position);
@@ -47,6 +52,21 @@ public class RowIdType
         return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
     }
 
+    /**
+     * Returns the bytes of a row ID from the specified position in the block.
+     *
+     * @param sqlFunctionProperties ignored
+     * @return the raw bytes of the row ID or null
+     */
+    @Override
+    public SqlVarbinary getObjectValue(SqlFunctionProperties sqlFunctionProperties, Block block, int position)
+    {
+        return getObject(block, position);
+    }
+
+    /**
+     * Append the slice at {@code position} in {@code block} to {@code blockBuilder}.
+     */
     @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
@@ -60,12 +80,22 @@ public class RowIdType
         }
     }
 
+    /**
+     * Row IDs are comparable.
+     *
+     * @return true
+     */
     @Override
     public boolean isComparable()
     {
         return true;
     }
 
+    /**
+     * Row IDs are not orderable.
+     *
+     * @return false
+     */
     @Override
     public boolean isOrderable()
     {
@@ -101,6 +131,10 @@ public class RowIdType
         return block.hash(position, 0, block.getSliceLength(position));
     }
 
+    /**
+     * @return true if and only if the slice at the leftPosition in the leftBlock
+     *     is byte per byte identical to the slice at the rightPosition in the rightBlock
+     */
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
