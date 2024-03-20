@@ -542,15 +542,42 @@ class AstBuilder
     public Node visitUnnamedConstraintSpecification(SqlBaseParser.UnnamedConstraintSpecificationContext context)
     {
         List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
+        ConstraintType constraintType = getConstraintType((Token) context.constraintType().getChild(0).getPayload());
+        String constraintTypeString = constraintTypeToString(constraintType);
 
-        boolean enabled = context.constraintEnabled() == null || context.constraintEnabled().DISABLED() == null;
-        boolean rely = context.constraintRely() == null || context.constraintRely().NOT() == null;
-        boolean enforced = context.constraintEnforced() == null || context.constraintEnforced().NOT() == null;
+        List<SqlBaseParser.ConstraintQualifierContext> constraintQualifierContext = context.constraintQualifiers().constraintQualifier();
+        check(constraintQualifierContext.stream().filter(p -> p.constraintEnabled() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification ENABLED",
+                context.constraintQualifiers());
+        check(constraintQualifierContext.stream().filter(p -> p.constraintRely() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification RELY",
+                context.constraintQualifiers());
+        check(constraintQualifierContext.stream().filter(p -> p.constraintEnforced() != null).count() <= 1,
+                "Invalid " + constraintTypeString + " constraint specification ENFORCED",
+                context.constraintQualifiers());
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enabledSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnabled() != null)
+                .findFirst();
+        boolean enabled = !enabledSpecification.isPresent() ||
+                enabledSpecification.get().constraintEnabled().DISABLED() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> relySpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintRely() != null)
+                .findFirst();
+        boolean rely = !relySpecification.isPresent() ||
+                relySpecification.get().constraintRely().NOT() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enforcedSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnforced() != null)
+                .findFirst();
+        boolean enforced = !enforcedSpecification.isPresent() ||
+                enforcedSpecification.get().constraintEnforced().NOT() == null;
 
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
                 columnAliases.stream().map(Identifier::toString).collect(toImmutableList()),
-                getConstraintType((Token) context.constraintType().getChild(0).getPayload()),
+                constraintType,
                 enabled,
                 rely,
                 enforced);
@@ -2271,6 +2298,18 @@ class AstBuilder
     {
         return Optional.ofNullable(token)
                 .map(Token::getText);
+    }
+
+    public static String constraintTypeToString(ConstraintType constraintType)
+    {
+        switch (constraintType) {
+            case UNIQUE:
+                return "UNIQUE";
+            case PRIMARY_KEY:
+                return "PRIMARY KEY";
+            default:
+                return "";
+        }
     }
 
     private static ConstraintType getConstraintType(Token token)
