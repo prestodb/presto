@@ -753,13 +753,13 @@ public final class IcebergUtil
     }
 
     /**
-     * Returns the maximum value that compares less than {@code value}.
+     * Returns the adjacent value that compares bigger than or less than {@code value} based on parameter {@code isPrevious}.
      * <p>
      * The type of the value must match {@code #type.getJavaType()}.
      *
      * @throws IllegalStateException if the type is not {@code #isOrderable()}
      */
-    public static Optional<Object> getPreviousValue(Type type, Object value)
+    public static Optional<Object> getAdjacentValue(Type type, Object value, boolean isPrevious)
     {
         if (!type.isOrderable()) {
             throw new IllegalStateException("Type is not orderable: " + type);
@@ -767,140 +767,27 @@ public final class IcebergUtil
         requireNonNull(value, "value is null");
 
         if (type.equals(BIGINT) || type instanceof TimestampType) {
-            long currentValue = (long) value;
-            if (currentValue == Long.MIN_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue - 1);
+            return getBigintAdjacentValue(value, isPrevious);
         }
 
         if (type.equals(INTEGER) || type.equals(DATE)) {
-            long currentValue = toIntExact((long) value);
-            if (currentValue == Integer.MIN_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue - 1);
+            return getIntegerAdjacentValue(value, isPrevious);
         }
 
         if (type.equals(SMALLINT)) {
-            long currentValue = (long) value;
-            checkValueValid(SMALLINT, currentValue);
-            if (currentValue == Short.MIN_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue - 1);
+            return getSmallIntAdjacentValue(value, isPrevious);
         }
 
         if (type.equals(TINYINT)) {
-            long currentValue = (long) value;
-            checkValueValid(TINYINT, currentValue);
-            if (currentValue == Byte.MIN_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue - 1);
+            return getTinyIntAdjacentValue(value, isPrevious);
         }
 
         if (type.equals(DOUBLE)) {
-            long longBitForDouble = (long) value;
-            checkValueValid(DOUBLE, longBitForDouble);
-            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
-                return Optional.empty();
-            }
-            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
-                return Optional.of(DOUBLE_POSITIVE_INFINITE - 1);
-            }
-            double currentValue = longBitsToDouble(longBitForDouble);
-            return Optional.of(doubleToRawLongBits(currentValue - ulp(currentValue)));
+            return getDoubleAdjacentValue(value, isPrevious);
         }
 
         if (type.equals(REAL)) {
-            int intBitForFloat = (int) value;
-            checkValueValid(REAL, intBitForFloat);
-            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
-                return Optional.empty();
-            }
-            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
-                return Optional.of(REAL_POSITIVE_INFINITE - 1);
-            }
-            float currentValue = intBitsToFloat(intBitForFloat);
-            return Optional.of(floatToRawIntBits(currentValue - ulp(currentValue)));
-        }
-
-        return Optional.empty();
-    }
-
-    /**
-     * Returns the minimum value that compares greater than {@code value}.
-     * <p>
-     * The type of the value must match {@code #type.getJavaType()}.
-     *
-     * @throws IllegalStateException if this type is not {@code #isOrderable() orderable}
-     */
-    public static Optional<Object> getNextValue(Type type, Object value)
-    {
-        if (!type.isOrderable()) {
-            throw new IllegalStateException("Type is not orderable: " + type);
-        }
-        requireNonNull(value, "value is null");
-
-        if (type.equals(BIGINT) || type instanceof TimestampType) {
-            long currentValue = (long) value;
-            if (currentValue == Long.MAX_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue + 1);
-        }
-
-        if (type.equals(INTEGER) || type.equals(DATE)) {
-            long currentValue = toIntExact((long) value);
-            if (currentValue == Integer.MAX_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue + 1);
-        }
-
-        if (type.equals(SMALLINT)) {
-            long currentValue = (long) value;
-            checkValueValid(SMALLINT, currentValue);
-            if (currentValue == Short.MAX_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue + 1);
-        }
-
-        if (type.equals(TINYINT)) {
-            long currentValue = (long) value;
-            checkValueValid(TINYINT, currentValue);
-            if (currentValue == Byte.MAX_VALUE) {
-                return Optional.empty();
-            }
-            return Optional.of(currentValue + 1);
-        }
-
-        if (type.equals(DOUBLE)) {
-            long longBitForDouble = (long) value;
-            checkValueValid(DOUBLE, longBitForDouble);
-            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
-                return Optional.empty();
-            }
-            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
-                return Optional.of(DOUBLE_NEGATIVE_INFINITE - 1);
-            }
-            double currentValue = longBitsToDouble(longBitForDouble);
-            return Optional.of(doubleToRawLongBits(currentValue + ulp(currentValue)));
-        }
-
-        if (type.equals(REAL)) {
-            int intBitForFloat = (int) value;
-            checkValueValid(REAL, intBitForFloat);
-            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
-                return Optional.empty();
-            }
-            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
-                return Optional.of(REAL_NEGATIVE_INFINITE - 1);
-            }
-            float currentValue = intBitsToFloat(intBitForFloat);
-            return Optional.of(floatToRawIntBits(currentValue + ulp(currentValue)));
+            return getRealAdjacentValue(value, isPrevious);
         }
 
         return Optional.empty();
@@ -1000,38 +887,145 @@ public final class IcebergUtil
         };
     }
 
-    private static void checkValueValid(Type type, long value)
+    private static Optional<Object> getBigintAdjacentValue(Object value, boolean isPrevious)
     {
-        if (type.equals(SMALLINT)) {
-            if (value > Short.MAX_VALUE) {
-                throw new GenericInternalException(format("Value %d exceeds MAX_SHORT", value));
+        long currentValue = (long) value;
+        if (isPrevious) {
+            if (currentValue == Long.MIN_VALUE) {
+                return Optional.empty();
             }
-            if (value < Short.MIN_VALUE) {
-                throw new GenericInternalException(format("Value %d is less than MIN_SHORT", value));
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Long.MAX_VALUE) {
+                return Optional.empty();
             }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getIntegerAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = toIntExact((long) value);
+        if (isPrevious) {
+            if (currentValue == Integer.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Integer.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getSmallIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Short.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_SHORT", value));
+        }
+        if (currentValue < Short.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_SHORT", value));
         }
 
-        if (type.equals(TINYINT)) {
-            if (value > Byte.MAX_VALUE) {
-                throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+        if (isPrevious) {
+            if (currentValue == Short.MIN_VALUE) {
+                return Optional.empty();
             }
-            if (value < Byte.MIN_VALUE) {
-                throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Short.MAX_VALUE) {
+                return Optional.empty();
             }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getTinyIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Byte.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+        }
+        if (currentValue < Byte.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
         }
 
-        if (type.equals(DOUBLE)) {
-            if (value > DOUBLE_POSITIVE_INFINITE && value < DOUBLE_NEGATIVE_ZERO ||
-                    value > DOUBLE_NEGATIVE_INFINITE && value < DOUBLE_POSITIVE_ZERO) {
-                throw new GenericInternalException(format("Value %d exceeds the range of double", value));
+        if (isPrevious) {
+            if (currentValue == Byte.MIN_VALUE) {
+                return Optional.empty();
             }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Byte.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getDoubleAdjacentValue(Object value, boolean isPrevious)
+    {
+        long longBitForDouble = (long) value;
+        if (longBitForDouble > DOUBLE_POSITIVE_INFINITE && longBitForDouble < DOUBLE_NEGATIVE_ZERO ||
+                longBitForDouble > DOUBLE_NEGATIVE_INFINITE && longBitForDouble < DOUBLE_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of double", longBitForDouble));
         }
 
-        if (type.equals(REAL)) {
-            if (value > REAL_POSITIVE_INFINITE && value < REAL_NEGATIVE_ZERO ||
-                    value > REAL_NEGATIVE_INFINITE && value < REAL_POSITIVE_ZERO) {
-                throw new GenericInternalException(format("Value %d exceeds the range of real", value));
+        if (isPrevious) {
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.empty();
             }
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.of(DOUBLE_POSITIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.of(DOUBLE_NEGATIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue + ulp(currentValue)));
+        }
+    }
+
+    private static Optional<Object> getRealAdjacentValue(Object value, boolean isPrevious)
+    {
+        int intBitForFloat = (int) value;
+        if (intBitForFloat > REAL_POSITIVE_INFINITE && intBitForFloat < REAL_NEGATIVE_ZERO ||
+                intBitForFloat > REAL_NEGATIVE_INFINITE && intBitForFloat < REAL_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of real", intBitForFloat));
+        }
+
+        if (isPrevious) {
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.of(REAL_POSITIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.of(REAL_NEGATIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue + ulp(currentValue)));
         }
     }
 

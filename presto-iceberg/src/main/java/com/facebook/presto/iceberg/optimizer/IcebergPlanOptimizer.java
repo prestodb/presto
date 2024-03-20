@@ -65,9 +65,8 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTA
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.getNextValue;
-import static com.facebook.presto.iceberg.IcebergUtil.getPreviousValue;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -337,14 +336,14 @@ public class IcebergPlanOptimizer
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
-            Optional<Object> adjacentValue = range.isLowInclusive() ? getPreviousValue(type, boundedValue) : getNextValue(type, boundedValue);
+            Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, range.isLowInclusive());
             if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? getNextValue(type, boundedValue) : getPreviousValue(type, boundedValue);
+            Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, !range.isHighInclusive());
             if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
                 return false;
             }
