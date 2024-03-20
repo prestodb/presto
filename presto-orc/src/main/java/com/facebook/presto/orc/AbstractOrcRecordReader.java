@@ -184,7 +184,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
         OrcType root = types.get(0);
         for (int column : includedColumns.keySet()) {
-            // an old file can have less columns since columns can be added
+            // an old file can have fewer columns since columns can be added
             // after the file was written
             if (column >= 0 && column < root.getFieldCount()) {
                 presentColumns.add(column);
