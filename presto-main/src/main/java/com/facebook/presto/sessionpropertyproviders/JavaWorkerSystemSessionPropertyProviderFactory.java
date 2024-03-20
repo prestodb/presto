@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sessionpropertyproviders;
 
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
 
@@ -41,7 +41,7 @@ public class JavaWorkerSystemSessionPropertyProviderFactory
     }
 
     @Override
-    public SystemSessionPropertyProvider create(Map<String, String> config, NodeManager nodeManager)
+    public SystemSessionPropertyProvider create(Map<String, String> config, SessionPropertyContext context)
     {
         return provider;
     }

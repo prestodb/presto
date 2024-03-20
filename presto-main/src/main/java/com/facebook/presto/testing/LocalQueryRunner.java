@@ -414,7 +414,7 @@ public class LocalQueryRunner
         this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(
                 pluginNodeManager,
                 getFunctionAndTypeManager(),
-                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(featuresConfig)));
+                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(featuresConfig, nodeSpillConfig)));
 
         this.metadata = new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),

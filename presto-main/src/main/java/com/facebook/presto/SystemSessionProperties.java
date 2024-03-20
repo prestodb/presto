@@ -118,7 +118,6 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
-
     public static final String QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES = "query_max_written_intermediate_bytes";
     public static final String QUERY_MAX_OUTPUT_POSITIONS = "query_max_output_positions";
     public static final String QUERY_MAX_OUTPUT_SIZE = "query_max_output_size";
@@ -148,18 +147,7 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
-    public static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_SPILL_ENABLED = "distinct_aggregation_spill_enabled";
-    public static final String DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED = "dedup_based_distinct_aggregation_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED = "distinct_aggregation_large_block_spill_enabled";
-    public static final String DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD = "distinct_aggregation_large_block_size_threshold";
-    public static final String ORDER_BY_AGGREGATION_SPILL_ENABLED = "order_by_aggregation_spill_enabled";
-    public static final String WINDOW_SPILL_ENABLED = "window_spill_enabled";
-    public static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
-    public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
-    public static final String TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT = "topn_operator_unspill_memory_limit";
     public static final String QUERY_MAX_REVOCABLE_MEMORY_PER_NODE = "query_max_revocable_memory_per_node";
-    public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
@@ -778,68 +766,6 @@ public final class SystemSessionProperties
                         "Enable join spilling",
                         featuresConfig.isJoinSpillingEnabled(),
                         false),
-                booleanProperty(
-                        AGGREGATION_SPILL_ENABLED,
-                        "Enable aggregate spilling if spill_enabled",
-                        featuresConfig.isAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for distinct aggregations if spill_enabled and aggregation_spill_enabled",
-                        featuresConfig.isDistinctAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED,
-                        "Perform deduplication of input data for distinct aggregates before spilling",
-                        featuresConfig.isDedupBasedDistinctAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SPILL_ENABLED,
-                        "Spill large block to a separate spill file",
-                        featuresConfig.isDistinctAggregationLargeBlockSpillEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        DISTINCT_AGGREGATION_LARGE_BLOCK_SIZE_THRESHOLD,
-                        "Block size threshold beyond which it will be spilled into a separate spill file",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getDistinctAggregationLargeBlockSizeThreshold(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                booleanProperty(
-                        ORDER_BY_AGGREGATION_SPILL_ENABLED,
-                        "Enable spill for order-by aggregations if spill_enabled and aggregation_spill_enabled",
-                        featuresConfig.isOrderByAggregationSpillEnabled(),
-                        false),
-                booleanProperty(
-                        WINDOW_SPILL_ENABLED,
-                        "Enable window spilling if spill_enabled",
-                        featuresConfig.isWindowSpillEnabled(),
-                        false),
-                booleanProperty(
-                        ORDER_BY_SPILL_ENABLED,
-                        "Enable order by spilling if spill_enabled",
-                        featuresConfig.isOrderBySpillEnabled(),
-                        false),
-                new PropertyMetadata<>(
-                        AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "Experimental: How much memory can should be allocated per aggregation operator in unspilling process",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                new PropertyMetadata<>(
-                        TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT,
-                        "How much memory can should be allocated per topN operator in unspilling process",
-                        VARCHAR,
-                        DataSize.class,
-                        featuresConfig.getTopNOperatorUnspillMemoryLimit(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
                 new PropertyMetadata<>(
                         QUERY_MAX_REVOCABLE_MEMORY_PER_NODE,
                         "Maximum amount of revocable memory a query can use",
@@ -847,15 +773,6 @@ public final class SystemSessionProperties
                         DataSize.class,
                         nodeSpillConfig.getMaxRevocableMemoryPerNode(),
                         true,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                new PropertyMetadata<>(
-                        TEMP_STORAGE_SPILLER_BUFFER_SIZE,
-                        "Experimental: Buffer size used by TempStorageSingleStreamSpiller",
-                        VARCHAR,
-                        DataSize.class,
-                        nodeSpillConfig.getTempStorageBufferSize(),
-                        false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 booleanProperty(
@@ -2292,6 +2209,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
+<<<<<<< HEAD
     public static boolean isAggregationSpillEnabled(Session session)
     {
         return session.getSystemProperty(AGGREGATION_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
@@ -2346,11 +2264,14 @@ public final class SystemSessionProperties
         return unspillMemoryLimit;
     }
 
+=======
+>>>>>>> b6163b1a0b (Move spill related session properties to java worker provider.)
     public static DataSize getQueryMaxRevocableMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_REVOCABLE_MEMORY_PER_NODE, DataSize.class);
     }
 
+<<<<<<< HEAD
     public static DataSize getTempStorageSpillerBufferSize(Session session)
     {
         DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
@@ -2358,6 +2279,8 @@ public final class SystemSessionProperties
         return tempStorageSpillerBufferSize;
     }
 
+=======
+>>>>>>> b6163b1a0b (Move spill related session properties to java worker provider.)
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);

@@ -30,10 +30,14 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
+import com.facebook.presto.spiller.NodeSpillConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -79,26 +83,29 @@ public final class SessionPropertyManager
     {
         this(systemSessionProperties.getSessionProperties());
         // Dummy provider manager.
-        this.providerManager = new SystemSessionPropertyProviderManager(new TestingNodeManager(), new TypeManager()
-        {
-            @Override
-            public Type getType(TypeSignature signature)
-            {
-                return null;
-            }
+        this.providerManager = new SystemSessionPropertyProviderManager(
+                new TestingNodeManager(),
+                new TypeManager()
+                {
+                    @Override
+                    public Type getType(TypeSignature signature)
+                    {
+                        return null;
+                    }
 
-            @Override
-            public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-            {
-                return null;
-            }
+                    @Override
+                    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+                    {
+                        return null;
+                    }
 
-            @Override
-            public boolean canCoerce(Type actualType, Type expectedType)
-            {
-                return false;
-            }
-        });
+                    @Override
+                    public boolean canCoerce(Type actualType, Type expectedType)
+                    {
+                        return false;
+                    }
+                },
+                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(new FeaturesConfig(), new NodeSpillConfig())));
     }
 
     @Inject
@@ -129,15 +136,12 @@ public final class SessionPropertyManager
     public void updateWorkerSessionProperties()
     {
         SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
-        // TODO: To be removed once default Java worker plugin is implemented.
-        if (sessionPropertyProvider != null) {
-            List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
-            nativeSystemSessionProperties.forEach(sessionProperty -> {
-                requireNonNull(sessionProperty, "sessionProperty is null");
-                // TODO: Implement fail fast in case of duplicate entries.
-                workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
-            });
-        }
+        List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
+        nativeSystemSessionProperties.forEach(sessionProperty -> {
+            requireNonNull(sessionProperty, "sessionProperty is null");
+            // TODO: Implement fail fast in case of duplicate entries.
+            workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
+        });
     }
 
     public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
