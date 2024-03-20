@@ -1172,7 +1172,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     testArrowImport<double>("g", {-99.9, 4.3, 31.1, 129.11, -12});
     testArrowImport<float>("f", {-99.9, 4.3, 31.1, 129.11, -12});
 
-    for (const std::string& tsString : {"tss:", "tsm:", "tsu:", "tsn:"}) {
+    for (const std::string tsString : {"tss:", "tsm:", "tsu:", "tsn:"}) {
       testArrowImport<Timestamp, int64_t>(
           tsString.data(), {0, std::nullopt, Timestamp::kMaxSeconds});
     }
