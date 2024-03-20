@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/type/CppToType.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec {

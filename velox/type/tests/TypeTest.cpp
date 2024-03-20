@@ -16,6 +16,7 @@
 #include "velox/type/Type.h"
 #include <sstream>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/CppToType.h"
 
 using namespace facebook;
 using namespace facebook::velox;

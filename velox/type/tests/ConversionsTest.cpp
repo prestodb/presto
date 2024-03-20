@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/type/CppToType.h"
 
 using namespace facebook::velox;
 

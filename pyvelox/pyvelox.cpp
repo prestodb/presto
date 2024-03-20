@@ -91,7 +91,7 @@ static VectorPtr variantsToFlatVector(
   constexpr bool kNeedsHolder =
       (T == TypeKind::VARCHAR || T == TypeKind::VARBINARY);
 
-  TypePtr type = fromKindToScalerType(T);
+  TypePtr type = createScalarType(T);
   auto result =
       BaseVector::create<FlatVector<NativeType>>(type, variants.size(), pool);
 

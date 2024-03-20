@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 #include <optional>
+#include "velox/type/CppToType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::test {
