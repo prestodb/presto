@@ -941,6 +941,7 @@ public class TestHiveFileFormats
                 TRUE_CONSTANT,
                 false,
                 ROW_EXPRESSION_SERVICE,
+                Optional.empty(),
                 Optional.empty());
 
         RecordCursor cursor = ((RecordPageSource) pageSource.get()).getCursor();
@@ -1010,6 +1011,7 @@ public class TestHiveFileFormats
                 TRUE_CONSTANT,
                 false,
                 ROW_EXPRESSION_SERVICE,
+                Optional.empty(),
                 Optional.empty());
 
         assertTrue(pageSource.isPresent());

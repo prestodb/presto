@@ -60,12 +60,19 @@ public class HiveTableLayoutHandle
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
     private final boolean appendRowNumberEnabled;
+    private final boolean appendRowId;
     private final boolean footerStatsUnreliable;
 
     // coordinator-only properties
     private final Optional<List<HivePartition>> partitions;
     private final Optional<HiveTableHandle> hiveTableHandle;
 
+    /**
+     * @param partitionColumns columns by which the table is split between rows
+     * @param dataColumns all columns in the table
+     * @param predicateColumns columns used in a WHERE or HAVING clause
+     * @param requestedColumns columns read by the query
+     */
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
@@ -137,7 +144,7 @@ public class HiveTableLayoutHandle
                 partitionColumnPredicate,
                 partitions);
 
-        this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -147,6 +154,15 @@ public class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
+        if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+            this.appendRowId = true;
+        }
+        else if (predicateColumns.values().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+            this.appendRowId = true;
+        }
+        else {
+            this.appendRowId = false;
+        }
         this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.footerStatsUnreliable = footerStatsUnreliable;
@@ -349,6 +365,11 @@ public class HiveTableLayoutHandle
                 .setPartitions(getPartitions())
                 .setFooterStatsUnreliable(isFooterStatsUnreliable())
                 .setHiveTableHandle(getHiveTableHandle());
+    }
+
+    boolean isAppendRowId()
+    {
+        return this.appendRowId;
     }
 
     public static class Builder
