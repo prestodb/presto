@@ -869,6 +869,54 @@ TEST_F(ArrowBridgeArrayExportTest, mapNested) {
   EXPECT_EQ(values.Value(1), 0);
 }
 
+TEST_F(ArrowBridgeArrayExportTest, mapTimestamp) {
+  const auto keys =
+      vectorMaker_.flatVector<int32_t>(5, [](vector_size_t i) { return i; });
+  auto values = vectorMaker_.flatVector<Timestamp>(
+      5, [](vector_size_t row) { return Timestamp(row, row); });
+  const auto offsets = makeBuffer<vector_size_t>({1, 4, 2});
+  const auto sizes = makeBuffer<vector_size_t>({1, 1, 1});
+  const auto type = MAP(INTEGER(), TIMESTAMP());
+  auto vec = std::make_shared<MapVector>(
+      pool_.get(), type, nullptr, 3, offsets, sizes, keys, values);
+  auto array = toArrow(vec, options_, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(
+      *array->type(),
+      *arrow::map(arrow::int32(), arrow::timestamp(arrow::TimeUnit::NANO)));
+  {
+    auto& mapArray = static_cast<const arrow::MapArray&>(*array);
+    auto& values = static_cast<const arrow::TimestampArray&>(*mapArray.items());
+    ASSERT_EQ(values.length(), 3);
+    EXPECT_EQ(values.Value(0), 1'000'000'001L);
+    EXPECT_EQ(values.Value(1), 4'000'000'004L);
+    EXPECT_EQ(values.Value(2), 2'000'000'002L);
+  }
+
+  // Nullable timestamp vector.
+  values = vectorMaker_.flatVector<Timestamp>(
+      5,
+      [](vector_size_t row) { return Timestamp(row, row); },
+      [](vector_size_t row) { return row % 2 == 1; });
+  vec = std::make_shared<MapVector>(
+      pool_.get(), type, nullptr, 3, offsets, sizes, keys, values);
+  array = toArrow(vec, options_, pool_.get());
+  ASSERT_OK(array->ValidateFull());
+  EXPECT_EQ(array->null_count(), 0);
+  ASSERT_EQ(
+      *array->type(),
+      *arrow::map(arrow::int32(), arrow::timestamp(arrow::TimeUnit::NANO)));
+  {
+    auto& mapArray = static_cast<const arrow::MapArray&>(*array);
+    auto& values = static_cast<const arrow::TimestampArray&>(*mapArray.items());
+    ASSERT_EQ(values.length(), 3);
+    EXPECT_TRUE(values.IsNull(0));
+    EXPECT_EQ(values.Value(1), 4'000'000'004L);
+    EXPECT_EQ(values.Value(2), 2'000'000'002L);
+  }
+}
+
 TEST_F(ArrowBridgeArrayExportTest, dictionarySimple) {
   auto vec = BaseVector::wrapInDictionary(
       nullptr,

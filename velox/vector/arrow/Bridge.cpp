@@ -353,19 +353,20 @@ void gatherFromTimestampBuffer(
     Buffer& out) {
   auto src = (*vec.values()).as<Timestamp>();
   auto dst = out.asMutable<int64_t>();
+  vector_size_t j = 0; // index into dst
   if (!vec.mayHaveNulls() || vec.getNullCount() == 0) {
     switch (unit) {
       case TimestampUnit::kSecond:
-        rows.apply([&](vector_size_t i) { dst[i] = src[i].getSeconds(); });
+        rows.apply([&](vector_size_t i) { dst[j++] = src[i].getSeconds(); });
         break;
       case TimestampUnit::kMilli:
-        rows.apply([&](vector_size_t i) { dst[i] = src[i].toMillis(); });
+        rows.apply([&](vector_size_t i) { dst[j++] = src[i].toMillis(); });
         break;
       case TimestampUnit::kMicro:
-        rows.apply([&](vector_size_t i) { dst[i] = src[i].toMicros(); });
+        rows.apply([&](vector_size_t i) { dst[j++] = src[i].toMicros(); });
         break;
       case TimestampUnit::kNano:
-        rows.apply([&](vector_size_t i) { dst[i] = src[i].toNanos(); });
+        rows.apply([&](vector_size_t i) { dst[j++] = src[i].toNanos(); });
         break;
       default:
         VELOX_UNREACHABLE();
@@ -376,29 +377,33 @@ void gatherFromTimestampBuffer(
     case TimestampUnit::kSecond:
       rows.apply([&](vector_size_t i) {
         if (!vec.isNullAt(i)) {
-          dst[i] = src[i].getSeconds();
+          dst[j] = src[i].getSeconds();
         }
+        j++;
       });
       break;
     case TimestampUnit::kMilli:
       rows.apply([&](vector_size_t i) {
         if (!vec.isNullAt(i)) {
-          dst[i] = src[i].toMillis();
+          dst[j] = src[i].toMillis();
         }
+        j++;
       });
       break;
     case TimestampUnit::kMicro:
       rows.apply([&](vector_size_t i) {
         if (!vec.isNullAt(i)) {
-          dst[i] = src[i].toMicros();
+          dst[j] = src[i].toMicros();
         };
+        j++;
       });
       break;
     case TimestampUnit::kNano:
       rows.apply([&](vector_size_t i) {
         if (!vec.isNullAt(i)) {
-          dst[i] = src[i].toNanos();
+          dst[j] = src[i].toNanos();
         }
+        j++;
       });
       break;
     default:
