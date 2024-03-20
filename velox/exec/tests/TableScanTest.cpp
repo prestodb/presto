@@ -491,7 +491,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   // Count how many times we bailed from getOutput.
   size_t numBailed{0};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::TableScan::getOutput::bail",
+      "facebook::velox::exec::TableScan::getOutput::yield",
       std::function<void(const TableScan*)>(
           ([&](const TableScan* /*tableScan*/) { ++numBailed; })));
 

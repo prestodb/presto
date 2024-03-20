@@ -57,20 +57,19 @@ class TableScan : public SourceOperator {
   }
 
  private:
-  // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching
-  // splits is appropriate. The preloader will be applied to the
-  // 'first 'maxPreloadSplits' of the Tasks's split queue for 'this'
-  // when getting splits.
+  // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching splits is
+  // appropriate. The preloader will be applied to the 'first 'maxPreloadSplits'
+  // of the Task's split queue for 'this' when getting splits.
   void checkPreload();
 
-  // Sets 'split->dataSource' to be a Asyncsource that makes a
-  // DataSource to read 'split'. This source will be prepared in the
-  // background on the executor of the connector. If the DataSource is
-  // needed before prepare is done, it will be made when needed.
+  // Sets 'split->dataSource' to be an AsyncSource that makes a DataSource to
+  // read 'split'. This source will be prepared in the background on the
+  // executor of the connector. If the DataSource is needed before prepare is
+  // done, it will be made when needed.
   void preload(std::shared_ptr<connector::ConnectorSplit> split);
 
   // Process-wide IO wait time.
-  static std::atomic<uint64_t> ioWaitNanos_;
+  inline static std::atomic<uint64_t> ioWaitNanos_;
 
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
@@ -88,17 +87,16 @@ class TableScan : public SourceOperator {
   bool noMoreSplits_ = false;
   // Dynamic filters to add to the data source when it gets created.
   std::unordered_map<column_index_t, std::shared_ptr<common::Filter>>
-      pendingDynamicFilters_;
+      dynamicFilters_;
 
   int32_t maxPreloadedSplits_{0};
 
   const int32_t maxSplitPreloadPerDriver_{0};
 
-  // Callback passed to getSplitOrFuture() for triggering async
-  // preload. The callback's lifetime is the lifetime of 'this'. This
-  // callback can schedule preloads on an executor. These preloads may
-  // outlive the Task and therefore need to capture a shared_ptr to
-  // it.
+  // Callback passed to getSplitOrFuture() for triggering async preload. The
+  // callback's lifetime is the lifetime of 'this'. This callback can schedule
+  // preloads on an executor. These preloads may outlive the Task and therefore
+  // need to capture a shared_ptr to it.
   std::function<void(const std::shared_ptr<connector::ConnectorSplit>&)>
       splitPreloader_{nullptr};
 
@@ -111,8 +109,8 @@ class TableScan : public SourceOperator {
   int32_t readBatchSize_;
   int32_t maxReadBatchSize_;
 
-  // Exits getOutput() method after this many milliseconds.
-  // Zero means 'no limit'.
+  // Exits getOutput() method after this many milliseconds. Zero means 'no
+  // limit'.
   size_t getOutputTimeLimitMs_{0};
 
   double maxFilteringRatio_{0};

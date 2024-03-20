@@ -1438,15 +1438,15 @@ exec::Split Task::getSplitLocked(
     int32_t maxPreloadSplits,
     const ConnectorSplitPreloadFunc& preload) {
   int32_t readySplitIndex = -1;
-  if (maxPreloadSplits) {
+  if (maxPreloadSplits > 0) {
     for (auto i = 0; i < splitsStore.splits.size() && i < maxPreloadSplits;
          ++i) {
       auto& connectorSplit = splitsStore.splits[i].connectorSplit;
       if (!connectorSplit->dataSource) {
-        // Initializes split->dataSource
+        // Initializes split->dataSource.
         preload(connectorSplit);
       } else if (
-          readySplitIndex == -1 && connectorSplit->dataSource->hasValue()) {
+          (readySplitIndex == -1) && (connectorSplit->dataSource->hasValue())) {
         readySplitIndex = i;
       }
     }
@@ -1454,7 +1454,7 @@ exec::Split Task::getSplitLocked(
   if (readySplitIndex == -1) {
     readySplitIndex = 0;
   }
-  assert(!splitsStore.splits.empty());
+  VELOX_CHECK(!splitsStore.splits.empty());
   auto split = std::move(splitsStore.splits[readySplitIndex]);
   splitsStore.splits.erase(splitsStore.splits.begin() + readySplitIndex);
 

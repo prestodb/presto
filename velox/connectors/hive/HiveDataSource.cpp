@@ -178,11 +178,11 @@ std::unique_ptr<SplitReader> HiveDataSource::createSplitReader() {
 }
 
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
-  VELOX_CHECK(
-      split_ == nullptr,
+  VELOX_CHECK_NULL(
+      split_,
       "Previous split has not been processed yet. Call next to process the split.");
   split_ = std::dynamic_pointer_cast<HiveConnectorSplit>(split);
-  VELOX_CHECK(split_, "Wrong type of split");
+  VELOX_CHECK_NOT_NULL(split_, "Wrong type of split");
 
   VLOG(1) << "Adding split " << split_->toString();
 
