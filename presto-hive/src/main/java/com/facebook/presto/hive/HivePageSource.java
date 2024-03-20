@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -64,7 +65,9 @@ public class HivePageSource
             Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            ConnectorPageSource delegate)
+            ConnectorPageSource delegate,
+            String path,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(columnMappings, "columnMappings is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -90,6 +93,11 @@ public class HivePageSource
 
             if (columnMapping.getCoercionFrom().isPresent()) {
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
+            }
+            // TODO use isRowIdColumn once that diff lands
+            else if ("$row_id".equals(name) && rowIdPartitionComponent.isPresent()) {
+                String rowGroupId = Paths.get(path).getFileName().toString();
+                coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent.get(), rowGroupId);
             }
 
             if (columnMapping.getKind() == PREFILLED) {
