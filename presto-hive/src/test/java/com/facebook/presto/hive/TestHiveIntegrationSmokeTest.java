@@ -6309,12 +6309,12 @@ public class TestHiveIntegrationSmokeTest
 
         // Combinations of constraint qualifiers
         addPrimaryKeyStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT pk " + primaryKey + " (c2, c3) DISABLED NOT RELY ENFORCED";
-        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq1 " + uniqueConstraint + " (c3) DISABLED ENFORCED";
+        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq1 " + uniqueConstraint + " (c3) ENFORCED DISABLED";
         assertUpdate(getSession(), addPrimaryKeyStmt);
         assertUpdate(getSession(), addUniqueConstraintStmt);
         addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq2 " + uniqueConstraint + " (c3) ENABLED RELY NOT ENFORCED";
         assertUpdate(getSession(), addUniqueConstraintStmt);
-        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq3 " + uniqueConstraint + " (c1) DISABLED NOT RELY NOT ENFORCED";
+        addUniqueConstraintStmt = "ALTER TABLE " + tableName + " ADD CONSTRAINT uq3 " + uniqueConstraint + " (c1) DISABLED NOT ENFORCED NOT RELY";
         assertUpdate(getSession(), addUniqueConstraintStmt);
 
         String createTableWithFourConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
@@ -6503,7 +6503,7 @@ public class TestHiveIntegrationSmokeTest
                 "c3",
                 "c4",
                 format("CONSTRAINT pk %s (c4) NOT ENFORCED", primaryKey),
-                format("CONSTRAINT pk %s (c3, c1) DISABLED NOT RELY", uniqueConstraint));
+                format("CONSTRAINT pk %s (c3, c1) NOT RELY DISABLED", uniqueConstraint));
         assertQueryFails(createTableWithTwoConstraintsSql, "Constraint name 'pk' specified more than once");
 
         createTableWithTwoConstraintsSql = format(

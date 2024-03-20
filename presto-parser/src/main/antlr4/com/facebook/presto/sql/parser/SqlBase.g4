@@ -585,12 +585,22 @@ namedConstraintSpecification
     ;
 
 unnamedConstraintSpecification
-    : constraintType columnAliases constraintEnabled? constraintRely? constraintEnforced?
+    : constraintType columnAliases constraintQualifiers?
     ;
 
 constraintType
     : UNIQUE
     | PRIMARY KEY
+    ;
+
+constraintQualifiers
+    : constraintQualifier*
+    ;
+
+constraintQualifier
+    : constraintEnabled
+    | constraintRely
+    | constraintEnforced
     ;
 
 constraintRely
