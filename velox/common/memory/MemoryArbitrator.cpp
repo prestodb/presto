@@ -478,5 +478,9 @@ void testingRunArbitration(
   static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
       targetBytes, allowSpill);
   pool->leaveArbitration();
+
+  // This function is simulating an arbitration triggered by growCapacity, which
+  // would check this.
+  static_cast<MemoryPoolImpl*>(pool)->testingCheckIfAborted();
 }
 } // namespace facebook::velox::memory

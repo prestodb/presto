@@ -687,6 +687,10 @@ class MemoryPoolImpl : public MemoryPool {
     return allocator_;
   }
 
+  void testingCheckIfAborted() const {
+    checkIfAborted();
+  }
+
   uint64_t testingMinReservationBytes() const {
     return minReservationBytes_;
   }
