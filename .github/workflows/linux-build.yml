@@ -1,0 +1,151 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Linux Build
+
+on:
+  push:
+    paths:
+      - "velox/**"
+      - "!velox/docs/**"
+      - "CMakeLists.txt"
+      - "CMake/**"
+      - "third_party/**"
+      - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-helper-functions.sh"
+      - ".github/workflows/linux-build.yml"
+
+  pull_request:
+    paths:
+      - "velox/**"
+      - "!velox/docs/**"
+      - "CMakeLists.txt"
+      - "CMake/**"
+      - "third_party/**"
+      - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-helper-functions.sh"
+      - ".github/workflows/linux-build.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  adapters:
+    name: Linux release with adapters
+    runs-on: 8-core
+    container: ghcr.io/facebookincubator/velox-dev:adapters
+    defaults:
+      run:
+        shell: bash
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
+      simdjson_SOURCE: BUNDLED
+      xsimd_SOURCE: BUNDLED
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox
+
+      - uses: assignUser/stash/restore@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-linux-adapters
+
+      - name: Make Release Build
+        env:
+          MAKEFLAGS: 'NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4'
+        run: |
+          EXTRA_CMAKE_FLAGS=(
+            "-DVELOX_ENABLE_BENCHMARKS=ON"
+            "-DVELOX_ENABLE_ARROW=ON"
+            "-DVELOX_ENABLE_PARQUET=ON"
+            "-DVELOX_ENABLE_HDFS=ON"
+            "-DVELOX_ENABLE_S3=ON"
+            "-DVELOX_ENABLE_GCS=ON"
+            "-DVELOX_ENABLE_ABFS=ON"
+            "-DVELOX_ENABLE_SUBSTRAIT=ON"
+            "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+          )
+          make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
+
+      - uses: assignUser/stash/save@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-linux-adapters
+
+      - name: Run Tests
+        # Some of the adapters dependencies are in the 'adapters' conda env
+        shell: mamba run --no-capture-output -n adapters /usr/bin/bash -e {0}
+        env:
+          LIBHDFS3_CONF: "${{ github.workspace }}/.circleci/hdfs-client.xml"
+        working-directory: _build/release
+        run: |
+          ctest -j 8 --output-on-failure --no-tests=error
+
+  ubuntu-debug:
+    runs-on: 8-core
+    name: "Ubuntu debug with resolve_dependency"
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_BASEDIR: "${{ github.workspace }}"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          source scripts/setup-ubuntu.sh
+
+      - uses: assignUser/stash/restore@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-ubuntu-debug-default
+
+      - run: |
+          mkdir -p .ccache
+
+      - name: Clear CCache Statistics
+        run: |
+          ccache -sz
+
+      - name: Make Debug Build
+        env:
+          VELOX_DEPENDENCY_SOURCE: BUNDLED
+          MAKEFLAGS: "NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4"
+        run: |
+          make debug EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+
+      - name: CCache after
+        run: |
+          ccache -vs
+
+      - uses: assignUser/stash/save@v1
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-ubuntu-debug-default
+
+      - name: Run Tests
+        run: |
+          cd _build/debug && ctest -j 8 --output-on-failure --no-tests=error

@@ -524,16 +524,9 @@ workflows:
   longer-fuzzer:
     when: << pipeline.parameters.run-longer-expression-fuzzer >>
     jobs:
-      - linux-build
       - linux-pr-fuzzer-run
-      - linux-build-options
-      - linux-adapters
-      - linux-presto-fuzzer-run
 
   shorter-fuzzer:
     unless: << pipeline.parameters.run-longer-expression-fuzzer >>
     jobs:
-      - linux-build
       - linux-pr-fuzzer-run
-      - linux-build-options
-      - linux-adapters

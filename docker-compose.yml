@@ -40,16 +40,19 @@ services:
     #   or
     #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm centos-cpp
     #   to set the number of threads used during compilation
-    image: ghcr.io/facebookincubator/velox-dev:amd64-centos-8-avx
+    image: ghcr.io/facebookincubator/velox-dev:centos8
     build:
       context: .
-      dockerfile: scripts/centos-8-stream.dockerfile
+      dockerfile: scripts/centos.dockerfile
+      args:
+        image: quay.io/centos/centos:stream8 
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       CCACHE_DIR: "/velox/.ccache"
     volumes:
       - .:/velox:delegated
-    command: /bin/bash -c "scl enable gcc-toolset-9 '/velox/scripts/docker-command.sh'"
+    working_dir: /velox
+    command: /velox/scripts/docker-command.sh
 
   presto-java:
   # Usage:
@@ -69,4 +72,5 @@ services:
       CCACHE_DIR: "/velox/.ccache"
     volumes:
       - .:/velox:delegated
-    command: /bin/bash -c "scl enable gcc-toolset-9 '/velox/scripts/docker-command.sh'"
+    working_dir: /velox
+    command: /velox/scripts/docker-command.sh

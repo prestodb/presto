@@ -16,4 +16,4 @@
 set -eu
 # Compilation and testing
 make
-cd _build/release && ctest -j${NUM_THREADS} -VV --output-on-failure --no-tests=error
+cd _build/release && ctest -j${NUM_THREADS} --output-on-failure --no-tests=error

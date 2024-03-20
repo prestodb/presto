@@ -48,14 +48,49 @@ jobs:
             file: "scripts/check-container.dockfile"
             args: "cpu_target=avx"
             tags: "ghcr.io/facebookincubator/velox-dev:check-avx"
-          - name: CircleCI
-            file: "scripts/circleci-container.dockfile"
+          - name: Centos 8
+            file: "scripts/centos.dockerfile"
             args: "cpu_target=avx"
-            tags: "ghcr.io/facebookincubator/velox-dev:circleci-avx"
+            tags: "ghcr.io/facebookincubator/velox-dev:centos8"
           - name: Dev
             file: "scripts/ubuntu-22.04-cpp.dockerfile"
             args: ""
             tags: "ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx"
+
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push
+        uses: docker/build-push-action@v3
+        with:
+          file: "${{ matrix.file }}"
+          build-args: "${{ matrix.args }}"
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
+          tags: "${{ matrix.tags }}"
+
+  linux-needs:
+    name: "Build and Push ${{ matrix.name }}"
+    needs: linux
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Adapters
+            file: "scripts/adapters.dockerfile"
+            args: "cpu_target=avx"
+            tags: "ghcr.io/facebookincubator/velox-dev:adapters"
           - name: Presto Java
             file: "scripts/prestojava-container.dockerfile"
             args: "PRESTO_VERSION=0.284"

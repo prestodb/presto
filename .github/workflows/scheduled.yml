@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: "Scheduled Fuzzer Jobs"
+name: "Fuzzer Jobs"
 
 on:
   pull_request:
     paths:
-      - ".github/workflows/scheduled.yml"
-      - scripts/*
-      - CMake/*
+      - "velox/**"
+      - "!velox/docs/**"
+      - "CMakeLists.txt"
+      - "CMake/**"
+      - "third_party/**"
+      - "scripts/setup-ubuntu.sh"
+      - "scripts/setup-helper-functions.sh"
+      - ".github/workflows/linux-build.yml"
 
   schedule:
     - cron: '0 3 * * *'
@@ -41,6 +46,9 @@ on:
       extraCMakeFlags:
         description: 'Additional CMake flags'
         default: ''
+      duration:
+        description: 'Duration of fuzzer run in seconds'
+        default: 1800
 
 defaults:
   run:
@@ -49,8 +57,19 @@ defaults:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+env:
+  # Run for 15 minute on PRs
+  DURATION: "${{ inputs.duration || ( github.event_name == 'pull_request' && 900 || 1800 )}}"
+  # minimize artifact duration for PRs, keep them a bit longer for nightly runs
+  RETENTION: "${{ github.event_name == 'pull_request' && 1 || 3 }}"
+
 jobs:
   compile:
+    name: Build
     runs-on: 8-core
     timeout-minutes: 120
     env:
@@ -60,77 +79,120 @@ jobs:
     steps:
 
       - name: "Restore ccache"
-        uses: actions/cache@v3
+        uses: assignUser/stash/restore@v1
         with:
           path: "${{ env.CCACHE_DIR }}"
-          # We are using the benchmark ccache as it has all
-          # required features enabled, so no need to create a new one
-          key: ccache-benchmark-${{ github.sha }}
-          restore-keys: |
-            ccache-benchmark-
+          key: ccache-fuzzer
 
       - name: "Checkout Repo"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: velox
           submodules: 'recursive'
           ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
-        run: cd  velox && sudo ./scripts/setup-ubuntu.sh 
+        run: |
+          cd  velox
+          source ./scripts/setup-ubuntu.sh
+          ccache -vsz
 
-      - name: "Build"
+      - name: Build
         run: |
           cd velox
           make debug NUM_THREADS="${{ inputs.numThreads || 8 }}" MAX_HIGH_MEM_JOBS="${{ inputs.maxHighMemJobs || 8 }}" MAX_LINK_JOBS="${{ inputs.maxLinkJobs || 4 }}" EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON ${{ inputs.extraCMakeFlags }}"
-          ccache -s
+
+      - name: Ccache after
+        run: ccache -vs
+
+      - name: "Save ccache"
+        uses: assignUser/stash/save@v1
+        with:
+          path: "${{ env.CCACHE_DIR }}"
+          key: ccache-fuzzer
+          retention-days: "${{ env.RETENTION }}"
 
       - name: Upload presto fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: presto
           path: velox/_build/debug/velox/expression/tests/velox_expression_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
 
       - name: Upload spark expression fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark_expression_fuzzer
           path: velox/_build/debug/velox/expression/tests/spark_expression_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
 
       - name: Upload spark aggregation fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark_aggregation_fuzzer
           path: velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
 
       - name: Upload aggregation fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aggregation
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
 
       - name: Upload join fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: join
           path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
 
   linux-presto-fuzzer-run:
+    name: "Presto Fuzzer"
     runs-on: ubuntu-latest
     needs: compile
     timeout-minutes: 120
     steps:
 
       - name: "Checkout Repo"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
-        run: sudo ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh
+
+      - uses: dorny/paths-filter@v3
+        if: github.event_name == 'pull_request'
+        id: changes
+        with:
+          filters: |
+            presto:
+              - 'velox/expression/!(test)**'
+              - 'velox/exec/!(test)**'
+              - 'velox/common/!(test)**'
+              - 'velox/core/!(test)**'
+              - 'velox/vector/!(test)**'
+
+      - name: Set presto specific fuzzer duration
+        env:
+          # Run for 30 minutes instead of 15, when files relevant to presto are touched
+          pr_duration: "${{ steps.changes.outputs.presto == 'true' && 1800 || 900 }}"
+          # Run for 60 minutes if its a scheduled run
+          other_duration: "${{ inputs.duration || 3600 }}"
+          is_pr: "${{ github.event_name == 'pull_request' }}"
+        run: |
+
+          if [ "$is_pr" == "true" ]; then
+            duration=$pr_duration
+          else
+            duration=$other_duration
+          fi
+
+          echo "DURATION=$duration" >> $GITHUB_ENV
 
       - name: Download presto fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: presto
 
@@ -149,36 +211,78 @@ jobs:
                 --max_expression_trees_per_step 2 \
                 --retry_with_try \
                 --enable_dereference \
-                --duration_sec 3600 \
+                --duration_sec $DURATION \
                 --logtostderr=1 \
                 --minloglevel=0 \
                 --repro_persist_path=/tmp/fuzzer_repro \
           && echo -e "\n\nFuzzer run finished successfully."
 
       - name: Archive production artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
           name: presto-fuzzer-failure-artifacts
           path: |
             /tmp/fuzzer_repro
 
+  linux-spark-aggregate-fuzzer-run:
+    name: "Spark Aggregate Fuzzer"
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 60
+    steps:
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ inputs.ref }}"
+
+      - name: "Install dependencies"
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: Download spark aggregation fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: spark_aggregation_fuzzer
+
+      - name: "Run Spark Aggregate Fuzzer"
+        run: |
+          mkdir -p /tmp/spark_aggregate_fuzzer_repro/
+          chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
+          chmod +x spark_aggregation_fuzzer_test
+          ./spark_aggregation_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
+          && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
+
+      - name: Archive Spark aggregate production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-agg-fuzzer-failure-artifacts
+          path: |
+            /tmp/spark_aggregate_fuzzer_repro
+
   linux-spark-fuzzer-run:
+    name: "Spark Fuzzer"
     runs-on: ubuntu-latest
     needs: compile
     timeout-minutes: 120
     steps:
 
       - name: "Checkout Repo"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
-        run: sudo ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download spark expression fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: spark_expression_fuzzer
 
@@ -196,63 +300,37 @@ jobs:
                 --max_expression_trees_per_step 2 \
                 --retry_with_try \
                 --enable_dereference \
-                --duration_sec 1800 \
+                --duration_sec $DURATION \
                 --logtostderr=1 \
                 --minloglevel=0 \
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
       - name: Archive Spark expression production artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
           name: spark-fuzzer-failure-artifacts
           path: |
             /tmp/spark_fuzzer_repro
 
-      - name: Download spark aggregation fuzzer
-        uses: actions/download-artifact@v3
-        with:
-          name: spark_aggregation_fuzzer
-
-      - name: "Run Spark Aggregate Fuzzer"
-        run: |
-          mkdir -p /tmp/spark_aggregate_fuzzer_repro/
-          chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
-          chmod +x spark_aggregation_fuzzer_test
-          ./spark_aggregation_fuzzer_test \
-                --seed ${RANDOM} \
-                --duration_sec 1800 \
-                --logtostderr=1 \
-                --minloglevel=0 \
-                --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
-          && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
-
-      - name: Archive Spark aggregate production artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: spark-agg-fuzzer-failure-artifacts
-          path: |
-            /tmp/spark_aggregate_fuzzer_repro
-
-
   linux-aggregate-fuzzer-run:
+    name: "Aggregate Fuzzer"
     runs-on: ubuntu-latest
     needs: compile
     timeout-minutes: 120
     steps:
 
       - name: "Checkout Repo"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
-        run: sudo ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download aggregation fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: aggregation
 
@@ -264,36 +342,37 @@ jobs:
             chmod +x velox_aggregation_fuzzer_test
             ./velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec 1800 \
+                --duration_sec $DURATION \
                 --logtostderr=1 \
                 --minloglevel=0 \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
           name: aggregate-fuzzer-failure-artifacts
           path: |
             /tmp/aggregate_fuzzer_repro
 
   linux-join-fuzzer-run:
+    name: "Join Fuzzer"
     runs-on: ubuntu-latest
     needs: compile
     timeout-minutes: 120
     steps:
 
       - name: "Checkout Repo"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: "${{ inputs.ref }}"
 
       - name: "Install dependencies"
-        run:  sudo ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download join fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: join
 
@@ -305,14 +384,14 @@ jobs:
           chmod +x velox_join_fuzzer_test
           ./velox_join_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec 1800 \
+                --duration_sec $DURATION \
                 --logtostderr=1 \
                 --minloglevel=0 \
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
           name: join-fuzzer-failure-artifacts
           path: |

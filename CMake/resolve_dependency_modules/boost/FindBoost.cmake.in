@@ -14,5 +14,6 @@
 message(STATUS "Using Boost - Bundled")
 set(Boost_FOUND TRUE)
 set(Boost_LIBRARIES @BOOST_INCLUDE_LIBRARIES@)
+list(APPEND Boost_LIBRARIES headers)
 list(TRANSFORM Boost_LIBRARIES PREPEND Boost::)
 message(STATUS "Boost targets: ${Boost_LIBRARIES}")

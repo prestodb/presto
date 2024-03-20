@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 cmake_minimum_required(VERSION 3.14)
+message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # The policy allows us to change options without caching.
 cmake_policy(SET CMP0077 NEW)
@@ -382,7 +383,6 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BOOST_INCLUDE_LIBRARIES
-    headers
     atomic
     context
     date_time
