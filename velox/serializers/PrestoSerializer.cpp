@@ -1371,6 +1371,24 @@ class VectorStream {
         values_(streamArena) {
     if (initialNumRows == 0) {
       initializeHeader(typeToEncodingName(type), *streamArena);
+      if (type_->size() > 0) {
+        hasLengths_ = true;
+        children_.resize(type_->size());
+        for (int32_t i = 0; i < type_->size(); ++i) {
+          children_[i] = std::make_unique<VectorStream>(
+              type_->childAt(i),
+              std::nullopt,
+              getChildAt(vector, i),
+              streamArena_,
+              initialNumRows,
+              opts_);
+        }
+
+        // The first element in the offsets in the wire format is always 0 for
+        // nested types.
+        lengths_.startWrite(sizeof(vector_size_t));
+        lengths_.appendOne<int32_t>(0);
+      }
       return;
     }
 
@@ -3632,7 +3650,9 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
           numRows,
           opts_);
 
-      serializeColumn(vector->childAt(i), ranges, streams[i].get(), scratch);
+      if (numRows > 0) {
+        serializeColumn(vector->childAt(i), ranges, streams[i].get(), scratch);
+      }
     }
 
     flushStreams(

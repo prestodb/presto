@@ -735,6 +735,25 @@ class PrestoSerializerTest
         alphabetSize / factor);
   }
 
+  RowVectorPtr makeEmptyTestVector() {
+    return makeRowVector(
+        {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
+        {makeFlatVector<bool>({}),
+         makeFlatVector<int8_t>({}),
+         makeFlatVector<int16_t>({}),
+         makeFlatVector<int32_t>({}),
+         makeFlatVector<int64_t>({}),
+         makeFlatVector<float>({}),
+         makeFlatVector<double>({}),
+         makeFlatVector<StringView>({}),
+         makeFlatVector<Timestamp>({}),
+         makeRowVector(
+             {"1", "2"},
+             {makeFlatVector<StringView>({}), makeFlatVector<int32_t>({})}),
+         makeArrayVector<int32_t>({}),
+         makeMapVector<StringView, int32_t>({})});
+  }
+
   std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
   folly::Random::DefaultGenerator rng_;
 };
@@ -771,7 +790,7 @@ TEST_P(PrestoSerializerTest, dictionaryWithExtraNulls) {
 }
 
 TEST_P(PrestoSerializerTest, emptyPage) {
-  auto rowVector = makeRowVector(ROW({"a"}, {BIGINT()}), 0);
+  auto rowVector = makeEmptyTestVector();
 
   std::ostringstream out;
   serialize(rowVector, &out, nullptr);
@@ -779,6 +798,50 @@ TEST_P(PrestoSerializerTest, emptyPage) {
   auto rowType = asRowType(rowVector->type());
   auto deserialized = deserialize(rowType, out.str(), nullptr);
   assertEqualVectors(deserialized, rowVector);
+}
+
+TEST_P(PrestoSerializerTest, serializeNoRowsSelected) {
+  std::ostringstream out;
+  facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+  OStreamOutputStream output(&out, &listener);
+  auto paramOptions = getParamSerdeOptions(nullptr);
+  auto arena = std::make_unique<StreamArena>(pool_.get());
+  auto rowVector = makeRowVector(
+      {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
+      {makeFlatVector<bool>({true, false, true, false}),
+       makeFlatVector<int8_t>({1, 2, 3, 4}),
+       makeFlatVector<int16_t>({5, 6, 7, 8}),
+       makeFlatVector<int32_t>({9, 10, 11, 12}),
+       makeFlatVector<int64_t>({13, 14, 15, 16}),
+       makeFlatVector<float>({17.0, 18.0, 19.0, 20.0}),
+       makeFlatVector<double>({21.0, 22.0, 23.0, 24.0}),
+       makeFlatVector<StringView>({"25", "26", "27", "28"}),
+       makeFlatVector<Timestamp>({{29, 30}, {32, 32}, {33, 34}, {35, 36}}),
+       makeRowVector(
+           {"1", "2"},
+           {makeFlatVector<StringView>({"37", "38", "39", "40"}),
+            makeFlatVector<int32_t>({41, 42, 43, 44})}),
+       makeArrayVector<int32_t>({{45, 46}, {47, 48}, {49, 50}, {51, 52}}),
+       makeMapVector<StringView, int32_t>(
+           {{{"53", 54}, {"55", 56}},
+            {{"57", 58}, {"59", 60}},
+            {{"61", 62}, {"63", 64}},
+            {{"65", 66}, {"67", 68}}})});
+  const IndexRange noRows{0, 0};
+
+  auto serializer = serde_->createIterativeSerializer(
+      asRowType(rowVector->type()),
+      rowVector->size(),
+      arena.get(),
+      &paramOptions);
+
+  serializer->append(rowVector, folly::Range(&noRows, 1));
+  serializer->flush(&output);
+
+  auto expected = makeEmptyTestVector();
+  auto rowType = asRowType(expected->type());
+  auto deserialized = deserialize(rowType, out.str(), nullptr);
+  assertEqualVectors(deserialized, expected);
 }
 
 TEST_P(PrestoSerializerTest, emptyArray) {
@@ -1072,6 +1135,55 @@ TEST_P(PrestoSerializerTest, dictionaryEncodingTurnedOff) {
       deserialized->childAt(8)->encoding(), VectorEncoding::Simple::DICTIONARY);
   // string + all indices
   ASSERT_EQ(deserialized->childAt(9)->encoding(), VectorEncoding::Simple::FLAT);
+}
+
+TEST_P(PrestoSerializerTest, emptyVectorBatchVectorSerializer) {
+  // Serialize an empty RowVector.
+  auto rowVector = makeEmptyTestVector();
+
+  std::ostringstream out;
+  serializeBatch(rowVector, &out, nullptr);
+
+  auto rowType = asRowType(rowVector->type());
+  auto deserialized = deserialize(rowType, out.str(), nullptr);
+  assertEqualVectors(deserialized, rowVector);
+}
+
+TEST_P(PrestoSerializerTest, serializeNoRowsSelectedBatchVectorSerializer) {
+  std::ostringstream out;
+  facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+  OStreamOutputStream output(&out, &listener);
+  auto paramOptions = getParamSerdeOptions(nullptr);
+  auto serializer = serde_->createBatchSerializer(pool_.get(), &paramOptions);
+  auto rowVector = makeRowVector(
+      {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"},
+      {makeFlatVector<bool>({true, false, true, false}),
+       makeFlatVector<int8_t>({1, 2, 3, 4}),
+       makeFlatVector<int16_t>({5, 6, 7, 8}),
+       makeFlatVector<int32_t>({9, 10, 11, 12}),
+       makeFlatVector<int64_t>({13, 14, 15, 16}),
+       makeFlatVector<float>({17.0, 18.0, 19.0, 20.0}),
+       makeFlatVector<double>({21.0, 22.0, 23.0, 24.0}),
+       makeFlatVector<StringView>({"25", "26", "27", "28"}),
+       makeFlatVector<Timestamp>({{29, 30}, {32, 32}, {33, 34}, {35, 36}}),
+       makeRowVector(
+           {"1", "2"},
+           {makeFlatVector<StringView>({"37", "38", "39", "40"}),
+            makeFlatVector<int32_t>({41, 42, 43, 44})}),
+       makeArrayVector<int32_t>({{45, 46}, {47, 48}, {49, 50}, {51, 52}}),
+       makeMapVector<StringView, int32_t>(
+           {{{"53", 54}, {"55", 56}},
+            {{"57", 58}, {"59", 60}},
+            {{"61", 62}, {"63", 64}},
+            {{"65", 66}, {"67", 68}}})});
+  const IndexRange noRows{0, 0};
+
+  serializer->serialize(rowVector, folly::Range(&noRows, 1), &output);
+
+  auto expected = makeEmptyTestVector();
+  auto rowType = asRowType(expected->type());
+  auto deserialized = deserialize(rowType, out.str(), nullptr);
+  assertEqualVectors(deserialized, expected);
 }
 
 TEST_P(PrestoSerializerTest, lazy) {
