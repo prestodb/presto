@@ -301,6 +301,17 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDrivers(getOutputPipelineId());
   }
 
+  /// Stores the number of drivers in various states of execution.
+  struct DriverCounts {
+    uint32_t numQueuedDrivers{0};
+    uint32_t numOnThreadDrivers{0};
+    uint32_t numSuspendedDrivers{0};
+    std::unordered_map<BlockingReason, uint64_t> numBlockedDrivers;
+  };
+
+  /// Returns the number of drivers in various states of execution.
+  DriverCounts driverCounts() const;
+
   /// Returns the number of running drivers.
   uint32_t numRunningDrivers() const {
     std::lock_guard<std::timed_mutex> taskLock(mutex_);

@@ -2099,6 +2099,29 @@ uint64_t Task::timeSinceTerminationMs() const {
   return getCurrentTimeMs() - taskStats_.terminationTimeMs;
 }
 
+Task::DriverCounts Task::driverCounts() const {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+
+  Task::DriverCounts ret;
+  for (auto& driver : drivers_) {
+    if (driver) {
+      if (driver->state().isEnqueued) {
+        ++ret.numQueuedDrivers;
+      } else if (driver->state().isSuspended) {
+        ++ret.numSuspendedDrivers;
+      } else if (driver->isOnThread()) {
+        ++ret.numOnThreadDrivers;
+      } else {
+        const auto blockingReason = driver->blockingReason();
+        if (blockingReason != BlockingReason::kNotBlocked) {
+          ++ret.numBlockedDrivers[driver->blockingReason()];
+        }
+      }
+    }
+  }
+  return ret;
+}
+
 void Task::onTaskCompletion() {
   listeners().withRLock([&](auto& listeners) {
     if (listeners.empty()) {
