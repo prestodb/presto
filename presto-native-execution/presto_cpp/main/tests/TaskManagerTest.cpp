@@ -157,8 +157,6 @@ void setAggregationSpillConfig(
   queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
 }
 
-static const uint64_t kGB = 1024 * 1024 * 1024ULL;
-
 class TaskManagerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
