@@ -104,8 +104,8 @@ public class RowIdType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        String left = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition)).toStringUtf8();
-        String right = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition)).toStringUtf8();
+        Slice left = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
+        Slice right = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
         return left.equals(right);
     }
 }
