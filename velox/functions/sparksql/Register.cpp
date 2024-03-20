@@ -340,6 +340,13 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<SecondFunction, int32_t, Timestamp>({prefix + "second"});
 
+  registerFunction<MakeYMIntervalFunction, IntervalYearMonth>(
+      {prefix + "make_ym_interval"});
+  registerFunction<MakeYMIntervalFunction, IntervalYearMonth, int32_t>(
+      {prefix + "make_ym_interval"});
+  registerFunction<MakeYMIntervalFunction, IntervalYearMonth, int32_t, int32_t>(
+      {prefix + "make_ym_interval"});
+
   VELOX_REGISTER_VECTOR_FUNCTION(udf_make_timestamp, prefix + "make_timestamp");
 
   // Register bloom filter function

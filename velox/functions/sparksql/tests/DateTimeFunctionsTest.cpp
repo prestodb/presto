@@ -913,5 +913,60 @@ TEST_F(DateTimeFunctionsTest, fromUnixtime) {
       fromUnixTime(0, "yyyy-MM-dd HH:II"), "Specifier I is not supported");
 }
 
+TEST_F(DateTimeFunctionsTest, makeYMInterval) {
+  const auto fromYearAndMonth = [&](const std::optional<int32_t>& year,
+                                    const std::optional<std::int32_t>& month) {
+    auto result = evaluateOnce<int32_t, int32_t>(
+        "make_ym_interval(c0, c1)",
+        {year, month},
+        {INTEGER(), INTEGER()},
+        std::nullopt,
+        {INTERVAL_YEAR_MONTH()});
+    VELOX_CHECK(result.has_value());
+    return INTERVAL_YEAR_MONTH()->valueToString(result.value());
+  };
+  const auto fromYear = [&](const std::optional<int32_t>& year) {
+    auto result = evaluateOnce<int32_t, int32_t>(
+        "make_ym_interval(c0)",
+        {year},
+        {INTEGER()},
+        std::nullopt,
+        {INTERVAL_YEAR_MONTH()});
+    VELOX_CHECK(result.has_value());
+    return INTERVAL_YEAR_MONTH()->valueToString(result.value());
+  };
+
+  EXPECT_EQ(fromYearAndMonth(1, 2), "1-2");
+  EXPECT_EQ(fromYearAndMonth(0, 1), "0-1");
+  EXPECT_EQ(fromYearAndMonth(1, 100), "9-4");
+  EXPECT_EQ(fromYear(0), "0-0");
+  EXPECT_EQ(fromYear(178956970), "178956970-0");
+  EXPECT_EQ(fromYear(-178956970), "-178956970-0");
+  {
+    // Test signature for no year and month.
+    auto result = evaluateOnce<int32_t>(
+        "make_ym_interval()",
+        makeRowVector(ROW({}), 1),
+        std::nullopt,
+        {INTERVAL_YEAR_MONTH()});
+    VELOX_CHECK(result.has_value());
+    EXPECT_EQ(INTERVAL_YEAR_MONTH()->valueToString(result.value()), "0-0");
+  }
+
+  VELOX_ASSERT_THROW(
+      fromYearAndMonth(178956970, 8),
+      "Integer overflow in make_ym_interval(178956970, 8)");
+  VELOX_ASSERT_THROW(
+      fromYearAndMonth(-178956970, -9),
+      "Integer overflow in make_ym_interval(-178956970, -9)");
+  VELOX_ASSERT_THROW(
+      fromYearAndMonth(178956971, 0),
+      "Integer overflow in make_ym_interval(178956971, 0)");
+  VELOX_ASSERT_THROW(
+      fromYear(178956971), "Integer overflow in make_ym_interval(178956971)");
+  VELOX_ASSERT_THROW(
+      fromYear(-178956971), "Integer overflow in make_ym_interval(-178956971)");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

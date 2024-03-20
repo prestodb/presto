@@ -133,6 +133,23 @@ These functions support TIMESTAMP and DATE input types.
     ``day`` need to be from 1 to 31, and matches the number of days in each month.
     days of ``year-month-day - 1970-01-01`` need to be in the range of INTEGER type.
 
+.. spark:function:: make_ym_interval([years[, months]]) -> interval year to month
+
+    Make year-month interval from ``years`` and ``months`` fields.
+    Returns the actual year-month with month in the range of [0, 11].
+    Both ``years`` and ``months`` can be zero, positive or negative.
+    Throws an error when inputs lead to int overflow,
+    e.g., make_ym_interval(178956970, 8). ::
+
+        SELECT make_ym_interval(1, 2); -- 1-2
+        SELECT make_ym_interval(1, 0); -- 1-0
+        SELECT make_ym_interval(-1, 1); -- -0-11
+        SELECT make_ym_interval(1, 100); -- 9-4
+        SELECT make_ym_interval(1, 12); -- 2-0
+        SELECT make_ym_interval(1, -12); -- 0-0
+        SELECT make_ym_interval(2); -- 2-0
+        SELECT make_ym_interval(); -- 0-0
+
 .. spark:function:: minute(timestamp) -> integer
 
     Returns the minutes of ``timestamp``.::
