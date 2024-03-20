@@ -61,6 +61,12 @@ public final class SfmSketchAggregationUtils
         state.getSketch().addHash(hash);
     }
 
+    public static void addIndexAndZerosToSketch(SfmSketchState state, long index, long zeros, double epsilon, long numberOfBuckets, long precision)
+    {
+        ensureStateInitialized(state, epsilon, numberOfBuckets, precision);
+        state.getSketch().addIndexAndZeros(index, zeros);
+    }
+
     public static long hashLong(MethodHandle methodHandle, long value)
     {
         long hash;

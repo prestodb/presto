@@ -37,7 +37,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 /**
- * Parent class for testing noisy_approx_set_sfm and noisy_approx_distinct_sfm.
+ * Parent class for testing noisy_approx_set_sfm* and noisy_approx_distinct_sfm.
  * The tests will essentially be the same, but since noisy_approx_set_sfm returns the sketch object itself,
  * we will map this to a cardinality, giving us something equivalent to noisy_approx_distinct_sfm.
  */
