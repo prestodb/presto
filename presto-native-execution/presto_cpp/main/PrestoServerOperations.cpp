@@ -214,7 +214,7 @@ std::string PrestoServerOperations::taskOperation(
         limit = limitStr == proxygen::empty_string
             ? std::numeric_limits<uint32_t>::max()
             : stoi(limitStr);
-      } catch (std::exception& ex) {
+      } catch (std::exception&) {
         VELOX_USER_FAIL("Invalid limit provided '{}'.", limitStr);
       }
       std::stringstream oss;
