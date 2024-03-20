@@ -27,6 +27,7 @@
 
 #include <folly/String.h>
 #include <folly/container/F14Set.h>
+#include <velox/type/Type.h>
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -131,7 +132,7 @@ void setCellFromVariantByKind<TypeKind::VARBINARY>(
     vector_size_t row,
     const velox::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
-  values->set(row, StringView(value.value<Varbinary>()));
+  values->set(row, StringView(value.value<TypeKind::VARBINARY>()));
 }
 
 template <>
@@ -140,7 +141,7 @@ void setCellFromVariantByKind<TypeKind::VARCHAR>(
     vector_size_t row,
     const velox::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
-  values->set(row, StringView(value.value<Varchar>()));
+  values->set(row, StringView(value.value<TypeKind::VARCHAR>()));
 }
 
 void setCellFromVariant(
