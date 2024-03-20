@@ -819,6 +819,14 @@ Optimizer Properties
 
     Log the stats equivalent plan and canonicalized plans used in history based optimization.
 
+``optimizer.exploit-constraints``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Enable analysis and propagation of logical properties like distinct keys or cardinality among the nodes of
+    a query plan. The optimizer may then use these properties to perform various optimizations.
 
 Planner Properties
 --------------------------------------
