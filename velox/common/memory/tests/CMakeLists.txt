@@ -15,11 +15,11 @@ include(GoogleTest)
 
 add_executable(
   velox_memory_test
+  AllocationPoolTest.cpp
   AllocationTest.cpp
   ByteStreamTest.cpp
   CompactDoubleListTest.cpp
   HashStringAllocatorTest.cpp
-  AllocationPoolTest.cpp
   MemoryAllocatorTest.cpp
   MemoryArbitratorTest.cpp
   MemoryCapExceededTest.cpp

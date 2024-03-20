@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_vector_fuzzer VectorFuzzer.cpp GeneratorSpec.cpp Utils.cpp)
+add_library(velox_vector_fuzzer GeneratorSpec.cpp Utils.cpp VectorFuzzer.cpp)
 
 target_link_libraries(velox_vector_fuzzer velox_type velox_vector)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

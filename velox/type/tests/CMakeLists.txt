@@ -13,17 +13,17 @@
 # limitations under the License.
 add_executable(
   velox_type_test
-  StringViewTest.cpp
-  TypeTest.cpp
+  ConversionsTest.cpp
   DecimalTest.cpp
   FilterTest.cpp
   FilterSerDeTest.cpp
   HugeIntTest.cpp
+  StringViewTest.cpp
   SubfieldTest.cpp
   TimestampConversionTest.cpp
-  VariantTest.cpp
   TimestampTest.cpp
-  ConversionsTest.cpp)
+  TypeTest.cpp
+  VariantTest.cpp)
 
 add_test(velox_type_test velox_type_test)
 

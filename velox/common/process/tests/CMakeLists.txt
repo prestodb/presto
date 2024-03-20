@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(
-  velox_process_test TraceContextTest.cpp ThreadLocalRegistryTest.cpp
-                     TraceHistoryTest.cpp ProfilerTest.cpp)
+add_executable(velox_process_test ProfilerTest.cpp ThreadLocalRegistryTest.cpp
+                                  TraceContextTest.cpp TraceHistoryTest.cpp)
 
 add_test(velox_process_test velox_process_test)
 

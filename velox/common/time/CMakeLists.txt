@@ -15,6 +15,6 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_library(velox_time Timer.cpp CpuWallTimer.cpp)
+add_library(velox_time CpuWallTimer.cpp Timer.cpp)
 target_link_libraries(velox_time PUBLIC velox_process velox_test_util
                                         Folly::folly fmt::fmt)

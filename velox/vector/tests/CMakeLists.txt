@@ -15,25 +15,25 @@ add_subdirectory(utils)
 
 add_executable(
   velox_vector_test
-  VectorCompareTest.cpp
-  VectorSaverTest.cpp
-  VectorMakerTest.cpp
-  VectorPoolTest.cpp
-  VectorPrinterTest.cpp
-  VectorTest.cpp
-  VectorStreamTest.cpp
-  VectorToStringTest.cpp
-  VectorEstimateFlatSizeTest.cpp
-  VectorPrepareForReuseTest.cpp
   DecodedVectorTest.cpp
-  SelectivityVectorTest.cpp
+  EncodingTest.cpp
   EnsureWritableVectorTest.cpp
   IsWritableVectorTest.cpp
   LazyVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp
+  SelectivityVectorTest.cpp
   VariantToVectorTest.cpp
-  EncodingTest.cpp
-  VectorTestUtils.cpp)
+  VectorCompareTest.cpp
+  VectorEstimateFlatSizeTest.cpp
+  VectorMakerTest.cpp
+  VectorPoolTest.cpp
+  VectorPrepareForReuseTest.cpp
+  VectorPrinterTest.cpp
+  VectorSaverTest.cpp
+  VectorStreamTest.cpp
+  VectorTest.cpp
+  VectorTestUtils.cpp
+  VectorToStringTest.cpp)
 
 add_test(velox_vector_test velox_vector_test)
 

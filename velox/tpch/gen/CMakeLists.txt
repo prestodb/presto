@@ -14,7 +14,7 @@
 
 add_subdirectory(dbgen)
 
-add_library(velox_tpch_gen TpchGen.cpp DBGenIterator.cpp)
+add_library(velox_tpch_gen DBGenIterator.cpp TpchGen.cpp)
 
 target_include_directories(velox_tpch_gen PRIVATE dbgen/include)
 

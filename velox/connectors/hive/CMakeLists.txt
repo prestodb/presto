@@ -22,13 +22,13 @@ add_library(
   FileHandle.cpp
   HiveConfig.cpp
   HiveConnector.cpp
+  HiveConnectorUtil.cpp
   HiveDataSink.cpp
   HiveDataSource.cpp
   HivePartitionUtil.cpp
   PartitionIdGenerator.cpp
   SplitReader.cpp
-  TableHandle.cpp
-  HiveConnectorUtil.cpp)
+  TableHandle.cpp)
 
 target_link_libraries(
   velox_hive_connector

@@ -41,14 +41,15 @@ add_executable(
   ExpandTest.cpp
   FilterProjectTest.cpp
   FunctionResolutionTest.cpp
+  HashBitRangeTest.cpp
   HashJoinBridgeTest.cpp
   HashJoinTest.cpp
-  HashBitRangeTest.cpp
   HashPartitionFunctionTest.cpp
   HashTableTest.cpp
   LimitTest.cpp
   LocalPartitionTest.cpp
   Main.cpp
+  MarkDistinctTest.cpp
   MemoryReclaimerTest.cpp
   MergeJoinTest.cpp
   MergeTest.cpp
@@ -58,14 +59,15 @@ add_executable(
   OutputBufferManagerTest.cpp
   PlanNodeSerdeTest.cpp
   PlanNodeToStringTest.cpp
+  PrefixSortTest.cpp
   PrintPlanWithStatsTest.cpp
   ProbeOperatorStateTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
   RowNumberTest.cpp
-  MarkDistinctTest.cpp
-  SpillTest.cpp
+  SortBufferTest.cpp
   SpillerTest.cpp
+  SpillTest.cpp
   SplitToStringTest.cpp
   SqlTest.cpp
   StreamingAggregationTest.cpp
@@ -73,16 +75,14 @@ add_executable(
   TableWriteTest.cpp
   TaskListenerTest.cpp
   ThreadDebugInfoTest.cpp
-  TopNTest.cpp
   TopNRowNumberTest.cpp
-  UnorderedStreamReaderTest.cpp
+  TopNTest.cpp
   UnnestTest.cpp
-  VectorHasherTest.cpp
+  UnorderedStreamReaderTest.cpp
   ValuesTest.cpp
+  VectorHasherTest.cpp
   WindowFunctionRegistryTest.cpp
-  WindowTest.cpp
-  SortBufferTest.cpp
-  PrefixSortTest.cpp)
+  WindowTest.cpp)
 
 add_executable(
   velox_exec_infra_test
@@ -93,10 +93,10 @@ add_executable(
   Main.cpp
   OperatorUtilsTest.cpp
   PlanBuilderTest.cpp
+  PrestoQueryRunnerTest.cpp
   QueryAssertionsTest.cpp
   TaskTest.cpp
-  TreeOfLosersTest.cpp
-  PrestoQueryRunnerTest.cpp)
+  TreeOfLosersTest.cpp)
 
 add_test(
   NAME velox_exec_test

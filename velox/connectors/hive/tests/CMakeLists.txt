@@ -13,16 +13,16 @@
 # limitations under the License.
 add_executable(
   velox_hive_connector_test
-  HiveDataSinkTest.cpp
-  HivePartitionFunctionTest.cpp
   FileHandleTest.cpp
-  HivePartitionUtilTest.cpp
+  HiveConfigTest.cpp
+  HiveDataSinkTest.cpp
   HiveConnectorTest.cpp
   HiveConnectorUtilTest.cpp
   HiveConnectorSerDeTest.cpp
+  HivePartitionFunctionTest.cpp
+  HivePartitionUtilTest.cpp
   PartitionIdGeneratorTest.cpp
-  TableHandleTest.cpp
-  HiveConfigTest.cpp)
+  TableHandleTest.cpp)
 add_test(velox_hive_connector_test velox_hive_connector_test)
 
 target_link_libraries(

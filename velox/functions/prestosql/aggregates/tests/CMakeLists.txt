@@ -34,21 +34,21 @@ add_executable(
   HistogramTest.cpp
   Main.cpp
   MapAccumulatorTest.cpp
+  MapAggTest.cpp
+  MapUnionAggregationTest.cpp
+  MapUnionSumTest.cpp
+  MaxSizeForStatsTest.cpp
   MinMaxByAggregationTest.cpp
   MinMaxTest.cpp
   MultiMapAggTest.cpp
   PrestoHasherTest.cpp
+  ReduceAggTest.cpp
   SetAggTest.cpp
   SetUnionTest.cpp
+  SumDataSizeForStatsTest.cpp
   SumTest.cpp
-  MapAggTest.cpp
-  MapUnionAggregationTest.cpp
-  MapUnionSumTest.cpp
-  ReduceAggTest.cpp
   ValueListTest.cpp
-  VarianceAggregationTest.cpp
-  MaxSizeForStatsTest.cpp
-  SumDataSizeForStatsTest.cpp)
+  VarianceAggregationTest.cpp)
 
 add_test(
   NAME velox_aggregates_test

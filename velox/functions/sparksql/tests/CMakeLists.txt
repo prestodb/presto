@@ -25,12 +25,12 @@ add_executable(
   DecimalCompareTest.cpp
   DecimalRoundTest.cpp
   DecimalUtilTest.cpp
-  MakeDecimalTest.cpp
-  MakeTimestampTest.cpp
   ElementAtTest.cpp
   HashTest.cpp
   InTest.cpp
   LeastGreatestTest.cpp
+  MakeDecimalTest.cpp
+  MakeTimestampTest.cpp
   MapTest.cpp
   MightContainTest.cpp
   MonotonicallyIncreasingIdTest.cpp

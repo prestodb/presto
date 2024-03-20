@@ -28,7 +28,6 @@ add_library(
   velox_expression
   BooleanMix.cpp
   CastExpr.cpp
-  PrestoCastHooks.cpp
   CoalesceExpr.cpp
   ConjunctExpr.cpp
   ConstantExpr.cpp
@@ -38,16 +37,17 @@ add_library(
   ExprToSubfieldFilter.cpp
   FieldReference.cpp
   FunctionCallToSpecialForm.cpp
+  GenericWriter.cpp
   LambdaExpr.cpp
-  VectorFunction.cpp
+  PeeledEncoding.cpp
+  PrestoCastHooks.cpp
   RegisterSpecialForm.cpp
   RowConstructor.cpp
   SimpleFunctionRegistry.cpp
   SpecialFormRegistry.cpp
   SwitchExpr.cpp
   TryExpr.cpp
-  GenericWriter.cpp
-  PeeledEncoding.cpp)
+  VectorFunction.cpp)
 
 target_link_libraries(
   velox_expression velox_core velox_vector velox_common_base

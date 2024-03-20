@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(velox_dwio_common_test_utils BatchMaker.cpp DataFiles.cpp
-                                         FilterGenerator.cpp DataSetBuilder.cpp)
+                                         DataSetBuilder.cpp FilterGenerator.cpp)
 
 target_link_libraries(
   velox_dwio_common_test_utils

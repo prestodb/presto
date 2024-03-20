@@ -17,40 +17,40 @@ add_subdirectory(utils)
 add_executable(
   velox_expression_test
   ArgumentTypeFuzzerTest.cpp
-  CustomTypeTest.cpp
-  ExprEncodingsTest.cpp
-  ExprTest.cpp
-  ExprToSubfieldFilterTest.cpp
-  ExprCompilerTest.cpp
-  EvalCtxTest.cpp
-  ExprStatsTest.cpp
+  ArrayViewTest.cpp
+  ArrayWriterTest.cpp
   CastExprTest.cpp
   CoalesceTest.cpp
   ConjunctTest.cpp
   ConstantFlatVectorReaderTest.cpp
-  Main.cpp
-  MapWriterTest.cpp
-  ReverseSignatureBinderTest.cpp
-  RowWriterTest.cpp
+  CustomTypeTest.cpp
+  ExprCompilerTest.cpp
+  ExprEncodingsTest.cpp
+  ExprStatsTest.cpp
+  ExprTest.cpp
+  ExprToSubfieldFilterTest.cpp
+  EvalCtxTest.cpp
   EvalSimplifiedTest.cpp
   FunctionCallToSpecialFormTest.cpp
-  SignatureBinderTest.cpp
-  SimpleFunctionTest.cpp
-  SimpleFunctionInitTest.cpp
-  SimpleFunctionCallNullFreeTest.cpp
-  SimpleFunctionPresetNullsTest.cpp
-  ArrayViewTest.cpp
-  StringWriterTest.cpp
-  ArrayWriterTest.cpp
-  StringWriterTest.cpp
-  MapViewTest.cpp
-  RowViewTest.cpp
   GenericViewTest.cpp
+  GenericWriterTest.cpp
+  Main.cpp
+  MapViewTest.cpp
+  MapWriterTest.cpp
+  PeeledEncodingTest.cpp
+  ReverseSignatureBinderTest.cpp
+  RowViewTest.cpp
+  RowWriterTest.cpp
+  SignatureBinderTest.cpp
+  SimpleFunctionCallNullFreeTest.cpp
+  SimpleFunctionInitTest.cpp
+  SimpleFunctionPresetNullsTest.cpp
+  SimpleFunctionTest.cpp
+  StringWriterTest.cpp
+  StringWriterTest.cpp
   TryExprTest.cpp
   VariadicViewTest.cpp
-  VectorReaderTest.cpp
-  GenericWriterTest.cpp
-  PeeledEncodingTest.cpp)
+  VectorReaderTest.cpp)
 
 add_test(
   NAME velox_expression_test

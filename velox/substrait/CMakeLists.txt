@@ -45,15 +45,15 @@ add_dependencies(substrait_proto protobuf::libprotobuf)
 
 set(SRCS
     ${PROTO_SRCS}
+    SubstraitExtensionCollector.cpp
     SubstraitParser.cpp
     SubstraitToVeloxExpr.cpp
     SubstraitToVeloxPlan.cpp
     TypeUtils.cpp
-    SubstraitExtensionCollector.cpp
+    VeloxSubstraitSignature.cpp
     VeloxToSubstraitExpr.cpp
     VeloxToSubstraitPlan.cpp
     VeloxToSubstraitType.cpp
-    VeloxSubstraitSignature.cpp
     VariantToVectorConverter.cpp)
 
 add_library(velox_substrait_plan_converter ${SRCS})
