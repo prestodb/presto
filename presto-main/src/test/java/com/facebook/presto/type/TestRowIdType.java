@@ -26,14 +26,12 @@ import java.nio.charset.StandardCharsets;
 import static com.facebook.presto.common.type.RowIdType.ROW_ID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestRowIdType
         extends AbstractTestType
 {
-
-    public static final int BLOCK_LENGTH = 10;
+    private static final int BLOCK_LENGTH = 10;
 
     public TestRowIdType()
     {
@@ -66,14 +64,16 @@ public class TestRowIdType
     }
 
     @Test
-    public void testGetObjectValue() {
+    public void testGetObjectValue()
+    {
         Block block = createTestBlock();
         SqlVarbinary rowID = ROW_ID.getObjectValue(null, block, 5);
         assertTrue(rowID.getBytes().length > 0);
     }
 
     @Test
-    public void testGetObject() {
+    public void testGetObject()
+    {
         Block block = createTestBlock();
         SqlVarbinary rowID = ROW_ID.getObject(block, 5);
         assertTrue(rowID.getBytes().length > 0);
@@ -98,7 +98,8 @@ public class TestRowIdType
     }
 
     @Test
-    public void testGetJavaType() {
+    public void testGetJavaType()
+    {
         assertEquals(Slice.class, ROW_ID.getJavaType());
     }
 
