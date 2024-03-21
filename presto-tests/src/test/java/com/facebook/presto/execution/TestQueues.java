@@ -19,6 +19,7 @@ import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +56,8 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -76,7 +76,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestQueues
 {
-    public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    public static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM blackhole.default.dummy";
 
     private DistributedQueryRunner queryRunner;
     private ObjectMapper objectMapper;
@@ -86,7 +86,12 @@ public class TestQueues
     public void setup()
             throws Exception
     {
-        queryRunner = createQueryRunner();
+        queryRunner = getSimpleQueryRunner();
+        queryRunner.installPlugin(new BlackHolePlugin());
+        queryRunner.createCatalog("blackhole", "blackhole");
+        queryRunner.execute(
+                "CREATE TABLE blackhole.default.dummy (col BIGINT) " +
+                        "WITH (split_count = 1, rows_per_page = 1, pages_per_split = 1, page_processing_delay = '10m')");
         client = new JettyHttpClient();
         objectMapper = new JsonObjectMapperProvider().get();
         objectMapper.registerModule(new SimpleModule()
@@ -318,20 +323,17 @@ public class TestQueues
     public void testQueryTypeBasedSelection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get()
-                    .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
-            assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, createResourceGroupId("global", "select"));
-            assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", createResourceGroupId("global", "describe"));
-            assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, createResourceGroupId("global", "explain"));
-            assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", createResourceGroupId("global", "describe"));
-            assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, createResourceGroupId("global", "control"));
-        }
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get()
+                .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_type_based_config.json")));
+        assertResourceGroup(queryRunner, newAdhocSession(), LONG_LASTING_QUERY, createResourceGroupId("global", "select"));
+        assertResourceGroup(queryRunner, newAdhocSession(), "SHOW TABLES", createResourceGroupId("global", "describe"));
+        assertResourceGroup(queryRunner, newAdhocSession(), "EXPLAIN " + LONG_LASTING_QUERY, createResourceGroupId("global", "explain"));
+        assertResourceGroup(queryRunner, newAdhocSession(), "DESCRIBE lineitem", createResourceGroupId("global", "describe"));
+        assertResourceGroup(queryRunner, newAdhocSession(), "RESET SESSION " + HASH_PARTITION_COUNT, createResourceGroupId("global", "control"));
     }
 
-    // This test is flaky: https://github.com/prestodb/presto/issues/19633
-    @Test(timeOut = 60_000, enabled = false)
+    @Test(timeOut = 240_000)
     public void testQueuedQueryInteraction()
             throws Exception
     {
@@ -385,15 +387,13 @@ public class TestQueues
     private void testRejection()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner()) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_dashboard.json")));
 
-            QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
-            waitForQueryState(queryRunner, queryId, FAILED);
-            DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-            assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), MISSING_RESOURCE_GROUP_SELECTOR.toErrorCode());
-        }
+        QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, queryId, FAILED);
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), MISSING_RESOURCE_GROUP_SELECTOR.toErrorCode());
     }
 
     private QueryId createDashboardQuery(DistributedQueryRunner queryRunner)
