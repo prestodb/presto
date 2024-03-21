@@ -129,8 +129,8 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
 }
 
 TEST_F(ExpressionRunnerUnitTest, primitiveConstantsInexpressibleInSql) {
-  auto varbinaryData = vectorMaker_.flatVector<StringView>(
-      {"12"_sv}, CppToType<Varbinary>::create());
+  auto varbinaryData =
+      vectorMaker_.flatVector<StringView>({"12"_sv}, VARBINARY());
   auto constantExpr = std::make_shared<const core::ConstantTypedExpr>(
       BaseVector::wrapInConstant(1, 0, varbinaryData));
 

@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 #include "velox/vector/VectorTypeUtils.h"
 

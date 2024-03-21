@@ -335,17 +335,6 @@ struct TemplatedReadHelper<IntDecoderT, int32_t> {
 };
 
 template <class IntDecoderT>
-struct TemplatedReadHelper<IntDecoderT, Date> {
-  static void nextValues(
-      IntDecoderT& decoder,
-      Date* data,
-      uint64_t numValues,
-      const uint64_t* nulls) {
-    decoder.nextInts(reinterpret_cast<int32_t*>(data), numValues, nulls);
-  }
-};
-
-template <class IntDecoderT>
 struct TemplatedReadHelper<IntDecoderT, int64_t> {
   static void nextValues(
       IntDecoderT& decoder,

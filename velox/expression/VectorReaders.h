@@ -28,6 +28,7 @@
 
 #include "velox/expression/ComplexViewTypes.h"
 #include "velox/expression/DecodedArgs.h"
+#include "velox/expression/KindToSimpleType.h"
 #include "velox/expression/UdfTypeResolver.h"
 #include "velox/expression/VariadicView.h"
 #include "velox/type/StringView.h"

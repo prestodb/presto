@@ -30,6 +30,7 @@
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/expression/ComplexViewTypes.h"
+#include "velox/expression/KindToSimpleType.h"
 #include "velox/expression/UdfTypeResolver.h"
 #include "velox/type/Type.h"
 #include "velox/vector/TypeAliases.h"

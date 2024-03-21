@@ -656,7 +656,6 @@ class WriterContext : public CompressionBufferPool {
   friend class StringColumnWriterDictionaryEncodingIndexTest;
   friend class StringColumnWriterDirectEncodingIndexTest;
   // TODO: remove once writer code is consolidated
-  template <typename TestType>
   friend class WriterEncodingIndexTest2;
 
   VELOX_FRIEND_TEST(WriterContextTest, GetIntDictionaryEncoder);

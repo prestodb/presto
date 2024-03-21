@@ -25,6 +25,7 @@
 #include "velox/core/QueryConfig.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 

@@ -447,8 +447,8 @@ TEST_F(ExprStatsTest, exceptionPreparingStatsForListener) {
   std::vector<std::string> exceptions;
   auto listener = std::make_shared<TestListener>(events, exceptions);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
-  auto varbinaryData = vectorMaker_.flatVector<StringView>(
-      {"12"_sv}, CppToType<Varbinary>::create());
+  auto varbinaryData =
+      vectorMaker_.flatVector<StringView>({"12"_sv}, VARBINARY());
   std::vector<core::TypedExprPtr> expressions = {
       std::make_shared<const core::ConstantTypedExpr>(
           BaseVector::wrapInConstant(1, 0, varbinaryData))};

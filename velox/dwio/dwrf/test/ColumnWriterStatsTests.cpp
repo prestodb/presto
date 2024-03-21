@@ -536,7 +536,7 @@ TEST_F(ColumnWriterStatsTest, List) {
     auto nodeSizePerStride = populateFloatBatch(pool, &childVector, childSize);
     *vector = std::make_shared<ArrayVector>(
         &pool,
-        CppToType<Array<float>>::create(),
+        ARRAY(REAL()),
         nulls,
         size,
         offsets,
@@ -585,7 +585,7 @@ TEST_F(ColumnWriterStatsTest, Map) {
     auto nodeSizePerStride = populateFloatBatch(pool, &valueVector, childSize);
     *vector = std::make_shared<MapVector>(
         &pool,
-        CppToType<Map<int32_t, float>>::create(),
+        MAP(INTEGER(), REAL()),
         nulls,
         size,
         offsets,
@@ -639,12 +639,7 @@ TEST_F(ColumnWriterStatsTest, Struct) {
           nodeSizePerStride.push_back(floatBatchSize);
         }
         *vector = std::make_shared<RowVector>(
-            &pool,
-            CppToType<Row<float, float>>::create(),
-            nulls,
-            size,
-            children,
-            nullCount);
+            &pool, ROW({REAL(), REAL()}), nulls, size, children, nullCount);
         nodeSizePerStride.at(0) =
             nullCount + nodeSizePerStride.at(2) + nodeSizePerStride.at(3);
         nodeSizePerStride.at(1) =

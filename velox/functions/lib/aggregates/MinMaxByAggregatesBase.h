@@ -28,8 +28,7 @@ constexpr bool isNumeric() {
   return std::is_same_v<T, bool> || std::is_same_v<T, int8_t> ||
       std::is_same_v<T, int16_t> || std::is_same_v<T, int32_t> ||
       std::is_same_v<T, int64_t> || std::is_same_v<T, float> ||
-      std::is_same_v<T, double> || std::is_same_v<T, Date> ||
-      std::is_same_v<T, Timestamp>;
+      std::is_same_v<T, double> || std::is_same_v<T, Timestamp>;
 }
 
 template <typename T, typename TAccumulator>

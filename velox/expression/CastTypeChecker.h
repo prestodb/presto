@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/type/CppToType.h"
+#include "velox/type/SimpleFunctionApi.h"
 
 namespace facebook::velox {
 

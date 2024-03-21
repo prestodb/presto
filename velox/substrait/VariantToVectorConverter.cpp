@@ -60,7 +60,7 @@ VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
     if (values[i].isNull()) {
       flatVector->setNull(i, true);
     } else {
-      flatVector->set(i, StringView(values[i].value<Varchar>()));
+      flatVector->set(i, StringView(values[i].value<TypeKind::VARCHAR>()));
     }
   }
   return flatVector;

@@ -17,6 +17,7 @@
 #include <sstream>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/CppToType.h"
+#include "velox/type/SimpleFunctionApi.h"
 
 using namespace facebook;
 using namespace facebook::velox;

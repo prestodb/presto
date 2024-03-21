@@ -64,9 +64,6 @@ template <>
 struct CppToType<bool> : public CppToTypeBase<TypeKind::BOOLEAN> {};
 
 template <>
-struct CppToType<Varchar> : public CppToTypeBase<TypeKind::VARCHAR> {};
-
-template <>
 struct CppToType<folly::StringPiece> : public CppToTypeBase<TypeKind::VARCHAR> {
 };
 
@@ -84,9 +81,6 @@ template <>
 struct CppToType<const char*> : public CppToTypeBase<TypeKind::VARCHAR> {};
 
 template <>
-struct CppToType<Varbinary> : public CppToTypeBase<TypeKind::VARBINARY> {};
-
-template <>
 struct CppToType<folly::ByteRange> : public CppToTypeBase<TypeKind::VARBINARY> {
 };
 
@@ -99,12 +93,6 @@ struct CppToType<double> : public CppToTypeBase<TypeKind::DOUBLE> {};
 template <>
 struct CppToType<Timestamp> : public CppToTypeBase<TypeKind::TIMESTAMP> {};
 
-template <>
-struct CppToType<Date> : public CppToTypeBase<TypeKind::INTEGER> {};
-
-template <typename T>
-struct CppToType<Generic<T>> : public CppToTypeBase<TypeKind::UNKNOWN> {};
-
 // TODO: maybe do something smarter than just matching any shared_ptr, e.g. we
 // can declare "registered" types explicitly
 template <typename T>
@@ -116,43 +104,8 @@ struct CppToType<std::shared_ptr<T>> : public CppToTypeBase<TypeKind::OPAQUE> {
   }
 };
 
-template <typename KEY, typename VAL>
-struct CppToType<Map<KEY, VAL>> : public TypeTraits<TypeKind::MAP> {
-  static auto create() {
-    return MAP(CppToType<KEY>::create(), CppToType<VAL>::create());
-  }
-};
-
-template <typename ELEMENT>
-struct CppToType<Array<ELEMENT>> : public TypeTraits<TypeKind::ARRAY> {
-  static auto create() {
-    return ARRAY(CppToType<ELEMENT>::create());
-  }
-};
-
-template <typename... T>
-struct CppToType<Row<T...>> : public TypeTraits<TypeKind::ROW> {
-  static auto create() {
-    return ROW({CppToType<T>::create()...});
-  }
-};
-
-template <>
-struct CppToType<DynamicRow> : public TypeTraits<TypeKind::ROW> {
-  static std::shared_ptr<const Type> create() {
-    throw std::logic_error{"can't determine exact type for DynamicRow"};
-  }
-};
-
 template <>
 struct CppToType<UnknownValue> : public CppToTypeBase<TypeKind::UNKNOWN> {};
-
-template <typename T>
-struct CppToType<CustomType<T>> : public CppToType<typename T::type> {
-  static auto create() {
-    return CppToType<typename T::type>::create();
-  }
-};
 
 // todo: remaining cpp2type
 

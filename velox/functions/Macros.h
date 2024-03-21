@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/core/Metaprogramming.h"
+#include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 
 #define VELOX_DEFINE_FUNCTION_TYPES(__Velox_ExecParams)                 \
