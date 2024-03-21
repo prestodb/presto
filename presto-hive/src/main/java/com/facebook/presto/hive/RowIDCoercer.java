@@ -17,10 +17,13 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 
 class RowIDCoercer
         implements HiveCoercer
 {
+    RowIDCoercer(byte[] rowIdPartitionComponent) {}
+
     @Override
     public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
     {
@@ -30,7 +33,7 @@ class RowIDCoercer
     @Override
     public Type getToType()
     {
-        return null;
+        return VarbinaryType.VARBINARY;
     }
 
     @Override

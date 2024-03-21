@@ -14,16 +14,18 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.type.VarbinaryType;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
 {
     @Test
     public void testCoercion()
     {
-        HiveCoercer coercer = new RowIDCoercer();
-        assertNotNull(coercer.getToType());
+        byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
+        HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent);
+        assertEquals(coercer.getToType(), VarbinaryType.VARBINARY);
     }
 }
