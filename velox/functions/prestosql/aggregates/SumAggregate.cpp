@@ -111,6 +111,7 @@ exec::AggregateRegistrationResult registerSum(
                 inputType->kindName());
         }
       },
+      {false /*orderSensitive*/},
       withCompanionFunctions,
       overwrite);
 }

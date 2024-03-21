@@ -261,6 +261,7 @@ void registerChecksumAggregate(
 
         return std::make_unique<ChecksumAggregate>(VARBINARY());
       },
+      {false /*orderSensitive*/},
       withCompanionFunctions,
       overwrite);
 }

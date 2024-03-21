@@ -57,6 +57,7 @@ AggregateRegistrationResult registerAggregateFunction(
     const std::string& name,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
     const AggregateFunctionFactory& factory,
+    const AggregateFunctionMetadata& metadata,
     bool registerCompanionFunctions,
     bool overwrite) {
   auto sanitizedName = sanitizeName(name);
@@ -64,14 +65,15 @@ AggregateRegistrationResult registerAggregateFunction(
 
   if (overwrite) {
     aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
-      aggregationFunctionMap[sanitizedName] = {signatures, std::move(factory)};
+      aggregationFunctionMap[sanitizedName] = {
+          signatures, std::move(factory), metadata};
     });
     registered.mainFunction = true;
   } else {
     auto inserted =
         aggregateFunctions().withWLock([&](auto& aggregationFunctionMap) {
           auto [_, inserted_2] = aggregationFunctionMap.insert(
-              {sanitizedName, {signatures, factory}});
+              {sanitizedName, {signatures, factory, metadata}});
           return inserted_2;
         });
     registered.mainFunction = inserted;
@@ -98,17 +100,43 @@ AggregateRegistrationResult registerAggregateFunction(
   return registered;
 }
 
+AggregateRegistrationResult registerAggregateFunction(
+    const std::string& name,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    bool registerCompanionFunctions,
+    bool overwrite) {
+  return registerAggregateFunction(
+      name, signatures, factory, {}, registerCompanionFunctions, overwrite);
+}
+
 std::vector<AggregateRegistrationResult> registerAggregateFunction(
     const std::vector<std::string>& names,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
     const AggregateFunctionFactory& factory,
     bool registerCompanionFunctions,
     bool overwrite) {
+  return registerAggregateFunction(
+      names, signatures, factory, {}, registerCompanionFunctions, overwrite);
+}
+
+std::vector<AggregateRegistrationResult> registerAggregateFunction(
+    const std::vector<std::string>& names,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    const AggregateFunctionMetadata& metadata,
+    bool registerCompanionFunctions,
+    bool overwrite) {
   auto size = names.size();
   std::vector<AggregateRegistrationResult> registrationResults{size};
   for (int i = 0; i < size; ++i) {
     registrationResults[i] = registerAggregateFunction(
-        names[i], signatures, factory, registerCompanionFunctions, overwrite);
+        names[i],
+        signatures,
+        factory,
+        metadata,
+        registerCompanionFunctions,
+        overwrite);
   }
   return registrationResults;
 }

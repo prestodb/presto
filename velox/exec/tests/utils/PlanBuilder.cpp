@@ -761,10 +761,15 @@ PlanBuilder::AggregatesAndNames PlanBuilder::createAggregateExpressionsAndNames(
     agg.distinct = untypedExpr.distinct;
 
     if (!untypedExpr.orderBy.empty()) {
-      VELOX_CHECK(
-          step == core::AggregationNode::Step::kSingle,
-          "Aggregations over sorted inputs cannot be split into partial and final: {}.",
-          aggregate)
+      auto* entry = exec::getAggregateFunctionEntry(agg.call->name());
+      const auto& metadata = entry->metadata;
+      if (metadata.orderSensitive) {
+        VELOX_CHECK(
+            step == core::AggregationNode::Step::kSingle,
+            "Order sensitive aggregation over sorted inputs cannot be split "
+            "into partial and final: {}.",
+            aggregate)
+      }
     }
 
     for (const auto& [keyExpr, order] : untypedExpr.orderBy) {

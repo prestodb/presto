@@ -58,7 +58,9 @@ struct AggregateInfo {
 class OperatorCtx;
 
 /// Translate an AggregationNode to a list of AggregationInfo, which could be
-/// a hash aggregation plan node or a streaming aggregation plan node.
+/// a hash aggregation plan node or a streaming aggregation plan node. Ignore
+/// sorting properties if aggregate function is not sensitive to the order of
+/// inputs.
 ///
 /// @param aggregationNode Plan node of this aggregation.
 /// @param operatorCtx Operator context.

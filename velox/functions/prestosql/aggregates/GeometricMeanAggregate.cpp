@@ -136,6 +136,7 @@ void registerGeometricMeanAggregate(
                 inputType->toString());
         }
       },
+      {false /*orderSensitive*/},
       withCompanionFunctions,
       overwrite);
 }

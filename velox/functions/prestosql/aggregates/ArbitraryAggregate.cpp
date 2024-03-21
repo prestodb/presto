@@ -322,6 +322,7 @@ void registerArbitraryAggregate(
                 inputType->kindName());
         }
       },
+      {false /*orderSensitive*/},
       withCompanionFunctions,
       overwrite);
 }

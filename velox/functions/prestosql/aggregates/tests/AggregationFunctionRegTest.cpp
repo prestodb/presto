@@ -54,6 +54,51 @@ TEST_F(AggregationFunctionRegTest, prefix) {
   });
 }
 
+TEST_F(AggregationFunctionRegTest, orderSensitive) {
+  // Remove all functions and check for no entries.
+  clearAndCheckRegistry();
+
+  std::set<std::string> nonOrderSensitiveFunctions = {
+      "sum",
+      "avg",
+      "min",
+      "max",
+      "count",
+      "arbitrary",
+      "bool_and",
+      "bool_or",
+      "bitwise_and_agg",
+      "bitwise_or_agg",
+      "every",
+      "checksum",
+      "count_if",
+      "geometric_mean",
+      "histogram",
+      "reduce_agg",
+      "any_value"};
+  aggregate::prestosql::registerAllAggregateFunctions();
+  exec::aggregateFunctions().withRLock([&](const auto& aggrFuncMap) {
+    for (const auto& entry : aggrFuncMap) {
+      if (!entry.second.metadata.orderSensitive) {
+        EXPECT_EQ(1, nonOrderSensitiveFunctions.erase(entry.first));
+      }
+    }
+  });
+  EXPECT_EQ(0, nonOrderSensitiveFunctions.size());
+
+  // Test some but not all order sensitive functions
+  std::set<std::string> orderSensitiveFunctions = {
+      "array_agg", "map_agg", "map_union", "set_agg"};
+  exec::aggregateFunctions().withRLock([&](const auto& aggrFuncMap) {
+    for (const auto& entry : aggrFuncMap) {
+      if (entry.second.metadata.orderSensitive) {
+        orderSensitiveFunctions.erase(entry.first);
+      }
+    }
+  });
+  EXPECT_EQ(0, orderSensitiveFunctions.size());
+}
+
 TEST_F(AggregationFunctionRegTest, prestoSupportedSignatures) {
   // Remove all functions and check for no entries.
   clearAndCheckRegistry();

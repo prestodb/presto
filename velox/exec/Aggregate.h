@@ -417,6 +417,11 @@ using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
     const TypePtr& resultType,
     const core::QueryConfig& config)>;
 
+struct AggregateFunctionMetadata {
+  /// True if results of the aggregation depend on the order of inputs. For
+  /// example, array_agg is order sensitive while count is not.
+  bool orderSensitive{true};
+};
 /// Register an aggregate function with the specified name and signatures. If
 /// registerCompanionFunctions is true, also register companion aggregate and
 /// scalar functions with it. When functions with `name` already exist, if
@@ -429,12 +434,28 @@ AggregateRegistrationResult registerAggregateFunction(
     bool registerCompanionFunctions,
     bool overwrite);
 
+AggregateRegistrationResult registerAggregateFunction(
+    const std::string& name,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    const AggregateFunctionMetadata& metadata,
+    bool registerCompanionFunctions,
+    bool overwrite);
+
 // Register an aggregation function with multiple names. Returns a vector of
 // AggregateRegistrationResult, one for each name at the corresponding index.
 std::vector<AggregateRegistrationResult> registerAggregateFunction(
     const std::vector<std::string>& names,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
     const AggregateFunctionFactory& factory,
+    bool registerCompanionFunctions,
+    bool overwrite);
+
+std::vector<AggregateRegistrationResult> registerAggregateFunction(
+    const std::vector<std::string>& names,
+    const std::vector<std::shared_ptr<AggregateFunctionSignature>>& signatures,
+    const AggregateFunctionFactory& factory,
+    const AggregateFunctionMetadata& metadata,
     bool registerCompanionFunctions,
     bool overwrite);
 
@@ -453,6 +474,7 @@ AggregateFunctionSignatureMap getAggregateFunctionSignatures();
 struct AggregateFunctionEntry {
   std::vector<AggregateFunctionSignaturePtr> signatures;
   AggregateFunctionFactory factory;
+  AggregateFunctionMetadata metadata;
 };
 
 using AggregateFunctionMap = folly::Synchronized<
