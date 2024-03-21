@@ -499,6 +499,10 @@ class Operator : public BaseRuntimeStatWriter {
     return operatorCtx_->operatorId();
   }
 
+  const uint32_t splitGroupId() const {
+    return operatorCtx_->driverCtx()->splitGroupId;
+  }
+
   /// Sets operator id. Use is limited to renumbering Operators from
   /// DriverAdapter. Do not use outside of this.
   void setOperatorIdFromAdapter(int32_t id) {

@@ -1624,12 +1624,16 @@ std::vector<Operator*> Task::findPeerOperators(
   std::vector<Operator*> peers;
   const auto operatorId = caller->operatorId();
   const auto& operatorType = caller->operatorType();
+  const auto splitGroupId = caller->splitGroupId();
   std::lock_guard<std::timed_mutex> l(mutex_);
   for (auto& driver : drivers_) {
     if (driver == nullptr) {
       continue;
     }
     if (driver->driverCtx()->pipelineId != pipelineId) {
+      continue;
+    }
+    if (driver->driverCtx()->splitGroupId != splitGroupId) {
       continue;
     }
     Operator* peer = driver->findOperator(operatorId);
