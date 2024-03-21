@@ -7,6 +7,15 @@
 /** @prestodb/committers
 
 #####################################################################
+# Presto core
+
+# Presto analyzer and optimizer
+/presto-main/src/*/java/com/facebook/presto/sql @jaystarshot @prestodb/committers
+
+# Presto cost based optimizer framework
+/presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @prestodb/committers
+
+#####################################################################
 # Prestissimo module
 /presto-native-execution @prestodb/team-velox
 
@@ -22,6 +31,9 @@
 
 # Ranger Hive plugin
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
+
+# Redis history based optimizer plugin
+/redis-hbo-provider @jaystarshot @prestodb/committers
 
 #####################################################################
 # Presto modules and libraries
