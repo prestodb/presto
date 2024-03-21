@@ -1011,6 +1011,44 @@ void exportToArrowImpl(
   out.release = releaseArrowArray;
 }
 
+// Parses the velox decimal format from the given arrow format.
+// The input format string should be in the form "d:precision,scale<,bitWidth>".
+// bitWidth is not required and must be 128 if provided.
+TypePtr parseDecimalFormat(const char* format) {
+  std::string invalidFormatMsg =
+      "Unable to convert '{}' ArrowSchema decimal format to Velox decimal";
+  try {
+    std::string::size_type sz;
+    std::string formatStr(format);
+
+    auto firstCommaIdx = formatStr.find(',', 2);
+    auto secondCommaIdx = formatStr.find(',', firstCommaIdx + 1);
+
+    if (firstCommaIdx == std::string::npos ||
+        formatStr.size() == firstCommaIdx + 1 ||
+        (secondCommaIdx != std::string::npos &&
+         formatStr.size() == secondCommaIdx + 1)) {
+      VELOX_USER_FAIL(invalidFormatMsg, format);
+    }
+
+    // Parse "d:".
+    int precision = std::stoi(&format[2], &sz);
+    int scale = std::stoi(&format[firstCommaIdx + 1], &sz);
+    // If bitwidth is provided, check if it is equal to 128.
+    if (secondCommaIdx != std::string::npos) {
+      int bitWidth = std::stoi(&format[secondCommaIdx + 1], &sz);
+      VELOX_USER_CHECK_EQ(
+          bitWidth,
+          128,
+          "Conversion failed for '{}'. Velox decimal does not support custom bitwidth.",
+          format);
+    }
+    return DECIMAL(precision, scale);
+  } catch (std::invalid_argument&) {
+    VELOX_USER_FAIL(invalidFormatMsg, format);
+  }
+}
+
 TypePtr importFromArrowImpl(
     const char* format,
     const ArrowSchema& arrowSchema) {
@@ -1056,20 +1094,9 @@ TypePtr importFromArrowImpl(
       }
       break;
 
-    case 'd': { // decimal types.
-      try {
-        std::string::size_type sz;
-        // Parse "d:".
-        int precision = std::stoi(&format[2], &sz);
-        // Parse ",".
-        int scale = std::stoi(&format[2 + sz + 1], &sz);
-        return DECIMAL(precision, scale);
-      } catch (std::invalid_argument&) {
-        VELOX_USER_FAIL(
-            "Unable to convert '{}' ArrowSchema decimal format to Velox decimal",
-            format);
-      }
-    }
+    case 'd':
+      // decimal types.
+      return parseDecimalFormat(format);
 
     // Complex types.
     case '+': {
@@ -1612,6 +1639,23 @@ VectorPtr createTimestampVector(
       optionalNullCount(nullCount));
 }
 
+VectorPtr createShortDecimalVector(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    const int128_t* input,
+    size_t length,
+    int64_t nullCount) {
+  auto values = AlignedBuffer::allocate<int64_t>(length, pool);
+  auto rawValues = values->asMutable<int64_t>();
+  for (size_t i = 0; i < length; ++i) {
+    memcpy(rawValues + i, input + i, sizeof(int64_t));
+  }
+
+  return createFlatVector<TypeKind::BIGINT>(
+      pool, type, nulls, length, values, nullCount);
+}
+
 bool isREE(const ArrowSchema& arrowSchema) {
   return arrowSchema.format[0] == '+' && arrowSchema.format[1] == 'r';
 }
@@ -1689,6 +1733,14 @@ VectorPtr importFromArrowImpl(
         getTimestampUnit(arrowSchema),
         nulls,
         static_cast<const int64_t*>(arrowArray.buffers[1]),
+        arrowArray.length,
+        arrowArray.null_count);
+  } else if (type->isShortDecimal()) {
+    return createShortDecimalVector(
+        pool,
+        type,
+        nulls,
+        static_cast<const int128_t*>(arrowArray.buffers[1]),
         arrowArray.length,
         arrowArray.null_count);
   } else if (type->isRow()) {
