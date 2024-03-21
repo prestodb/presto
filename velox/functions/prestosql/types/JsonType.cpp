@@ -22,7 +22,7 @@
 
 #include "folly/CPortability.h"
 #include "folly/Conv.h"
-#include "folly/json/json.h"
+#include "folly/json.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/EvalCtx.h"

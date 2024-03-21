@@ -19,7 +19,7 @@
 #include <sstream>
 #include <string>
 
-#include <folly/json/dynamic.h>
+#include <folly/dynamic.h>
 
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/type/StringView.h"

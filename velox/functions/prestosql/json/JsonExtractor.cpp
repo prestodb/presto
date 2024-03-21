@@ -22,7 +22,7 @@
 
 #include "boost/algorithm/string/trim.hpp"
 #include "folly/String.h"
-#include "folly/json/json.h"
+#include "folly/json.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/json/JsonPathTokenizer.h"
 

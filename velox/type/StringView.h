@@ -23,7 +23,7 @@
 #include <folly/FBString.h>
 #include <folly/Format.h>
 #include <folly/Range.h>
-#include <folly/json/dynamic.h>
+#include <folly/dynamic.h>
 
 #include <fmt/format.h>
 

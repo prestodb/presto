@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <folly/json/dynamic.h>
+#include <folly/dynamic.h>
 #include <sstream>
 #include <string>
 #include "velox/common/base/BitUtil.h"

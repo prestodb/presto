@@ -18,7 +18,7 @@
 
 #include <type_traits>
 #include "folly/Optional.h"
-#include "folly/json/json.h"
+#include "folly/json.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/serialization/DeserializationRegistry.h"
 

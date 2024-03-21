@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <folly/json/dynamic.h>
+#include <folly/dynamic.h>
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/exec/Operator.h"
 
