@@ -22,7 +22,7 @@
 
 #include <folly/Demangle.h>
 #include <folly/FileUtil.h>
-#include <folly/dynamic.h>
+#include <folly/json/dynamic.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/vector/BuilderTypeUtils.h"

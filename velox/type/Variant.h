@@ -20,7 +20,7 @@
 
 #include <fmt/format.h>
 
-#include "folly/dynamic.h"
+#include "folly/json/dynamic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/VeloxException.h"
 #include "velox/type/Conversions.h"

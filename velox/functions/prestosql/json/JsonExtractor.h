@@ -19,7 +19,7 @@
 #include <string>
 
 #include "folly/Range.h"
-#include "folly/dynamic.h"
+#include "folly/json/dynamic.h"
 
 namespace facebook::velox::functions {
 

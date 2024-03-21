@@ -17,7 +17,7 @@
 #include "velox/dwio/dwrf/common/Config.h"
 
 #include "folly/String.h"
-#include "folly/dynamic.h"
+#include "folly/json/dynamic.h"
 
 namespace facebook::velox::dwrf {
 

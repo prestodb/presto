@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <folly/dynamic.h>
+#include <folly/json/dynamic.h>
 
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/base/VeloxException.h"

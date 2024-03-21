@@ -16,7 +16,7 @@
 
 #include "velox/common/serialization/Serializable.h"
 #include <gtest/gtest.h>
-#include "folly/json.h"
+#include "folly/json/json.h"
 
 using namespace ::facebook::velox;
 

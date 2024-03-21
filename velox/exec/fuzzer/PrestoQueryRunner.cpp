@@ -16,7 +16,7 @@
 
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include <cpr/cpr.h> // @manual
-#include <folly/json.h>
+#include <folly/json/json.h>
 #include <iostream>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"

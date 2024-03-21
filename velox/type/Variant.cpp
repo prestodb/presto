@@ -16,7 +16,7 @@
 
 #include "velox/type/Variant.h"
 #include <cfloat>
-#include "folly/json.h"
+#include "folly/json/json.h"
 #include "velox/common/encode/Base64.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/HugeInt.h"

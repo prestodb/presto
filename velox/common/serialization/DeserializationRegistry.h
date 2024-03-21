@@ -18,8 +18,8 @@
 #include <string>
 #include <type_traits>
 #include "Registry.h"
-#include "folly/dynamic.h"
 #include "folly/hash/Hash.h"
+#include "folly/json/dynamic.h"
 
 namespace facebook {
 namespace velox {

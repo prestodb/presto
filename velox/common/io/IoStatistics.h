@@ -22,7 +22,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <folly/dynamic.h>
+#include <folly/json/dynamic.h>
 
 namespace facebook::velox::io {
 

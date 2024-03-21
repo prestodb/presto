@@ -17,7 +17,7 @@
 #include "velox/dwio/dwrf/reader/FlatMapColumnReader.h"
 #include <folly/Conv.h>
 #include <folly/container/F14Set.h>
-#include <folly/json.h>
+#include <folly/json/json.h>
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/FlatMapHelper.h"

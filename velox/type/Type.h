@@ -20,7 +20,7 @@
 #include <folly/Format.h>
 #include <folly/Range.h>
 #include <folly/String.h>
-#include <folly/json.h>
+#include <folly/json/json.h>
 #include <cstdint>
 #include <cstring>
 #include <ctime>

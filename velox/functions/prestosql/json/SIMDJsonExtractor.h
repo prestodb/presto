@@ -19,7 +19,7 @@
 #include <string>
 
 #include "folly/Range.h"
-#include "folly/dynamic.h"
+#include "folly/json/dynamic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/json/JsonPathTokenizer.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
