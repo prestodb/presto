@@ -104,6 +104,7 @@ public class FeaturesConfig
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
+    private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -981,6 +982,18 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
     {
         this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
+        return this;
+    }
+
+    public boolean isLogPlansUsedInHistoryBasedOptimizer()
+    {
+        return logPlansUsedInHistoryBasedOptimizer;
+    }
+
+    @Config("optimizer.log-plans-used-in-history-based-optimizer")
+    public FeaturesConfig setLogPlansUsedInHistoryBasedOptimizer(boolean logPlansUsedInHistoryBasedOptimizer)
+    {
+        this.logPlansUsedInHistoryBasedOptimizer = logPlansUsedInHistoryBasedOptimizer;
         return this;
     }
 
