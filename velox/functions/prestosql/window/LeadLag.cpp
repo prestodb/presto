@@ -111,6 +111,9 @@ class LeadLagFunction : public exec::WindowFunction {
             constantOffset->as<ConstantVector<int64_t>>()->valueAt(0);
         VELOX_USER_CHECK_GE(
             constantOffset_.value(), 0, "Offset must be at least 0");
+        if (constantOffset_.value() == 0) {
+          isConstantOffsetZero_ = true;
+        }
       }
     } else {
       offsetIndex_ = offsetArg.index.value();
@@ -144,6 +147,11 @@ class LeadLagFunction : public exec::WindowFunction {
       std::fill(rowNumbers_.begin(), rowNumbers_.end(), kNullRow);
       return;
     }
+    // If the offset is 0 then it means always return the current row.
+    if (isConstantOffsetZero_) {
+      std::iota(rowNumbers_.begin(), rowNumbers_.end(), partitionOffset_);
+      return;
+    }
 
     auto constantOffsetValue = constantOffset_.value();
     // Set row number to kDefaultValueRow for out of range offset.
@@ -175,6 +183,11 @@ class LeadLagFunction : public exec::WindowFunction {
           rowNumbers_[i] = kDefaultValueRow;
           continue;
         }
+        // If the offset is 0 then it means always return the current row.
+        if (offset == 0) {
+          rowNumbers_[i] = partitionOffset_ + i;
+          continue;
+        }
 
         if constexpr (isLag) {
           if constexpr (ignoreNulls) {
@@ -204,6 +217,7 @@ class LeadLagFunction : public exec::WindowFunction {
     }
   }
 
+  // This method assumes the input offset > 0
   vector_size_t rowNumberIgnoreNull(
       const uint64_t* rawNulls,
       vector_size_t offset,
@@ -282,6 +296,7 @@ class LeadLagFunction : public exec::WindowFunction {
   // Value of the 'offset' if constant.
   std::optional<int64_t> constantOffset_;
   bool isConstantOffsetNull_ = false;
+  bool isConstantOffsetZero_ = false;
 
   // Index of the 'default_value' argument if default value is specified and not
   // constant.

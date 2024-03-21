@@ -184,6 +184,35 @@ TEST_P(LeadLagTest, ignoreNullsInt64Offset) {
   assertResults(fn(fmt::format("c0, {} IGNORE NULLS", largeOffset)));
 }
 
+TEST_P(LeadLagTest, zeroOffset) {
+  auto data = makeRowVector({
+      // Values with null.
+      makeNullableFlatVector<int32_t>(
+          {1, std::nullopt, 2, std::nullopt, std::nullopt}),
+      // Values without null.
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5}),
+      // Offsets.
+      makeFlatVector<int64_t>({0, 0, 0, 0, 0}),
+  });
+  createDuckDbTable({data});
+
+  auto assertResults = [&](const std::string& functionSql) {
+    auto queryInfo = buildWindowQuery({data}, functionSql, "order by c0", "");
+    SCOPED_TRACE(queryInfo.functionSql);
+    assertQuery(queryInfo.planNode, queryInfo.querySql);
+  };
+
+  assertResults(fn("c0, 0"));
+  assertResults(fn("c0, c2"));
+  assertResults(fn("c0, 0 IGNORE NULLS"));
+  assertResults(fn("c0, c2 IGNORE NULLS"));
+
+  assertResults(fn("c1, 0"));
+  assertResults(fn("c1, c2"));
+  assertResults(fn("c1, 0 IGNORE NULLS"));
+  assertResults(fn("c1, c2 IGNORE NULLS"));
+}
+
 TEST_P(LeadLagTest, defaultValue) {
   auto data = makeRowVector({
       // Values.
