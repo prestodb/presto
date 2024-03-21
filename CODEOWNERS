@@ -1,9 +1,38 @@
+#####################################################################
+### Presto code owners                                            ###
+#####################################################################
+
+#####################################################################
+# Fallback to committers group for areas that do not have code owners
 /** @prestodb/committers
-/presto-hudi @vinothchandar @7c00 @prestodb/committers
+
+#####################################################################
+# Prestissimo module
 /presto-native-execution @prestodb/team-velox
-/presto-parquet @shangxinli @prestodb/committers
-/presto-orc @sdruzkin @prestodb/committers
-/presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
+
+#####################################################################
+# Presto on Spark module
 /presto-spark* @shrinidhijoshi @prestodb/committers
+
+#####################################################################
+# Presto connectors and plugins
+
+# Hudi connector
+/presto-hudi @vinothchandar @7c00 @prestodb/committers
+
+# Ranger Hive plugin
+/presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
+
+#####################################################################
+# Presto modules and libraries
+
+# Parquet reader module
+/presto-parquet @shangxinli @prestodb/committers
+
+# ORC reader module
+/presto-orc @sdruzkin @prestodb/committers
+
+#####################################################################
+# Presto documentation
 /presto-docs @steveburnett @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
