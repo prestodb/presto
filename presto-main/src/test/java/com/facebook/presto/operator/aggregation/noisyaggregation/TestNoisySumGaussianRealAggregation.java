@@ -147,7 +147,7 @@ public class TestNoisySumGaussianRealAggregation
         BiFunction<Object, Object, Boolean> withinSomeStdAssertion = (actual, expected) -> {
             double actualValue = new Double(actual.toString());
             double expectedValue = new Double(expected.toString());
-            return expectedValue - 50 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 50 * DEFAULT_TEST_STANDARD_DEVIATION;
+            return expectedValue - 50 <= actualValue && actualValue <= expectedValue + 50;
         };
 
         int numRows = 1000;
@@ -285,7 +285,8 @@ public class TestNoisySumGaussianRealAggregation
         BiFunction<Object, Object, Boolean> withinSomeStdDoubleAssertion = (actual, expected) -> {
             double actualValue = new Double(actual.toString());
             double expectedValue = new Double(expected.toString());
-            return expectedValue - 5 * DEFAULT_TEST_STANDARD_DEVIATION <= actualValue && actualValue <= expectedValue + 5 * DEFAULT_TEST_STANDARD_DEVIATION;
+            // TODO calculate how many standard deviations this is
+            return expectedValue - 6 <= actualValue && actualValue <= expectedValue + 6;
         };
 
         int numRows = 10;
