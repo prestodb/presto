@@ -28,6 +28,7 @@ add_library(
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
+  SystemConnector.cpp
   TaskManager.cpp
   TaskResource.cpp
   PeriodicHeartbeatManager.cpp

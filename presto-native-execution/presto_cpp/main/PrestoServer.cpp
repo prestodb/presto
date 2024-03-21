@@ -21,6 +21,7 @@
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
+#include "presto_cpp/main/SystemConnector.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -242,6 +243,12 @@ void PrestoServer::run() {
       std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("$system"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("system"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
   initializeVeloxMemory();
   initializeThreadPools();
@@ -448,6 +455,7 @@ void PrestoServer::run() {
   }
   prestoServerOperations_ =
       std::make_unique<PrestoServerOperations>(taskManager_.get(), this);
+  registerSystemConnector();
 
   // The endpoint used by operation in production.
   httpServer_->registerGet(
@@ -947,6 +955,19 @@ std::vector<std::string> PrestoServer::registerConnectors(
     }
   }
   return catalogNames;
+}
+
+void PrestoServer::registerSystemConnector() {
+  PRESTO_STARTUP_LOG(INFO) << "Registering system catalog "
+                           << " using connector SystemConnector";
+  auto systemConnector = std::dynamic_pointer_cast<SystemConnector>(
+      facebook::velox::connector::getConnectorFactory("$system")->newConnector(
+          "$system@system",
+          std::move(std::make_shared<const velox::core::MemConfig>()),
+          connectorIoExecutor_.get()));
+  VELOX_CHECK(systemConnector);
+  systemConnector->setTaskManager(taskManager_.get());
+  velox::connector::registerConnector(systemConnector);
 }
 
 void PrestoServer::unregisterConnectors() {

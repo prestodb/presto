@@ -98,6 +98,9 @@ struct PrestoTask {
   uint64_t lastHeartbeatMs{0};
   uint64_t lastTaskStatsUpdateMs = {0};
   uint64_t lastMemoryReservation = {0};
+  uint64_t createTime{0};
+  uint64_t firstStartTime{0};
+  uint64_t lastEndTime{0};
   mutable std::mutex mutex;
 
   /// Error before task is created or when task is being created.
