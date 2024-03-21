@@ -33,38 +33,28 @@ TEST_F(QueryConfigTest, emptyConfig) {
   auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
   const QueryConfig& config = queryCtx->queryConfig();
 
-  ASSERT_FALSE(config.codegenEnabled());
-  ASSERT_EQ(config.codegenConfigurationFilePath(), "");
   ASSERT_FALSE(config.isLegacyCast());
 }
 
 TEST_F(QueryConfigTest, setConfig) {
-  std::string path = "/tmp/CodeGenConfig";
+  std::string path = "/tmp/setConfig";
   std::unordered_map<std::string, std::string> configData(
-      {{QueryConfig::kCodegenEnabled, "true"},
-       {QueryConfig::kCodegenConfigurationFilePath, path},
-       {QueryConfig::kLegacyCast, "true"}});
+      {{QueryConfig::kLegacyCast, "true"}});
   auto queryCtx = std::make_shared<QueryCtx>(nullptr, std::move(configData));
   const QueryConfig& config = queryCtx->queryConfig();
 
-  ASSERT_TRUE(config.codegenEnabled());
-  ASSERT_EQ(config.codegenConfigurationFilePath(), path);
   ASSERT_TRUE(config.isLegacyCast());
 }
 
 TEST_F(QueryConfigTest, memConfig) {
   const std::string tz = "timezone1";
   const std::unordered_map<std::string, std::string> configData(
-      {{QueryConfig::kCodegenEnabled, "true"},
-       {QueryConfig::kSessionTimezone, tz}});
+      {{QueryConfig::kSessionTimezone, tz}});
 
   {
     MemConfig cfg{configData};
     MemConfig cfg2{};
     auto configDataCopy = configData;
-    MemConfig cfg3{std::move(configDataCopy)};
-    ASSERT_TRUE(cfg.Config::get<bool>(QueryConfig::kCodegenEnabled));
-    ASSERT_TRUE(cfg3.Config::get<bool>(QueryConfig::kCodegenEnabled));
     ASSERT_EQ(
         tz,
         cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
@@ -78,14 +68,10 @@ TEST_F(QueryConfigTest, memConfig) {
     MemConfigMutable cfg2{};
     auto configDataCopy = configData;
     MemConfigMutable cfg3{std::move(configDataCopy)};
-    ASSERT_TRUE(cfg.Config::get<bool>(QueryConfig::kCodegenEnabled).value());
-    ASSERT_TRUE(cfg3.Config::get<bool>(QueryConfig::kCodegenEnabled).value());
     ASSERT_EQ(
         tz,
         cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
     ASSERT_FALSE(cfg.Config::get<std::string>("missing-entry").has_value());
-    ASSERT_NO_THROW(cfg.setValue(QueryConfig::kCodegenEnabled, "false"));
-    ASSERT_FALSE(cfg.Config::get<bool>(QueryConfig::kCodegenEnabled).value());
     const std::string tz2 = "timezone2";
     ASSERT_NO_THROW(cfg.setValue(QueryConfig::kSessionTimezone, tz2));
     ASSERT_EQ(

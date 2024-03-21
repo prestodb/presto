@@ -793,14 +793,6 @@ class BaseVector {
     return toString(from, to, "\n");
   }
 
-  void setCodegenOutput() {
-    isCodegenOutput_ = true;
-  }
-
-  bool isCodegenOutput() const {
-    return isCodegenOutput_;
-  }
-
   /// Marks the vector as containing or being a lazy vector and being wrapped.
   /// Should only be used if 'this' is lazy or has a nested lazy vector.
   /// Returns true if this is the first time it was wrapped, else returns false.
@@ -933,8 +925,6 @@ class BaseVector {
       const TypePtr& type,
       vector_size_t size,
       velox::memory::MemoryPool* pool);
-
-  bool isCodegenOutput_ = false;
 
   friend class LazyVector;
 

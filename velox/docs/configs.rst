@@ -357,29 +357,6 @@ Table Writer
      - task_writer_count
      - The number of parallel table writer threads per task for bucketed table writes. If not set, use 'task_writer_count' as default.
 
-Codegen Configuration
----------------------
-.. list-table::
-   :widths: 20 10 10 70
-   :header-rows: 1
-
-   * - Property Name
-     - Type
-     - Default Value
-     - Description
-   * - codegen.enabled
-     - boolean
-     - false
-     - Along with `codegen.configuration_file_path` enables codegen in task execution path.
-   * - codegen.configuration_file_path
-     - string
-     -
-     - A path to the file contaning codegen options.
-   * - codegen.lazy_loading
-     - boolean
-     - true
-     - Triggers codegen initialization tests upon loading if false. Otherwise skips them.
-
 Hive Connector
 --------------
 Hive Connector config is initialized on velox runtime startup and is shared among queries as the default config.

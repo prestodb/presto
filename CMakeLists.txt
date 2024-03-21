@@ -102,7 +102,6 @@ option(VELOX_ENABLE_PARQUET "Enable Parquet support" OFF)
 option(VELOX_ENABLE_ARROW "Enable Arrow support" OFF)
 option(VELOX_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
 option(VELOX_ENABLE_CCACHE "Use ccache if installed." ON)
-option(VELOX_ENABLE_CODEGEN_SUPPORT "Enable experimental codegen support." OFF)
 
 option(VELOX_BUILD_TEST_UTILS "Builds Velox test utilities" OFF)
 option(VELOX_BUILD_VECTOR_TEST_UTILS "Builds Velox vector test utilities" OFF)
@@ -133,7 +132,6 @@ if(${VELOX_BUILD_MINIMAL})
   set(VELOX_ENABLE_GCS OFF)
   set(VELOX_ENABLE_ABFS OFF)
   set(VELOX_ENABLE_SUBSTRAIT OFF)
-  set(VELOX_ENABLE_CODEGEN_SUPPORT OFF)
 endif()
 
 if(${VELOX_BUILD_TESTING})
@@ -183,7 +181,6 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(VELOX_ENABLE_GCS OFF)
   set(VELOX_ENABLE_ABFS OFF)
   set(VELOX_ENABLE_SUBSTRAIT OFF)
-  set(VELOX_ENABLE_CODEGEN_SUPPORT OFF)
   set(VELOX_ENABLE_BENCHMARKS_BASIC OFF)
   set(VELOX_ENABLE_BENCHMARKS OFF)
 endif()
@@ -264,11 +261,6 @@ if(VELOX_ENABLE_PARQUET)
   set(VELOX_ENABLE_ARROW ON)
 endif()
 
-# define processor variable for conditional compilation
-if(${VELOX_ENABLE_CODEGEN_SUPPORT})
-  add_compile_definitions(CODEGEN_ENABLED=1)
-endif()
-
 # make buildPartitionBounds_ a vector int64 instead of int32 to avoid integer
 # overflow
 if(${VELOX_ENABLE_INT64_BUILD_PARTITION_BOUND})
@@ -283,7 +275,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 endif()
 
 if(UNIX AND NOT APPLE)
-  # codegen linker flags, -export-dynamic for rtti
+  # linker flags, -export-dynamic for rtti
   add_link_options("-Wl,-export-dynamic")
 endif()
 
@@ -477,11 +469,10 @@ else()
   set(FOLLY_BENCHMARK Folly::follybenchmark)
 endif()
 
-# DWIO (ORC/DWRF), Substrait and experimental/codegen depend on protobuf.
+# DWIO (ORC/DWRF) and Substrait depend on protobuf.
 if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
    OR ${VELOX_ENABLE_HIVE_CONNECTOR}
-   OR ${VELOX_ENABLE_SUBSTRAIT}
-   OR ${VELOX_ENABLE_CODEGEN_SUPPORT})
+   OR ${VELOX_ENABLE_SUBSTRAIT})
   # Locate or build protobuf.
   set_source(Protobuf)
   resolve_dependency(Protobuf 3.21 EXACT)
