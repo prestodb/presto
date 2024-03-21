@@ -36,7 +36,7 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_DEPS="ninja flex bison cmake ccache protobuf@21 icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl libsodium"
 
-FB_OS_VERSION="v2023.12.04.00"
+FB_OS_VERSION="v2024.02.26.00"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
