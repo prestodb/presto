@@ -765,6 +765,32 @@ TEST_F(ParquetReaderTest, varcharFilters) {
       "nation.parquet", rowType, std::move(filters), expected);
 }
 
+TEST_F(ParquetReaderTest, readDifferentEncodingsWithFilter) {
+  FilterMap filters;
+  filters.insert({"n_1", exec::equal(1)});
+  auto rowType = ROW({"n_0", "n_1", "n_2"}, {INTEGER(), INTEGER(), VARCHAR()});
+  auto expected = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 1, 2, 3, 4, 6, 9}),
+      makeFlatVector<int32_t>(10, [](auto /*row*/) { return 1; }),
+      makeNullableFlatVector<std::string>(
+          {"A",
+           "B",
+           std::nullopt,
+           std::nullopt,
+           "A",
+           "B",
+           std::nullopt,
+           std::nullopt,
+           "F",
+           std::nullopt}),
+  });
+  assertReadWithFilters(
+      "different_encodings_with_filter.parquet",
+      rowType,
+      std::move(filters),
+      expected);
+}
+
 // This test is to verify filterRowGroups() doesn't throw the fileOffset Velox
 // check failure
 TEST_F(ParquetReaderTest, filterRowGroups) {

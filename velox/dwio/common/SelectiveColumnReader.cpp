@@ -111,6 +111,7 @@ void SelectiveColumnReader::prepareNulls(
       }
     }
   }
+  returnReaderNulls_ = false;
   if (resultNulls_ && resultNulls_->unique() &&
       resultNulls_->capacity() >= bits::nbytes(numRows) + simd::kPadding) {
     // Clear whole capacity because future uses could hit
