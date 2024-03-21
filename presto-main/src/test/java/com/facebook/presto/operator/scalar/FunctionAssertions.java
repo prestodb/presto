@@ -221,12 +221,22 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this.session = requireNonNull(session, "session is null");
+        this(session, featuresConfig, false);
+    }
+
+    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, boolean refreshSession)
+    {
+        requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig);
+        if (refreshSession) {
+            this.session = runner.getDefaultSession();
+        }
+        else {
+            this.session = session;
+        }
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
     }
-
     public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         return runner.getFunctionAndTypeManager();
@@ -486,6 +496,9 @@ public final class FunctionAssertions
                 failure.addSuppressed(e);
                 throw failure;
             }
+        }
+        catch (AssertionError e) {
+            assertEquals(e.getMessage(), message);
         }
     }
 
