@@ -32,6 +32,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -522,7 +523,8 @@ public class TestSourcePartitionedScheduler
                 queryExecutor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                new DynamicFilterService());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)

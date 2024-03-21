@@ -17,6 +17,8 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.operator.DynamicFilterCollect;
+import com.facebook.presto.operator.DynamicPageFilter;
 import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -141,20 +143,28 @@ public class ExpressionCompiler
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, sessionFunctions, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, sessionFunctions, classNameSuffix, OptionalInt.empty(), Optional.empty());
     }
 
-    private Supplier<PageProcessor> compilePageProcessor(
+    public Supplier<PageProcessor> compilePageProcessor(
             SqlFunctionProperties sqlFunctionProperties,
             Optional<RowExpression> filter,
             List<? extends RowExpression> projections,
             boolean isOptimizeCommonSubExpression,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Optional<String> classNameSuffix,
-            OptionalInt initialBatchSize)
+            OptionalInt initialBatchSize,
+            Optional<DynamicFilterCollect> dynamicFilterCollect)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression ->
-                pageFunctionCompiler.compileFilter(sqlFunctionProperties, sessionFunctions, expression, isOptimizeCommonSubExpression, classNameSuffix));
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> {
+            Supplier<PageFilter> pageFilterSupplier = pageFunctionCompiler.compileFilter(sqlFunctionProperties, sessionFunctions, expression, isOptimizeCommonSubExpression, classNameSuffix);
+            if (dynamicFilterCollect.isPresent()) {
+                return () -> new DynamicPageFilter(sqlFunctionProperties, Optional.of(pageFilterSupplier.get()), dynamicFilterCollect.get(), pageFunctionCompiler, classNameSuffix);
+            }
+            else {
+                return pageFilterSupplier;
+            }
+        });
         List<Supplier<PageProjectionWithOutputs>> pageProjectionSuppliers = pageFunctionCompiler.compileProjections(
                 sqlFunctionProperties,
                 sessionFunctions,
@@ -164,6 +174,10 @@ public class ExpressionCompiler
 
         return () -> {
             Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            if (dynamicFilterCollect.isPresent()) {
+                filterFunction = Optional.of(new DynamicPageFilter(sqlFunctionProperties, Optional.of(filterFunction.get()), dynamicFilterCollect.get(), pageFunctionCompiler, classNameSuffix));
+            }
+
             List<PageProjectionWithOutputs> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
@@ -180,13 +194,13 @@ public class ExpressionCompiler
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, int initialBatchSize)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), Optional.empty(), OptionalInt.of(initialBatchSize), Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), classNameSuffix);
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), classNameSuffix, OptionalInt.empty(), Optional.empty());
     }
 
     private <T> Class<? extends T> compile(

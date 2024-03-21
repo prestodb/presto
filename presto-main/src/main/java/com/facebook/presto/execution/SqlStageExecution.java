@@ -22,14 +22,18 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +64,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
+import static com.facebook.presto.execution.StageExecutionState.RUNNING;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.StageExecutionState.SCHEDULING_SPLITS;
 import static com.facebook.presto.failureDetector.FailureDetector.State.GONE;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -137,6 +144,9 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
 
+    private final DynamicFilterService dynamicFilterService;
+    private Boolean dynamicFilterSchedulingInfoPropagated = new Boolean(false);
+
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
             PlanFragment fragment,
@@ -147,7 +157,8 @@ public final class SqlStageExecution
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            DynamicFilterService dynamicFilterService)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -158,6 +169,7 @@ public final class SqlStageExecution
         requireNonNull(failureDetector, "failureDetector is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(dynamicFilterService, "dynamicFilter is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
@@ -169,7 +181,8 @@ public final class SqlStageExecution
                 executor,
                 failureDetector,
                 getMaxFailedTaskPercentage(session),
-                tableWriteInfo);
+                tableWriteInfo,
+                dynamicFilterService);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -184,7 +197,8 @@ public final class SqlStageExecution
             Executor executor,
             FailureDetector failureDetector,
             double maxFailedTaskPercentage,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            DynamicFilterService dynamicFilterService)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -196,6 +210,7 @@ public final class SqlStageExecution
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo);
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
+        this.dynamicFilterService = dynamicFilterService;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : planFragment.getRemoteSourceNodes()) {
@@ -205,6 +220,17 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
         this.totalLifespans = planFragment.getStageExecutionDescriptor().getTotalLifespans();
+
+        addStateChangeListener(newState -> {
+            synchronized (dynamicFilterSchedulingInfoPropagated) {
+                if (dynamicFilterSchedulingInfoPropagated || !(newState == SCHEDULING_SPLITS || newState == SCHEDULED || newState == RUNNING)) {
+                    return;
+                }
+                dynamicFilterSchedulingInfoPropagated = true;
+            }
+
+            traverseNodesForDynamicFiltering(ImmutableList.of(planFragment.getRoot()));
+        });
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -212,6 +238,18 @@ public final class SqlStageExecution
     {
         stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
         completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
+    }
+
+    private void traverseNodesForDynamicFiltering(List<PlanNode> nodes)
+    {
+        for (PlanNode node : nodes) {
+            if (node instanceof JoinNode) {
+                JoinNode joinNode = (JoinNode) node;
+                dynamicFilterService.registerTasks(joinNode.getId().toString(), allTasks);
+            }
+
+            traverseNodesForDynamicFiltering(node.getSources());
+        }
     }
 
     public StageExecutionId getStageExecutionId()
@@ -286,7 +324,7 @@ public final class SqlStageExecution
             return;
         }
 
-        if (getAllTasks().stream().anyMatch(task -> getState() == StageExecutionState.RUNNING)) {
+        if (getAllTasks().stream().anyMatch(task -> getState() == RUNNING)) {
             stateMachine.transitionToRunning();
         }
         if (finishedTasks.size() == allTasks.size()) {
@@ -604,7 +642,7 @@ public final class SqlStageExecution
 
             // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
             stageExecutionState = getState();
-            if (stageExecutionState == StageExecutionState.SCHEDULED || stageExecutionState == StageExecutionState.RUNNING) {
+            if (stageExecutionState == SCHEDULED || stageExecutionState == RUNNING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
                 }

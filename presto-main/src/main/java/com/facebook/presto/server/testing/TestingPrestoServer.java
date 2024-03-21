@@ -268,7 +268,7 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
-                .add(new ServerMainModule(parserOptions))
+                .add(new ServerMainModule(parserOptions, discoveryUri == null))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);

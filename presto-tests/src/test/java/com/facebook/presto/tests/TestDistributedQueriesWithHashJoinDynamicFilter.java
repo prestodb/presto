@@ -16,19 +16,15 @@ package com.facebook.presto.tests;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 
-import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-
-public class TestDistributedQueriesWithDynamicFilter
+public class TestDistributedQueriesWithHashJoinDynamicFilter
         extends AbstractTestQueries
 {
-    public TestDistributedQueriesWithDynamicFilter()
+    public TestDistributedQueriesWithHashJoinDynamicFilter()
     {
         super(() -> TpchQueryRunnerBuilder.builder()
-                .amendSession(builder -> builder.setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
-                        .setSystemProperty(SystemSessionProperties.ENABLE_HASH_JOIN_DYNAMIC_FILTERING, "true")
+                .amendSession(builder -> builder.setSystemProperty(SystemSessionProperties.ENABLE_HASH_JOIN_DYNAMIC_FILTERING, "true")
                         .setSystemProperty(SystemSessionProperties.BLOOM_FILTER_FOR_DYNAMIC_FILTERING_SIZE, "100kB")
-                        .setSystemProperty(SystemSessionProperties.BLOOM_FILTER_FOR_DYNAMIC_FILTERING_FALSE_POSITIVE_PROBABILITY, "0.03")
-                        .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true"))
+                        .setSystemProperty(SystemSessionProperties.BLOOM_FILTER_FOR_DYNAMIC_FILTERING_FALSE_POSITIVE_PROBABILITY, "0.03"))
                 .build());
     }
 }

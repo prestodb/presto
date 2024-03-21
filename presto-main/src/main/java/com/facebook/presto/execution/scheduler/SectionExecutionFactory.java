@@ -30,6 +30,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.DynamicFilterService;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -159,7 +160,8 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            DynamicFilterService dynamicFilterService)
     {
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
@@ -174,7 +176,8 @@ public class SectionExecutionFactory
                 summarizeTaskInfo,
                 remoteTaskFactory,
                 splitSourceFactory,
-                attemptId);
+                attemptId,
+                dynamicFilterService);
         StageExecutionAndScheduler rootStage = getLast(sectionStages);
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
@@ -193,7 +196,8 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            DynamicFilterService dynamicFilterService)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stageExecutionAndSchedulers = ImmutableList.builder();
 
@@ -209,7 +213,8 @@ public class SectionExecutionFactory
                 executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                dynamicFilterService);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
@@ -228,7 +233,8 @@ public class SectionExecutionFactory
                     summarizeTaskInfo,
                     remoteTaskFactory,
                     splitSourceFactory,
-                    attemptId);
+                    attemptId,
+                    dynamicFilterService);
             stageExecutionAndSchedulers.addAll(subTree);
             childStagesBuilder.add(getLast(subTree).getStageExecution());
         }
