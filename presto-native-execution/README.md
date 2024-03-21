@@ -88,15 +88,14 @@ A reminder of the available Makefile targets can be obtained using `make help`
     header-check            Check for license header issues on the current branch
     tidy-fix                Fix clang-tidy issues in the current branch
     tidy-check              Check clang-tidy issues in the current branch
-    linux-container         Build the CircleCi linux container from scratch
-    runtime-container       Build the software in container using current git commit
+    dependency-image        Build an image with all the dependencies installed
+    runtime-image           Build an image with the binary and shared libraries. Requires the dependency image
     help                    Show the help messages
 ```
 
 ## Build using Dockerfile
-Run `make runtime-container` in the presto-native-execution root directory
-to build run-ready containerized version of Prestissimo. Information on available
-configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
+Run `make dependency-image && make runtime-image` in the presto-native-execution root directory
+to build a runtime image of Prestissimo. More information [can be found here.](scripts/dockerfiles/README.md)
 
 ## Development
 ### Setup Presto with [IntelliJ IDEA](https://www.jetbrains.com/idea/) and Prestissimo with [CLion](https://www.jetbrains.com/clion/)
