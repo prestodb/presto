@@ -87,6 +87,10 @@ public class HistoryBasedPlanStatisticsCalculator
         if (historyBasedStatisticsCacheManager.historyBasedQueryRegistrationTimeout(session.getQueryId())) {
             return false;
         }
+        // record the statsEquivalentPlanNode of root node, and do serialization if enabled when query completes to avoid introduce additional latency for HBO optimizer
+        if (root.getStatsEquivalentPlanNode().isPresent()) {
+            historyBasedStatisticsCacheManager.setStatsEquivalentPlanRootNode(session.getQueryId(), root.getStatsEquivalentPlanNode().get());
+        }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
         boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session);
@@ -158,7 +162,6 @@ public class HistoryBasedPlanStatisticsCalculator
 
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
         ImmutableMap.Builder<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashesBuilder = ImmutableMap.builder();
-
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, cacheOnly);
             if (hash.isPresent()) {
