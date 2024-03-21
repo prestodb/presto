@@ -634,7 +634,7 @@ public class ParquetTester
                     assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
                     assertTrue(tempFile.getFile().delete());
                 }
-                catch (AssertionError e) {
+                catch (Throwable e) {
                     String failedParquetFilesDir = System.getProperty("failed_parquet_files_dir");
                     if (failedParquetFilesDir != null) {
                         System.out.println("Trying to copy test file to " + failedParquetFilesDir);
