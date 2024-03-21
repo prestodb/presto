@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.h2.Driver;
 
 import java.sql.Connection;
@@ -34,10 +35,12 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 final class TestingDatabase
         implements AutoCloseable
 {
+    public static final Duration LOCK_TIMEOUT = new Duration(30, SECONDS);
     public static final String CONNECTOR_ID = "test";
     private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
 
@@ -47,7 +50,7 @@ final class TestingDatabase
     public TestingDatabase()
             throws SQLException
     {
-        String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt();
+        String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt() + ";LOCK_TIMEOUT=" + LOCK_TIMEOUT.toMillis();
         jdbcClient = new BaseJdbcClient(
                 new JdbcConnectorId(CONNECTOR_ID),
                 new BaseJdbcConfig(),
