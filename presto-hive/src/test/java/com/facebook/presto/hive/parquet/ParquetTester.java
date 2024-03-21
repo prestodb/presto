@@ -608,13 +608,13 @@ public class ParquetTester
             else {
                 String veloxParquetReaderPath = System.getProperty("velox_parquet_reader_path");
                 checkNotNull(veloxParquetReaderPath, "velox_parquet_reader_path is null. Set -Dvelox_parquet_reader_path=<path to velox-parquet-reader>");
-                String inputPath = dataFile.getAbsolutePath();
+                String parquetFile = dataFile.getAbsolutePath();
 
                 assertFalse(tempFile.getFile().exists());
                 assertTrue(tempFile.getFile().createNewFile());
                 String outputPath = tempFile.getFile().getAbsolutePath();
 
-                ProcessBuilder processBuilder = new ProcessBuilder(veloxParquetReaderPath, inputPath, outputPath);
+                ProcessBuilder processBuilder = new ProcessBuilder(veloxParquetReaderPath, parquetFile, outputPath);
                 processBuilder.redirectErrorStream(true);
                 Process process = processBuilder.start();
 
@@ -642,8 +642,9 @@ public class ParquetTester
                         Files.createDirectories(path);
 
                         Preconditions.checkState(dataFile.exists(), "dataFile doesn't exist: " + dataFile.getAbsolutePath());
-                        Files.copy(dataFile.toPath(), Paths.get(failedParquetFilesDir + "/" + tempFile.getFile().getName()));
-                        System.out.println(String.format("Succeeded to copy test file %s to %s", dataFile.getAbsolutePath(), failedParquetFilesDir));
+                        java.nio.file.Path failedFile = Paths.get(failedParquetFilesDir + "/" + dataFile.getName());
+                        Files.copy(dataFile.toPath(), failedFile);
+                        System.out.println(String.format("Succeeded to copy test file %s to %s", dataFile.getAbsolutePath(), failedFile));
                     }
                     throw e;
                 }
