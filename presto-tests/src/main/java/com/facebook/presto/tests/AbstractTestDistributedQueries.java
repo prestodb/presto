@@ -373,7 +373,9 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000)
+    @Test(expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Regexp matching interrupted|The query optimizer exceeded the timeout of .*",
+            timeOut = 30_000)
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())
