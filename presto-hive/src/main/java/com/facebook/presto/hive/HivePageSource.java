@@ -91,6 +91,9 @@ public class HivePageSource
             if (columnMapping.getCoercionFrom().isPresent()) {
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
+            else if ("$row_id".equals(name)) {
+                coercers[columnIndex] = new RowIDCoercer();
+            }
 
             if (columnMapping.getKind() == PREFILLED) {
                 prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name, hiveStorageTimeZone);
