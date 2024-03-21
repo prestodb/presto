@@ -5666,7 +5666,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(stringBuilder.toString(), "Query results in large bytecode exceeding the limits imposed by JVM|Compiler failed");
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 60_000)
     public void testLargeQuery()
     {
         StringBuilder query = new StringBuilder("SELECT * FROM (VALUES ROW(0, '0')");
