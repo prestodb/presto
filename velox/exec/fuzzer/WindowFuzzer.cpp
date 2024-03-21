@@ -384,19 +384,17 @@ bool WindowFuzzer::verifyWindow(
     bool customVerification,
     const std::shared_ptr<ResultVerifier>& customVerifier,
     bool enableWindowVerification) {
-  auto frame = getFrame(partitionKeys, sortingKeysAndOrders, frameClause);
-  auto plan = PlanBuilder()
-                  .values(input)
-                  .window({fmt::format("{} over ({})", functionCall, frame)})
-                  .planNode();
-  if (customVerifier) {
-    initializeVerifier(plan, customVerifier, input, partitionKeys, frame);
-  }
   SCOPE_EXIT {
     if (customVerifier) {
       customVerifier->reset();
     }
   };
+
+  auto frame = getFrame(partitionKeys, sortingKeysAndOrders, frameClause);
+  auto plan = PlanBuilder()
+                  .values(input)
+                  .window({fmt::format("{} over ({})", functionCall, frame)})
+                  .planNode();
 
   if (persistAndRunOnce_) {
     persistReproInfo({{plan, {}}}, reproPersistPath_);
@@ -434,6 +432,7 @@ bool WindowFuzzer::verifyWindow(
         VELOX_CHECK(
             customVerifier->supportsVerify(),
             "Window fuzzer only uses custom verify() methods.");
+        initializeVerifier(plan, customVerifier, input, partitionKeys, frame);
         customVerifier->verify(resultOrError.result);
       }
     }
