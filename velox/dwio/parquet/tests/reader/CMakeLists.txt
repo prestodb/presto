@@ -12,15 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_dwio_parquet_reader_test ParquetReaderTest.cpp)
-add_test(
-  NAME velox_dwio_parquet_reader_test
-  COMMAND velox_dwio_parquet_reader_test
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(
-  velox_dwio_parquet_reader_test velox_dwio_native_parquet_reader
-  velox_link_libs ${TEST_LINK_LIBS})
-
 add_executable(velox_dwio_parquet_page_reader_test ParquetPageReaderTest.cpp)
 add_test(
   NAME velox_dwio_parquet_page_reader_test
@@ -43,16 +34,40 @@ target_link_libraries(
   ZLIB::ZLIB
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_parquet_reader_benchmark ParquetReaderBenchmark.cpp)
+add_library(velox_dwio_parquet_reader_benchmark_lib ParquetReaderBenchmark.cpp)
 target_link_libraries(
-  velox_dwio_parquet_reader_benchmark
+  velox_dwio_parquet_reader_benchmark_lib
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
   velox_exec_test_lib
   velox_exec
   velox_hive_connector
   Folly::folly
-  ${FOLLY_BENCHMARK})
+  ${FOLLY_BENCHMARK}
+  ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_parquet_reader_benchmark
+               ParquetReaderBenchmarkMain.cpp)
+target_link_libraries(
+  velox_dwio_parquet_reader_benchmark
+  velox_dwio_parquet_reader_benchmark_lib
+  velox_dwio_parquet_reader
+  velox_dwio_parquet_writer
+  velox_exec_test_lib
+  velox_exec
+  velox_hive_connector
+  Folly::folly
+  ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_parquet_reader_test ParquetReaderTest.cpp
+                                              ParquetReaderBenchmarkTest.cpp)
+add_test(
+  NAME velox_dwio_parquet_reader_test
+  COMMAND velox_dwio_parquet_reader_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(
+  velox_dwio_parquet_reader_test velox_dwio_native_parquet_reader
+  velox_dwio_parquet_reader_benchmark_lib velox_link_libs ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_parquet_structure_decoder_test
                NestedStructureDecoderTest.cpp)
