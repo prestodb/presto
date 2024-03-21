@@ -116,8 +116,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterMemoryCacheTotalPrefetchBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
       kCounterMemoryCacheSumEvictScore, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterMemoryCacheNumCumulativeHit, facebook::velox::StatType::AVG);
