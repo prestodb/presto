@@ -46,7 +46,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-class H2TestUtil
+public class H2TestUtil
 {
     private static final String CONFIGURATION_MANAGER_TYPE = "h2";
     public static final String TEST_ENVIRONMENT = "test_environment";
