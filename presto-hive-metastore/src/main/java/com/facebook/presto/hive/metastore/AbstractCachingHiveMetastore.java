@@ -81,6 +81,8 @@ public abstract class AbstractCachingHiveMetastore
         }
     }
 
+    protected abstract void invalidateAll();
+
     protected abstract void invalidateDatabase(String databaseName);
 
     @Override
