@@ -635,6 +635,8 @@ public class ParquetTester
                     assertTrue(tempFile.getFile().delete());
                 }
                 catch (Throwable e) {
+                    System.out.println("presto columnNames: " + columnNames);
+                    System.out.println("presto columnTypes: " + columnTypes);
                     String failedParquetFilesDir = System.getProperty("failed_parquet_files_dir");
                     if (failedParquetFilesDir != null) {
                         System.out.println("Trying to copy test file to " + failedParquetFilesDir);
