@@ -18,7 +18,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.google.common.primitives.Longs;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -27,14 +26,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
 {
-    private HiveCoercer coercer;
     private final byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
-
-    @BeforeMethod
-    public void setUp()
-    {
-        coercer = new RowIDCoercer(rowIdPartitionComponent);
-    }
+    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent);
 
     @Test
     public void testGetToType()
