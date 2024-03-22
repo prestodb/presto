@@ -485,10 +485,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   }
 
   if (taskStats.memoryReclaimCount > 0) {
-    taskRuntimeStats["memoryReclaimCount"].addValue(
+    taskRuntimeStats["taskMemoryReclaimCount"].addValue(
         taskStats.memoryReclaimCount);
     taskRuntimeStats.insert(
-        {"memoryReclaimWallNanos", fromMillis(taskStats.memoryReclaimMs)});
+        {"taskMemoryReclaimWallNanos", fromMillis(taskStats.memoryReclaimMs)});
   }
 
   taskRuntimeStats["createTime"].addValue(taskStats.executionStartTimeMs);
