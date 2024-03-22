@@ -21,77 +21,71 @@
 namespace facebook::velox::functions {
 
 /// Fast path for constant primitive type keys: map_subset(m, array[1, 2, 3]).
-#define VELOX_MAP_SUBSET_PRIMITIVE_FUNCTION(TName, TType)           \
-  template <typename TExec>                                         \
-  struct MapSubset##TName##Function {                               \
-    VELOX_DEFINE_FUNCTION_TYPES(TExec);                             \
-                                                                    \
-    void initialize(                                                \
-        const std::vector<TypePtr>& /*inputTypes*/,                 \
-        const core::QueryConfig& /*config*/,                        \
-        const arg_type<Map<TType, Generic<T1>>>* /*inputMap*/,      \
-        const arg_type<Array<TType>>* keys) {                       \
-      if (keys != nullptr) {                                        \
-        constantSearchKeys_ = true;                                 \
-        initializeSearchKeys(*keys);                                \
-      }                                                             \
-    }                                                               \
-                                                                    \
-    void call(                                                      \
-        out_type<Map<TType, Generic<T1>>>& out,                     \
-        const arg_type<Map<TType, Generic<T1>>>& inputMap,          \
-        const arg_type<Array<TType>>& keys) {                       \
-      if (keys.empty()) {                                           \
-        return;                                                     \
-      }                                                             \
-                                                                    \
-      if (!constantSearchKeys_) {                                   \
-        searchKeys_.clear();                                        \
-        initializeSearchKeys(keys);                                 \
-      }                                                             \
-                                                                    \
-      if (searchKeys_.empty()) {                                    \
-        return;                                                     \
-      }                                                             \
-                                                                    \
-      auto toFind = searchKeys_.size();                             \
-                                                                    \
-      for (const auto& entry : inputMap) {                          \
-        if (!searchKeys_.contains(entry.first)) {                   \
-          continue;                                                 \
-        }                                                           \
-                                                                    \
-        if (!entry.second.has_value()) {                            \
-          auto& keyWriter = out.add_null();                         \
-          keyWriter = entry.first;                                  \
-        } else {                                                    \
-          auto [keyWriter, valueWriter] = out.add_item();           \
-          keyWriter = entry.first;                                  \
-          valueWriter.copy_from(entry.second.value());              \
-        }                                                           \
-                                                                    \
-        --toFind;                                                   \
-        if (toFind == 0) {                                          \
-          break;                                                    \
-        }                                                           \
-      }                                                             \
-    }                                                               \
-                                                                    \
-   private:                                                         \
-    void initializeSearchKeys(const arg_type<Array<TType>>& keys) { \
-      for (const auto& key : keys.skipNulls()) {                    \
-        searchKeys_.emplace(key);                                   \
-      }                                                             \
-    }                                                               \
-                                                                    \
-    bool constantSearchKeys_{false};                                \
-    folly::F14FastSet<TType> searchKeys_;                           \
-  };
+template <typename TExec, typename Key>
+struct MapSubsetPrimitiveFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-VELOX_MAP_SUBSET_PRIMITIVE_FUNCTION(Integer, int32_t)
-VELOX_MAP_SUBSET_PRIMITIVE_FUNCTION(Bigint, int64_t)
+  void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& /*config*/,
+      const arg_type<Map<Key, Generic<T1>>>* /*inputMap*/,
+      const arg_type<Array<Key>>* keys) {
+    if (keys != nullptr) {
+      constantSearchKeys_ = true;
+      initializeSearchKeys(*keys);
+    }
+  }
 
-#undef VELOX_MAP_SUBSET_PRIMITIVE_FUNCTION
+  void call(
+      out_type<Map<Key, Generic<T1>>>& out,
+      const arg_type<Map<Key, Generic<T1>>>& inputMap,
+      const arg_type<Array<Key>>& keys) {
+    if (keys.empty()) {
+      return;
+    }
+
+    if (!constantSearchKeys_) {
+      searchKeys_.clear();
+      initializeSearchKeys(keys);
+    }
+
+    if (searchKeys_.empty()) {
+      return;
+    }
+
+    auto toFind = searchKeys_.size();
+
+    for (const auto& entry : inputMap) {
+      if (!searchKeys_.contains(entry.first)) {
+        continue;
+      }
+
+      if (!entry.second.has_value()) {
+        auto& keyWriter = out.add_null();
+        keyWriter = entry.first;
+      } else {
+        auto [keyWriter, valueWriter] = out.add_item();
+        keyWriter = entry.first;
+        valueWriter.copy_from(entry.second.value());
+      }
+
+      --toFind;
+      if (toFind == 0) {
+        break;
+      }
+    }
+  }
+
+ private:
+  void initializeSearchKeys(const arg_type<Array<Key>>& keys) {
+    for (const auto& key : keys.skipNulls()) {
+      searchKeys_.emplace(key);
+    }
+  }
+
+  bool constantSearchKeys_{false};
+  folly::F14FastSet<arg_type<Key>> searchKeys_;
+};
 
 /// Fast path for constant string keys: map_subset(m, array['a', 'b', 'c']).
 template <typename TExec>
