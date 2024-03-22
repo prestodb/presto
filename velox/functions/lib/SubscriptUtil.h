@@ -41,8 +41,8 @@ class LookupTable;
 class LookupTableBase {
  public:
   template <TypeKind kind>
-  LookupTable<kind>& typedTable() {
-    return *static_cast<LookupTable<kind>*>(this);
+  LookupTable<kind>* typedTable() {
+    return static_cast<LookupTable<kind>*>(this);
   }
   virtual ~LookupTableBase() {}
 };

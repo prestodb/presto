@@ -48,7 +48,7 @@ struct SimpleType<TypeKind::VARCHAR> {
 /// map value vector. This allows us to ensure that element_at is zero-copy.
 template <TypeKind kind>
 VectorPtr applyMapTyped(
-    bool triggeCaching,
+    bool triggerCaching,
     std::shared_ptr<LookupTableBase>& cachedLookupTablePtr,
     const SelectivityVector& rows,
     const VectorPtr& mapArg,
@@ -57,14 +57,15 @@ VectorPtr applyMapTyped(
   static constexpr vector_size_t kMinCachedMapSize = 100;
   using TKey = typename TypeTraits<kind>::NativeType;
 
-  if (triggeCaching) {
+  LookupTable<kind>* typedLookupTable = nullptr;
+  if (triggerCaching) {
     if (!cachedLookupTablePtr) {
       cachedLookupTablePtr =
           std::make_shared<LookupTable<kind>>(*context.pool());
     }
-  }
 
-  auto& typedLookupTable = cachedLookupTablePtr->typedTable<kind>();
+    typedLookupTable = cachedLookupTablePtr->typedTable<kind>();
+  }
 
   auto* pool = context.pool();
   BufferPtr indices = allocateIndices(rows.end(), pool);
@@ -102,18 +103,20 @@ VectorPtr applyMapTyped(
     size_t offsetEnd = offsetStart + size;
     bool found = false;
 
-    if (triggeCaching && size >= kMinCachedMapSize) {
+    if (triggerCaching && size >= kMinCachedMapSize) {
+      VELOX_DCHECK_NOT_NULL(typedLookupTable);
+
       // Create map for mapIndex if not created.
-      if (!typedLookupTable.containsMapAtIndex(mapIndex)) {
-        typedLookupTable.ensureMapAtIndex(mapIndex);
+      if (!typedLookupTable->containsMapAtIndex(mapIndex)) {
+        typedLookupTable->ensureMapAtIndex(mapIndex);
         // Materialize the map at index row.
-        auto& map = typedLookupTable.getMapAtIndex(mapIndex);
+        auto& map = typedLookupTable->getMapAtIndex(mapIndex);
         for (size_t offset = offsetStart; offset < offsetEnd; ++offset) {
           map.emplace(decodedMapKeys->valueAt<TKey>(offset), offset);
         }
       }
 
-      auto& map = typedLookupTable.getMapAtIndex(mapIndex);
+      auto& map = typedLookupTable->getMapAtIndex(mapIndex);
 
       // Fast lookup.
       auto value = map.find(searchKey);
