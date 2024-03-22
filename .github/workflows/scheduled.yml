@@ -147,6 +147,13 @@ jobs:
           path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload exchange fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: exchange
+          path: velox/_build/debug//velox/exec/tests/velox_exchange_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
   linux-presto-fuzzer-run:
     name: "Presto Fuzzer"
     runs-on: ubuntu-latest
@@ -396,3 +403,46 @@ jobs:
           name: join-fuzzer-failure-artifacts
           path: |
             /tmp/join_fuzzer_repro
+
+  linux-exchange-fuzzer-run:
+    runs-on: ubuntu-latest
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ inputs.ref }}"
+
+      - name: Install dependencies
+        run: source ./scripts/setup-ubuntu.sh
+
+      - name: Download exchange fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: exchange
+
+      - name: Run exchange Fuzzer
+        run: |
+          sudo sysctl -w vm.max_map_count=67108864
+          cat /proc/sys/vm/max_map_count
+          mkdir -p /tmp/exchange_fuzzer_repro/
+          rm -rfv /tmp/exchange_fuzzer_repro/*
+          chmod -R 777 /tmp/exchange_fuzzer_repro
+          chmod +x velox_exchange_fuzzer_test
+          ./velox_exchange_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_path=/tmp/exchange_fuzzer_repro \
+            && echo -e "\n\Exchange fuzzer run finished successfully."
+
+      - name: Archive Exchange production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: exchange-fuzzer-failure-artifacts
+            path: |
+              /tmp/exchange_fuzzer_repro
