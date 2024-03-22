@@ -746,7 +746,6 @@ public class OrcSelectiveRecordReader
         }
         Page page = new Page(positionCount, blocks);
         validateWritePageChecksum(page);
-
         return page;
     }
 
