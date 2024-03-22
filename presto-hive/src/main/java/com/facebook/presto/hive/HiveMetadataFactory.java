@@ -17,8 +17,8 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
 import com.facebook.presto.hive.statistics.QuickStatsProvider;
@@ -220,7 +220,7 @@ public class HiveMetadataFactory
     {
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
-                CachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount), // per-transaction cache
+                InMemoryCachingHiveMetastore.memoizeMetastore(this.metastore, metastoreImpersonationEnabled, perTransactionCacheMaximumSize, metastorePartitionCacheMaxColumnCount), // per-transaction cache
                 fileRenameExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
