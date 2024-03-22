@@ -48,22 +48,30 @@ void registerVeloxMetrics() {
 
   /// ================== Memory Arbitration Counters =================
 
-  // Tracks memory reclaim exec time in range of [0, 600s] with 20 buckets and
-  // reports P50, P90, P99, and P100.
+  // Tracks the memory reclaim count on an operator.
+  DEFINE_METRIC(kMetricMemoryReclaimCount, facebook::velox::StatType::COUNT);
+
+  // Tracks op memory reclaim exec time in range of [0, 600s] with 20 buckets
+  // and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
       kMetricMemoryReclaimExecTimeMs, 30'000, 0, 600'000, 50, 90, 99, 100);
+
+  // Tracks op memory reclaim bytes.
+  DEFINE_METRIC(kMetricMemoryReclaimedBytes, facebook::velox::StatType::SUM);
+
+  // Tracks the memory reclaim count on an operator.
+  DEFINE_METRIC(
+      kMetricTaskMemoryReclaimCount, facebook::velox::StatType::COUNT);
 
   // Tracks memory reclaim task wait time in range of [0, 60s] with 10 buckets
   // and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kMetricMemoryReclaimWaitTimeMs, 6'000, 0, 60'000, 50, 90, 99, 100);
+      kMetricTaskMemoryReclaimWaitTimeMs, 6'000, 0, 60'000, 50, 90, 99, 100);
 
-  // Tracks memory reclaim bytes.
-  DEFINE_METRIC(kMetricMemoryReclaimedBytes, facebook::velox::StatType::SUM);
-
-  // Tracks the number of times that the memory reclaim wait timeouts.
+  // Tracks the number of times that the task memory reclaim wait timeouts.
   DEFINE_METRIC(
-      kMetricMemoryReclaimWaitTimeoutCount, facebook::velox::StatType::SUM);
+      kMetricTaskMemoryReclaimWaitTimeoutCount,
+      facebook::velox::StatType::COUNT);
 
   // The number of times that the memory reclaim fails because the operator is
   // executing a non-reclaimable section where it is expected to have reserved

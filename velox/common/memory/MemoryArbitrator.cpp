@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "velox/common/base/Counters.h"
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/Memory.h"
 
@@ -179,6 +180,15 @@ uint64_t MemoryReclaimer::run(
   RECORD_HISTOGRAM_METRIC_VALUE(
       kMetricMemoryReclaimExecTimeMs, execTimeUs / 1'000);
   RECORD_METRIC_VALUE(kMetricMemoryReclaimedBytes, reclaimedBytes);
+  RECORD_METRIC_VALUE(kMetricMemoryReclaimCount, 1);
+  addThreadLocalRuntimeStat(
+      "memoryReclaimWallNanos",
+      RuntimeCounter(execTimeUs * 1'000, RuntimeCounter::Unit::kNanos));
+  addThreadLocalRuntimeStat(
+      "memoryReclaimCount", RuntimeCounter(1, RuntimeCounter::Unit::kNone));
+  addThreadLocalRuntimeStat(
+      "reclaimedMemoryBytes",
+      RuntimeCounter(reclaimedBytes, RuntimeCounter::Unit::kBytes));
   return reclaimedBytes;
 }
 

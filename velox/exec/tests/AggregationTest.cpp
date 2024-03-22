@@ -3242,6 +3242,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
       auto& planStats = taskStats.at(aggrNodeId);
       ASSERT_GT(planStats.spilledBytes, 0);
       ASSERT_GT(planStats.customStats["memoryArbitrationWallNanos"].sum, 0);
+      ASSERT_GT(planStats.customStats["memoryReclaimWallNanos"].sum, 0);
+      ASSERT_GT(planStats.customStats["reclaimedMemoryBytes"].sum, 0);
     });
 
     arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
