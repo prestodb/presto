@@ -58,7 +58,8 @@ public class TestIcebergConfig
                 .setFileIOImpl(HadoopFileIO.class.getName())
                 .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
                 .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
-                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT));
+                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT)
+                .setSortedWritingEnabled(true));
     }
 
     @Test
@@ -74,16 +75,7 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.enable-parquet-dereference-pushdown", "false")
-                .put("iceberg.enable-merge-on-read-mode", "false")
-                .put("iceberg.statistic-snapshot-record-difference-weight", "1.0")
-                .put("iceberg.hive-statistics-merge-strategy", "USE_NDV")
-                .put("iceberg.pushdown-filter-enabled", "true")
-                .put("iceberg.delete-as-join-rewrite-enabled", "false")
-                .put("iceberg.io.manifest.cache-enabled", "true")
-                .put("iceberg.io-impl", "com.facebook.presto.iceberg.HdfsFileIO")
-                .put("iceberg.io.manifest.cache.max-total-bytes", "1048576000")
-                .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
-                .put("iceberg.io.manifest.cache.max-content-length", "10485760")
+                .put("iceberg.sorted-writing-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -105,7 +97,9 @@ public class TestIcebergConfig
                 .setFileIOImpl("com.facebook.presto.iceberg.HdfsFileIO")
                 .setMaxManifestCacheSize(1048576000)
                 .setManifestCacheExpireDuration(600000)
-                .setManifestCacheMaxContentLength(10485760);
+                .setManifestCacheMaxContentLength(10485760)
+                .setParquetDereferencePushdownEnabled(false)
+                .setSortedWritingEnabled(false);
 
         assertFullMapping(properties, expected);
     }

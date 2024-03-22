@@ -50,6 +50,7 @@ public class IcebergConfig
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
+    private boolean sortedWritingEnabled = true;
 
     private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -314,6 +315,19 @@ public class IcebergConfig
     public IcebergConfig setManifestCacheMaxContentLength(long manifestCacheMaxContentLength)
     {
         this.manifestCacheMaxContentLength = manifestCacheMaxContentLength;
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("iceberg.sorted-writing-enabled")
+    @ConfigDescription("Enable sorted writing to tables with a specified sort order")
+    public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 }
