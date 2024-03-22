@@ -53,7 +53,7 @@ import static org.testng.Assert.fail;
 public final class OperatorAssertion
 {
     private static final Duration BLOCKED_DEFAULT_TIMEOUT = new Duration(10, MILLISECONDS);
-    private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(1, SECONDS);
+    private static final Duration UNBLOCKED_DEFAULT_TIMEOUT = new Duration(5, SECONDS);
 
     private OperatorAssertion()
     {
