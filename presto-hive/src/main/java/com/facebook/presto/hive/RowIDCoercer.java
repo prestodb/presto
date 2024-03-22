@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 import static java.util.Objects.requireNonNull;
 
@@ -59,8 +60,7 @@ class RowIDCoercer
             }
             long rowNumber = BigintType.BIGINT.getLong(in, i);
             // TODO also need row group ID
-            // TODO make little endian
-            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIdPartitionComponent.length + 8);
+            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIdPartitionComponent.length + 8).order(ByteOrder.LITTLE_ENDIAN);
             rowID.putLong(rowNumber);
             rowID.put(this.rowIdPartitionComponent);
             rowID.flip();

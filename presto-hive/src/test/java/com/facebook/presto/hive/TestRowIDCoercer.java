@@ -21,6 +21,8 @@ import com.google.common.primitives.Longs;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
@@ -67,7 +69,8 @@ public class TestRowIDCoercer
         assertEquals(10, rowID.length);
         assertEquals((byte) 8, rowID[8]);
         assertEquals((byte) 9, rowID[9]);
-        assertEquals(Longs.fromByteArray(rowID), expected);
+        byte[] rowNumber = reverse(Arrays.copyOf(rowID, 8));
+        assertEquals(Longs.fromByteArray(rowNumber), expected);
     }
 
     // I'm sure this can be micro-optimized. It's only a test. Clarity wins.
