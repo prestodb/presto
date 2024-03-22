@@ -430,7 +430,7 @@ bool RowType::equivalent(const Type& other) const {
   if (!Type::hasSameTypeId(other)) {
     return false;
   }
-  auto& otherTyped = other.asRow();
+  const auto& otherTyped = other.asRow();
   if (otherTyped.size() != size()) {
     return false;
   }
@@ -443,13 +443,20 @@ bool RowType::equivalent(const Type& other) const {
 }
 
 bool RowType::equals(const Type& other) const {
-  if (!this->equivalent(other)) {
+  if (&other == this) {
+    return true;
+  }
+  if (!Type::hasSameTypeId(other)) {
     return false;
   }
-  auto& otherTyped = other.asRow();
+  const auto& otherTyped = other.asRow();
+  if (otherTyped.size() != size()) {
+    return false;
+  }
   for (size_t i = 0; i < size(); ++i) {
     // todo: case sensitivity
-    if (nameOf(i) != otherTyped.nameOf(i)) {
+    if (nameOf(i) != otherTyped.nameOf(i) ||
+        *childAt(i) != *otherTyped.childAt(i)) {
       return false;
     }
   }

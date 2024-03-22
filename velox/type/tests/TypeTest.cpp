@@ -615,6 +615,12 @@ TEST(TypeTest, equality) {
   EXPECT_FALSE(
       *ROW({{"a", INTEGER()}, {"b", REAL()}}) ==
       *ROW({{"a", INTEGER()}, {"d", REAL()}}));
+  EXPECT_FALSE(
+      *ROW({{"a", ROW({{"x", INTEGER()}, {"y", INTEGER()}})}}) ==
+      *ROW({{"a", ROW({{"x", INTEGER()}, {"z", INTEGER()}})}}));
+  EXPECT_FALSE(
+      *ROW({{"a", ROW({{"x", INTEGER()}, {"y", INTEGER()}})}}) ==
+      *ARRAY(INTEGER()));
 
   // mix
   EXPECT_FALSE(MAP(REAL(), INTEGER())
@@ -644,6 +650,7 @@ TEST(TypeTest, cpp2Type) {
 TEST(TypeTest, equivalent) {
   EXPECT_TRUE(ROW({{"a", BIGINT()}})->equivalent(*ROW({{"b", BIGINT()}})));
   EXPECT_FALSE(ROW({{"a", BIGINT()}})->equivalent(*ROW({{"a", INTEGER()}})));
+  EXPECT_TRUE(ROW({{"a", BIGINT()}})->equivalent(*ROW({{"b", BIGINT()}})));
   EXPECT_TRUE(MAP(BIGINT(), BIGINT())->equivalent(*MAP(BIGINT(), BIGINT())));
   EXPECT_FALSE(
       MAP(BIGINT(), BIGINT())->equivalent(*MAP(BIGINT(), ARRAY(BIGINT()))));
