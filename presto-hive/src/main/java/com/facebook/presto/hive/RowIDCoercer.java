@@ -39,6 +39,8 @@ class RowIDCoercer
     @Override
     public Block apply(Block block)
     {
-        return null;
+
+        Sq
+        return block;
     }
 }

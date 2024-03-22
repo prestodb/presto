@@ -747,10 +747,6 @@ public class OrcSelectiveRecordReader
         Page page = new Page(positionCount, blocks);
         validateWritePageChecksum(page);
 
-        // TODO at this point the page has been created and shouldn't be mutated, so it should contain the
-        // row IDs, unless maybe we can shim something in on top of row numbers higher up when the page is read.
-        // Could we perhaps inject a different subclass here that does supply row IDs?
-        // The Hive connector supplies the $path pseudo-column. Where does that shim in?
         return page;
     }
 

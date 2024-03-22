@@ -92,7 +92,9 @@ public class HivePageSource
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
             else if ("$row_id".equals(name)) {
-                coercers[columnIndex] = new RowIDCoercer();
+                // TODO need to fill this in one Parition diff lands
+                byte[] rowIdPartitionComponent = null;
+                coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent);
             }
 
             if (columnMapping.getKind() == PREFILLED) {

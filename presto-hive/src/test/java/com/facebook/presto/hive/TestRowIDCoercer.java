@@ -14,18 +14,43 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.type.VarbinaryType;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
 {
-    @Test
-    public void testCoercion()
+    private HiveCoercer coercer;
+    private final byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
+
+    @BeforeMethod
+    public void setUp()
     {
-        byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
-        HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent);
+        coercer = new RowIDCoercer(rowIdPartitionComponent);
+    }
+
+    @Test
+    public void testGetToType()
+    {
         assertEquals(coercer.getToType(), VarbinaryType.VARBINARY);
+    }
+
+    @Test
+    public void testApply()
+    {
+        Block rowNumbers = new LongArrayBlockBuilder(null, 5)
+                .writeLong(Long.MAX_VALUE)
+                .writeLong(Long.MIN_VALUE)
+                .writeLong(0L)
+                .writeLong(1L)
+                .writeLong(-1L)
+                .build();
+        Block rowIDs = coercer.apply(rowNumbers);
+        assertEquals(rowIDs.getPositionCount(), rowNumbers.getPositionCount());
+        byte[] firstRowId = rowIDs.getSlice(0, 0, rowIDs.getSliceLength(0)).getBytes();
     }
 }
