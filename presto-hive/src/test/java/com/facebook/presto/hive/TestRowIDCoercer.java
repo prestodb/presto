@@ -21,10 +21,6 @@ import com.google.common.primitives.Longs;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
@@ -75,7 +71,8 @@ public class TestRowIDCoercer
     }
 
     // I'm sure this can be micro-optimized. It's only a test. Clarity wins.
-    private static byte[] reverse(byte[] in) {
+    private static byte[] reverse(byte[] in)
+    {
         byte[] out = new byte[in.length];
         for (int i = 0; i < in.length; i++) {
             out[i] = in[in.length - i - 1];

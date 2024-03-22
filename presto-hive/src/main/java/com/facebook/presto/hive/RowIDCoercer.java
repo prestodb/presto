@@ -17,14 +17,12 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 import static java.util.Objects.requireNonNull;
 
