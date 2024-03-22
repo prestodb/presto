@@ -14,13 +14,13 @@
 package com.facebook.presto.execution.resourceGroups.db;
 
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeGroups;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -32,7 +32,6 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.adhocSession;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.dashboardSession;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
 import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
@@ -42,11 +41,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Test(singleThreaded = true)
 public class TestDistributedQueuesSchedulingPolicy
 {
-    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM blackhole.default.dummy";
     private DistributedQueryRunner queryRunner;
 
-    @BeforeGroups(groups = "weightedFairScheduling")
-    public void weightedFairSchedulingSetup()
+    private void setupQueryRunner(boolean weightedFairSchedulingEnabled, boolean weightedSchedulingEnabled)
             throws Exception
     {
         String dbConfigUrl = getDbConfigUrl();
@@ -57,36 +55,32 @@ public class TestDistributedQueuesSchedulingPolicy
         coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "500ms");
         coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
 
-        queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, true, false);
-    }
-
-    @BeforeGroups(groups = "weightedScheduling")
-    public void weightedSchedulingSetup()
-            throws Exception
-    {
-        String dbConfigUrl = getDbConfigUrl();
-        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        ImmutableMap.Builder<String, String> coordinatorProperties = new ImmutableMap.Builder<>();
-        coordinatorProperties.put("query-manager.experimental.required-coordinators", "2");
-        coordinatorProperties.put("resource-manager.query-heartbeat-interval", "10ms");
-        coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "500ms");
-        coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
-
-        queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, false, true);
+        queryRunner = H2TestUtil.createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, weightedFairSchedulingEnabled, weightedSchedulingEnabled);
+        queryRunner.installPlugin(new BlackHolePlugin());
+        queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
+        // Black hole connectors do not have external metadata, which means that table metadata is local to each coordinator.
+        // So for the purposes of the test setup, create a local table per connector.
+        for (int i = 0; i < queryRunner.getCoordinators().size(); i++) {
+            queryRunner.execute(i, "CREATE TABLE blackhole.default.dummy (col BIGINT) WITH (split_count = 1, rows_per_page = 1, pages_per_split = 1, page_processing_delay = '10m')");
+        }
     }
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
+        if (queryRunner != null) {
+            queryRunner.cancelAllQueries();
+        }
         closeQuietly(queryRunner);
         queryRunner = null;
     }
 
-    // This test is flaky: https://github.com/prestodb/presto/issues/19658
-    @Test(timeOut = 60_000, groups = "weightedFairScheduling", enabled = false)
+    @Test(timeOut = 60_000, groups = "weightedFairScheduling")
     public void testWeightedFairScheduling()
             throws Exception
     {
+        setupQueryRunner(true, false);
+
         QueryId firstAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
 
         QueryId secondAdhocQuery = createQuery(queryRunner, 1, adhocSession(), LONG_LASTING_QUERY);
@@ -137,11 +131,12 @@ public class TestDistributedQueuesSchedulingPolicy
         waitForQueryState(queryRunner, 1, thirdAdhocQuery, RUNNING);
     }
 
-    //Test is flaky https://github.com/prestodb/presto/issues/19691
-    @Test(timeOut = 60_000, groups = "weightedScheduling", enabled = false)
+    @Test(timeOut = 60_000, groups = "weightedScheduling")
     public void testWeightedScheduling()
             throws Exception
     {
+        setupQueryRunner(false, true);
+
         QueryId firstAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
 
         QueryId secondAdhocQuery = createQuery(queryRunner, 1, adhocSession(), LONG_LASTING_QUERY);
