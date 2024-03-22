@@ -118,7 +118,13 @@ void SelectiveIntegerColumnReader::processFilter(
     velox::common::Filter* filter,
     ExtractValues extractValues,
     RowSet rows) {
-  switch (filter ? filter->kind() : velox::common::FilterKind::kAlwaysTrue) {
+  if (filter == nullptr) {
+    readHelper<Reader, velox::common::AlwaysTrue, isDense>(
+        &dwio::common::alwaysTrue(), rows, extractValues);
+    return;
+  }
+
+  switch (filter->kind()) {
     case velox::common::FilterKind::kAlwaysTrue:
       readHelper<Reader, velox::common::AlwaysTrue, isDense>(
           filter, rows, extractValues);
