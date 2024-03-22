@@ -32,10 +32,6 @@
 
 DECLARE_bool(velox_memory_leak_check_enabled);
 DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
-DEFINE_bool(
-    velox_testing_enable_arbitration,
-    false,
-    "Enable to turn on arbitration for tests by default");
 
 using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::memory;
@@ -61,12 +57,10 @@ void OperatorTestBase::SetUpTestCase() {
   memory::SharedArbitrator::registerFactory();
   MemoryManagerOptions options;
   options.allocatorCapacity = 8L << 30;
-  if (FLAGS_velox_testing_enable_arbitration) {
-    options.arbitratorCapacity = 6L << 30;
-    options.arbitratorKind = "SHARED";
-    options.checkUsageLeak = true;
-    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-  }
+  options.arbitratorCapacity = 6L << 30;
+  options.arbitratorKind = "SHARED";
+  options.checkUsageLeak = true;
+  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
   memory::MemoryManager::testingSetInstance(options);
   asyncDataCache_ =
       cache::AsyncDataCache::create(memory::memoryManager()->allocator());

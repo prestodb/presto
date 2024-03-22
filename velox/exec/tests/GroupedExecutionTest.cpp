@@ -34,7 +34,6 @@ class GroupedExecutionTest : public virtual HiveConnectorTestBase {
   }
 
   static void SetUpTestCase() {
-    FLAGS_velox_testing_enable_arbitration = true;
     HiveConnectorTestBase::SetUpTestCase();
   }
 

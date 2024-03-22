@@ -138,14 +138,8 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
 class AggregationTest : public OperatorTestBase {
  protected:
   static void SetUpTestCase() {
-    FLAGS_velox_testing_enable_arbitration = true;
     OperatorTestBase::SetUpTestCase();
     TestValue::enable();
-  }
-
-  static void TearDownTestCase() {
-    FLAGS_velox_testing_enable_arbitration = false;
-    OperatorTestBase::TearDownTestCase();
   }
 
   void SetUp() override {

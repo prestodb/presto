@@ -79,16 +79,6 @@ void AggregationTestBase::TearDown() {
   OperatorTestBase::TearDown();
 }
 
-void AggregationTestBase::SetUpTestCase() {
-  FLAGS_velox_testing_enable_arbitration = true;
-  OperatorTestBase::SetUpTestCase();
-}
-
-void AggregationTestBase::TearDownTestCase() {
-  FLAGS_velox_testing_enable_arbitration = false;
-  OperatorTestBase::TearDownTestCase();
-}
-
 void AggregationTestBase::testAggregations(
     const std::vector<RowVectorPtr>& data,
     const std::vector<std::string>& groupingKeys,

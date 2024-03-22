@@ -749,16 +749,6 @@ class HashJoinTest : public HiveConnectorTestBase {
   explicit HashJoinTest(const TestParam& param)
       : numDrivers_(param.numDrivers) {}
 
-  static void SetUpTestCase() {
-    FLAGS_velox_testing_enable_arbitration = true;
-    OperatorTestBase::SetUpTestCase();
-  }
-
-  static void TearDownTestCase() {
-    FLAGS_velox_testing_enable_arbitration = false;
-    OperatorTestBase::TearDownTestCase();
-  }
-
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
 

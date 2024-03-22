@@ -29,8 +29,6 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
-  static void SetUpTestCase();
-  static void TearDownTestCase();
 
   std::vector<RowVectorPtr>
   makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors);
