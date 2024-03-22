@@ -980,7 +980,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
   for (auto i = 0; i < altPlans.size(); ++i) {
     LOG(INFO) << "Testing plan #" << i;
     auto actual = execute(altPlans[i], /*injectSpill=*/false);
-    if (actual != nullptr) {
+    if (actual != nullptr && expected != nullptr) {
       VELOX_CHECK(
           assertEqualResults({expected}, {actual}),
           "Logically equivalent plans produced different results");
@@ -1000,7 +1000,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
       LOG(INFO) << "Testing plan #" << i << " with spilling";
       actual = execute(altPlans[i], /*=injectSpill=*/true);
-      if (actual != nullptr) {
+      if (actual != nullptr && expected != nullptr) {
         VELOX_CHECK(
             assertEqualResults({expected}, {actual}),
             "Logically equivalent plans produced different results");
