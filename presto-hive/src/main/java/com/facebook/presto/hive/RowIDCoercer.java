@@ -25,6 +25,7 @@ import io.airlift.slice.Slices;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 class RowIDCoercer
@@ -40,7 +41,8 @@ class RowIDCoercer
     @Override
     public TupleDomainFilter toCoercingFilter(TupleDomainFilter filter, Subfield subfield)
     {
-        return null;
+        checkArgument(subfield.getPath().isEmpty(), "Subfields on primitive types are not allowed");
+        return filter;
     }
 
     @Override
