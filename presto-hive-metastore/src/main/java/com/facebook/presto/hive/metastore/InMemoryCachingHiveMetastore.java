@@ -299,7 +299,8 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Managed
-    public void flushCache()
+    @Override
+    public void invalidateAll()
     {
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();

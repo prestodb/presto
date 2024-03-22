@@ -107,7 +107,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertEquals(metastore.getAllDatabases(TEST_METASTORE_CONTEXT), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 2);
@@ -122,7 +122,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertEquals(metastore.getAllTables(TEST_METASTORE_CONTEXT, TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE, TEST_TABLE_WITH_CONSTRAINTS));
         assertEquals(mockClient.getAccessCount(), 2);
@@ -142,7 +142,7 @@ public class TestInMemoryCachingHiveMetastore
         assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertNotNull(metastore.getTable(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
@@ -167,7 +167,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
@@ -190,7 +190,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertEquals(metastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
@@ -389,7 +389,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
         assertEquals(mockClient.getAccessCount(), 3);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         // Fetching both should only result in one batched access
         assertEquals(metastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
@@ -408,7 +408,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 1);
 
-        metastore.flushCache();
+        metastore.invalidateAll();
 
         assertEquals(metastore.listRoles(TEST_METASTORE_CONTEXT), TEST_ROLES);
         assertEquals(mockClient.getAccessCount(), 2);
@@ -463,7 +463,7 @@ public class TestInMemoryCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 2);
-        metastore.flushCache();
+        metastore.invalidateAll();
         metastore.getTableConstraints(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS);
         assertEquals(mockClient.getAccessCount(), 4);
     }
