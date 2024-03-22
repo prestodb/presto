@@ -33,7 +33,8 @@ class RowIDCoercer
 {
     private final byte[] rowIdPartitionComponent;
 
-    RowIDCoercer(byte[] rowIdPartitionComponent) {
+    RowIDCoercer(byte[] rowIdPartitionComponent)
+    {
         // TODO should I copy this to avoid mutable internal state?
         this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent);
     }
