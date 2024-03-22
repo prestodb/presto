@@ -41,14 +41,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
+import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
@@ -981,7 +981,7 @@ public abstract class AbstractTestHiveClient
         HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, host, port);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        ExtendedHiveMetastore metastore = new CachingHiveMetastore(
+        ExtendedHiveMetastore metastore = new InMemoryCachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, metastoreClientConfig, hdfsEnvironment), new HivePartitionMutator()),
                 executor,
                 false,
