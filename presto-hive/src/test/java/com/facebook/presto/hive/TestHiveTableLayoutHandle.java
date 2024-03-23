@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
-import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -47,7 +46,8 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveTableLayoutHandle
 {
     @Test
-    public void testIsAppendRowNumberEnabled() {
+    public void testIsAppendRowNumberEnabled()
+    {
         List<Column> dataColumns = new ArrayList<>();
         List<BaseHiveColumnHandle> partitionColumns = new ArrayList<>();
         Map<String, String> tableParameters = Collections.emptyMap();
@@ -87,7 +87,8 @@ public class TestHiveTableLayoutHandle
     }
 
     @Test
-    public void testRowIdAppendsRowNumber() {
+    public void testRowIdAppendsRowNumber()
+    {
         // set appendRowNumberEnabled to false here but want it to become true because $row_id is a column
         boolean appendRowNumber = false;
         List<Column> dataColumns = new ArrayList<>();

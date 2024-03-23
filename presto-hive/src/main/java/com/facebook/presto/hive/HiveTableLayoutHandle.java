@@ -153,11 +153,13 @@ public class HiveTableLayoutHandle
         // need a separate variable for appending row IDs
         // TODO verify that $row_id can appear in any of these column lists
         if (dataColumns.stream().anyMatch(column -> column.getName().equals("$row_id"))
-            || predicateColumns.values().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+                || predicateColumns.values().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
             this.appendRowNumberEnabled = true;
-        } else if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+        }
+        else if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
             this.appendRowNumberEnabled = true;
-        } else {
+        }
+        else {
             this.appendRowNumberEnabled = appendRowNumberEnabled;
         }
         this.partitions = requireNonNull(partitions, "partitions is null");
