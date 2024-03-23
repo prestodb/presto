@@ -432,6 +432,7 @@ bool SharedArbitrator::arbitrateMemory(
   }
 
   VELOX_CHECK_LT(freedBytes, growTarget);
+  RECORD_METRIC_VALUE(kMetricArbitratorGlobalArbitrationCount);
   freedBytes += reclaimUsedMemoryFromCandidatesBySpill(
       requestor, candidates, growTarget - freedBytes);
   if (requestor->aborted()) {
@@ -547,6 +548,7 @@ uint64_t SharedArbitrator::reclaim(
     try {
       freedBytes = pool->shrink(targetBytes);
       if (freedBytes < targetBytes) {
+        RECORD_METRIC_VALUE(kMetricArbitratorLocalArbitrationCount);
         pool->reclaim(
             targetBytes - freedBytes, memoryReclaimWaitMs_, reclaimerStats);
       }

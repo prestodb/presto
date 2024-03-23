@@ -117,6 +117,18 @@ Memory Management
      - Count
      - The number of times a memory arbitration request was initiated by a
        memory pool attempting to grow its capacity.
+   * - arbitrator_local_arbitration_count
+     - Count
+     - The number of arbitration that reclaims the used memory from the query which initiates
+       the memory arbitration request itself. It ensures the memory arbitration request won't
+       exceed its per-query memory capacity limit.
+   * - arbitrator_global_arbitration_count
+     - Count
+     - The number of arbitration which ensures the total allocated query capacity won't exceed
+       the arbitrator capacity limit. It may or may not reclaim memory from the query which
+       initiate the memory arbitration request. This indicates the velox runtime doesn't have
+       enough memory to run all the queries at their peak memory usage. We have to trigger
+       spilling to let them run through completion.
    * - arbitrator_aborted_count
      - Count
      - The number of times a query level memory pool is aborted as a result of

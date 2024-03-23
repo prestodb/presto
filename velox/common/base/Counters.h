@@ -64,6 +64,12 @@ constexpr folly::StringPiece kMetricMemoryPoolReservationLeakBytes{
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
 
+constexpr folly::StringPiece kMetricArbitratorLocalArbitrationCount{
+    "velox.arbitrator_local_arbitration_count"};
+
+constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationCount{
+    "velox.arbitrator_global_arbitration_count"};
+
 constexpr folly::StringPiece kMetricArbitratorAbortedCount{
     "velox.arbitrator_aborted_count"};
 

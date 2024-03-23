@@ -86,6 +86,23 @@ void registerVeloxMetrics() {
   DEFINE_METRIC(
       kMetricArbitratorRequestsCount, facebook::velox::StatType::COUNT);
 
+  // The number of arbitration that reclaims the used memory from the query
+  // which initiates the memory arbitration request itself. It ensures the
+  // memory arbitration request won't exceed its per-query memory capacity
+  // limit.
+  DEFINE_METRIC(
+      kMetricArbitratorLocalArbitrationCount, facebook::velox::StatType::COUNT);
+
+  // The number of arbitration which ensures the total allocated query capacity
+  // won't exceed the arbitrator capacity limit. It may or may not reclaim
+  // memory from the query which initiate the memory arbitration request. This
+  // indicates the velox runtime doesn't have enough memory to run all the
+  // queries at their peak memory usage. We have to trigger spilling to let them
+  // run through completion.
+  DEFINE_METRIC(
+      kMetricArbitratorGlobalArbitrationCount,
+      facebook::velox::StatType::COUNT);
+
   // The number of times a query level memory pool is aborted as a result of a
   // memory arbitration process. The memory pool aborted will eventually result
   // in a cancelling the original query.
