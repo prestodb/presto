@@ -1193,7 +1193,7 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     // disabling flaky test https://github.com/prestodb/presto/issues/21821
-    @Test(enabled = false)
+    @Test
     public void testPrestoBenchTables()
     {
         assertQuery("SELECT name from prestobench_nation");
