@@ -43,12 +43,14 @@ SortWindowBuild::SortWindowBuild(
     const std::shared_ptr<const core::WindowNode>& node,
     velox::memory::MemoryPool* pool,
     const common::SpillConfig* spillConfig,
-    tsan_atomic<bool>* nonReclaimableSection)
+    tsan_atomic<bool>* nonReclaimableSection,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : WindowBuild(node, pool, spillConfig, nonReclaimableSection),
       numPartitionKeys_{node->partitionKeys().size()},
       spillCompareFlags_{
           makeSpillCompareFlags(numPartitionKeys_, node->sortingOrders())},
-      pool_(pool) {
+      pool_(pool),
+      spillStats_(spillStats) {
   VELOX_CHECK_NOT_NULL(pool_);
   allKeyInfo_.reserve(partitionKeyInfo_.size() + sortKeyInfo_.size());
   allKeyInfo_.insert(
@@ -145,7 +147,8 @@ void SortWindowBuild::setupSpiller() {
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
-      spillConfig_);
+      spillConfig_,
+      spillStats_);
 }
 
 void SortWindowBuild::spill() {

@@ -288,7 +288,6 @@ void TopNRowNumber::noMoreInput() {
     VELOX_CHECK_NULL(merge_);
     auto spillPartition = spiller_->finishSpill();
     merge_ = spillPartition.createOrderedReader(pool());
-    recordSpillStats(spiller_->stats());
   } else {
     outputRows_.resize(outputBatchSize_);
   }
@@ -748,6 +747,7 @@ void TopNRowNumber::setupSpiller() {
       inputType_,
       spillCompareFlags_.size(),
       spillCompareFlags_,
-      &spillConfig_.value());
+      &spillConfig_.value(),
+      &spillStats_);
 }
 } // namespace facebook::velox::exec

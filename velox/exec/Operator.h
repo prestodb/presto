@@ -420,6 +420,7 @@ class Operator : public BaseRuntimeStatWriter {
   virtual void close() {
     input_ = nullptr;
     results_.clear();
+    recordSpillStats();
     // Release the unused memory reservation on close.
     operatorCtx_->pool()->release();
   }
@@ -694,7 +695,7 @@ class Operator : public BaseRuntimeStatWriter {
       std::optional<uint64_t> averageRowSize = std::nullopt) const;
 
   /// Invoked to record spill stats in operator stats.
-  void recordSpillStats(const common::SpillStats& spillStats);
+  virtual void recordSpillStats();
 
   const std::unique_ptr<OperatorCtx> operatorCtx_;
   const RowTypePtr outputType_;
@@ -705,6 +706,7 @@ class Operator : public BaseRuntimeStatWriter {
   bool initialized_{false};
 
   folly::Synchronized<OperatorStats> stats_;
+  folly::Synchronized<common::SpillStats> spillStats_;
 
   /// Indicates if an operator is under a non-reclaimable execution section.
   /// This prevents the memory arbitrator from reclaiming memory from this

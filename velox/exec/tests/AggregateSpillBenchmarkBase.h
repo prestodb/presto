@@ -32,7 +32,7 @@ class AggregateSpillBenchmarkBase : public SpillerBenchmarkBase {
 
  private:
   void writeSpillData();
-  std::unique_ptr<Spiller> makeSpiller() const;
+  std::unique_ptr<Spiller> makeSpiller();
 
   const Spiller::Type spillerType_;
   std::unique_ptr<RowContainer> rowContainer_;

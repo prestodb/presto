@@ -124,7 +124,7 @@ void AggregateSpillBenchmarkBase::writeSpillData() {
   }
 }
 
-std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
+std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
   common::SpillConfig spillConfig;
   spillConfig.getSpillDirPathCb = [&]() -> const std::string& {
     return spillDir_;
@@ -145,11 +145,16 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() const {
         rowType_,
         rowContainer_->keyTypes().size(),
         std::vector<CompareFlags>{},
-        &spillConfig);
+        &spillConfig,
+        &spillStats_);
   } else {
     // TODO: Add config flag to control the max spill rows.
     return std::make_unique<Spiller>(
-        spillerType_, rowContainer_.get(), rowType_, &spillConfig);
+        spillerType_,
+        rowContainer_.get(),
+        rowType_,
+        &spillConfig,
+        &spillStats_);
   }
 }
 } // namespace facebook::velox::exec::test

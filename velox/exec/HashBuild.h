@@ -117,9 +117,6 @@ class HashBuild final : public Operator {
     return canReclaim();
   }
 
-  void recordSpillStats();
-  void recordSpillStats(Spiller* spiller);
-
   // Indicates if the input is read from spill data or not.
   bool isInputFromSpill() const;
 

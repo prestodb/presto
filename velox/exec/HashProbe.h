@@ -220,8 +220,6 @@ class HashProbe : public Operator {
   // next hash table from the spilled data.
   void noMoreInputInternal();
 
-  void recordSpillStats();
-
   // Returns the index of the 'match' column in the output for semi project
   // joins.
   VectorPtr& matchColumn() const {

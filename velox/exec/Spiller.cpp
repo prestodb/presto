@@ -39,7 +39,8 @@ Spiller::Spiller(
     RowTypePtr rowType,
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : Spiller(
           type,
           container,
@@ -56,7 +57,8 @@ Spiller::Spiller(
           spillConfig->compressionKind,
           spillConfig->executor,
           spillConfig->maxSpillRunRows,
-          spillConfig->fileCreateConfig) {
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK(
       type_ == Type::kOrderByInput || type_ == Type::kAggregateInput,
       "Unexpected spiller type: {}",
@@ -69,7 +71,8 @@ Spiller::Spiller(
     Type type,
     RowContainer* container,
     RowTypePtr rowType,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : Spiller(
           type,
           container,
@@ -86,7 +89,8 @@ Spiller::Spiller(
           spillConfig->compressionKind,
           spillConfig->executor,
           spillConfig->maxSpillRunRows,
-          spillConfig->fileCreateConfig) {
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK(
       type_ == Type::kAggregateOutput || type_ == Type::kOrderByOutput,
       "Unexpected spiller type: {}",
@@ -99,7 +103,8 @@ Spiller::Spiller(
     Type type,
     RowTypePtr rowType,
     HashBitRange bits,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : Spiller(
           type,
           nullptr,
@@ -116,7 +121,8 @@ Spiller::Spiller(
           spillConfig->compressionKind,
           spillConfig->executor,
           0,
-          spillConfig->fileCreateConfig) {
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK_EQ(
       type_,
       Type::kHashJoinProbe,
@@ -130,7 +136,8 @@ Spiller::Spiller(
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : Spiller(
           type,
           container,
@@ -147,7 +154,8 @@ Spiller::Spiller(
           spillConfig->compressionKind,
           spillConfig->executor,
           spillConfig->maxSpillRunRows,
-          spillConfig->fileCreateConfig) {
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK_EQ(type_, Type::kHashJoinBuild);
   VELOX_CHECK(isHashJoinTableSpillType(rowType_, joinType));
 }
@@ -157,7 +165,8 @@ Spiller::Spiller(
     RowContainer* container,
     RowTypePtr rowType,
     HashBitRange bits,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : Spiller(
           type,
           container,
@@ -174,7 +183,8 @@ Spiller::Spiller(
           spillConfig->compressionKind,
           spillConfig->executor,
           spillConfig->maxSpillRunRows,
-          spillConfig->fileCreateConfig) {
+          spillConfig->fileCreateConfig,
+          spillStats) {
   VELOX_CHECK_EQ(type_, Type::kRowNumber);
 }
 
@@ -194,7 +204,8 @@ Spiller::Spiller(
     common::CompressionKind compressionKind,
     folly::Executor* executor,
     uint64_t maxSpillRunRows,
-    const std::string& fileCreateConfig)
+    const std::string& fileCreateConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : type_(type),
       container_(container),
       executor_(executor),
@@ -202,6 +213,7 @@ Spiller::Spiller(
       rowType_(std::move(rowType)),
       spillProbedFlag_(recordProbedFlag),
       maxSpillRunRows_(maxSpillRunRows),
+      spillStats_(spillStats),
       state_(
           getSpillDirPathCb,
           updateAndCheckSpillLimitCb,
@@ -213,7 +225,7 @@ Spiller::Spiller(
           writeBufferSize,
           compressionKind,
           memory::spillMemoryPool(),
-          &stats_,
+          spillStats,
           fileCreateConfig) {
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
@@ -419,7 +431,7 @@ std::unique_ptr<Spiller::SpillStatus> Spiller::writeSpill(int32_t partition) {
 }
 
 void Spiller::runSpill(bool lastRun) {
-  ++stats_.wlock()->spillRuns;
+  ++spillStats_->wlock()->spillRuns;
   VELOX_CHECK(type_ != Spiller::Type::kOrderByOutput || lastRun);
 
   std::vector<std::shared_ptr<AsyncSource<SpillStatus>>> writes;
@@ -481,12 +493,12 @@ void Spiller::runSpill(bool lastRun) {
 }
 
 void Spiller::updateSpillFillTime(uint64_t timeUs) {
-  stats_.wlock()->spillFillTimeUs += timeUs;
+  spillStats_->wlock()->spillFillTimeUs += timeUs;
   common::updateGlobalSpillFillTime(timeUs);
 }
 
 void Spiller::updateSpillSortTime(uint64_t timeUs) {
-  stats_.wlock()->spillSortTimeUs += timeUs;
+  spillStats_->wlock()->spillSortTimeUs += timeUs;
   common::updateGlobalSpillSortTime(timeUs);
 }
 
@@ -705,6 +717,6 @@ std::string Spiller::typeName(Type type) {
 }
 
 common::SpillStats Spiller::stats() const {
-  return stats_.copy();
+  return spillStats_->copy();
 }
 } // namespace facebook::velox::exec

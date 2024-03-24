@@ -59,21 +59,24 @@ class Spiller {
       RowTypePtr rowType,
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
-      const common::SpillConfig* spillConfig);
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   /// type == Type::kAggregateOutput || type == Type::kOrderByOutput
   Spiller(
       Type type,
       RowContainer* container,
       RowTypePtr rowType,
-      const common::SpillConfig* spillConfig);
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   /// type == Type::kHashJoinProbe
   Spiller(
       Type type,
       RowTypePtr rowType,
       HashBitRange bits,
-      const common::SpillConfig* spillConfig);
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   /// type == Type::kHashJoinBuild
   Spiller(
@@ -82,7 +85,8 @@ class Spiller {
       RowContainer* container,
       RowTypePtr rowType,
       HashBitRange bits,
-      const common::SpillConfig* spillConfig);
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   /// type == Type::kRowNumber
   Spiller(
@@ -90,7 +94,8 @@ class Spiller {
       RowContainer* container,
       RowTypePtr rowType,
       HashBitRange bits,
-      const common::SpillConfig* spillConfig);
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   Type type() const {
     return type_;
@@ -204,7 +209,8 @@ class Spiller {
       common::CompressionKind compressionKind,
       folly::Executor* executor,
       uint64_t maxSpillRunRows,
-      const std::string& fileCreateConfig);
+      const std::string& fileCreateConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   // Invoked to spill. If 'startRowIter' is not null, then we only spill rows
   // from row container starting at the offset pointed by 'startRowIter'.
@@ -316,13 +322,14 @@ class Spiller {
   const bool spillProbedFlag_;
   const uint64_t maxSpillRunRows_;
 
+  folly::Synchronized<common::SpillStats>* const spillStats_;
+
   // True if all rows of spilling partitions are in 'spillRuns_', so
   // that one can start reading these back. This means that the rows
   // that are not written out and deleted will be captured by
   // spillMergeStreamOverRows().
   bool finalized_{false};
 
-  folly::Synchronized<common::SpillStats> stats_;
   SpillState state_;
 
   // Collects the rows to spill for each partition.

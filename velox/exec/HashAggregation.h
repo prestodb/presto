@@ -72,10 +72,6 @@ class HashAggregation : public Operator {
 
   RowVectorPtr getDistinctOutput();
 
-  // Invoked to record the spilling stats in operator stats after processing all
-  // the inputs.
-  void recordSpillStats();
-
   void updateEstimatedOutputRowSize();
 
   std::shared_ptr<const core::AggregationNode> aggregationNode_;

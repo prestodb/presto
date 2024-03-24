@@ -22,18 +22,15 @@ SortingWriter::SortingWriter(
     std::unique_ptr<Writer> writer,
     std::unique_ptr<exec::SortBuffer> sortBuffer,
     uint32_t maxOutputRowsConfig,
-    uint64_t maxOutputBytesConfig,
-    velox::common::SpillStats* spillStats)
+    uint64_t maxOutputBytesConfig)
     : outputWriter_(std::move(writer)),
       maxOutputRowsConfig_(maxOutputRowsConfig),
       maxOutputBytesConfig_(maxOutputBytesConfig),
       sortPool_(sortBuffer->pool()),
       canReclaim_(sortBuffer->canSpill()),
-      spillStats_(spillStats),
       sortBuffer_(std::move(sortBuffer)) {
   VELOX_CHECK_GT(maxOutputRowsConfig_, 0);
   VELOX_CHECK_GT(maxOutputBytesConfig_, 0);
-  VELOX_CHECK_NOT_NULL(spillStats_);
   if (sortPool_->parent()->reclaimer() != nullptr) {
     sortPool_->setReclaimer(MemoryReclaimer::create(this));
   }
@@ -64,11 +61,7 @@ void SortingWriter::close() {
     outputWriter_->write(output);
     output = sortBuffer_->getOutput(maxOutputBatchRows);
   }
-  auto spillStatsOr = sortBuffer_->spilledStats();
-  if (spillStatsOr.has_value()) {
-    VELOX_CHECK(canReclaim_);
-    *spillStats_ = spillStatsOr.value();
-  }
+
   sortBuffer_.reset();
   sortPool_->release();
   outputWriter_->close();

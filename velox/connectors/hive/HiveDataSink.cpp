@@ -510,8 +510,9 @@ DataSink::Stats HiveDataSink::stats() const {
   for (int i = 0; i < writerInfo_.size(); ++i) {
     const auto& info = writerInfo_.at(i);
     VELOX_CHECK_NOT_NULL(info);
-    if (!info->spillStats->empty()) {
-      stats.spillStats += *info->spillStats;
+    const auto spillStats = info->spillStats->rlock();
+    if (!spillStats->empty()) {
+      stats.spillStats += *spillStats;
     }
   }
   return stats;
@@ -719,15 +720,15 @@ HiveDataSink::maybeCreateBucketSortWriter(
       sortCompareFlags_,
       sortPool,
       writerInfo_.back()->nonReclaimableSectionHolder.get(),
-      spillConfig_);
+      spillConfig_,
+      writerInfo_.back()->spillStats.get());
   return std::make_unique<dwio::common::SortingWriter>(
       std::move(writer),
       std::move(sortBuffer),
       hiveConfig_->sortWriterMaxOutputRows(
           connectorQueryCtx_->sessionProperties()),
       hiveConfig_->sortWriterMaxOutputBytes(
-          connectorQueryCtx_->sessionProperties()),
-      writerInfo_.back()->spillStats.get());
+          connectorQueryCtx_->sessionProperties()));
 }
 
 void HiveDataSink::splitInputRowsAndEnsureWriters() {

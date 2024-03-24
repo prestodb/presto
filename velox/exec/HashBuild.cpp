@@ -231,9 +231,11 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
                    << spillConfig.maxSpillLevel
                    << ", and disable spilling for memory pool: "
                    << pool()->name();
+      ++spillStats_.wlock()->spillMaxLevelExceededCount;
       exceededMaxSpillLevelLimit_ = true;
       return;
     }
+    exceededMaxSpillLevelLimit_ = false;
     hashBits = HashBitRange(startBit, startBit + spillConfig.numPartitionBits);
   }
 
@@ -243,7 +245,8 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       table_->rows(),
       spillType_,
       std::move(hashBits),
-      &spillConfig);
+      &spillConfig,
+      &spillStats_);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
   spillInputIndicesBuffers_.resize(numPartitions);
@@ -732,7 +735,6 @@ bool HashBuild::finishHashBuild() {
     }
     if (spiller != nullptr) {
       spiller->finishSpill(spillPartitions);
-      build->recordSpillStats(spiller.get());
     }
   }
 
@@ -740,7 +742,6 @@ bool HashBuild::finishHashBuild() {
     spiller_->finishSpill(spillPartitions);
     removeEmptyPartitions(spillPartitions);
   }
-  recordSpillStats();
 
   // TODO: re-enable parallel join build with spilling triggered after
   // https://github.com/facebookincubator/velox/issues/3567 is fixed.
@@ -763,23 +764,6 @@ bool HashBuild::finishHashBuild() {
   // table build.
   pool()->release();
   return true;
-}
-
-void HashBuild::recordSpillStats() {
-  recordSpillStats(spiller_.get());
-}
-
-void HashBuild::recordSpillStats(Spiller* spiller) {
-  if (spiller != nullptr) {
-    const auto spillStats = spiller->stats();
-    VELOX_CHECK_EQ(spillStats.spillSortTimeUs, 0);
-    Operator::recordSpillStats(spillStats);
-  } else if (exceededMaxSpillLevelLimit_) {
-    exceededMaxSpillLevelLimit_ = false;
-    common::SpillStats spillStats;
-    spillStats.spillMaxLevelExceededCount = 1;
-    Operator::recordSpillStats(spillStats);
-  }
 }
 
 void HashBuild::ensureTableFits(uint64_t numRows) {

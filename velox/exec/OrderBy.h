@@ -63,10 +63,6 @@ class OrderBy : public Operator {
   void close() override;
 
  private:
-  // Invoked to record the spilling stats in operator stats after processing all
-  // the inputs.
-  void recordSpillStats();
-
   std::unique_ptr<SortBuffer> sortBuffer_;
   bool finished_ = false;
   uint32_t maxOutputRows_;

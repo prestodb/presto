@@ -49,7 +49,8 @@ void JoinSpillInputBenchmarkBase::setUp() {
       exec::Spiller::Type::kHashJoinProbe,
       rowType_,
       HashBitRange{29, 29},
-      &spillConfig);
+      &spillConfig,
+      &spillStats_);
   spiller_->setPartitionsSpilled({0});
 }
 

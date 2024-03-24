@@ -295,78 +295,80 @@ void Operator::recordBlockingTime(uint64_t start, BlockingReason reason) {
       fmt::format("blocked{}Times", blockReason), RuntimeCounter(1));
 }
 
-void Operator::recordSpillStats(const common::SpillStats& spillStats) {
+void Operator::recordSpillStats() {
+  const auto lockedSpillStats = spillStats_.wlock();
   auto lockedStats = stats_.wlock();
-  lockedStats->spilledInputBytes += spillStats.spilledInputBytes;
-  lockedStats->spilledBytes += spillStats.spilledBytes;
-  lockedStats->spilledRows += spillStats.spilledRows;
-  lockedStats->spilledPartitions += spillStats.spilledPartitions;
-  lockedStats->spilledFiles += spillStats.spilledFiles;
-  if (spillStats.spillFillTimeUs != 0) {
+  lockedStats->spilledInputBytes += lockedSpillStats->spilledInputBytes;
+  lockedStats->spilledBytes += lockedSpillStats->spilledBytes;
+  lockedStats->spilledRows += lockedSpillStats->spilledRows;
+  lockedStats->spilledPartitions += lockedSpillStats->spilledPartitions;
+  lockedStats->spilledFiles += lockedSpillStats->spilledFiles;
+  if (lockedSpillStats->spillFillTimeUs != 0) {
     lockedStats->addRuntimeStat(
         "spillFillTime",
         RuntimeCounter{
             static_cast<int64_t>(
-                spillStats.spillFillTimeUs *
+                lockedSpillStats->spillFillTimeUs *
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (spillStats.spillSortTimeUs != 0) {
+  if (lockedSpillStats->spillSortTimeUs != 0) {
     lockedStats->addRuntimeStat(
         "spillSortTime",
         RuntimeCounter{
             static_cast<int64_t>(
-                spillStats.spillSortTimeUs *
+                lockedSpillStats->spillSortTimeUs *
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (spillStats.spillSerializationTimeUs != 0) {
+  if (lockedSpillStats->spillSerializationTimeUs != 0) {
     lockedStats->addRuntimeStat(
         "spillSerializationTime",
         RuntimeCounter{
             static_cast<int64_t>(
-                spillStats.spillSerializationTimeUs *
+                lockedSpillStats->spillSerializationTimeUs *
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (spillStats.spillFlushTimeUs != 0) {
+  if (lockedSpillStats->spillFlushTimeUs != 0) {
     lockedStats->addRuntimeStat(
         "spillFlushTime",
         RuntimeCounter{
             static_cast<int64_t>(
-                spillStats.spillFlushTimeUs *
+                lockedSpillStats->spillFlushTimeUs *
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (spillStats.spillWrites != 0) {
+  if (lockedSpillStats->spillWrites != 0) {
     lockedStats->addRuntimeStat(
         "spillWrites",
-        RuntimeCounter{static_cast<int64_t>(spillStats.spillWrites)});
+        RuntimeCounter{static_cast<int64_t>(lockedSpillStats->spillWrites)});
   }
-  if (spillStats.spillWriteTimeUs != 0) {
+  if (lockedSpillStats->spillWriteTimeUs != 0) {
     lockedStats->addRuntimeStat(
         "spillWriteTime",
         RuntimeCounter{
             static_cast<int64_t>(
-                spillStats.spillWriteTimeUs *
+                lockedSpillStats->spillWriteTimeUs *
                 Timestamp::kNanosecondsInMicrosecond),
             RuntimeCounter::Unit::kNanos});
   }
-  if (spillStats.spillRuns != 0) {
+  if (lockedSpillStats->spillRuns != 0) {
     lockedStats->addRuntimeStat(
         "spillRuns",
-        RuntimeCounter{static_cast<int64_t>(spillStats.spillRuns)});
-    common::updateGlobalSpillRunStats(spillStats.spillRuns);
+        RuntimeCounter{static_cast<int64_t>(lockedSpillStats->spillRuns)});
+    common::updateGlobalSpillRunStats(lockedSpillStats->spillRuns);
   }
 
-  if (spillStats.spillMaxLevelExceededCount != 0) {
+  if (lockedSpillStats->spillMaxLevelExceededCount != 0) {
     lockedStats->addRuntimeStat(
         "exceededMaxSpillLevel",
-        RuntimeCounter{
-            static_cast<int64_t>(spillStats.spillMaxLevelExceededCount)});
+        RuntimeCounter{static_cast<int64_t>(
+            lockedSpillStats->spillMaxLevelExceededCount)});
     common::updateGlobalMaxSpillLevelExceededCount(
-        spillStats.spillMaxLevelExceededCount);
+        lockedSpillStats->spillMaxLevelExceededCount);
   }
+  lockedSpillStats->reset();
 }
 
 std::string Operator::toString() const {

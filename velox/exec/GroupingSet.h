@@ -40,7 +40,8 @@ class GroupingSet {
       const std::optional<column_index_t>& groupIdChannel,
       const common::SpillConfig* spillConfig,
       tsan_atomic<bool>* nonReclaimableSection,
-      OperatorCtx* operatorCtx);
+      OperatorCtx* operatorCtx,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   ~GroupingSet();
 
@@ -359,6 +360,8 @@ class GroupingSet {
   // Temporary for case where an aggregate in toIntermediate() outputs post-init
   // state of aggregate for all rows.
   std::vector<char*> firstGroup_;
+
+  folly::Synchronized<common::SpillStats>* const spillStats_;
 };
 
 } // namespace facebook::velox::exec

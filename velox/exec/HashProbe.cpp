@@ -253,7 +253,8 @@ void HashProbe::maybeSetupSpillInput(
           spillInputPartitionIds_.begin()->partitionBitOffset(),
           spillInputPartitionIds_.begin()->partitionBitOffset() +
               spillConfig.numPartitionBits),
-      &spillConfig);
+      &spillConfig,
+      &spillStats_);
   // Set the spill partitions to the corresponding ones at the build side. The
   // hash probe operator itself won't trigger any spilling.
   spiller_->setPartitionsSpilled(toPartitionNumSet(spillInputPartitionIds_));
@@ -1382,7 +1383,8 @@ void HashProbe::noMoreInputInternal() {
     VELOX_CHECK_EQ(
         spillInputPartitionIds_.size(), spiller_->spilledPartitionSet().size());
     spiller_->finishSpill(spillPartitionSet_);
-    recordSpillStats();
+    VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeUs, 0);
+    VELOX_CHECK_EQ(spillStats_.rlock()->spillFillTimeUs, 0);
   }
 
   const bool hasSpillData = hasMoreSpillData();
@@ -1410,14 +1412,6 @@ void HashProbe::noMoreInputInternal() {
   VELOX_CHECK(promises.empty());
   VELOX_CHECK(hasSpillData || peers.empty());
   lastProber_ = true;
-}
-
-void HashProbe::recordSpillStats() {
-  VELOX_CHECK_NOT_NULL(spiller_);
-  const auto spillStats = spiller_->stats();
-  VELOX_CHECK_EQ(spillStats.spillSortTimeUs, 0);
-  VELOX_CHECK_EQ(spillStats.spillFillTimeUs, 0);
-  Operator::recordSpillStats(spillStats);
 }
 
 bool HashProbe::isFinished() {

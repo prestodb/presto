@@ -45,7 +45,7 @@ Window::Window(
         windowNode, pool(), spillConfig, &nonReclaimableSection_);
   } else {
     windowBuild_ = std::make_unique<SortWindowBuild>(
-        windowNode, pool(), spillConfig, &nonReclaimableSection_);
+        windowNode, pool(), spillConfig, &nonReclaimableSection_, &spillStats_);
   }
 }
 
@@ -241,10 +241,6 @@ void Window::createPeerAndFrameBuffers() {
 void Window::noMoreInput() {
   Operator::noMoreInput();
   windowBuild_->noMoreInput();
-
-  if (auto spillStats = windowBuild_->spilledStats()) {
-    recordSpillStats(spillStats.value());
-  }
 }
 
 void Window::callResetPartition() {

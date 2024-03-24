@@ -36,7 +36,8 @@ class SortBuffer {
       const std::vector<CompareFlags>& sortCompareFlags,
       velox::memory::MemoryPool* pool,
       tsan_atomic<bool>* nonReclaimableSection,
-      const common::SpillConfig* spillConfig = nullptr);
+      const common::SpillConfig* spillConfig = nullptr,
+      folly::Synchronized<velox::common::SpillStats>* spillStats = nullptr);
 
   void addInput(const VectorPtr& input);
 
@@ -59,14 +60,6 @@ class SortBuffer {
 
   memory::MemoryPool* pool() const {
     return pool_;
-  }
-
-  /// Returns the spiller stats including total bytes and rows spilled so far.
-  std::optional<common::SpillStats> spilledStats() const {
-    if (spiller_ == nullptr) {
-      return std::nullopt;
-    }
-    return spiller_->stats();
   }
 
   std::optional<uint64_t> estimateOutputRowSize() const;
@@ -95,6 +88,7 @@ class SortBuffer {
   // execution section or not.
   tsan_atomic<bool>* const nonReclaimableSection_;
   const common::SpillConfig* const spillConfig_;
+  folly::Synchronized<common::SpillStats>* const spillStats_;
 
   // The column projection map between 'input_' and 'spillerStoreType_' as sort
   // buffer stores the sort columns first in 'data_'.

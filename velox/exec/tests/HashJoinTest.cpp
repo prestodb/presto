@@ -6299,7 +6299,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceededMaxSpillLevel) {
                              .operatorStats.back()
                              .runtimeStats;
         ASSERT_EQ(joinStats["exceededMaxSpillLevel"].sum, 8);
-        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].count, 8);
+        ASSERT_EQ(joinStats["exceededMaxSpillLevel"].count, 1);
       })
       .run();
   ASSERT_EQ(

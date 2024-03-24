@@ -52,7 +52,8 @@ GroupingSet::GroupingSet(
     const std::optional<column_index_t>& groupIdChannel,
     const common::SpillConfig* spillConfig,
     tsan_atomic<bool>* nonReclaimableSection,
-    OperatorCtx* operatorCtx)
+    OperatorCtx* operatorCtx,
+    folly::Synchronized<common::SpillStats>* spillStats)
     : preGroupedKeyChannels_(std::move(preGroupedKeys)),
       hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
@@ -69,7 +70,8 @@ GroupingSet::GroupingSet(
       stringAllocator_(operatorCtx->pool()),
       rows_(operatorCtx->pool()),
       isAdaptive_(queryConfig_.hashAdaptivityEnabled()),
-      pool_(*operatorCtx->pool()) {
+      pool_(*operatorCtx->pool()),
+      spillStats_(spillStats) {
   VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
   VELOX_CHECK(pool_.trackUsage());
   for (auto& hasher : hashers_) {
@@ -131,7 +133,8 @@ std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
       /*groupIdColumn*/ std::nullopt,
       /*spillConfig*/ nullptr,
       nonReclaimableSection,
-      operatorCtx);
+      operatorCtx,
+      /*spillStats_*/ nullptr);
 };
 
 namespace {
@@ -939,7 +942,8 @@ void GroupingSet::spill() {
         makeSpillType(),
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
-        spillConfig_);
+        spillConfig_,
+        spillStats_);
   }
   spiller_->spill();
   if (sortedAggregations_) {
@@ -958,7 +962,11 @@ void GroupingSet::spill(const RowContainerIterator& rowIterator) {
   auto* rows = table_->rows();
   VELOX_CHECK(pool_.trackUsage());
   spiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kAggregateOutput, rows, makeSpillType(), spillConfig_);
+      Spiller::Type::kAggregateOutput,
+      rows,
+      makeSpillType(),
+      spillConfig_,
+      spillStats_);
 
   spiller_->spill(rowIterator);
   table_->clear();

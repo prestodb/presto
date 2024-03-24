@@ -255,11 +255,12 @@ void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
         "numWrittenFiles", RuntimeCounter(stats.numWrittenFiles));
   }
   if (!stats.spillStats.empty()) {
-    recordSpillStats(stats.spillStats);
+    *spillStats_.wlock() += stats.spillStats;
   }
 }
 
 void TableWriter::close() {
+  Operator::close();
   if (!closed_) {
     // Abort the data sink if the query has already failed and no need for
     // regular close.

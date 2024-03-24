@@ -25,12 +25,14 @@ SortBuffer::SortBuffer(
     const std::vector<CompareFlags>& sortCompareFlags,
     velox::memory::MemoryPool* pool,
     tsan_atomic<bool>* nonReclaimableSection,
-    const common::SpillConfig* spillConfig)
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<velox::common::SpillStats>* spillStats)
     : input_(input),
       sortCompareFlags_(sortCompareFlags),
       pool_(pool),
       nonReclaimableSection_(nonReclaimableSection),
-      spillConfig_(spillConfig) {
+      spillConfig_(spillConfig),
+      spillStats_(spillStats) {
   VELOX_CHECK_GE(input_->size(), sortCompareFlags_.size());
   VELOX_CHECK_GT(sortCompareFlags_.size(), 0);
   VELOX_CHECK_EQ(sortColumnIndices.size(), sortCompareFlags_.size());
@@ -258,7 +260,8 @@ void SortBuffer::spillInput() {
         spillerStoreType_,
         data_->keyTypes().size(),
         sortCompareFlags_,
-        spillConfig_);
+        spillConfig_,
+        spillStats_);
   }
   spiller_->spill();
   data_->clear();
@@ -278,7 +281,8 @@ void SortBuffer::spillOutput() {
       Spiller::Type::kOrderByOutput,
       data_.get(),
       spillerStoreType_,
-      spillConfig_);
+      spillConfig_,
+      spillStats_);
   auto spillRows = std::vector<char*>(
       sortedRows_.begin() + numOutputRows_, sortedRows_.end());
   spiller_->spill(spillRows);

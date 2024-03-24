@@ -106,7 +106,8 @@ void HashAggregation::initialize() {
       groupIdChannel,
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       &nonReclaimableSection_,
-      operatorCtx_.get());
+      operatorCtx_.get(),
+      &spillStats_);
 
   aggregationNode_.reset();
 }
@@ -186,13 +187,6 @@ void HashAggregation::updateRuntimeStats() {
       RuntimeMetric(hashTableStats.numDistinct);
   runtimeStats["hashtable.numTombstones"] =
       RuntimeMetric(hashTableStats.numTombstones);
-}
-
-void HashAggregation::recordSpillStats() {
-  auto spillStatsOr = groupingSet_->spilledStats();
-  if (spillStatsOr.has_value()) {
-    Operator::recordSpillStats(spillStatsOr.value());
-  }
 }
 
 void HashAggregation::prepareOutput(vector_size_t size) {
@@ -388,7 +382,6 @@ void HashAggregation::noMoreInput() {
   updateEstimatedOutputRowSize();
   groupingSet_->noMoreInput();
   Operator::noMoreInput();
-  recordSpillStats();
   // Release the extra reserved memory right after processing all the inputs.
   pool()->release();
 }
@@ -429,9 +422,6 @@ void HashAggregation::reclaim(
     // Spill all the rows starting from the next output row pointed by
     // 'resultIterator_'.
     groupingSet_->spill(resultIterator_);
-    // NOTE: we will only spill once during the output processing stage so
-    // record stats here.
-    recordSpillStats();
   } else {
     // TODO: support fine-grain disk spilling based on 'targetBytes' after
     // having row container memory compaction support later.

@@ -1034,8 +1034,9 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
     taskThread.join();
 
     auto stats = task->taskStats().pipelineStats;
-    ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
-    ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
+    ASSERT_TRUE(!enableSpilling || stats[0].operatorStats[1].spilledBytes > 0);
+    ASSERT_TRUE(
+        !enableSpilling || stats[0].operatorStats[1].spilledPartitions > 0);
     OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
   }
   ASSERT_EQ(reclaimerStats_.numNonReclaimableAttempts, 0);

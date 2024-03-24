@@ -513,6 +513,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     common::GetSpillDirectoryPathCB tempSpillDirCb =
         [&]() -> const std::string& { return tempDirPath_->path; };
     stats_.clear();
+    spillStats_ = folly::Synchronized<common::SpillStats>();
 
     common::SpillConfig spillConfig;
     spillConfig.getSpillDirPathCb = makeError ? badSpillDirCb : tempSpillDirCb;
@@ -527,8 +528,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     if (type_ == Spiller::Type::kHashJoinProbe) {
       // kHashJoinProbe doesn't have associated row container.
-      spiller_ =
-          std::make_unique<Spiller>(type_, rowType_, hashBits_, &spillConfig);
+      spiller_ = std::make_unique<Spiller>(
+          type_, rowType_, hashBits_, &spillConfig, &spillStats_);
     } else if (
         type_ == Spiller::Type::kOrderByInput ||
         type_ == Spiller::Type::kAggregateInput) {
@@ -540,15 +541,21 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowType_,
           rowContainer_->keyTypes().size(),
           compareFlags_,
-          &spillConfig);
+          &spillConfig,
+          &spillStats_);
     } else if (
         type_ == Spiller::Type::kAggregateOutput ||
         type_ == Spiller::Type::kOrderByOutput) {
       spiller_ = std::make_unique<Spiller>(
-          type_, rowContainer_.get(), rowType_, &spillConfig);
+          type_, rowContainer_.get(), rowType_, &spillConfig, &spillStats_);
     } else if (type_ == Spiller::Type::kRowNumber) {
       spiller_ = std::make_unique<Spiller>(
-          type_, rowContainer_.get(), rowType_, hashBits_, &spillConfig);
+          type_,
+          rowContainer_.get(),
+          rowType_,
+          hashBits_,
+          &spillConfig,
+          &spillStats_);
     } else {
       VELOX_CHECK_EQ(type_, Spiller::Type::kHashJoinBuild);
       spiller_ = std::make_unique<Spiller>(
@@ -557,7 +564,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           rowContainer_.get(),
           rowType_,
           hashBits_,
-          &spillConfig);
+          &spillConfig,
+          &spillStats_);
     }
     ASSERT_EQ(spiller_->state().maxPartitions(), numPartitions_);
     ASSERT_FALSE(spiller_->isAllSpilled());
@@ -1057,6 +1065,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   std::vector<std::vector<int32_t>> partitions_;
   std::vector<CompareFlags> compareFlags_;
   std::unique_ptr<Spiller> spiller_;
+  folly::Synchronized<common::SpillStats> spillStats_;
 };
 
 struct AllTypesTestParam {
