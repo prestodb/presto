@@ -86,7 +86,7 @@ public class AlluxioCachingFileSystem
                     .setPath(path.toString())
                     .setFolder(false)
                     .setLength(hiveFileContext.getFileSize().getAsLong());
-            String cacheIdentifier = md5().hashString(path.toString(), UTF_8).toString();
+            String cacheIdentifier = md5().hashString(path.toString() + hiveFileContext.getModificationTime(), UTF_8).toString();
             // CacheContext is the mechanism to pass the cache related context to the source filesystem
             CacheContext cacheContext = PrestoCacheContext.build(cacheIdentifier, hiveFileContext, cacheQuotaEnabled);
             URIStatus uriStatus = new URIStatus(info, cacheContext);
