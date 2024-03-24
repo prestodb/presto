@@ -723,7 +723,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
-          NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
           NUM_PROP(
