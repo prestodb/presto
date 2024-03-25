@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.VarbinaryType;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
