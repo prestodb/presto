@@ -201,8 +201,9 @@ std::optional<RowVectorPtr> HiveDataSource::next(
     uint64_t size,
     velox::ContinueFuture& /*future*/) {
   VELOX_CHECK(split_ != nullptr, "No split to process. Call addSplit first.");
+  VELOX_CHECK_NOT_NULL(splitReader_, "No split reader present");
 
-  if (splitReader_ && splitReader_->emptySplit()) {
+  if (splitReader_->emptySplit()) {
     resetSplit();
     return nullptr;
   }
@@ -324,14 +325,11 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
 void HiveDataSource::setFromDataSource(
     std::unique_ptr<DataSource> sourceUnique) {
   auto source = dynamic_cast<HiveDataSource*>(sourceUnique.get());
-  VELOX_CHECK(source, "Bad DataSource type");
+  VELOX_CHECK_NOT_NULL(source, "Bad DataSource type");
 
   split_ = std::move(source->split_);
-  if (source->splitReader_ && source->splitReader_->emptySplit()) {
-    runtimeStats_.skippedSplits += source->runtimeStats_.skippedSplits;
-    runtimeStats_.skippedSplitBytes += source->runtimeStats_.skippedSplitBytes;
-    return;
-  }
+  runtimeStats_.skippedSplits += source->runtimeStats_.skippedSplits;
+  runtimeStats_.skippedSplitBytes += source->runtimeStats_.skippedSplitBytes;
   source->scanSpec_->moveAdaptationFrom(*scanSpec_);
   scanSpec_ = std::move(source->scanSpec_);
   splitReader_ = std::move(source->splitReader_);
