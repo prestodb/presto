@@ -166,6 +166,7 @@ class Expr {
       TypePtr type,
       std::vector<std::shared_ptr<Expr>>&& inputs,
       std::shared_ptr<VectorFunction> vectorFunction,
+      VectorFunctionMetadata metadata,
       std::string name,
       bool trackCpuUsage);
 
@@ -364,8 +365,12 @@ class Expr {
       EvalCtx& context,
       VectorPtr& result) const;
 
-  auto& vectorFunction() const {
+  const std::shared_ptr<VectorFunction>& vectorFunction() const {
     return vectorFunction_;
+  }
+
+  const VectorFunctionMetadata& vectorFunctionMetadata() const {
+    return vectorFunctionMetadata_;
   }
 
   auto& inputValues() {
@@ -565,6 +570,7 @@ class Expr {
   const std::vector<std::shared_ptr<Expr>> inputs_;
   const std::string name_;
   const std::shared_ptr<VectorFunction> vectorFunction_;
+  const VectorFunctionMetadata vectorFunctionMetadata_;
   const bool specialForm_;
   const bool supportsFlatNoNullsFastPath_;
   const bool trackCpuUsage_;

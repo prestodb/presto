@@ -109,10 +109,6 @@ class TypeOfFunction : public exec::VectorFunction {
  public:
   TypeOfFunction(const TypePtr& type) : typeName_{typeName(type)} {}
 
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -141,7 +137,7 @@ class TypeOfFunction : public exec::VectorFunction {
       return std::make_shared<TypeOfFunction>(inputArgs[0].type);
     } catch (...) {
       return std::make_shared<exec::AlwaysFailingVectorFunction>(
-          std::current_exception(), false /*defaultNullBehavior*/);
+          std::current_exception());
     }
   }
 
@@ -150,9 +146,10 @@ class TypeOfFunction : public exec::VectorFunction {
 };
 } // namespace
 
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION_WITH_METADATA(
     udf_typeof,
     TypeOfFunction::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     TypeOfFunction::create);
 
 } // namespace facebook::velox::functions

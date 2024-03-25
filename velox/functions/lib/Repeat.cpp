@@ -28,11 +28,6 @@ class RepeatFunction : public exec::VectorFunction {
 
   static constexpr int32_t kMaxResultEntries = 10'000;
 
-  bool isDefaultNullBehavior() const override {
-    // repeat(null, n) returns an array of n nulls.
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -197,6 +192,13 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> repeatSignatures() {
               .argumentType("T")
               .argumentType("integer")
               .build()};
+}
+
+exec::VectorFunctionMetadata repeatMetadata() {
+  // repeat(null, n) returns an array of n nulls.
+  return exec::VectorFunctionMetadataBuilder()
+      .defaultNullBehavior(false)
+      .build();
 }
 
 std::shared_ptr<exec::VectorFunction> makeRepeat(

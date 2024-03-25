@@ -202,19 +202,29 @@ void registerFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_regexp_split, prefix + "split");
 
   exec::registerStatefulVectorFunction(
-      prefix + "least", leastSignatures(), makeLeast);
+      prefix + "least",
+      leastSignatures(),
+      makeLeast,
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   exec::registerStatefulVectorFunction(
-      prefix + "greatest", greatestSignatures(), makeGreatest);
+      prefix + "greatest",
+      greatestSignatures(),
+      makeGreatest,
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   exec::registerStatefulVectorFunction(
-      prefix + "hash", hashSignatures(), makeHash);
+      prefix + "hash", hashSignatures(), makeHash, hashMetadata());
   exec::registerStatefulVectorFunction(
-      prefix + "hash_with_seed", hashWithSeedSignatures(), makeHashWithSeed);
+      prefix + "hash_with_seed",
+      hashWithSeedSignatures(),
+      makeHashWithSeed,
+      hashMetadata());
   exec::registerStatefulVectorFunction(
-      prefix + "xxhash64", xxhash64Signatures(), makeXxHash64);
+      prefix + "xxhash64", xxhash64Signatures(), makeXxHash64, hashMetadata());
   exec::registerStatefulVectorFunction(
       prefix + "xxhash64_with_seed",
       xxhash64WithSeedSignatures(),
-      makeXxHash64WithSeed);
+      makeXxHash64WithSeed,
+      hashMetadata());
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
 
   // Register 'in' functions.
@@ -271,7 +281,8 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "array_repeat",
       repeatSignatures(),
-      makeRepeatAllowNegativeCount);
+      makeRepeatAllowNegativeCount,
+      repeatMetadata());
 
   // Register date functions.
   registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});

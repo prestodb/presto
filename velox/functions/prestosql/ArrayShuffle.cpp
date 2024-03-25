@@ -40,10 +40,6 @@ namespace {
 //
 class ArrayShuffleFunction : public exec::VectorFunction {
  public:
-  bool isDeterministic() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -119,8 +115,9 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
 } // namespace
 
 // Register function.
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_array_shuffle,
     signatures(),
+    exec::VectorFunctionMetadataBuilder().deterministic(false).build(),
     std::make_unique<ArrayShuffleFunction>());
 } // namespace facebook::velox::functions

@@ -171,11 +171,6 @@ class VectorFuncFour : public velox::exec::VectorFunction {
                 .argumentType("map(K,V)")
                 .build()};
   }
-
-  // Make it non-deterministic.
-  bool isDeterministic() const override {
-    return false;
-  }
 };
 
 VELOX_DECLARE_VECTOR_FUNCTION(
@@ -193,9 +188,10 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     VectorFuncThree::signatures(),
     std::make_unique<VectorFuncThree>());
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_vector_func_four,
     VectorFuncFour::signatures(),
+    exec::VectorFunctionMetadataBuilder().deterministic(false).build(),
     std::make_unique<VectorFuncFour>());
 
 inline void registerTestFunctions() {

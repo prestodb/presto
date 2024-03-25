@@ -21,6 +21,42 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+template <typename TResult, typename TFunc>
+std::optional<TResult> applyToVectorFunctionEntry(
+    const std::string& name,
+    TFunc applyFunc) {
+  auto sanitizedName = sanitizeName(name);
+
+  return vectorFunctionFactories().withRLock(
+      [&](auto& functions) -> std::optional<TResult> {
+        auto it = functions.find(sanitizedName);
+        if (it == functions.end()) {
+          return std::nullopt;
+        }
+        return applyFunc(sanitizedName, it->second);
+      });
+}
+
+// Zip `inputTypes` and `constantInputs` vectors into a single
+// vector of `VectorFunctionArg`.
+std::vector<VectorFunctionArg> toVectorFunctionArgs(
+    const std::vector<TypePtr>& inputTypes,
+    const std::vector<VectorPtr>& constantInputs) {
+  std::vector<VectorFunctionArg> args;
+  args.reserve(inputTypes.size());
+
+  for (vector_size_t i = 0; i < inputTypes.size(); ++i) {
+    args.push_back({
+        inputTypes[i],
+        constantInputs.size() > i ? constantInputs[i] : nullptr,
+    });
+  }
+
+  return args;
+}
+} // namespace
+
 VectorFunctionMap& vectorFunctionFactories() {
   static VectorFunctionMap factories;
   return factories;
@@ -28,30 +64,39 @@ VectorFunctionMap& vectorFunctionFactories() {
 
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name) {
-  auto sanitizedName = sanitizeName(name);
-
-  return vectorFunctionFactories()
-      .withRLock([&sanitizedName](auto& functions) -> auto {
-        auto it = functions.find(sanitizedName);
-        return it == functions.end() ? std::nullopt
-                                     : std::optional(it->second.signatures);
+  return applyToVectorFunctionEntry<std::vector<FunctionSignaturePtr>>(
+      name, [&](const auto& /*name*/, const auto& entry) {
+        return entry.signatures;
       });
 }
 
-std::shared_ptr<const Type> resolveVectorFunction(
+TypePtr resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
-  if (auto vectorFunctionSignatures =
-          exec::getVectorFunctionSignatures(functionName)) {
-    for (const auto& signature : vectorFunctionSignatures.value()) {
-      exec::SignatureBinder binder(*signature, argTypes);
-      if (binder.tryBind()) {
-        return binder.tryResolveReturnType();
-      }
-    }
+  if (auto outputTypeWithMetadata =
+          resolveVectorFunctionWithMetadata(functionName, argTypes)) {
+    return outputTypeWithMetadata->first;
   }
 
   return nullptr;
+}
+
+std::optional<std::pair<TypePtr, VectorFunctionMetadata>>
+resolveVectorFunctionWithMetadata(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
+  return applyToVectorFunctionEntry<std::pair<TypePtr, VectorFunctionMetadata>>(
+      functionName,
+      [&](const auto& /*name*/, const auto& entry)
+          -> std::optional<std::pair<TypePtr, VectorFunctionMetadata>> {
+        for (const auto& signature : entry.signatures) {
+          exec::SignatureBinder binder(*signature, argTypes);
+          if (binder.tryBind()) {
+            return {{binder.tryResolveReturnType(), entry.metadata}};
+          }
+        }
+        return std::nullopt;
+      });
 }
 
 std::shared_ptr<VectorFunction> getVectorFunction(
@@ -59,33 +104,43 @@ std::shared_ptr<VectorFunction> getVectorFunction(
     const std::vector<TypePtr>& inputTypes,
     const std::vector<VectorPtr>& constantInputs,
     const core::QueryConfig& config) {
-  auto sanitizedName = sanitizeName(name);
+  auto functionWithMetadata =
+      getVectorFunctionWithMetadata(name, inputTypes, constantInputs, config);
+  if (!functionWithMetadata.has_value()) {
+    return nullptr;
+  }
+  return functionWithMetadata->first;
+}
 
+std::optional<
+    std::pair<std::shared_ptr<VectorFunction>, VectorFunctionMetadata>>
+getVectorFunctionWithMetadata(
+    const std::string& name,
+    const std::vector<TypePtr>& inputTypes,
+    const std::vector<VectorPtr>& constantInputs,
+    const core::QueryConfig& config) {
   if (!constantInputs.empty()) {
     VELOX_CHECK_EQ(inputTypes.size(), constantInputs.size());
   }
 
-  // Zip `inputTypes` and `constantInputs` vectors into a single vector of
-  // `VectorFunctionArg`.
-  std::vector<VectorFunctionArg> inputArgs;
-  inputArgs.reserve(inputTypes.size());
+  return applyToVectorFunctionEntry<
+      std::pair<std::shared_ptr<VectorFunction>, VectorFunctionMetadata>>(
+      name,
+      [&](const auto& sanitizedName, const auto& entry)
+          -> std::optional<std::pair<
+              std::shared_ptr<VectorFunction>,
+              VectorFunctionMetadata>> {
+        for (const auto& signature : entry.signatures) {
+          exec::SignatureBinder binder(*signature, inputTypes);
+          if (binder.tryBind()) {
+            auto inputArgs = toVectorFunctionArgs(inputTypes, constantInputs);
 
-  for (vector_size_t i = 0; i < inputTypes.size(); ++i) {
-    inputArgs.push_back({
-        inputTypes[i],
-        constantInputs.size() > i ? constantInputs[i] : nullptr,
-    });
-  }
-
-  return vectorFunctionFactories().withRLock(
-      [&sanitizedName, &inputArgs, &config, &inputTypes](
-          auto& functionMap) -> std::shared_ptr<VectorFunction> {
-        if (resolveVectorFunction(sanitizedName, inputTypes)) {
-          auto functionIterator = functionMap.find(sanitizedName);
-          return functionIterator->second.factory(
-              sanitizedName, inputArgs, config);
+            return {
+                {entry.factory(sanitizedName, inputArgs, config),
+                 entry.metadata}};
+          }
         }
-        return nullptr;
+        return std::nullopt;
       });
 }
 

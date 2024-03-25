@@ -76,10 +76,6 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
   }
 
  public:
-  bool isDefaultNullBehavior() const override {
-    return true;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,

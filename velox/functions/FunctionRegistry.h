@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "velox/expression/FunctionMetadata.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/type/Type.h"
 
@@ -25,20 +26,21 @@ namespace facebook::velox {
 
 using FunctionSignatureMap = std::
     unordered_map<std::string, std::vector<const exec::FunctionSignature*>>;
+
 /// Returns a mapping of all Simple and Vector functions registered in Velox
 /// The mapping is function name -> list of function signatures
 FunctionSignatureMap getFunctionSignatures();
 
 /// Given a function name and argument types, returns
 /// the return type if function exists otherwise returns nullptr
-std::shared_ptr<const Type> resolveFunction(
+TypePtr resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
 /// Given a function name and argument types, returns the return type if the
 /// function exists or is a special form that supports type resolution (see
 /// resolveCallableSpecialForm), otherwise returns nullptr.
-std::shared_ptr<const Type> resolveFunctionOrCallableSpecialForm(
+TypePtr resolveFunctionOrCallableSpecialForm(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
@@ -50,22 +52,28 @@ std::shared_ptr<const Type> resolveFunctionOrCallableSpecialForm(
 /// or
 /// 2) their return types cannot be inferred from their argument types, e.g.
 ///    Cast.
-std::shared_ptr<const Type> resolveCallableSpecialForm(
+TypePtr resolveCallableSpecialForm(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
 /// Given name of simple function and argument types, returns
 /// the return type if function exists otherwise returns nullptr
-std::shared_ptr<const Type> resolveSimpleFunction(
+TypePtr resolveSimpleFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
 /// Given name of vector function and argument types, returns
 /// the return type if function exists otherwise returns nullptr
-std::shared_ptr<const Type> resolveVectorFunction(
+TypePtr resolveVectorFunction(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
+std::optional<std::pair<TypePtr, exec::VectorFunctionMetadata>>
+resolveVectorFunctionWithMetadata(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
 /// Clears the function registry.
 void clearFunctionRegistry();
+
 } // namespace facebook::velox

@@ -31,10 +31,6 @@ constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
 /// Wraps input in a dictionary that repeats first row.
 class TestingDictionaryFunction : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -63,7 +59,10 @@ class InTest : public SparkFunctionBaseTest {
     exec::registerVectorFunction(
         "testing_dictionary",
         TestingDictionaryFunction::signatures(),
-        std::make_unique<TestingDictionaryFunction>());
+        std::make_unique<TestingDictionaryFunction>(),
+        exec::VectorFunctionMetadataBuilder()
+            .defaultNullBehavior(false)
+            .build());
   }
 
   template <typename T>

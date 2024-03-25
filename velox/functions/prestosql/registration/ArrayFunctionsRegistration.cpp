@@ -147,7 +147,7 @@ void registerArrayFunctions(const std::string& prefix) {
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, prefix + "array_sum");
   exec::registerStatefulVectorFunction(
-      prefix + "repeat", repeatSignatures(), makeRepeat);
+      prefix + "repeat", repeatSignatures(), makeRepeat, repeatMetadata());
   VELOX_REGISTER_VECTOR_FUNCTION(udf_sequence, prefix + "sequence");
 
   exec::registerStatefulVectorFunction(

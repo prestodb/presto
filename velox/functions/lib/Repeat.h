@@ -23,6 +23,8 @@ namespace facebook::velox::functions {
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> repeatSignatures();
 
+exec::VectorFunctionMetadata repeatMetadata();
+
 // Does not allow negative count.
 std::shared_ptr<exec::VectorFunction> makeRepeat(
     const std::string& name,
@@ -34,4 +36,5 @@ std::shared_ptr<exec::VectorFunction> makeRepeatAllowNegativeCount(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config);
+
 } // namespace facebook::velox::functions

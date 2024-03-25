@@ -220,10 +220,6 @@ class CreateConstantAndThrow : public exec::VectorFunction {
   CreateConstantAndThrow(bool throwOnFirstRow = false)
       : throwOnFirstRow_{throwOnFirstRow} {}
 
-  bool isDefaultNullBehavior() const override {
-    return true;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& /* args */,

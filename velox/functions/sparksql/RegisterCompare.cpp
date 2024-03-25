@@ -35,7 +35,10 @@ void registerCompareFunctions(const std::string& prefix) {
       makeGreaterThanOrEqual);
   // Compare nullsafe functions.
   exec::registerStatefulVectorFunction(
-      prefix + "equalnullsafe", comparisonSignatures(), makeEqualToNullSafe);
+      prefix + "equalnullsafe",
+      comparisonSignatures(),
+      makeEqualToNullSafe,
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
   registerFunction<BetweenFunction, bool, int8_t, int8_t, int8_t>(
       {prefix + "between"});
   registerFunction<BetweenFunction, bool, int16_t, int16_t, int16_t>(

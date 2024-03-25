@@ -314,10 +314,7 @@ TEST_F(ArrayExceptTest, constant) {
 }
 
 TEST_F(ArrayExceptTest, dictionaryEncodedElementsInConstant) {
-  exec::registerVectorFunction(
-      "testing_dictionary_array_elements",
-      test::TestingDictionaryArrayElementsFunction::signatures(),
-      std::make_unique<test::TestingDictionaryArrayElementsFunction>());
+  TestingDictionaryArrayElementsFunction::registerFunction();
 
   auto array = makeArrayVector<int64_t>({{1, 3}, {2, 5}, {0, 6}});
   auto expected = makeArrayVector<int64_t>({{}, {5}, {6}});

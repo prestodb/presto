@@ -421,14 +421,6 @@ class SimpleFunctionAdapter : public VectorFunction {
     return fn_->getCanonicalName();
   }
 
-  bool isDeterministic() const override {
-    return fn_->isDeterministic();
-  }
-
-  bool isDefaultNullBehavior() const override {
-    return fn_->is_default_null_behavior;
-  }
-
   bool supportsFlatNoNullsFastPath() const override {
     if (FUNC::can_produce_null_output) {
       return false;
@@ -904,6 +896,9 @@ class SimpleFunctionAdapterFactoryImpl : public SimpleFunctionAdapterFactory {
   using Metadata = typename UDFHolder::Metadata;
 
   explicit SimpleFunctionAdapterFactoryImpl() {}
+
+  static constexpr bool is_default_null_behavior =
+      UDFHolder::is_default_null_behavior;
 
   std::unique_ptr<VectorFunction> createVectorFunction(
       const std::vector<TypePtr>& inputTypes,

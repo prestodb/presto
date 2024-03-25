@@ -134,10 +134,6 @@ struct AggregateCompanionAdapter {
     explicit ExtractFunction(std::unique_ptr<Aggregate> fn)
         : fn_{std::move(fn)} {}
 
-    bool isDefaultNullBehavior() const override {
-      return false;
-    }
-
     void apply(
         const SelectivityVector& rows,
         std::vector<VectorPtr>& args,

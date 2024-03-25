@@ -28,10 +28,6 @@ class TestingDictionaryFunction : public exec::VectorFunction {
   TestingDictionaryFunction(vector_size_t trailingNulls = 0)
       : trailingNulls_(trailingNulls) {}
 
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,

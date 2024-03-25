@@ -76,4 +76,6 @@ std::shared_ptr<exec::VectorFunction> makeXxHash64WithSeed(
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config);
 
+exec::VectorFunctionMetadata hashMetadata();
+
 } // namespace facebook::velox::functions::sparksql

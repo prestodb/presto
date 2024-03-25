@@ -467,7 +467,9 @@ bool CompanionFunctionsRegistrar::registerExtractFunctionWithSuffix(
         CompanionSignatures::extractFunctionNameWithSuffix(originalName, type),
         extractSignatures,
         factory,
-        {},
+        exec::VectorFunctionMetadataBuilder()
+            .defaultNullBehavior(false)
+            .build(),
         overwrite);
   }
   return registered;
@@ -523,7 +525,7 @@ bool CompanionFunctionsRegistrar::registerExtractFunction(
       CompanionSignatures::extractFunctionName(originalName),
       extractSignatures,
       factory,
-      {},
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
       overwrite);
 }
 

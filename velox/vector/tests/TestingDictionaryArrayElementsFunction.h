@@ -26,8 +26,14 @@ class TestingDictionaryArrayElementsFunction : public exec::VectorFunction {
  public:
   TestingDictionaryArrayElementsFunction() {}
 
-  bool isDefaultNullBehavior() const override {
-    return false;
+  static void registerFunction() {
+    exec::registerVectorFunction(
+        "testing_dictionary_array_elements",
+        test::TestingDictionaryArrayElementsFunction::signatures(),
+        std::make_unique<test::TestingDictionaryArrayElementsFunction>(),
+        exec::VectorFunctionMetadataBuilder()
+            .defaultNullBehavior(false)
+            .build());
   }
 
   void apply(

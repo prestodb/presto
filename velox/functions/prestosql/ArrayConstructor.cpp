@@ -22,10 +22,6 @@ namespace {
 
 class ArrayConstructor : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -147,9 +143,10 @@ class ArrayConstructor : public exec::VectorFunction {
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_array_constructor,
     ArrayConstructor::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<ArrayConstructor>());
 
 void registerArrayConstructor(const std::string& name) {

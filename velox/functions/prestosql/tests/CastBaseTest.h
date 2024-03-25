@@ -33,7 +33,10 @@ class CastBaseTest : public FunctionBaseTest {
     exec::registerVectorFunction(
         "testing_dictionary",
         test::TestingDictionaryFunction::signatures(),
-        std::make_unique<test::TestingDictionaryFunction>());
+        std::make_unique<test::TestingDictionaryFunction>(),
+        exec::VectorFunctionMetadataBuilder()
+            .defaultNullBehavior(false)
+            .build());
   }
 
   // Build an ITypedExpr for cast(fromType as toType).

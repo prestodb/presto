@@ -29,16 +29,6 @@ void recordInvalidStartIndex(vector_size_t row, exec::EvalCtx& context) {
 }
 
 class FindFirstFunctionBase : public exec::VectorFunction {
- public:
-  bool isDefaultNullBehavior() const override {
-    // find_first function is null preserving for the array argument, but
-    // predicate expression may use other fields and may not preserve nulls in
-    // these.
-    // For example: find_first(array[1, 2, 3], x -> x > coalesce(a, 0)) should
-    // not return null when 'a' is null.
-    return false;
-  }
-
  protected:
   ArrayVectorPtr prepareInputArray(
       const VectorPtr& input,
@@ -417,14 +407,22 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> indexSignatures() {
 
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+/// find_first function is null preserving for the array argument, but
+/// predicate expression may use other fields and may not preserve nulls in
+/// these.
+/// For example: find_first(array[1, 2, 3], x -> x > coalesce(a, 0)) should
+/// not return null when 'a' is null.
+
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_find_first,
     valueSignatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<FindFirstFunction>());
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_find_first_index,
     indexSignatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<FindFirstIndexFunction>());
 
 } // namespace facebook::velox::functions

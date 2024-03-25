@@ -242,6 +242,7 @@ exec::ExprPtr DecimalRoundCallToSpecialForm::constructSpecialForm(
       type,
       std::move(args),
       std::move(decimalRound),
+      exec::VectorFunctionMetadata{},
       kRoundDecimal,
       trackCpuUsage);
 }

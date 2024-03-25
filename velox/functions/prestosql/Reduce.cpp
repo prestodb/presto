@@ -84,14 +84,6 @@ bool toNthElementRows(
 /// https://prestodb.io/docs/current/functions/array.html#reduce
 class ReduceFunction : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    // reduce is null preserving for the array. But since an
-    // expr tree with a lambda depends on all named fields, including
-    // captures, a null in a capture does not automatically make a
-    // null result.
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -240,9 +232,15 @@ class ReduceFunction : public exec::VectorFunction {
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+/// reduce is null preserving for the array. But since an
+/// expr tree with a lambda depends on all named fields, including
+/// captures, a null in a capture does not automatically make a
+/// null result.
+
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_reduce,
     ReduceFunction::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<ReduceFunction>());
 
 } // namespace facebook::velox::functions

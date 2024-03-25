@@ -25,14 +25,6 @@ namespace {
 // See documentation at https://prestodb.io/docs/current/functions/map.html
 class TransformValuesFunction : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    // transform_values is null preserving for the map. But
-    // since an expr tree with a lambda depends on all named fields, including
-    // captures, a null in a capture does not automatically make a
-    // null result.
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -107,9 +99,15 @@ class TransformValuesFunction : public exec::VectorFunction {
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+/// transform_values is null preserving for the map. But
+/// since an expr tree with a lambda depends on all named fields, including
+/// captures, a null in a capture does not automatically make a
+/// null result.
+
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_transform_values,
     TransformValuesFunction::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<TransformValuesFunction>());
 
 } // namespace facebook::velox::functions

@@ -181,6 +181,7 @@ exec::ExprPtr MakeDecimalCallToSpecialForm::constructSpecialForm(
       type,
       std::move(args),
       createMakeDecimal(type, nullOnOverflow),
+      exec::VectorFunctionMetadata{},
       kMakeDecimal,
       trackCpuUsage);
 }

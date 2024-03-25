@@ -28,11 +28,15 @@ class RepeatTest : public functions::test::FunctionBaseTest {
   static void SetUpTestCase() {
     FunctionBaseTest::SetUpTestCase();
     exec::registerStatefulVectorFunction(
-        "repeat", functions::repeatSignatures(), functions::makeRepeat);
+        "repeat",
+        functions::repeatSignatures(),
+        functions::makeRepeat,
+        functions::repeatMetadata());
     exec::registerStatefulVectorFunction(
         "repeat_allow_negative_count",
         functions::repeatSignatures(),
-        functions::makeRepeatAllowNegativeCount);
+        functions::makeRepeatAllowNegativeCount,
+        functions::repeatMetadata());
   }
 
   void testExpression(

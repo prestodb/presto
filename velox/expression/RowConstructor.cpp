@@ -36,11 +36,15 @@ ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage,
     const core::QueryConfig& config) {
-  auto function =
-      vectorFunctionFactories().withRLock([&config](auto& functionMap) {
+  auto [function, metadata] = vectorFunctionFactories().withRLock(
+      [&config](auto& functionMap) -> std::pair<
+                                       std::shared_ptr<VectorFunction>,
+                                       VectorFunctionMetadata> {
         auto functionIterator = functionMap.find(kRowConstructor);
         if (functionIterator != functionMap.end()) {
-          return functionIterator->second.factory(kRowConstructor, {}, config);
+          return {
+              functionIterator->second.factory(kRowConstructor, {}, config),
+              functionIterator->second.metadata};
         } else {
           VELOX_FAIL("Function {} is not registered.", kRowConstructor);
         }
@@ -50,6 +54,7 @@ ExprPtr RowConstructorCallToSpecialForm::constructSpecialForm(
       type,
       std::move(compiledChildren),
       function,
+      metadata,
       kRowConstructor,
       trackCpuUsage);
 }

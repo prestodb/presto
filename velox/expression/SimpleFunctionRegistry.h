@@ -25,8 +25,10 @@ namespace facebook::velox::exec {
 
 template <typename T>
 const std::shared_ptr<const T>& singletonUdfMetadata(
+    bool defaultNullBehavior,
     const std::vector<exec::SignatureVariable>& constraints = {}) {
-  static auto instance = std::make_shared<const T>(constraints);
+  static auto instance =
+      std::make_shared<const T>(defaultNullBehavior, constraints);
   return instance;
 }
 
@@ -64,8 +66,8 @@ class SimpleFunctionRegistry {
   void registerFunction(
       const std::vector<std::string>& aliases,
       const std::vector<exec::SignatureVariable>& constraints) {
-    const auto& metadata =
-        singletonUdfMetadata<typename UDF::Metadata>(constraints);
+    const auto& metadata = singletonUdfMetadata<typename UDF::Metadata>(
+        UDF::is_default_null_behavior, constraints);
     const auto factory = []() { return CreateUdf<UDF>(); };
 
     if (aliases.empty()) {
@@ -96,6 +98,9 @@ class SimpleFunctionRegistry {
   std::vector<const FunctionSignature*> getFunctionSignatures(
       const std::string& name) const;
 
+  std::vector<std::pair<VectorFunctionMetadata, const FunctionSignature*>>
+  getFunctionSignaturesAndMetadata(const std::string& name) const;
+
   class ResolvedSimpleFunction {
    public:
     ResolvedSimpleFunction(
@@ -107,17 +112,24 @@ class SimpleFunctionRegistry {
       return functionEntry_.createFunction();
     }
 
-    TypePtr& type() {
+    const TypePtr& type() const {
       return type_;
     }
 
-    const Metadata& getMetadata() const {
-      return functionEntry_.getMetadata();
+    std::string helpMessage(const std::string& name) const {
+      return functionEntry_.getMetadata().helpMessage(name);
+    }
+
+    VectorFunctionMetadata metadata() const {
+      return VectorFunctionMetadata{
+          false,
+          functionEntry_.getMetadata().isDeterministic(),
+          functionEntry_.getMetadata().defaultNullBehavior()};
     }
 
    private:
     const FunctionEntry& functionEntry_;
-    TypePtr type_;
+    const TypePtr type_;
   };
 
   std::optional<ResolvedSimpleFunction> resolveFunction(

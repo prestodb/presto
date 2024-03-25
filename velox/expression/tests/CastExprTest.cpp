@@ -48,11 +48,6 @@ struct ErrorOnOddFunctionElseUnknown {
 class CastExprTest : public functions::test::CastBaseTest {
  protected:
   CastExprTest() {
-    exec::registerVectorFunction(
-        "testing_dictionary",
-        TestingDictionaryFunction::signatures(),
-        std::make_unique<TestingDictionaryFunction>());
-
     registerFunction<ErrorOnOddFunctionElseUnknown, UnknownValue, int32_t>(
         {"error_on_odd_else_unknown"});
   }
@@ -2383,10 +2378,6 @@ class TestingDictionaryToFewerRowsFunction : public exec::VectorFunction {
  public:
   TestingDictionaryToFewerRowsFunction() {}
 
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -2429,7 +2420,8 @@ TEST_F(CastExprTest, dictionaryEncodedNestedInput) {
   exec::registerVectorFunction(
       "add_dict",
       TestingDictionaryToFewerRowsFunction::signatures(),
-      std::make_unique<TestingDictionaryToFewerRowsFunction>());
+      std::make_unique<TestingDictionaryToFewerRowsFunction>(),
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
 
   auto elements = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
   auto elementsInDict = BaseVector::wrapInDictionary(

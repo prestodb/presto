@@ -27,10 +27,6 @@ template <typename Cmp, TypeKind kind>
 class LeastGreatestFunction final : public exec::VectorFunction {
   using T = typename TypeTraits<kind>::NativeType;
 
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,

@@ -208,10 +208,6 @@ void applyTyped(
 
 class EqualtoNullSafe final : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,

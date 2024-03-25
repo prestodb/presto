@@ -25,10 +25,6 @@ namespace {
 template <bool EmptyForNull>
 class MapConcatFunction : public exec::VectorFunction {
  public:
-  bool isDefaultNullBehavior() const override {
-    return !EmptyForNull;
-  }
-
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -183,6 +179,7 @@ void registerMapConcatEmptyNullsFunction(const std::string& name) {
   exec::registerVectorFunction(
       name,
       MapConcatFunction</*EmptyForNull=*/true>::signatures(),
-      std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>());
+      std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>(),
+      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
 }
 } // namespace facebook::velox::functions

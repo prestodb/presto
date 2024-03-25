@@ -24,15 +24,6 @@ namespace facebook::velox::functions {
 namespace {
 
 class FilterFunctionBase : public exec::VectorFunction {
- public:
-  bool isDefaultNullBehavior() const override {
-    // array_filter and map_filter are null preserving for the array and the
-    // map. But since an expr tree with a lambda depends on all named fields,
-    // including captures, a null in a capture does not automatically make a
-    // null result.
-    return false;
-  }
-
  protected:
   // Applies filter functions to elements of maps or arrays and returns the
   // number of elements that passed the filters. Stores the number of elements
@@ -242,14 +233,21 @@ class MapFilterFunction : public FilterFunctionBase {
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+/// array_filter and map_filter are null preserving for the array and the
+/// map. But since an expr tree with a lambda depends on all named fields,
+/// including captures, a null in a capture does not automatically make a
+/// null result.
+
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_array_filter,
     ArrayFilterFunction::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<ArrayFilterFunction>());
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_map_filter,
     MapFilterFunction::signatures(),
+    exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
     std::make_unique<MapFilterFunction>());
 
 } // namespace facebook::velox::functions

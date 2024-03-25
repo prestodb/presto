@@ -70,16 +70,6 @@ class RemoteFunction : public exec::VectorFunction {
     }
   }
 
-  // TODO: The values for these flags shold be obtained from the
-  // VectorFunctionMetadata object passed by clients.
-  bool isDeterministic() const override {
-    return true;
-  }
-
-  bool isDefaultNullBehavior() const override {
-    return true;
-  }
-
  private:
   void applyRemote(
       const SelectivityVector& rows,

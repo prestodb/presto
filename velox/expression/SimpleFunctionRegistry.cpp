@@ -49,6 +49,13 @@ void SimpleFunctionRegistry::registerFunctionInternal(
         functions.erase(it);
         break;
       }
+
+      // Make sure default-null-behavior and deterministic properties are the
+      // same for all implementations of a given logical signature.
+      VELOX_USER_CHECK_EQ(
+          metadata->defaultNullBehavior(), otherMetadata.defaultNullBehavior());
+      VELOX_USER_CHECK_EQ(
+          metadata->isDeterministic(), otherMetadata.isDeterministic());
     }
 
     functions.emplace_back(
@@ -81,6 +88,28 @@ SimpleFunctionRegistry::getFunctionSignatures(const std::string& name) const {
   });
 
   return signatures;
+}
+
+std::vector<std::pair<VectorFunctionMetadata, const FunctionSignature*>>
+SimpleFunctionRegistry::getFunctionSignaturesAndMetadata(
+    const std::string& name) const {
+  std::vector<std::pair<VectorFunctionMetadata, const FunctionSignature*>>
+      result;
+  registeredFunctions_.withRLock([&](const auto& map) {
+    if (const auto* signatureMap = getSignatureMap(name, map)) {
+      result.reserve(signatureMap->size());
+      for (const auto& [signature, functions] : *signatureMap) {
+        VectorFunctionMetadata metadata{
+            false,
+            functions[0]->getMetadata().isDeterministic(),
+            functions[0]->getMetadata().defaultNullBehavior()};
+        result.emplace_back(
+            std::pair<VectorFunctionMetadata, const FunctionSignature*>{
+                metadata, &signature});
+      }
+    }
+  });
+  return result;
 }
 
 namespace {
