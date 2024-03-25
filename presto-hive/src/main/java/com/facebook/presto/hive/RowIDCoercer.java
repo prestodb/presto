@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -30,12 +31,14 @@ import static java.util.Objects.requireNonNull;
 class RowIDCoercer
         implements HiveCoercer
 {
-    private final byte[] rowIdPartitionComponent;
+    private final byte[] rowIDPartitionComponent;
+    private final byte[] rowGroupID; // file name
 
-    RowIDCoercer(byte[] rowIdPartitionComponent)
+    RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
     {
         // TODO should I copy this to avoid mutable internal state?
-        this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent);
+        this.rowIDPartitionComponent = requireNonNull(rowIDPartitionComponent);
+        this.rowGroupID = rowGroupID.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -61,10 +64,10 @@ class RowIDCoercer
                 continue;
             }
             long rowNumber = BigintType.BIGINT.getLong(in, i);
-            // TODO also need row group ID
-            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIdPartitionComponent.length + 8);
+            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIDPartitionComponent.length + + this.rowGroupID.length + 8);
             rowID.putLong(rowNumber);
-            rowID.put(this.rowIdPartitionComponent);
+            rowID.put(this.rowGroupID);
+            rowID.put(this.rowIDPartitionComponent);
             rowID.flip();
             VarbinaryType.VARBINARY.writeSlice(out, Slices.wrappedBuffer(rowID));
         }

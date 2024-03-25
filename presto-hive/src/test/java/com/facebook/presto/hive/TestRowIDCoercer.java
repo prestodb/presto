@@ -27,7 +27,7 @@ import static org.testng.Assert.assertEquals;
 public class TestRowIDCoercer
 {
     private final byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
-    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent);
+    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent, "some_filename.dat");
 
     @Test
     public void testGetToType()
@@ -59,9 +59,9 @@ public class TestRowIDCoercer
     private static void assertRowId(Block rowIDs, int position, long expected)
     {
         byte[] rowID = rowIDs.getSlice(position, 0, rowIDs.getSliceLength(position)).getBytes();
-        assertEquals(10, rowID.length);
-        assertEquals((byte) 8, rowID[8]);
-        assertEquals((byte) 9, rowID[9]);
+        assertEquals(rowID.length, 27);
+        assertEquals(rowID[25], (byte) 8);
+        assertEquals(rowID[26], (byte) 9);
         byte[] rowNumber = Arrays.copyOf(rowID, 8);
         assertEquals(Longs.fromByteArray(rowNumber), expected);
     }
