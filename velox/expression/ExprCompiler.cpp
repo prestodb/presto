@@ -404,13 +404,9 @@ ExprPtr compileRewrittenExpression(
           trackCpuUsage);
     }
   } else if (auto call = dynamic_cast<const core::CallTypedExpr*>(expr.get())) {
-    if (auto specialForm = getSpecialForm(
-            config,
-            call->name(),
-            resultType,
-            std::move(compiledInputs),
-            trackCpuUsage)) {
-      result = specialForm;
+    if (auto specialForm = specialFormRegistry().getSpecialForm(call->name())) {
+      result = specialForm->constructSpecialForm(
+          resultType, std::move(compiledInputs), trackCpuUsage, config);
     } else if (
         auto func = getVectorFunction(
             call->name(),
