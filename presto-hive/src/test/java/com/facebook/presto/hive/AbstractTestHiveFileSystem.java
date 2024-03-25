@@ -559,7 +559,7 @@ public abstract class AbstractTestHiveFileSystem
                 throw new UncheckedIOException(e);
             }
             finally {
-                invalidateTable(databaseName, tableName);
+                invalidateTableCache(databaseName, tableName);
             }
         }
 
