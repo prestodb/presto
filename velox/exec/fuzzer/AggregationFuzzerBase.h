@@ -141,6 +141,8 @@ class AggregationFuzzerBase {
         AggregationFuzzerBase::ReferenceQueryErrorCode errorCode);
   };
 
+  int32_t randInt(int32_t min, int32_t max);
+
   bool addSignature(
       const std::string& name,
       const FunctionSignaturePtr& signature);

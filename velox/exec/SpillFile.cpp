@@ -137,6 +137,10 @@ void SpillWriter::closeFile() {
   currentFile_.reset();
 }
 
+size_t SpillWriter::numFinishedFiles() const {
+  return finishedFiles_.size();
+}
+
 uint64_t SpillWriter::flush() {
   if (batch_ == nullptr) {
     return 0;

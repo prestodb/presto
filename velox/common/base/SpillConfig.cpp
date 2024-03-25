@@ -24,7 +24,6 @@ SpillConfig::SpillConfig(
     std::string _fileNamePrefix,
     uint64_t _maxFileSize,
     uint64_t _writeBufferSize,
-    uint64_t _minSpillRunSize,
     folly::Executor* _executor,
     int32_t _minSpillableReservationPct,
     int32_t _spillableReservationGrowthPct,
@@ -42,7 +41,6 @@ SpillConfig::SpillConfig(
           _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
                             : _maxFileSize),
       writeBufferSize(_writeBufferSize),
-      minSpillRunSize(_minSpillRunSize),
       executor(_executor),
       minSpillableReservationPct(_minSpillableReservationPct),
       spillableReservationGrowthPct(_spillableReservationGrowthPct),

@@ -936,6 +936,7 @@ void GroupingSet::spill() {
   if (!hasSpilled()) {
     auto rows = table_->rows();
     VELOX_DCHECK(pool_.trackUsage());
+    VELOX_CHECK_EQ(numDistinctSpilledFiles_, 0);
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregateInput,
         rows,
@@ -944,8 +945,13 @@ void GroupingSet::spill() {
         std::vector<CompareFlags>(),
         spillConfig_,
         spillStats_);
+    VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   }
   spiller_->spill();
+  if (isDistinct() && numDistinctSpilledFiles_ == 0) {
+    numDistinctSpilledFiles_ = spiller_->state().numFinishedFiles(0);
+    VELOX_CHECK_GT(numDistinctSpilledFiles_, 0);
+  }
   if (sortedAggregations_) {
     sortedAggregations_->clear();
   }
@@ -1064,16 +1070,19 @@ bool GroupingSet::mergeNextWithoutAggregates(
     const RowVectorPtr& result) {
   VELOX_CHECK_NOT_NULL(merge_);
   VELOX_CHECK(isDistinct());
+  VELOX_CHECK_GT(numDistinctSpilledFiles_, 0);
 
   // We are looping over sorted rows produced by tree-of-losers. We logically
   // split the stream into runs of duplicate rows. As we process each run we
-  // track whether one of the values comes from stream 0, in which case we
-  // should not produce a result from that run. Otherwise, we produce a result
-  // at the end of the run (when we know for sure whether the run contains a row
-  // from stream 0 or not).
+  // track whether one of the values coming from distinct streams, in which case
+  // we should not produce a result from that run. Otherwise, we produce a
+  // result at the end of the run (when we know for sure whether the run
+  // contains a row from the distinct streams).
   //
-  // NOTE: stream 0 contains rows which has already been output as distinct
-  // before we trigger spilling.
+  // NOTE: the distinct stream refers to the stream that contains the spilled
+  // distinct hash table. A distinct stream contains rows which has already
+  // been output as distinct before we trigger spilling. A distinct stream id is
+  // less than 'numDistinctSpilledFiles_'.
   bool newDistinct{true};
   int32_t numOutputRows{0};
   while (numOutputRows < maxOutputRows) {
@@ -1082,7 +1091,7 @@ bool GroupingSet::mergeNextWithoutAggregates(
     if (stream == nullptr) {
       break;
     }
-    if (stream->id() == 0) {
+    if (stream->id() < numDistinctSpilledFiles_) {
       newDistinct = false;
     }
     if (next.second) {

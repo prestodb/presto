@@ -87,7 +87,6 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         "",
         0,
         0,
-        0,
         spillExecutor_.get(),
         10,
         20,

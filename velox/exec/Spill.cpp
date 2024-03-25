@@ -155,6 +155,17 @@ void SpillState::finishFile(uint32_t partition) {
   writer->finishFile();
 }
 
+size_t SpillState::numFinishedFiles(uint32_t partition) const {
+  if (!isPartitionSpilled(partition)) {
+    return 0;
+  }
+  const auto* writer = partitionWriter(partition);
+  if (writer == nullptr) {
+    return 0;
+  }
+  return writer->numFinishedFiles();
+}
+
 SpillFiles SpillState::finish(uint32_t partition) {
   auto* writer = partitionWriter(partition);
   if (writer == nullptr) {

@@ -177,6 +177,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
 
     for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
       ASSERT_FALSE(state_->isPartitionSpilled(partition));
+      ASSERT_EQ(state_->numFinishedFiles(partition), 0);
       // Expect an exception if partition is not set to spill.
       {
         RowVectorPtr dummyInput;
@@ -224,9 +225,11 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
         ASSERT_TRUE(
             state_->testingNonEmptySpilledPartitionSet().contains(partition));
 
+        ASSERT_GE(state_->numFinishedFiles(partition), 0);
         // Indicates that the next additions to 'partition' are not sorted
         // with respect to the values added so far.
         state_->finishFile(partition);
+        ASSERT_GE(state_->numFinishedFiles(partition), 1);
         ASSERT_TRUE(
             state_->testingNonEmptySpilledPartitionSet().contains(partition));
       }
@@ -248,6 +251,11 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
     ASSERT_GT(
         stats_.rlock()->spilledBytes,
         numPartitions * numBatches * sizeof(int64_t));
+    int numFinishedFiles{0};
+    for (int partition = 0; partition < numPartitions; ++partition) {
+      numFinishedFiles += state_->numFinishedFiles(partition);
+    }
+    ASSERT_EQ(numFinishedFiles, expectedFiles);
   }
 
   // 'numDuplicates' specifies the number of duplicates generated for each
@@ -341,6 +349,7 @@ class SpillTest : public ::testing::TestWithParam<common::CompressionKind>,
 
     for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
       auto spillFiles = state_->finish(partition);
+      ASSERT_EQ(state_->numFinishedFiles(partition), 0);
       auto spillPartition =
           SpillPartition(SpillPartitionId{0, partition}, std::move(spillFiles));
       auto merge = spillPartition.createOrderedReader(pool());

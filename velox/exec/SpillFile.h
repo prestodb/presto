@@ -135,6 +135,9 @@ class SpillWriter {
   /// start a new one.
   void finishFile();
 
+  /// Returns the number of current finished files.
+  size_t numFinishedFiles() const;
+
   /// Finishes this file writer and returns the written spill files info.
   ///
   /// NOTE: we don't allow write to a spill writer after t

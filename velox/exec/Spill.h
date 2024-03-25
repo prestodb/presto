@@ -380,6 +380,12 @@ class SpillState {
   /// far.
   void finishFile(uint32_t partition);
 
+  /// Returns the current number of finished files from a given partition.
+  ///
+  /// NOTE: the fucntion returns zero if the state has finished or the partition
+  /// is not spilled yet.
+  size_t numFinishedFiles(uint32_t partition) const;
+
   /// Returns the spill file objects from a given 'partition'. The function
   /// returns an empty list if either the partition has not been spilled or has
   /// no spilled data.
