@@ -32,13 +32,14 @@ std::unordered_map<std::string, std::string> readConfig(
   std::string line;
   while (getline(configFile, line)) {
     line.erase(std::remove_if(line.begin(), line.end(), isspace), line.end());
-    if (line[0] == '#' || line.empty()) {
+    if (line.empty() || line[0] == '#') {
       continue;
     }
-    auto delimiterPos = line.find('=');
-    auto name = line.substr(0, delimiterPos);
-    auto value = line.substr(delimiterPos + 1);
-    properties.emplace(name, value);
+
+    std::vector<std::string> configParts;
+    folly::split('=', line, configParts);
+    VELOX_USER_CHECK_EQ(configParts.size(), 2, "Malformed config: {}", line);
+    properties.emplace(configParts[0], configParts[1]);
   }
 
   return properties;
