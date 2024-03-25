@@ -63,7 +63,7 @@ class RowIDCoercer
             }
             long rowNumber = BigintType.BIGINT.getLong(in, i);
             // TODO also need row group ID
-            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIdPartitionComponent.length + 8).order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIdPartitionComponent.length + 8);
             rowID.putLong(rowNumber);
             rowID.put(this.rowIdPartitionComponent);
             rowID.flip();
