@@ -501,7 +501,9 @@ public class HivePageSourceProvider
                         bucketAdaptation,
                         hiveStorageTimeZone,
                         typeManager,
-                        pageSource.get());
+                        pageSource.get(),
+                        // TODO is the whole path too much? do we need to extract just a file name here?
+                        fileSplit.getPath());
 
                 if (isPushdownFilterEnabled) {
                     return Optional.of(new FilteringPageSource(

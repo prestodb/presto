@@ -64,7 +64,8 @@ public class HivePageSource
             Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            ConnectorPageSource delegate)
+            ConnectorPageSource delegate,
+            String rowGroupID)
     {
         requireNonNull(columnMappings, "columnMappings is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -93,9 +94,8 @@ public class HivePageSource
             }
             else if ("$row_id".equals(name)) {
                 // TODO need to fill this in once Partition diff lands
-                byte[] rowIdPartitionComponent = null;
-                String rowGroupId = null;
-                coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent, rowGroupId);
+                byte[] rowIDPartitionComponent = null;
+                coercers[columnIndex] = new RowIDCoercer(rowIDPartitionComponent, rowGroupID);
             }
 
             if (columnMapping.getKind() == PREFILLED) {
