@@ -45,6 +45,10 @@
 /presto-orc @sdruzkin @prestodb/committers
 
 #####################################################################
+# Presto Console UI
+/presto-main/src/main/resources/webapp/* @yhwang @prestodb/committers
+
+#####################################################################
 # Presto documentation
 /presto-docs @steveburnett @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
