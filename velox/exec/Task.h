@@ -509,6 +509,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// stats. Called from Drivers upon their closure.
   void addOperatorStats(OperatorStats& stats);
 
+  /// Adds per driver statistics.  Called from Drivers upon their closure.
+  void addDriverStats(int pipelineId, DriverStats stats);
+
   /// Returns kNone if no pause or terminate is requested. The thread count is
   /// incremented if kNone is returned. If something else is returned the
   /// calling thread should unwind and return itself to its pool. If 'this' goes

@@ -1659,13 +1659,27 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
     arbitrator->testingFreeCapacity(reclaimedQueryCapacity);
   }
 
-  const auto taskStats = task->taskStats();
+  auto taskStats = task->taskStats();
   ASSERT_EQ(taskStats.memoryReclaimCount, numReclaims);
   ASSERT_GT(taskStats.memoryReclaimMs, 0);
 
   // Fail the task to finish test.
   task->requestAbort();
   ASSERT_TRUE(waitForTaskAborted(task.get()));
+
+  taskStats = task->taskStats();
+  ASSERT_EQ(taskStats.pipelineStats.size(), 1);
+  ASSERT_EQ(taskStats.pipelineStats[0].driverStats.size(), 1);
+  const auto& driverStats = taskStats.pipelineStats[0].driverStats[0];
+  const auto& totalPauseTime =
+      driverStats.runtimeStats.at(DriverStats::kTotalPauseTime);
+  ASSERT_EQ(totalPauseTime.count, 1);
+  ASSERT_GE(totalPauseTime.sum, 0);
+  const auto& totalOffThreadTime =
+      driverStats.runtimeStats.at(DriverStats::kTotalOffThreadTime);
+  ASSERT_EQ(totalOffThreadTime.count, 1);
+  ASSERT_GE(totalOffThreadTime.sum, 0);
+
   task.reset();
   waitForAllTasksToBeDeleted();
 }

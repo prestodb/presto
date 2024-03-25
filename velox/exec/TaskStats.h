@@ -34,6 +34,9 @@ struct PipelineStats {
   // operator in the DriverFactory.
   std::vector<OperatorStats> operatorStats;
 
+  // Runtime statistics per driver.
+  std::vector<DriverStats> driverStats;
+
   // True if contains the source node for the task.
   bool inputPipeline;
 

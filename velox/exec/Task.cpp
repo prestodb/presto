@@ -874,6 +874,10 @@ void Task::resume(std::shared_ptr<Task> self) {
           }
           VELOX_CHECK(!driver->isOnThread() && !driver->isTerminated());
           if (!driver->state().hasBlockingFuture) {
+            if (driver->state().endExecTimeMs != 0) {
+              driver->state().totalPauseTimeMs +=
+                  getCurrentTimeMs() - driver->state().endExecTimeMs;
+            }
             // Do not continue a Driver that is blocked on external
             // event. The Driver gets enqueued by the promise realization.
             Driver::enqueue(driver);
@@ -1992,6 +1996,12 @@ void Task::addOperatorStats(OperatorStats& stats) {
   taskStats_.pipelineStats[stats.pipelineId]
       .operatorStats[stats.operatorId]
       .add(stats);
+}
+
+void Task::addDriverStats(int pipelineId, DriverStats stats) {
+  std::lock_guard<std::timed_mutex> l(mutex_);
+  VELOX_CHECK(0 <= pipelineId && pipelineId < taskStats_.pipelineStats.size());
+  taskStats_.pipelineStats[pipelineId].driverStats.push_back(std::move(stats));
 }
 
 TaskStats Task::taskStats() const {
