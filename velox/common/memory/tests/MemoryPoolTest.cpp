@@ -3671,6 +3671,34 @@ TEST_P(MemoryPoolTest, overuseUnderArbitration) {
   ASSERT_EQ(child->reservedBytes(), 0);
 }
 
+TEST_P(MemoryPoolTest, allocationWithCoveredCollateral) {
+  // Verify that the memory pool's reservation is correctly updated when an
+  // allocation call is attempted with collateral that covers the allocation
+  // (that is, the collateral is larger than the requested allocation).
+  auto manager = getMemoryManager();
+  auto root = manager->addRootPool("root", kMaxMemory, nullptr);
+  ASSERT_TRUE(root->trackUsage());
+  auto pool =
+      root->addLeafChild("allocationWithCoveredCollateral", isLeafThreadSafe_);
+  ASSERT_TRUE(pool->trackUsage());
+  // Check non-contiguous allocation.
+  ASSERT_EQ(pool->reservedBytes(), 0);
+  Allocation allocation;
+  pool->allocateNonContiguous(100, allocation);
+  auto prevReservedBytes = pool->currentBytes();
+  pool->allocateNonContiguous(50, allocation);
+  ASSERT_LT(pool->currentBytes(), prevReservedBytes);
+  pool->freeNonContiguous(allocation);
+
+  // Check contiguous allocation.
+  ContiguousAllocation contiguousAllocation;
+  pool->allocateContiguous(100, contiguousAllocation);
+  prevReservedBytes = pool->currentBytes();
+  pool->allocateContiguous(50, contiguousAllocation);
+  ASSERT_LT(pool->currentBytes(), prevReservedBytes);
+  pool->freeContiguous(contiguousAllocation);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MemoryPoolTestSuite,
     MemoryPoolTest,

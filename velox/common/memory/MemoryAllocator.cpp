@@ -177,18 +177,22 @@ bool MemoryAllocator::allocateNonContiguous(
   }
 
   const SizeMix mix = allocationSize(numPages, minSizeClass);
-  const int64_t numNeededPages = mix.totalPages - numPagesToFree;
-  // TODO: handle negative 'numNeededPages' in a follow-up.
-
   if (reservationCB != nullptr) {
-    try {
-      reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
-    } catch (const std::exception&) {
-      VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-          << "Exceeded memory reservation limit when reserve " << numNeededPages
-          << " new pages when allocate " << mix.totalPages << " pages";
-      cleanupAllocAndReleaseReservation(bytesToFree);
-      std::rethrow_exception(std::current_exception());
+    if (mix.totalPages >= numPagesToFree) {
+      const uint64_t numNeededPages = mix.totalPages - numPagesToFree;
+      try {
+        reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
+      } catch (const std::exception&) {
+        VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+            << "Exceeded memory reservation limit when reserve "
+            << numNeededPages << " new pages when allocate " << mix.totalPages
+            << " pages";
+        cleanupAllocAndReleaseReservation(bytesToFree);
+        std::rethrow_exception(std::current_exception());
+      }
+    } else {
+      const uint64_t numExtraPages = numPagesToFree - mix.totalPages;
+      reservationCB(AllocationTraits::pageBytes(numExtraPages), false);
     }
   }
 
@@ -222,7 +226,6 @@ bool MemoryAllocator::allocateContiguous(
       allocation.numPages() + (collateral ? collateral->numPages() : 0);
   const uint64_t totalCollateralBytes =
       AllocationTraits::pageBytes(numCollateralPages);
-  const int64_t newPages = numPages - numCollateralPages;
   auto cleanupCollateralAndReleaseReservation = [&](uint64_t reservationBytes) {
     if ((collateral != nullptr) && !collateral->empty()) {
       freeNonContiguous(*collateral);
@@ -239,17 +242,23 @@ bool MemoryAllocator::allocateContiguous(
     cleanupCollateralAndReleaseReservation(totalCollateralBytes);
     return true;
   }
-  // TODO: handle negative 'newPages'.
+
   if (reservationCB != nullptr) {
-    try {
-      reservationCB(AllocationTraits::pageBytes(newPages), true);
-    } catch (const std::exception& e) {
-      VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
-          << "Exceeded memory reservation limit when reserve " << newPages
-          << " new pages when allocate " << numPages
-          << " pages, error: " << e.what();
-      cleanupCollateralAndReleaseReservation(totalCollateralBytes);
-      std::rethrow_exception(std::current_exception());
+    if (numPages >= numCollateralPages) {
+      const int64_t numNeededPages = numPages - numCollateralPages;
+      try {
+        reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
+      } catch (const std::exception& e) {
+        VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+            << "Exceeded memory reservation limit when reserve "
+            << numNeededPages << " new pages when allocate " << numPages
+            << " pages, error: " << e.what();
+        cleanupCollateralAndReleaseReservation(totalCollateralBytes);
+        std::rethrow_exception(std::current_exception());
+      }
+    } else {
+      const uint64_t numExtraPages = numCollateralPages - numPages;
+      reservationCB(AllocationTraits::pageBytes(numExtraPages), false);
     }
   }
 

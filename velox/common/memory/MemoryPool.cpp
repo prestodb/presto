@@ -545,7 +545,7 @@ void MemoryPoolImpl::allocateNonContiguous(
   if (!allocator_->allocateNonContiguous(
           numPages,
           out,
-          [this](int64_t allocBytes, bool preAllocate) {
+          [this](uint64_t allocBytes, bool preAllocate) {
             if (preAllocate) {
               reserve(allocBytes);
             } else {
@@ -597,7 +597,7 @@ void MemoryPoolImpl::allocateContiguous(
           numPages,
           nullptr,
           out,
-          [this](int64_t allocBytes, bool preAlloc) {
+          [this](uint64_t allocBytes, bool preAlloc) {
             if (preAlloc) {
               reserve(allocBytes);
             } else {
@@ -632,7 +632,7 @@ void MemoryPoolImpl::growContiguous(
     MachinePageCount increment,
     ContiguousAllocation& allocation) {
   if (!allocator_->growContiguous(
-          increment, allocation, [this](int64_t allocBytes, bool preAlloc) {
+          increment, allocation, [this](uint64_t allocBytes, bool preAlloc) {
             if (preAlloc) {
               reserve(allocBytes);
             } else {

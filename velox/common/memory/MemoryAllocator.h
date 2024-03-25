@@ -221,7 +221,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// the same as 'this'.
   virtual void registerCache(const std::shared_ptr<Cache>& cache) = 0;
 
-  using ReservationCallback = std::function<void(int64_t, bool)>;
+  using ReservationCallback = std::function<void(uint64_t, bool)>;
 
   /// Returns the capacity of the allocator in bytes.
   virtual size_t capacity() const = 0;
