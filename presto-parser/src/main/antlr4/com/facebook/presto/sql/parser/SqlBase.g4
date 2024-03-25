@@ -232,7 +232,7 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY))?)?
+      ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY)))?
     ;
 
 queryTerm
