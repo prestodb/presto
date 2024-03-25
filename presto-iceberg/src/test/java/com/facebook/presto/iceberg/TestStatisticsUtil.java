@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.ColumnIdentity.TypeCategory;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -28,89 +31,226 @@ import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.NONE;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NDV;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTIONS;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTION_AND_NDV;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.SUPPORTED_MERGE_FLAGS;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.encodeMergeFlags;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatisticsUtil
 {
     @Test
     public void testMergeStrategyNone()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), NONE, PartitionSpec.unpartitioned());
-        assertEquals(Estimate.of(1), merged.getRowCount());
-        assertEquals(Estimate.unknown(), merged.getTotalSize());
-        assertEquals(1, merged.getColumnStatistics().size());
-        ColumnStatistics stats = merged.getColumnStatistics().values().stream().findFirst().get();
-        assertEquals(Estimate.of(8), stats.getDataSize());
-        assertEquals(Estimate.of(1), stats.getDistinctValuesCount());
-        assertEquals(Estimate.of(0.1), stats.getNullsFraction());
-        assertEquals(new DoubleRange(0.0, 1.0), stats.getRange().get());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.noneOf(ColumnStatisticType.class), PartitionSpec.unpartitioned());
+        assertEquals(merged.getRowCount(), Estimate.of(1));
+        assertEquals(merged.getTotalSize(), Estimate.of(16));
+        assertEquals(merged.getColumnStatistics().size(), 2);
+        Map<String, ColumnStatistics> columnStats = mapToString(merged);
+        ColumnStatistics stats = columnStats.get("testint");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
+        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        stats = columnStats.get("testvarchar");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.25));
     }
 
     @Test
     public void testMergeStrategyWithPartitioned()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTION_AND_NDV,
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES),
                 PartitionSpec.builderFor(new Schema(Types.NestedField.required(0, "test", Types.IntegerType.get()))).bucket("test", 100).build());
-        assertEquals(Estimate.of(1), merged.getRowCount());
-        assertEquals(Estimate.unknown(), merged.getTotalSize());
-        assertEquals(1, merged.getColumnStatistics().size());
-        ColumnStatistics stats = merged.getColumnStatistics().values().stream().findFirst().get();
-        assertEquals(Estimate.of(8), stats.getDataSize());
-        assertEquals(Estimate.of(1), stats.getDistinctValuesCount());
-        assertEquals(Estimate.of(0.1), stats.getNullsFraction());
-        assertEquals(new DoubleRange(0.0, 1.0), stats.getRange().get());
+        assertEquals(merged.getRowCount(), Estimate.of(1));
+        assertEquals(merged.getTotalSize(), Estimate.unknown());
+        assertEquals(merged.getColumnStatistics().size(), 2);
+        Map<String, ColumnStatistics> columnStats = mapToString(merged);
+        ColumnStatistics stats = columnStats.get("testint");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
+        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        stats = columnStats.get("testvarchar");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.25));
     }
 
     @Test
     public void testMergeStrategyNDVs()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NDV, PartitionSpec.unpartitioned());
-        assertEquals(Estimate.of(1), merged.getRowCount());
-        assertEquals(Estimate.unknown(), merged.getTotalSize());
-        assertEquals(1, merged.getColumnStatistics().size());
-        ColumnStatistics stats = merged.getColumnStatistics().values().stream().findFirst().get();
-        assertEquals(Estimate.of(8), stats.getDataSize());
-        assertEquals(Estimate.of(2), stats.getDistinctValuesCount());
-        assertEquals(Estimate.of(0.1), stats.getNullsFraction());
-        assertEquals(new DoubleRange(0.0, 1.0), stats.getRange().get());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES), PartitionSpec.unpartitioned());
+        assertEquals(merged.getRowCount(), Estimate.of(1));
+        assertEquals(merged.getTotalSize(), Estimate.of(16));
+        assertEquals(merged.getColumnStatistics().size(), 2);
+        Map<String, ColumnStatistics> columnStats = mapToString(merged);
+        ColumnStatistics stats = columnStats.get("testint");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
+        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        stats = columnStats.get("testvarchar");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.25));
     }
 
     @Test
-    public void testMergeStrategyNulls()
+    public void testMergeStrategyDataSize()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTIONS, PartitionSpec.unpartitioned());
-        assertEquals(Estimate.of(1), merged.getRowCount());
-        assertEquals(Estimate.unknown(), merged.getTotalSize());
-        assertEquals(1, merged.getColumnStatistics().size());
-        ColumnStatistics stats = merged.getColumnStatistics().values().stream().findFirst().get();
-        assertEquals(Estimate.of(8), stats.getDataSize());
-        assertEquals(Estimate.of(1), stats.getDistinctValuesCount());
-        assertEquals(Estimate.of(1.0), stats.getNullsFraction());
-        assertEquals(new DoubleRange(0.0, 1.0), stats.getRange().get());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(TOTAL_SIZE_IN_BYTES), PartitionSpec.unpartitioned());
+        assertEquals(merged.getRowCount(), Estimate.of(1));
+        assertEquals(merged.getTotalSize(), Estimate.of(22));
+        assertEquals(merged.getColumnStatistics().size(), 2);
+        Map<String, ColumnStatistics> columnStats = mapToString(merged);
+        ColumnStatistics stats = columnStats.get("testint");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
+        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        stats = columnStats.get("testvarchar");
+        assertEquals(stats.getDataSize(), Estimate.of(14));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(1));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.25));
     }
 
     @Test
     public void testMergeStrategyNDVsAndNulls()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTION_AND_NDV, PartitionSpec.unpartitioned());
-        assertEquals(Estimate.of(1), merged.getRowCount());
-        assertEquals(Estimate.unknown(), merged.getTotalSize());
-        assertEquals(1, merged.getColumnStatistics().size());
-        ColumnStatistics stats = merged.getColumnStatistics().values().stream().findFirst().get();
-        assertEquals(Estimate.of(8), stats.getDataSize());
-        assertEquals(Estimate.of(2), stats.getDistinctValuesCount());
-        assertEquals(Estimate.of(1.0), stats.getNullsFraction());
-        assertEquals(new DoubleRange(0.0, 1.0), stats.getRange().get());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES), PartitionSpec.unpartitioned());
+        assertEquals(merged.getRowCount(), Estimate.of(1));
+        assertEquals(merged.getTotalSize(), Estimate.of(22));
+        assertEquals(merged.getColumnStatistics().size(), 2);
+        Map<String, ColumnStatistics> columnStats = mapToString(merged);
+        ColumnStatistics stats = columnStats.get("testint");
+        assertEquals(stats.getDataSize(), Estimate.of(8));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.1));
+        assertEquals(stats.getRange().get(), new DoubleRange(0.0, 1.0));
+        stats = columnStats.get("testvarchar");
+        assertEquals(stats.getDataSize(), Estimate.of(14));
+        assertEquals(stats.getDistinctValuesCount(), Estimate.of(2));
+        assertEquals(stats.getNullsFraction(), Estimate.of(0.25));
+    }
+
+    @Test
+    public void testEncodeDecode()
+    {
+        assertTrue(decodeMergeFlags("").isEmpty());
+        assertEquals(decodeMergeFlags(NUMBER_OF_DISTINCT_VALUES.name()), EnumSet.of(NUMBER_OF_DISTINCT_VALUES));
+        assertEquals(decodeMergeFlags(NUMBER_OF_DISTINCT_VALUES + "," + TOTAL_SIZE_IN_BYTES),
+                EnumSet.of(NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES));
+        assertEquals(decodeMergeFlags(NUMBER_OF_DISTINCT_VALUES + "," + TOTAL_SIZE_IN_BYTES + "," + TOTAL_SIZE_IN_BYTES),
+                EnumSet.of(NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES));
+
+        assertEquals(encodeMergeFlags(EnumSet.noneOf(ColumnStatisticType.class)), "");
+        assertEquals(encodeMergeFlags(EnumSet.of(NUMBER_OF_DISTINCT_VALUES)), NUMBER_OF_DISTINCT_VALUES.name());
+        assertEquals(encodeMergeFlags(EnumSet.of(NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES)),
+                NUMBER_OF_DISTINCT_VALUES.name() + "," + TOTAL_SIZE_IN_BYTES.name());
+        assertEquals(encodeMergeFlags(EnumSet.of(NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES)),
+                NUMBER_OF_DISTINCT_VALUES.name() + "," + TOTAL_SIZE_IN_BYTES.name());
+
+        EnumSet<ColumnStatisticType> invalidFlags = EnumSet.allOf(ColumnStatisticType.class);
+        SUPPORTED_MERGE_FLAGS.forEach(invalidFlags::remove);
+        // throw on encode
+        invalidFlags.forEach(flag -> assertThrows(PrestoException.class, () -> {
+            encodeMergeFlags(EnumSet.of(flag));
+        }));
+
+        // throw on decode
+        invalidFlags.forEach(flag -> assertThrows(PrestoException.class, () -> {
+            decodeMergeFlags(flag.toString());
+        }));
+    }
+
+    @Test
+    public void testCalculateTableSize()
+    {
+        // 1 row, but no column statistics
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(1.0))).build().getTotalSize(), Estimate.of(0.0));
+        // unknown rows
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.unknown())).build().getTotalSize(), Estimate.unknown());
+        // non-fixed width column with known data size
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", VARCHAR), ColumnStatistics.builder()
+                        .setDataSize(Estimate.of(100_000))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.of(100_000));
+        // fixed-width column with some nulls
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", INTEGER), ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(0.2))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.of(INTEGER.getFixedSize() * 100 * (1 - 0.2)));
+        // fixed-width column with all nulls
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", INTEGER), ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(1.0))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.of(0.0));
+
+        // two columns which are fixed and non-fixed widths added together with some nulls
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", INTEGER), ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(0.2))
+                        .build())
+                .setColumnStatistics(handleWithName("c2", VARCHAR), ColumnStatistics.builder()
+                        .setDataSize(Estimate.of(12345))
+                        .setNullsFraction(Estimate.of(0.5))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.of(12345 + (INTEGER.getFixedSize() * 100 * (1 - 0.2))));
+
+        // two columns which are fixed and non-fixed widths but null fraction is unknown on the fixed-width column
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", INTEGER), ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.unknown())
+                        .build())
+                .setColumnStatistics(handleWithName("c2", VARCHAR), ColumnStatistics.builder()
+                        .setDataSize(Estimate.of(12345))
+                        .setNullsFraction(Estimate.of(0.5))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.unknown());
+        // two columns which are fixed and non-fixed widths but data size is unknown on non-fixed-width column
+        assertEquals(calculateAndSetTableSize(TableStatistics.builder()
+                .setRowCount(Estimate.of(100.0))
+                .setColumnStatistics(handleWithName("c1", INTEGER), ColumnStatistics.builder()
+                        .setNullsFraction(Estimate.of(0.5))
+                        .build())
+                .setColumnStatistics(handleWithName("c2", VARCHAR), ColumnStatistics.builder()
+                        .setDataSize(Estimate.unknown())
+                        .setNullsFraction(Estimate.of(0.5))
+                        .build()))
+                .build()
+                .getTotalSize(), Estimate.unknown());
     }
 
     private static TableStatistics generateSingleColumnIcebergStats()
@@ -119,7 +259,7 @@ public class TestStatisticsUtil
                 .setRowCount(Estimate.of(1))
                 .setTotalSize(Estimate.unknown())
                 .setColumnStatistics(new IcebergColumnHandle(
-                                new ColumnIdentity(1, "test", TypeCategory.PRIMITIVE, Collections.emptyList()),
+                                new ColumnIdentity(1, "testint", TypeCategory.PRIMITIVE, Collections.emptyList()),
                                 INTEGER,
                                 Optional.empty(),
                                 REGULAR),
@@ -129,18 +269,48 @@ public class TestStatisticsUtil
                                 .setDataSize(Estimate.of(8))
                                 .setDistinctValuesCount(Estimate.of(1))
                                 .build())
+                .setColumnStatistics(new IcebergColumnHandle(
+                                new ColumnIdentity(1, "testvarchar", TypeCategory.PRIMITIVE, Collections.emptyList()),
+                                VARCHAR,
+                                Optional.empty(),
+                                REGULAR),
+                        ColumnStatistics.builder()
+                                .setNullsFraction(Estimate.of(0.25))
+                                .setDataSize(Estimate.of(8))
+                                .setDistinctValuesCount(Estimate.of(1))
+                                .build())
                 .build();
+    }
+
+    private static IcebergColumnHandle handleWithName(String name, Type type)
+    {
+        return new IcebergColumnHandle(
+                new ColumnIdentity(1, name, TypeCategory.PRIMITIVE, Collections.emptyList()),
+                type,
+                Optional.empty(),
+                REGULAR);
     }
 
     private static PartitionStatistics generateSingleColumnHiveStatistics()
     {
         return new PartitionStatistics(
                 new HiveBasicStatistics(1, 2, 16, 16),
-                ImmutableMap.of("test",
+                ImmutableMap.of("testint",
                         HiveColumnStatistics.createIntegerColumnStatistics(
                                 OptionalLong.of(1),
                                 OptionalLong.of(2),
                                 OptionalLong.of(2),
+                                OptionalLong.of(2)),
+                        "testvarchar",
+                        HiveColumnStatistics.createStringColumnStatistics(
+                                OptionalLong.of(4L),
+                                OptionalLong.of(14L),
+                                OptionalLong.of(2),
                                 OptionalLong.of(2))));
+    }
+
+    private static Map<String, ColumnStatistics> mapToString(TableStatistics statistics)
+    {
+        return statistics.getColumnStatistics().entrySet().stream().collect(Collectors.toMap(entry -> ((IcebergColumnHandle) entry.getKey()).getName(), Map.Entry::getValue));
     }
 }
