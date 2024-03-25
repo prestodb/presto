@@ -62,7 +62,7 @@ public class TestRowIDCoercer
         assertEquals(10, rowID.length);
         assertEquals((byte) 8, rowID[8]);
         assertEquals((byte) 9, rowID[9]);
-        byte[] rowNumber = reverse(Arrays.copyOf(rowID, 8));
+        byte[] rowNumber = Arrays.copyOf(rowID, 8);
         assertEquals(Longs.fromByteArray(rowNumber), expected);
     }
 
