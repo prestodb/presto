@@ -417,8 +417,6 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   prestoTaskStats.endTime = util::toISOTimestamp(taskStats.executionEndTimeMs);
 
   const uint64_t currentTimeMs = velox::getCurrentTimeMs();
-  const uint64_t sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
-
   if (taskStats.executionEndTimeMs > taskStats.executionStartTimeMs) {
     prestoTaskStats.elapsedTimeInNanos =
         (taskStats.executionEndTimeMs - taskStats.executionStartTimeMs) *
@@ -437,16 +435,17 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
 
+  const int64_t currentBytes = stats.currentBytes;
+
+  const int64_t averageMemoryForLastPeriod =
+      (currentBytes + lastMemoryReservation) / 2;
+
   // Set the lastTaskStatsUpdateMs to execution start time if it is 0.
   if (lastTaskStatsUpdateMs == 0) {
     lastTaskStatsUpdateMs = taskStats.executionStartTimeMs;
   }
 
-  const int64_t currentBytes = stats.currentBytes;
-
-  int64_t averageMemoryForLastPeriod =
-      (currentBytes + lastMemoryReservation) / 2;
-
+  const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
   prestoTaskStats.cumulativeUserMemory +=
       (averageMemoryForLastPeriod * sinceLastPeriodMs) / 1000;
 
