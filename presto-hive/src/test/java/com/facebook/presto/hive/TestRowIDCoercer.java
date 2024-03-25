@@ -67,6 +67,7 @@ public class TestRowIDCoercer
     }
 
     // I'm sure this can be micro-optimized. It's only a test. Clarity wins.
+    // TODO remove if we stay with big endian.
     private static byte[] reverse(byte[] in)
     {
         byte[] out = new byte[in.length];
