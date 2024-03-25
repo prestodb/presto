@@ -1216,8 +1216,7 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey)), date_trunc('quarter', from_unixtime(orderkey)), date_trunc('month', from_unixtime(orderkey)), date_trunc('day', from_unixtime(orderkey)), date_trunc('hour', from_unixtime(orderkey)), date_trunc('minute', from_unixtime(orderkey)), date_trunc('second', from_unixtime(orderkey)) FROM orders");
     }
 
-    // disabling flaky test https://github.com/prestodb/presto/issues/21821
-    @Test(enabled = false)
+    @Test
     public void testPrestoBenchTables()
     {
         assertQuery("SELECT name from prestobench_nation");
