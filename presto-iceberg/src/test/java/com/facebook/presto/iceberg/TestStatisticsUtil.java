@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.ColumnIdentity.TypeCategory;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -28,16 +29,15 @@ import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.NONE;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NDV;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTIONS;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTION_AND_NDV;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static org.testng.Assert.assertEquals;
 
 public class TestStatisticsUtil
@@ -45,7 +45,7 @@ public class TestStatisticsUtil
     @Test
     public void testMergeStrategyNone()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), NONE, PartitionSpec.unpartitioned());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.noneOf(ColumnStatisticType.class), PartitionSpec.unpartitioned());
         assertEquals(Estimate.of(1), merged.getRowCount());
         assertEquals(Estimate.unknown(), merged.getTotalSize());
         assertEquals(1, merged.getColumnStatistics().size());
@@ -59,7 +59,7 @@ public class TestStatisticsUtil
     @Test
     public void testMergeStrategyWithPartitioned()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTION_AND_NDV,
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES),
                 PartitionSpec.builderFor(new Schema(Types.NestedField.required(0, "test", Types.IntegerType.get()))).bucket("test", 100).build());
         assertEquals(Estimate.of(1), merged.getRowCount());
         assertEquals(Estimate.unknown(), merged.getTotalSize());
@@ -74,7 +74,7 @@ public class TestStatisticsUtil
     @Test
     public void testMergeStrategyNDVs()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NDV, PartitionSpec.unpartitioned());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES), PartitionSpec.unpartitioned());
         assertEquals(Estimate.of(1), merged.getRowCount());
         assertEquals(Estimate.unknown(), merged.getTotalSize());
         assertEquals(1, merged.getColumnStatistics().size());
@@ -88,7 +88,7 @@ public class TestStatisticsUtil
     @Test
     public void testMergeStrategyNulls()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTIONS, PartitionSpec.unpartitioned());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_NON_NULL_VALUES), PartitionSpec.unpartitioned());
         assertEquals(Estimate.of(1), merged.getRowCount());
         assertEquals(Estimate.unknown(), merged.getTotalSize());
         assertEquals(1, merged.getColumnStatistics().size());
@@ -102,7 +102,7 @@ public class TestStatisticsUtil
     @Test
     public void testMergeStrategyNDVsAndNulls()
     {
-        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), USE_NULLS_FRACTION_AND_NDV, PartitionSpec.unpartitioned());
+        TableStatistics merged = mergeHiveStatistics(generateSingleColumnIcebergStats(), generateSingleColumnHiveStatistics(), EnumSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES), PartitionSpec.unpartitioned());
         assertEquals(Estimate.of(1), merged.getRowCount());
         assertEquals(Estimate.unknown(), merged.getTotalSize());
         assertEquals(1, merged.getColumnStatistics().size());

@@ -18,9 +18,9 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
-import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -28,7 +28,10 @@ import org.apache.parquet.column.ParquetProperties;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -36,6 +39,9 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 
 public final class IcebergSessionProperties
 {
@@ -156,14 +162,15 @@ public final class IcebergSessionProperties
                         false),
                 new PropertyMetadata<>(
                         HIVE_METASTORE_STATISTICS_MERGE_STRATEGY,
-                        "choose how to include statistics from the Hive Metastore when calculating table stats. Valid values are: "
-                                + Joiner.on(", ").join(HiveStatisticsMergeStrategy.values()),
+                        "Flags to choose which statistics from the Hive Metastore are used when calculating table stats. Valid values are: "
+                                + Joiner.on(", ").join(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES),
                         VARCHAR,
-                        HiveStatisticsMergeStrategy.class,
-                        icebergConfig.getHiveStatisticsMergeStrategy(),
+                        EnumSet.class,
+                        icebergConfig.getHiveStatisticsMergeFlags(),
                         false,
-                        val -> HiveStatisticsMergeStrategy.valueOf((String) val),
-                        HiveStatisticsMergeStrategy::name),
+                        val -> EnumSet.copyOf(Arrays.stream(((String) val).trim().split(",")).map(ColumnStatisticType::valueOf)
+                                .collect(Collectors.toSet())),
+                        set -> Joiner.on(",").join(((EnumSet<ColumnStatisticType>) set).stream().map(Enum::name).iterator())),
                 booleanProperty(
                         PUSHDOWN_FILTER_ENABLED,
                         "Experimental: Enable Filter Pushdown for Iceberg. This is only supported with Native Worker.",
@@ -272,9 +279,9 @@ public final class IcebergSessionProperties
         return session.getProperty(MERGE_ON_READ_MODE_ENABLED, Boolean.class);
     }
 
-    public static HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy(ConnectorSession session)
+    public static EnumSet<ColumnStatisticType> getHiveStatisticsMergeStrategy(ConnectorSession session)
     {
-        return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, HiveStatisticsMergeStrategy.class);
+        return session.getProperty(HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, EnumSet.class);
     }
 
     public static boolean isPushdownFilterEnabled(ConnectorSession session)

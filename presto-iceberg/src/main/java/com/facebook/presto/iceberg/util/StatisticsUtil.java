@@ -16,17 +16,17 @@ package com.facebook.presto.iceberg.util;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import org.apache.iceberg.PartitionSpec;
 
+import java.util.EnumSet;
 import java.util.Map;
 
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.NONE;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NDV;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTIONS;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NULLS_FRACTION_AND_NDV;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 
 public final class StatisticsUtil
 {
@@ -34,9 +34,16 @@ public final class StatisticsUtil
     {
     }
 
-    public static TableStatistics mergeHiveStatistics(TableStatistics icebergStatistics, PartitionStatistics hiveStatistics, HiveStatisticsMergeStrategy mergeStrategy, PartitionSpec spec)
+    /**
+     * Attempts to merge statistics from Iceberg and hive tables.
+     * <br>
+     * If a statistic is unknown on the Iceberg table, but known in Hive, the Hive statistic
+     * will always be used. Otherwise, hive statistics are only used if specified in the
+     * hive-statistic-merge-strategy
+     */
+    public static TableStatistics mergeHiveStatistics(TableStatistics icebergStatistics, PartitionStatistics hiveStatistics, EnumSet<ColumnStatisticType> mergeFlags, PartitionSpec spec)
     {
-        if (mergeStrategy.equals(NONE) || spec.isPartitioned()) {
+        if (spec.isPartitioned()) {
             return icebergStatistics;
         }
         // We really only need to merge in NDVs and null fractions from the column statistics in hive's stats
@@ -57,10 +64,12 @@ public final class StatisticsUtil
                     .setDistinctValuesCount(icebergColumnStats.getDistinctValuesCount())
                     .setRange(icebergColumnStats.getRange());
             if (hiveColumnStats != null) {
-                if (mergeStrategy.equals(USE_NDV) || mergeStrategy.equals(USE_NULLS_FRACTION_AND_NDV)) {
+                // NDVs
+                if (mergeFlags.contains(NUMBER_OF_DISTINCT_VALUES)) {
                     hiveColumnStats.getDistinctValuesCount().ifPresent(ndvs -> mergedStats.setDistinctValuesCount(Estimate.of(ndvs)));
                 }
-                if (mergeStrategy.equals(USE_NULLS_FRACTIONS) || mergeStrategy.equals(USE_NULLS_FRACTION_AND_NDV)) {
+                // Null count
+                if (mergeFlags.contains(NUMBER_OF_NON_NULL_VALUES)) {
                     hiveColumnStats.getNullsCount().ifPresent(nullCount -> {
                         Estimate nullsFraction;
                         if (!hiveStatistics.getBasicStatistics().getRowCount().isPresent()) {
@@ -76,6 +85,10 @@ public final class StatisticsUtil
                         }
                         mergedStats.setNullsFraction(nullsFraction);
                     });
+                }
+                // data size
+                if (mergeFlags.contains(ColumnStatisticType.TOTAL_SIZE_IN_BYTES)) {
+                    hiveColumnStats.getTotalSizeInBytes().ifPresent(size -> mergedStats.setDataSize(Estimate.of(size)));
                 }
             }
             statsBuilder.setColumnStatistics(columnHandle, mergedStats.build());
