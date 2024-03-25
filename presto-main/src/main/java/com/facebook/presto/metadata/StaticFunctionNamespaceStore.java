@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -36,13 +37,15 @@ public class StaticFunctionNamespaceStore
     private static final String FUNCTION_NAMESPACE_MANAGER_NAME = "function-namespace-manager.name";
 
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final NodeManager nodeManager;
     private final File configDir;
     private final AtomicBoolean functionNamespaceLoading = new AtomicBoolean();
 
     @Inject
-    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, StaticFunctionNamespaceStoreConfig config)
+    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager, StaticFunctionNamespaceStoreConfig config)
     {
         this.functionAndTypeManager = functionAndTypeManager;
+        this.nodeManager = nodeManager;
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
@@ -79,7 +82,7 @@ public class StaticFunctionNamespaceStore
         String functionNamespaceManagerName = properties.remove(FUNCTION_NAMESPACE_MANAGER_NAME);
         checkState(!isNullOrEmpty(functionNamespaceManagerName), "%s property must be present", FUNCTION_NAMESPACE_MANAGER_NAME);
 
-        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.empty());
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.ofNullable(nodeManager));
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 
