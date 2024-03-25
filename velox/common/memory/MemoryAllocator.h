@@ -404,44 +404,8 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
  protected:
   explicit MemoryAllocator() = default;
 
-  /// The actual memory allocation function implementation without retry
-  /// attempts by making space from cache.
-  virtual bool allocateContiguousWithoutRetry(
-      MachinePageCount numPages,
-      Allocation* collateral,
-      ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr,
-      MachinePageCount maxPages = 0) = 0;
-
-  virtual bool allocateNonContiguousWithoutRetry(
-      MachinePageCount numPages,
-      Allocation& out,
-      ReservationCallback reservationCB,
-      MachinePageCount minSizeClass) = 0;
-
-  virtual void* allocateBytesWithoutRetry(
-      uint64_t bytes,
-      uint16_t alignment) = 0;
-
-  virtual void* allocateZeroFilledWithoutRetry(uint64_t bytes);
-
-  virtual bool growContiguousWithoutRetry(
-      MachinePageCount increment,
-      ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) = 0;
-
-  // 'Cache' getter. The cache is only responsible for freeing up memory space
-  // by shrinking itself when there is not enough space upon allocating. The
-  // free of space is not guaranteed.
-  virtual Cache* cache() const = 0;
-
-  // Returns the size class size that corresponds to 'bytes'.
-  static MachinePageCount roundUpToSizeClassSize(
-      size_t bytes,
-      const std::vector<MachinePageCount>& sizes);
-
-  // Represents a mix of blocks of different sizes for covering a single
-  // allocation.
+  /// Represents a mix of blocks of different sizes for covering a single
+  /// allocation.
   struct SizeMix {
     // Index into 'sizeClassSizes_'
     std::vector<int32_t> sizeIndices;
@@ -458,6 +422,38 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
       sizeCounts.reserve(kMaxSizeClasses);
     }
   };
+
+  /// The actual memory allocation function implementation without retry
+  /// attempts by making space from cache.
+  virtual bool allocateContiguousWithoutRetry(
+      MachinePageCount numPages,
+      Allocation* collateral,
+      ContiguousAllocation& allocation,
+      MachinePageCount maxPages = 0) = 0;
+
+  virtual bool allocateNonContiguousWithoutRetry(
+      const SizeMix& sizeMix,
+      Allocation& out) = 0;
+
+  virtual void* allocateBytesWithoutRetry(
+      uint64_t bytes,
+      uint16_t alignment) = 0;
+
+  virtual void* allocateZeroFilledWithoutRetry(uint64_t bytes);
+
+  virtual bool growContiguousWithoutRetry(
+      MachinePageCount increment,
+      ContiguousAllocation& allocation) = 0;
+
+  // 'Cache' getter. The cache is only responsible for freeing up memory space
+  // by shrinking itself when there is not enough space upon allocating. The
+  // free of space is not guaranteed.
+  virtual Cache* cache() const = 0;
+
+  // Returns the size class size that corresponds to 'bytes'.
+  static MachinePageCount roundUpToSizeClassSize(
+      size_t bytes,
+      const std::vector<MachinePageCount>& sizes);
 
   // Returns a mix of standard sizes and allocation counts for covering
   // 'numPages' worth of memory. 'minSizeClass' is the size of the

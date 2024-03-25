@@ -103,8 +103,7 @@ class MmapAllocator : public MemoryAllocator {
 
   bool growContiguousWithoutRetry(
       MachinePageCount increment,
-      ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr) override;
+      ContiguousAllocation& allocation) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override;
 
@@ -316,23 +315,19 @@ class MmapAllocator : public MemoryAllocator {
   };
 
   bool allocateNonContiguousWithoutRetry(
-      MachinePageCount numPages,
-      Allocation& out,
-      ReservationCallback reservationCB = nullptr,
-      MachinePageCount minSizeClass = 0) override;
+      const SizeMix& sizeMix,
+      Allocation& out) override;
 
   bool allocateContiguousWithoutRetry(
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB = nullptr,
       MachinePageCount maxPages = 0) override;
 
   bool allocateContiguousImpl(
       MachinePageCount numPages,
       Allocation* collateral,
       ContiguousAllocation& allocation,
-      ReservationCallback reservationCB,
       MachinePageCount maxPages);
 
   void freeContiguousImpl(ContiguousAllocation& allocation);

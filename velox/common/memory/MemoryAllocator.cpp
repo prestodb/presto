@@ -161,26 +161,53 @@ bool MemoryAllocator::allocateNonContiguous(
     Allocation& out,
     ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
-  if (cache() == nullptr) {
-    return allocateNonContiguousWithoutRetry(
-        numPages, out, reservationCB, minSizeClass);
+  const MachinePageCount numPagesToFree = out.numPages();
+  const uint64_t bytesToFree = AllocationTraits::pageBytes(numPagesToFree);
+  auto cleanupAllocAndReleaseReservation = [&](uint64_t reservationBytes) {
+    if (!out.empty()) {
+      freeNonContiguous(out);
+    }
+    if (reservationCB != nullptr && reservationBytes > 0) {
+      reservationCB(reservationBytes, false);
+    }
+  };
+  if (numPages == 0) {
+    cleanupAllocAndReleaseReservation(bytesToFree);
+    return true;
   }
-  const bool success = cache()->makeSpace(
-      pagesToAcquire(numPages, out.numPages()), [&](Allocation& acquired) {
-        freeNonContiguous(acquired);
-        return allocateNonContiguousWithoutRetry(
-            numPages, out, reservationCB, minSizeClass);
-      });
+
+  const SizeMix mix = allocationSize(numPages, minSizeClass);
+  const int64_t numNeededPages = mix.totalPages - numPagesToFree;
+  // TODO: handle negative 'numNeededPages' in a follow-up.
+
+  if (reservationCB != nullptr) {
+    try {
+      reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
+    } catch (const std::exception&) {
+      VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+          << "Exceeded memory reservation limit when reserve " << numNeededPages
+          << " new pages when allocate " << mix.totalPages << " pages";
+      cleanupAllocAndReleaseReservation(bytesToFree);
+      std::rethrow_exception(std::current_exception());
+    }
+  }
+
+  const auto totalBytesReserved = AllocationTraits::pageBytes(mix.totalPages);
+  bool success = false;
+  if (cache() == nullptr) {
+    success = allocateNonContiguousWithoutRetry(mix, out);
+  } else {
+    success = cache()->makeSpace(
+        pagesToAcquire(numPages, out.numPages()), [&](Allocation& acquired) {
+          freeNonContiguous(acquired);
+          return allocateNonContiguousWithoutRetry(mix, out);
+        });
+  }
   if (!success) {
     // There can be a failure where allocation was never called because there
     // never was a chance based on numAllocated() and capacity(). Make sure old
     // data is still freed.
-    if (!out.empty()) {
-      if (reservationCB) {
-        reservationCB(AllocationTraits::pageBytes(out.numPages()), false);
-      }
-      freeNonContiguous(out);
-    }
+    cleanupAllocAndReleaseReservation(totalBytesReserved);
   }
   return success;
 }
@@ -191,34 +218,61 @@ bool MemoryAllocator::allocateContiguous(
     ContiguousAllocation& allocation,
     ReservationCallback reservationCB,
     MachinePageCount maxPages) {
-  if (cache() == nullptr) {
-    return allocateContiguousWithoutRetry(
-        numPages, collateral, allocation, reservationCB, maxPages);
-  }
-  auto numCollateralPages =
+  const MachinePageCount numCollateralPages =
       allocation.numPages() + (collateral ? collateral->numPages() : 0);
-  const bool success = cache()->makeSpace(
-      pagesToAcquire(numPages, numCollateralPages), [&](Allocation& acquired) {
-        freeNonContiguous(acquired);
-        return allocateContiguousWithoutRetry(
-            numPages, collateral, allocation, reservationCB, maxPages);
-      });
+  const uint64_t totalCollateralBytes =
+      AllocationTraits::pageBytes(numCollateralPages);
+  const int64_t newPages = numPages - numCollateralPages;
+  auto cleanupCollateralAndReleaseReservation = [&](uint64_t reservationBytes) {
+    if ((collateral != nullptr) && !collateral->empty()) {
+      freeNonContiguous(*collateral);
+    }
+    if (!allocation.empty()) {
+      freeContiguous(allocation);
+    }
+    if ((reservationCB) != nullptr && (reservationBytes > 0)) {
+      reservationCB(reservationBytes, false);
+    }
+  };
+
+  if (numPages == 0) {
+    cleanupCollateralAndReleaseReservation(totalCollateralBytes);
+    return true;
+  }
+  // TODO: handle negative 'newPages'.
+  if (reservationCB != nullptr) {
+    try {
+      reservationCB(AllocationTraits::pageBytes(newPages), true);
+    } catch (const std::exception& e) {
+      VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+          << "Exceeded memory reservation limit when reserve " << newPages
+          << " new pages when allocate " << numPages
+          << " pages, error: " << e.what();
+      cleanupCollateralAndReleaseReservation(totalCollateralBytes);
+      std::rethrow_exception(std::current_exception());
+    }
+  }
+
+  const uint64_t totalBytesReserved = AllocationTraits::pageBytes(numPages);
+  bool success = false;
+  if (cache() == nullptr) {
+    success = allocateContiguousWithoutRetry(
+        numPages, collateral, allocation, maxPages);
+  } else {
+    success = cache()->makeSpace(
+        pagesToAcquire(numPages, numCollateralPages),
+        [&](Allocation& acquired) {
+          freeNonContiguous(acquired);
+          return allocateContiguousWithoutRetry(
+              numPages, collateral, allocation, maxPages);
+        });
+  }
+
   if (!success) {
     // There can be a failure where allocation was never called because there
     // never was a chance based on numAllocated() and capacity(). Make sure old
     // data is still freed.
-    int64_t freedBytes{0};
-    if ((collateral != nullptr) && !collateral->empty()) {
-      freedBytes += AllocationTraits::pageBytes(collateral->numPages());
-      freeNonContiguous(*collateral);
-    }
-    if (!allocation.empty()) {
-      freedBytes += allocation.size();
-      freeContiguous(allocation);
-    }
-    if ((reservationCB) != nullptr && (freedBytes > 0)) {
-      reservationCB(freedBytes, false);
-    }
+    cleanupCollateralAndReleaseReservation(totalBytesReserved);
   }
   return success;
 }
@@ -227,13 +281,29 @@ bool MemoryAllocator::growContiguous(
     MachinePageCount increment,
     ContiguousAllocation& allocation,
     ReservationCallback reservationCB) {
-  if (cache() == nullptr) {
-    return growContiguousWithoutRetry(increment, allocation, reservationCB);
+  VELOX_CHECK_LE(
+      allocation.size() + increment * AllocationTraits::kPageSize,
+      allocation.maxSize());
+  if (increment == 0) {
+    return true;
   }
-  return cache()->makeSpace(increment, [&](Allocation& acquired) {
-    freeNonContiguous(acquired);
-    return growContiguousWithoutRetry(increment, allocation, reservationCB);
-  });
+  if (reservationCB != nullptr) {
+    // May throw. If does, there is nothing to revert.
+    reservationCB(AllocationTraits::pageBytes(increment), true);
+  }
+  bool success = false;
+  if (cache() == nullptr) {
+    success = growContiguousWithoutRetry(increment, allocation);
+  } else {
+    success = cache()->makeSpace(increment, [&](Allocation& acquired) {
+      freeNonContiguous(acquired);
+      return growContiguousWithoutRetry(increment, allocation);
+    });
+  }
+  if (!success && reservationCB != nullptr) {
+    reservationCB(AllocationTraits::pageBytes(increment), false);
+  }
+  return success;
 }
 
 void* MemoryAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
