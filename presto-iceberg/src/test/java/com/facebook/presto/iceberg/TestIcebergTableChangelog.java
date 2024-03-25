@@ -22,7 +22,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -34,8 +33,7 @@ public class TestIcebergTableChangelog
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        return createIcebergQueryRunner(properties, CatalogType.HADOOP);
+        return createIcebergQueryRunner(ImmutableMap.of(), CatalogType.HADOOP);
     }
 
     private long[] snapshots = new long[0];
