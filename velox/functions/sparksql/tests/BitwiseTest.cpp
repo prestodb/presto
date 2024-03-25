@@ -41,8 +41,18 @@ class BitwiseTest : public SparkFunctionBaseTest {
   }
 
   template <typename T>
+  std::optional<T> bitwiseNot(std::optional<T> a) {
+    return evaluateOnce<T>("bitwise_not(c0)", a);
+  }
+
+  template <typename T>
   std::optional<T> bitwiseOr(std::optional<T> a, std::optional<T> b) {
     return evaluateOnce<T>("bitwise_or(c0, c1)", a, b);
+  }
+
+  template <typename T>
+  std::optional<T> bitwiseXor(std::optional<T> a, std::optional<T> b) {
+    return evaluateOnce<T>("bitwise_xor(c0, c1)", a, b);
   }
 
   template <typename T>
@@ -114,6 +124,25 @@ TEST_F(BitwiseTest, bitwiseAnd) {
   EXPECT_EQ(bitwiseAnd<int64_t>(kMin64, -1), kMin64);
 }
 
+TEST_F(BitwiseTest, bitwiseNot) {
+  EXPECT_EQ(bitwiseNot<int32_t>(0), -1);
+  EXPECT_EQ(bitwiseNot<int32_t>(3), -4);
+  EXPECT_EQ(bitwiseNot<int32_t>(-4), 3);
+  EXPECT_EQ(bitwiseNot<int32_t>(60), -61);
+
+  EXPECT_EQ(bitwiseNot<int8_t>(kMin8), kMax8);
+  EXPECT_EQ(bitwiseNot<int8_t>(kMax8), kMin8);
+
+  EXPECT_EQ(bitwiseNot<int16_t>(kMin16), kMax16);
+  EXPECT_EQ(bitwiseNot<int16_t>(kMax16), kMin16);
+
+  EXPECT_EQ(bitwiseNot<int32_t>(kMin32), kMax32);
+  EXPECT_EQ(bitwiseNot<int32_t>(kMax32), kMin32);
+
+  EXPECT_EQ(bitwiseNot<int64_t>(kMin64), kMax64);
+  EXPECT_EQ(bitwiseNot<int64_t>(kMax64), kMin64);
+}
+
 TEST_F(BitwiseTest, bitwiseOr) {
   EXPECT_EQ(bitwiseOr<int32_t>(0, -1), -1);
   EXPECT_EQ(bitwiseOr<int32_t>(3, 8), 11);
@@ -146,6 +175,49 @@ TEST_F(BitwiseTest, bitwiseOr) {
   EXPECT_EQ(bitwiseOr<int64_t>(kMax64, -1), -1);
   EXPECT_EQ(bitwiseOr<int64_t>(kMin64, 1), kMin64 + 1);
   EXPECT_EQ(bitwiseOr<int64_t>(kMin64, -1), -1);
+}
+
+TEST_F(BitwiseTest, bitwiseXor) {
+  EXPECT_EQ(bitwiseXor<int32_t>(0, -1), -1);
+  EXPECT_EQ(bitwiseXor<int32_t>(3, 8), 11);
+  EXPECT_EQ(bitwiseXor<int32_t>(-4, 12), -16);
+  EXPECT_EQ(bitwiseXor<int32_t>(60, 21), 41);
+
+  EXPECT_EQ(bitwiseXor<int8_t>(kMin8, kMax8), -1);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMax8, kMax8), 0);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMax8, kMin8), -1);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMin8, kMin8), 0);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMax8, 1), kMax8 - 1);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMax8, -1), kMin8);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMin8, 1), kMin8 + 1);
+  EXPECT_EQ(bitwiseXor<int8_t>(kMin8, -1), kMax8);
+
+  EXPECT_EQ(bitwiseXor<int16_t>(kMin16, kMax16), -1);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMax16, kMax16), 0);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMax16, kMin16), -1);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMin16, kMin16), 0);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMax16, 1), kMax16 - 1);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMax16, -1), kMin16);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMin16, 1), kMin16 + 1);
+  EXPECT_EQ(bitwiseXor<int16_t>(kMin16, -1), kMax16);
+
+  EXPECT_EQ(bitwiseXor<int32_t>(kMin32, kMax32), -1);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMax32, kMax32), 0);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMax32, kMin32), -1);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMin32, kMin32), 0);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMax32, 1), kMax32 - 1);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMax32, -1), kMin32);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMin32, 1), kMin32 + 1);
+  EXPECT_EQ(bitwiseXor<int32_t>(kMin32, -1), kMax32);
+
+  EXPECT_EQ(bitwiseXor<int64_t>(kMin64, kMax64), -1);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMax64, kMax64), 0);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMax64, kMin64), -1);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMin64, kMin64), 0);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMax64, 1), kMax64 - 1);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMax64, -1), kMin64);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMin64, 1), kMin64 + 1);
+  EXPECT_EQ(bitwiseXor<int64_t>(kMin64, -1), kMax64);
 }
 
 TEST_F(BitwiseTest, bitCount) {

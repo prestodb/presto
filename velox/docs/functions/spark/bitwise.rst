@@ -6,11 +6,25 @@ Bitwise Functions
 
     Returns the bitwise AND of ``x`` and ``y`` in 2's complement representation. 
     Corresponds to Spark's operator ``&``.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.
+
+.. spark:function:: bitwise_not(x) -> [same as input]
+
+    Returns the bitwise NOT of ``x`` in 2's complement representation.
+    Corresponds to Spark's operator ``~``.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.
 
 .. spark:function:: bitwise_or(x, y) -> [same as input]
 
     Returns the bitwise OR of ``x`` and ``y`` in 2's complement representation.
+    Corresponds to Spark's operator ``|``.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.
+
+.. spark:function:: bitwise_xor(x, y) -> [same as input]
+
+    Returns the bitwise exclusive OR of ``x`` and ``y`` in 2's complement representation.
     Corresponds to Spark's operator ``^``.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.
 
 .. spark:function:: bit_count(x) -> integer
 

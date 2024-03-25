@@ -34,6 +34,22 @@ struct BitwiseOrFunction {
 };
 
 template <typename T>
+struct BitwiseXorFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a, TInput b) {
+    result = a ^ b;
+  }
+};
+
+template <typename T>
+struct BitwiseNotFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = ~a;
+  }
+};
+
+template <typename T>
 struct ShiftLeftFunction {
   template <typename TInput1, typename TInput2>
   FOLLY_ALWAYS_INLINE void call(TInput1& result, TInput1 a, TInput2 b) {
@@ -111,6 +127,9 @@ struct BitGetFunction {
 void registerBitwiseFunctions(const std::string& prefix) {
   registerBinaryIntegral<BitwiseAndFunction>({prefix + "bitwise_and"});
   registerBinaryIntegral<BitwiseOrFunction>({prefix + "bitwise_or"});
+  registerBinaryIntegral<BitwiseXorFunction>({prefix + "bitwise_xor"});
+
+  registerUnaryIntegral<BitwiseNotFunction>({prefix + "bitwise_not"});
 
   registerFunction<BitCountFunction, int32_t, bool>({prefix + "bit_count"});
   registerFunction<BitCountFunction, int32_t, int8_t>({prefix + "bit_count"});
