@@ -17,6 +17,7 @@ package com.facebook.presto.spi.statistics;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +118,11 @@ public final class TableStatistics
             return this;
         }
 
+        public Estimate getRowCount()
+        {
+            return rowCount;
+        }
+
         public Builder setTotalSize(Estimate totalSize)
         {
             this.totalSize = requireNonNull(totalSize, "totalSize can not be null");
@@ -129,6 +135,11 @@ public final class TableStatistics
             requireNonNull(columnStatistics, "columnStatistics can not be null");
             this.columnStatisticsMap.put(columnHandle, columnStatistics);
             return this;
+        }
+
+        public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()
+        {
+            return Collections.unmodifiableMap(columnStatisticsMap);
         }
 
         public TableStatistics build()

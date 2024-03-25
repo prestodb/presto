@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TypeManager;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
@@ -44,13 +46,17 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.puffin.Blob;
+import org.apache.iceberg.puffin.BlobMetadata;
 import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.puffin.PuffinWriter;
 import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.Pair;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -68,6 +74,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -80,8 +87,9 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
-import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Long.parseLong;
@@ -95,7 +103,9 @@ public class TableStatisticsMaker
 {
     private static final Logger log = Logger.get(TableStatisticsMaker.class);
     private static final String ICEBERG_THETA_SKETCH_BLOB_TYPE_ID = "apache-datasketches-theta-v1";
+    private static final String ICEBERG_DATA_SIZE_BLOB_TYPE_ID = "presto-sum-data-size-bytes-v1";
     private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
+    private static final String ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY = "data_size";
     private final Table icebergTable;
     private final ConnectorSession session;
     private final TypeManager typeManager;
@@ -106,6 +116,16 @@ public class TableStatisticsMaker
         this.session = session;
         this.typeManager = typeManager;
     }
+
+    private static final Map<ColumnStatisticType, PuffinBlobGenerator> puffinStatWriters = ImmutableMap.<ColumnStatisticType, PuffinBlobGenerator>builder()
+            .put(NUMBER_OF_DISTINCT_VALUES, TableStatisticsMaker::generateNDVBlob)
+            .put(TOTAL_SIZE_IN_BYTES, TableStatisticsMaker::generateStatSizeBlob)
+            .build();
+
+    private static final Map<String, PuffinBlobReader> puffinStatReaders = ImmutableMap.<String, PuffinBlobReader>builder()
+            .put(ICEBERG_THETA_SKETCH_BLOB_TYPE_ID, TableStatisticsMaker::readNDVBlob)
+            .put(ICEBERG_DATA_SIZE_BLOB_TYPE_ID, TableStatisticsMaker::readDataSizeBlob)
+            .build();
 
     public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
@@ -162,9 +182,9 @@ public class TableStatisticsMaker
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(recordCount));
-        result.setTotalSize(Estimate.of(summary.getSize()));
+
         Map<Integer, ColumnStatistics.Builder> tableStats = getClosestStatisticsFileForSnapshot(tableHandle)
-                .map(TableStatisticsMaker::loadStatisticsFile).orElseGet(Collections::emptyMap);
+                .map(this::loadStatisticsFile).orElseGet(Collections::emptyMap);
         for (IcebergColumnHandle columnHandle : selectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = tableStats.getOrDefault(fieldId, ColumnStatistics.builder());
@@ -172,12 +192,7 @@ public class TableStatisticsMaker
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
-            if (summary.getColumnSizes() != null) {
-                Long columnSize = summary.getColumnSizes().get(fieldId);
-                if (columnSize != null) {
-                    columnBuilder.setDataSize(Estimate.of(columnSize));
-                }
-            }
+
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
             if (min instanceof Number && max instanceof Number) {
@@ -185,7 +200,7 @@ public class TableStatisticsMaker
             }
             result.setColumnStatistics(columnHandle, columnBuilder.build());
         }
-        return result.build();
+        return calculateAndSetTableSize(result).build();
     }
 
     private Partition getDataTableSummary(IcebergTableHandle tableHandle,
@@ -239,7 +254,6 @@ public class TableStatisticsMaker
                             toMap(idToTypeMapping, contentFile.upperBounds()),
                             contentFile.nullValueCounts(),
                             new HashMap<>());
-                    updateColumnSizes(summary, contentFile.columnSizes());
                 }
                 else {
                     summary.incrementFileCount();
@@ -248,7 +262,6 @@ public class TableStatisticsMaker
                     updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, contentFile.lowerBounds()), contentFile.nullValueCounts(), contentFile.recordCount());
                     updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, contentFile.upperBounds()), contentFile.nullValueCounts(), contentFile.recordCount());
                     summary.updateNullCount(contentFile.nullValueCounts());
-                    updateColumnSizes(summary, contentFile.columnSizes());
                 }
             }
         }
@@ -282,24 +295,10 @@ public class TableStatisticsMaker
                         .flatMap(map -> map.entrySet().stream())
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
                         .forEach((key, value) -> {
-                            if (!key.getStatisticType().equals(NUMBER_OF_DISTINCT_VALUES)) {
-                                return;
-                            }
-                            Optional<Integer> id = Optional.ofNullable(icebergTable.schema().findField(key.getColumnName())).map(Types.NestedField::fieldId);
-                            if (!id.isPresent()) {
-                                log.warn("failed to find column name %s in schema of table %s when writing distinct value statistics", key.getColumnName(), icebergTable.name());
-                                throw new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s when writing distinct value statistics", key.getColumnName(), icebergTable.name()));
-                            }
-                            ByteBuffer raw = VARBINARY.getSlice(value, 0).toByteBuffer();
-                            CompactSketch sketch = CompactSketch.wrap(Memory.wrap(raw, ByteOrder.nativeOrder()));
-                            writer.add(new Blob(
-                                    ICEBERG_THETA_SKETCH_BLOB_TYPE_ID,
-                                    ImmutableList.of(id.get()),
-                                    snapshot.snapshotId(),
-                                    snapshot.sequenceNumber(),
-                                    raw,
-                                    null,
-                                    ImmutableMap.of(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY, Long.toString((long) sketch.getEstimate()))));
+                            Optional.ofNullable(puffinStatWriters.get(key.getStatisticType()))
+                                    .ifPresent(generator -> {
+                                        writer.add(generator.generate(key, value, icebergTable, snapshot));
+                                    });
                         });
                 writer.finish();
                 icebergTable.updateStatistics().setStatistics(
@@ -321,27 +320,87 @@ public class TableStatisticsMaker
         }
     }
 
-    public void updateColumnSizes(Partition summary, Map<Integer, Long> addedColumnSizes)
+    @FunctionalInterface
+    private interface PuffinBlobGenerator
     {
-        Map<Integer, Long> columnSizes = summary.getColumnSizes();
-        if (!summary.hasValidColumnMetrics() || columnSizes == null || addedColumnSizes == null) {
-            return;
-        }
-        for (Types.NestedField column : summary.getNonPartitionPrimitiveColumns()) {
-            int id = column.fieldId();
-            com.facebook.presto.common.type.Type type = toPrestoType(column.type(), typeManager);
-            // allow the optimizer to infer the size of fixed-width types
-            // since it can be calculated accurately without collecting stats.
-            if (type instanceof FixedWidthType) {
-                continue;
-            }
-            columnSizes.compute(id, (key, value) -> {
-                if (value == null) {
-                    value = 0L;
-                }
-                return value + addedColumnSizes.getOrDefault(id, 0L);
-            });
-        }
+        Blob generate(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot);
+    }
+
+    @FunctionalInterface
+    private interface PuffinBlobReader
+    {
+        /**
+         * Reads the stats from the blob and then updates the stats builder argument.
+         */
+        void read(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder stats);
+    }
+
+    private static Blob generateNDVBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot)
+    {
+        int id = getFieldId(metadata, icebergTable);
+        ByteBuffer raw = VARBINARY.getSlice(value, 0).toByteBuffer();
+        CompactSketch sketch = CompactSketch.wrap(Memory.wrap(raw, ByteOrder.nativeOrder()));
+        return new Blob(
+                ICEBERG_THETA_SKETCH_BLOB_TYPE_ID,
+                ImmutableList.of(id),
+                snapshot.snapshotId(),
+                snapshot.sequenceNumber(),
+                raw,
+                null,
+                ImmutableMap.of(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY, Long.toString((long) sketch.getEstimate())));
+    }
+
+    private static Blob generateStatSizeBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot)
+    {
+        int id = getFieldId(metadata, icebergTable);
+        long size = BIGINT.getLong(value, 0);
+        return new Blob(
+                ICEBERG_DATA_SIZE_BLOB_TYPE_ID,
+                ImmutableList.of(id),
+                snapshot.snapshotId(),
+                snapshot.sequenceNumber(),
+                ByteBuffer.allocate(0), // empty bytebuffer since the value is just stored on the blob properties
+                null,
+                ImmutableMap.of(ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY, Long.toString(size)));
+    }
+
+    private static void readNDVBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics)
+    {
+        Optional.ofNullable(metadata.properties().get(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY))
+                .ifPresent(ndvProp -> {
+                    try {
+                        long ndv = parseLong(ndvProp);
+                        statistics.setDistinctValuesCount(Estimate.of(ndv));
+                    }
+                    catch (NumberFormatException e) {
+                        statistics.setDistinctValuesCount(Estimate.unknown());
+                        log.warn("bad long value when parsing NDVs for statistics file blob %s. bad value: %d", metadata.type(), ndvProp);
+                    }
+                });
+    }
+
+    private static void readDataSizeBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics)
+    {
+        Optional.ofNullable(metadata.properties().get(ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY))
+                .ifPresent(sizeProp -> {
+                    try {
+                        long size = parseLong(sizeProp);
+                        statistics.setDataSize(Estimate.of(size));
+                    }
+                    catch (NumberFormatException e) {
+                        statistics.setDataSize(Estimate.unknown());
+                        log.warn("bad long value when parsing data size from statistics file blob %s. bad value: %d", metadata.type(), sizeProp);
+                    }
+                });
+    }
+
+    private static int getFieldId(ColumnStatisticMetadata metadata, Table icebergTable)
+    {
+        return Optional.ofNullable(icebergTable.schema().findField(metadata.getColumnName())).map(Types.NestedField::fieldId)
+                .orElseThrow(() -> {
+                    log.warn("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name());
+                    return new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name()));
+                });
     }
 
     private void updateSummaryMin(Partition summary, List<PartitionField> partitionFields, Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)
@@ -424,29 +483,35 @@ public class TableStatisticsMaker
 
     /**
      * Builds a map of field ID to ColumnStatistics for a particular {@link StatisticsFile}.
-     *
-     * @return
      */
-    private static Map<Integer, ColumnStatistics.Builder> loadStatisticsFile(StatisticsFile file)
+    private Map<Integer, ColumnStatistics.Builder> loadStatisticsFile(StatisticsFile file)
     {
-        ImmutableMap.Builder<Integer, ColumnStatistics.Builder> result = ImmutableMap.builder();
-        file.blobMetadata().forEach(blob -> {
-            Integer field = getOnlyElement(blob.fields());
-            ColumnStatistics.Builder colStats = ColumnStatistics.builder();
-            Optional.ofNullable(blob.properties().get(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY))
-                    .ifPresent(ndvProp -> {
-                        try {
-                            long ndv = parseLong(ndvProp);
-                            colStats.setDistinctValuesCount(Estimate.of(ndv));
-                        }
-                        catch (NumberFormatException e) {
-                            colStats.setDistinctValuesCount(Estimate.unknown());
-                            log.warn("bad long value when parsing statistics file %s, bad value: %d", file.path(), ndvProp);
-                        }
-                    });
-            result.put(field, colStats);
-        });
-        return result.build();
+        Map<Integer, ColumnStatistics.Builder> result = new HashMap<>();
+        try (FileIO io = icebergTable.io()) {
+            InputFile inputFile = io.newInputFile(file.path());
+            try (PuffinReader reader = Puffin.read(inputFile).build()) {
+                for (Pair<BlobMetadata, ByteBuffer> data : reader.readAll(reader.fileMetadata().blobs())) {
+                    BlobMetadata metadata = data.first();
+                    ByteBuffer blob = data.second();
+                    Integer field = getOnlyElement(metadata.inputFields());
+                    Optional.ofNullable(puffinStatReaders.get(metadata.type()))
+                            .ifPresent(statReader -> {
+                                result.compute(field, (key, value) -> {
+                                    if (value == null) {
+                                        value = ColumnStatistics.builder();
+                                    }
+                                    statReader.read(metadata, blob, value);
+                                    return value;
+                                });
+                            });
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "failed to read statistics file at " + file.path(), e);
+            }
+        }
+
+        return ImmutableMap.copyOf(result);
     }
 
     public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(String columnName, com.facebook.presto.common.type.Type type)
@@ -457,6 +522,10 @@ public class TableStatisticsMaker
                 type.equals(TIMESTAMP) ||
                 type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(columnName, "sketch_theta"));
+        }
+
+        if (!(type instanceof FixedWidthType)) {
+            supportedStatistics.add(TOTAL_SIZE_IN_BYTES.getColumnStatisticMetadata(columnName));
         }
 
         return supportedStatistics.build();

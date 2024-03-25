@@ -225,10 +225,13 @@ Property Name                                           Description             
 
 ``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
 
-``iceberg.hive-statistics-merge-strategy``              Determines how to merge statistics that are stored in the     ``NONE``
-                                                        Hive Metastore. The available values are ``NONE``,
-                                                        ``USE_NULLS_FRACTION_AND_NDV``, ``USE_NULLS_FRACTIONS``
-                                                        and, ``USE_NDV``
+``iceberg.hive-statistics-merge-strategy``              Comma separated list of statistics to use from the
+                                                        Hive Metastore to override Iceberg table statistics.
+                                                        The available values are ``NUMBER_OF_DISTINCT_VALUES``
+                                                        and ``TOTAL_SIZE_IN_BYTES``.
+
+                                                        **Note**: Only valid when the Iceberg connector is
+                                                        configured with Hive.
 
 ``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
                                                         when calculating the closest snapshot when picking
@@ -306,6 +309,8 @@ Property Name                                 Description
 ============================================= ======================================================================
 ``iceberg.delete_as_join_rewrite_enabled``    Overrides the behavior of the connector property
                                               ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+``iceberg.hive_statistics_merge_strategy``    Overrides the behavior of the connector property
+                                              ``iceberg.hive-statistics-merge-strategy`` in the current session.
 ============================================= ======================================================================
 
 Caching Support
@@ -1172,7 +1177,7 @@ each Iceberg data type to the corresponding Presto data type, and from each Pres
 The following tables detail the specific type maps between PrestoDB and Iceberg. 
 
 Iceberg to PrestoDB type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of Iceberg types to the relevant PrestoDB types:
 
@@ -1215,7 +1220,7 @@ Map of Iceberg types to the relevant PrestoDB types:
 No other types are supported.
 
 PrestoDB to Iceberg type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Map of PrestoDB types to the relevant Iceberg types:
 
