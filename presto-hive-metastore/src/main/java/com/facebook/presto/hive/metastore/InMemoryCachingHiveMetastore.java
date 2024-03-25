@@ -496,7 +496,7 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Override
-    protected void invalidateDatabase(String databaseName)
+    protected void invalidateDatabaseCache(String databaseName)
     {
         databaseCache.asMap().keySet().stream()
                 .filter(databaseKey -> databaseKey.getKey().equals(databaseName))
@@ -510,7 +510,7 @@ public class InMemoryCachingHiveMetastore
                 hiveTableHandle.getTableName().equals(hiveTableName.getTableName());
     }
 
-    protected void invalidateTable(String databaseName, String tableName)
+    protected void invalidateTableCache(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
 

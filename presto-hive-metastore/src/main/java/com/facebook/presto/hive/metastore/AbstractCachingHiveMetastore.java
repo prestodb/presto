@@ -54,7 +54,7 @@ public abstract class AbstractCachingHiveMetastore
             getDelegate().createDatabase(metastoreContext, database);
         }
         finally {
-            invalidateDatabase(database.getDatabaseName());
+            invalidateDatabaseCache(database.getDatabaseName());
         }
     }
 
@@ -65,7 +65,7 @@ public abstract class AbstractCachingHiveMetastore
             getDelegate().dropDatabase(metastoreContext, databaseName);
         }
         finally {
-            invalidateDatabase(databaseName);
+            invalidateDatabaseCache(databaseName);
         }
     }
 
@@ -76,14 +76,14 @@ public abstract class AbstractCachingHiveMetastore
             getDelegate().renameDatabase(metastoreContext, databaseName, newDatabaseName);
         }
         finally {
-            invalidateDatabase(databaseName);
-            invalidateDatabase(newDatabaseName);
+            invalidateDatabaseCache(databaseName);
+            invalidateDatabaseCache(newDatabaseName);
         }
     }
 
     protected abstract void invalidateAll();
 
-    protected abstract void invalidateDatabase(String databaseName);
+    protected abstract void invalidateDatabaseCache(String databaseName);
 
     @Override
     public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
@@ -92,7 +92,7 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().createTable(metastoreContext, table, principalPrivileges, constraints);
         }
         finally {
-            invalidateTable(table.getDatabaseName(), table.getTableName());
+            invalidateTableCache(table.getDatabaseName(), table.getTableName());
         }
     }
 
@@ -103,7 +103,7 @@ public abstract class AbstractCachingHiveMetastore
             getDelegate().dropTable(metastoreContext, databaseName, tableName, deleteData);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
@@ -114,7 +114,7 @@ public abstract class AbstractCachingHiveMetastore
             getDelegate().dropTableFromMetastore(metastoreContext, databaseName, tableName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
@@ -125,8 +125,8 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().replaceTable(metastoreContext, databaseName, tableName, newTable, principalPrivileges);
         }
         finally {
-            invalidateTable(databaseName, tableName);
-            invalidateTable(newTable.getDatabaseName(), newTable.getTableName());
+            invalidateTableCache(databaseName, tableName);
+            invalidateTableCache(newTable.getDatabaseName(), newTable.getTableName());
         }
     }
 
@@ -137,8 +137,8 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().renameTable(metastoreContext, databaseName, tableName, newDatabaseName, newTableName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
-            invalidateTable(newDatabaseName, newTableName);
+            invalidateTableCache(databaseName, tableName);
+            invalidateTableCache(newDatabaseName, newTableName);
         }
     }
 
@@ -149,7 +149,7 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().addColumn(metastoreContext, databaseName, tableName, columnName, columnType, columnComment);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
@@ -160,7 +160,7 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().renameColumn(metastoreContext, databaseName, tableName, oldColumnName, newColumnName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
@@ -171,11 +171,11 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().dropColumn(metastoreContext, databaseName, tableName, columnName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
-    protected abstract void invalidateTable(String databaseName, String tableName);
+    protected abstract void invalidateTableCache(String databaseName, String tableName);
 
     @Override
     public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
@@ -309,7 +309,7 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().dropConstraint(metastoreContext, databaseName, tableName, constraintName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
@@ -320,7 +320,7 @@ public abstract class AbstractCachingHiveMetastore
             return getDelegate().addConstraint(metastoreContext, databaseName, tableName, tableConstraint);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTableCache(databaseName, tableName);
         }
     }
 
