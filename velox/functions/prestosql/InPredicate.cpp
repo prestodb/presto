@@ -20,60 +20,6 @@
 namespace facebook::velox::functions {
 namespace {
 
-class GenericInPredicate : public exec::VectorFunction {
- public:
-  bool isDefaultNullBehavior() const override {
-    return false;
-  }
-
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& /* outputType */,
-      exec::EvalCtx& context,
-      VectorPtr& result) const override {
-    exec::DecodedArgs decodedArgs(rows, args, context);
-    auto* value = decodedArgs.at(0);
-    auto* valueBase = value->base();
-
-    context.ensureWritable(rows, BOOLEAN(), result);
-    result->clearNulls(rows);
-    auto* boolResult = result->asUnchecked<FlatVector<bool>>();
-
-    context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-      if (value->isNullAt(row)) {
-        boolResult->setNull(row, true);
-        return;
-      }
-
-      const auto valueBaseRow = value->index(row);
-      if (valueBase->containsNullAt(valueBaseRow)) {
-        boolResult->setNull(row, true);
-        return;
-      }
-
-      bool hasNull = false;
-      for (auto i = 1; i < args.size(); ++i) {
-        const auto baseRow = decodedArgs.at(i)->index(row);
-        if (decodedArgs.at(i)->isNullAt(row) ||
-            decodedArgs.at(i)->base()->containsNullAt(baseRow)) {
-          hasNull = true;
-        } else if (decodedArgs.at(i)->base()->equalValueAt(
-                       valueBase, baseRow, valueBaseRow)) {
-          boolResult->set(row, true);
-          return;
-        }
-      }
-
-      if (hasNull) {
-        boolResult->setNull(row, true);
-      } else {
-        boolResult->set(row, false);
-      }
-    });
-  }
-};
-
 // Returns NULL if
 // - input value is NULL or contains NULL;
 // - input value doesn't match any of the in-list values, but some of in-list
@@ -325,6 +271,8 @@ std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
   return {std::make_unique<common::BytesValues>(values, nullAllowed), false};
 }
 
+/// x IN (2, null) returns null when x != 2 and true when x == 2.
+/// Null for x always produces null, regardless of 'IN' list.
 class InPredicate : public exec::VectorFunction {
  public:
   explicit InPredicate(std::unique_ptr<common::Filter> filter, bool alwaysNull)
@@ -336,10 +284,6 @@ class InPredicate : public exec::VectorFunction {
       const core::QueryConfig& /*config*/) {
     VELOX_CHECK_GE(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
-
-    if (inListType->equivalent(*inputArgs[0].type)) {
-      return std::make_shared<GenericInPredicate>();
-    }
 
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
     VELOX_CHECK_EQ(2, inputArgs.size());
@@ -424,12 +368,6 @@ class InPredicate : public exec::VectorFunction {
     }
     return std::make_shared<InPredicate>(
         std::move(filter.first), filter.second);
-  }
-
-  // x IN (2, null) returns null when x != 2 and true when x == 2.
-  // Null for x always produces null, regardless of 'IN' list.
-  bool isDefaultNullBehavior() const override {
-    return true;
   }
 
   void apply(
@@ -537,14 +475,6 @@ class InPredicate : public exec::VectorFunction {
             .argumentType("T")
             .constantArgumentType("array(unknown)")
             .build(),
-        // (T, T,...) -> boolean for non-constant IN lists.
-        exec::FunctionSignatureBuilder()
-            .typeVariable("T")
-            .returnType("boolean")
-            .argumentType("T")
-            .argumentType("T")
-            .variableArity()
-            .build(),
     };
   }
 
@@ -631,4 +561,5 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_in,
     InPredicate::signatures(),
     InPredicate::create);
+
 } // namespace facebook::velox::functions
