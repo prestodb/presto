@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.operator;
 
+import alluxio.AlluxioURI;
+import alluxio.client.file.FileInStream;
+import alluxio.client.file.FileOutStream;
+import alluxio.client.file.FileSystem;
+import alluxio.client.file.URIStatus;
+import alluxio.exception.AlluxioException;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -33,14 +39,11 @@ import org.weakref.jmx.Managed;
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -52,17 +55,14 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.readPages;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writePages;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.nio.file.Files.newInputStream;
-import static java.nio.file.Files.newOutputStream;
-import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class FileFragmentResultCacheManager
+public class AlluxioFragmentResultCacheManager
         implements FragmentResultCacheManager
 {
-    private static final Logger log = Logger.get(FileFragmentResultCacheManager.class);
+    private static final Logger log = Logger.get(AlluxioFragmentResultCacheManager.class);
 
     private final Path baseDirectory;
     // Max size for the in-memory buffer.
@@ -78,9 +78,11 @@ public class FileFragmentResultCacheManager
 
     private final Cache<CacheKey, CacheEntry> cache;
 
+    private final FileSystem fileSystem;
+
     // TODO: Decouple CacheKey by encoding PlanNode and SplitIdentifier separately so we don't have to keep too many objects in memory
     @Inject
-    public FileFragmentResultCacheManager(
+    public AlluxioFragmentResultCacheManager(
             FragmentResultCacheConfig cacheConfig,
             BlockEncodingSerde blockEncodingSerde,
             FragmentCacheStats fragmentCacheStats,
@@ -90,7 +92,7 @@ public class FileFragmentResultCacheManager
         requireNonNull(cacheConfig, "cacheConfig is null");
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
-        this.baseDirectory = Paths.get(cacheConfig.getBaseDirectory());
+        this.baseDirectory = Paths.get(cacheConfig.getBaseDirectory().getPath());
         this.maxInFlightBytes = cacheConfig.getMaxInFlightSize().toBytes();
         this.maxSinglePagesBytes = cacheConfig.getMaxSinglePagesSize().toBytes();
         this.maxCacheBytes = cacheConfig.getMaxCacheSize().toBytes();
@@ -105,30 +107,32 @@ public class FileFragmentResultCacheManager
                 .removalListener(new CacheRemovalListener())
                 .recordStats()
                 .build();
+        this.fileSystem = FileSystem.Factory.create();
 
-        File target = new File(baseDirectory.toUri());
-        if (!target.exists()) {
-            try {
-                Files.createDirectories(target.toPath());
+        try {
+            AlluxioURI alluxioBaseDirectory = new AlluxioURI(baseDirectory.toUri().getPath());
+            if (!fileSystem.exists(alluxioBaseDirectory)) {
+                fileSystem.createDirectory(alluxioBaseDirectory);
             }
-            catch (IOException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create cache directory " + target, e);
+            else {
+                List<URIStatus> files = fileSystem.listStatus(alluxioBaseDirectory);
+                if (files.isEmpty()) {
+                    return;
+                }
+
+                this.removalExecutor.submit(() -> files.forEach(file -> {
+                    try {
+                        AlluxioURI alluxioURI = new AlluxioURI(file.getPath());
+                        fileSystem.delete(alluxioURI);
+                    }
+                    catch (Exception e) {
+                        // ignore
+                    }
+                }));
             }
         }
-        else {
-            File[] files = target.listFiles();
-            if (files == null) {
-                return;
-            }
-
-            this.removalExecutor.submit(() -> Arrays.stream(files).forEach(file -> {
-                try {
-                    Files.delete(file.toPath());
-                }
-                catch (IOException e) {
-                    // ignore
-                }
-            }));
+        catch (IOException | AlluxioException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "cannot create cache directory " + baseDirectory.toUri(), e);
         }
     }
 
@@ -144,10 +148,32 @@ public class FileFragmentResultCacheManager
                 fragmentCacheStats.getCacheSizeInBytes() + resultSize > maxCacheBytes) {
             return immediateFuture(null);
         }
-
         fragmentCacheStats.addInFlightBytes(resultSize);
         Path path = baseDirectory.resolve(randomUUID().toString().replaceAll("-", "_"));
-        return flushExecutor.submit(() -> cachePages(key, path, result, resultSize));
+
+        AlluxioURI alluxioUri = new AlluxioURI(path.toString());
+        FileOutStream os = null;
+        try {
+            os = fileSystem.createFile(alluxioUri);
+            FileOutStream finalOs = os;
+            return flushExecutor.submit(() -> cachePages(key, path, result, resultSize, finalOs));
+        }
+        catch (Exception e) {
+            // Close the out stream and delete the file, so we don't have an incomplete file lying
+            // around.
+            try {
+                if (os != null) {
+                    os.cancel();
+                    if (fileSystem.exists(alluxioUri)) {
+                        fileSystem.delete(alluxioUri);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                // ignore the exception
+            }
+            throw new RuntimeException(e);
+        }
     }
 
     private static long getPagesSize(List<Page> pages)
@@ -157,11 +183,10 @@ public class FileFragmentResultCacheManager
                 .sum();
     }
 
-    private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize)
+    private void cachePages(CacheKey key, Path path, List<Page> pages, long resultSize, OutputStream outputStream)
     {
         try {
-            Files.createFile(path);
-            try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
+            try (SliceOutput output = new OutputStreamSliceOutput(outputStream)) {
                 writePages(pagesSerdeFactory.createPagesSerde(), output, pages.iterator());
                 long resultPhysicalBytes = output.size();
                 cache.put(key, new CacheEntry(path, resultPhysicalBytes));
@@ -173,7 +198,7 @@ public class FileFragmentResultCacheManager
                 tryDeleteFile(path);
             }
         }
-        catch (UncheckedIOException | IOException e) {
+        catch (UncheckedIOException e) {
             log.warn(e, "%s encountered an error while writing to path %s", Thread.currentThread().getName(), path);
             tryDeleteFile(path);
         }
@@ -182,15 +207,15 @@ public class FileFragmentResultCacheManager
         }
     }
 
-    private static void tryDeleteFile(Path path)
+    private void tryDeleteFile(Path path)
     {
         try {
-            File file = new File(path.toUri());
-            if (file.exists()) {
-                Files.delete(file.toPath());
+            AlluxioURI alluxioURI = new AlluxioURI(path.toString());
+            if (fileSystem.exists(alluxioURI)) {
+                fileSystem.delete(alluxioURI);
             }
         }
-        catch (IOException e) {
+        catch (Exception e) {
             // ignore
         }
     }
@@ -206,10 +231,17 @@ public class FileFragmentResultCacheManager
         }
 
         try {
-            InputStream inputStream = newInputStream(cacheEntry.getPath());
-            Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
-            fragmentCacheStats.incrementCacheHit();
-            return Optional.of(closeWhenExhausted(result, inputStream));
+            AlluxioURI alluxioURI = new AlluxioURI(cacheEntry.getPath().toString());
+            try (FileInStream inputStream = fileSystem.openFile(alluxioURI)) {
+                Iterator<Page> result = readPages(pagesSerdeFactory.createPagesSerde(), new InputStreamSliceInput(inputStream));
+                fragmentCacheStats.incrementCacheHit();
+                return Optional.of(closeWhenExhausted(result, inputStream));
+            }
+            catch (AlluxioException e) {
+                // TODO(JiamingMai): deal with the exception better
+                log.error(e);
+                return Optional.empty();
+            }
         }
         catch (UncheckedIOException | IOException e) {
             log.error(e, "read path %s error", cacheEntry.getPath());

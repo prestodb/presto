@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.spotify.docker.client.DefaultDockerClient;
 import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.LogStream;
 import com.spotify.docker.client.exceptions.ContainerNotFoundException;
 import com.spotify.docker.client.messages.Container;
 import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ContainerInfo;
+import com.spotify.docker.client.messages.ExecCreation;
 import com.spotify.docker.client.messages.HostConfig;
 import com.spotify.docker.client.messages.PortBinding;
 import net.jodah.failsafe.Failsafe;
@@ -63,12 +66,22 @@ public final class DockerContainer
 
     private Map<Integer, Integer> hostPorts;
 
-    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, CheckedConsumer<HostPortProvider> healthCheck)
+    private Optional<String> cmd = Optional.empty();
+
+    private final boolean exposeTheSamePorts;
+
+    private final Optional<String> hostname;
+
+    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, CheckedConsumer<HostPortProvider> healthCheck,
+            Optional<String> cmd, Optional<String> extraHosts, Optional<String> hostname, boolean exposeTheSamePorts)
     {
         this.image = requireNonNull(image, "image is null");
         this.environment = ImmutableMap.copyOf(requireNonNull(environment, "environment is null"));
+        this.cmd = cmd;
+        this.exposeTheSamePorts = exposeTheSamePorts;
+        this.hostname = hostname;
         try {
-            startContainer(ports, healthCheck);
+            startContainer(ports, healthCheck, extraHosts);
         }
         catch (Exception e) {
             closeAllSuppress(e, this);
@@ -76,7 +89,12 @@ public final class DockerContainer
         }
     }
 
-    private void startContainer(List<Integer> ports, CheckedConsumer<HostPortProvider> healthCheck)
+    public DockerContainer(String image, List<Integer> ports, Map<String, String> environment, CheckedConsumer<HostPortProvider> healthCheck)
+    {
+        this(image, ports, environment, healthCheck, Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    private void startContainer(List<Integer> ports, CheckedConsumer<HostPortProvider> healthCheck, Optional<String> extraHosts)
             throws Exception
     {
         dockerClient = DefaultDockerClient.fromEnv().build();
@@ -95,11 +113,11 @@ public final class DockerContainer
                 calculateHostPorts(ports);
             }
             else {
-                createContainer(ports);
+                createContainer(ports, extraHosts, exposeTheSamePorts);
             }
         }
         else {
-            createContainer(ports);
+            createContainer(ports, extraHosts, exposeTheSamePorts);
         }
 
         checkState(isContainerUp(), "Container was not started properly");
@@ -122,28 +140,33 @@ public final class DockerContainer
         }
     }
 
-    private void createContainer(List<Integer> ports)
+    private void createContainer(List<Integer> ports, Optional<String> extraHosts, boolean exposeTheSamePorts)
             throws Exception
     {
         LOG.info("Starting docker container from image %s", image);
-
         Map<String, List<PortBinding>> portBindings = ports.stream()
-                .collect(toImmutableMap(Object::toString, port -> ImmutableList.of(PortBinding.create(HOST_IP, "0"))));
+                .collect(toImmutableMap(Object::toString, port -> ImmutableList.of(PortBinding.create(HOST_IP, exposeTheSamePorts ? String.valueOf(port) : "0"))));
         Set<String> exposedPorts = ports.stream()
                 .map(Object::toString)
                 .collect(toImmutableSet());
 
-        containerId = dockerClient.createContainer(ContainerConfig.builder()
-                .hostConfig(HostConfig.builder()
-                        .portBindings(portBindings)
-                        .build())
+        HostConfig.Builder hostConfBuilder = HostConfig.builder();
+        hostConfBuilder.portBindings(portBindings);
+        if (extraHosts.isPresent() && !extraHosts.get().isEmpty()) {
+            hostConfBuilder.extraHosts(extraHosts.get());
+        }
+
+        ContainerConfig.Builder confBuilder = ContainerConfig.builder()
+                .hostConfig(hostConfBuilder.build())
                 .exposedPorts(exposedPorts)
                 .env(environment.entrySet().stream()
                         .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
                         .collect(toImmutableList()))
-                .image(image)
-                .build())
-                .id();
+                .image(image);
+        hostname.ifPresent(confBuilder::hostname);
+        cmd.ifPresent(confBuilder::cmd);
+
+        containerId = dockerClient.createContainer(confBuilder.build()).id();
 
         LOG.info("Started docker container with id: %s", containerId);
 
@@ -152,6 +175,12 @@ public final class DockerContainer
         calculateHostPorts(ports);
 
         waitForContainerPorts(ports);
+    }
+
+    private void createContainer(List<Integer> ports)
+            throws Exception
+    {
+        createContainer(ports, Optional.empty(), false);
     }
 
     private void waitForContainer(CheckedConsumer<HostPortProvider> healthCheck)
@@ -211,6 +240,53 @@ public final class DockerContainer
     {
         checkArgument(hostPorts.keySet().contains(port), "Port %s is not bound", port);
         return hostPorts.get(port);
+    }
+
+    public void executeCmd(String user, String[] cmd)
+    {
+        try {
+            DockerClient.ExecCreateParam userParam = DockerClient.ExecCreateParam.user(user);
+            ExecCreation execCreation = dockerClient.execCreate(containerId, cmd, userParam,
+                    DockerClient.ExecCreateParam.attachStdout(), DockerClient.ExecCreateParam.attachStderr());
+            String execId = execCreation.id();
+            LogStream logStream = dockerClient.execStart(execId);
+            System.out.println("Command executed successfully in container " + containerId);
+        }
+        catch (Exception e) {
+            LOG.error(e);
+        }
+    }
+
+    public String getHostname()
+    {
+        try {
+            // Use the DockerClient to inspect the container and get its details
+            ContainerInfo containerInfo = dockerClient.inspectContainer(containerId);
+            String hostname = containerInfo.config().hostname();
+            // Print the hostname
+            System.out.println("Hostname of container " + containerId + ": " + hostname);
+            return hostname;
+        }
+        catch (Exception e) {
+            LOG.error(e);
+            throw new RuntimeException("Failed to get the hostname of container " + containerId, e);
+        }
+    }
+
+    public String getHostIp()
+    {
+        try {
+            // Use the DockerClient to inspect the container and get its details
+            ContainerInfo containerInfo = dockerClient.inspectContainer(containerId);
+            String ipAddress = containerInfo.networkSettings().ipAddress();
+            // Print the IP address
+            System.out.println("IP address of container " + containerId + ": " + ipAddress);
+            return ipAddress;
+        }
+        catch (Exception e) {
+            LOG.error(e);
+            throw new RuntimeException("Failed to get the IP address of container " + containerId, e);
+        }
     }
 
     private static int extractPort(Entry<String, List<PortBinding>> entry)

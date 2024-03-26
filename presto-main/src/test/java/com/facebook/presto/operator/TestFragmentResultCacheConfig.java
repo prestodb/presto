@@ -28,12 +28,12 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
 
-public class TestFileFragmentResultCacheConfig
+public class TestFragmentResultCacheConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(FileFragmentResultCacheConfig.class)
+        assertRecordedDefaults(recordDefaults(FragmentResultCacheConfig.class)
                 .setCachingEnabled(false)
                 .setBaseDirectory(null)
                 .setBlockEncodingCompressionEnabled(false)
@@ -59,7 +59,7 @@ public class TestFileFragmentResultCacheConfig
                 .put("fragment-result-cache.max-cache-size", "200GB")
                 .build();
 
-        FileFragmentResultCacheConfig expected = new FileFragmentResultCacheConfig()
+        FragmentResultCacheConfig expected = new FragmentResultCacheConfig()
                 .setCachingEnabled(true)
                 .setBaseDirectory(new URI("tcp://abc"))
                 .setBlockEncodingCompressionEnabled(true)
