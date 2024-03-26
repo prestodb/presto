@@ -29,8 +29,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
-import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -93,7 +93,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -158,6 +157,7 @@ import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -522,12 +522,23 @@ final class ShowQueriesRewrite
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
 
+                Set<String> notNullColumns = connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
+                        .stream()
+                        .filter(constraint -> constraint instanceof NotNullConstraint)
+                        .map(constraint -> constraint.getColumns().stream().findFirst().get())
+                        .collect(toImmutableSet());
+
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
-                            return new ColumnDefinition(QueryUtil.quotedIdentifier(column.getName()), column.getType().getDisplayName(), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
+                            return new ColumnDefinition(
+                                    QueryUtil.quotedIdentifier(column.getName()),
+                                    column.getType().getDisplayName(),
+                                    column.isNullable() && !notNullColumns.contains(column.getName()),
+                                    propertyNodes,
+                                    Optional.ofNullable(column.getComment()));
                         })
                         .collect(toList());
 
@@ -535,29 +546,31 @@ final class ShowQueriesRewrite
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
-                List<ConstraintSpecification> constraints = new ArrayList<>();
-                for (TableConstraint<String> constraint : connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()) {
-                    if (constraint instanceof PrimaryKeyConstraint) {
-                        constraints.add(new ConstraintSpecification(constraint.getName(),
-                                constraint.getColumns().stream().collect(toImmutableList()),
-                                PRIMARY_KEY,
-                                constraint.isEnabled(),
-                                constraint.isRely(),
-                                constraint.isEnforced()));
-                    }
-                    else if (constraint instanceof UniqueConstraint) {
-                        constraints.add(new ConstraintSpecification(constraint.getName(),
-                                constraint.getColumns().stream().collect(toImmutableList()),
-                                UNIQUE,
-                                constraint.isEnabled(),
-                                constraint.isRely(),
-                                constraint.isEnforced()));
-                    }
-                    else {
-                        throw new SemanticException(NOT_SUPPORTED, "Unknown constraint type");
-                    }
-                }
-                columns.addAll(constraints);
+                columns.addAll(connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
+                        .stream()
+                        .map(constraint -> {
+                            if (constraint instanceof PrimaryKeyConstraint) {
+                                return Optional.of(new ConstraintSpecification(constraint.getName(),
+                                        constraint.getColumns().stream().collect(toImmutableList()),
+                                        PRIMARY_KEY,
+                                        constraint.isEnabled(),
+                                        constraint.isRely(),
+                                        constraint.isEnforced()));
+                            }
+                            else if (constraint instanceof UniqueConstraint) {
+                                return Optional.of(new ConstraintSpecification(constraint.getName(),
+                                        constraint.getColumns().stream().collect(toImmutableList()),
+                                        UNIQUE,
+                                        constraint.isEnabled(),
+                                        constraint.isRely(),
+                                        constraint.isEnforced()));
+                            }
+                            return Optional.empty();
+                        })
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .map(ConstraintSpecification.class::cast)
+                        .collect(toImmutableList()));
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),

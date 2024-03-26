@@ -121,6 +121,7 @@ public class BridgingHiveMetastore
             constraints.add(primaryKey.get());
         }
         constraints.addAll(delegate.getUniqueConstraints(metastoreContext, databaseName, tableName));
+        constraints.addAll(delegate.getNotNullConstraints(metastoreContext, databaseName, tableName));
         return constraints.build();
     }
 

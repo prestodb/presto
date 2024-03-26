@@ -6295,8 +6295,8 @@ public class TestHiveIntegrationSmokeTest
                 "\"c1\"",
                 "\"c2\"",
                 "\"c3\"",
-                format("CONSTRAINT cons2 %s (c2) NOT RELY", uniqueConstraint),
-                format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey));
+                format("CONSTRAINT pk %s (c2, c3) DISABLED", primaryKey),
+                format("CONSTRAINT cons2 %s (c2) NOT RELY", uniqueConstraint));
 
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedShowCreateTableWithPKAndUnique);
 
@@ -6552,6 +6552,49 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("SELECT PRIMARY FROM " + tableName, ".*cannot be resolved.*");
         assertQueryFails("SELECT PRIMARY KEY FROM " + tableName, ".*cannot be resolved.*");
         assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                " NOT NULL",
+                "c3",
+                "",
+                "c4",
+                " NOT NULL");
+
+        String expectedCreateTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+
+        assertUpdate(getSession(), createTableWithNotNullConstraintsSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableWithNotNullConstraintsSql);
+        assertUpdate(getSession(), dropTableStmt);
     }
 
     @Test
@@ -6619,6 +6662,41 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(getSession(), insertStmt, 1);
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
+        assertUpdate(getSession(), dropTableStmt);
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableWithNotNullConstraintsSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                " NOT NULL",
+                "c3",
+                "",
+                "c4",
+                " NOT NULL");
+
+        assertUpdate(getSession(), createTableWithNotNullConstraintsSql);
+        assertUpdate(getSession(), insertStmt, 1);
+        insertStmt = format("INSERT INTO %s VALUES (1, null, 'abc', 4)", tableName);
+        assertQueryFails(insertStmt, "NULL value not allowed for NOT NULL column: c2");
+        insertStmt = format("INSERT INTO %s VALUES (1, 2.3, 'abc', null)", tableName);
+        assertQueryFails(insertStmt, "NULL value not allowed for NOT NULL column: c4");
+        insertStmt = format("INSERT INTO %s VALUES (null, 2.3, null, 4)", tableName);
+        assertUpdate(getSession(), insertStmt, 1);
+
         assertUpdate(getSession(), dropTableStmt);
     }
 
