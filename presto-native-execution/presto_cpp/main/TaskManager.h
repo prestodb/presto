@@ -172,6 +172,10 @@ class TaskManager {
       "concurrent_lifespans_per_task"};
   static constexpr folly::StringPiece kSessionTimezone{"session_timezone"};
 
+  // This is called during shutting down. We terminate all running tasks which
+  // haven't been pinged by coordinator for a considerable time.
+  void cancelAbandonedTasks();
+
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,

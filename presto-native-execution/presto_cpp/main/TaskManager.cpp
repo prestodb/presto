@@ -725,6 +725,23 @@ size_t TaskManager::cleanOldTasks() {
   return taskIdsToClean.size();
 }
 
+void TaskManager::cancelAbandonedTasks() {
+  // We copy task map locally to avoid locking task map for a potentially long
+  // time. We also lock for 'read'.
+  const TaskMap taskMap = *(taskMap_.rlock());
+  for (const auto& [id, prestoTask] : taskMap) {
+    if (prestoTask->task != nullptr) {
+      if (prestoTask->task->isRunning()) {
+        if (prestoTask->timeSinceLastHeartbeatMs() >= oldTaskCleanUpMs_) {
+          PRESTO_SHUTDOWN_LOG(INFO)
+              << "Cancelling abandoned task '" << id << "'.";
+          prestoTask->task->requestCancel();
+        }
+      }
+    }
+  }
+}
+
 folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
     const TaskId& taskId,
     bool summarize,
@@ -1104,6 +1121,7 @@ void TaskManager::shutdown() {
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
         << " tasks left: " << PrestoTask::taskNumbersToString(taskNumbers);
     std::this_thread::sleep_for(std::chrono::seconds(1));
+    cancelAbandonedTasks();
     taskNumbers = getTaskNumbers(numTasks);
     ++seconds;
   }
