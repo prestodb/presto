@@ -38,6 +38,8 @@ public class PinotSessionProperties
     public static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
     public static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
     public static final String PUSHDOWN_PROJECT_EXPRESSIONS = "pushdown_project_expressions";
+    public static final String PUSHDOWN_DYNAMIC_FILTER = "pushdown_dynamic_filter";
+    public static final String MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE = "max_pushdown_dynamic_filter_size";
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
     public static final String NUM_SEGMENTS_PER_SPLIT = "num_segments_per_split";
     public static final String TOPN_LARGE = "topn_large";
@@ -100,6 +102,16 @@ public class PinotSessionProperties
     public static boolean getPushdownProjectExpressions(ConnectorSession session)
     {
         return session.getProperty(PUSHDOWN_PROJECT_EXPRESSIONS, Boolean.class);
+    }
+
+    public static boolean getPushdownDynamicFilter(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_DYNAMIC_FILTER, Boolean.class);
+    }
+
+    public static int getMaxPushdownDynamicFilterSize(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE, Integer.class);
     }
 
     public static int getTopNLarge(ConnectorSession session)
@@ -231,6 +243,24 @@ public class PinotSessionProperties
                         "Push down expressions in projection to Pinot broker",
                         pinotConfig.isPushdownProjectExpressions(),
                         false),
+                booleanProperty(
+                        PUSHDOWN_DYNAMIC_FILTER,
+                        "Push down dynamic filter to Pinot",
+                        pinotConfig.isPushdownDynamicFilter(),
+                        false),
+                new PropertyMetadata<>(
+                        MAX_PUSHDOWN_DYNAMIC_FILTER_SIZE,
+                        "Maximum number of individual filters to pushdown for dynamic filter",
+                        INTEGER,
+                        Integer.class,
+                        pinotConfig.getMaxPushdownDynamicFilterSize(),
+                        false,
+                        value -> {
+                            int ret = ((Number) value).intValue();
+                            checkArgument(ret >= 0, "Number of filters must be nonnegative");
+                            return ret;
+                        },
+                        object -> object),
                 new PropertyMetadata<>(
                         NUM_SEGMENTS_PER_SPLIT,
                         "Number of segments of the same host per split",
