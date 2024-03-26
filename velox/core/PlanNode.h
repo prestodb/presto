@@ -2084,7 +2084,6 @@ class WindowNode : public PlanNode {
   /// Frame bounds can be CURRENT ROW, UNBOUNDED PRECEDING(FOLLOWING)
   /// and k PRECEDING(FOLLOWING). K could be a constant or column.
   ///
-  /// k PRECEDING(FOLLOWING) is only supported for ROW frames now.
   /// k has to be of integer or bigint type.
   struct Frame {
     WindowType type;

@@ -198,5 +198,124 @@ TEST_F(AggregateWindowTest, testDecimal) {
   testAggregate(DECIMAL(5, 2));
   testAggregate(DECIMAL(20, 5));
 }
+
+TEST_F(AggregateWindowTest, integerOverflowRowsFrame) {
+  auto c0 = makeFlatVector<int64_t>({-1, -1, -1, -1, -1, -1, 2, 2, 2, 2});
+  auto c1 = makeFlatVector<double>({-1, -2, -3, -4, -5, -6, -7, -8, -9, -10});
+  // INT32_MAX: 2147483647
+  auto c2 = makeFlatVector<int32_t>(
+      {1,
+       2147483647,
+       2147483646,
+       2147483645,
+       1,
+       10,
+       1,
+       2147483647,
+       2147483646,
+       2147483645});
+  auto c3 = makeFlatVector<int64_t>(
+      {2147483651,
+       1,
+       2147483650,
+       10,
+       2147483648,
+       2147483647,
+       2,
+       2147483646,
+       2147483650,
+       2147483648});
+  auto input = makeRowVector({c0, c1, c2, c3});
+  std::string overClause = "partition by c0 order by c1 desc";
+
+  // Constant following larger than INT32_MAX (2147483647).
+  std::string frameClause = "rows between 0 preceding and 2147483650 following";
+  auto expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({6, 5, 4, 3, 2, 1, 4, 3, 2, 1})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Overflow starts happening from middle of the partition.
+  frameClause = "rows between 0 preceding and 2147483645 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({6, 5, 4, 3, 2, 1, 4, 3, 2, 1})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Column-specified following (int32).
+  frameClause = "rows between 0 preceding and c2 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({2, 5, 4, 3, 2, 1, 2, 3, 2, 1})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Column-specified following (int64).
+  frameClause = "rows between 0 preceding and c3 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({6, 2, 4, 3, 2, 1, 3, 3, 2, 1})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Constant preceding larger than INT32_MAX.
+  frameClause = "rows between 2147483650 preceding and 0 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 1, 2, 3, 4})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Column-specified preceding (int32).
+  frameClause = "rows between c2 preceding and 0 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({1, 2, 3, 4, 2, 6, 1, 2, 3, 4})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Column-specified preceding (int64).
+  frameClause = "rows between c3 preceding and 0 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 1, 2, 3, 4})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Constant preceding & following both larger than INT32_MAX.
+  frameClause = "rows between 2147483650 preceding and 2147483651 following";
+  expected = makeRowVector(
+      {c0,
+       c1,
+       c2,
+       c3,
+       makeFlatVector<int64_t>({6, 6, 6, 6, 6, 6, 4, 4, 4, 4})});
+  WindowTestBase::testWindowFunction(
+      {input}, "count(c1)", overClause, frameClause, expected);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

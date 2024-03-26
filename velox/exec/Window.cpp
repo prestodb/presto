@@ -280,8 +280,16 @@ void updateKRowsOffsetsColumn(
   // moves ahead.
   int precedingFactor = isKPreceding ? -1 : 1;
   for (auto i = 0; i < numRows; i++) {
-    rawFrameBounds[i] =
-        (startRow + i) + vector_size_t(precedingFactor * offsets[i]);
+    auto startValue = (int64_t)(startRow + i) + precedingFactor * offsets[i];
+    if (startValue < INT32_MIN) {
+      rawFrameBounds[i] = 0;
+    } else if (startValue > INT32_MAX) {
+      // computeValidFrames will replace INT32_MAX set here
+      // with partition's final row index.
+      rawFrameBounds[i] = INT32_MAX;
+    } else {
+      rawFrameBounds[i] = startValue;
+    }
   }
 }
 
@@ -296,7 +304,36 @@ void Window::updateKRowsFrameBounds(
   if (frameArg.index == kConstantChannel) {
     auto constantOffset = frameArg.constant.value();
     auto startValue =
-        startRow + (isKPreceding ? -constantOffset : constantOffset);
+        (int64_t)startRow + (isKPreceding ? -constantOffset : constantOffset);
+
+    if (isKPreceding) {
+      if (startValue < INT32_MIN) {
+        // For overflow in kPreceding frames, k < INT32_MIN. Since the max
+        // number of rows in a partition is INT32_MAX, the frameBound will
+        // always be bound to the first row of the partition
+        std::fill_n(rawFrameBounds, numRows, 0);
+        return;
+      }
+      std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);
+      return;
+    }
+
+    // KFollowing.
+    // The start index that overflow happens.
+    int32_t overflowStart;
+    if (startValue > (int64_t)INT32_MAX) {
+      overflowStart = 0;
+    } else {
+      overflowStart = INT32_MAX - startValue + 1;
+    }
+    if (overflowStart >= 0 && overflowStart < numRows) {
+      std::iota(rawFrameBounds, rawFrameBounds + overflowStart, startValue);
+      // For remaining rows that overflow happens, use INT32_MAX.
+      // computeValidFrames will replace it with partition's final row index.
+      std::fill_n(
+          rawFrameBounds + overflowStart, numRows - overflowStart, INT32_MAX);
+      return;
+    }
     std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);
   } else {
     currentPartition_->extractColumn(
