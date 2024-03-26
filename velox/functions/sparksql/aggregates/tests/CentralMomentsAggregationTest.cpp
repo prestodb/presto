@@ -31,29 +31,53 @@ class CentralMomentsAggregationTest : public AggregationTestBase {
     registerAggregateFunctions("spark_");
   }
 
-  void testSkewnessResult(
+  void testCenteralMomentsAggResult(
+      const std::string& agg,
       const RowVectorPtr& input,
       const RowVectorPtr& expected) {
     PlanBuilder builder(pool());
     builder.values({input});
-    builder.singleAggregation({}, {"spark_skewness(c0)"});
-    AssertQueryBuilder queryBuilder(
-        builder.planNode(), this->duckDbQueryRunner_);
-    queryBuilder.assertResults({expected});
+    builder.singleAggregation({}, {fmt::format("spark_{}(c0)", agg)});
+    AssertQueryBuilder(builder.planNode()).assertResults({expected});
   }
 };
 
 TEST_F(CentralMomentsAggregationTest, skewnessHasResult) {
+  auto agg = "skewness";
   auto input = makeRowVector({makeFlatVector<int32_t>({1, 2})});
   // Even when the count is 2, Spark still produces output.
   auto expected =
       makeRowVector({makeFlatVector<double>(std::vector<double>{0.0})});
-  testSkewnessResult(input, expected);
+  testCenteralMomentsAggResult(agg, input, expected);
 
   input = makeRowVector({makeFlatVector<int32_t>({1, 1})});
   expected = makeRowVector({makeNullableFlatVector<double>(
       std::vector<std::optional<double>>{std::nullopt})});
-  testSkewnessResult(input, expected);
+  testCenteralMomentsAggResult(agg, input, expected);
+}
+
+TEST_F(CentralMomentsAggregationTest, pearsonKurtosis) {
+  auto agg = "kurtosis";
+  auto input = makeRowVector({makeFlatVector<int32_t>({1, 10, 100, 10, 1})});
+  auto expected = makeRowVector(
+      {makeFlatVector<double>(std::vector<double>{0.19432323191699075})});
+  testCenteralMomentsAggResult(agg, input, expected);
+
+  input = makeRowVector({makeFlatVector<int32_t>({-10, -20, 100, 1000})});
+  expected = makeRowVector(
+      {makeFlatVector<double>(std::vector<double>{-0.7014368047529627})});
+  testCenteralMomentsAggResult(agg, input, expected);
+
+  // Even when the count is 2, Spark still produces non-null result.
+  input = makeRowVector({makeFlatVector<int32_t>({1, 2})});
+  expected = makeRowVector({makeFlatVector<double>(std::vector<double>{-2.0})});
+  testCenteralMomentsAggResult(agg, input, expected);
+
+  // Output NULL when m2 equals 0.
+  input = makeRowVector({makeFlatVector<int32_t>({1, 1})});
+  expected = makeRowVector({makeNullableFlatVector<double>(
+      std::vector<std::optional<double>>{std::nullopt})});
+  testCenteralMomentsAggResult(agg, input, expected);
 }
 
 } // namespace

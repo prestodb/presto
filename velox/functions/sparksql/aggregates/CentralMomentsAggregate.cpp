@@ -31,6 +31,19 @@ struct SkewnessResultAccessor {
   }
 };
 
+struct KurtosisResultAccessor {
+  static bool hasResult(const CentralMomentsAccumulator& accumulator) {
+    return accumulator.count() >= 1 && accumulator.m2() != 0;
+  }
+
+  static double result(const CentralMomentsAccumulator& accumulator) {
+    double count = accumulator.count();
+    double m2 = accumulator.m2();
+    double m4 = accumulator.m4();
+    return count * m4 / (m2 * m2) - 3.0;
+  }
+};
+
 template <typename TResultAccessor>
 exec::AggregateRegistrationResult registerCentralMoments(
     const std::string& name,
@@ -109,6 +122,8 @@ void registerCentralMomentsAggregate(
     bool overwrite) {
   registerCentralMoments<SkewnessResultAccessor>(
       prefix + "skewness", withCompanionFunctions, overwrite);
+  registerCentralMoments<KurtosisResultAccessor>(
+      prefix + "kurtosis", withCompanionFunctions, overwrite);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

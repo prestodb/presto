@@ -70,7 +70,8 @@ int main(int argc, char** argv) {
           {"first_ignore_null", nullptr},
           {"max_by", nullptr},
           {"min_by", nullptr},
-          {"skewness", nullptr}};
+          {"skewness", nullptr},
+          {"kurtosis", nullptr}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
@@ -83,6 +84,10 @@ int main(int argc, char** argv) {
       // algorithms.
       // https://github.com/facebookincubator/velox/issues/4845
       "skewness",
+      // Spark's kurtosis uses Pearson's formula for calculating the kurtosis
+      // coefficient. Meanwhile, DuckDB employs the sample kurtosis calculation
+      // formula. The results from the two methods are completely different.
+      "kurtosis",
   });
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
