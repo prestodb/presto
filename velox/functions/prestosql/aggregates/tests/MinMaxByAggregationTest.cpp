@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <fmt/format.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
-
-#include <fmt/format.h>
 
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
@@ -36,7 +35,7 @@ struct TestParam {
   TypeKind comparisonType;
 };
 
-const std::unordered_set<TypeKind> kSupportedTypes = {
+const std::vector<TypeKind> kSupportedTypes = {
     TypeKind::BOOLEAN,
     TypeKind::TINYINT,
     TypeKind::SMALLINT,
@@ -49,8 +48,8 @@ const std::unordered_set<TypeKind> kSupportedTypes = {
 
 std::vector<TestParam> getTestParams() {
   std::vector<TestParam> params;
-  for (TypeKind valueType : kSupportedTypes) {
-    for (TypeKind comparisonType : kSupportedTypes) {
+  for (auto valueType : kSupportedTypes) {
+    for (auto comparisonType : kSupportedTypes) {
       params.push_back({valueType, comparisonType});
     }
   }
@@ -189,20 +188,7 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
       vector_size_t size,
       folly::Range<const int*> values);
 
-  const RowTypePtr rowType_{
-      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8", "c9"},
-          {
-              BOOLEAN(),
-              TINYINT(),
-              SMALLINT(),
-              INTEGER(),
-              BIGINT(),
-              REAL(),
-              DOUBLE(),
-              VARCHAR(),
-              DATE(),
-              TIMESTAMP(),
-          })};
+  RowTypePtr rowType_;
   // Specify the number of values in each typed data vector in
   // 'dataVectorsByType_'.
   const int numValues_;
@@ -309,8 +295,15 @@ std::string asSql(bool value) {
 void MinMaxByAggregationTestBase::SetUp() {
   AggregationTestBase::SetUp();
   AggregationTestBase::disallowInputShuffle();
-
-  for (const TypeKind type : kSupportedTypes) {
+  std::vector<TypePtr> supportedTypes;
+  std::vector<std::string> columnNames;
+  int columnId = 0;
+  for (auto kind : kSupportedTypes) {
+    supportedTypes.push_back(createScalarType(kind));
+    columnNames.push_back("c" + std::to_string(columnId++));
+  }
+  rowType_ = ROW(std::move(columnNames), std::move(supportedTypes));
+  for (auto type : kSupportedTypes) {
     switch (type) {
       case TypeKind::BOOLEAN:
         dataVectorsByType_.emplace(type, buildDataVector<bool>(numValues_));
