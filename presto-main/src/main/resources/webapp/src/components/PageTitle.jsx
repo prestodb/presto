@@ -18,6 +18,7 @@ type Props = {
     titles: string[],
     urls?: string[],
     current?: number,
+    path?: string,
 }
 
 type State = {
@@ -127,7 +128,7 @@ export class PageTitle extends React.Component<Props, State> {
                                 <tbody>
                                 <tr>
                                     <td>
-                                        <a href="/ui/"><img src="assets/logo.png"/></a>
+                                        <a href="/ui/"><img src={`${this.props.path ? this.props.path : '.'}/assets/logo.png`}/></a>
                                     </td>
                                     <ClusterResourceGroupNavBar titles={this.props.titles} urls={this.props.urls} current={this.props.current} />
                                 </tr>
