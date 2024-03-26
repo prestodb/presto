@@ -36,7 +36,7 @@ class OrderBy : public Operator {
  public:
   OrderBy(
       int32_t operatorId,
-      DriverCtx* FOLLY_NONNULL driverCtx,
+      DriverCtx* driverCtx,
       const std::shared_ptr<const core::OrderByNode>& orderByNode);
 
   bool needsInput() const override {
@@ -49,7 +49,7 @@ class OrderBy : public Operator {
 
   RowVectorPtr getOutput() override;
 
-  BlockingReason isBlocked(ContinueFuture* FOLLY_NULLABLE /*future*/) override {
+  BlockingReason isBlocked(ContinueFuture* /*future*/) override {
     return BlockingReason::kNotBlocked;
   }
 

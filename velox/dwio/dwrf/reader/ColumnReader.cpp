@@ -1753,7 +1753,7 @@ class StructColumnReader : public ColumnReader {
  private:
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<ColumnReader>> children_;
-  folly::Executor* FOLLY_NULLABLE executor_;
+  folly::Executor* executor_;
   std::unique_ptr<dwio::common::ParallelFor> parallelForOnChildren_;
 
  public:
@@ -1762,7 +1762,7 @@ class StructColumnReader : public ColumnReader {
       const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
-      folly::Executor* FOLLY_NULLABLE executor,
+      folly::Executor* executor,
       size_t decodingParallelismFactor,
       FlatMapContext flatMapContext);
   ~StructColumnReader() override = default;
@@ -1936,7 +1936,7 @@ class ListColumnReader : public ColumnReader {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       FlatMapContext flatMapContext,
-      folly::Executor* FOLLY_NULLABLE executor,
+      folly::Executor* executor,
       size_t decodingParallelismFactor);
   ~ListColumnReader() override = default;
 
@@ -2107,7 +2107,7 @@ class MapColumnReader : public ColumnReader {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       FlatMapContext flatMapContext,
-      folly::Executor* FOLLY_NULLABLE executor,
+      folly::Executor* executor,
       size_t decodingParallelismFactor);
   ~MapColumnReader() override = default;
 

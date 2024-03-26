@@ -107,7 +107,7 @@ dwio::common::PositionProvider DwrfData::seekToRowGroup(uint32_t index) {
 
 void DwrfData::readNulls(
     vector_size_t numValues,
-    const uint64_t* FOLLY_NULLABLE incomingNulls,
+    const uint64_t* incomingNulls,
     BufferPtr& nulls,
     bool /*nullsOnly*/) {
   if (!notNullDecoder_ && !flatMapContext_.inMapDecoder && !incomingNulls) {

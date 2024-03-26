@@ -245,13 +245,13 @@ std::vector<char> buffer_u64;
 
 template <typename T>
 void naiveDecodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
     const char* bufferEnd,
-    T* FOLLY_NONNULL result);
+    T* result);
 
 template <typename T>
 void legacyUnpackNaive(RowSet rows, uint8_t bitWidth, T* result) {
@@ -527,13 +527,13 @@ void populateBitPacked() {
 // Naive unpacking, original version of IntDecoder::unpack.
 template <typename T>
 void naiveDecodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
     const char* bufferEnd,
-    T* FOLLY_NONNULL result) {
+    T* result) {
   uint64_t mask = bits::lowMask(bitWidth);
   auto numRows = rows.size();
   if (bitWidth > 56) {
@@ -543,7 +543,7 @@ void naiveDecodeBitsLE(
     }
     return;
   }
-  auto FOLLY_NONNULL lastSafe = bufferEnd - sizeof(uint64_t);
+  auto lastSafe = bufferEnd - sizeof(uint64_t);
   int32_t numSafeRows = numRows;
   bool anyUnsafe = false;
   if (bufferEnd) {

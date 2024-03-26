@@ -36,15 +36,13 @@ struct FilterEvalCtx {
 
   // Make sure selectedBits has enough capacity to hold 'size' bits and return
   // raw pointer to the underlying buffer.
-  uint64_t* FOLLY_NONNULL getRawSelectedBits(
-      vector_size_t size,
-      memory::MemoryPool* FOLLY_NONNULL pool);
+  uint64_t* getRawSelectedBits(vector_size_t size, memory::MemoryPool* pool);
 
   // Make sure selectedIndices buffer has enough capacity to hold 'size'
   // indices and return raw pointer to the underlying buffer.
-  vector_size_t* FOLLY_NONNULL getRawSelectedIndices(
+  vector_size_t* getRawSelectedIndices(
       vector_size_t size,
-      memory::MemoryPool* FOLLY_NONNULL pool);
+      memory::MemoryPool* pool);
 };
 
 // Convert the results of filter evaluation as a vector of booleans into indices
@@ -61,7 +59,7 @@ vector_size_t processFilterResults(
     const VectorPtr& filterResult,
     const SelectivityVector& rows,
     FilterEvalCtx& filterEvalCtx,
-    memory::MemoryPool* FOLLY_NONNULL pool);
+    memory::MemoryPool* pool);
 
 // Wraps the specified vector into a dictionary using the specified mapping.
 // Returns vector as-is if mapping is null. An optional nulls buffer can be
@@ -86,7 +84,7 @@ RowVectorPtr wrap(
     BufferPtr mapping,
     const RowTypePtr& rowType,
     const std::vector<VectorPtr>& childVectors,
-    memory::MemoryPool* FOLLY_NONNULL pool);
+    memory::MemoryPool* pool);
 
 // Ensures that all LazyVectors reachable from 'input' are loaded for all rows.
 void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx);
@@ -99,7 +97,7 @@ void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx);
 ///
 /// NOTE: all the source row vectors must have the same data type.
 void gatherCopy(
-    RowVector* FOLLY_NONNULL target,
+    RowVector* target,
     vector_size_t targetIndex,
     vector_size_t count,
     const std::vector<const RowVector*>& sources,

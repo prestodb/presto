@@ -94,7 +94,7 @@ class UnsafeRowVectorSerializer : public IterativeVectorSerializer {
   }
 
  private:
-  memory::MemoryPool* const FOLLY_NONNULL pool_;
+  memory::MemoryPool* const pool_;
   std::vector<BufferPtr> buffers_;
 };
 

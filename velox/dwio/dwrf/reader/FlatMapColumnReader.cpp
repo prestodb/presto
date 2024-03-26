@@ -768,7 +768,7 @@ std::unique_ptr<ColumnReader> createFlatMapColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& fileType,
     StripeStreams& stripe,
     const StreamLabels& streamLabels,
-    folly::Executor* FOLLY_NULLABLE executor,
+    folly::Executor* executor,
     size_t decodingParallelismFactor,
     FlatMapContext flatMapContext) {
   if (isRequiringStructEncoding(requestedType, stripe.getRowReaderOptions())) {

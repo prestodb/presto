@@ -73,7 +73,7 @@ class ParquetData : public dwio::common::FormatData {
       const dwio::common::StatsContext& writerContext,
       FilterRowGroupsResult&) override;
 
-  PageReader* FOLLY_NONNULL reader() const {
+  PageReader* reader() const {
     return reader_.get();
   }
 
@@ -104,7 +104,7 @@ class ParquetData : public dwio::common::FormatData {
 
   void readNulls(
       vector_size_t numValues,
-      const uint64_t* FOLLY_NULLABLE incomingNulls,
+      const uint64_t* incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) override {
     // If the query accesses only nulls, read the nulls from the pages in range.

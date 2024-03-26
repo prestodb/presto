@@ -554,14 +554,14 @@ namespace {
 class ExprExceptionContext {
  public:
   ExprExceptionContext(
-      const Expr* FOLLY_NONNULL expr,
-      const RowVector* FOLLY_NONNULL vector,
-      const ExprSet* FOLLY_NULLABLE parentExprSet)
+      const Expr* expr,
+      const RowVector* vector,
+      const ExprSet* parentExprSet)
       : expr_(expr), vector_(vector), parentExprSet_(parentExprSet) {}
 
   /// Persist data and sql on disk. Data will be persisted in $basePath/vector
   /// and sql will be persisted in $basePath/sql
-  void persistDataAndSql(const char* FOLLY_NONNULL basePath) {
+  void persistDataAndSql(const char* basePath) {
     // Exception already persisted or failed to persist. We don't persist again
     // in this situation.
     if (!dataPath_.empty()) {
@@ -622,11 +622,11 @@ class ExprExceptionContext {
     }
   }
 
-  const Expr* FOLLY_NONNULL expr() const {
+  const Expr* expr() const {
     return expr_;
   }
 
-  const RowVector* FOLLY_NONNULL vector() const {
+  const RowVector* vector() const {
     return vector_;
   }
 
@@ -644,15 +644,15 @@ class ExprExceptionContext {
 
  private:
   /// The expression.
-  const Expr* FOLLY_NONNULL expr_;
+  const Expr* expr_;
 
   /// The input vector, i.e. EvalCtx::row(). In some cases, input columns are
   /// re-used for results. Hence, 'vector' may no longer contain input data at
   /// the time of exception.
-  const RowVector* FOLLY_NONNULL vector_;
+  const RowVector* vector_;
 
   // The parent ExprSet that is executing this expression.
-  const ExprSet* FOLLY_NULLABLE parentExprSet_;
+  const ExprSet* parentExprSet_;
 
   /// Path of the file storing the serialized 'vector'. Used to avoid
   /// serializing vector repeatedly in cases when multiple rows generate
@@ -1131,7 +1131,7 @@ bool Expr::removeSureNulls(
 
 void Expr::addNulls(
     const SelectivityVector& rows,
-    const uint64_t* FOLLY_NULLABLE rawNulls,
+    const uint64_t* rawNulls,
     EvalCtx& context,
     VectorPtr& result) const {
   EvalCtx::addNulls(rows, rawNulls, context, type(), result);

@@ -67,7 +67,7 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
     return *reinterpret_cast<const ParquetTypeWithId*>(childAt(index).get());
   }
 
-  const ParquetTypeWithId* FOLLY_NULLABLE parquetParent() const {
+  const ParquetTypeWithId* parquetParent() const {
     return reinterpret_cast<const ParquetTypeWithId*>(parent());
   }
 

@@ -24,7 +24,7 @@ namespace facebook::velox::py {
 namespace py = pybind11;
 
 namespace {
-VectorPtr pyRestoreVectorFromFileHelper(const char* FOLLY_NONNULL filePath) {
+VectorPtr pyRestoreVectorFromFileHelper(const char* filePath) {
   using namespace facebook::velox;
   memory::MemoryPool* pool = PyVeloxContext::getSingletonInstance().pool();
   return restoreVectorFromFile(filePath, pool);

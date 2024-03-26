@@ -20,7 +20,7 @@ namespace facebook::velox::parquet {
 
 class StringDecoder {
  public:
-  StringDecoder(const char* FOLLY_NONNULL start, const char* FOLLY_NONNULL end)
+  StringDecoder(const char* start, const char* end)
       : bufferStart_(start),
         bufferEnd_(end),
 
@@ -31,10 +31,7 @@ class StringDecoder {
   }
 
   template <bool hasNulls>
-  inline void skip(
-      int32_t numValues,
-      int32_t current,
-      const uint64_t* FOLLY_NULLABLE nulls) {
+  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
     if (hasNulls) {
       numValues = bits::countNonNulls(nulls, current, current + numValues);
     }
@@ -44,7 +41,7 @@ class StringDecoder {
   }
 
   template <bool hasNulls, typename Visitor>
-  void readWithVisitor(const uint64_t* FOLLY_NULLABLE nulls, Visitor visitor) {
+  void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
     int32_t current = visitor.start();
     skip<hasNulls>(current, 0, nulls);
     int32_t toSkip;
@@ -79,7 +76,7 @@ class StringDecoder {
   }
 
  private:
-  int32_t lengthAt(const char* FOLLY_NONNULL buffer) {
+  int32_t lengthAt(const char* buffer) {
     return *reinterpret_cast<const int32_t*>(buffer);
   }
 
@@ -88,9 +85,9 @@ class StringDecoder {
     bufferStart_ += length + sizeof(int32_t);
     return folly::StringPiece(bufferStart_ - length, length);
   }
-  const char* FOLLY_NONNULL bufferStart_;
-  const char* FOLLY_NONNULL bufferEnd_;
-  const char* FOLLY_NONNULL const lastSafeWord_;
+  const char* bufferStart_;
+  const char* bufferEnd_;
+  const char* const lastSafeWord_;
 };
 
 } // namespace facebook::velox::parquet

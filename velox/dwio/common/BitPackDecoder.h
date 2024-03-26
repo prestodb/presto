@@ -90,13 +90,13 @@ static const uint32_t BITPACK_MASKS[] = {
 /// stay under 'bufferEnd'.
 template <typename T>
 void unpack(
-    const uint64_t* FOLLY_NULLABLE bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    T* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    T* result);
 
 /// Unpack numValues number of input values from inputBuffer. The results
 /// will be written to result. numValues must be a multiple of 8. The
@@ -793,10 +793,10 @@ inline void unpack<uint32_t>(
 // sure not to access bytes past lastSafeWord + 7. The definition is put here
 // because it's inlined.
 inline uint64_t safeLoadBits(
-    const char* FOLLY_NONNULL ptr,
+    const char* ptr,
     int32_t bitOffset,
     uint8_t bitWidth,
-    const char* FOLLY_NONNULL lastSafeWord) {
+    const char* lastSafeWord) {
   VELOX_DCHECK_GE(7, bitOffset);
   VELOX_DCHECK_GE(56, bitWidth);
   if (ptr < lastSafeWord) {

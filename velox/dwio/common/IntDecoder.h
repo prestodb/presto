@@ -47,7 +47,7 @@ class IntDecoder {
         bigEndian(bigEndian) {}
 
   // Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
-  IntDecoder(const char* FOLLY_NONNULL start, const char* FOLLY_NONNULL end)
+  IntDecoder(const char* start, const char* end)
       : bufferStart(start), bufferEnd(end), useVInts(false), numBytes(0) {}
 
   virtual ~IntDecoder() = default;
@@ -76,15 +76,10 @@ class IntDecoder {
    * @param nulls If the pointer is null, all values are read. If the
    *    pointer is not null, positions that are true are skipped.
    */
-  virtual void next(
-      int64_t* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) = 0;
+  virtual void
+  next(int64_t* data, uint64_t numValues, const uint64_t* nulls) = 0;
 
-  virtual void next(
-      int32_t* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) {
+  virtual void next(int32_t* data, uint64_t numValues, const uint64_t* nulls) {
     if (numValues <= 4) {
       int64_t temp[4];
       next(temp, numValues, nulls);
@@ -100,23 +95,17 @@ class IntDecoder {
     }
   }
 
-  virtual void nextInts(
-      int32_t* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) {
+  virtual void
+  nextInts(int32_t* data, uint64_t numValues, const uint64_t* nulls) {
     narrow(data, numValues, nulls);
   }
 
-  virtual void nextShorts(
-      int16_t* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) {
+  virtual void
+  nextShorts(int16_t* data, uint64_t numValues, const uint64_t* nulls) {
     narrow(data, numValues, nulls);
   }
 
-  virtual void nextLengths(
-      int32_t* FOLLY_NONNULL /*values*/,
-      int32_t /*numValues*/) {
+  virtual void nextLengths(int32_t* /*values*/, int32_t /*numValues*/) {
     VELOX_FAIL("A length decoder should be a RLEv1");
   }
 
@@ -130,15 +119,14 @@ class IntDecoder {
 
   // Reads 'size' consecutive T' and stores then in 'result'.
   template <typename T>
-  void bulkRead(uint64_t size, T* FOLLY_NONNULL result);
+  void bulkRead(uint64_t size, T* result);
 
   // Reads data at positions 'rows' to 'result'. 'initialRow' is the
   // row number of the first unread element of 'this'. if rows is {10}
   // and 'initialRow' is 9, then this skips one element and reads the
   // next element into 'result'.
   template <typename T>
-  void
-  bulkReadRows(RowSet rows, T* FOLLY_NONNULL result, int32_t initialRow = 0);
+  void bulkReadRows(RowSet rows, T* result, int32_t initialRow = 0);
 
  protected:
   // Actually skip the pending entries.
@@ -158,11 +146,10 @@ class IntDecoder {
   void skipLongs(uint64_t numValues);
 
   template <typename T>
-  void bulkReadFixed(uint64_t size, T* FOLLY_NONNULL result);
+  void bulkReadFixed(uint64_t size, T* result);
 
   template <typename T>
-  void
-  bulkReadRowsFixed(RowSet rows, int32_t initialRow, T* FOLLY_NONNULL result);
+  void bulkReadRowsFixed(RowSet rows, int32_t initialRow, T* result);
 
   template <typename T>
   T readInt();
@@ -188,10 +175,8 @@ class IntDecoder {
   //       this by directly supporting deserialization into the correct
   //       target data type
   template <typename T>
-  void narrow(
-      T* FOLLY_NONNULL const data,
-      const uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE const nulls) {
+  void
+  narrow(T* const data, const uint64_t numValues, const uint64_t* const nulls) {
     DWIO_ENSURE_LE(numBytes, sizeof(T))
     std::array<int64_t, 64> buf;
     uint64_t remain = numValues;
@@ -213,8 +198,8 @@ class IntDecoder {
 
  protected:
   const std::unique_ptr<dwio::common::SeekableInputStream> inputStream;
-  const char* FOLLY_NULLABLE bufferStart;
-  const char* FOLLY_NULLABLE bufferEnd;
+  const char* bufferStart;
+  const char* bufferEnd;
   const bool useVInts;
   const uint32_t numBytes;
   bool bigEndian;
@@ -479,9 +464,7 @@ inline T IntDecoder<isSigned>::readVInt() {
 
 template <>
 template <>
-inline void IntDecoder<false>::bulkRead(
-    uint64_t /*size*/,
-    double* FOLLY_NONNULL /*result*/) {
+inline void IntDecoder<false>::bulkRead(uint64_t /*size*/, double* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -489,16 +472,14 @@ template <>
 template <>
 inline void IntDecoder<false>::bulkReadRows(
     RowSet /*rows*/,
-    double* FOLLY_NONNULL /*result*/,
+    double* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
 
 template <>
 template <>
-inline void IntDecoder<true>::bulkRead(
-    uint64_t /*size*/,
-    double* FOLLY_NONNULL /*result*/) {
+inline void IntDecoder<true>::bulkRead(uint64_t /*size*/, double* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -506,16 +487,14 @@ template <>
 template <>
 inline void IntDecoder<true>::bulkReadRows(
     RowSet /*rows*/,
-    double* FOLLY_NONNULL /*result*/,
+    double* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
 
 template <>
 template <>
-inline void IntDecoder<false>::bulkRead(
-    uint64_t /*size*/,
-    float* FOLLY_NONNULL /*result*/) {
+inline void IntDecoder<false>::bulkRead(uint64_t /*size*/, float* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -523,16 +502,14 @@ template <>
 template <>
 inline void IntDecoder<false>::bulkReadRows(
     RowSet /*rows*/,
-    float* FOLLY_NONNULL /*result*/,
+    float* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
 
 template <>
 template <>
-inline void IntDecoder<true>::bulkRead(
-    uint64_t /*size*/,
-    float* FOLLY_NONNULL /*result*/) {
+inline void IntDecoder<true>::bulkRead(uint64_t /*size*/, float* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -540,7 +517,7 @@ template <>
 template <>
 inline void IntDecoder<true>::bulkReadRows(
     RowSet /*rows*/,
-    float* FOLLY_NONNULL /*result*/,
+    float* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
@@ -549,7 +526,7 @@ template <>
 template <>
 inline void IntDecoder<false>::bulkRead(
     uint64_t /*size*/,
-    int128_t* FOLLY_NONNULL /*result*/) {
+    int128_t* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -557,7 +534,7 @@ template <>
 template <>
 inline void IntDecoder<false>::bulkReadRows(
     RowSet /*rows*/,
-    int128_t* FOLLY_NONNULL /*result*/,
+    int128_t* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
@@ -566,7 +543,7 @@ template <>
 template <>
 inline void IntDecoder<true>::bulkRead(
     uint64_t /*size*/,
-    int128_t* FOLLY_NONNULL /*result*/) {
+    int128_t* /*result*/) {
   VELOX_UNREACHABLE();
 }
 
@@ -574,7 +551,7 @@ template <>
 template <>
 inline void IntDecoder<true>::bulkReadRows(
     RowSet /*rows*/,
-    int128_t* FOLLY_NONNULL /*result*/,
+    int128_t* /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }

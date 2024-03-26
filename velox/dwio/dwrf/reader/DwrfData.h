@@ -41,7 +41,7 @@ class DwrfData : public dwio::common::FormatData {
 
   void readNulls(
       vector_size_t numValues,
-      const uint64_t* FOLLY_NULLABLE incomingNulls,
+      const uint64_t* incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) override;
 
@@ -61,7 +61,7 @@ class DwrfData : public dwio::common::FormatData {
     return notNullDecoder_ != nullptr;
   }
 
-  auto* FOLLY_NULLABLE notNullDecoder() const {
+  auto* notNullDecoder() const {
     return notNullDecoder_.get();
   }
 
@@ -69,7 +69,7 @@ class DwrfData : public dwio::common::FormatData {
     return flatMapContext_;
   }
 
-  const uint64_t* FOLLY_NULLABLE inMap() const {
+  const uint64_t* inMap() const {
     return flatMapContext_.inMapDecoder ? inMap_->as<uint64_t>() : nullptr;
   }
 

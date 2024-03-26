@@ -50,8 +50,8 @@ class ReadFile {
   // buffer 'buf'. The bytes are returned as a string_view pointing to 'buf'.
   //
   // This method should be thread safe.
-  virtual std::string_view
-  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const = 0;
+  virtual std::string_view pread(uint64_t offset, uint64_t length, void* buf)
+      const = 0;
 
   // Same as above, but returns owned data directly.
   //
@@ -174,10 +174,8 @@ class InMemoryReadFile : public ReadFile {
   explicit InMemoryReadFile(std::string file)
       : ownedFile_(std::move(file)), file_(ownedFile_) {}
 
-  std::string_view pread(
-      uint64_t offset,
-      uint64_t length,
-      void* FOLLY_NONNULL buf) const override;
+  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
+      const override;
 
   std::string pread(uint64_t offset, uint64_t length) const override;
 
@@ -213,7 +211,7 @@ class InMemoryReadFile : public ReadFile {
 
 class InMemoryWriteFile final : public WriteFile {
  public:
-  explicit InMemoryWriteFile(std::string* FOLLY_NONNULL file) : file_(file) {}
+  explicit InMemoryWriteFile(std::string* file) : file_(file) {}
 
   void append(std::string_view data) final;
   void append(std::unique_ptr<folly::IOBuf> data) final;
@@ -222,7 +220,7 @@ class InMemoryWriteFile final : public WriteFile {
   uint64_t size() const final;
 
  private:
-  std::string* FOLLY_NONNULL file_;
+  std::string* file_;
 };
 
 // Current implementation for the local version is quite simple (e.g. no
@@ -237,8 +235,8 @@ class LocalReadFile final : public ReadFile {
 
   ~LocalReadFile();
 
-  std::string_view
-  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const final;
+  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
+      const final;
 
   uint64_t size() const final;
 
@@ -264,8 +262,7 @@ class LocalReadFile final : public ReadFile {
   }
 
  private:
-  void preadInternal(uint64_t offset, uint64_t length, char* FOLLY_NONNULL pos)
-      const;
+  void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
 
   std::string path_;
   int32_t fd_;
@@ -289,7 +286,7 @@ class LocalWriteFile final : public WriteFile {
   uint64_t size() const final;
 
  private:
-  FILE* FOLLY_NONNULL file_;
+  FILE* file_;
   mutable long size_;
   bool closed_{false};
 };

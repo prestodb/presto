@@ -46,9 +46,7 @@ class ExpressionVerifier {
   static constexpr const std::string_view kComplexConstantsFileName =
       "complex_constants";
 
-  ExpressionVerifier(
-      core::ExecCtx* FOLLY_NONNULL execCtx,
-      ExpressionVerifierOptions options)
+  ExpressionVerifier(core::ExecCtx* execCtx, ExpressionVerifierOptions options)
       : execCtx_(execCtx), options_(options) {}
 
   // Executes expressions both using common path (all evaluation
@@ -93,7 +91,7 @@ class ExpressionVerifier {
       const std::vector<VectorPtr>& complexConstants);
 
  private:
-  core::ExecCtx* FOLLY_NONNULL execCtx_;
+  core::ExecCtx* execCtx_;
   const ExpressionVerifierOptions options_;
 };
 

@@ -35,7 +35,7 @@ auto as4x64(__m256i x) {
 }
 
 template <typename T>
-void store8Ints(__m256i eightInts, int32_t i, T* FOLLY_NONNULL result) {
+void store8Ints(__m256i eightInts, int32_t i, T* result) {
   if (sizeof(T) == 4) {
     _mm256_storeu_si256(reinterpret_cast<__m256i*>(result + i), eightInts);
   } else {

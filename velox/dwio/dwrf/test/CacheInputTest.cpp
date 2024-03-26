@@ -375,7 +375,7 @@ class CacheTest : public testing::Test {
   std::vector<StringIdLease> fileIds_;
   folly::F14FastMap<uint64_t, std::shared_ptr<TestReadFile>> pathToInput_;
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
-  cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
+  cache::FileGroupStats* groupStats_ = nullptr;
   std::shared_ptr<memory::MemoryAllocator> allocator_;
   std::shared_ptr<AsyncDataCache> cache_;
   std::shared_ptr<IoStatistics> ioStats_;
@@ -597,7 +597,7 @@ class FileWithReadAhead {
   static constexpr int64_t kLoadQuantum = 6 << 20;
   FileWithReadAhead(
       const std::string& name,
-      cache::AsyncDataCache* FOLLY_NONNULL cache,
+      cache::AsyncDataCache* cache,
       IoStatisticsPtr stats,
       memory::MemoryPool& pool,
       folly::Executor* executor)

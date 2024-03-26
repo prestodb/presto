@@ -32,7 +32,7 @@ class HiveConnector : public Connector {
   HiveConnector(
       const std::string& id,
       std::shared_ptr<const Config> config,
-      folly::Executor* FOLLY_NULLABLE executor);
+      folly::Executor* executor);
 
   const std::shared_ptr<const Config>& connectorConfig() const override {
     return hiveConfig_->config();
@@ -60,7 +60,7 @@ class HiveConnector : public Connector {
       ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy) override final;
 
-  folly::Executor* FOLLY_NULLABLE executor() const override {
+  folly::Executor* executor() const override {
     return executor_;
   }
 
@@ -77,18 +77,17 @@ class HiveConnector : public Connector {
  protected:
   const std::shared_ptr<HiveConfig> hiveConfig_;
   FileHandleFactory fileHandleFactory_;
-  folly::Executor* FOLLY_NULLABLE executor_;
+  folly::Executor* executor_;
 };
 
 class HiveConnectorFactory : public ConnectorFactory {
  public:
-  static constexpr const char* FOLLY_NONNULL kHiveConnectorName = "hive";
-  static constexpr const char* FOLLY_NONNULL kHiveHadoop2ConnectorName =
-      "hive-hadoop2";
+  static constexpr const char* kHiveConnectorName = "hive";
+  static constexpr const char* kHiveHadoop2ConnectorName = "hive-hadoop2";
 
   HiveConnectorFactory() : ConnectorFactory(kHiveConnectorName) {}
 
-  explicit HiveConnectorFactory(const char* FOLLY_NONNULL connectorName)
+  explicit HiveConnectorFactory(const char* connectorName)
       : ConnectorFactory(connectorName) {}
 
   /// Register HiveConnector components such as Dwrf, Parquet readers and
@@ -98,7 +97,7 @@ class HiveConnectorFactory : public ConnectorFactory {
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> config,
-      folly::Executor* FOLLY_NULLABLE executor = nullptr) override {
+      folly::Executor* executor = nullptr) override {
     return std::make_shared<HiveConnector>(id, config, executor);
   }
 };

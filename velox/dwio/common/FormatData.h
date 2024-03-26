@@ -51,7 +51,7 @@ class FormatData {
   /// of a column are of interest, e.g. is null filter.
   virtual void readNulls(
       vector_size_t numValues,
-      const uint64_t* FOLLY_NULLABLE incomingNulls,
+      const uint64_t* incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) = 0;
 

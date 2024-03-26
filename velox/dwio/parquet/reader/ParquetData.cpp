@@ -61,9 +61,7 @@ void ParquetData::filterRowGroups(
   }
 }
 
-bool ParquetData::rowGroupMatches(
-    uint32_t rowGroupId,
-    common::Filter* FOLLY_NULLABLE filter) {
+bool ParquetData::rowGroupMatches(uint32_t rowGroupId, common::Filter* filter) {
   auto column = type_->column();
   auto type = type_->type();
   auto rowGroup = fileMetaDataPtr_.rowGroup(rowGroupId);

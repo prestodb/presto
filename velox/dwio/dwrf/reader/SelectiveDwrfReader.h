@@ -40,7 +40,7 @@ class SelectiveDwrfReader {
       StripeStreams& stripe,
       const StreamLabels& streamLabels,
       dwio::common::ColumnReaderStatistics& stats,
-      common::ScanSpec* FOLLY_NONNULL scanSpec,
+      common::ScanSpec* scanSpec,
       FlatMapContext flatMapContext = {},
       bool isRoot = false) {
     auto params = DwrfParams(stripe, streamLabels, stats, flatMapContext);

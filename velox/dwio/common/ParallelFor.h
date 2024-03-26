@@ -36,7 +36,7 @@ namespace facebook::velox::dwio::common {
 class ParallelFor {
  public:
   ParallelFor(
-      folly::Executor* FOLLY_NULLABLE executor,
+      folly::Executor* executor,
       size_t from, // start index
       size_t to, // past end index
       // number of threads.

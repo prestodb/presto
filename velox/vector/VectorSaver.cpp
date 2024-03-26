@@ -628,17 +628,13 @@ void saveVector(const BaseVector& vector, std::ostream& out) {
   }
 }
 
-void saveVectorToFile(
-    const BaseVector* FOLLY_NONNULL vector,
-    const char* FOLLY_NONNULL filePath) {
+void saveVectorToFile(const BaseVector* vector, const char* filePath) {
   std::ofstream outputFile(filePath, std::ofstream::binary);
   saveVector(*vector, outputFile);
   outputFile.close();
 }
 
-void saveStringToFile(
-    const std::string& content,
-    const char* FOLLY_NONNULL filePath) {
+void saveStringToFile(const std::string& content, const char* filePath) {
   std::ofstream outputFile(filePath, std::ofstream::binary);
   outputFile.write(content.data(), content.size());
   outputFile.close();
@@ -676,8 +672,8 @@ VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {
 }
 
 VectorPtr restoreVectorFromFile(
-    const char* FOLLY_NONNULL filePath,
-    memory::MemoryPool* FOLLY_NONNULL pool) {
+    const char* filePath,
+    memory::MemoryPool* pool) {
   std::ifstream inputFile(filePath, std::ifstream::binary);
   VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", filePath);
 
@@ -686,7 +682,7 @@ VectorPtr restoreVectorFromFile(
   return result;
 }
 
-std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath) {
+std::string restoreStringFromFile(const char* filePath) {
   std::ifstream inputFile(filePath, std::ifstream::binary);
   VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", filePath);
 

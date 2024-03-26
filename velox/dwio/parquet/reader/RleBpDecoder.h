@@ -24,10 +24,7 @@ namespace facebook::velox::parquet {
 
 class RleBpDecoder {
  public:
-  RleBpDecoder(
-      const char* FOLLY_NONNULL start,
-      const char* FOLLY_NONNULL end,
-      uint8_t bitWidth)
+  RleBpDecoder(const char* start, const char* end, uint8_t bitWidth)
       : bufferStart_(start),
         bufferEnd_(end),
         bitWidth_(bitWidth),
@@ -98,10 +95,8 @@ class RleBpDecoder {
   /// not copy them into 'buffer' but instead may set '*allOnes' to
   /// true. If allOnes is non-nullptr and not all bits are ones, then
   /// '*allOnes' is set to false and the bits are copied to 'buffer'.
-  void readBits(
-      int32_t numValues,
-      uint64_t* FOLLY_NONNULL outputBuffer,
-      bool* FOLLY_NULLABLE allOnes = nullptr);
+  void
+  readBits(int32_t numValues, uint64_t* outputBuffer, bool* allOnes = nullptr);
 
  protected:
   void readHeader();
@@ -123,12 +118,12 @@ class RleBpDecoder {
     remainingUnpackedValuesOffset_ += numValues;
   }
 
-  const char* FOLLY_NULLABLE bufferStart_;
-  const char* FOLLY_NULLABLE bufferEnd_;
+  const char* bufferStart_;
+  const char* bufferEnd_;
   const int8_t bitWidth_;
   const int8_t byteWidth_;
   const uint64_t bitMask_;
-  const char* FOLLY_NONNULL const lastSafeWord_;
+  const char* const lastSafeWord_;
   uint64_t remainingValues_{0};
   int64_t value_;
   int8_t bitOffset_{0};

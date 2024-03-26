@@ -75,7 +75,7 @@ class TpchDataSource : public DataSource {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+      velox::memory::MemoryPool* pool);
 
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
 
@@ -123,7 +123,7 @@ class TpchDataSource : public DataSource {
   size_t completedRows_{0};
   size_t completedBytes_{0};
 
-  memory::MemoryPool* FOLLY_NONNULL pool_;
+  memory::MemoryPool* pool_;
 };
 
 class TpchConnector final : public Connector {
@@ -131,7 +131,7 @@ class TpchConnector final : public Connector {
   TpchConnector(
       const std::string& id,
       std::shared_ptr<const Config> config,
-      folly::Executor* FOLLY_NULLABLE /*executor*/)
+      folly::Executor* /*executor*/)
       : Connector(id) {}
 
   std::unique_ptr<DataSource> createDataSource(
@@ -140,7 +140,7 @@ class TpchConnector final : public Connector {
       const std::unordered_map<
           std::string,
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) override final {
+      ConnectorQueryCtx* connectorQueryCtx) override final {
     return std::make_unique<TpchDataSource>(
         outputType,
         tableHandle,
@@ -160,17 +160,17 @@ class TpchConnector final : public Connector {
 
 class TpchConnectorFactory : public ConnectorFactory {
  public:
-  static constexpr const char* FOLLY_NONNULL kTpchConnectorName{"tpch"};
+  static constexpr const char* kTpchConnectorName{"tpch"};
 
   TpchConnectorFactory() : ConnectorFactory(kTpchConnectorName) {}
 
-  explicit TpchConnectorFactory(const char* FOLLY_NONNULL connectorName)
+  explicit TpchConnectorFactory(const char* connectorName)
       : ConnectorFactory(connectorName) {}
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const Config> config,
-      folly::Executor* FOLLY_NULLABLE executor = nullptr) override {
+      folly::Executor* executor = nullptr) override {
     return std::make_shared<TpchConnector>(id, config, executor);
   }
 };

@@ -22,7 +22,7 @@ namespace facebook::velox::connector::fuzzer {
 FuzzerDataSource::FuzzerDataSource(
     const std::shared_ptr<const RowType>& outputType,
     const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    velox::memory::MemoryPool* pool)
     : outputType_(outputType), pool_(pool) {
   auto fuzzerTableHandle =
       std::dynamic_pointer_cast<FuzzerTableHandle>(tableHandle);

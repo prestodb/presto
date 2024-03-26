@@ -796,7 +796,7 @@ class ParquetRowReader::Impl {
   std::vector<uint32_t> rowGroupIds_;
   std::vector<uint64_t> firstRowOfRowGroup_;
   uint32_t nextRowGroupIdsIdx_;
-  const thrift::RowGroup* FOLLY_NULLABLE currentRowGroupPtr_{nullptr};
+  const thrift::RowGroup* currentRowGroupPtr_{nullptr};
   uint64_t rowsInCurrentRowGroup_;
   uint64_t currentRowInGroup_;
 

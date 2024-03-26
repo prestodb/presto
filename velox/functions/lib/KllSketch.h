@@ -95,9 +95,7 @@ struct KllSketch {
   /// @param out Pre-allocated memory to hold the result, must be at least as
   ///  large as `quantiles`
   template <typename Iter>
-  void estimateQuantiles(
-      const folly::Range<Iter>& quantiles,
-      T* FOLLY_NONNULL out) const;
+  void estimateQuantiles(const folly::Range<Iter>& quantiles, T* out) const;
 
   /// The total number of values being added to the sketch.
   size_t totalCount() const {
@@ -109,11 +107,11 @@ struct KllSketch {
 
   /// Serialize the sketch into bytes.
   /// @param out Pre-allocated memory at least serializedByteSize() in size
-  void serialize(char* FOLLY_NONNULL out) const;
+  void serialize(char* out) const;
 
   /// Deserialize a sketch from bytes.
   static KllSketch<T, Allocator, Compare> deserialize(
-      const char* FOLLY_NONNULL data,
+      const char* data,
       const Allocator& = Allocator(),
       uint32_t seed = folly::Random::rand32());
 
@@ -135,7 +133,7 @@ struct KllSketch {
 
   /// Merge with another deserialized sketch.  This is more efficient
   /// than deserialize then merge.
-  void mergeDeserialized(const char* FOLLY_NONNULL data);
+  void mergeDeserialized(const char* data);
 
   /// Get frequencies of items being tracked.  The result is sorted by item.
   std::vector<std::pair<T, uint64_t>> getFrequencies() const;

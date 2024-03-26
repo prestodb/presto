@@ -55,8 +55,8 @@ class ThriftTransportTest : public testing::Test {
   static constexpr uint32_t batchSize_ = 20;
   std::vector<uint8_t> input_;
   std::vector<uint8_t> output_;
-  const char* FOLLY_NULLABLE bufferStart_{nullptr};
-  const char* FOLLY_NULLABLE bufferEnd_{nullptr};
+  const char* bufferStart_{nullptr};
+  const char* bufferEnd_{nullptr};
   std::shared_ptr<SeekableInputStream> inputStream_;
   std::shared_ptr<ThriftTransport> transport_;
 };

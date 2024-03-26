@@ -157,7 +157,7 @@ int32_t adjustedReadPct(const cache::TrackingData& trackingData) {
 void CachedBufferedInput::load(const LogType) {
   // 'requests_ is cleared on exit.
   auto requests = std::move(requests_);
-  cache::SsdFile* FOLLY_NULLABLE ssdFile = nullptr;
+  cache::SsdFile* ssdFile = nullptr;
   auto ssdCache = cache_->ssdCache();
   if (ssdCache) {
     ssdFile = &ssdCache->file(fileNum_);

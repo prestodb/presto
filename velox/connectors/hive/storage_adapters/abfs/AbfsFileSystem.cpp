@@ -44,7 +44,7 @@ class AbfsConfig {
   }
 
  private:
-  const Config* FOLLY_NONNULL config_;
+  const Config* config_;
 };
 
 class AbfsReadFile::Impl {

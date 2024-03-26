@@ -44,21 +44,15 @@ class DirectDecoder : public IntDecoder<isSigned> {
   }
 
   template <typename T>
-  void nextValues(
-      T* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls);
+  void nextValues(T* data, uint64_t numValues, const uint64_t* nulls);
 
-  void next(
-      int64_t* FOLLY_NONNULL data,
-      uint64_t numValues,
-      const uint64_t* FOLLY_NULLABLE nulls) override {
+  void next(int64_t* data, uint64_t numValues, const uint64_t* nulls) override {
     nextValues<int64_t>(data, numValues, nulls);
   }
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(
-      const uint64_t* FOLLY_NULLABLE nulls,
+      const uint64_t* nulls,
       Visitor visitor,
       bool useFastPath = true) {
     skipPending();
@@ -132,7 +126,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
   // Returns a pointer to the next element of 'size' bytes in the
   // buffer. If the element would straddle buffers, it is copied to
   // *temp and temp is returned.
-  const void* FOLLY_NONNULL readFixed(int32_t size, void* FOLLY_NONNULL temp) {
+  const void* readFixed(int32_t size, void* temp) {
     skipPending();
     auto ptr = super::bufferStart;
     if (ptr && ptr + size <= super::bufferEnd) {
@@ -149,7 +143,7 @@ class DirectDecoder : public IntDecoder<isSigned> {
   }
 
   template <bool hasNulls, typename Visitor>
-  void fastPath(const uint64_t* FOLLY_NULLABLE nulls, Visitor& visitor) {
+  void fastPath(const uint64_t* nulls, Visitor& visitor) {
     using T = typename Visitor::DataType;
     constexpr bool hasFilter =
         !std::

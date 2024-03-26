@@ -151,7 +151,7 @@ class PeeledEncoding {
   /// selectivity vector.
   VectorPtr wrap(
       const TypePtr& outputType,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool,
+      velox::memory::MemoryPool* pool,
       VectorPtr peeledResult,
       const SelectivityVector& rows) const;
 

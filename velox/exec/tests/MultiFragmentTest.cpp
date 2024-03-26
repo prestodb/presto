@@ -1367,7 +1367,7 @@ class TestCustomExchange : public exec::Exchange {
  public:
   TestCustomExchange(
       int32_t operatorId,
-      DriverCtx* FOLLY_NONNULL ctx,
+      DriverCtx* ctx,
       const std::shared_ptr<const TestCustomExchangeNode>& customExchangeNode,
       std::shared_ptr<ExchangeClient> exchangeClient)
       : exec::Exchange(

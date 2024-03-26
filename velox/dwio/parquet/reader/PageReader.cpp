@@ -118,7 +118,7 @@ const char* PageReader::readBytes(int32_t size, BufferPtr& copy) {
   return copy->as<char>();
 }
 
-const char* FOLLY_NONNULL PageReader::decompressData(
+const char* PageReader::decompressData(
     const char* pageData,
     uint32_t compressedSize,
     uint32_t uncompressedSize) {

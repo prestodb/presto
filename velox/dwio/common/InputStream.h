@@ -46,7 +46,7 @@ class InputStream {
   explicit InputStream(
       const std::string& path,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr)
+      IoStatistics* stats = nullptr)
       : path_{path}, metricsLog_{metricsLog}, stats_(stats) {}
 
   virtual ~InputStream() = default;
@@ -54,7 +54,7 @@ class InputStream {
   /**
    * Get the stats object
    */
-  IoStatistics* FOLLY_NULLABLE getStats() const {
+  IoStatistics* getStats() const {
     return stats_;
   }
 
@@ -131,7 +131,7 @@ class InputStream {
  protected:
   std::string path_;
   MetricsLogPtr metricsLog_;
-  IoStatistics* FOLLY_NULLABLE stats_;
+  IoStatistics* stats_;
 };
 
 // An input stream that reads from an already opened ReadFile.
@@ -141,7 +141,7 @@ class ReadFileInputStream final : public InputStream {
   explicit ReadFileInputStream(
       std::shared_ptr<velox::ReadFile>,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
-      IoStatistics* FOLLY_NULLABLE stats = nullptr);
+      IoStatistics* stats = nullptr);
 
   ~ReadFileInputStream() override = default;
 

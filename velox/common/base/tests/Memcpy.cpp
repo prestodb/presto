@@ -41,10 +41,10 @@ uint64_t sum(uint64_t* data, int32_t size) {
 }
 
 struct CopyCallable {
-  void* FOLLY_NULLABLE source;
-  void* FOLLY_NULLABLE destination;
+  void* source;
+  void* destination;
   int64_t size;
-  Semaphore* FOLLY_NULLABLE sem;
+  Semaphore* sem;
 
   void operator()() {
     if (FLAGS_system_memcpy) {

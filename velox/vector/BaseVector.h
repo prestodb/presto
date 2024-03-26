@@ -444,9 +444,7 @@ class BaseVector {
   // Sets null when 'nulls' has a null value for active rows in 'rows'.
   // Is a no-op 'nulls' is a nullptr or 'rows' has no selections. This API
   // throws if the vector is a ConstantVector.
-  virtual void addNulls(
-      const uint64_t* FOLLY_NULLABLE nulls,
-      const SelectivityVector& rows);
+  virtual void addNulls(const uint64_t* nulls, const SelectivityVector& rows);
 
   // Sets nulls for all active row in 'nullRows'. Is a no-op if nullRows has no
   // selections. This API throws if the vector is a ConstantVector.

@@ -257,7 +257,7 @@ class VectorStreamGroup : public StreamArena {
  public:
   /// If `serde` is not specified, fallback to the default registered.
   explicit VectorStreamGroup(
-      memory::MemoryPool* FOLLY_NONNULL pool,
+      memory::MemoryPool* pool,
       VectorSerde* serde = nullptr)
       : StreamArena(pool),
         serde_(serde != nullptr ? serde : getVectorSerde()) {}
