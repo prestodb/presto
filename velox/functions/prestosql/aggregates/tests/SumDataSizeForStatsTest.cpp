@@ -217,7 +217,7 @@ TEST_F(SumDataSizeForStatsTest, complexRecursiveGlobalAggregate) {
       }),
   })};
 
-  testAggregations(vectors, {}, {"sum_data_size_for_stats(c0)"}, "SELECT 118");
+  testAggregations(vectors, {}, {"sum_data_size_for_stats(c0)"}, "SELECT 115");
 }
 
 TEST_F(SumDataSizeForStatsTest, constantEncodingTest) {
@@ -269,10 +269,10 @@ TEST_F(SumDataSizeForStatsTest, dictionaryEncodingTest) {
       BaseVector::wrapInDictionary(nullptr, indices, size, columnTwo);
   auto vectors = {makeRowVector({columnOne, columnTwoDictionaryEncoded})};
 
-  testAggregations(vectors, {}, {"sum_data_size_for_stats(c1)"}, "SELECT 118");
+  testAggregations(vectors, {}, {"sum_data_size_for_stats(c1)"}, "SELECT 115");
 
   testAggregations(
-      vectors, {"c0"}, {"sum_data_size_for_stats(c1)"}, "VALUES (1,82),(2,36)");
+      vectors, {"c0"}, {"sum_data_size_for_stats(c1)"}, "VALUES (1,79),(2,36)");
 }
 
 TEST_F(SumDataSizeForStatsTest, mask) {

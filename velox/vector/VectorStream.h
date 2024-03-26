@@ -125,6 +125,12 @@ class BatchVectorSerializer {
     serialize(vector, ranges, scratch, stream);
   }
 
+  virtual void estimateSerializedSize(
+      VectorPtr vector,
+      const folly::Range<const IndexRange*>& ranges,
+      vector_size_t** sizes,
+      Scratch& scratch) = 0;
+
   /// Serializes all rows in a vector.
   void serialize(const RowVectorPtr& vector, OutputStream* stream);
 };

@@ -47,6 +47,14 @@ class DefaultBatchVectorSerializer : public BatchVectorSerializer {
     serializer->flush(stream);
   }
 
+  void estimateSerializedSize(
+      VectorPtr vector,
+      const folly::Range<const IndexRange*>& ranges,
+      vector_size_t** sizes,
+      Scratch& scratch) override {
+    serde_->estimateSerializedSize(vector.get(), ranges, sizes, scratch);
+  }
+
  private:
   memory::MemoryPool* const pool_;
   VectorSerde* const serde_;
