@@ -670,11 +670,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
-          BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
-          STR_PROP(
-              QueryConfig::kCodegenConfigurationFilePath,
-              c.codegenConfigurationFilePath()),
-          BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
           STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
           BOOL_PROP(
               QueryConfig::kAdjustTimestampToTimezone,
