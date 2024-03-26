@@ -184,3 +184,170 @@ for cleanup. Only applicable when ``enable-old-task-cleanup`` is ``true``.
 Old task is defined as a PrestoTask which has not received heartbeat for at least
 ``old-task-cleanup-ms``, or is not running and has an end time more than
 ``old-task-cleanup-ms`` ago.
+
+
+Session Properties
+------------------
+
+Defines all system session properties supported by native worker to ensure
+that they are the source of truth and to differentiate them from Java based
+session properties.
+
+The following are the native session properties kept as the source of truth in prestissimo.
+
+``driver_cpu_time_slice_limit_ms``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``1000``
+
+Native Execution only. The cpu time slice limit in ms that a driver thread.
+If not ``zero``, can continuously run without yielding.
+If it is ``zero``,then there is no limit.
+
+``legacy_timestamp``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Use legacy TIME & TIMESTAMP semantics.
+Warning: this will be removed.
+
+``native_aggregation_spill_memory_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Native Execution only. The max memory that a final aggregation can use before spilling.
+If it is ``0``, then there is no limit.
+
+``native_debug_validate_output_from_operators``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, then during execution of tasks, the output vectors of every operator are validated for consistency.
+This is an expensive check so should only be used for debugging.
+It can help debug issues where malformed vector cause failures or crashes by helping identify which operator is generating them.
+
+``native_join_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable join spilling on native engine.
+
+``native_join_spill_memory_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Native Execution only. The max memory that hash join can use before spilling.
+If it is ``0``, then there is no limit.
+
+``native_join_spiller_partition_bits``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``2``
+
+Native Execution only. The number of bits (N) used to calculate the spilling partition number for hash join and RowNumber: ``2`` ^ N.
+
+``native_max_spill_file_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+The max allowed spill file size. If it is ``0``, then there is no limit.
+
+``native_max_spill_level``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``4``
+
+Native Execution only. The maximum allowed spilling level for hash join build.
+0 is the initial spilling level, -1 means unlimited.
+
+``native_order_by_spill_memory_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Native Execution only. The max memory that order by can use before spilling.
+If it is ``0``, then there is no limit.
+
+``native_row_number_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable row number spilling on native engine.
+
+``native_simplified_expression_evaluation_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. Enable simplified path in expression evaluation.
+
+``native_spill_compression_codec``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``none``
+
+Native Execution only. The compression algorithm type to compress the spilled data.
+Supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP. ``none`` means no compression.
+
+``native_spill_file_create_config``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+Native Execution only. Config used to create spill files.
+This config is provided to underlying file system and the config is free form.
+The form should be defined by the underlying file system.
+
+``native_spill_write_buffer_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``1048576``
+
+Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.
+If set to zero, buffering is disabled.
+
+``native_topn_row_number_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable topN row number spilling on native engine.
+
+``native_window_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable window spilling on native engine.
+
+``native_writer_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. Enable writer spilling on native engine.
