@@ -62,12 +62,11 @@ public class TestRowIDCoercer
         assertEquals(rowID.length, 27);
         assertEquals(rowID[25], (byte) 8);
         assertEquals(rowID[26], (byte) 9);
-        byte[] rowNumber = Arrays.copyOf(rowID, 8);
+        byte[] rowNumber = reverse(Arrays.copyOf(rowID, 8));
         assertEquals(Longs.fromByteArray(rowNumber), expected);
     }
 
     // I'm sure this can be micro-optimized. It's only a test. Clarity wins.
-    // TODO remove if we stay with big endian.
     private static byte[] reverse(byte[] in)
     {
         byte[] out = new byte[in.length];

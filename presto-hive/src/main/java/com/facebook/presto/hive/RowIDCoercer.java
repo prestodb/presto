@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.VarbinaryType;
 import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,7 +65,7 @@ class RowIDCoercer
                 continue;
             }
             long rowNumber = BigintType.BIGINT.getLong(in, i);
-            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIDPartitionComponent.length + + this.rowGroupID.length + 8);
+            ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIDPartitionComponent.length + this.rowGroupID.length + 8).order(ByteOrder.LITTLE_ENDIAN);
             rowID.putLong(rowNumber);
             rowID.put(this.rowGroupID);
             rowID.put(this.rowIDPartitionComponent);
