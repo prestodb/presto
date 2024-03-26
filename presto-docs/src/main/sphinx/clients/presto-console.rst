@@ -35,3 +35,28 @@ After starting Presto, you can access the web UI at the default port
 
 .. figure:: ../images/presto_console.png
    :align: center
+
+Plan Viewer
+=======================
+
+Plan Viewer generates the graph of a query plan on the Presto Console.
+To access the Plan Viewer using a web browser, add the path ``/ui/dev/index.html``
+to your server IP and port number. For example:
+
+.. code-block:: none
+
+    http://localhost:8080/ui/dev/index.html
+
+Use the ``JSON`` tab on the ``Query Details`` page to export and save a query in JSON format.
+
+.. figure:: ../images/query_details_json.png
+   :align: center
+
+*Note:* When a Presto server restarts, all the query information is reset.
+
+With the JSON files, you can use the Plan Viewer to view the graph of query plans.
+
+1. Access the Plan Viewer page. For example: ``http://localhost:8080/ui/dev/index.html``
+2. Select the ``Browse`` button and select the JSON file you want to examine.
+   The query plan graph is displayed.
+3. Select the ``Browse`` button to view other JSON files if needed.

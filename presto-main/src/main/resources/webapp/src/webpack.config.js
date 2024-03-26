@@ -12,6 +12,7 @@ module.exports = (env) => {
             'index': path.join(__dirname, 'index.jsx'),
             'query': path.join(__dirname, 'query.jsx'),
             'plan': path.join(__dirname, 'plan.jsx'),
+            'plan_viewer': { import: path.join(__dirname, 'plan_viewer.jsx'), filename: path.join('dev', '[name].js')},
             'embedded_plan': path.join(__dirname, 'embedded_plan.jsx'),
             'stage': path.join(__dirname, 'stage.jsx'),
             'worker': path.join(__dirname, 'worker.jsx'),
