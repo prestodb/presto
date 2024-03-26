@@ -26,7 +26,7 @@ public interface PartitionObjectBuilder
             ConnectorSession session,
             Table table,
             PartitionUpdate partitionUpdate,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             Map<String, String> extraParameters,
             Optional<Partition> previousPartition);
 }

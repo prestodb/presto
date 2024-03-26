@@ -288,6 +288,7 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createInte
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -356,6 +357,7 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected static final String TEST_SERVER_VERSION = "test_version";
+    protected static final NodeVersion.PrestoWorkerType TEST_PRESTO_WORKER_TYPE = NodeVersion.PrestoWorkerType.JAVA;
 
     protected static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
     protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT = PageSinkContext.builder().setCommitRequired(false).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build();
@@ -1034,7 +1036,7 @@ public abstract class AbstractTestHiveClient
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
-                TEST_SERVER_VERSION,
+                new NodeVersion(TEST_SERVER_VERSION, TEST_PRESTO_WORKER_TYPE),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
@@ -2993,6 +2995,7 @@ public abstract class AbstractTestHiveClient
                 .setTableType(MANAGED_TABLE)
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                        PRESTO_WORKER_TYPE, TEST_PRESTO_WORKER_TYPE.toString(),
                         PRESTO_QUERY_ID_NAME, queryId))
                 .setDataColumns(columns)
                 .withStorage(storage -> storage
@@ -3637,6 +3640,7 @@ public abstract class AbstractTestHiveClient
                     .setTableType(PrestoTableType.MANAGED_TABLE)
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                            PRESTO_WORKER_TYPE, TEST_PRESTO_WORKER_TYPE.toString(),
                             PRESTO_QUERY_ID_NAME, session.getQueryId()))
                     .setDataColumns(columns)
                     .withStorage(storage -> storage
@@ -3858,6 +3862,7 @@ public abstract class AbstractTestHiveClient
                         .setBucketProperty(bucketProperty))
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, "testversion",
+                        PRESTO_WORKER_TYPE, "JAVA",
                         PRESTO_QUERY_ID_NAME, "20180101_123456_00001_x1y2z"))
                 .build();
     }
@@ -4082,6 +4087,7 @@ public abstract class AbstractTestHiveClient
             // verify the node version and query ID in table
             Table table = getMetastoreClient().getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName()).get();
             assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+            assertEquals(table.getParameters().get(PRESTO_WORKER_TYPE), TEST_PRESTO_WORKER_TYPE);
             assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
 
             // verify basic statistics
@@ -4145,6 +4151,7 @@ public abstract class AbstractTestHiveClient
 
             // verify the node version and query ID
             assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+            assertEquals(table.getParameters().get(PRESTO_WORKER_TYPE), TEST_PRESTO_WORKER_TYPE);
             assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
 
             // verify the table is empty
@@ -4412,6 +4419,7 @@ public abstract class AbstractTestHiveClient
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
                 assertEquals(partition.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
+                assertEquals(partition.getParameters().get(PRESTO_WORKER_TYPE), TEST_PRESTO_WORKER_TYPE);
                 assertEquals(partition.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
             }
 
@@ -5459,6 +5467,7 @@ public abstract class AbstractTestHiveClient
                     .setTableType(MANAGED_TABLE)
                     .setParameters(ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
+                            .put(PRESTO_WORKER_TYPE, TEST_PRESTO_WORKER_TYPE.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .putAll(parameters)
                             .build())

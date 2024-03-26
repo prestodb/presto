@@ -128,6 +128,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
@@ -375,12 +376,13 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> createIcebergViewProperties(ConnectorSession session, String prestoVersion)
+    public static Map<String, String> createIcebergViewProperties(ConnectorSession session, String prestoVersion, String prestoWorkerType)
     {
         return ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_WORKER_TYPE, prestoWorkerType)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                 .build();

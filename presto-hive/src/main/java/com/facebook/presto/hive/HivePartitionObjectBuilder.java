@@ -33,12 +33,13 @@ public class HivePartitionObjectBuilder
             ConnectorSession session,
             Table table,
             PartitionUpdate partitionUpdate,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             Map<String, String> extraParameters,
             Optional<Partition> previousPartition)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
-                .put(MetastoreUtil.PRESTO_VERSION_NAME, prestoVersion)
+                .put(MetastoreUtil.PRESTO_VERSION_NAME, nodeVersion.getVersion())
+                .put(MetastoreUtil.PRESTO_WORKER_TYPE, nodeVersion.getPrestoWorkerType().toString())
                 .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .putAll(extraParameters);
         getNewPartitionUserSuppliedParameter(session)

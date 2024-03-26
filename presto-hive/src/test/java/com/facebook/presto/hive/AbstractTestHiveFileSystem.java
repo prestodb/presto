@@ -218,7 +218,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
-                new NodeVersion("test_version"),
+                new NodeVersion("test_version", NodeVersion.PrestoWorkerType.JAVA),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),

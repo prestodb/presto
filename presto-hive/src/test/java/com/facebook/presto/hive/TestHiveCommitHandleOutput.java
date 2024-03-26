@@ -64,6 +64,7 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_SERVER_VERSION;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -262,7 +263,7 @@ public class TestHiveCommitHandleOutput
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningExecutor),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningExecutor),
-                TEST_SERVER_VERSION,
+                new NodeVersion(TEST_SERVER_VERSION, TEST_PRESTO_WORKER_TYPE),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),

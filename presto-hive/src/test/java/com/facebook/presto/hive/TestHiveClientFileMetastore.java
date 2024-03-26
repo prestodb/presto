@@ -48,6 +48,7 @@ import static com.facebook.presto.hive.HiveSplitManager.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
@@ -214,6 +215,7 @@ public class TestHiveClientFileMetastore
     {
         Map<String, String> staticPartitionParameters = ImmutableMap.of(
                 PRESTO_VERSION_NAME, "testversion",
+                PRESTO_WORKER_TYPE, "JAVA",
                 PRESTO_QUERY_ID_NAME, "20200101_123456_00001_x1y2z");
         Map<String, String> partitionParameters = ImmutableMap.<String, String>builder()
                 .putAll(staticPartitionParameters)

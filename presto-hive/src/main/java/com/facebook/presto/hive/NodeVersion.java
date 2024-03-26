@@ -17,16 +17,34 @@ import static java.util.Objects.requireNonNull;
 
 public final class NodeVersion
 {
-    private final String version;
+    public enum PrestoWorkerType
+    {
+        JAVA,
+        CPP
+    }
 
-    public NodeVersion(String version)
+    private final String version;
+    private final PrestoWorkerType prestoWorkerType;
+
+    public NodeVersion(String version, PrestoWorkerType workerType)
     {
         this.version = requireNonNull(version, "version is null");
+        this.prestoWorkerType = requireNonNull(workerType, "prestoWorkerType is null");
+    }
+
+    public String getVersion()
+    {
+        return version;
+    }
+
+    public PrestoWorkerType getPrestoWorkerType()
+    {
+        return prestoWorkerType;
     }
 
     @Override
     public String toString()
     {
-        return version;
+        return prestoWorkerType.toString() + ":" + version;
     }
 }
