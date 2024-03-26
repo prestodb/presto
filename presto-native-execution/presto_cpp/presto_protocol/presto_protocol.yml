@@ -339,3 +339,5 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinDistributionType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/EquiJoinClause.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
+  - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java

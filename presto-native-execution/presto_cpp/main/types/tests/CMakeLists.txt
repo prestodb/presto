@@ -71,3 +71,24 @@ target_link_libraries(
 
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
+
+add_executable(presto_function_metadata_test JsonFunctionMetadataTest.cpp)
+
+add_test(
+  NAME presto_function_metadata_test
+  COMMAND presto_function_metadata_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_function_metadata_test
+  gtest
+  gtest_main
+  presto_function_metadata
+  presto_protocol
+  velox_aggregates
+  velox_coverage_util
+  velox_exec
+  velox_functions_prestosql
+  presto_type_converter
+  velox_window
+  ${ANTLR4_RUNTIME})

@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/JsonFunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
@@ -356,6 +357,14 @@ void PrestoServer::run() {
                 proxygen::HTTP_HEADER_CONTENT_TYPE,
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
+      });
+  httpServer_->registerGet(
+      "/v1/info/workerFunctionSignatures",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->getFunctionSignatures(downstream);
       });
 
   registerFunctions();
@@ -1148,6 +1157,11 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::getFunctionSignatures(
+    proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, getJsonFunctionMetadata());
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {
