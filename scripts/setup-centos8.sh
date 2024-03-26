@@ -145,7 +145,7 @@ function install_fbthrift {
   wget_and_untar https://github.com/facebook/fbthrift/archive/refs/tags/${FB_OS_VERSION}.tar.gz fbthrift
   (
     cd fbthrift
-    cmake_install -Denable_tests=OFF
+    cmake_install -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
   )
 }
 

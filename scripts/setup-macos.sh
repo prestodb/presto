@@ -97,7 +97,7 @@ function install_mvfst {
 
 function install_fbthrift {
   github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
+  cmake_install -Denable_tests=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 }
 
 function install_double_conversion {
