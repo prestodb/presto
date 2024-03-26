@@ -29,6 +29,9 @@
 # Hudi connector
 /presto-hudi @vinothchandar @7c00 @prestodb/committers
 
+# Iceberg connector
+/presto-iceberg @hantangwangd @prestodb/committers
+
 # Ranger Hive plugin
 /presto-hive/**/com/facebook/presto/hive/security/ranger @agrawalreetika @prestodb/committers
 
