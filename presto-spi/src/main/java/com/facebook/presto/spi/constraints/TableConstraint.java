@@ -30,7 +30,8 @@ import static java.util.Objects.requireNonNull;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = PrimaryKeyConstraint.class, name = "primarykeyconstraint"),
-        @JsonSubTypes.Type(value = UniqueConstraint.class, name = "uniqueconstraint")})
+        @JsonSubTypes.Type(value = UniqueConstraint.class, name = "uniqueconstraint"),
+        @JsonSubTypes.Type(value = NotNullConstraint.class, name = "notnullconstraint")})
 public abstract class TableConstraint<T>
 {
     private final Optional<String> name;
