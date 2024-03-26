@@ -57,7 +57,7 @@ class BaseVeloxQueryConfigTest : public testing::Test {
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
     if (isMutable) {
       sysConfigFile->append(
-          fmt::format("{}=true\n", QueryConfig::kCodegenEnabled));
+          fmt::format("{}=true\n", QueryConfig::kSpillEnabled));
       sysConfigFile->append(
           fmt::format("{}=100\n", QueryConfig::kMaxOutputBatchRows));
       sysConfigFile->append(
@@ -78,7 +78,7 @@ TEST_F(BaseVeloxQueryConfigTest, defaultConfig) {
 
   ASSERT_FALSE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
   ASSERT_FALSE(
-      cfg->optionalProperty<bool>(std::string(QueryConfig::kCodegenEnabled))
+      cfg->optionalProperty<bool>(std::string(QueryConfig::kSpillEnabled))
           .value());
   ASSERT_EQ(
       10'000,
@@ -96,7 +96,7 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
 
   ASSERT_TRUE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
   ASSERT_TRUE(
-      cfg->optionalProperty<bool>(std::string(QueryConfig::kCodegenEnabled))
+      cfg->optionalProperty<bool>(std::string(QueryConfig::kSpillEnabled))
           .value());
   ASSERT_EQ(
       100,
