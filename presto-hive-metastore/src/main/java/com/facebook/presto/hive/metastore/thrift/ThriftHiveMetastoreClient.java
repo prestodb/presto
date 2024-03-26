@@ -33,6 +33,8 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.LockRequest;
 import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.NotNullConstraintsRequest;
+import org.apache.hadoop.hive.metastore.api.NotNullConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
 import org.apache.hadoop.hive.metastore.api.PrimaryKeysRequest;
@@ -41,6 +43,7 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -152,10 +155,10 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
+    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints, List<SQLNotNullConstraint> notNullConstraints)
             throws TException
     {
-        client.create_table_with_constraints(table, primaryKeys, emptyList(), uniqueConstraints, emptyList(), emptyList(), emptyList());
+        client.create_table_with_constraints(table, primaryKeys, emptyList(), uniqueConstraints, notNullConstraints, emptyList(), emptyList());
     }
 
     @Override
@@ -453,7 +456,7 @@ public class ThriftHiveMetastoreClient
         PrimaryKeysResponse pkResponse;
 
         try {
-            pkResponse = client.get_primary_keys(pkRequest);
+            return Optional.of(client.get_primary_keys(pkRequest));
         }
         catch (TApplicationException e) {
             // If we are talking to Hive version < 3 which doesn't support table constraints,
@@ -463,8 +466,6 @@ public class ThriftHiveMetastoreClient
             }
             throw e;
         }
-
-        return Optional.of(pkResponse);
     }
 
     @Override
@@ -475,7 +476,7 @@ public class ThriftHiveMetastoreClient
         UniqueConstraintsResponse uniqueConstraintsResponse;
 
         try {
-            uniqueConstraintsResponse = client.get_unique_constraints(uniqueConstraintsRequest);
+            return Optional.of(client.get_unique_constraints(uniqueConstraintsRequest));
         }
         catch (TApplicationException e) {
             if (e.getType() == UNKNOWN_METHOD) {
@@ -483,8 +484,24 @@ public class ThriftHiveMetastoreClient
             }
             throw e;
         }
+    }
 
-        return Optional.of(uniqueConstraintsResponse);
+    @Override
+    public Optional<NotNullConstraintsResponse> getNotNullConstraints(String catName, String dbName, String tableName)
+            throws TException
+    {
+        NotNullConstraintsRequest notNullConstraintsRequest = new NotNullConstraintsRequest(catName, dbName, tableName);
+        NotNullConstraintsResponse notNullConstraintsResponse;
+
+        try {
+            return Optional.of(client.get_not_null_constraints(notNullConstraintsRequest));
+        }
+        catch (TApplicationException e) {
+            if (e.getType() == UNKNOWN_METHOD) {
+                return Optional.empty();
+            }
+            throw e;
+        }
     }
 
     @Override

@@ -43,6 +43,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -74,11 +75,13 @@ import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.LockState;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
+import org.apache.hadoop.hive.metastore.api.NotNullConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrimaryKeysResponse;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.SQLNotNullConstraint;
 import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
 import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -276,6 +279,32 @@ public class ThriftHiveMetastore
                 boolean isEnforced = e.getValue().get(0).isValidate_cstr();
                 return new UniqueConstraint<>(Optional.of(constraintName), columnNames, isEnabled, isRely, isEnforced);
             }).collect(toImmutableList());
+
+            return result;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
+    {
+        try {
+            Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
+                    .stopOnIllegalExceptions()
+                    .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
+
+            if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
+                return ImmutableList.of();
+            }
+
+            List<SQLNotNullConstraint> notNullConstraints = notNullConstraintsResponse.get().getNotNullConstraints();
+            ImmutableList<NotNullConstraint<String>> result = notNullConstraints.stream().map(constraint -> new NotNullConstraint<>(constraint.getColumn_name())).collect(toImmutableList());
 
             return result;
         }
@@ -959,6 +988,7 @@ public class ThriftHiveMetastore
     {
         List<SQLPrimaryKey> primaryKeys = new ArrayList<>();
         List<SQLUniqueConstraint> uniqueConstraints = new ArrayList<>();
+        List<SQLNotNullConstraint> notNullConstraints = new ArrayList<>();
         String callableName = "createTable";
         HiveMetastoreApiStats apiStats = stats.getCreateTable();
         Callable callableClient = apiStats.wrap(() ->
@@ -973,7 +1003,8 @@ public class ThriftHiveMetastore
                 if (constraint instanceof PrimaryKeyConstraint) {
                     for (String column : constraint.getColumns()) {
                         primaryKeys.add(
-                                new SQLPrimaryKey(table.getDbName(),
+                                new SQLPrimaryKey(
+                                        table.getDbName(),
                                         table.getTableName(),
                                         column,
                                         keySeq++,
@@ -998,15 +1029,28 @@ public class ThriftHiveMetastore
                                         constraint.isRely()));
                     }
                 }
+                else if (constraint instanceof NotNullConstraint) {
+                    notNullConstraints.add(
+                            new SQLNotNullConstraint(
+                                    table.getCatName(),
+                                    table.getDbName(),
+                                    table.getTableName(),
+                                    constraint.getColumns().stream().findFirst().get(),
+                                    constraint.getName().orElse(null),
+                                    constraint.isEnabled(),
+                                    constraint.isEnforced(),
+                                    constraint.isRely()));
+                }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Constraint %s of unknown type is not supported", constraint.getName().orElse("")));
                 }
             }
+
             callableName = "createTableWithConstraints";
             apiStats = stats.getCreateTableWithConstraints();
             callableClient = apiStats.wrap(() ->
                     getMetastoreClientThenCall(metastoreContext, client -> {
-                        client.createTableWithConstraints(table, primaryKeys, uniqueConstraints);
+                        client.createTableWithConstraints(table, primaryKeys, uniqueConstraints, notNullConstraints);
                         return null;
                     }));
         }
