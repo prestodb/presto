@@ -940,28 +940,6 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(
   }
 }
 
-// Specialization for the "empty_approx_set" function: first optional
-// parameter needs to be constant.
-std::vector<core::TypedExprPtr> ExpressionFuzzer::generateEmptyApproxSetArgs(
-    const CallableSignature& input) {
-  if (input.args.empty()) {
-    return {};
-  }
-  return {generateArgConstant(input.args[0])};
-}
-
-// Specialization for the "regexp_replace" function: second and third
-// (optional) parameters always need to be constant.
-std::vector<core::TypedExprPtr> ExpressionFuzzer::generateRegexpReplaceArgs(
-    const CallableSignature& input) {
-  std::vector<core::TypedExprPtr> inputExpressions = {
-      generateArg(input.args[0]), generateArgConstant(input.args[1])};
-  if (input.args.size() == 3) {
-    inputExpressions.emplace_back(generateArgConstant(input.args[2]));
-  }
-  return inputExpressions;
-}
-
 std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
     const CallableSignature& input) {
   VELOX_CHECK_EQ(

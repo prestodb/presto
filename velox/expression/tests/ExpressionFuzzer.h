@@ -239,21 +239,6 @@ class ExpressionFuzzer {
 
   core::TypedExprPtr generateArg(const TypePtr& arg, bool isConstant);
 
-  /// Specialization for the "like" function: second and third (optional)
-  /// parameters always need to be constant.
-  std::vector<core::TypedExprPtr> generateLikeArgs(
-      const CallableSignature& input);
-
-  /// Specialization for the "empty_approx_set" function: first optional
-  /// parameter needs to be constant.
-  std::vector<core::TypedExprPtr> generateEmptyApproxSetArgs(
-      const CallableSignature& input);
-
-  /// Specialization for the "regexp_replace" function: second and third
-  /// (optional) parameters always need to be constant.
-  std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
-      const CallableSignature& input);
-
   // Return a vector of expressions for each argument of callable in order.
   std::vector<core::TypedExprPtr> getArgsForCallable(
       const CallableSignature& callable);
