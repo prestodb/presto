@@ -26,6 +26,7 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -183,6 +184,11 @@ public interface HiveMetastore
     }
 
     default List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        return ImmutableList.of();
+    }
+
+    default List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return ImmutableList.of();
     }
