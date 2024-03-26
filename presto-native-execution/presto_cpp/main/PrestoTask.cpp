@@ -548,6 +548,12 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
           pipelineOut.outputDataSizeInBytes;
     }
 
+    for (const auto& driverStat : pipeline.driverStats) {
+      for (const auto& [name, value] : driverStat.runtimeStats) {
+        addRuntimeMetric(taskRuntimeStats, name, value);
+      }
+    }
+
     for (auto j = 0; j < pipeline.operatorStats.size(); ++j) {
       auto& opOut = pipelineOut.operatorSummaries[j];
       auto& op = pipeline.operatorStats[j];
