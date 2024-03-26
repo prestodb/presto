@@ -227,6 +227,10 @@ class RowVector : public BaseVector {
   /// Note : If the child is null, then it will stay null after the resize.
   void resize(vector_size_t newSize, bool setNotNull = true) override;
 
+  VectorPtr& rawVectorForBatchReader() {
+    return rawVectorForBatchReader_;
+  }
+
  private:
   vector_size_t childSize() const {
     bool allConstant = false;
@@ -270,6 +274,10 @@ class RowVector : public BaseVector {
   // loadedVector is called, and reset to false when updateContainsLazyNotLoaded
   // is called (i.e. some children are likely updated to lazy).
   mutable bool childrenLoaded_ = false;
+
+  // For some non-selective reader, we need to keep the original vector that is
+  // unprojected and unfilterd, and reuse its memory.
+  VectorPtr rawVectorForBatchReader_;
 };
 
 // Common parent class for ARRAY and MAP vectors.  Contains 'offsets' and

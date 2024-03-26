@@ -139,6 +139,7 @@ VectorPtr RowReader::projectColumns(
     bits::forEachSetBit(
         passed.data(), 0, input->size(), [&](auto i) { rawIndices[j++] = i; });
     for (auto& child : children) {
+      child->disableMemo();
       child = BaseVector::wrapInDictionary(
           nullptr, indices, size, std::move(child));
     }
