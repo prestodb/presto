@@ -66,7 +66,7 @@ public class TestRowIDCoercer
         assertEquals(Longs.fromByteArray(rowNumber), expected);
     }
 
-    // I'm sure this can be micro-optimized. It's only a test. Clarity wins.
+    // I'm sure this can be micro-optimized. It's only a test. Clarity matters more.
     private static byte[] reverse(byte[] in)
     {
         byte[] out = new byte[in.length];
