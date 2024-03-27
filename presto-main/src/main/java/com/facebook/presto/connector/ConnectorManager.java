@@ -63,6 +63,7 @@ import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
+import com.facebook.presto.sql.planner.InnerRowExpressionInterpreter;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
@@ -383,6 +384,7 @@ public class ConnectorManager
                 new ConnectorRowExpressionService(
                         domainTranslator,
                         new RowExpressionOptimizer(metadataManager),
+                        new InnerRowExpressionInterpreter(metadataManager),
                         predicateCompiler,
                         determinismEvaluator,
                         new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),

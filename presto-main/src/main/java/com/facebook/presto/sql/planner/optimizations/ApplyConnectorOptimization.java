@@ -33,6 +33,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -69,6 +70,7 @@ public class ApplyConnectorOptimization
             FilterNode.class,
             TableScanNode.class,
             LimitNode.class,
+            SortNode.class,
             TopNNode.class,
             ValuesNode.class,
             ProjectNode.class,

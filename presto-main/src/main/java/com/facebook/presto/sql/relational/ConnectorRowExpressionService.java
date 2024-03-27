@@ -16,6 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionInterpreter;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -29,14 +30,22 @@ public final class ConnectorRowExpressionService
 {
     private final DomainTranslator domainTranslator;
     private final ExpressionOptimizer expressionOptimizer;
+    private final ExpressionInterpreter expressionInterpreter;
     private final PredicateCompiler predicateCompiler;
     private final DeterminismEvaluator determinismEvaluator;
     private final RowExpressionFormatter rowExpressionFormatter;
 
-    public ConnectorRowExpressionService(DomainTranslator domainTranslator, ExpressionOptimizer expressionOptimizer, PredicateCompiler predicateCompiler, DeterminismEvaluator determinismEvaluator, RowExpressionFormatter rowExpressionFormatter)
+    public ConnectorRowExpressionService(
+            DomainTranslator domainTranslator,
+            ExpressionOptimizer expressionOptimizer,
+            ExpressionInterpreter expressionInterpreter,
+            PredicateCompiler predicateCompiler,
+            DeterminismEvaluator determinismEvaluator,
+            RowExpressionFormatter rowExpressionFormatter)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.expressionInterpreter = requireNonNull(expressionInterpreter, "expressionInterpreter is null");
         this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.rowExpressionFormatter = requireNonNull(rowExpressionFormatter, "rowExpressionFormatter is null");
@@ -52,6 +61,12 @@ public final class ConnectorRowExpressionService
     public ExpressionOptimizer getExpressionOptimizer()
     {
         return expressionOptimizer;
+    }
+
+    @Override
+    public ExpressionInterpreter getExpressionInterpreter()
+    {
+        return expressionInterpreter;
     }
 
     @Override
