@@ -180,12 +180,13 @@ void HashAggregation::updateRuntimeStats() {
     }
   }
 
-  runtimeStats["hashtable.capacity"] = RuntimeMetric(hashTableStats.capacity);
-  runtimeStats["hashtable.numRehashes"] =
+  runtimeStats[BaseHashTable::kCapacity] =
+      RuntimeMetric(hashTableStats.capacity);
+  runtimeStats[BaseHashTable::kNumRehashes] =
       RuntimeMetric(hashTableStats.numRehashes);
-  runtimeStats["hashtable.numDistinct"] =
+  runtimeStats[BaseHashTable::kNumDistinct] =
       RuntimeMetric(hashTableStats.numDistinct);
-  runtimeStats["hashtable.numTombstones"] =
+  runtimeStats[BaseHashTable::kNumTombstones] =
       RuntimeMetric(hashTableStats.numTombstones);
 }
 

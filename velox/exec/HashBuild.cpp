@@ -874,14 +874,14 @@ void HashBuild::addRuntimeStats() {
     }
   }
 
-  lockedStats->runtimeStats["hashtable.capacity"] =
+  lockedStats->runtimeStats[BaseHashTable::kCapacity] =
       RuntimeMetric(hashTableStats.capacity);
-  lockedStats->runtimeStats["hashtable.numRehashes"] =
+  lockedStats->runtimeStats[BaseHashTable::kNumRehashes] =
       RuntimeMetric(hashTableStats.numRehashes);
-  lockedStats->runtimeStats["hashtable.numDistinct"] =
+  lockedStats->runtimeStats[BaseHashTable::kNumDistinct] =
       RuntimeMetric(hashTableStats.numDistinct);
   if (hashTableStats.numTombstones != 0) {
-    lockedStats->runtimeStats["hashtable.numTombstones"] =
+    lockedStats->runtimeStats[BaseHashTable::kNumTombstones] =
         RuntimeMetric(hashTableStats.numTombstones);
   }
 

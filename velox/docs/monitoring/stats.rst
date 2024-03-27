@@ -18,24 +18,50 @@ analysis.
 
 Memory Arbitration
 ------------------
+These stats are reported by all operators.
+
 .. list-table::
-   :widths: 40 10 50
+   :widths: 50 25 50
    :header-rows: 1
 
-   * - Stats Name
-     - Type
+   * - Stats
+     - Unit
      - Description
    * - memoryReclaimCount
-     - kNone
+     -
      - The number of times that the memory arbitration to reclaim memory from
        an spillable operator.
        This stats only applies for spillable operators.
    * - memoryReclaimWallNanos
-     - kNano
+     - nanos
      - The memory reclaim execution time of an operator during the memory
        arbitration. It collects time spent on disk spilling or file write.
        This stats only applies for spillable operators.
    * - reclaimedMemoryBytes
-     - kByte
+     - bytes
      - The reclaimed memory bytes of an operator during the memory arbitration.
        This stats only applies for spillable operators.
+
+HashBuild, HashAggregation
+--------------------------
+These stats are reported only by HashBuild and HashAggregation operators.
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - hashtable.capacity
+     -
+     - Number of slots across all buckets in the hash table.
+   * - hashtable.numRehashes
+     -
+     - Number of rehash() calls.
+   * - hashtable.numDistinct
+     -
+     - Number of distinct keys in the hash table.
+   * - hashtable.numTombstones
+     -
+     - Number of tombstone slots in the hash table.
