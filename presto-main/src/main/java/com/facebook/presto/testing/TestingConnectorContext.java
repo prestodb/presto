@@ -40,6 +40,7 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
+import com.facebook.presto.spi.relation.ExpressionInterpreter;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -47,6 +48,7 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
+import com.facebook.presto.sql.planner.InnerRowExpressionInterpreter;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -121,6 +123,12 @@ public class TestingConnectorContext
             public ExpressionOptimizer getExpressionOptimizer()
             {
                 return new RowExpressionOptimizer(metadata);
+            }
+
+            @Override
+            public ExpressionInterpreter getExpressionInterpreter()
+            {
+                return new InnerRowExpressionInterpreter(metadata);
             }
 
             @Override

@@ -138,7 +138,8 @@ public class IcebergFilterPushdown
             checkArgument(tableHandle instanceof IcebergTableHandle, "tableHandle must be IcebergTableHandle");
 
             Table icebergTable = getIcebergTable(metadata, session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
-            TupleDomain<ColumnHandle> unenforcedConstraint = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), not(Predicates.in(getPartitionKeyColumnHandles(icebergTable, typeManager)))));
+            List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles((IcebergTableHandle) tableHandle, icebergTable, typeManager);
+            TupleDomain<ColumnHandle> unenforcedConstraint = TupleDomain.withColumnDomains(Maps.filterKeys(constraint.getSummary().getDomains().get(), not(Predicates.in(partitionColumns))));
 
             TupleDomain<Subfield> domainPredicate = getDomainPredicate(decomposedFilter, unenforcedConstraint);
 
@@ -151,7 +152,6 @@ public class IcebergFilterPushdown
 
             Optional<Set<IcebergColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((IcebergTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
 
-            List<IcebergColumnHandle> partitionColumns = getPartitionKeyColumnHandles(icebergTable, typeManager);
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
                             constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
 
