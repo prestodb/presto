@@ -88,7 +88,8 @@ public class PlanFragmenterUtils
             Session session,
             boolean forceSingleNode,
             WarningCollector warningCollector,
-            PartitioningHandle partitioningHandle)
+            PartitioningHandle partitioningHandle,
+            boolean nativeExecution)
     {
         subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
         if (!forceSingleNode) {
@@ -102,7 +103,7 @@ public class PlanFragmenterUtils
         sanityCheckFragmentedPlan(
                 subPlan,
                 warningCollector,
-                getExchangeMaterializationStrategy(session),
+                getExchangeMaterializationStrategy(session, nativeExecution),
                 getQueryMaxStageCount(session),
                 config.getStageCountWarningThreshold());
 
