@@ -747,12 +747,20 @@ bool HashBuild::finishHashBuild() {
   // https://github.com/facebookincubator/velox/issues/3567 is fixed.
   const bool allowParallelJoinBuild =
       !otherTables.empty() && spillPartitions.empty();
-  table_->prepareJoinTable(
-      std::move(otherTables),
-      allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
-                             : nullptr,
-      isInputFromSpill() ? spillConfig()->startPartitionBit
-                         : BaseHashTable::kNoSpillInputStartPartitionBit);
+  CpuWallTiming timing;
+  {
+    CpuWallTimer cpuWallTimer{timing};
+    table_->prepareJoinTable(
+        std::move(otherTables),
+        allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
+                               : nullptr,
+        isInputFromSpill() ? spillConfig()->startPartitionBit
+                           : BaseHashTable::kNoSpillInputStartPartitionBit);
+  }
+  stats_.wlock()->addRuntimeStat(
+      BaseHashTable::kBuildWallNanos,
+      RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos));
+
   addRuntimeStats();
   joinBridge_->setHashTable(
       std::move(table_), std::move(spillPartitions), joinHasNullKeys_);

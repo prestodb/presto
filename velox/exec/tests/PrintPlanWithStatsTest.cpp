@@ -160,6 +160,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
        {"     Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+"},
        {"     HashBuild: Input: 100 rows \\(.+\\), Output: 0 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1"},
        {"        distinctKey0\\s+sum: 101, count: 1, min: 101, max: 101"},
+       {"        hashtable.buildWallNanos\\s+sum: .+, count: 1, min: .+, max: .+"},
        {"        hashtable.capacity\\s+sum: 200, count: 1, min: 200, max: 200"},
        {"        hashtable.numDistinct\\s+sum: 100, count: 1, min: 100, max: 100"},
        {"        hashtable.numRehashes\\s+sum: 1, count: 1, min: 1, max: 1"},

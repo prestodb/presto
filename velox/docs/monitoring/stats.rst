@@ -65,3 +65,7 @@ These stats are reported only by HashBuild and HashAggregation operators.
    * - hashtable.numTombstones
      -
      - Number of tombstone slots in the hash table.
+   * - hashtable.buildWallNanos
+     - nanos
+     - Time spent on building the hash table from rows collected by all the
+       hash build operators. This stat is only reported by the HashBuild operator.

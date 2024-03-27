@@ -130,6 +130,9 @@ class BaseHashTable {
   static inline const std::string kNumDistinct{"hashtable.numDistinct"};
   static inline const std::string kNumTombstones{"hashtable.numTombstones"};
 
+  /// The same as above but only reported by the HashBuild operator.
+  static inline const std::string kBuildWallNanos{"hashtable.buildWallNanos"};
+
   /// Returns the string of the given 'mode'.
   static std::string modeString(HashMode mode);
 
