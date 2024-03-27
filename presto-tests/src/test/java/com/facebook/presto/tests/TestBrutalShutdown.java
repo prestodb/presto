@@ -15,6 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -23,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,8 +34,10 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -43,9 +47,9 @@ import static org.testng.Assert.fail;
 public class TestBrutalShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 600_000;
-    private static final Session TINY_SESSION = testSessionBuilder()
-            .setCatalog("tpch")
-            .setSchema("tiny")
+    private static final Session BLACKHOLE_SESSION = testSessionBuilder()
+            .setCatalog("blackhole")
+            .setSchema("default")
             .build();
 
     private ListeningExecutorService executor;
@@ -67,12 +71,15 @@ public class TestBrutalShutdown
             throws Exception
     {
         int totalQueries = 5;
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of())) {
-            queryRetryOnShutdown(TINY_SESSION, queryRunner, executor, totalQueries);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), BLACKHOLE_SESSION)) {
+            queryRetryOnShutdown(BLACKHOLE_SESSION, queryRunner, executor, totalQueries);
 
             int totalSuccessfulQueries = 0;
             List<BasicQueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
             for (BasicQueryInfo info : queryInfos) {
+                if (!info.getQueryType().isPresent() || !info.getQueryType().get().equals(SELECT)) {
+                    continue;
+                }
                 if (info.getQuery().contains("-- retry query")) {
                     assertEquals(info.getState(), FINISHED);
                 }
@@ -88,13 +95,13 @@ public class TestBrutalShutdown
     public void testTransactionalQueryRetryOnShutdown()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of())) {
-            executor.submit(() -> queryRunner.execute(TINY_SESSION, "START TRANSACTION")).get();
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), BLACKHOLE_SESSION)) {
+            executor.submit(() -> queryRunner.execute(BLACKHOLE_SESSION, "START TRANSACTION")).get();
 
             TransactionInfo transactionInfo = queryRunner.getCoordinator().getTransactionManager().getAllTransactionInfos().get(0);
             Session session = testSessionBuilder()
-                    .setCatalog("tpch")
-                    .setSchema("tiny")
+                    .setCatalog("blackhole")
+                    .setSchema("default")
                     .setTransactionId(transactionInfo.getTransactionId())
                     .build();
 
@@ -114,8 +121,8 @@ public class TestBrutalShutdown
     public void testRetryCircuitBreaker()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("global-query-retry-failure-limit", "2"))) {
-            queryRetryOnShutdown(TINY_SESSION, queryRunner, executor, 10);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("global-query-retry-failure-limit", "2"), BLACKHOLE_SESSION)) {
+            queryRetryOnShutdown(BLACKHOLE_SESSION, queryRunner, executor, 10);
 
             int totalSuccessfulRetryQueries = 0;
             List<BasicQueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
@@ -138,7 +145,7 @@ public class TestBrutalShutdown
     {
         List<ListenableFuture<?>> queryFutures = new ArrayList<>();
         for (int i = 0; i < totalQueries; i++) {
-            queryFutures.add(executor.submit(() -> queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
+            queryFutures.add(executor.submit(() -> queryRunner.execute(session, "SELECT COUNT(*) FROM blackhole.default.dummy")));
         }
 
         TestingPrestoServer worker = queryRunner.getServers()
@@ -167,7 +174,7 @@ public class TestBrutalShutdown
         }
     }
 
-    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraCoordinatorProperties)
+    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraCoordinatorProperties, Session tinySession)
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
@@ -187,7 +194,7 @@ public class TestBrutalShutdown
                 .putAll(extraCoordinatorProperties)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TINY_SESSION)
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(tinySession)
                 .setCoordinatorCount(1)
                 .setNodeCount(5)
                 .setCoordinatorProperties(coordinatorProperties)
@@ -196,7 +203,12 @@ public class TestBrutalShutdown
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+            queryRunner.installPlugin(new BlackHolePlugin());
+            queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
+            queryRunner.execute(format(
+                    "CREATE TABLE blackhole.default.dummy (col BIGINT) WITH (split_count = 1, rows_per_page = 1, pages_per_split = 1, page_processing_delay = '%s')",
+                    new Duration(SHUTDOWN_TIMEOUT_MILLIS / 50.0, MILLISECONDS)));
             return queryRunner;
         }
         catch (Exception e) {
