@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.SqlIntervalDayTime;
@@ -165,6 +166,7 @@ public abstract class TestDateTimeFunctionsBase
         long dateTimeCalculation = currentDate(
                 new TestingConnectorSession(
                         "test",
+                        new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                         Optional.empty(),
                         Optional.empty(),
                         timeZoneKey,

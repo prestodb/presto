@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -224,6 +225,7 @@ public class TestPinotSplitManager
     {
         return new TestingConnectorSession(
                 "user",
+                new ConnectorIdentity("user", Optional.empty(), Optional.empty()),
                 Optional.of("test"),
                 Optional.empty(),
                 UTC_KEY,
@@ -246,6 +248,7 @@ public class TestPinotSplitManager
     {
         return new TestingConnectorSession(
                 "user",
+                new ConnectorIdentity("user", Optional.empty(), Optional.empty()),
                 Optional.of("test"),
                 Optional.empty(),
                 UTC_KEY,
@@ -266,6 +269,7 @@ public class TestPinotSplitManager
     {
         return new TestingConnectorSession(
                 "user",
+                new ConnectorIdentity("user", Optional.empty(), Optional.empty()),
                 Optional.of("test"),
                 Optional.empty(),
                 UTC_KEY,
