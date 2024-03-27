@@ -88,11 +88,11 @@ struct PrestoTask {
   std::shared_ptr<velox::exec::Task> task;
   std::atomic_bool hasStuckOperator{false};
 
-  // Has the task been normally created and started.
-  // When you create task with error - it has never been started.
-  // When you create task from 'delete task' - it has never been started.
-  // When you create task from any other endpoint, such as 'get result' - it has
-  // not been started, until the actual 'create task' message comes.
+  /// Has the task been normally created and started.
+  /// When you create task with error - it has never been started.
+  /// When you create task from 'delete task' - it has never been started.
+  /// When you create task from any other endpoint, such as 'get result' - it
+  /// has not been started, until the actual 'create task' message comes.
   bool taskStarted{false};
 
   uint64_t lastHeartbeatMs{0};
@@ -150,14 +150,33 @@ struct PrestoTask {
   /// Returns process-wide CPU time in nanoseconds.
   static long getProcessCpuTime();
 
+  /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
   protocol::TaskInfo updateInfoLocked();
-  void updateOutputBufferInfoLocked(const velox::exec::TaskStats& taskStats);
 
   folly::dynamic toJson() const;
 
  private:
   void recordProcessCpuTime();
+
+  void updateOutputBufferInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateTimeInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateExecutionInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      const protocol::TaskStatus& prestoTaskStatus,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateMemoryInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};
 };
