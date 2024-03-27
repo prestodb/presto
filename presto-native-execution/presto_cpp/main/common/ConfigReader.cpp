@@ -13,12 +13,12 @@
  */
 
 #include "presto_cpp/main/common/ConfigReader.h"
+#include <fmt/format.h>
 #include <fstream>
 #include "velox/common/base/Exceptions.h"
 #include "velox/core/Config.h"
 
 namespace facebook::presto::util {
-
 std::unordered_map<std::string, std::string> readConfig(
     const std::string& filePath) {
   // https://teradata.github.io/presto/docs/141t/configuration/configuration.html
@@ -36,10 +36,16 @@ std::unordered_map<std::string, std::string> readConfig(
       continue;
     }
 
-    std::vector<std::string> configParts;
-    folly::split('=', line, configParts);
-    VELOX_USER_CHECK_EQ(configParts.size(), 2, "Malformed config: {}", line);
-    properties.emplace(configParts[0], configParts[1]);
+    const auto delimiterPos = line.find('=');
+    VELOX_CHECK_NE(
+        delimiterPos,
+        std::string::npos,
+        "No '=' sign found for property pair '{}'",
+        line);
+    const auto name = line.substr(0, delimiterPos);
+    VELOX_CHECK(!name.empty(), "property pair '{}' has empty key", line);
+    const auto value = line.substr(delimiterPos + 1);
+    properties.emplace(name, value);
   }
 
   return properties;
