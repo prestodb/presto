@@ -118,6 +118,7 @@ jobs:
                     -DPRESTO_ENABLE_PARQUET=ON \
                     -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
                     -DPRESTO_ENABLE_JWT=ON \
+                    -DPRESTO_ENABLE_PROMETHEUS_REPORTER=ON \
                     -DCMAKE_PREFIX_PATH=/usr/local \
                     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
                     -DMAX_LINK_JOBS=2
