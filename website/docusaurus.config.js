@@ -71,7 +71,7 @@ const config = {
           },
           {
             href: '/docs',
-            label: 'Roadmap',
+            label: 'Community',
             position: 'left',
           },
           {

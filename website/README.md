@@ -26,16 +26,9 @@ This command generates static content into the `build` directory and can be serv
 
 ### Deployment
 
-Using SSH:
-
-```
-$ USE_SSH=true yarn deploy
-```
-
-Not using SSH:
-
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+Velox's website is automatically deployed using
+[Netlify](https://www.netlify.com/). Whenever a pull request changing one of
+the files under *velox/website* is submitted, a live preview link is generated
+by Netlify. The link is posted in the pull request as a comment by the Netlify
+bot. When the pull request is merged, the changes are automatically deployed to
+the website by Netlify. 
