@@ -108,3 +108,8 @@ set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
+
+if(PRESTO_ENABLE_PROMETHEUS_REPORTER)
+  add_subdirectory(runtime-metrics)
+  target_link_libraries(presto_server prometheus_reporter)
+endif()
