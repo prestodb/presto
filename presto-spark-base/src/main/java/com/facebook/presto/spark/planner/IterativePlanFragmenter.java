@@ -106,6 +106,7 @@ public class IterativePlanFragmenter
     // number 0
     private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
     private final Map<PlanFragmentId, SubPlan> subPlanByFragmentId = new HashMap<>();
+    private final boolean nativeExecution;
 
     public IterativePlanFragmenter(
             Plan originalPlan,
@@ -118,7 +119,8 @@ public class IterativePlanFragmenter
             QueryManagerConfig queryManagerConfig,
             Session session,
             WarningCollector warningCollector,
-            boolean forceSingleNode)
+            boolean forceSingleNode,
+            boolean nativeExecution)
     {
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
         this.isFragmentFinished = requireNonNull(isFragmentFinished, "isSourceReady is null");
@@ -132,6 +134,7 @@ public class IterativePlanFragmenter
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.forceSingleNode = forceSingleNode;
+        this.nativeExecution = nativeExecution;
     }
 
     /**
@@ -186,7 +189,7 @@ public class IterativePlanFragmenter
         // and rewriting the partition handle
         PartitioningHandle partitioningHandle = properties.getPartitioningHandle();
         subPlans = subPlans.stream()
-                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, partitioningHandle))
+                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, partitioningHandle, nativeExecution))
                 .collect(toImmutableList());
 
         return new PlanAndFragments(remainingPlan, subPlans);

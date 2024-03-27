@@ -2036,8 +2036,11 @@ public final class SystemSessionProperties
         return !isStrategyNone && hasMaterializedCTE;
     }
 
-    public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session)
+    public static ExchangeMaterializationStrategy getExchangeMaterializationStrategy(Session session, boolean nativeExecution)
     {
+        if (nativeExecution) {
+            return ExchangeMaterializationStrategy.NONE;
+        }
         return session.getSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.class);
     }
 
