@@ -112,6 +112,6 @@ public class TestHistoricalStatisticsSerde
         RuntimeException exception = expectThrows(
                 RuntimeException.class,
                 () -> historicalStatisticsEncoderDecoder.decodeValue(encodedKey));
-        assertTrue(exception.getMessage().contains("Invalid thrift object"));
+        assertTrue(exception.getMessage().contains("Error decoding historicalPlanStatistics value"));
     }
 }
