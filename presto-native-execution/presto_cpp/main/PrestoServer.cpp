@@ -36,7 +36,6 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
@@ -55,7 +54,6 @@
 #include "velox/serializers/PrestoSerializer.h"
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
-#include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
 namespace facebook::presto {
@@ -115,6 +113,11 @@ bool isCacheTtlEnabled() {
 
 } // namespace
 
+// Registers an HTTP GET endpoint to fetch metrics.
+// Defined in RuntimeMetricsReporter.cpp
+void registerRuntimeMetricsHttpEndpoint(
+    const std::unique_ptr<http::HttpServer>& httpServer) {}
+
 std::string nodeState2String(NodeState nodeState) {
   switch (nodeState) {
     case presto::NodeState::kActive:
@@ -157,10 +160,6 @@ void PrestoServer::run() {
     // velox.properties is optional.
     baseVeloxQueryConfig->initialize(
         fmt::format("{}/velox.properties", configDirectoryPath_), true);
-
-    if (systemConfig->enableRuntimeMetricsCollection()) {
-      enableRuntimeMetricReporting();
-    }
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
@@ -366,6 +365,21 @@ void PrestoServer::run() {
             .sendWithEOM();
       });
 
+  if (systemConfig->enableRuntimeMetricsCollection()) {
+    enableWorkerStatsReporting();
+    if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
+      httpServer_->registerGet(
+          "/v1/info/metrics/",
+          [](proxygen::HTTPMessage* /*message*/,
+             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+             proxygen::ResponseHandler* downstream) {
+            http::sendOkResponse(
+                downstream,
+                folly::Singleton<velox::BaseStatsReporter>::try_get()
+                    ->fetchMetrics());
+          });
+    }
+  }
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -1129,7 +1143,7 @@ std::string PrestoServer::getBaseSpillDirectory() const {
   return SystemConfig::instance()->spillerSpillPath().value_or("");
 }
 
-void PrestoServer::enableRuntimeMetricReporting() {
+void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
   facebook::velox::BaseStatsReporter::registered = true;
   registerStatsCounters();
