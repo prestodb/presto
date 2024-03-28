@@ -20,10 +20,18 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.gcs.HiveGcsConfig;
+import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
+import com.facebook.presto.iceberg.IcebergCatalogName;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
+import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -34,6 +42,7 @@ import java.io.File;
 
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static java.lang.String.format;
 
 public class TestIcebergSmokeHive
@@ -72,9 +81,15 @@ public class TestIcebergSmokeHive
     @Override
     protected Table getIcebergTable(ConnectorSession session, String schema, String tableName)
     {
+        IcebergResourceFactory resourceFactory = new IcebergResourceFactory(new IcebergConfig(),
+                new IcebergCatalogName(ICEBERG_CATALOG),
+                new NessieConfig(),
+                new PrestoS3ConfigurationUpdater(new HiveS3Config()),
+                new HiveGcsConfigurationInitializer(new HiveGcsConfig()));
+
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
-                getHdfsEnvironment(),
                 session,
-                SchemaTableName.valueOf(schema + "." + tableName));
+                SchemaTableName.valueOf(schema + "." + tableName),
+                resourceFactory);
     }
 }

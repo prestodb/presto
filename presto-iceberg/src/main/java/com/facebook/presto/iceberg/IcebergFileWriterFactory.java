@@ -86,6 +86,7 @@ public class IcebergFileWriterFactory
     private final NoOpOrcWriterStats orcWriterStats = NOOP_WRITER_STATS;
     private final OrcFileWriterConfig orcFileWriterConfig;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
+    private final IcebergResourceFactory resourceFactory;
 
     @Inject
     public IcebergFileWriterFactory(
@@ -94,7 +95,8 @@ public class IcebergFileWriterFactory
             FileFormatDataSourceStats readStats,
             NodeVersion nodeVersion,
             OrcFileWriterConfig orcFileWriterConfig,
-            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider,
+            IcebergResourceFactory resourceFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -102,6 +104,7 @@ public class IcebergFileWriterFactory
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.orcFileWriterConfig = requireNonNull(orcFileWriterConfig, "orcFileWriterConfig is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
+        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
     }
 
     public IcebergFileWriter createFileWriter(
@@ -161,7 +164,8 @@ public class IcebergFileWriterFactory
                     getCompressionCodec(session).getParquetCompressionCodec().get(),
                     outputPath,
                     hdfsEnvironment,
-                    hdfsContext);
+                    hdfsContext,
+                    resourceFactory);
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

@@ -13,10 +13,18 @@
  */
 package com.facebook.presto.iceberg.hive;
 
+import com.facebook.presto.hive.gcs.HiveGcsConfig;
+import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
+import com.facebook.presto.iceberg.IcebergCatalogName;
+import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedTestBase;
+import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -55,10 +63,16 @@ public class TestIcebergDistributedHive
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
+        IcebergResourceFactory resourceFactory = new IcebergResourceFactory(new IcebergConfig(),
+                new IcebergCatalogName(ICEBERG_CATALOG),
+                new NessieConfig(),
+                new PrestoS3ConfigurationUpdater(new HiveS3Config()),
+                new HiveGcsConfigurationInitializer(new HiveGcsConfig()));
+
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
-                getHdfsEnvironment(),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
-                SchemaTableName.valueOf("tpch." + tableName));
+                SchemaTableName.valueOf("tpch." + tableName),
+                resourceFactory);
     }
 
     protected ExtendedHiveMetastore getFileHiveMetastore()
