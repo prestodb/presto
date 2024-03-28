@@ -216,7 +216,7 @@ public class AddExchanges
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
             this.hashPartitionCount = getHashPartitionCount(session);
-            this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
+            this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session, nativeExecution);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
             this.nativeExecution = nativeExecution;
         }

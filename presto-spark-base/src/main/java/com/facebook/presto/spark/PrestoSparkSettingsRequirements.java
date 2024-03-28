@@ -48,7 +48,7 @@ public class PrestoSparkSettingsRequirements
     {
         // verify Presto configuration
         verify(!isDistributedSortEnabled(session), "distributed sort is not supported");
-        verify(getExchangeMaterializationStrategy(session) == NONE, "exchange materialization is not supported");
+        verify(getExchangeMaterializationStrategy(session, false) == NONE, "exchange materialization is not supported");
         verify(getPartitioningProviderCatalog(session).equals(GlobalSystemConnector.NAME), "partitioning provider other that system is not supported");
         verify(!isRecoverableGroupedExecutionEnabled(session) && !isGroupedExecutionEnabled(session), "grouped execution is not supported");
         verify(!isRedistributeWrites(session), "redistribute writes is not supported");
