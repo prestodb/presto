@@ -34,7 +34,6 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -57,6 +56,7 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
@@ -82,6 +82,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -442,7 +443,7 @@ public class IcebergHiveMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         TableStatistics icebergStatistics = TableStatisticsMaker.getTableStatistics(session, typeManager, constraint, handle, icebergTable, columnHandles.stream().map(IcebergColumnHandle.class::cast).collect(Collectors.toList()));
-        HiveStatisticsMergeStrategy mergeStrategy = getHiveStatisticsMergeStrategy(session);
+        EnumSet<ColumnStatisticType> mergeFlags = getHiveStatisticsMergeStrategy(session);
         return tableLayoutHandle.map(IcebergTableLayoutHandle.class::cast).map(layoutHandle -> {
             TupleDomain<ColumnHandle> domainPredicate = layoutHandle.getDomainPredicate()
                     .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
@@ -455,7 +456,7 @@ public class IcebergHiveMetadata
             });
             RowExpression translatedPredicate = rowExpressionService.getDomainTranslator().toPredicate(predicate);
             PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
-            TableStatistics mergedStatistics = mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeStrategy, icebergTable.spec());
+            TableStatistics mergedStatistics = mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeFlags, icebergTable.spec());
             TableStatistics.Builder filteredStatsBuilder = TableStatistics.builder()
                     .setRowCount(mergedStatistics.getRowCount());
             double totalSize = 0;
@@ -481,11 +482,8 @@ public class IcebergHiveMetadata
                             IcebergColumnHandle::getName,
                             IcebergColumnHandle::getType)));
         }).orElseGet(() -> {
-            if (!mergeStrategy.equals(HiveStatisticsMergeStrategy.NONE)) {
-                PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
-                return mergeHiveStatistics(icebergStatistics, hiveStats, mergeStrategy, icebergTable.spec());
-            }
-            return icebergStatistics;
+            PartitionStatistics hiveStats = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
+            return mergeHiveStatistics(icebergStatistics, hiveStats, mergeFlags, icebergTable.spec());
         });
     }
 
@@ -500,9 +498,16 @@ public class IcebergHiveMetadata
     {
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .flatMap(meta -> metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
-                        .stream()
-                        .map(statType -> statType.getColumnStatisticMetadata(meta.getName())))
+                .flatMap(meta -> {
+                    try {
+                        return metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
+                                .stream()
+                                .map(statType -> statType.getColumnStatisticMetadata(meta.getName()));
+                    }
+                    catch (IllegalArgumentException e) {
+                        return ImmutableSet.<ColumnStatisticMetadata>of().stream();
+                    }
+                })
                 .collect(toImmutableSet());
 
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);

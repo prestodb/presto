@@ -16,7 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
+import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.hadoop.HadoopFileIO;
@@ -26,7 +26,11 @@ import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.GZIP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
@@ -51,12 +55,13 @@ public class IcebergConfig
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
 
-    private HiveStatisticsMergeStrategy hiveStatisticsMergeStrategy = HiveStatisticsMergeStrategy.NONE;
+    private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
     private boolean manifestCachingEnabled;
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+
     @NotNull
     public FileFormat getFileFormat()
     {
@@ -195,16 +200,22 @@ public class IcebergConfig
     }
 
     @Config("iceberg.hive-statistics-merge-strategy")
-    @ConfigDescription("determines how to merge statistics that are stored in the Hive Metastore")
-    public IcebergConfig setHiveStatisticsMergeStrategy(HiveStatisticsMergeStrategy mergeStrategy)
+    @ConfigDescription("Comma separated list of statistics to use from the Hive metastore to override iceberg table statistics")
+    public IcebergConfig setHiveStatisticsMergeFlags(String mergeFlags)
     {
-        this.hiveStatisticsMergeStrategy = mergeStrategy;
+        this.hiveStatisticsMergeFlags = Optional.of(Arrays.stream(mergeFlags.trim().split(","))
+                        .filter(value -> !value.isEmpty())
+                        .map(ColumnStatisticType::valueOf)
+                        .collect(Collectors.toSet()))
+                .filter(set -> !set.isEmpty())
+                .map(EnumSet::copyOf)
+                .orElse(EnumSet.noneOf(ColumnStatisticType.class));
         return this;
     }
 
-    public HiveStatisticsMergeStrategy getHiveStatisticsMergeStrategy()
+    public EnumSet<ColumnStatisticType> getHiveStatisticsMergeFlags()
     {
-        return hiveStatisticsMergeStrategy;
+        return hiveStatisticsMergeFlags;
     }
 
     @Config("iceberg.statistic-snapshot-record-difference-weight")
