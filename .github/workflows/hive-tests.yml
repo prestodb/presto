@@ -39,7 +39,9 @@ jobs:
       group: ${{ github.workflow }}-hive-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - uses: actions/setup-java@v1
         with:
           java-version: 8
@@ -88,7 +90,9 @@ jobs:
       group: ${{ github.workflow }}-hive-dockerized-tests-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - uses: actions/setup-java@v1
         with:
           java-version: 8
