@@ -524,4 +524,11 @@ public class MockHiveMetastoreClient
     {
         // No-op
     }
+
+    @Override
+    public void addNotNullConstraint(List<SQLNotNullConstraint> constraint)
+            throws TException
+    {
+        // No-op
+    }
 }

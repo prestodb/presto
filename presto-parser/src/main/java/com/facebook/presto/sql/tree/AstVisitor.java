@@ -607,6 +607,11 @@ public abstract class AstVisitor<R, C>
         return visitTableElement(node, context);
     }
 
+    protected R visitAlterColumnNotNull(AlterColumnNotNull node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAnalyze(Analyze node, C context)
     {
         return visitStatement(node, context);

@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -1620,6 +1621,27 @@ public final class SqlFormatter
             builder.append(" ADD ");
             builder.append(processConstraintDefinition(node.getConstraintSpecification()));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitAlterColumnNotNull(AlterColumnNotNull node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTable().toString());
+            builder.append(" ALTER COLUMN ");
+            builder.append(node.getColumn());
+            builder.append(" ");
+            if (node.isDropConstraint()) {
+                builder.append("DROP");
+            }
+            else {
+                builder.append("SET");
+            }
+            builder.append(" NOT NULL");
             return null;
         }
 

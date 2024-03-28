@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -3011,6 +3012,21 @@ public class TestSqlParser
         assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE)", ".*mismatched input.*");
         assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) ENFORCED DISABLED ENFORCED)", ".*Invalid.*constraint specification.*");
         assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) RELY DISABLED NOT RELY)", ".*Invalid.*constraint specification.*");
+    }
+
+    @Test
+    public void testAlterColumnAddDropNotNullConstraints()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN b SET NOT NULL", new AlterColumnNotNull(QualifiedName.of("foo", "t"),
+                identifier("b"), false, false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN b DROP NOT NULL", new AlterColumnNotNull(QualifiedName.of("foo", "t"),
+                identifier("b"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET NOT NULL", new AlterColumnNotNull(QualifiedName.of("foo", "t"),
+                identifier("b"), true, false));
+        assertStatement("ALTER TABLE foo.t ALTER b DROP NOT NULL", new AlterColumnNotNull(QualifiedName.of("foo", "t"),
+                identifier("b"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER b DROP NOT NULL", new AlterColumnNotNull(QualifiedName.of("foo", "t"),
+                identifier("b"), true, true));
     }
 
     private static void assertCast(String type)

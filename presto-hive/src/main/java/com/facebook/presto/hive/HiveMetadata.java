@@ -340,6 +340,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.COVERED;
@@ -1415,6 +1416,9 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(session, handle);
+        if (!column.isNullable()) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support ADD COLUMN with NOT NULL");
+        }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.addColumn(metastoreContext, handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
@@ -3745,11 +3749,30 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintName);
+        checkArgument((constraintName.isPresent() && !columnName.isPresent()) || (!constraintName.isPresent() && columnName.isPresent()));
+        String constraintToDrop;
+        if (constraintName.isPresent()) {
+            constraintToDrop = constraintName.get();
+        }
+        else {
+            List<TableConstraint<String>> notNullConstraints = metastore.getTableConstraints(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName())
+                    .stream()
+                    .filter(NotNullConstraint.class::isInstance)
+                    .filter(constraint -> constraint.getColumns().stream()
+                            .findFirst()
+                            .orElse("")
+                            .equals(columnName.get()))
+                    .collect(toImmutableList());
+            if (notNullConstraints.size() == 0 || !notNullConstraints.get(0).getName().isPresent()) {
+                throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName.get()));
+            }
+            constraintToDrop = notNullConstraints.get(0).getName().get();
+        }
+        metastore.dropConstraint(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), constraintToDrop);
     }
 
     @Override

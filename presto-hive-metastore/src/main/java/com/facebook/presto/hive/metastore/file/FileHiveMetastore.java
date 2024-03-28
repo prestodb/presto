@@ -1098,7 +1098,8 @@ public class FileHiveMetastore
                         tableConstraint.isEnforced());
             }
             else if (tableConstraint instanceof NotNullConstraint) {
-                tableConstraint = new NotNullConstraint(tableConstraint.getColumns());
+                tableConstraint = new NotNullConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns());
             }
         }
         constraints.add(tableConstraint);
