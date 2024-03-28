@@ -16,23 +16,22 @@ package com.facebook.presto.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Target(METHOD)
-public @interface CodegenScalarFunction
+@Target({METHOD, TYPE})
+public @interface ScalarFunctionLambdaArgumentDescriptor
 {
-    String value() default "";
+    /**
+     * Index of the function argument that contains the function input (Array or Map), to which this lambda argument relate to.
+     */
+    int callArgumentIndex();
 
-    String[] alias() default {};
-
-    SqlFunctionVisibility visibility() default PUBLIC;
-
-    boolean deterministic() default true;
-
-    boolean calledOnNullInput() default false;
-
-    ScalarFunctionDescriptor descriptor() default @ScalarFunctionDescriptor;
+    /**
+     * Contains the name of the subfield path transformation function that needs to be applied ti the subfields of this lambda argument.
+     * The acceptable list of names include all static methods of SubfieldPathTransformationFunctions class.
+     */
+    String lambdaArgumentToInputTransformationFunction() default "prependAllSubscripts";
 }

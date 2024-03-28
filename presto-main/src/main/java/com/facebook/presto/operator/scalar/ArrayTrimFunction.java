@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
@@ -25,7 +26,9 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
-@ScalarFunction("trim_array")
+@ScalarFunction(value = "trim_array", descriptor = @ScalarFunctionDescriptor(
+        isAccessingInputValues = false,
+        lambdaDescriptors = {}))
 @Description("Remove elements from the end of array")
 public final class ArrayTrimFunction
 {

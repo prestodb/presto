@@ -18,6 +18,9 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionDescriptor;
+import com.facebook.presto.spi.function.ScalarFunctionLambdaArgumentDescriptor;
+import com.facebook.presto.spi.function.ScalarFunctionLambdaDescriptor;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -27,7 +30,12 @@ import io.airlift.slice.Slice;
 import static java.lang.Boolean.TRUE;
 
 @Description("Returns true if the array contains one or more elements that match the given predicate")
-@ScalarFunction(value = "any_match")
+@ScalarFunction(value = "any_match", descriptor = @ScalarFunctionDescriptor(
+        outputToInputTransformationFunction = "clearRequiredSubfields",
+        lambdaDescriptors = {
+                @ScalarFunctionLambdaDescriptor(
+                        lambdaArgumentDescriptors = {
+                                @ScalarFunctionLambdaArgumentDescriptor(callArgumentIndex = 0)})}))
 public final class ArrayAnyMatchFunction
 {
     private ArrayAnyMatchFunction() {}
