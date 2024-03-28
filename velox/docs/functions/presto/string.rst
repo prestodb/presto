@@ -54,6 +54,12 @@ String Functions
     empty string. When `replace` is an empty string invalid characters are
     removed.
 
+.. function:: hamming_distance(string1, string2) -> bigint
+
+    Returns the Hamming distance of ``string1`` and ``string2``,
+    i.e. the number of positions at which the corresponding characters are different.
+    Note that the two strings must have the same length.
+
 .. function:: length(string) -> bigint
 
     Returns the length of ``string`` in characters.

@@ -341,6 +341,70 @@ struct StrLPosFunction : public StrPosFunctionBase<T, true> {};
 template <typename T>
 struct StrRPosFunction : public StrPosFunctionBase<T, false> {};
 
+/// hamming_distance(string, string) -> bigint
+/// Computes the hamming distance between two strings.
+template <typename T>
+struct HammingDistanceFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void call(
+      out_type<int64_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right) {
+    int64_t leftLength = left.size();
+    int64_t rightLength = right.size();
+
+    int64_t distance = 0;
+    int64_t leftPosition = 0;
+    int64_t rightPosition = 0;
+    while (leftPosition < leftLength && rightPosition < rightLength) {
+      int leftSize = 0;
+      int rightSize = 0;
+      auto codePointLeft = utf8proc_codepoint(
+          left.data() + leftPosition, left.data() + leftLength, leftSize);
+      auto codePointRight = utf8proc_codepoint(
+          right.data() + rightPosition, right.data() + rightLength, rightSize);
+
+      // if both code points are invalid, we do not care if they are equal
+      // the following code treats them as equal if they happen to be of the
+      // same length
+      leftPosition += codePointLeft > 0 ? leftSize : -codePointLeft;
+      rightPosition += codePointRight > 0 ? rightSize : -codePointRight;
+
+      if (codePointLeft != codePointRight) {
+        distance++;
+      }
+    }
+    VELOX_USER_CHECK(
+        leftPosition == leftLength && rightPosition == rightLength,
+        "The input strings to hamming_distance function must have the same length");
+
+    result = distance;
+  }
+
+  void callAscii(
+      out_type<int64_t>& result,
+      const arg_type<Varchar>& left,
+      const arg_type<Varchar>& right) {
+    int64_t leftLength = left.size();
+    int64_t rightLength = right.size();
+    VELOX_USER_CHECK_EQ(
+        leftLength,
+        rightLength,
+        "The input strings to hamming_distance function must have the same length");
+
+    auto leftCodePoints = reinterpret_cast<const uint8_t*>(left.data());
+    auto rightCodePoints = reinterpret_cast<const uint8_t*>(right.data());
+    int64_t distance = 0;
+    for (int i = 0; i < leftLength; i++) {
+      if (leftCodePoints[i] != rightCodePoints[i]) {
+        distance++;
+      }
+    }
+    result = distance;
+  }
+};
+
 template <typename T>
 struct LevenshteinDistanceFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
