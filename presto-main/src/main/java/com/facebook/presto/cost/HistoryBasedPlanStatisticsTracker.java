@@ -20,6 +20,7 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
@@ -42,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -54,6 +57,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
+import static com.facebook.presto.SystemSessionProperties.trackHistoryStatsFromFailedQuery;
 import static com.facebook.presto.SystemSessionProperties.trackPartialAggregationHistory;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
@@ -75,17 +79,23 @@ public class HistoryBasedPlanStatisticsTracker
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedOptimizationConfig config;
+    private final boolean isNativeExecution;
+    private final String serverVersion;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
             SessionPropertyManager sessionPropertyManager,
-            HistoryBasedOptimizationConfig config)
+            HistoryBasedOptimizationConfig config,
+            boolean isNativeExecution,
+            String serverVersion)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.isNativeExecution = isNativeExecution;
+        this.serverVersion = serverVersion;
     }
 
     public void updateStatistics(QueryExecution queryExecution)
@@ -106,10 +116,10 @@ public class HistoryBasedPlanStatisticsTracker
             return ImmutableMap.of();
         }
 
-        // Only update statistics for successful queries
-        if (queryInfo.getFailureInfo() != null ||
-                !queryInfo.getOutputStage().isPresent() ||
-                !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+        // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
+        boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
+        boolean querySucceed = queryInfo.getFailureInfo() == null;
+        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
             return ImmutableMap.of();
         }
 
@@ -124,7 +134,20 @@ public class HistoryBasedPlanStatisticsTracker
         }
 
         StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = outputStage.getAllStages();
+        List<StageInfo> allStages = ImmutableList.of();
+        if (querySucceed) {
+            allStages = outputStage.getAllStages();
+        }
+        else if (trackStatsForFailedQueries) {
+            allStages = outputStage.getAllStages().stream().filter(x -> x.getLatestAttemptExecutionInfo().getState().equals(StageExecutionState.FINISHED)).collect(toImmutableList());
+        }
+
+        if (allStages.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo = new HistoricalPlanStatisticsEntryInfo(
+                isNativeExecution ? HistoricalPlanStatisticsEntryInfo.WorkerType.CPP : HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, queryInfo.getQueryId(), serverVersion);
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap = new HashMap<>();
@@ -203,7 +226,7 @@ public class HistoryBasedPlanStatisticsTracker
                         PlanStatisticsWithSourceInfo planStatsWithSourceInfo = new PlanStatisticsWithSourceInfo(
                                 planNode.getId(),
                                 newPlanNodeStats,
-                                new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics)));
+                                new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics), Optional.of(historicalPlanStatisticsEntryInfo)));
                         planStatisticsMap.put(planNodeWithHash, planStatsWithSourceInfo);
 
                         if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent() && trackPartialAggregationHistory(session)) {
@@ -304,7 +327,8 @@ public class HistoryBasedPlanStatisticsTracker
         Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
                 .filter(entry -> entry.getKey().getHash().isPresent() &&
                         entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&
-                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent())
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent() &&
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getHistoricalPlanStatisticsEntryInfo().isPresent())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> {
@@ -315,7 +339,8 @@ public class HistoryBasedPlanStatisticsTracker
                                     historicalPlanStatistics,
                                     historyBasedSourceInfo.getInputTableStatistics().get(),
                                     entry.getValue().getPlanStatistics(),
-                                    config);
+                                    config,
+                                    historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().get());
                         }));
 
         if (!newPlanStatistics.isEmpty()) {

@@ -330,7 +330,10 @@ public class SfmSketch
      */
     public void mergeWith(SfmSketch other)
     {
-        mergeWith(other, getDefaultRandomizationStrategy());
+        // Using ThreadLocalRandomizationStrategy instead of
+        // SecureRandomizationStrategy since combining sketches
+        // does not need to be cryptographically secure
+        mergeWith(other, new ThreadLocalRandomizationStrategy());
     }
 
     public void mergeWith(SfmSketch other, RandomizationStrategy randomizationStrategy)

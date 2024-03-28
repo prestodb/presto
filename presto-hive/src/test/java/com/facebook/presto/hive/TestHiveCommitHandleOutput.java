@@ -244,7 +244,6 @@ public class TestHiveCommitHandleOutput
                 true,
                 false,
                 false,
-                false,
                 true,
                 true,
                 hiveClientConfig.getMaxPartitionBatchSize(),
@@ -269,7 +268,8 @@ public class TestHiveCommitHandleOutput
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
         return hiveMetadataFactory.get();
     }
 

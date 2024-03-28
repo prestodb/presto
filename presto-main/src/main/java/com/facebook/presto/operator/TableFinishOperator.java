@@ -246,12 +246,13 @@ public class TableFinishOperator
         checkState(state == State.RUNNING, "Operator is %s", state);
 
         TableCommitContext tableCommitContext = getTableCommitContext(page, tableCommitContextCodec);
-        lifespanAndStageStateTracker.update(page, tableCommitContext);
-        lifespanAndStageStateTracker.getStatisticsPagesToProcess(page, tableCommitContext).forEach(statisticsPage -> {
-            OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
-            statisticsAggregationOperator.addInput(statisticsPage);
-            timer.end(statisticsTiming);
-        });
+        if (lifespanAndStageStateTracker.update(page, tableCommitContext)) {
+            lifespanAndStageStateTracker.getStatisticsPagesToProcess(page, tableCommitContext).forEach(statisticsPage -> {
+                OperationTimer timer = new OperationTimer(statisticsCpuTimerEnabled);
+                statisticsAggregationOperator.addInput(statisticsPage);
+                timer.end(statisticsTiming);
+            });
+        }
         if (memoryTrackingEnabled) {
             systemMemoryContext.setBytes(operatorRetainedMemoryBytes.get());
         }
@@ -394,7 +395,7 @@ public class TableFinishOperator
             }
         }
 
-        public void update(Page page, TableCommitContext tableCommitContext)
+        public boolean update(Page page, TableCommitContext tableCommitContext)
         {
             LifespanAndStage lifespanAndStage = LifespanAndStage.fromTableCommitContext(tableCommitContext);
             PageSinkCommitStrategy commitStrategy = tableCommitContext.getPageSinkCommitStrategy();
@@ -406,14 +407,14 @@ public class TableFinishOperator
                     noCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
                             lifespanAndStage, ignored -> new LifespanAndStageState(
                                     tableCommitContext.getTaskId(), operatorRetainedMemoryBytes, false)).update(page);
-                    return;
+                    return true;
                 }
                 case TASK_COMMIT: {
                     // Case 2: Commit is required, but partial recovery is not supported
                     taskCommitUnrecoverableLifespanAndStageStates.computeIfAbsent(
                             lifespanAndStage, ignored -> new LifespanAndStageState(
                                     tableCommitContext.getTaskId(), operatorRetainedMemoryBytes, false)).update(page);
-                    return;
+                    return true;
                 }
                 case LIFESPAN_COMMIT: {
                     // Case 2: Lifespan commit is required
@@ -424,7 +425,7 @@ public class TableFinishOperator
                         checkState(
                                 !committedRecoverableLifespanAndStages.get(lifespanAndStage).getTaskId().equals(tableCommitContext.getTaskId()),
                                 "Received page from same task of committed lifespan and stage combination");
-                        return;
+                        return false;
                     }
 
                     // Case 2b: Current (stage, lifespan) combination is not yet committed
@@ -440,7 +441,7 @@ public class TableFinishOperator
                         uncommittedRecoverableLifespanAndStageStates.remove(lifespanAndStage);
                         commitFutures.add(pageSinkCommitter.commitAsync(lifespanAndStageState.getFragments()));
                     }
-                    return;
+                    return true;
                 }
                 default:
                     throw new IllegalArgumentException("unexpected commit strategy: " + commitStrategy);

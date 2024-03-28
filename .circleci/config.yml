@@ -25,6 +25,5 @@ workflows:
           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
           mapping: |
             presto-native-execution/.* run_native_specific_jobs true
-            presto-docs/.* run_linux_tests false
           base-revision: master
           config-path: .circleci/continue_config.yml

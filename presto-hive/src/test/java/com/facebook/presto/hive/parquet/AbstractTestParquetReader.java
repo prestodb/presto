@@ -130,8 +130,6 @@ public abstract class AbstractTestParquetReader
     private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
     private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
 
-    private Logger parquetLogger;
-
     private final ParquetTester tester;
 
     public AbstractTestParquetReader(ParquetTester tester)
@@ -145,7 +143,7 @@ public abstract class AbstractTestParquetReader
         assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
 
         // Parquet has excessive logging at INFO level
-        parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
+        Logger parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
         parquetLogger.setLevel(Level.WARNING);
     }
 
@@ -169,7 +167,7 @@ public abstract class AbstractTestParquetReader
     public void testNestedArrays()
             throws Exception
     {
-        int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
+        int nestingLevel = 8;
         ObjectInspector objectInspector = getStandardListObjectInspector(javaIntObjectInspector);
         Type type = new ArrayType(INTEGER);
         Iterable values = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), 3_210);
@@ -186,7 +184,7 @@ public abstract class AbstractTestParquetReader
     public void testSingleLevelSchemaNestedArrays()
             throws Exception
     {
-        int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
+        int nestingLevel = 5;
         ObjectInspector objectInspector = getStandardListObjectInspector(javaIntObjectInspector);
         Type type = new ArrayType(INTEGER);
         Iterable values = intsBetween(0, 31_234);
@@ -338,7 +336,7 @@ public abstract class AbstractTestParquetReader
     public void testNestedMaps()
             throws Exception
     {
-        int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
+        int nestingLevel = 12;
         Iterable<Integer> keys = intsBetween(0, 3_210);
         Iterable maps = limit(cycle(asList(null, "value2", "value3", null, null, "value6", "value7")), 3_210);
         ObjectInspector objectInspector = getStandardMapObjectInspector(javaIntObjectInspector, javaStringObjectInspector);
@@ -555,7 +553,7 @@ public abstract class AbstractTestParquetReader
     public void testNestedStructs()
             throws Exception
     {
-        int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
+        int nestingLevel = 14;
         Optional<List<String>> structFieldNames = Optional.of(singletonList("structField"));
         Iterable<?> values = limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), 3_210);
         ObjectInspector objectInspector = getStandardStructObjectInspector(structFieldNames.get(), singletonList(javaIntObjectInspector));
@@ -883,8 +881,9 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT32()
             throws Exception
     {
+        int[] scales = {0, 0, 2, 0, 0, 2, 5, 5, 7, 4};
         for (int precision = 1; precision <= MAX_PRECISION_INT32; precision++) {
-            int scale = ThreadLocalRandom.current().nextInt(precision);
+            int scale = scales[precision];
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Integer> intValues = intsBetween(1, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
@@ -926,8 +925,9 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByINT64()
             throws Exception
     {
+        int[] scales = {9, 2, 4, 1, 6, 3, 7, 1, 7, 12};
         for (int precision = MAX_PRECISION_INT32 + 1; precision <= MAX_PRECISION_INT64; precision++) {
-            int scale = ThreadLocalRandom.current().nextInt(precision);
+            int scale = scales[precision - MAX_PRECISION_INT32 - 1];
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Long> longValues = longsBetween(1, 1_000);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
@@ -942,8 +942,9 @@ public abstract class AbstractTestParquetReader
     public void testDecimalBackedByFixedLenByteArray()
             throws Exception
     {
+        int[] scales = {7, 13, 14, 8, 16, 20, 8, 4, 19, 25, 15, 23, 17, 2, 23, 0, 33, 8, 3, 12};
         for (int precision = MAX_PRECISION_INT64 + 1; precision < MAX_PRECISION; precision++) {
-            int scale = ThreadLocalRandom.current().nextInt(precision);
+            int scale = scales[precision - MAX_PRECISION_INT64 - 1];
             ContiguousSet<BigInteger> values = bigIntegersBetween(BigDecimal.valueOf(Math.pow(10, precision - 1)).toBigInteger(), BigDecimal.valueOf(Math.pow(10, precision)).toBigInteger());
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
             ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();

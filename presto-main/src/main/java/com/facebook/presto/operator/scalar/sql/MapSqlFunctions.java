@@ -35,6 +35,17 @@ public class MapSqlFunctions
         return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), map_keys(map_top_n(input, n)))";
     }
 
+    @SqlInvokedScalarFunction(value = "map_key_exists", deterministic = true, calledOnNullInput = false)
+    @Description("Returns whether a given key exists in a map.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "k", type = "K")})
+    @SqlType("boolean")
+    public static String mapKeysExists()
+    {
+        return "RETURN CONTAINS(MAP_KEYS(input), k)";
+    }
+
     @SqlInvokedScalarFunction(value = "map_top_n", deterministic = true, calledOnNullInput = true)
     @Description("Truncates map items. Keeps only the top N elements by value.")
     @TypeParameter("K")

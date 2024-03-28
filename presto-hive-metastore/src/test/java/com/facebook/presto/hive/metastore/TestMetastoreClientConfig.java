@@ -16,7 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticationType;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
+import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;

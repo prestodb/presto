@@ -29,7 +29,9 @@ public class TestRuntimeStats
     private static final String TEST_METRIC_NAME_3 = "test3";
     private static final String TEST_METRIC_NAME_NANO_1 = "test_nano_1";
     private static final String TEST_METRIC_NAME_NANO_2 = "test_nano_2";
+    private static final String TEST_METRIC_NAME_NANO_3 = "test_nano_3";
     private static final String TEST_METRIC_NAME_BYTE = "test_byte";
+    private static final long ONE_SECOND_IN_NANOS = 1_000_000_000L;
 
     private void assertRuntimeMetricEquals(RuntimeMetric m1, RuntimeMetric m2)
     {
@@ -233,5 +235,24 @@ public class TestRuntimeStats
     {
         RuntimeStats stats = new RuntimeStats();
         stats.getMetrics().put(TEST_METRIC_NAME_1, new RuntimeMetric(TEST_METRIC_NAME_1, NONE));
+    }
+
+    @Test
+    public void testProfileNano()
+    {
+        RuntimeStats stats = new RuntimeStats();
+        int status = stats.profileNanos(TEST_METRIC_NAME_NANO_3, () -> 1);
+
+        assert stats.getMetric(TEST_METRIC_NAME_NANO_3).getSum() < ONE_SECOND_IN_NANOS;
+        assertEquals(status, 1);
+    }
+
+    @Test
+    public void testProfileNanoVoid()
+    {
+        RuntimeStats stats = new RuntimeStats();
+        stats.profileNanosVoid(TEST_METRIC_NAME_NANO_3, () -> {});
+
+        assert stats.getMetric(TEST_METRIC_NAME_NANO_3).getSum() < ONE_SECOND_IN_NANOS;
     }
 }

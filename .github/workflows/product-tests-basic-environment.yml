@@ -8,7 +8,7 @@ env:
   CONTINUOUS_INTEGRATION: true
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
   RETRY: .github/bin/retry
 
 jobs:

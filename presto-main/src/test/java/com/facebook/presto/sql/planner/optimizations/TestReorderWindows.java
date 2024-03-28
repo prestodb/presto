@@ -322,7 +322,7 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
-                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser()),
+                new PredicatePushDown(getMetadata(), getQueryRunner().getSqlParser(), false),
                 new IterativeOptimizer(
                         getMetadata(),
                         new RuleStatsRecorder(),
