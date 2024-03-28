@@ -110,6 +110,9 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = "--runtime-stats", title = "runtime stats", description = "Enable run time information")
+    public boolean runtime;
+
     @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
