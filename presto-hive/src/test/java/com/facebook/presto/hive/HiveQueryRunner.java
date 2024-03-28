@@ -39,6 +39,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.tpch.TextPool;
 import io.airlift.tpch.TpchTable;
 import org.joda.time.DateTimeZone;
 
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
@@ -195,6 +197,10 @@ public final class HiveQueryRunner
                 .put("tracing.enable-distributed-tracing", "simple")
                 .putAll(extraProperties)
                 .build();
+
+        // This function is used when initializing TPC-H tables. Execute it while nodes are starting
+        // to lower the wall time for table copies during startup
+        CompletableFuture.runAsync(TextPool::getDefaultTestPool);
 
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
