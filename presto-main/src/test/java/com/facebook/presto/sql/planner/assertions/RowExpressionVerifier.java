@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import io.airlift.slice.Slice;
@@ -128,6 +129,12 @@ public final class RowExpressionVerifier
     protected Boolean visitNode(Node node, RowExpression context)
     {
         throw new IllegalStateException(format("Node %s is not supported", node));
+    }
+
+    @Override
+    protected Boolean visitTimestampLiteral(TimestampLiteral node, RowExpression context)
+    {
+        return compareLiteral(node, context);
     }
 
     @Override
@@ -480,6 +487,9 @@ public final class RowExpressionVerifier
         else if (expression instanceof DecimalLiteral) {
             return String.valueOf(((DecimalLiteral) expression).getValue());
         }
+        else if (expression instanceof TimestampLiteral) {
+            return ((TimestampLiteral) expression).getValue();
+        }
         else if (expression instanceof GenericLiteral) {
             return ((GenericLiteral) expression).getValue();
         }
@@ -494,7 +504,7 @@ public final class RowExpressionVerifier
             return getValueFromLiteral(expected).equals(String.valueOf(rowExpressionInterpreter(actual, metadata, session.toConnectorSession()).evaluate()));
         }
         if (actual instanceof ConstantExpression) {
-            return getValueFromLiteral(expected).equals(String.valueOf(LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual)));
+            return getValueFromLiteral(expected).equals(String.valueOf(LiteralInterpreter.evaluate(session.toConnectorSession(), (ConstantExpression) actual)));
         }
         return false;
     }
