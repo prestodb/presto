@@ -207,12 +207,12 @@ public class CommonSubExpressionRewriter
         return results;
     }
 
-    static class SubExpressionChecker
+    public static class SubExpressionChecker
             implements RowExpressionVisitor<Boolean, Void>
     {
         private final Set<RowExpression> subExpressions;
 
-        SubExpressionChecker(Set<RowExpression> subExpressions)
+        public SubExpressionChecker(Set<RowExpression> subExpressions)
         {
             this.subExpressions = subExpressions;
         }
@@ -266,7 +266,7 @@ public class CommonSubExpressionRewriter
         }
     }
 
-    static class ExpressionRewriter
+    public static class ExpressionRewriter
             implements RowExpressionVisitor<RowExpression, Void>
     {
         private final Map<RowExpression, VariableReferenceExpression> expressionMap;
