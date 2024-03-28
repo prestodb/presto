@@ -17,13 +17,13 @@ Endpoints
 ---------
 
 HTTP endpoints related to tasks are registered to Proxygen in
-`TaskResource.cpp`. Important endpoints implemented include:
+``TaskResource.cpp``. Important endpoints implemented include:
 
-* POST: v1/task: This processes a `TaskUpdateRequest`
-* GET: v1/task: This returns a serialized `TaskInfo` (used for comprehensive
+* POST: v1/task: This processes a ``TaskUpdateRequest``
+* GET: v1/task: This returns a serialized ``TaskInfo`` (used for comprehensive
   metrics, may be reported less frequently)
 * GET: v1/task/status: This returns
-  a serialized `TaskStatus` (used for query progress tracking, must be reported
+  a serialized ``TaskStatus`` (used for query progress tracking, must be reported
   frequently)
 
 Other HTTP endpoints include:
@@ -34,7 +34,7 @@ Other HTTP endpoints include:
 * GET: v1/status
 
 The request/response flow of Prestissimo is identical to Java workers. The
-tasks or new splits are registered via `TaskUpdateRequest`. Resource
+tasks or new splits are registered via ``TaskUpdateRequest``. Resource
 utilization and query progress are sent to the coordinator via task endpoints.
 
 
@@ -142,7 +142,7 @@ Async Data Cache and Prefetching
 --------------------------------
 
 ``connector.num-io-threads-hw-multiplier``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``double``
 * **Default value:** ``1.0``
@@ -171,7 +171,7 @@ Size of the SSD cache when async data cache is enabled.  Must be zero if
 ``async-data-cache-enabled`` is ``false``.
 
 ``enable-old-task-cleanup``
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``bool``
 * **Default value:** ``true``
@@ -182,7 +182,7 @@ however for Presto on Spark this defaults to ``false`` as zombie/stuck tasks
 are handled by spark via speculative execution.
 
 ``old-task-cleanup-ms``
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``integer``
 * **Default value:** ``60000``
