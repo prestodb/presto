@@ -77,7 +77,7 @@ class TransformFunction : public exec::VectorFunction {
         flatArray->pool(),
         outputType,
         std::move(newNulls),
-        flatArray->size(),
+        rows.end(),
         flatArray->offsets(),
         flatArray->sizes(),
         newElements);

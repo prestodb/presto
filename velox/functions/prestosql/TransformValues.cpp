@@ -77,7 +77,7 @@ class TransformValuesFunction : public exec::VectorFunction {
         flatMap->pool(),
         outputType,
         std::move(newNulls),
-        flatMap->size(),
+        rows.end(),
         flatMap->offsets(),
         flatMap->sizes(),
         flatMap->mapKeys(),

@@ -88,8 +88,9 @@ MapVectorPtr flattenMap(
     const VectorPtr& vector,
     DecodedVector& decodedVector);
 
-// Makes a copy of the original nulls in 'vector' and adds nulls for unselected
-// rows in 'rows'
+// Creates a nulls buffer to hold rows.size() nulls. Copies the original nulls
+// in 'vector' for positions [rows.begin(), rows.end()) and sets nulls for
+// unselected rows in 'rows'.
 BufferPtr addNullsForUnselectedRows(
     const VectorPtr& vector,
     const SelectivityVector& rows);

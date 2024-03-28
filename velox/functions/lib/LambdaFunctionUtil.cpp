@@ -158,7 +158,7 @@ BufferPtr addNullsForUnselectedRows(
     const VectorPtr& vector,
     const SelectivityVector& rows) {
   // Set nulls for rows not present in 'rows'.
-  BufferPtr nulls = allocateNulls(vector->size(), vector->pool(), bits::kNull);
+  BufferPtr nulls = allocateNulls(rows.size(), vector->pool(), bits::kNull);
 
   // bits::kNull is 0. Hence, bits::orBits() simply copies the bits from the
   // selectivity vector into the nulls buffer. We cannot use memcpy because it
