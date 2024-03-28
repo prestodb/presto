@@ -267,6 +267,11 @@ class SystemConfig : public ConfigBase {
   /// get the server out of low memory condition. This only applies if
   /// 'system-mem-pushback-enabled' is true.
   static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+  /// If true, memory pushback will quickly abort queries with the most memory
+  /// usage under low memory condition. This only applies if
+  /// 'system-mem-pushback-enabled' is set.
+  static constexpr std::string_view kSystemMemPushbackAbortEnabled{
+      "system-mem-pushback-abort-enabled"};
 
   /// If true, memory allocated via malloc is periodically checked and a heap
   /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
@@ -578,6 +583,8 @@ class SystemConfig : public ConfigBase {
   uint32_t systemMemLimitGb() const;
 
   uint32_t systemMemShrinkGb() const;
+
+  bool systemMemPushBackAbortEnabled() const;
 
   bool mallocMemHeapDumpEnabled() const;
 

@@ -59,6 +59,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -111,6 +112,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchange
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
@@ -118,7 +121,10 @@ import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_P
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.TEMPORARY_STAGING_DIRECTORY_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
@@ -756,7 +762,7 @@ public class TestHiveIntegrationSmokeTest
                         .setSystemProperty("task_writer_count", "1")
                         .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     public void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
@@ -1520,7 +1526,7 @@ public class TestHiveIntegrationSmokeTest
                         .setSystemProperty("task_writer_count", "1")
                         .setCatalogSessionProperty(catalog, "shuffle_partitioned_columns_for_table_write", "true")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     public void testInsertPartitionedTableShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
@@ -1632,7 +1638,7 @@ public class TestHiveIntegrationSmokeTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "OVERWRITE")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
@@ -1689,19 +1695,19 @@ public class TestHiveIntegrationSmokeTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
         testInsertPartitionedTableImmutableExistingPartition(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .setCatalogSessionProperty(catalog, "temporary_staging_directory_enabled", "false")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
         testInsertPartitionedTableImmutableExistingPartition(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "insert_existing_partitions_behavior", "ERROR")
                         .setCatalogSessionProperty(catalog, "fail_fast_on_insert_into_immutable_partitions_enabled", "false")
                         .build(),
-                HiveStorageFormat.ORC);
+                ORC);
     }
 
     public void testInsertPartitionedTableImmutableExistingPartition(Session session, HiveStorageFormat storageFormat)
@@ -1791,7 +1797,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        testPartitionPerScanLimit(getSession(), HiveStorageFormat.DWRF);
+        testPartitionPerScanLimit(getSession(), DWRF);
     }
 
     private void testPartitionPerScanLimit(Session session, HiveStorageFormat storageFormat)
@@ -2800,6 +2806,10 @@ public class TestHiveIntegrationSmokeTest
         actual = computeActual("SELECT name FROM test_create_external");
         assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
 
+        assertQueryFails(
+                "INSERT INTO test_create_external VALUES ('somevalue')",
+                ".*Cannot write to non-managed Hive table.*");
+
         assertUpdate("DROP TABLE test_create_external");
 
         // file should still exist after drop
@@ -2855,7 +2865,7 @@ public class TestHiveIntegrationSmokeTest
             String parentDirectory = new Path(pathName).getParent().toString();
 
             assertTrue(pathName.length() > 0);
-            assertEquals((int) (col0 % 3), col1);
+            assertEquals(col0 % 3, col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
                 assertEquals(partitionPathMap.get(col1), parentDirectory);
@@ -5289,7 +5299,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_orc_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.ORC);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), ORC);
 
             assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
                     "true" +
@@ -5398,7 +5408,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_dwrf_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.DWRF);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), DWRF);
 
             assertUpdate(session, "INSERT INTO test_dwrf_table VALUES (" +
                     "true" +
@@ -5492,7 +5502,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, createTable);
 
             TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_parquet_table");
-            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), PARQUET);
 
             assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
                     "true" +
@@ -5574,6 +5584,81 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(session, "DROP TABLE test_parquet_table");
         }
         assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
+    }
+
+    @DataProvider
+    public static Object[][] fileFormats()
+    {
+        return new Object[][] {
+                {"orc"},
+                {"parquet"},
+                {"dwrf"}
+        };
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testPartialAggregatePushdownWithPartitionKey(String fileFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _ds VARCHAR" +
+                ")" +
+                "WITH (format = '" + fileFormat + "', partitioned_by = ARRAY['_ds'])";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, "true")
+                .setCatalogSessionProperty(catalog, PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED, "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.valueOf(fileFormat.toUpperCase()));
+
+            assertUpdate(session, "INSERT INTO test_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", cast('klm' as varbinary)" +
+                    ", '2024-03-06'" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", cast('qux' as varbinary)" +
+                    ", '2024-03-05'" +
+                    ")", 1);
+            assertQuery(session, "SELECT min(_ds) FROM test_table", "SELECT '2024-03-05'");
+            assertQuery(session, "SELECT min(_ds), max(_ds) FROM test_table", "SELECT '2024-03-05', '2024-03-06'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_table"));
     }
 
     @Test
@@ -6427,6 +6512,14 @@ public class TestHiveIntegrationSmokeTest
                 format("CONSTRAINT pk1 %s (c4) NOT ENFORCED", primaryKey),
                 format("%s (c3, c1) DISABLED NOT RELY", primaryKey));
         assertQueryFails(createTableWithTwoConstraintsSql, "Multiple primary key constraints are not allowed");
+
+        assertUpdate(getSession(), createTableWithOneConstraintSql);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedcreateTableWithOneConstraint);
+        // Since PRIMARY is a non-reserved keyword, it gets parsed and then fails at column resolution
+        assertQueryFails("SELECT PRIMARY FROM " + tableName, ".*cannot be resolved.*");
+        assertQueryFails("SELECT PRIMARY KEY FROM " + tableName, ".*cannot be resolved.*");
+        assertUpdate(getSession(), dropTableStmt);
     }
 
     @Test
@@ -6525,7 +6618,7 @@ public class TestHiveIntegrationSmokeTest
 
     private boolean insertOperationsSupported(HiveStorageFormat storageFormat)
     {
-        return storageFormat != HiveStorageFormat.DWRF;
+        return storageFormat != DWRF;
     }
 
     private Type canonicalizeType(Type type)

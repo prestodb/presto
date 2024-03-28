@@ -42,6 +42,14 @@ public class TestMapNormalize
                 "map_normalize(map(array['w', 'x', 'y', 'z'], array[1, 2, -3, -4]))",
                 mapType(VARCHAR, DOUBLE),
                 ImmutableMap.of("w", -0.25, "x", -0.5, "y", 0.75, "z", 1.0));
+        assertFunction(
+                "map_normalize(map(array['1', '2'], array[1, -1]))",
+                mapType(VARCHAR, DOUBLE),
+                ImmutableMap.of("1", Double.POSITIVE_INFINITY, "2", Double.NEGATIVE_INFINITY));
+        assertFunction(
+                "map_normalize(map(array['1', '2'], array[0, 0]))",
+                mapType(VARCHAR, DOUBLE),
+                ImmutableMap.of("1", Double.NaN, "2", Double.NaN));
 
         Map<String, Double> expectedWithNull = new HashMap<>();
         expectedWithNull.put("w", 1.0 / 7);
@@ -56,5 +64,10 @@ public class TestMapNormalize
 
         assertFunction("map_normalize(map(array[], array[]))", mapType(VARCHAR, DOUBLE), ImmutableMap.of());
         assertFunction("map_normalize(null)", mapType(VARCHAR, DOUBLE), null);
+
+        Map<String, Double> expectedNullAndNan = new HashMap<>();
+        expectedNullAndNan.put("1", null);
+        expectedNullAndNan.put("2", Double.NaN);
+        assertFunction("map_normalize(map(array['1', '2'], array[null, 0]))", mapType(VARCHAR, DOUBLE), expectedNullAndNan);
     }
 }

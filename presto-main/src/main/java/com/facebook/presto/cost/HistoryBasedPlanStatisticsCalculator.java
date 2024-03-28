@@ -18,6 +18,7 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.PlanStatistics;
@@ -41,7 +42,7 @@ import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanSta
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
 import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
-import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
+import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getSelectedHistoricalPlanStatisticsEntry;
 import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -194,11 +195,14 @@ public class HistoryBasedPlanStatisticsCalculator
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
                     Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, true);
                     if (inputTableStatistics.isPresent()) {
-                        PlanStatistics predictedPlanStatistics = getPredictedPlanStatistics(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
-                        if (predictedPlanStatistics.getConfidence() > 0) {
-                            return delegateStats.combineStats(
-                                    predictedPlanStatistics,
-                                    new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics));
+                        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
+                        if (historicalPlanStatisticsEntry.isPresent()) {
+                            PlanStatistics predictedPlanStatistics = historicalPlanStatisticsEntry.get().getPlanStatistics();
+                            if (predictedPlanStatistics.getConfidence() > 0) {
+                                return delegateStats.combineStats(
+                                        predictedPlanStatistics,
+                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.of(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                            }
                         }
                     }
                 }

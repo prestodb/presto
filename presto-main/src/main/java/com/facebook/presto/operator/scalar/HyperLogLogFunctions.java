@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import com.facebook.airlift.stats.cardinality.PrivateLpcaSketch;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
@@ -24,6 +25,9 @@ import io.airlift.slice.Slice;
 
 import static com.facebook.presto.operator.aggregation.ApproximateSetAggregation.DEFAULT_STANDARD_ERROR;
 import static com.facebook.presto.operator.aggregation.HyperLogLogUtils.standardErrorToBuckets;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
+import static com.facebook.presto.util.Failures.checkCondition;
 
 public final class HyperLogLogFunctions
 {
@@ -35,6 +39,16 @@ public final class HyperLogLogFunctions
     public static long cardinality(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll)
     {
         return HyperLogLog.newInstance(serializedHll).cardinality();
+    }
+
+    @ScalarFunction(visibility = EXPERIMENTAL)
+    @Description("compute the noisy cardinality of a HyperLogLog instance")
+    @SqlType(StandardTypes.BIGINT)
+    public static long noisyCardinality(@SqlType(StandardTypes.HYPER_LOG_LOG) Slice serializedHll, @SqlType(StandardTypes.DOUBLE) double epsilon)
+    {
+        checkCondition(epsilon > 0, INVALID_FUNCTION_ARGUMENT, "Epsilon must be greater than 0");
+        PrivateLpcaSketch privacySketch = new PrivateLpcaSketch(HyperLogLog.newInstance(serializedHll), 0.1 * epsilon, 0.9 * epsilon);
+        return privacySketch.cardinality();
     }
 
     @ScalarFunction

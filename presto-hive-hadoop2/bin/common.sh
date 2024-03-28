@@ -100,7 +100,7 @@ function start_docker_containers() {
   fi
 
   # start containers
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
+  retry docker-compose -f "${DOCKER_COMPOSE_LOCATION}" up -d
 
   # start docker logs for hadoop container
   docker-compose -f "${DOCKER_COMPOSE_LOCATION}" logs --no-color hadoop-master &

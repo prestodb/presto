@@ -373,12 +373,13 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    // Flaky test: https://github.com/prestodb/presto/issues/20764
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, enabled = false)
+    @Test(expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Regexp matching interrupted|The query optimizer exceeded the timeout of .*",
+            timeOut = 30_000)
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "5s")
                 .build();
 
         computeActual(session, "select REGEXP_EXTRACT('runaway_regex-is-evaluated-infinitely - xxx\"}', '.*runaway_(.*?)+-+xxx.*')");

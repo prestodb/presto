@@ -203,8 +203,12 @@ public class LogicalPropertiesProviderImpl
             throw new IllegalStateException("Expected source PlanNode to be a GroupReference with LogicalProperties");
         }
 
+        if (aggregationNode.getGroupingKeys().isEmpty() && aggregationNode.getAggregations().isEmpty()) {
+            throw new IllegalStateException("Aggregation node with no grouping columns and no aggregation functions");
+        }
+
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) aggregationNode.getSource()).getLogicalProperties().get();
-        if (aggregationNode.getGroupingKeys().isEmpty()) {
+        if (!aggregationNode.getAggregations().isEmpty() && aggregationNode.getGroupingKeys().isEmpty()) {
             //aggregation with no grouping variables, single row output
             return propagateAndLimitProperties(sourceProperties, Long.valueOf(1));
         }

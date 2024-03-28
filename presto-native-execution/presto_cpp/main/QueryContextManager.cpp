@@ -31,14 +31,8 @@ std::string toVeloxConfig(const std::string& name) {
   using velox::core::QueryConfig;
   static const folly::F14FastMap<std::string, std::string>
       kPrestoToVeloxMapping = {
-          {"native_aggregation_spill_memory_threshold",
-           QueryConfig::kAggregationSpillMemoryThreshold},
           {"native_simplified_expression_evaluation_enabled",
            QueryConfig::kExprEvalSimplified},
-          {"native_join_spill_memory_threshold",
-           QueryConfig::kJoinSpillMemoryThreshold},
-          {"native_order_by_spill_memory_threshold",
-           QueryConfig::kOrderBySpillMemoryThreshold},
           {"native_max_spill_level", QueryConfig::kMaxSpillLevel},
           {"native_max_spill_file_size", QueryConfig::kMaxSpillFileSize},
           {"native_spill_compression_codec",
@@ -52,8 +46,8 @@ std::string toVeloxConfig(const std::string& name) {
           {"native_writer_spill_enabled", QueryConfig::kWriterSpillEnabled},
           {"native_row_number_spill_enabled",
            QueryConfig::kRowNumberSpillEnabled},
-          {"native_join_spiller_partition_bits",
-           QueryConfig::kJoinSpillPartitionBits},
+          {"native_spiller_num_partition_bits",
+           QueryConfig::kSpillNumPartitionBits},
           {"native_topn_row_number_spill_enabled",
            QueryConfig::kTopNRowNumberSpillEnabled},
           {"native_debug_validate_output_from_operators",

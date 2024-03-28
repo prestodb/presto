@@ -7,6 +7,7 @@ Presto Documentation
 
     overview
     installation
+    clients
     security
     admin
     cache

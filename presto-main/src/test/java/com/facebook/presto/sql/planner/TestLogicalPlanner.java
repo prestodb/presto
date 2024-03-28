@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -1398,21 +1399,6 @@ public class TestLogicalPlanner
                         "    COUNT(*), " +
                         "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
                         "  )",
-                output(aggregation(ImmutableMap.of(),
-                        values())));
-
-        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(EXPLOIT_CONSTRAINTS, Boolean.toString(false))
-                .build();
-        assertDistributedPlan("SELECT COUNT(*) " +
-                        "FROM (values ARRAY['a', 'b']) as t(col1) " +
-                        "ORDER BY " +
-                        "  IF( " +
-                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) > 0, " +
-                        "    COUNT(*), " +
-                        "    SUM(REDUCE(col1, ROW(0),(l, r) -> l, x -> 1)) " +
-                        "  )",
-                session,
                 output(
                         project(
                                 exchange(
@@ -1650,6 +1636,33 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
+    }
+
+    @Test
+    public void testRedundantDistinctRemovalWithMultipleGroupingSets()
+    {
+        Session exploitConstraints = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPLOIT_CONSTRAINTS, Boolean.toString(true))
+                .build();
+
+        assertPlan("SELECT orderkey FROM (SELECT * FROM (SELECT * FROM orders WHERE 1=0)) GROUP BY ROLLUP (orderkey)",
+                exploitConstraints,
+                anyTree(
+                        node(AggregationNode.class,
+                                node(ProjectNode.class,
+                                        node(ValuesNode.class)))));
+
+        assertPlan("with t as (select orderkey, count(1) cnt from (select * from (select * from orders where 1=0) left join (select partkey, suppkey from lineitem where 1=0) on partkey=10 where suppkey is not null) group by rollup(orderkey)) select t1.orderkey, t1.cnt from t t1 cross join t t2",
+                exploitConstraints,
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(
+                                        node(AggregationNode.class,
+                                                node(ProjectNode.class,
+                                                        node(ValuesNode.class)))),
+                                anyTree(node(AggregationNode.class,
+                                        node(ProjectNode.class,
+                                                node(ValuesNode.class)))))));
     }
 
     @Test

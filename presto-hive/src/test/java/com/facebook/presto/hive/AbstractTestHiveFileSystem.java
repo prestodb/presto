@@ -21,10 +21,10 @@ import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -224,7 +224,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 columnConverterProvider,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(config));
 
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
@@ -496,7 +497,7 @@ public abstract class AbstractTestHiveFileSystem
     }
 
     public static class TestingHiveMetastore
-            extends CachingHiveMetastore
+            extends InMemoryCachingHiveMetastore
     {
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
@@ -544,7 +545,7 @@ public abstract class AbstractTestHiveFileSystem
 
                 // drop table
                 replaceTable(metastoreContext, databaseName, tableName, tableBuilder.build(), new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
-                delegate.dropTable(metastoreContext, databaseName, tableName, false);
+                getDelegate().dropTable(metastoreContext, databaseName, tableName, false);
 
                 // drop data
                 if (deleteData) {
@@ -558,7 +559,7 @@ public abstract class AbstractTestHiveFileSystem
                 throw new UncheckedIOException(e);
             }
             finally {
-                invalidateTable(databaseName, tableName);
+                invalidateTableCache(databaseName, tableName);
             }
         }
 

@@ -52,7 +52,8 @@ public class TestCteExecution
                         "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
-                        "hive.enable-parquet-dereference-pushdown", "true"),
+                        "hive.enable-parquet-dereference-pushdown", "true",
+                        "hive.temporary-table-storage-format", "PAGEFILE"),
                 Optional.empty());
     }
 
@@ -1082,6 +1083,7 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), query));
     }
 
+    @Test
     public void testCteFilterPushDown()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1091,12 +1093,24 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), query));
     }
 
+    @Test
     public void testCteNoFilterPushDown()
     {
         QueryRunner queryRunner = getQueryRunner();
         // one CTE consumer used without a filter: no filter pushdown
         String query = "WITH  temp as (SELECT * FROM ORDERS) " +
                 "SELECT * FROM (select orderkey from temp where orderkey > 20) t UNION ALL select orderkey from temp";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    @Test
+    public void testChainedCteProjectionAndFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH cte1 AS (SELECT * FROM ORDERS WHERE orderkey < 1000), " +
+                "cte5 AS (SELECT orderkey FROM cte1 WHERE totalprice < 100000) " +
+                "SELECT * FROM cte5";
         compareResults(queryRunner.execute(getMaterializedSession(), query),
                 queryRunner.execute(getSession(), query));
     }

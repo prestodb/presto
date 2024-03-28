@@ -452,6 +452,8 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
                 .setPartitionChecksumQueryId(checksumQueryContext.getPartitionChecksumQueryId())
                 .setPartitionChecksumQuery(checksumQueryContext.getPartitionChecksumQuery())
+                .setBucketChecksumQueryId(checksumQueryContext.getBucketChecksumQueryId())
+                .setBucketChecksumQuery(checksumQueryContext.getBucketChecksumQuery())
                 .setQueryActionStats(queryContext.getMainQueryStats());
         updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
         updateQueryInfo(queryInfo, queryResult);

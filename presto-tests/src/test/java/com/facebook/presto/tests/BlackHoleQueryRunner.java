@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.blackhole;
+package com.facebook.presto.tests;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
-import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 

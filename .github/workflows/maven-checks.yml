@@ -41,6 +41,6 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T C1 -DskipTests -Dmaven.javadoc.skip=true -P ci -pl '!presto-test-coverage,!:presto-server,!:presto-docs'
+          ./mvnw install -B -V -T C1 -DskipTests -Dmaven.javadoc.skip=true --no-transfer-progress -P ci -pl '!presto-test-coverage,!:presto-server,!:presto-docs'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'

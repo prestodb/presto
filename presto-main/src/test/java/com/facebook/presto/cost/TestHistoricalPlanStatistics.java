@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
@@ -23,7 +26,9 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getSelectedHistoricalPlanStatisticsEntry;
 import static org.testng.Assert.assertEquals;
 
 public class TestHistoricalPlanStatistics
@@ -97,16 +102,18 @@ public class TestHistoricalPlanStatistics
                 historicalPlanStatistics,
                 inputTableStatistics,
                 current,
-                new HistoryBasedOptimizationConfig());
+                new HistoryBasedOptimizationConfig(),
+                new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"));
     }
 
     private static PlanStatistics getPredictedPlanStatistics(
             HistoricalPlanStatistics historicalPlanStatistics,
             List<PlanStatistics> inputTableStatistics)
     {
-        return HistoricalPlanStatisticsUtil.getPredictedPlanStatistics(
+        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(
                 historicalPlanStatistics,
                 inputTableStatistics,
                 0.1);
+        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.get().getPlanStatistics() : PlanStatistics.empty();
     }
 }
