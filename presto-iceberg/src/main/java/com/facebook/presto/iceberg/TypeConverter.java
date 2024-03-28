@@ -275,6 +275,9 @@ public final class TypeConverter
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
+        if (TimeType.TIME.equals(type)) {
+            return HIVE_INT.getTypeInfo();
+        }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
