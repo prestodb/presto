@@ -6178,7 +6178,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String uniqueConstraint = "UNIQUE";
         String primaryKey = "PRIMARY KEY";
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_add_table_constraints";
         String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
                 "   %s double,\n" +
@@ -6377,7 +6377,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String uniqueConstraint = "UNIQUE";
         String primaryKey = "PRIMARY KEY";
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_create_table_with_constraints";
 
         String createTableFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
@@ -6600,7 +6600,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testDMLWithEnforcedConstraints()
     {
-        String tableName = "test_table_with_constraints";
+        String tableName = "test_table_dml_with_enforced_constraints";
 
         String createTableWithOneConstraintFormat = "CREATE TABLE %s.%s.%s (\n" +
                 "   %s bigint,\n" +
@@ -6697,6 +6697,114 @@ public class TestHiveIntegrationSmokeTest
         insertStmt = format("INSERT INTO %s VALUES (null, 2.3, null, 4)", tableName);
         assertUpdate(getSession(), insertStmt, 1);
 
+        assertUpdate(getSession(), dropTableStmt);
+    }
+
+    @Test
+    public void testAlterColumnNotNull()
+    {
+        String tableName = "test_table_alter_column_not_null";
+
+        String createTableWithInlineConstraintsFormat = "CREATE TABLE %s.%s.%s (\n" +
+                "   %s bigint%s,\n" +
+                "   %s double%s,\n" +
+                "   %s varchar%s,\n" +
+                "   %s bigint%s\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+
+        String createTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "c1",
+                "",
+                "c2",
+                "",
+                "c3",
+                "",
+                "c4",
+                "");
+
+        String expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                "",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                "");
+
+        assertUpdate(getSession(), createTableSql);
+        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL";
+        assertUpdate(getSession(), addNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                "");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        addNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c4 SET NOT NULL";
+        assertUpdate(getSession(), addNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                " NOT NULL",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String dropNotNullStmt = "ALTER TABLE " + tableName + " ALTER COLUMN c2 DROP NOT NULL";
+        assertUpdate(getSession(), dropNotNullStmt);
+        actualResult = computeActual("SHOW CREATE TABLE " + tableName);
+        expectedCreateTableSql = format(
+                createTableWithInlineConstraintsFormat,
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                tableName,
+                "\"c1\"",
+                "",
+                "\"c2\"",
+                "",
+                "\"c3\"",
+                "",
+                "\"c4\"",
+                " NOT NULL");
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), expectedCreateTableSql);
+
+        @Language("SQL") String addColumnStmt = "ALTER TABLE " + tableName + " ADD COLUMN c5 int NOT NULL";
+        assertQueryFails(addColumnStmt, "This connector does not support ADD COLUMN with NOT NULL");
+
+        String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
     }
 

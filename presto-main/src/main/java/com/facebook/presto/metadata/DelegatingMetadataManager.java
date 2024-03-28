@@ -638,9 +638,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
-        delegate.dropConstraint(session, tableHandle, constraintName);
+        delegate.dropConstraint(session, tableHandle, constraintName, columnName);
     }
 
     @Override

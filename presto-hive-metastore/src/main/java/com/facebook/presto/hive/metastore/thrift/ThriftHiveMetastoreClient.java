@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.api.AddNotNullConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.AddPrimaryKeyRequest;
 import org.apache.hadoop.hive.metastore.api.AddUniqueConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
@@ -526,5 +527,13 @@ public class ThriftHiveMetastoreClient
     {
         AddPrimaryKeyRequest addPrimaryKeyRequest = new AddPrimaryKeyRequest(constraint);
         client.add_primary_key(addPrimaryKeyRequest);
+    }
+
+    @Override
+    public void addNotNullConstraint(List<SQLNotNullConstraint> constraint)
+            throws TException
+    {
+        AddNotNullConstraintRequest addNotNullConstraintRequest = new AddNotNullConstraintRequest(constraint);
+        client.add_not_null_constraint(addNotNullConstraintRequest);
     }
 }

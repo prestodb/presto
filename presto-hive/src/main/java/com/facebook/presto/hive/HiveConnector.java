@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.ALTER_COLUMN;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
@@ -254,6 +255,11 @@ public class HiveConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE, SUPPORTS_PAGE_SINK_COMMIT, PRIMARY_KEY_CONSTRAINT, UNIQUE_CONSTRAINT, NOT_NULL_COLUMN_CONSTRAINT);
+        return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE,
+                SUPPORTS_PAGE_SINK_COMMIT,
+                PRIMARY_KEY_CONSTRAINT,
+                UNIQUE_CONSTRAINT,
+                NOT_NULL_COLUMN_CONSTRAINT,
+                ALTER_COLUMN);
     }
 }
