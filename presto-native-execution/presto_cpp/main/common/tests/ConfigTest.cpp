@@ -12,8 +12,10 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 
@@ -23,7 +25,7 @@ using namespace velox;
 
 class ConfigTest : public testing::Test {
  protected:
-  void setUpConfigFile(bool isMutable) {
+  void setUpConfigFilePath() {
     velox::filesystems::registerLocalFileSystem();
 
     char path[] = "/tmp/velox_system_config_test_XXXXXX";
@@ -33,7 +35,9 @@ class ConfigTest : public testing::Test {
     }
     configFilePath = tempDirectoryPath;
     configFilePath += "/config.properties";
+  }
 
+  void writeDefaultConfigFile(bool isMutable) {
     auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
     sysConfigFile->append(
@@ -44,6 +48,13 @@ class ConfigTest : public testing::Test {
       sysConfigFile->append(
           fmt::format("{}={}\n", ConfigBase::kMutableConfig, "true"));
     }
+    sysConfigFile->close();
+  }
+
+  void writeConfigFile(const std::string& config) {
+    auto fileSystem = filesystems::getFileSystem(configFilePath, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(configFilePath);
+    sysConfigFile->append(config);
     sysConfigFile->close();
   }
 
@@ -59,7 +70,8 @@ class ConfigTest : public testing::Test {
 };
 
 TEST_F(ConfigTest, defaultSystemConfig) {
-  setUpConfigFile(false);
+  setUpConfigFilePath();
+  writeDefaultConfigFile(false);
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
 
@@ -73,7 +85,8 @@ TEST_F(ConfigTest, defaultSystemConfig) {
 }
 
 TEST_F(ConfigTest, mutableSystemConfig) {
-  setUpConfigFile(true);
+  setUpConfigFilePath();
+  writeDefaultConfigFile(true);
   auto systemConfig = SystemConfig::instance();
   systemConfig->initialize(configFilePath);
 
@@ -189,6 +202,48 @@ TEST_F(ConfigTest, remoteFunctionServer) {
   ASSERT_EQ(
       config.remoteFunctionServerLocation(),
       (folly::SocketAddress::makeFromPath("/tmp/any.socket")));
+}
+
+TEST_F(ConfigTest, parseValid) {
+  setUpConfigFilePath();
+  writeConfigFile(
+      "#comment\n"
+      "#a comment with space\n"
+      "# a comment with leading space\n"
+      " # a comment with leading space before comment\n"
+      "# a comment with key word = == ==== =\n"
+      "## a comment with double hashtag\n"
+      "key=value\n"
+      "k-e-y=v-a-l-u-e\n"
+      " key with space=value\n"
+      "key1= value with space\n"
+      "key2=value=with=key=word\n"
+      "emptyvaluekey=");
+  auto configMap = presto::util::readConfig(configFilePath);
+  ASSERT_EQ(configMap.size(), 6);
+
+  std::unordered_map<std::string, std::string> expected{
+      {"key2", "value=with=key=word"},
+      {"key1", "valuewithspace"},
+      {"keywithspace", "value"},
+      {"k-e-y", "v-a-l-u-e"},
+      {"key", "value"},
+      {"emptyvaluekey", ""}};
+  ASSERT_EQ(configMap, expected);
+}
+
+TEST_F(ConfigTest, parseInvalid) {
+  auto testInvalid = [this](
+                         const std::string& fileContent,
+                         const std::string& expectedErrorMsg) {
+    setUpConfigFilePath();
+    writeConfigFile(fileContent);
+    VELOX_ASSERT_THROW(
+        presto::util::readConfig(configFilePath), expectedErrorMsg);
+  };
+  testInvalid(
+      "noequalsign\n", "No '=' sign found for property pair 'noequalsign'");
+  testInvalid("===\n", "property pair '===' has empty key");
 }
 
 } // namespace facebook::presto::test
