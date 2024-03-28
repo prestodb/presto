@@ -102,7 +102,7 @@ BroadcastExchangeSource::createExchangeSource(
   try {
     broadcastFileInfo =
         BroadcastFileInfo::deserialize(broadcastInfoJson.value());
-  } catch (const VeloxException& e) {
+  } catch (const VeloxException&) {
     throw;
   } catch (const std::exception& e) {
     VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
