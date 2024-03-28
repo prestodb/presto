@@ -49,6 +49,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_HIT;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_RESULT_CACHE_MISS;
+import static com.facebook.presto.common.RuntimeUnit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
@@ -273,11 +274,17 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get()
+                FragmentCacheResult fragmentCacheResult = fragmentResultCacheContext.get().get()
                         .getFragmentResultCacheManager()
                         .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                Optional<Iterator<Page>> pages = fragmentCacheResult.getPages();
                 sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
                         pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
+                if (pages.isPresent()) {
+                    sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue("FRAGMENT_DATA_SIZE", BYTE, fragmentCacheResult.getInputDataSize());
+                    sourceOperator.getOperatorContext().recordProcessedInput(fragmentCacheResult.getInputDataSize(), fragmentCacheResult.getInputPositions());
+                    sourceOperator.getOperatorContext().recordRawInput(fragmentCacheResult.getInputDataSize(), fragmentCacheResult.getInputPositions());
+                }
                 this.cachedResult.set(pages);
                 this.split.set(split);
             }
@@ -465,6 +472,17 @@ public class Driver
             for (int index = activeOperators.size() - 1; index >= 0; index--) {
                 if (activeOperators.get(index).isFinished()) {
                     boolean outputOperatorFinished = index == activeOperators.size() - 1;
+                    if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
+                        checkState(split.get() != null);
+                        checkState(fragmentResultCacheContext.get().isPresent());
+                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(
+                                fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(),
+                                split.get(),
+                                outputPages,
+                                // also cache the bytes read count from the source operator for this fragment
+                                activeOperators.get(0).getOperatorContext().getOperatorStats().getRawInputDataSize().toBytes(),
+                                activeOperators.get(0).getOperatorContext().getOperatorStats().getRawInputPositions());
+                    }
                     // close and remove this operator and all source operators
                     List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
                     Throwable throwable = closeAndDestroyOperators(finishedOperators);
@@ -472,12 +490,6 @@ public class Driver
                     if (throwable != null) {
                         throwIfUnchecked(throwable);
                         throw new RuntimeException(throwable);
-                    }
-
-                    if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
-                        checkState(split.get() != null);
-                        checkState(fragmentResultCacheContext.get().isPresent());
-                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split.get(), outputPages);
                     }
 
                     // Finish the next operator, which is now the first operator.
