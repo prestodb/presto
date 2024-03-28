@@ -162,6 +162,7 @@ void appendSqlLiteral(
     case TypeKind::TINYINT:
     case TypeKind::SMALLINT:
     case TypeKind::BIGINT:
+    case TypeKind::HUGEINT:
     case TypeKind::TIMESTAMP:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:

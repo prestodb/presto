@@ -2618,6 +2618,17 @@ TEST_P(ParameterizedExprTest, constantToSql) {
   ASSERT_EQ(toSql(18'506, DATE()), "'2020-09-01'::DATE");
   ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER), DATE()), "NULL::DATE");
 
+  ASSERT_EQ(toSql(2134456LL, DECIMAL(18, 2)), "'21344.56'::DECIMAL(18, 2)");
+  ASSERT_EQ(
+      toSql(variant::null(TypeKind::BIGINT), DECIMAL(18, 2)),
+      "NULL::DECIMAL(18, 2)");
+  ASSERT_EQ(
+      toSql((int128_t)1'000'000'000'000'000'000, DECIMAL(38, 2)),
+      "'10000000000000000.00'::DECIMAL(38, 2)");
+  ASSERT_EQ(
+      toSql(variant::null(TypeKind::HUGEINT), DECIMAL(38, 2)),
+      "NULL::DECIMAL(38, 2)");
+
   ASSERT_EQ(
       toSql(Timestamp(123'456, 123'000)),
       "'1970-01-02T10:17:36.000123000'::TIMESTAMP");
