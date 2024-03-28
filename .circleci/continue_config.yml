@@ -185,6 +185,7 @@ jobs:
                   # "-Ppresto-native-execution-remote-functions" once
                   # > https://github.com/facebookincubator/velox/discussions/6163
                   # is fixed.
+                  mvn -v
                   if [ ! -z $TESTCLASSES ]; then
                     mvn test \
                       ${MAVEN_TEST} \
@@ -230,6 +231,7 @@ jobs:
                     test_class=${tmp%%\.*}
                     export TESTCLASSES="${TESTCLASSES},$test_class"
                   done
+                  mvn -v
                   export TESTCLASSES=${TESTCLASSES#,}
                   if [ ! -z $TESTCLASSES ]; then
                     mvn test \
