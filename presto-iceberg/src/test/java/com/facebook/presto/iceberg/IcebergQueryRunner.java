@@ -47,6 +47,7 @@ import java.util.OptionalInt;
 import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.WARN;
+import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -235,14 +236,9 @@ public final class IcebergQueryRunner
     {
         Logging.initialize();
         Optional<Path> dataDirectory = Optional.empty();
-        if (args.length > 0) {
-            if (args.length != 1) {
-                log.error("usage: IcebergQueryRunner [dataDirectory]\n");
-                log.error("       [dataDirectory] is a local directory under which you want the iceberg_data directory to be created.]\n");
-                System.exit(1);
-            }
-
-            File dataDirectoryFile = new File(args[0]);
+        Optional<String> suppliedDataDirectoryPath = getProperty("DATA_DIR");
+        if (suppliedDataDirectoryPath.isPresent()) {
+            File dataDirectoryFile = new File(suppliedDataDirectoryPath.get());
             if (dataDirectoryFile.exists()) {
                 if (!dataDirectoryFile.isDirectory()) {
                     log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
