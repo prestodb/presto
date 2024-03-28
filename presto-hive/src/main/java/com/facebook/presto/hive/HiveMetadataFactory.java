@@ -64,7 +64,7 @@ public class HiveMetadataFactory
     private final TypeTranslator typeTranslator;
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
-    private final String prestoVersion;
+    private final NodeVersion nodeVersion;
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
@@ -128,7 +128,7 @@ public class HiveMetadataFactory
                 typeTranslator,
                 stagingFileCommitter,
                 zeroRowFileCreator,
-                nodeVersion.toString(),
+                nodeVersion,
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
@@ -164,7 +164,7 @@ public class HiveMetadataFactory
             TypeTranslator typeTranslator,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
@@ -198,7 +198,7 @@ public class HiveMetadataFactory
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
@@ -244,7 +244,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 partitionUpdateSmileCodec,
                 typeTranslator,
-                prestoVersion,
+                nodeVersion,
                 new MetastoreHiveStatisticsProvider(metastore, quickStatsProvider),
                 stagingFileCommitter,
                 zeroRowFileCreator,

@@ -297,6 +297,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_K
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkIfNullView;
@@ -414,7 +415,7 @@ public class HiveMetadata
     private final boolean createsOfNonManagedTablesEnabled;
     private final int maxPartitionBatchSize;
     private final TypeTranslator typeTranslator;
-    private final String prestoVersion;
+    private final NodeVersion nodeVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final StagingFileCommitter stagingFileCommitter;
     private final ZeroRowFileCreator zeroRowFileCreator;
@@ -441,7 +442,7 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             SmileCodec<PartitionUpdate> partitionUpdateSmileCodec,
             TypeTranslator typeTranslator,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
@@ -468,7 +469,7 @@ public class HiveMetadata
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.stagingFileCommitter = requireNonNull(stagingFileCommitter, "stagingFileCommitter is null");
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
@@ -1044,7 +1045,7 @@ public class HiveMetadata
                 tableProperties,
                 targetPath,
                 tableType,
-                prestoVersion,
+                nodeVersion,
                 metastoreContext);
     }
 
@@ -1343,7 +1344,7 @@ public class HiveMetadata
             Map<String, String> additionalTableParameters,
             Path targetPath,
             PrestoTableType tableType,
-            String prestoVersion,
+            NodeVersion nodeVersion,
             MetastoreContext metastoreContext)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -1368,7 +1369,8 @@ public class HiveMetadata
         }
 
         ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.<String, String>builder()
-                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_VERSION_NAME, nodeVersion.getVersion())
+                .put(PRESTO_WORKER_TYPE, nodeVersion.getPrestoWorkerType().toString())
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .putAll(additionalTableParameters);
 
@@ -1663,7 +1665,7 @@ public class HiveMetadata
                         .build(),
                 writeInfo.getTargetPath(),
                 MANAGED_TABLE,
-                prestoVersion,
+                nodeVersion,
                 metastoreContext);
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -1680,7 +1682,7 @@ public class HiveMetadata
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() :
-                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion, partitionEncryptionParameters, Optional.empty()));
+                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, nodeVersion, partitionEncryptionParameters, Optional.empty()));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -1723,7 +1725,7 @@ public class HiveMetadata
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
             }
-            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty());
+            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, nodeVersion, partitionParameters, Optional.empty());
             PartitionStatistics partitionStatistics = createPartitionStatistics(
                     session,
                     update.getStatistics(),
@@ -1735,7 +1737,7 @@ public class HiveMetadata
                     handle.getTableName(),
                     table.getStorage().getLocation(),
                     true,
-                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty()),
+                    partitionObjectBuilder.buildPartitionObject(session, table, update, nodeVersion, partitionParameters, Optional.empty()),
                     update.getWritePath(),
                     partitionStatistics);
         }
@@ -2004,7 +2006,7 @@ public class HiveMetadata
                                 session,
                                 table,
                                 partitionUpdate,
-                                prestoVersion,
+                                nodeVersion,
                                 handle.getEncryptionInformation()
                                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                                         .orElseGet(ImmutableMap::of),
@@ -2107,7 +2109,7 @@ public class HiveMetadata
                         session,
                         table,
                         partitionUpdate,
-                        prestoVersion,
+                        nodeVersion,
                         extraPartitionMetadata,
                         existingPartition);
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
@@ -2224,7 +2226,7 @@ public class HiveMetadata
         Table table = createTableObjectForViewCreation(
                 session,
                 viewMetadata,
-                createViewProperties(session, prestoVersion),
+                createViewProperties(session, nodeVersion.getVersion(), nodeVersion.getPrestoWorkerType().toString()),
                 typeTranslator,
                 metastoreContext,
                 encodeViewData(viewData));

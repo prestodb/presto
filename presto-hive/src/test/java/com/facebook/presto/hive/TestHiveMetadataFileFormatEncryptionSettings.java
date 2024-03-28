@@ -90,6 +90,7 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveMetadataFileFormatEncryptionSettings
 {
     private static final String TEST_SERVER_VERSION = "test_version";
+    private static final NodeVersion.PrestoWorkerType TEST_PRESTO_WORKER_TYPE = NodeVersion.PrestoWorkerType.JAVA;
     private static final String TEST_DB_NAME = "test_db";
     private static final JsonCodec<PartitionUpdate> PARTITION_CODEC = jsonCodec(PartitionUpdate.class);
     private static final ConnectorSession SESSION = new TestingConnectorSession(
@@ -135,7 +136,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(HDFS_ENVIRONMENT, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
-                TEST_SERVER_VERSION,
+                new NodeVersion(TEST_SERVER_VERSION, TEST_PRESTO_WORKER_TYPE),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
                 new HivePartitionStats(),

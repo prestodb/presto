@@ -263,7 +263,12 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS))
+                .withFileWriterFactory(new RcFileFileWriterFactory(
+                        HDFS_ENVIRONMENT,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test", NodeVersion.PrestoWorkerType.JAVA),
+                        HIVE_STORAGE_TIME_ZONE,
+                        STATS))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new RcFilePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
@@ -317,7 +322,12 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS))
+                .withFileWriterFactory(new RcFileFileWriterFactory(
+                        HDFS_ENVIRONMENT,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test", NodeVersion.PrestoWorkerType.JAVA),
+                        HIVE_STORAGE_TIME_ZONE,
+                        STATS))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new RcFilePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
@@ -350,7 +360,15 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(
+                        HDFS_ENVIRONMENT,
+                        new OutputStreamDataSinkFactory(),
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test", NodeVersion.PrestoWorkerType.JAVA),
+                        HIVE_STORAGE_TIME_ZONE,
+                        STATS,
+                        new OrcFileWriterConfig(),
+                        NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())));
     }
@@ -374,7 +392,11 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .withFileWriterFactory(new ParquetFileWriterFactory(
+                        HDFS_ENVIRONMENT,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test", NodeVersion.PrestoWorkerType.JAVA),
+                        HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
     }
 
@@ -518,7 +540,15 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(
+                        HDFS_ENVIRONMENT,
+                        new OutputStreamDataSinkFactory(),
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test", NodeVersion.PrestoWorkerType.JAVA),
+                        HIVE_STORAGE_TIME_ZONE,
+                        STATS,
+                        new OrcFileWriterConfig(),
+                        NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION));
     }

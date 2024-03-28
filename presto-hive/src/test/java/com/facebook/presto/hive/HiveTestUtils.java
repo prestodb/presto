@@ -211,7 +211,12 @@ public final class HiveTestUtils
     {
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(testHdfsEnvironment, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
+                .add(new RcFileFileWriterFactory(
+                        testHdfsEnvironment,
+                        FUNCTION_AND_TYPE_MANAGER,
+                        new NodeVersion("test_version", NodeVersion.PrestoWorkerType.JAVA),
+                        hiveClientConfig,
+                        new FileFormatDataSourceStats()))
                 .add(new PageFileWriterFactory(testHdfsEnvironment, new OutputStreamDataSinkFactory(), new BlockEncodingManager()))
                 .add(getDefaultOrcFileWriterFactory(hiveClientConfig, metastoreClientConfig))
                 .build();
@@ -224,7 +229,7 @@ public final class HiveTestUtils
                 testHdfsEnvironment,
                 new OutputStreamDataSinkFactory(),
                 FUNCTION_AND_TYPE_MANAGER,
-                new NodeVersion("test_version"),
+                new NodeVersion("test_version", NodeVersion.PrestoWorkerType.JAVA),
                 hiveClientConfig,
                 new FileFormatDataSourceStats(),
                 new OrcFileWriterConfig(),

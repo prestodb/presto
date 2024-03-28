@@ -348,7 +348,7 @@ public class IcebergHiveMetadata
         Table table = createTableObjectForViewCreation(
                 session,
                 viewMetadata,
-                createIcebergViewProperties(session, nodeVersion.toString()),
+                createIcebergViewProperties(session, nodeVersion.getVersion(), nodeVersion.getPrestoWorkerType().toString()),
                 new HiveTypeTranslator(),
                 metastoreContext,
                 encodeViewData(viewData));

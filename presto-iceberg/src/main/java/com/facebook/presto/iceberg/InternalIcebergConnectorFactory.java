@@ -91,7 +91,9 @@ public final class InternalIcebergConnectorFactory
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(
+                                context.getNodeManager().getCurrentNode().getVersion(),
+                                context.getConnectorSystemConfig().isNativeExecution() ? NodeVersion.PrestoWorkerType.CPP : NodeVersion.PrestoWorkerType.JAVA));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());

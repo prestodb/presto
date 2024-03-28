@@ -192,6 +192,7 @@ public class MetastoreUtil
     public static final String TABLE_COMMENT = "comment";
     public static final String PRESTO_VIEW_COMMENT = "Presto View";
     public static final String PRESTO_VERSION_NAME = "presto_version";
+    public static final String PRESTO_WORKER_TYPE = "presto_worker_type";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     private MetastoreUtil()
@@ -1036,12 +1037,13 @@ public class MetastoreUtil
                 ImmutableMultimap.of());
     }
 
-    public static Map<String, String> createViewProperties(ConnectorSession session, String prestoVersion)
+    public static Map<String, String> createViewProperties(ConnectorSession session, String prestoVersion, String prestoWorkerType)
     {
         return ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_WORKER_TYPE, prestoWorkerType)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
     }

@@ -82,6 +82,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_PRESTO_WORKER_TYPE;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_SERVER_VERSION;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
@@ -511,7 +512,7 @@ public class TestHiveSplitManager
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, executor),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), executor),
-                TEST_SERVER_VERSION,
+                new NodeVersion(TEST_SERVER_VERSION, TEST_PRESTO_WORKER_TYPE),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
