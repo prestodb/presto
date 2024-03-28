@@ -216,5 +216,9 @@
             <directory>${project.build.directory}/dependency/presto-clickhouse-${project.version}</directory>
             <outputDirectory>plugin/clickhouse</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-snowflake-${project.version}</directory>
+            <outputDirectory>plugin/snowflake</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>
