@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.TypeParameter;
 
 public class ArrayAggregationStateSerializer
         implements AccumulatorStateSerializer<ArrayAggregationState>
@@ -25,7 +26,7 @@ public class ArrayAggregationStateSerializer
     private final Type elementType;
     private final Type arrayType;
 
-    public ArrayAggregationStateSerializer(Type elementType)
+    public ArrayAggregationStateSerializer(@TypeParameter("T") Type elementType)
     {
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);

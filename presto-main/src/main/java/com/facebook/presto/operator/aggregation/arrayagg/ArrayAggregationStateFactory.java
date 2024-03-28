@@ -16,6 +16,8 @@ package com.facebook.presto.operator.aggregation.arrayagg;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.TypeParameter;
 
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.String.format;
@@ -26,7 +28,9 @@ public class ArrayAggregationStateFactory
     private final Type type;
     private final ArrayAggGroupImplementation mode;
 
-    public ArrayAggregationStateFactory(Type type, ArrayAggGroupImplementation mode)
+    public ArrayAggregationStateFactory(
+            @TypeParameter("T") Type type,
+            @AggregationState ArrayAggGroupImplementation mode)
     {
         this.type = type;
         this.mode = mode;
