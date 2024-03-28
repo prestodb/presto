@@ -811,6 +811,15 @@ Optimizer Properties
 
     Track history based plan statistics from complete plan fragments in failed queries.
 
+``optimizer.exploit-constraints``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Enable analysis and propagation of logical properties like distinct keys or cardinality among the nodes of
+    a query plan. The optimizer may then use these properties to perform various optimizations.
+
 
 Planner Properties
 --------------------------------------
