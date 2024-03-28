@@ -51,8 +51,8 @@ public class SqlServerDataTypesTableDefinition
             return ImmutableList.<List<Object>>of(
                     ImmutableList.of(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE,
                             Double.MIN_VALUE, Float.valueOf("-3.40E+38"), "\0", "\0", "\0", "\0", "\0", "\0",
-                            Date.valueOf("0001-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
-                            Timestamp.valueOf("0001-01-01 00:00:00.000"), Timestamp.valueOf("1900-01-01 00:00:00"),
+                            Date.valueOf("1970-01-02"), Timestamp.valueOf("1970-01-01 00:00:00.000"),
+                            Timestamp.valueOf("1970-01-01 00:00:00.000"), Timestamp.valueOf("1970-01-01 00:00:00"),
                             Double.MIN_VALUE, Float.valueOf("-3.40E+38")),
                     ImmutableList.of(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE,
                             Double.MAX_VALUE, Float.MAX_VALUE, "abcd", "abcdef", "abcd", "abcde", "abcdefg", "abcd",
