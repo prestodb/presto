@@ -300,4 +300,17 @@ public class TestSimplifyPlanWithEmptyInput
                         ImmutableList.of("orderkey", "count"),
                         values("orderkey", "count")));
     }
+//
+//    @Test
+//    public void testNestedCteMaterializationQueryWhenCteConsumersPartiallyRemoved()
+//    {
+//        assertPlan("WITH t as(select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey)," +
+//                        "t1 as (SELECT * FROM orders)," +
+//                        " b AS ((SELECT orderkey FROM t) UNION (SELECT orderkey FROM t1)) " +
+//                        "SELECT * FROM b",
+//                enableCteMaterialization(),
+//                output(
+//                        ImmutableList.of("orderkey", "count"),
+//                        values("orderkey", "count")));
+//    }
 }

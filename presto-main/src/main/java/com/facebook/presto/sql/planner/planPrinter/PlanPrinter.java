@@ -108,7 +108,6 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -134,7 +133,6 @@ import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilte
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonPlanFragment;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatPositions;
@@ -360,13 +358,14 @@ public class PlanPrinter
 
     private static String formatJsonFragmentList(List<PlanFragment> fragments, FunctionAndTypeManager functionAndTypeManager)
     {
-        ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
-        for (PlanFragment fragment : fragments) {
-            PlanFragmentId fragmentId = fragment.getId();
-            JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get());
-            fragmentJsonMap.put(fragmentId, jsonPlanFragment);
-        }
-        return new JsonRenderer(functionAndTypeManager).render(fragmentJsonMap.build());
+//        ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
+//        for (PlanFragment fragment : fragments) {
+//            PlanFragmentId fragmentId = fragment.getId();
+//            JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get());
+//            fragmentJsonMap.put(fragmentId, jsonPlanFragment);
+//        }
+        return "";
+//        return new JsonRenderer(functionAndTypeManager).render(fragmentJsonMap.build());
     }
 
     private static String formatFragment(

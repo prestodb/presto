@@ -201,7 +201,7 @@ public class SourcePartitionedScheduler
     @Override
     public synchronized ScheduleResult schedule()
     {
-        dropListenersFromWhenFinishedOrNewLifespansAdded();
+//        dropListenersFromWhenFinishedOrNewLifespansAdded();
 
         int overallSplitAssignmentCount = 0;
         ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();

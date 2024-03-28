@@ -204,15 +204,15 @@ public final class GraphvizPrinter
     public static String printDistributedFromFragments(List<PlanFragment> allFragments, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
-        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(allFragments, PlanFragment::getId);
+//        Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(allFragments, PlanFragment::getId);
 
         StringBuilder output = new StringBuilder();
         output.append("digraph distributed_plan {\n");
 
-        for (PlanFragment planFragment : allFragments) {
-            printFragmentNodes(output, planFragment, idGenerator, functionAndTypeManager, session);
-            planFragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
-        }
+//        for (PlanFragment planFragment : allFragments) {
+//            printFragmentNodes(output, planFragment, idGenerator, functionAndTypeManager, session);
+//            planFragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
+//        }
 
         output.append("}\n");
         return output.toString();

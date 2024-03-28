@@ -259,7 +259,7 @@ public class SymbolMapper
                 node.getPreferredShufflePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
                 node.getTaskCountIfScaledWriter(),
-                node.getIsTemporaryTableWriter());
+                node.getTemporaryTableInfo());
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)

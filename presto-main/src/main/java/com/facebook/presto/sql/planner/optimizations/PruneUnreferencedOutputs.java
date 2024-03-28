@@ -491,7 +491,8 @@ public class PruneUnreferencedOutputs
                     newAssignments,
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getTemporaryTableInfo());
         }
 
         @Override
@@ -532,7 +533,7 @@ public class PruneUnreferencedOutputs
                     .map(leftSource -> context.rewrite(leftSource, leftInputs)).collect(toImmutableList());
             Set<VariableReferenceExpression> rightInputs = ImmutableSet.copyOf(node.getPrimarySource().getOutputVariables());
             PlanNode primarySource = context.rewrite(node.getPrimarySource(), rightInputs);
-            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getMarkerSet());
         }
 
         @Override
@@ -765,7 +766,7 @@ public class PruneUnreferencedOutputs
                     node.getPreferredShufflePartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getTaskCountIfScaledWriter(),
-                    node.getIsTemporaryTableWriter());
+                    node.getTemporaryTableInfo());
         }
 
         @Override

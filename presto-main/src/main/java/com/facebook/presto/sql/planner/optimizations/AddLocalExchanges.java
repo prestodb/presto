@@ -584,7 +584,7 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
                                     originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
+                                    originalTableWriterNode.getTemporaryTableInfo()),
                             fixedParallelism(),
                             fixedParallelism());
                 }
@@ -610,7 +610,7 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
                                     originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
+                                    originalTableWriterNode.getTemporaryTableInfo()),
                             exchange.getProperties());
                 }
             }
@@ -640,7 +640,7 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getPreferredShufflePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
                                 originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                originalTableWriterNode.getIsTemporaryTableWriter()),
+                                originalTableWriterNode.getTemporaryTableInfo()),
                         exchange.getProperties());
             }
 

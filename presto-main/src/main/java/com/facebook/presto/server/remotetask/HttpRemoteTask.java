@@ -462,7 +462,9 @@ public final class HttpRemoteTask
             PlanNodeId sourceId = entry.getKey();
             Collection<Split> splits = entry.getValue();
             boolean isTableScanSource = tableScanPlanNodeIds.contains(sourceId);
-
+            if (noMoreSplits.containsKey(sourceId)) {
+                break;
+            }
             checkState(!noMoreSplits.containsKey(sourceId), "noMoreSplits has already been set for %s", sourceId);
             int added = 0;
             long addedWeight = 0;

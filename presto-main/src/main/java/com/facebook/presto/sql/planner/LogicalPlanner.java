@@ -232,7 +232,7 @@ public class LogicalPlanner
                 new AggregationNode(
                         getSourceLocation(analyzeStatement),
                         idAllocator.getNextId(),
-                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all()),
+                        new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all(), Optional.empty()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(statisticAggregations.getGroupingVariables()),
                         ImmutableList.of(),
@@ -430,7 +430,7 @@ public class LogicalPlanner
                             // the data consumed by the TableWriteOperator
                             Optional.of(aggregations.getPartialAggregation()),
                             Optional.empty(),
-                            Optional.of(Boolean.FALSE)),
+                            Optional.empty()),
                     Optional.of(target),
                     variableAllocator.newVariable("rows", BIGINT),
                     // final aggregation is run within the TableFinishOperator to summarize collected statistics
@@ -459,7 +459,7 @@ public class LogicalPlanner
                         preferredShufflePartitioningScheme,
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(Boolean.FALSE)),
+                        Optional.empty()),
                 Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),

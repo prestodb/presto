@@ -316,7 +316,7 @@ public class IcebergEqualityDeleteAsJoin
                     outputs,
                     deleteColumnAssignments,
                     TupleDomain.all(),
-                    TupleDomain.all());
+                    TupleDomain.all(), Optional.empty());
         }
 
         /**
@@ -358,7 +358,8 @@ public class IcebergEqualityDeleteAsJoin
                     assignmentsBuilder.build(),
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getTemporaryTableInfo());
         }
 
         /**

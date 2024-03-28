@@ -47,6 +47,7 @@ import org.apache.iceberg.Table;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -211,7 +212,7 @@ public class IcebergPlanOptimizer
                             .intersect(tableScan.getCurrentConstraint()),
                     predicateNotChangedBySimplification ?
                             identityPartitionColumnPredicate.intersect(tableScan.getEnforcedConstraint()) :
-                            tableScan.getEnforcedConstraint());
+                            tableScan.getEnforcedConstraint(), Optional.empty());
 
             if (TRUE_CONSTANT.equals(remainingFilterExpression) && predicateNotChangedBySimplification) {
                 return newTableScan;

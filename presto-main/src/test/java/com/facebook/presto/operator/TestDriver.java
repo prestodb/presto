@@ -114,7 +114,7 @@ public class TestDriver
                             ImmutableList.of(),
                             ImmutableMap.of(),
                             TupleDomain.all(),
-                            TupleDomain.all()),
+                            TupleDomain.all(), Optional.empty()),
                     ImmutableMap.of(),
                     singleGroupingSet(ImmutableList.of()),
                     ImmutableList.of(),

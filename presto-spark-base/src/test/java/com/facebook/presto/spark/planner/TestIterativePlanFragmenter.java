@@ -307,7 +307,7 @@ public class TestIterativePlanFragmenter
                 variables,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     private PlanNode project(String id, PlanNode source, VariableReferenceExpression variable, RowExpression expression)

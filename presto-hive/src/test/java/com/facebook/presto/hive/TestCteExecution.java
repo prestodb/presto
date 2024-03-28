@@ -70,6 +70,20 @@ public class TestCteExecution
     }
 
     @Test
+    public void testCteExecutionWhereOneCteRemovedBySimplifyEmptyInputRule()
+    {
+        String sql = "WITH t as(select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey)," +
+                "t1 as (SELECT * FROM orders)," +
+                " b AS ((SELECT orderkey FROM t) UNION (SELECT orderkey FROM t1)) " +
+                "SELECT * FROM b";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        sql),
+                queryRunner.execute(getSession(),
+                        sql));
+    }
+
+    @Test
     public void testPersistentCteWithTimeStampWithTimeZoneType()
     {
         String testQuery = "WITH cte AS (" +
@@ -79,7 +93,7 @@ public class TestCteExecution
                 "    (CAST('2023-12-31 23:59:59.999 UTC' AS TIMESTAMP WITH TIME ZONE))" +
                 "  ) AS t(ts)" +
                 ")" +
-                "SELECT ts FROM cte";
+                "SELECT * FROM cte JOIN cte ON true";
         QueryRunner queryRunner = getQueryRunner();
         compareResults(queryRunner.execute(getMaterializedSession(),
                         testQuery),

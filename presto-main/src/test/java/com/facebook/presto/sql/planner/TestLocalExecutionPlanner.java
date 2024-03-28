@@ -160,7 +160,7 @@ public class TestLocalExecutionPlanner
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingMetadata.TestingColumnHandle("column")),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         PlanNode node1 = new CustomNodeA(new PlanNodeId("node1"), scan);
         PlanNode node2 = new CustomNodeB(new PlanNodeId("node2"), node1);
 

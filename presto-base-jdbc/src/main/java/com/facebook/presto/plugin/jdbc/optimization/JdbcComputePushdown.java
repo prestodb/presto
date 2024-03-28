@@ -139,7 +139,7 @@ public class JdbcComputePushdown
                     oldTableScanNode.getAssignments(),
                     oldTableScanNode.getTableConstraints(),
                     oldTableScanNode.getCurrentConstraint(),
-                    oldTableScanNode.getEnforcedConstraint());
+                    oldTableScanNode.getEnforcedConstraint(), Optional.empty());
 
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), newTableScanNode, node.getPredicate());
         }

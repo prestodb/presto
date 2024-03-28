@@ -104,7 +104,7 @@ public final class CteConsumerNode
         return cteId;
     }
 
-    private static void checkArgument(boolean condition, String message)
+    public static void checkArgument(boolean condition, String message)
     {
         if (!condition) {
             throw new IllegalArgumentException(message);

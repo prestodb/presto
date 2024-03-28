@@ -45,12 +45,14 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isSimplifyPlanWithEmptyInputEnabled;
@@ -205,16 +207,36 @@ public class SimplifyPlanWithEmptyInput
             return node.replaceChildren(ImmutableList.of(rewrittenLeft, rewrittenRight));
         }
 
+        public Set<Integer> removeIndexFromMarkers(Set<Integer> markerSet, int index)
+        {
+            ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+            for (int edge : markerSet) {
+                // Decrease by 1 if greater than the removed index
+                if (edge < index) {
+                    builder.add(edge);
+                }
+                else if (edge >= 1) {
+                    builder.add(edge - 1);
+                }
+            }
+            return builder.build();
+        }
+
         @Override
         public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
         {
             List<PlanNode> cteProducers = node.getCteProducers();
             List<PlanNode> newSequenceChildrenList = new ArrayList<>();
             // Visit in the order of execution
+            Set<Integer> newMarkerSet = ImmutableSet.copyOf(node.getMarkerSet());
             for (int i = cteProducers.size() - 1; i >= 0; i--) {
                 PlanNode rewrittenProducer = context.rewrite(cteProducers.get(i));
                 if (!isEmptyNode(rewrittenProducer)) {
                     newSequenceChildrenList.add(rewrittenProducer);
+                }
+                else {
+                    // producer removed, so update marker
+                    newMarkerSet = removeIndexFromMarkers(newMarkerSet, i);
                 }
             }
             PlanNode rewrittenPrimarySource = context.rewrite(node.getPrimarySource());
@@ -223,9 +245,8 @@ public class SimplifyPlanWithEmptyInput
             }
             // Reverse order for execution
             Collections.reverse(newSequenceChildrenList);
-            // Add the primary source at the end of the list
-            newSequenceChildrenList.add(rewrittenPrimarySource);
-            return node.replaceChildren(newSequenceChildrenList);
+            return new SequenceNode(node.getSourceLocation(), idAllocator.getNextId(), newSequenceChildrenList,
+                    rewrittenPrimarySource, ImmutableSet.copyOf(newMarkerSet));
         }
 
         @Override

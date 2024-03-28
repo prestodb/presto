@@ -164,7 +164,8 @@ public class PhysicalCteOptimizer
                                         temporaryTableHandle,
                                         actualSource.getOutputVariables(),
                                         variableToColumnMap,
-                                        partitioningMetadata), node.getOutputVariables()));
+                                        partitioningMetadata,
+                                        Optional.of(node.getCteId())), node.getOutputVariables()));
             }
             catch (PrestoException e) {
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
@@ -186,7 +187,8 @@ public class PhysicalCteOptimizer
                     actualSource.getOutputVariables(),
                     variableToColumnMap,
                     partitioningMetadata,
-                    node.getRowCountVariable());
+                    node.getRowCountVariable(),
+                    Optional.of(node.getCteId()));
         }
 
         public boolean isPlanRewritten()
@@ -237,7 +239,8 @@ public class PhysicalCteOptimizer
                     newOutputVariables,
                     newColumnAssignmentsMap,
                     tempScan.getCurrentConstraint(),
-                    tempScan.getEnforcedConstraint());
+                    tempScan.getEnforcedConstraint(),
+                    tempScan.getTemporaryTableInfo());
 
             // The temporary table scan might have columns removed by the UnaliasSymbolReferences and other optimizers (its a plan tree after all),
             // use originalOutputVariables (which are also canonicalized and maintained) and add them back

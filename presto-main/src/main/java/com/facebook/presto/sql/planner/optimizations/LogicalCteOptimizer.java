@@ -35,11 +35,14 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -128,7 +131,8 @@ public class LogicalCteOptimizer
             }
             PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(session, planNodeIdAllocator, variableAllocator),
                     root, context);
-            List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering();
+            Set<Integer> markers = new HashSet<>();
+            List<PlanNode> topologicalOrderedList = context.getTopologicalOrderingAndUpdateMarkers(markers);
             if (topologicalOrderedList.isEmpty()) {
                 isPlanRewritten = false;
                 // Returning transformed Cte because cte reference nodes are cleared in the transformedCte regardless of materialization
@@ -136,7 +140,7 @@ public class LogicalCteOptimizer
             }
             isPlanRewritten = true;
             SequenceNode sequenceNode = new SequenceNode(root.getSourceLocation(), planNodeIdAllocator.getNextId(), topologicalOrderedList,
-                    transformedCte.getSources().get(0));
+                    transformedCte.getSources().get(0), ImmutableSet.copyOf(markers));
             return root.replaceChildren(Arrays.asList(sequenceNode));
         }
 
@@ -277,7 +281,7 @@ public class LogicalCteOptimizer
     {
         public Map<String, CteProducerNode> cteProducerMap;
 
-        // a -> b indicates that b needs to be processed before a
+        // a -> b indicates that a needs to be processed before b
         MutableGraph<String> graph;
         public Stack<String> activeCteStack;
 
@@ -321,7 +325,7 @@ public class LogicalCteOptimizer
         {
             graph.addNode(currentCte);
             Optional<String> parentCte = peekActiveCte();
-            parentCte.ifPresent(s -> graph.putEdge(currentCte, s));
+            parentCte.ifPresent(s -> graph.putEdge(s, currentCte));
         }
 
         public void addComplexCte(String cteId)
@@ -339,12 +343,47 @@ public class LogicalCteOptimizer
             return complexCtes.contains(cteId);
         }
 
-        public List<PlanNode> getTopologicalOrdering()
+        //ToDo: Revisit !!!!
+        public List<PlanNode> getTopologicalOrderingAndUpdateMarkers(Set<Integer> markers)
         {
-            ImmutableList.Builder<PlanNode> topSortedCteProducerListBuilder = ImmutableList.builder();
-            Traverser.forGraph(graph).depthFirstPostOrder(graph.nodes())
-                    .forEach(cteName -> topSortedCteProducerListBuilder.add(cteProducerMap.get(cteName)));
-            return topSortedCteProducerListBuilder.build();
+            // Create an undirected version of the graph to identify connected components
+            MutableGraph<String> undirectedGraph = GraphBuilder.undirected().allowsSelfLoops(false).build();
+            graph.nodes().forEach(undirectedGraph::addNode);
+            graph.edges().forEach(edge -> undirectedGraph.putEdge(edge.nodeU(), edge.nodeV()));
+
+            Set<String> visited = new HashSet<>();
+            // Construct Subgraphs and add markers
+            List<PlanNode> flattenedCteProducerList = new ArrayList<>();
+            for (String node : graph.nodes()) {
+                if (!visited.contains(node)) {
+                    // Identify all nodes in the current connected component
+                    Set<String> componentNodes = new HashSet<>();
+                    Traverser.forGraph(undirectedGraph).breadthFirst(node).forEach(componentNode -> {
+                        if (visited.add(componentNode)) {
+                            componentNodes.add(componentNode);
+                        }
+                    });
+
+                    // Create a subgraph for the current component
+                    MutableGraph<String> subgraph = GraphBuilder.directed().allowsSelfLoops(false).build();
+                    componentNodes.forEach(subgraph::addNode);
+                    componentNodes.forEach(componentNode -> graph.successors(componentNode)
+                            .stream()
+                            .forEach(successor -> subgraph.putEdge(componentNode, successor)));
+
+                    List<PlanNode> cteProducerSubgraph = new ArrayList<>();
+                    Traverser.forGraph(subgraph).depthFirstPostOrder(subgraph.nodes())
+                            .forEach(cteName -> cteProducerSubgraph.add(cteProducerMap.get(cteName)));
+
+                    // Add to the flattened list and mark the end of the subgraph
+                    if (!cteProducerSubgraph.isEmpty()) {
+                        markers.add(flattenedCteProducerList.size() + cteProducerSubgraph.size() - 1);
+                        Collections.reverse(cteProducerSubgraph);
+                        flattenedCteProducerList.addAll(cteProducerSubgraph);
+                    }
+                }
+            }
+            return flattenedCteProducerList;
         }
     }
 }
