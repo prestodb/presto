@@ -133,6 +133,10 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
 
 PrestoServer::~PrestoServer() {}
 
+void registerPrometheusMetrics() {
+  facebook::velox::BaseStatsReporter::registered = true;
+}
+
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
@@ -226,6 +230,10 @@ void PrestoServer::run() {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
   }
+  #ifdef PRESTO_ENABLE_PROMETHEUS_REPORTER
+    // This flag must be set to register the counters.
+  registerPrometheusMetrics();
+  #endif
 
   registerStatsCounters();
   registerFileSinks();
