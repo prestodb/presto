@@ -41,6 +41,7 @@ from different data sources.
     connector/singlestore
     connector/sqlserver
     connector/system
+    connector/teradata
     connector/thrift
     connector/tpcds
     connector/tpch
