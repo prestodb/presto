@@ -14,6 +14,8 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -53,7 +55,12 @@ public class ConnectorFilterStatsCalculatorService
             Map<String, Type> columnTypes)
     {
         PlanNodeStatsEstimate tableStats = toPlanNodeStats(tableStatistics, columnNames, columnTypes);
-        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session);
+        // TODO: Consider re-designing the filter calculator APIs so that a proper Session instance
+        //  can be more easily populated
+        Optional<Session> filterSession = session instanceof FullConnectorSession ?
+                Optional.of(((FullConnectorSession) session).getSession()) :
+                Optional.empty();
+        PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(tableStats, predicate, session, filterSession);
 
         if (filteredStats.isOutputRowCountUnknown()) {
             filteredStats = tableStats.mapOutputRowCount(sourceRowCount -> tableStats.getOutputRowCount() * UNKNOWN_FILTER_COEFFICIENT);

@@ -73,22 +73,22 @@ public class TestParquetDistributedQueries
             // Since no stats were collected during write, all column stats will be null
             assertQuery("SHOW STATS FOR test_quick_stats",
                     "SELECT * FROM (VALUES " +
-                            "   ('orderkey', null, null, null, null, null, null), " +
-                            "   ('linenumber', null, null, null, null, null, null), " +
-                            "   ('shipdate', null, null, null, null, null, null), " +
-                            "   ('arr', null, null, null, null, null, null), " +
-                            "   ('rrow', null, null, null, null, null, null), " +
-                            "   (null, null, null, null, 60175.0, null, null))");
+                            "   ('orderkey', null, null, null, null, null, null, null), " +
+                            "   ('linenumber', null, null, null, null, null, null, null), " +
+                            "   ('shipdate', null, null, null, null, null, null, null), " +
+                            "   ('arr', null, null, null, null, null, null, null), " +
+                            "   ('rrow', null, null, null, null, null, null, null), " +
+                            "   (null, null, null, null, 60175.0, null, null, null))");
 
             // With quick stats enabled, we should get nulls_fraction, low_value and high_value for the non-nested columns
             assertQuery(session, "SHOW STATS FOR test_quick_stats",
                     "SELECT * FROM (VALUES " +
-                            "   ('orderkey', null, null, 0.0, null, '1', '60000'), " +
-                            "   ('linenumber', null, null, 0.0, null, '1', '7'), " +
-                            "   ('shipdate', null, null, 0.0, null, '1992-01-04', '1998-11-29'), " +
-                            "   ('arr', null, null, null, null, null, null), " +
-                            "   ('rrow', null, null, null, null, null, null), " +
-                            "   (null, null, null, null, 60175.0, null, null))");
+                            "   ('orderkey', null, null, 0.0, null, '1', '60000', null), " +
+                            "   ('linenumber', null, null, 0.0, null, '1', '7', null), " +
+                            "   ('shipdate', null, null, 0.0, null, '1992-01-04', '1998-11-29', null), " +
+                            "   ('arr', null, null, null, null, null, null, null), " +
+                            "   ('rrow', null, null, null, null, null, null, null), " +
+                            "   (null, null, null, null, 60175.0, null, null, null))");
         }
         finally {
             getQueryRunner().execute("DROP TABLE test_quick_stats");

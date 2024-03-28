@@ -14,9 +14,11 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.ConnectorHistogram;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
@@ -356,6 +358,62 @@ public class TestPlanNodeStatsEstimateMath
         assertEquals(capStats(stats, cap).getVariableStatistics(VARIABLE).getNullsFraction(), expected);
     }
 
+    @Test
+    public void testAddHistograms()
+    {
+        StatisticRange zeroToTen = new StatisticRange(0, 10, 1);
+        StatisticRange zeroToFive = new StatisticRange(0, 5, 1);
+        StatisticRange fiveToTen = new StatisticRange(5, 10, 1);
+        StatisticRange threeToSeven = new StatisticRange(3, 7, 1);
+
+        PlanNodeStatsEstimate unknownRowCount = statistics(NaN, NaN, NaN, NaN, zeroToTen);
+        PlanNodeStatsEstimate unknownNullsFraction = statistics(10, NaN, NaN, NaN, zeroToTen);
+        PlanNodeStatsEstimate first = statistics(50, NaN, 0.25, NaN, zeroToTen);
+        PlanNodeStatsEstimate second = statistics(25, NaN, 0.6, NaN, zeroToFive);
+        PlanNodeStatsEstimate third = statistics(25, NaN, 0.6, NaN, fiveToTen);
+        PlanNodeStatsEstimate fourth = statistics(20, NaN, 0.6, NaN, threeToSeven);
+        ConnectorHistogram nanHistogram = VariableStatsEstimate.unknown().getHistogram();
+
+        // histogram should be full open range when row counts are unknown
+        assertAddStatsHistogram(unknownRowCount, unknownRowCount, PlanNodeStatsEstimateMath::addStatsAndCollapseDistinctValues, nanHistogram);
+
+        // check when rows are available histograms are added properly.
+        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram(), zeroToTen);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, PlanNodeStatsEstimateMath::addStatsAndCollapseDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, PlanNodeStatsEstimateMath::addStatsAndMaxDistinctValues, addedSameRange);
+        assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, PlanNodeStatsEstimateMath::addStatsAndIntersect, addedSameRange);
+
+        // check when only a sub-range is added, that the histogram still represents the full range
+        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram(), zeroToTen);
+        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram(), zeroToFive);
+        assertAddStatsHistogram(first, second, PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, PlanNodeStatsEstimateMath::addStatsAndCollapseDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, PlanNodeStatsEstimateMath::addStatsAndMaxDistinctValues, fullRangeFirst);
+        assertAddStatsHistogram(first, second, PlanNodeStatsEstimateMath::addStatsAndIntersect, intersectedRangeSecond);
+
+        // check when two ranges overlap, the new stats span both ranges
+        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram(), fiveToTen);
+        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram(), fiveToTen);
+        assertAddStatsHistogram(second, third, PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, PlanNodeStatsEstimateMath::addStatsAndCollapseDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, PlanNodeStatsEstimateMath::addStatsAndMaxDistinctValues, fullRangeSecondThird);
+        assertAddStatsHistogram(second, third, PlanNodeStatsEstimateMath::addStatsAndIntersect, intersectedRangeSecondThird);
+
+        // check when two ranges partially overlap, the addition/intersection is applied correctly
+        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram(), threeToSeven);
+        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram(), threeToSeven);
+        assertAddStatsHistogram(third, fourth, PlanNodeStatsEstimateMath::addStatsAndSumDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, PlanNodeStatsEstimateMath::addStatsAndCollapseDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, PlanNodeStatsEstimateMath::addStatsAndMaxDistinctValues, fullRangeThirdFourth);
+        assertAddStatsHistogram(third, fourth, PlanNodeStatsEstimateMath::addStatsAndIntersect, intersectedRangeThirdFourth);
+    }
+
+    private static void assertAddStatsHistogram(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, BiFunction<PlanNodeStatsEstimate, PlanNodeStatsEstimate, PlanNodeStatsEstimate> function, ConnectorHistogram expected)
+    {
+        assertEquals(function.apply(first, second).getVariableStatistics(VARIABLE).getHistogram(), expected);
+    }
+
     private static PlanNodeStatsEstimate statistics(double rowCount, double totalSize, double nullsFraction, double averageRowSize, StatisticRange range)
     {
         return PlanNodeStatsEstimate.builder()
@@ -365,6 +423,7 @@ public class TestPlanNodeStatsEstimateMath
                         .setNullsFraction(nullsFraction)
                         .setAverageRowSize(averageRowSize)
                         .setStatisticsRange(range)
+                        .setHistogram(DisjointRangeDomainHistogram.addConjunction(new UniformDistributionHistogram(range.getLow(), range.getHigh()), range))
                         .build())
                 .build();
     }

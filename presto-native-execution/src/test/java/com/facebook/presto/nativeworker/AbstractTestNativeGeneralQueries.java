@@ -258,10 +258,10 @@ public abstract class AbstractTestNativeGeneralQueries
         // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
         assertQuery("SHOW STATS FOR region",
                 "SELECT * FROM (VALUES" +
-                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL))");
+                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4', NULL)," +
+                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL, NULL)," +
+                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL, NULL)," +
+                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL, NULL))");
 
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
@@ -275,17 +275,17 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 25);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
-                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
+                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4', NULL)," +
+                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL, NULL))");
             assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
             assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4')," +
-                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11')," +
-                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL))");
+                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4', NULL)," +
+                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -305,9 +305,9 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 7);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12')," +
-                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13')," +
-                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL))");
+                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12', NULL)," +
+                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
