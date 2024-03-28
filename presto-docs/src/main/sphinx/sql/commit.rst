@@ -25,4 +25,4 @@ Examples
 See Also
 --------
 
-:doc:`rollback`, :doc:`start-transaction`
+:doc:``rollback``, :doc:``start-transaction``
