@@ -115,12 +115,14 @@ public class TestVerificationManager
     private static final String NAME = "test-query";
     private static final QualifiedName TABLE_PREFIX = QualifiedName.of("tmp_verifier");
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON));
-    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", Optional.of("user"), Optional.empty(), Optional.empty());
+    private static final QueryConfiguration QUERY_CONFIGURATION = new QueryConfiguration("test", "di", Optional.of("user"), Optional.empty(), Optional.empty(), Optional.empty());
     private static final SourceQuery SOURCE_QUERY = new SourceQuery(
             SUITE,
             NAME,
             "SELECT 1",
             "SELECT 2",
+            Optional.of("control_query_id"),
+            Optional.of("test_query_id"),
             QUERY_CONFIGURATION,
             QUERY_CONFIGURATION);
     private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig().setTestId("test");
@@ -197,7 +199,7 @@ public class TestVerificationManager
 
     private static SourceQuery createSourceQuery(String name, String controlQuery, String testQuery)
     {
-        return new SourceQuery(SUITE, name, controlQuery, testQuery, QUERY_CONFIGURATION, QUERY_CONFIGURATION);
+        return new SourceQuery(SUITE, name, controlQuery, testQuery, Optional.empty(), Optional.empty(), QUERY_CONFIGURATION, QUERY_CONFIGURATION);
     }
 
     private static void assertSkippedEvent(VerifierQueryEvent event, String name, SkippedReason skippedReason)
@@ -216,7 +218,9 @@ public class TestVerificationManager
                 new VerificationFactory(
                         SQL_PARSER,
                         (sourceQuery, verificationContext) -> new QueryActions(prestoAction, prestoAction, prestoAction),
-                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX), ImmutableMap.of()),
+                        presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(CONTROL, false, TEST, false)),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),

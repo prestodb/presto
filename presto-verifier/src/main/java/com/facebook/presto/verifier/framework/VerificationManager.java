@@ -219,6 +219,8 @@ public class VerificationManager
                         sourceQuery.getName(),
                         sourceQuery.getQuery(CONTROL),
                         sourceQuery.getQuery(TEST),
+                        sourceQuery.getQueryId(CONTROL),
+                        sourceQuery.getQueryId(TEST),
                         sourceQuery.getControlConfiguration().applyOverrides(controlOverrides),
                         sourceQuery.getTestConfiguration().applyOverrides(testOverrides)))
                 .collect(toImmutableList());

@@ -25,6 +25,7 @@ import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import java.util.List;
 
 @RegisterColumnMapper(StringToStringMapColumnMapper.class)
+@RegisterColumnMapper(StringListColumnMapper.class)
 public interface VerifierDao
 {
     @SqlUpdate("CREATE TABLE <table_name> (\n" +
@@ -34,32 +35,40 @@ public interface VerifierDao
             "  control_catalog varchar(256) NOT NULL,\n" +
             "  control_schema varchar(256) NOT NULL,\n" +
             "  control_query text NOT NULL,\n" +
+            "  control_query_id mediumtext DEFAULT NULL,\n" +
             "  control_username varchar(256) DEFAULT NULL,\n" +
             "  control_password varchar(256) DEFAULT NULL,\n" +
             "  control_session_properties text DEFAULT NULL,\n" +
+            "  control_client_tags text DEFAULT NULL,\n" +
             "  test_catalog varchar(256) NOT NULL,\n" +
             "  test_schema varchar(256) NOT NULL,\n" +
             "  test_query text NOT NULL,\n" +
+            "  test_query_id mediumtext DEFAULT NULL,\n" +
             "  test_username varchar(256) DEFAULT NULL,\n" +
             "  test_password varchar(256) DEFAULT NULL,\n" +
-            "  test_session_properties text DEFAULT NULL)")
+            "  test_session_properties text DEFAULT NULL,\n" +
+            "  test_client_tags text DEFAULT NULL)")
     void createVerifierQueriesTable(@Define("table_name") String tableName);
 
     @SqlQuery("SELECT\n" +
             "  suite,\n" +
             "  name,\n" +
             "  control_query,\n" +
+            "  name control_query_id,\n" +
             "  control_catalog,\n" +
             "  control_schema,\n" +
             "  control_username,\n" +
             "  control_password,\n" +
             "  control_session_properties,\n" +
+            "  control_client_tags,\n" +
             "  test_query,\n" +
+            "  test_query_id,\n" +
             "  test_catalog,\n" +
             "  test_schema,\n" +
             "  test_username,\n" +
             "  test_password,\n" +
-            "  test_session_properties\n" +
+            "  test_session_properties,\n" +
+            "  test_client_tags\n" +
             "FROM\n" +
             "  <table_name>\n" +
             "WHERE\n" +

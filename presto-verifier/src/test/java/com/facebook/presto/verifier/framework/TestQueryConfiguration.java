@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertFalse;
+import static com.facebook.presto.testing.assertions.Assert.assertTrue;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.OVERRIDE;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
@@ -43,14 +47,18 @@ public class TestQueryConfiguration
     private static final Map<String, String> SESSION_PROPERTIES_OVERRIDE = ImmutableMap.of("property_1", "value_x", "property_3", "value_3");
     private static final String SESSION_PROPERTIES_OVERRIDE_CONFIG = mapJsonCodec(String.class, String.class).toJson(SESSION_PROPERTIES_OVERRIDE);
 
-    private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, Optional.of(USERNAME), Optional.of(PASSWORD), Optional.of(SESSION_PROPERTIES));
-    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, Optional.empty(), Optional.empty(), Optional.empty());
+    private static final List<String> CLIENT_TAGS = ImmutableList.of(QueryConfiguration.CLIENT_TAG_OUTPUT_RETAINED);
+
+    private static final QueryConfiguration CONFIGURATION_1 = new QueryConfiguration(CATALOG, SCHEMA, Optional.of(USERNAME), Optional.of(PASSWORD),
+            Optional.of(SESSION_PROPERTIES), Optional.of(CLIENT_TAGS));
+    private static final QueryConfiguration CONFIGURATION_2 = new QueryConfiguration(CATALOG, SCHEMA, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     private static final QueryConfiguration CONFIGURATION_FULL_OVERRIDE = new QueryConfiguration(
             CATALOG_OVERRIDE,
             SCHEMA_OVERRIDE,
             Optional.of(USERNAME_OVERRIDE),
             Optional.of(PASSWORD_OVERRIDE),
-            Optional.of(SESSION_PROPERTIES_OVERRIDE));
+            Optional.of(SESSION_PROPERTIES_OVERRIDE),
+            Optional.of(CLIENT_TAGS));
 
     private QueryConfigurationOverridesConfig overrides;
 
@@ -82,13 +90,15 @@ public class TestQueryConfiguration
                         SCHEMA_OVERRIDE,
                         Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
-                        Optional.of(SESSION_PROPERTIES)));
+                        Optional.of(SESSION_PROPERTIES),
+                        Optional.of(CLIENT_TAGS)));
         assertEquals(CONFIGURATION_2.applyOverrides(overrides),
                 new QueryConfiguration(
                         CATALOG_OVERRIDE,
                         SCHEMA_OVERRIDE,
                         Optional.of(USERNAME_OVERRIDE),
                         Optional.of(PASSWORD_OVERRIDE),
+                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -97,22 +107,38 @@ public class TestQueryConfiguration
     {
         overrides.setSessionPropertiesOverrideStrategy(OVERRIDE);
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), CONFIGURATION_FULL_OVERRIDE);
-        assertEquals(CONFIGURATION_2.applyOverrides(overrides), CONFIGURATION_FULL_OVERRIDE);
+        QueryConfiguration overridden = new QueryConfiguration(
+                CATALOG_OVERRIDE,
+                SCHEMA_OVERRIDE,
+                Optional.of(USERNAME_OVERRIDE),
+                Optional.of(PASSWORD_OVERRIDE),
+                Optional.of(SESSION_PROPERTIES_OVERRIDE),
+                Optional.empty());
+        assertEquals(CONFIGURATION_2.applyOverrides(overrides), overridden);
     }
 
     @Test
     public void testSessionPropertySubstitute()
     {
         overrides.setSessionPropertiesOverrideStrategy(SUBSTITUTE);
-        QueryConfiguration substituted = new QueryConfiguration(
+        QueryConfiguration substituted1 = new QueryConfiguration(
                 CATALOG_OVERRIDE,
                 SCHEMA_OVERRIDE,
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
-                Optional.of(ImmutableMap.of("property_1", "value_x", "property_2", "value_2", "property_3", "value_3")));
+                Optional.of(ImmutableMap.of("property_1", "value_x", "property_2", "value_2", "property_3", "value_3")),
+                Optional.of(CLIENT_TAGS));
 
-        assertEquals(CONFIGURATION_1.applyOverrides(overrides), substituted);
-        assertEquals(CONFIGURATION_2.applyOverrides(overrides), CONFIGURATION_FULL_OVERRIDE);
+        assertEquals(CONFIGURATION_1.applyOverrides(overrides), substituted1);
+
+        QueryConfiguration substituted2 = new QueryConfiguration(
+                CATALOG_OVERRIDE,
+                SCHEMA_OVERRIDE,
+                Optional.of(USERNAME_OVERRIDE),
+                Optional.of(PASSWORD_OVERRIDE),
+                Optional.of(SESSION_PROPERTIES_OVERRIDE),
+                Optional.empty());
+        assertEquals(CONFIGURATION_2.applyOverrides(overrides), substituted2);
     }
 
     @Test
@@ -126,7 +152,8 @@ public class TestQueryConfiguration
                 SCHEMA_OVERRIDE,
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
-                Optional.of(ImmutableMap.of("property_3", "value_3")));
+                Optional.of(ImmutableMap.of("property_3", "value_3")),
+                Optional.of(CLIENT_TAGS));
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }
@@ -141,7 +168,8 @@ public class TestQueryConfiguration
                 SCHEMA_OVERRIDE,
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
-                Optional.of(SESSION_PROPERTIES_OVERRIDE));
+                Optional.of(SESSION_PROPERTIES_OVERRIDE),
+                Optional.of(CLIENT_TAGS));
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
     }
@@ -156,8 +184,16 @@ public class TestQueryConfiguration
                 SCHEMA_OVERRIDE,
                 Optional.of(USERNAME_OVERRIDE),
                 Optional.of(PASSWORD_OVERRIDE),
-                Optional.of(ImmutableMap.of("property_1", "value_1")));
+                Optional.of(ImmutableMap.of("property_1", "value_1")),
+                Optional.of(CLIENT_TAGS));
 
         assertEquals(CONFIGURATION_1.applyOverrides(overrides), removed);
+    }
+
+    @Test
+    public void testIsReusableTable()
+    {
+        assertTrue(CONFIGURATION_1.isReusableTable());
+        assertFalse(CONFIGURATION_2.isReusableTable());
     }
 }

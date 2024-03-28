@@ -49,6 +49,8 @@ public class VerificationQueryRewriterFactory
     private final QualifiedName testTablePrefix;
     private final List<Property> controlTableProperties;
     private final List<Property> testTableProperties;
+    private final boolean controlReuseTable;
+    private final boolean testReuseTable;
 
     @Inject
     public VerificationQueryRewriterFactory(
@@ -63,6 +65,8 @@ public class VerificationQueryRewriterFactory
         this.testTablePrefix = requireNonNull(testConfig.getTablePrefix(), "testTablePrefix is null");
         this.controlTableProperties = constructProperties(controlConfig.getTableProperties());
         this.testTableProperties = constructProperties(testConfig.getTableProperties());
+        this.controlReuseTable = controlConfig.isReuseTable();
+        this.testReuseTable = testConfig.isReuseTable();
     }
 
     @Override
@@ -73,7 +77,8 @@ public class VerificationQueryRewriterFactory
                 typeManager,
                 prestoAction,
                 ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
-                ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties));
+                ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties),
+                ImmutableMap.of(CONTROL, controlReuseTable, TEST, testReuseTable));
     }
 
     private static List<Property> constructProperties(Map<String, Object> propertiesMap)

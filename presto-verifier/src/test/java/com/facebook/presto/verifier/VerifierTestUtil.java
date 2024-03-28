@@ -69,7 +69,8 @@ public class VerifierTestUtil
                     "INSERT INTO test SELECT * FROM source",
                     ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build()),
             ImmutableList.of(),
-            CONTROL);
+            CONTROL,
+            false);
 
     private static final MySqlOptions MY_SQL_OPTIONS = MySqlOptions.builder()
             .setCommandTimeout(new Duration(90, SECONDS))
