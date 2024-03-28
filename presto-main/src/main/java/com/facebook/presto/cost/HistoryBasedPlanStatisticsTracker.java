@@ -23,6 +23,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -101,6 +102,16 @@ public class HistoryBasedPlanStatisticsTracker
     public void updateStatistics(QueryExecution queryExecution)
     {
         queryExecution.addFinalQueryInfoListener(this::updateStatistics);
+    }
+
+    public Map<PlanCanonicalizationStrategy, String> getCanonicalPlan(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getCanonicalPlan(queryId);
+    }
+
+    public Optional<PlanNode> getStatsEquivalentPlanRootNode(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getStatsEquivalentPlanRootNode(queryId);
     }
 
     @VisibleForTesting

@@ -811,6 +811,14 @@ Optimizer Properties
 
     Track history based plan statistics from complete plan fragments in failed queries.
 
+``optimizer.log-plans-used-in-history-based-optimizer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Log the stats equivalent plan and canonicalized plans used in history based optimization.
+
 
 Planner Properties
 --------------------------------------
