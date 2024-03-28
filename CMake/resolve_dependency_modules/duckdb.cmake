@@ -40,9 +40,13 @@ set(ENABLE_SANITIZER OFF)
 set(ENABLE_UBSAN OFF)
 set(BUILD_SHELL OFF)
 set(EXPORT_DLL_SYMBOLS OFF)
+set(PREVIOUS_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+set(CMAKE_BUILD_TYPE Release)
 
 FetchContent_MakeAvailable(duckdb)
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
   target_compile_options(duckdb_catalog PRIVATE -Wno-nonnull-compare)
 endif()
+
+set(CMAKE_BUILD_TYPE ${PREVIOUS_BUILD_TYPE})
