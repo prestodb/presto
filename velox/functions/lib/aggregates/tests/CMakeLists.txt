@@ -13,3 +13,17 @@
 # limitations under the License.
 
 add_subdirectory(utils)
+
+add_executable(velox_functions_aggregates_test ValueListTest.cpp)
+
+add_test(NAME velox_functions_aggregates_test
+         COMMAND velox_functions_aggregates_test)
+
+target_link_libraries(
+  velox_functions_aggregates_test
+  velox_functions_aggregates
+  velox_functions_test_lib
+  Folly::folly
+  gtest
+  gtest_main
+  glog::glog)

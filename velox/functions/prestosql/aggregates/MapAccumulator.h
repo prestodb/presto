@@ -19,7 +19,7 @@
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/AddressableNonNullValueList.h"
 #include "velox/exec/Strings.h"
-#include "velox/functions/prestosql/aggregates/ValueList.h"
+#include "velox/functions/lib/aggregates/ValueList.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"

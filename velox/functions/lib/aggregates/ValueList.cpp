@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/aggregates/ValueList.h"
+#include "velox/functions/lib/aggregates/ValueList.h"
 #include "velox/exec/ContainerRowSerde.h"
 
 namespace facebook::velox::aggregate {

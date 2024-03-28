@@ -45,7 +45,6 @@ add_library(
   SetAggregates.cpp
   SumAggregate.cpp
   SumDataSizeForStatsAggregate.cpp
-  ValueList.cpp
   VarianceAggregates.cpp)
 
 target_link_libraries(

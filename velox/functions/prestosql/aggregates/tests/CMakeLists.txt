@@ -47,7 +47,6 @@ add_executable(
   SetUnionTest.cpp
   SumDataSizeForStatsTest.cpp
   SumTest.cpp
-  ValueListTest.cpp
   VarianceAggregationTest.cpp)
 
 add_test(

@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/aggregates/ValueList.h"
+#include "velox/functions/lib/aggregates/ValueList.h"
 #include <gtest/gtest.h>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;

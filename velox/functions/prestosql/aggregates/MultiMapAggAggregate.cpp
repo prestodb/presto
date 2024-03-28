@@ -16,8 +16,8 @@
 #include "velox/exec/AddressableNonNullValueList.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Strings.h"
+#include "velox/functions/lib/aggregates/ValueList.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/ValueList.h"
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::aggregate::prestosql {

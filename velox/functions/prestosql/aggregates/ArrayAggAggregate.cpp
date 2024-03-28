@@ -15,9 +15,8 @@
  */
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/lib/aggregates/ValueList.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/ValueList.h"
-#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::aggregate::prestosql {
 namespace {

@@ -19,6 +19,7 @@
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/ComplexViewTypes.h"
+#include "velox/expression/ComplexWriterTypes.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 
@@ -131,5 +132,26 @@ class ValueListReader {
   uint64_t nulls_;
   vector_size_t pos_{0};
 };
+
+// Write ValueList accumulators to Array-typed intermediate or final result
+// vectors.
+// TODO: This API only works if it is the only logic writing to `writer`.
+template <typename T>
+void copyValueListToArrayWriter(
+    facebook::velox::exec::ArrayWriter<T>& writer,
+    ValueList& elements) {
+  writer.resetLength();
+  auto size = elements.size();
+  if (size == 0) {
+    return;
+  }
+  writer.reserve(size);
+
+  ValueListReader reader(elements);
+  for (vector_size_t i = 0; i < size; ++i) {
+    reader.next(*writer.elementsVector(), writer.valuesOffset() + i);
+  }
+  writer.resize(size);
+}
 
 } // namespace facebook::velox::aggregate
