@@ -204,7 +204,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
 
         RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
@@ -264,7 +264,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
 
         return createFragment(planNode);
     }

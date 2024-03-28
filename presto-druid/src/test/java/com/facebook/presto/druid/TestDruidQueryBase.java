@@ -147,7 +147,7 @@ public class TestDruidQueryBase
                 variables,
                 assignments.build(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     protected FilterNode filter(PlanBuilder planBuilder, PlanNode source, RowExpression predicate)

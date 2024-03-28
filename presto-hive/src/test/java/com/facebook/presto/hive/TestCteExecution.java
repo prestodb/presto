@@ -105,7 +105,7 @@ public class TestCteExecution
                 "    (CAST('2023-12-31 23:59:59.999 UTC' AS TIMESTAMP WITH TIME ZONE))" +
                 "  ) AS t(ts)" +
                 ")" +
-                "SELECT ts FROM cte";
+                "SELECT * FROM cte JOIN cte ON true";
         QueryRunner queryRunner = getQueryRunner();
         compareResults(queryRunner.execute(getMaterializedSession(),
                         testQuery),

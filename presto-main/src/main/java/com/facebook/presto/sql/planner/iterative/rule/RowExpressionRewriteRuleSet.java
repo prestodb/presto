@@ -590,7 +590,7 @@ public class RowExpressionRewriteRuleSet
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation,
                         node.getTaskCountIfScaledWriter(),
-                        node.getIsTemporaryTableWriter()));
+                        node.getTemporaryTableInfo()));
             }
             return Result.empty();
         }

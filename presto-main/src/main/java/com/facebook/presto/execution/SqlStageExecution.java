@@ -110,8 +110,11 @@ public final class SqlStageExecution
 
     private final Map<InternalNode, Set<RemoteTask>> tasks = new ConcurrentHashMap<>();
 
+    private final Map<TaskId, RemoteTask> taskMap = new ConcurrentHashMap<>();
+
     @GuardedBy("this")
     private final AtomicInteger nextTaskId = new AtomicInteger();
+
     @GuardedBy("this")
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     @GuardedBy("this")
@@ -512,6 +515,9 @@ public final class SqlStageExecution
 
     private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
+        if (taskMap.containsKey(taskId)) {
+            return taskMap.get(taskId);
+        }
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
@@ -557,7 +563,7 @@ public final class SqlStageExecution
             // stage finished while we were scheduling this task
             task.abort();
         }
-
+        taskMap.put(taskId, task);
         return task;
     }
 

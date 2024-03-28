@@ -542,7 +542,7 @@ public class PlanBuilder
                 assignments,
                 ImmutableList.of(),
                 currentConstraint,
-                enforcedConstraint);
+                enforcedConstraint, Optional.empty());
     }
 
     public TableScanNode tableScan(
@@ -561,7 +561,7 @@ public class PlanBuilder
                 assignments,
                 tableConstraints,
                 currentConstraint,
-                enforcedConstraint);
+                enforcedConstraint, Optional.empty());
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, VariableReferenceExpression deleteRowId)

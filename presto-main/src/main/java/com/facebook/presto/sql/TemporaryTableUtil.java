@@ -35,6 +35,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TemporaryTableInfo;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -77,6 +78,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 
 // Planner Util for creating temporary tables
@@ -94,7 +96,8 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputVariables,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            Optional<PartitioningMetadata> expectedPartitioningMetadata)
+            Optional<PartitioningMetadata> expectedPartitioningMetadata,
+            Optional<String> cteId)
     {
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         Map<VariableReferenceExpression, ColumnMetadata> outputColumns = outputVariables.stream()
@@ -121,11 +124,14 @@ public class TemporaryTableUtil
         return new TableScanNode(
                 sourceLocation,
                 idAllocator.getNextId(),
+                Optional.empty(),
                 selectedLayout.getLayout().getNewTableHandle(),
                 outputVariables,
                 assignments,
+                emptyList(),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                cteId.map(TemporaryTableInfo::new));
     }
 
     public static Map<VariableReferenceExpression, ColumnMetadata> assignTemporaryTableColumnNames(Collection<VariableReferenceExpression> outputVariables,
@@ -176,7 +182,8 @@ public class TemporaryTableUtil
             TableHandle tableHandle,
             List<VariableReferenceExpression> outputs,
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap,
-            VariableReferenceExpression outputVar)
+            VariableReferenceExpression outputVar,
+            Optional<String> cteId)
     {
         SchemaTableName schemaTableName = metadata.getTableMetadata(session, tableHandle).getTable();
         TableWriterNode.InsertReference insertReference = new TableWriterNode.InsertReference(tableHandle, schemaTableName);
@@ -207,7 +214,7 @@ public class TemporaryTableUtil
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(Boolean.TRUE)),
+                        cteId.map(TemporaryTableInfo::new)),
                 Optional.of(insertReference),
                 outputVar,
                 Optional.empty(),
@@ -345,7 +352,8 @@ public class TemporaryTableUtil
                                     Optional.empty(),
                                     enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty(),
                                     Optional.empty(),
-                                    Optional.of(Boolean.TRUE))),
+                                    // ToDO: handle this better
+                                    Optional.empty())),
                     variableAllocator.newVariable("intermediaterows", BIGINT),
                     variableAllocator.newVariable("intermediatefragments", VARBINARY),
                     variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
@@ -367,7 +375,7 @@ public class TemporaryTableUtil
                     Optional.empty(),
                     enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty(),
                     Optional.empty(),
-                    Optional.of(Boolean.TRUE));
+                    Optional.empty());
         }
 
         return new TableFinishNode(

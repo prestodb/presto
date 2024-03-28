@@ -371,7 +371,7 @@ public abstract class ParquetDereferencePushDown
                     newAssignments,
                     tableScan.getTableConstraints(),
                     tableScan.getCurrentConstraint(),
-                    tableScan.getEnforcedConstraint());
+                    tableScan.getEnforcedConstraint(), tableScan.getTemporaryTableInfo());
 
             Assignments.Builder newProjectAssignmentBuilder = Assignments.builder();
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : project.getAssignments().entrySet()) {

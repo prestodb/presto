@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TemporaryTableInfo;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -57,7 +58,7 @@ public class TableWriterNode
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final List<VariableReferenceExpression> outputs;
     private final Optional<Integer> taskCountIfScaledWriter;
-    private final Optional<Boolean> isTemporaryTableWriter;
+    private final Optional<TemporaryTableInfo> temporaryTableInfo;
 
     @JsonCreator
     public TableWriterNode(
@@ -75,9 +76,10 @@ public class TableWriterNode
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter,
-            @JsonProperty("isTemporaryTableWriter") Optional<Boolean> isTemporaryTableWriter)
+            @JsonProperty("isTemporaryTableWriter") Optional<TemporaryTableInfo> temporaryTableInfo)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter, isTemporaryTableWriter);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable,
+                fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter, temporaryTableInfo);
     }
 
     public TableWriterNode(
@@ -96,7 +98,7 @@ public class TableWriterNode
             Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             Optional<StatisticAggregations> statisticsAggregation,
             Optional<Integer> taskCountIfScaledWriter,
-            Optional<Boolean> isTemporaryTableWriter)
+            Optional<TemporaryTableInfo> temporaryTableInfo)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
@@ -129,7 +131,7 @@ public class TableWriterNode
         });
         this.outputs = outputs.build();
         this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
-        this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter, "isTemporaryTableWriter is null");
+        this.temporaryTableInfo = requireNonNull(temporaryTableInfo, "isTemporaryTableWriter is null");
     }
 
     @JsonProperty
@@ -216,10 +218,9 @@ public class TableWriterNode
         return taskCountIfScaledWriter;
     }
 
-    @JsonProperty
-    public Optional<Boolean> getIsTemporaryTableWriter()
+    public Optional<TemporaryTableInfo> getTemporaryTableInfo()
     {
-        return isTemporaryTableWriter;
+        return temporaryTableInfo;
     }
 
     @Override
@@ -246,7 +247,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter, isTemporaryTableWriter);
+                taskCountIfScaledWriter, temporaryTableInfo);
     }
 
     @Override
@@ -267,7 +268,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter, isTemporaryTableWriter);
+                taskCountIfScaledWriter, temporaryTableInfo);
     }
 
     // only used during planning -- will not be serialized

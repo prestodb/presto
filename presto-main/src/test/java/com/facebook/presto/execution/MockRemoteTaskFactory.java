@@ -124,7 +124,7 @@ public class MockRemoteTaskFactory
                         ImmutableList.of(variable),
                         ImmutableMap.of(variable, new TestingColumnHandle("column")),
                         TupleDomain.all(),
-                        TupleDomain.all()),
+                        TupleDomain.all(), Optional.empty()),
                 ImmutableSet.of(variable),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),

@@ -67,7 +67,7 @@ public class TestGraphvizPrinter
             ImmutableList.of(),
             ImmutableMap.of(),
             TupleDomain.all(),
-            TupleDomain.all());
+            TupleDomain.all(), Optional.empty());
     private static final String TEST_TABLE_SCAN_NODE_INNER_OUTPUT = format(
             "label=\"{TableScan | [TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
                     "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",

@@ -120,7 +120,7 @@ public final class TaskTestUtils
                         ImmutableList.of(VARIABLE),
                         ImmutableMap.of(VARIABLE, new TestingColumnHandle("column", 0, BIGINT)),
                         TupleDomain.all(),
-                        TupleDomain.all()),
+                        TupleDomain.all(), Optional.empty()),
                 ImmutableSet.of(VARIABLE),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(TABLE_SCAN_NODE_ID),

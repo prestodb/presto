@@ -357,7 +357,7 @@ public class PlannerUtils
                 newAssignments,
                 scanNode.getTableConstraints(),
                 scanNode.getCurrentConstraint(),
-                scanNode.getEnforcedConstraint());
+                scanNode.getEnforcedConstraint(), scanNode.getTemporaryTableInfo());
     }
 
     public static PlanNode clonePlanNode(PlanNode planNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
