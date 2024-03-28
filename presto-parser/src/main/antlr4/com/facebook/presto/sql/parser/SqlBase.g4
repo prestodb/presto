@@ -62,6 +62,10 @@ statement
         ADD constraintSpecification                                    #addConstraint
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP CONSTRAINT (IF EXISTS)? name=identifier                   #dropConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'

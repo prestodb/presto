@@ -187,4 +187,7 @@ public interface HiveMetastoreClient
 
     void addPrimaryKeyConstraint(List<SQLPrimaryKey> constraint)
             throws TException;
+
+    void addNotNullConstraint(List<SQLNotNullConstraint> constraint)
+            throws TException;
 }
