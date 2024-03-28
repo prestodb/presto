@@ -137,7 +137,7 @@ public class HiveTableLayoutHandle
                 partitionColumnPredicate,
                 partitions);
 
-        this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -147,7 +147,21 @@ public class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
-        this.appendRowNumberEnabled = appendRowNumberEnabled;
+        // if $row_id is requested, we need the row numbers whether they're explicitly requested or not
+        // TODO is it possible someone needs the row_numbers and row IDs, and thus we need a block for each?
+        // in which case we might need to know whether the row numbers were explicitly requested, and thus
+        // need a separate variable for appending row IDs
+        // TODO verify that $row_id can appear in any of these column lists
+        if (dataColumns.stream().anyMatch(column -> column.getName().equals("$row_id"))
+                || predicateColumns.values().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+            this.appendRowNumberEnabled = true;
+        }
+        else if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> column.getName().equals("$row_id"))) {
+            this.appendRowNumberEnabled = true;
+        }
+        else {
+            this.appendRowNumberEnabled = appendRowNumberEnabled;
+        }
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.footerStatsUnreliable = footerStatsUnreliable;
         this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
