@@ -59,6 +59,7 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats dropConstraint = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addUniqueConstraint = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats addPrimaryKeyConstraint = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats addNotNullConstraint = new HiveMetastoreApiStats();
 
     @Managed
     @Nested
@@ -341,5 +342,12 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getAddPrimaryKeyConstraint()
     {
         return addPrimaryKeyConstraint;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getAddNotNullConstraint()
+    {
+        return addNotNullConstraint;
     }
 }

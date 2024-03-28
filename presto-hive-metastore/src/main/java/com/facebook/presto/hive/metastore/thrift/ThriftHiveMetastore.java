@@ -304,7 +304,9 @@ public class ThriftHiveMetastore
             }
 
             List<SQLNotNullConstraint> notNullConstraints = notNullConstraintsResponse.get().getNotNullConstraints();
-            ImmutableList<NotNullConstraint<String>> result = notNullConstraints.stream().map(nn -> new NotNullConstraint<>(nn.getColumn_name())).collect(toImmutableList());
+            ImmutableList<NotNullConstraint<String>> result = notNullConstraints.stream()
+                    .map(nn -> new NotNullConstraint<>(Optional.ofNullable(nn.getNn_name()), nn.getColumn_name()))
+                    .collect(toImmutableList());
 
             return result;
         }
@@ -1595,6 +1597,7 @@ public class ThriftHiveMetastore
         int keySequence = 1;
         List<SQLPrimaryKey> primaryKeyConstraint = new ArrayList<>();
         List<SQLUniqueConstraint> uniqueConstraint = new ArrayList<>();
+        List<SQLNotNullConstraint> notNullConstraint = new ArrayList<>();
         String callableName;
         HiveMetastoreApiStats apiStats;
         Callable callableClient;
@@ -1640,8 +1643,26 @@ public class ThriftHiveMetastore
                         return null;
                     }));
         }
+        else if (tableConstraint instanceof NotNullConstraint) {
+            notNullConstraint.add(
+                    new SQLNotNullConstraint(table.getCatName(),
+                            table.getDbName(),
+                            table.getTableName(),
+                            tableConstraint.getColumns().stream().findFirst().get(),
+                            tableConstraint.getName().orElse(null),
+                            true,
+                            true,
+                            true));
+            callableName = "addNotNullConstraint";
+            apiStats = stats.getAddNotNullConstraint();
+            callableClient = apiStats.wrap(() ->
+                    getMetastoreClientThenCall(metastoreContext, client -> {
+                        client.addNotNullConstraint(notNullConstraint);
+                        return null;
+                    }));
+        }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "This connector can only handle Unique/Primary Key constraints at this time");
+            throw new PrestoException(NOT_SUPPORTED, "This connector can only handle Unique/Primary Key/Not Null constraints at this time");
         }
 
         try {

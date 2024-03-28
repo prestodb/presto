@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -575,6 +576,30 @@ class AstBuilder
                 enabled,
                 rely,
                 enforced);
+    }
+
+    @Override
+    public Node visitAlterColumnSetNotNull(SqlBaseParser.AlterColumnSetNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()),
+                false);
+    }
+
+    @Override
+    public Node visitAlterColumnDropNotNull(SqlBaseParser.AlterColumnDropNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()),
+                true);
     }
 
     @Override

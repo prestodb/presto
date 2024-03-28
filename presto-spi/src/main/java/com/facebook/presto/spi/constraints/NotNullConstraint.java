@@ -28,20 +28,25 @@ public class NotNullConstraint<T>
 {
     public NotNullConstraint(T column)
     {
-        this(new LinkedHashSet<T>(Collections.singleton(column)));
+        this(Optional.empty(), new LinkedHashSet<T>(Collections.singleton(column)));
     }
 
-    @JsonCreator
-    public NotNullConstraint(@JsonProperty("columns") LinkedHashSet<T> columnNames)
+    public NotNullConstraint(Optional<String> name, T column)
     {
-        super(Optional.empty(), columnNames, true, true, true);
+        this(name, new LinkedHashSet<T>(Collections.singleton(column)));
+    }
+    @JsonCreator
+    public NotNullConstraint(@JsonProperty("name") Optional<String> name,
+            @JsonProperty("columns") LinkedHashSet<T> columnNames)
+    {
+        super(name, columnNames, true, true, true);
     }
 
     @Override
     public <T, R> Optional<TableConstraint<R>> rebaseConstraint(Map<T, R> assignments)
     {
         if (this.getColumns().stream().allMatch(assignments::containsKey)) {
-            return Optional.of(new NotNullConstraint<R>((LinkedHashSet<R>) this.getColumns().stream().map(assignments::get).collect(toCollection(LinkedHashSet::new))));
+            return Optional.of(new NotNullConstraint<R>(this.getName(), (LinkedHashSet<R>) this.getColumns().stream().map(assignments::get).collect(toCollection(LinkedHashSet::new))));
         }
         else {
             return Optional.empty();
