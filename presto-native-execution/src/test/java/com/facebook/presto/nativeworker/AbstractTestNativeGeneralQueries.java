@@ -830,6 +830,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Reverse
         assertQuery("SELECT comment, reverse(comment) FROM orders");
+
+        // Hamming_distance
+        assertQuery("SELECT hamming_distance('abcde', 'abcde')");
+        assertQueryFails("SELECT hamming_distance('abc', 'abcd')", ".*must have the same length.*");
+
     }
 
     @Test
@@ -921,6 +926,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT from_ieee754_64(to_ieee754_64(-3.14158999999999988261834005243E0))");
         assertQuery("SELECT from_ieee754_64(to_ieee754_64(totalprice)) FROM orders");
         assertQuery("SELECT from_ieee754_64(to_ieee754_64(acctbal)) FROM customer");
+
+        //secure_random
+        assertQuerySucceeds("SELECT secure_random(1, 10)");
+        assertQuerySucceeds("SELECT secure_random(-1.0, 10.0)");
+        assertQueryFails("SELECT secure_random(2, -1)", ".*upper bound must be greater than lower bound.*");
+
     }
 
     @Test
