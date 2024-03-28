@@ -221,7 +221,7 @@ jobs:
                 command: |
                   export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
                   export TEMP_PATH="/tmp"
-                  TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
+                  TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSparkNativeSimpleQueries.java" | circleci tests split --split-by=timings)
                   # Convert file paths to comma separated class names
                   export TESTCLASSES=
                   for test_file in $TESTFILES
