@@ -37,6 +37,13 @@ TypePtr resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Given a function name and argument types, returns a pair of return
+/// type and metadata if function exists. Otherwise, returns std::nullopt.
+std::optional<std::pair<TypePtr, exec::VectorFunctionMetadata>>
+resolveFunctionWithMetadata(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
 /// Given a function name and argument types, returns the return type if the
 /// function exists or is a special form that supports type resolution (see
 /// resolveCallableSpecialForm), otherwise returns nullptr.
@@ -68,6 +75,8 @@ TypePtr resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Given name of a vector function and argument types, returns a pair of return
+/// type and metadata if function exists. Otherwise, returns std::nullopt.
 std::optional<std::pair<TypePtr, exec::VectorFunctionMetadata>>
 resolveVectorFunctionWithMetadata(
     const std::string& functionName,

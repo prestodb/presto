@@ -356,19 +356,9 @@ bool isDeterministic(
     return true;
   }
 
-  // Check if this is a simple function.
-  if (auto simpleFunctionEntry =
-          exec::simpleFunctions().resolveFunction(functionName, argTypes)) {
-    return simpleFunctionEntry->metadata().deterministic;
-  }
-
-  // Vector functions are a bit more complicated. We need to fetch the list of
-  // available signatures and check if any of them bind given the current
-  // input arg types. If it binds (if there's a match), we fetch the function
-  // and return the isDeterministic bool.
-  if (auto functionWithMetadata =
-          exec::resolveVectorFunctionWithMetadata(functionName, argTypes)) {
-    return functionWithMetadata->second.deterministic;
+  if (auto typeAndMetadata =
+          resolveFunctionWithMetadata(functionName, argTypes)) {
+    return typeAndMetadata->second.deterministic;
   }
 
   // functionName must be a special form.

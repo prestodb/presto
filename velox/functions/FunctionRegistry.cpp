@@ -82,6 +82,19 @@ TypePtr resolveFunction(
   return resolveVectorFunction(functionName, argTypes);
 }
 
+std::optional<std::pair<TypePtr, exec::VectorFunctionMetadata>>
+resolveFunctionWithMetadata(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
+  if (auto resolvedFunction =
+          exec::simpleFunctions().resolveFunction(functionName, argTypes)) {
+    return std::pair<TypePtr, exec::VectorFunctionMetadata>{
+        resolvedFunction->type(), resolvedFunction->metadata()};
+  }
+
+  return exec::resolveVectorFunctionWithMetadata(functionName, argTypes);
+}
+
 TypePtr resolveFunctionOrCallableSpecialForm(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
