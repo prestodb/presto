@@ -19,6 +19,7 @@ add_executable(
   IsNullTest.cpp
   IsNotNullTest.cpp
   KllSketchTest.cpp
+  LambdaFunctionUtilTest.cpp
   MapConcatTest.cpp
   Re2FunctionsTest.cpp
   RepeatTest.cpp
