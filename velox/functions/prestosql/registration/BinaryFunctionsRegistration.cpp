@@ -66,6 +66,8 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "from_ieee754_64"});
   registerFunction<ToIEEE754Bits32, Varbinary, float>(
       {prefix + "to_ieee754_32"});
+  registerFunction<FromIEEE754Bits32, float, Varbinary>(
+      {prefix + "from_ieee754_32"});
 }
 } // namespace
 

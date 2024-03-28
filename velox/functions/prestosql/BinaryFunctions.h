@@ -424,4 +424,21 @@ struct ToIEEE754Bits32 {
   }
 };
 
+template <typename T>
+struct FromIEEE754Bits32 {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<float>& result,
+      const arg_type<Varbinary>& input) {
+    static constexpr auto kTypeLength = sizeof(int32_t);
+    VELOX_USER_CHECK_EQ(
+        input.size(),
+        kTypeLength,
+        "Input floating-point value must be exactly 4 bytes long");
+    memcpy(&result, input.data(), kTypeLength);
+    result = folly::Endian::big(result);
+  }
+};
+
 } // namespace facebook::velox::functions

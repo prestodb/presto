@@ -18,6 +18,7 @@
 #include <array>
 #include <limits>
 #include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
@@ -696,5 +697,62 @@ TEST_F(BinaryFunctionsTest, toIEEE754Bits32) {
   EXPECT_EQ(
       hexToDec("FF7FFFFF"),
       toIEEE754Bits32(std::numeric_limits<float>::lowest()));
+}
+
+TEST_F(BinaryFunctionsTest, fromIEEE754Bits32) {
+  const auto fromIEEE754Bits32 = [&](const std::optional<std::string>& arg) {
+    return evaluateOnce<float, std::string>(
+        "from_ieee754_32(c0)", {arg}, {VARBINARY()});
+  };
+
+  const auto toIEEE754Bits32 = [&](std::optional<float> arg) {
+    return evaluateOnce<std::string, float>("to_ieee754_32(c0)", arg);
+  };
+
+  EXPECT_EQ(std::nullopt, fromIEEE754Bits32(std::nullopt));
+  EXPECT_EQ(1.0f, fromIEEE754Bits32(hexToDec("3F800000")));
+  EXPECT_EQ(3.14f, fromIEEE754Bits32(hexToDec("4048F5C3")));
+  EXPECT_EQ(3.4028235E38f, fromIEEE754Bits32(hexToDec("7f7fffff")));
+  EXPECT_EQ(-3.4028235E38f, fromIEEE754Bits32(hexToDec("ff7fffff")));
+  EXPECT_EQ(1.4E-45f, fromIEEE754Bits32(hexToDec("00000001")));
+  EXPECT_EQ(-1.4E-45f, fromIEEE754Bits32(hexToDec("80000001")));
+  EXPECT_EQ(
+      std::numeric_limits<float>::infinity(),
+      fromIEEE754Bits32(hexToDec("7f800000")));
+  EXPECT_EQ(
+      -std::numeric_limits<float>::infinity(),
+      fromIEEE754Bits32(hexToDec("ff800000")));
+  EXPECT_THROW(fromIEEE754Bits32("YQ"), VeloxUserError);
+  EXPECT_EQ(3.4028235E38f, fromIEEE754Bits32(toIEEE754Bits32(3.4028235E38f)));
+  EXPECT_EQ(-3.4028235E38f, fromIEEE754Bits32(toIEEE754Bits32(-3.4028235E38f)));
+  EXPECT_EQ(1.4E-45f, fromIEEE754Bits32(toIEEE754Bits32(1.4E-45f)));
+  EXPECT_EQ(-1.4E-45f, fromIEEE754Bits32(toIEEE754Bits32(-1.4E-45f)));
+  EXPECT_EQ(
+      std::numeric_limits<float>::infinity(),
+      fromIEEE754Bits32(
+          toIEEE754Bits32(std::numeric_limits<float>::infinity())));
+  EXPECT_EQ(
+      -std::numeric_limits<float>::infinity(),
+      fromIEEE754Bits32(
+          toIEEE754Bits32(-std::numeric_limits<float>::infinity())));
+  EXPECT_EQ(
+      std::numeric_limits<float>::max(),
+      fromIEEE754Bits32(toIEEE754Bits32(std::numeric_limits<float>::max())));
+  EXPECT_EQ(
+      std::numeric_limits<float>::min(),
+      fromIEEE754Bits32(toIEEE754Bits32(std::numeric_limits<float>::min())));
+  EXPECT_TRUE(
+      std::isnan(fromIEEE754Bits32(
+                     toIEEE754Bits32(std::numeric_limits<float>::quiet_NaN()))
+                     .value()));
+  EXPECT_TRUE(std::isnan(
+      fromIEEE754Bits32(
+          toIEEE754Bits32(std::numeric_limits<float>::signaling_NaN()))
+          .value()));
+  EXPECT_TRUE(
+      std::isnan(fromIEEE754Bits32(toIEEE754Bits32(std::nan("nan"))).value()));
+  VELOX_ASSERT_THROW(
+      fromIEEE754Bits32(hexToDec("0000000000000001")),
+      "Input floating-point value must be exactly 4 bytes long");
 }
 } // namespace

@@ -26,6 +26,16 @@ Binary Functions
 
     Decodes binary data from the hex encoded ``string``.
 
+.. function:: from_ieee754_32(binary) -> real
+
+    Decodes the 32-bit big-endian ``binary`` in IEEE 754 single-precision floating-point format.
+    Throws a user error if input size is shorter / longer than 32 bits.
+
+.. function:: from_ieee754_64(binary) -> double
+
+    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
+    Throws a user error if input size is shorter / longer than 64 bits.
+
 .. function:: hmac_md5(binary, key) -> varbinary
 
     Computes the HMAC with md5 of ``binary`` with the given ``key``.
@@ -97,10 +107,6 @@ Binary Functions
 .. function:: to_ieee754_64(double) -> varbinary
 
     Encodes ``double`` in a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
-
-.. function:: from_ieee754_64(binary) -> double
-
-    Decodes the 64-bit big-endian ``binary`` in IEEE 754 double-precision floating-point format.
 
 .. function:: xxhash64(binary) -> varbinary
 
