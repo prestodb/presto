@@ -58,6 +58,5 @@ public class TestPrestoSparkNativeGeneralQueries
     // https://github.com/prestodb/presto/issues/22275
     @Override
     @Ignore
-    public void testUnionAllInsert() {
-    }
+    public void testUnionAllInsert() {}
 }
