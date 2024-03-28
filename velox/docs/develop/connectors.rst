@@ -117,8 +117,7 @@ This is the behavior when the proxy settings are enabled:
    environment variables are read. If lower case and upper case variables are set
    lower case variables take precendence.
 2. The no_proxy/NO_PROXY content is scanned for exact and suffix matches.
-3. CIDR expressions provided in no_proxy/NO_PROXY are not supported for matching.
-4. IP addresses or domains can be specified.
-5. The no_proxy/NO_PROXY list is comma separated.
-6. Use . or \*. to indicate domain suffix matching, e.g. `.foobar.com` will
+3. IP addresses, domains, subdomains, or IP ranges (CIDR) can be specified in no_proxy/NO_PROXY.
+4. The no_proxy/NO_PROXY list is comma separated.
+5. Use . or \*. to indicate domain suffix matching, e.g. `.foobar.com` will
    match `test.foobar.com` or `foo.foobar.com`.

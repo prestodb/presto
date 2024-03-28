@@ -19,6 +19,8 @@
 // type of file can be constructed based on a filename. See the
 // (register|generate)ReadFile and (register|generate)WriteFile functions.
 
+#include "folly/IPAddress.h"
+
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 
 namespace facebook::velox {
@@ -43,9 +45,9 @@ std::string getErrorStringFromS3Error(
   }
 }
 
-/// The noProxyList is a comma separated list of subdomains or domains.
-/// For a given hostname check if it has a matching domain or subdomain in
-/// the noProxyList.
+/// The noProxyList is a comma separated list of subdomains, domains or IP
+/// ranges (using CIDR). For a given hostname check if it has a matching
+/// subdomain, domain or IP range in the noProxyList.
 bool isHostExcludedFromProxy(
     const std::string& hostname,
     const std::string& noProxyList) {
@@ -55,10 +57,16 @@ bool isHostExcludedFromProxy(
     return false;
   }
 
+  auto hostAsIp = folly::IPAddress::tryFromString(hostname);
   folly::split(',', noProxyList, noProxyListElements);
-  // An exact match or subdomain match is needed.
   for (auto elem : noProxyListElements) {
-    if (elem.length() < hostname.length() && elem[0] == '.' &&
+    // Elem contains "/" which separates IP and subnet mask e.g. 192.168.1.0/24.
+    if (elem.find("/") != std::string::npos && hostAsIp.hasValue()) {
+      return hostAsIp.value().inSubnet(elem);
+    }
+    // Match subdomain, domain names and IP address strings.
+    else if (
+        elem.length() < hostname.length() && elem[0] == '.' &&
         !hostname.compare(
             hostname.length() - elem.length(), elem.length(), elem)) {
       return true;

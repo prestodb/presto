@@ -133,6 +133,8 @@ TEST(S3UtilTest, isIpExcludedFromProxy) {
 
   std::vector<std::pair<std::string, bool>> tests = {
       {"localhost,127.0.0.1,.foobar.com", true},
+      {"localhost,127.0.0.0/24,.foobar.com", true},
+      {"localhost,foobar.com,127.0.0.0/16,.1,.com", true},
       {"localhost,foobar.com,.1,.com", true},
       {"localhost,test.foobar.com", false},
       {"localhost,foobar.com,*.1,*.com", true},
