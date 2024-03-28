@@ -514,7 +514,7 @@ public interface Metadata
         return NOT_APPLICABLE;
     }
 
-    void dropConstraint(Session session, TableHandle tableHandle, String constraintName);
+    void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName);
 
     void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint);
 }

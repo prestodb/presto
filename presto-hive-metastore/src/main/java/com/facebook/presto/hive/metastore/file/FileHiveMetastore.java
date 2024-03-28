@@ -45,6 +45,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableConstraintNotFoundException;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
@@ -1086,12 +1087,16 @@ public class FileHiveMetastore
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
             }
-            else {
+            else if (tableConstraint instanceof UniqueConstraint) {
                 tableConstraint = new UniqueConstraint(Optional.of(randomUUID().toString()),
                         tableConstraint.getColumns(),
                         tableConstraint.isEnabled(),
                         tableConstraint.isRely(),
                         tableConstraint.isEnforced());
+            }
+            else if (tableConstraint instanceof NotNullConstraint) {
+                tableConstraint = new NotNullConstraint(Optional.of(randomUUID().toString()),
+                        tableConstraint.getColumns());
             }
         }
         constraints.add(tableConstraint);
@@ -1101,10 +1106,25 @@ public class FileHiveMetastore
 
     public List<TableConstraint<String>> getTableConstraints(MetastoreContext metastoreContext, String schemaName, String tableName)
     {
-        return readConstraintsFile(schemaName, tableName).stream()
+        Set<TableConstraint> rawConstraints = readConstraintsFile(schemaName, tableName);
+
+        List<TableConstraint<String>> constraints = rawConstraints.stream()
                 .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof PrimaryKeyConstraint)
+                .collect(toList());
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> (constraint instanceof UniqueConstraint) && !(constraint instanceof PrimaryKeyConstraint))
                 .sorted(Comparator.comparing(constraint -> constraint.getName().get()))
-                .collect(toImmutableList());
+                .collect(toList()));
+
+        constraints.addAll(rawConstraints.stream()
+                .map(constraint -> (TableConstraint<String>) constraint)
+                .filter(constraint -> constraint instanceof NotNullConstraint)
+                .collect(toList()));
+
+        return ImmutableList.copyOf(constraints);
     }
 
     @Override

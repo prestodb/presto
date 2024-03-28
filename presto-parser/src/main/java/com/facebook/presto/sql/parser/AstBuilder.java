@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.AlterColumnNotNull;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.AlterRoutineCharacteristics;
 import com.facebook.presto.sql.tree.Analyze;
@@ -543,9 +544,30 @@ class AstBuilder
     {
         List<Identifier> columnAliases = visit(context.columnAliases().identifier(), Identifier.class);
 
-        boolean enabled = context.constraintEnabled() == null || context.constraintEnabled().DISABLED() == null;
-        boolean rely = context.constraintRely() == null || context.constraintRely().NOT() == null;
-        boolean enforced = context.constraintEnforced() == null || context.constraintEnforced().NOT() == null;
+        List<SqlBaseParser.ConstraintQualifierContext> constraintQualifierContext = context.constraintQualifiers().constraintQualifier();
+        check(constraintQualifierContext.stream().filter(p -> p.constraintEnabled() != null).count() <= 1 &&
+                        constraintQualifierContext.stream().filter(p -> p.constraintRely() != null).count() <= 1 &&
+                        constraintQualifierContext.stream().filter(p -> p.constraintEnforced() != null).count() <= 1,
+                "Invalid constraint specification",
+                context.constraintQualifiers());
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enabledSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnabled() != null)
+                .findFirst();
+        boolean enabled = !enabledSpecification.isPresent() ||
+                enabledSpecification.get().constraintEnabled().DISABLED() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> relySpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintRely() != null)
+                .findFirst();
+        boolean rely = !relySpecification.isPresent() ||
+                relySpecification.get().constraintRely().NOT() == null;
+
+        Optional<SqlBaseParser.ConstraintQualifierContext> enforcedSpecification = constraintQualifierContext.stream()
+                .filter(p -> p.constraintEnforced() != null)
+                .findFirst();
+        boolean enforced = !enforcedSpecification.isPresent() ||
+                enforcedSpecification.get().constraintEnforced().NOT() == null;
 
         return new ConstraintSpecification(getLocation(context),
                 Optional.empty(),
@@ -554,6 +576,30 @@ class AstBuilder
                 enabled,
                 rely,
                 enforced);
+    }
+
+    @Override
+    public Node visitAlterColumnSetNotNull(SqlBaseParser.AlterColumnSetNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()),
+                false);
+    }
+
+    @Override
+    public Node visitAlterColumnDropNotNull(SqlBaseParser.AlterColumnDropNotNullContext context)
+    {
+        return new AlterColumnNotNull(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()),
+                true);
     }
 
     @Override

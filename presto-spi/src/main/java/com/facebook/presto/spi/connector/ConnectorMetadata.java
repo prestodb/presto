@@ -849,7 +849,7 @@ public interface ConnectorMetadata
     /**
      * Drop the specified constraint
      */
-    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table constraints");
     }
