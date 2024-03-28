@@ -151,8 +151,7 @@ public class TestJdbcClient
         }
     }
 
-    // disabled due to https://github.com/prestodb/presto/issues/16081
-    @Test(enabled = false)
+    @Test
     public void testAlterColumns()
     {
         String tableName = randomUUID().toString().toUpperCase(ENGLISH);
