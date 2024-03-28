@@ -480,6 +480,7 @@ void configureReaderOptions(
   readerOptions.setFileSchema(fileSchema);
   readerOptions.setFooterEstimatedSize(hiveConfig->footerEstimatedSize());
   readerOptions.setFilePreloadThreshold(hiveConfig->filePreloadThreshold());
+  readerOptions.setPrefetchRowGroups(hiveConfig->prefetchRowGroups());
 
   if (readerOptions.getFileFormat() != dwio::common::FileFormat::UNKNOWN) {
     VELOX_CHECK(

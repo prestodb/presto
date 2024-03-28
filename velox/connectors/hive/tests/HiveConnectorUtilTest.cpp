@@ -118,6 +118,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   EXPECT_EQ(
       readerOptions.getFilePreloadThreshold(),
       hiveConfig->filePreloadThreshold());
+  EXPECT_EQ(readerOptions.prefetchRowGroups(), hiveConfig->prefetchRowGroups());
 
   // Modify field delimiter and change the file format.
   clearDynamicParameters(FileFormat::TEXT);
@@ -183,6 +184,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   customHiveConfigProps[hive::HiveConfig::kOrcUseColumnNames] = "true";
   customHiveConfigProps[hive::HiveConfig::kFooterEstimatedSize] = "1111";
   customHiveConfigProps[hive::HiveConfig::kFilePreloadThreshold] = "9999";
+  customHiveConfigProps[hive::HiveConfig::kPrefetchRowGroups] = "10";
   hiveConfig = std::make_shared<hive::HiveConfig>(
       std::make_shared<core::MemConfig>(customHiveConfigProps));
   performConfigure();
@@ -203,6 +205,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   EXPECT_EQ(
       readerOptions.getFilePreloadThreshold(),
       hiveConfig->filePreloadThreshold());
+  EXPECT_EQ(readerOptions.prefetchRowGroups(), hiveConfig->prefetchRowGroups());
 }
 
 TEST_F(HiveConnectorUtilTest, configureRowReaderOptions) {
