@@ -25,6 +25,7 @@ import io.airlift.slice.Slices;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -35,11 +36,12 @@ class RowIDCoercer
     private final byte[] rowIDPartitionComponent;
     private final byte[] rowGroupID; // file name
 
-    RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
+    RowIDCoercer(byte[] rowIDPartitionComponent, String path)
     {
         // TODO should I copy this to avoid mutable internal state?
         this.rowIDPartitionComponent = requireNonNull(rowIDPartitionComponent);
-        this.rowGroupID = rowGroupID.getBytes(StandardCharsets.UTF_8);
+        String fileName = Paths.get(path).getFileName().toString();
+        this.rowGroupID = fileName.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override

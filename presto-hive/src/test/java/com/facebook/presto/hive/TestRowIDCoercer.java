@@ -27,7 +27,7 @@ import static org.testng.Assert.assertEquals;
 public class TestRowIDCoercer
 {
     private final byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
-    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent, "some_filename.dat");
+    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent, "foo/bar/some_filename.dat");
 
     @Test
     public void testGetToType()
