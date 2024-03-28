@@ -30,6 +30,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -51,6 +52,11 @@ public class HiveColumnHandle
     public static final String BUCKET_COLUMN_NAME = "$bucket";
     public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
     public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
+
+    public static final int ROW_ID_COLUMN_INDEX = -16;
+    public static final String ROW_ID_COLUMN_NAME = "$row_id";
+    public static final HiveType ROW_ID_TYPE = HIVE_BINARY;
+    public static final TypeSignature ROW_ID_TYPE_SIGNATURE = ROW_ID_TYPE.getTypeSignature();
 
     public static final int FILE_SIZE_COLUMN_INDEX = -15;
     public static final String FILE_SIZE_COLUMN_NAME = "$file_size";
@@ -215,6 +221,11 @@ public class HiveColumnHandle
         return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
+    public static HiveColumnHandle rowIdColumnHandle()
+    {
+        return new HiveColumnHandle(ROW_ID_COLUMN_NAME, ROW_ID_TYPE, ROW_ID_TYPE_SIGNATURE, ROW_ID_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
+    }
+
     public static HiveColumnHandle fileSizeColumnHandle()
     {
         return new HiveColumnHandle(FILE_SIZE_COLUMN_NAME, FILE_SIZE_TYPE, FILE_SIZE_TYPE_SIGNATURE, FILE_SIZE_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
@@ -223,6 +234,11 @@ public class HiveColumnHandle
     public static HiveColumnHandle fileModifiedTimeColumnHandle()
     {
         return new HiveColumnHandle(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, FILE_MODIFIED_TIME_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
+    }
+
+    public static boolean isRowIdColumnHandle(HiveColumnHandle column)
+    {
+        return column.getHiveColumnIndex() == ROW_ID_COLUMN_INDEX;
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

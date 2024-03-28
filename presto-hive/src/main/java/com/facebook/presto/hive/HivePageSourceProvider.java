@@ -68,6 +68,7 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZ
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
@@ -446,11 +447,13 @@ public class HivePageSourceProvider
                 tableToPartitionMapping,
                 fileSplit,
                 tableBucketNumber);
-
+// at this point synthetics should have a prefilled value
         Set<Integer> outputIndices = hiveColumns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableSet());
 
+// this next line removes the synthetic columns. The problem is that row_id has columnMappingKind = regular
+    // and it needs to be neither regular nor interim
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = bucketConversion.map(conversion -> toBucketAdaptation(conversion, regularAndInterimColumnMappings, tableBucketNumber, ColumnMapping::getIndex));
@@ -828,6 +831,12 @@ public class HivePageSourceProvider
                     }
                     ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.REGULAR, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFromType);
                     columnMappings.add(columnMapping);
+                    regularIndex++;
+                }
+                // ROW_ID is synthesized but not prefilled. We don't have a columnmappingkind for this.
+                // Might need to add one.
+                else if (isRowIdColumnHandle(column)) {
+                    columnMappings.add(new ColumnMapping(ColumnMappingKind.PREFILLED, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFrom));
                     regularIndex++;
                 }
                 else {

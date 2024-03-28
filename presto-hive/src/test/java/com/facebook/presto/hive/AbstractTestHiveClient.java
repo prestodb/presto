@@ -3078,7 +3078,7 @@ public abstract class AbstractTestHiveClient
                     outputHandle.getLocationHandle().getTargetPath().toString(),
                     true);
             Set<String> files = listAllDataFiles(context, path);
-            assertThat(listAllDataFiles(context, path))
+            assertThat(files)
                     .filteredOn(file -> file.contains(".tmp-sort"))
                     .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
 
@@ -3086,7 +3086,7 @@ public abstract class AbstractTestHiveClient
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify there are no temporary files
-            for (String file : listAllDataFiles(context, path)) {
+            for (String file : files) {
                 assertThat(file).doesNotContain(".tmp-sort.");
             }
 
