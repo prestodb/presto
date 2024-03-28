@@ -14,8 +14,6 @@
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 
-namespace fs = boost::filesystem;
-
 using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
