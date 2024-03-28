@@ -12,6 +12,20 @@
  * limitations under the License.
  */
 
+#if defined(__APPLE__)
+#include <mach/mach_host.h>
+#include <mach/mach_init.h>
+#include <mach/mach_types.h>
+#include <mach/vm_statistics.h>
+#elif defined(__linux__)
+#include <folly/File.h>
+#include <folly/FileUtil.h>
+#include <sys/sysctl.h>
+#include <sys/sysinfo.h>
+#include <sys/types.h>
+#include <cinttypes>
+#endif
+
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
@@ -52,6 +66,8 @@ static constexpr size_t kExchangeSourcePeriodGlobalCounters{
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
 // Every 1 minute we export cache counters.
 static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
+// Every .1 seconds we check machine memory usage and shrink if necessary.
+static constexpr size_t kCacheShrinkInterval{100000}; // .1 seconds.
 // Every 1 minute we export connector counters.
 static constexpr size_t kConnectorPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
@@ -103,6 +119,7 @@ void PeriodicTaskManager::start() {
 
   if (asyncDataCache_ != nullptr) {
     addCacheStatsUpdateTask();
+    addCacheShrinkTask();
   }
 
   addConnectorStatsTask();
@@ -418,6 +435,89 @@ void PeriodicTaskManager::addCacheStatsUpdateTask() {
       [this]() { updateCacheStats(); },
       kCachePeriodGlobalCounters,
       "cache_counters");
+}
+
+// Example Apple shrink function. Shrinks if free memory is less than 2GiB
+#ifdef __APPLE__
+bool exampleAppleShrinkFunc() {
+  vm_size_t page_size;
+  mach_port_t mach_port;
+  mach_msg_type_number_t count;
+  vm_statistics64_data_t vm_stats;
+  mach_port = mach_host_self();
+  unsigned long long free_memory = 0;
+
+  count = sizeof(vm_stats) / sizeof(natural_t);
+  if (KERN_SUCCESS == host_page_size(mach_port, &page_size) &&
+      KERN_SUCCESS ==
+          host_statistics64(
+              mach_port, HOST_VM_INFO, (host_info64_t)&vm_stats, &count)) {
+    free_memory = (int64_t)vm_stats.free_count * (int64_t)page_size;
+  }
+  return free_memory ? free_memory < (2 << 30) : false;
+}
+#endif
+
+// Example Linux docker container shrink function.
+// Shrinks if free memory is less than 5 GiB
+#ifdef __linux__
+bool exampleLinuxShrinkFunc() {
+  static long long containerMemoryLimit = 0;
+  struct sysinfo memInfo;
+  long long inUseMemory;
+  unsigned long long minReserveGB = 5;
+
+  sysinfo(&memInfo);
+
+  if (!containerMemoryLimit) {
+    auto containerMemoryLimitFile =
+        folly::File("/sys/fs/cgroup/memory/memory.limit_in_bytes", O_RDONLY);
+    // Enough storage for the container memory limit
+    std::array<char, 50> buf;
+    if (!folly::readNoInt(
+            containerMemoryLimitFile.fd(), buf.data(), buf.size())) {
+      LOG(INFO)
+          << "/sys/fs/cgroup/memory/memory.limit_in_bytes not found or is empty. Using system limit";
+      containerMemoryLimit = memInfo.totalram;
+    } else if (sscanf(buf.data(), "%" SCNu64, &containerMemoryLimit) != 1) {
+      LOG(INFO) << "No integer value read. Using system limit";
+      containerMemoryLimit = memInfo.totalram;
+    }
+    LOG(INFO) << "System memory limit: " << containerMemoryLimit;
+  }
+  inUseMemory = (memInfo.totalram - memInfo.freeram) * memInfo.mem_unit;
+  return (containerMemoryLimit - inUseMemory) < (minReserveGB << 30);
+}
+#endif
+
+void PeriodicTaskManager::addCacheShrinkTask() {
+  auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
+  if (!SystemConfig::instance()->asyncCacheShrinkGb()) {
+    LOG(INFO) << "async-cache-shrink-gb set to 0. Skip adding shrink task";
+    return;
+  }
+#if defined(__APPLE__)
+  addTask(
+      [this]() { runCacheShrink(exampleAppleShrinkFunc); },
+      kCacheShrinkInterval,
+      "cache_shirnk_interval");
+#elif defined(__linux__)
+  addTask(
+      [this]() { runCacheShrink(exampleLinuxShrinkFunc); },
+      kCacheShrinkInterval,
+      "cache_shirnk_interval");
+#else
+  LOG(INFO)
+      << "Shrink currently not supported for this OS. Skip adding shrink task.";
+#endif
+}
+
+void PeriodicTaskManager::runCacheShrink(bool (*shrinkConditionFunc)()) {
+  if (shrinkConditionFunc()) {
+    auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
+    uint64_t bytesFreed = asyncDataCache->shrink(
+        SystemConfig::instance()->asyncCacheShrinkGb() << 30);
+  }
 }
 
 namespace {

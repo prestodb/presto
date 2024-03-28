@@ -117,6 +117,10 @@ class PeriodicTaskManager {
   void addCacheStatsUpdateTask();
   void updateCacheStats();
 
+  void addCacheShrinkTask();
+
+  void runCacheShrink(bool (*shrinkConditionFunc)());
+
   void addConnectorStatsTask();
 
   void addOperatingSystemStatsUpdateTask();
