@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayPositionLinks
@@ -103,5 +104,10 @@ public final class ArrayPositionLinks
     public long getSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(positionLinks);
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(int positionCount)
+    {
+        return INSTANCE_SIZE + sizeOfIntArray(positionCount);
     }
 }
