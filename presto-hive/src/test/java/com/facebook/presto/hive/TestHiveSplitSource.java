@@ -557,7 +557,8 @@ public class TestHiveSplitSource
                             id,
                             TableToPartitionMapping.empty(),
                             Optional.empty(),
-                            ImmutableSet.of()),
+                            ImmutableSet.of(),
+                            Optional.empty()),
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableMap.of());
