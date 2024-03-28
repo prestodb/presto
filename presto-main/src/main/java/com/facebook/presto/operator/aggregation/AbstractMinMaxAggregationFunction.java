@@ -278,7 +278,10 @@ public abstract class AbstractMinMaxAggregationFunction
             return;
         }
         try {
-            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
+            double currentState = state.getDouble();
+            // If NaN is set as state previously, configure the next state with compared value
+            // to prevent failed comparisons with NaN
+            if (Double.isNaN(currentState) || (boolean) methodHandle.invokeExact(value, currentState)) {
                 state.setDouble(value);
             }
         }

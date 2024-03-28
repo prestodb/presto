@@ -16,15 +16,50 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestDoubleMinAggregation
         extends AbstractTestAggregationFunction
 {
+    private static final String FUNCTION_NAME = "min";
+    private JavaAggregationFunctionImplementation minFunction;
+
+    @BeforeClass
+    public void setup()
+    {
+        FunctionAndTypeManager functionAndTypeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+        minFunction = functionAndTypeManager.getJavaAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction(TestDoubleMinAggregation.FUNCTION_NAME, fromTypes(DOUBLE)));
+    }
+
+    @Test
+    public void min()
+    {
+        assertAggregation(minFunction, 4.0, createDoublesBlock(4.0));
+        assertAggregation(minFunction, 2.0, createDoublesBlock(2.0, 4.0, 5.0));
+        assertAggregation(minFunction, 4.0, createDoublesBlock(4.0, NaN, null));
+        assertAggregation(minFunction, 4.0, createDoublesBlock(NaN, 4.0, null));
+        assertAggregation(minFunction, NEGATIVE_INFINITY, createDoublesBlock(NaN, null, NEGATIVE_INFINITY));
+        assertAggregation(minFunction, NEGATIVE_INFINITY, createDoublesBlock(NaN, null, NEGATIVE_INFINITY, POSITIVE_INFINITY));
+        assertAggregation(minFunction, null, createDoublesBlock((Double) null));
+        assertAggregation(minFunction, NaN, createDoublesBlock(NaN));
+    }
+
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
