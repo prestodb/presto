@@ -749,7 +749,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.use-column-names")
-    @ConfigDescription("Access ORC columns using names from the file")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
     public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
     {
         this.useOrcColumnNames = useOrcColumnNames;
