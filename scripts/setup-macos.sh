@@ -34,8 +34,8 @@ source $SCRIPTDIR/setup-helper-functions.sh
 NPROC=$(getconf _NPROCESSORS_ONLN)
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
-MACOS_DEPS="ninja flex bison cmake ccache protobuf@21 icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl libsodium"
-
+MACOS_VELOX_DEPS="flex bison protobuf@21 icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl libsodium"
+MACOS_BUILD_DEPS="ninja cmake ccache"
 FB_OS_VERSION="v2024.02.26.00"
 
 function update_brew {
@@ -49,24 +49,35 @@ function update_brew {
   $BREW_PATH developer off
 }
 
-function install_build_prerequisites {
-  for pkg in ${MACOS_DEPS}
-  do
-    if [[ "${pkg}" =~ ^([0-9a-z-]*):([0-9](\.[0-9\])*)$ ]];
-    then
-      pkg=${BASH_REMATCH[1]}
-      ver=${BASH_REMATCH[2]}
-      echo "Installing '${pkg}' at '${ver}'"
-      tap="velox/local-${pkg}"
-      brew tap-new "${tap}"
-      brew extract "--version=${ver}" "${pkg}" "${tap}"
-      brew install "${tap}/${pkg}@${ver}" || ( echo "Failed to install ${tap}/${pkg}@${ver}" ; exit 1 )
-    else
-      ( brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg" ) || ( echo "Failed to install ${pkg}" ; exit 1 )
-    fi
-  done
+function install_from_brew {
+  pkg=$1
+  if [[ "${pkg}" =~ ^([0-9a-z-]*):([0-9](\.[0-9\])*)$ ]];
+  then
+    pkg=${BASH_REMATCH[1]}
+    ver=${BASH_REMATCH[2]}
+    echo "Installing '${pkg}' at '${ver}'"
+    tap="velox/local-${pkg}"
+    brew tap-new "${tap}"
+    brew extract "--version=${ver}" "${pkg}" "${tap}"
+    brew install "${tap}/${pkg}@${ver}" || ( echo "Failed to install ${tap}/${pkg}@${ver}" ; exit 1 )
+  else
+    ( brew install --formula "${pkg}" && echo "Installation of ${pkg} is successful" || brew upgrade --formula "$pkg" ) || ( echo "Failed to install ${pkg}" ; exit 1 )
+  fi
+}
 
+function install_build_prerequisites {
+  for pkg in ${MACOS_BUILD_DEPS}
+  do
+    install_from_brew ${pkg}
+  done
   pip3 install --user cmake-format regex
+}
+
+function install_velox_deps_from_brew {
+  for pkg in ${MACOS_VELOX_DEPS}
+  do
+    install_from_brew ${pkg}
+  done
 }
 
 function install_fmt {
@@ -116,9 +127,7 @@ function install_re2 {
 }
 
 function install_velox_deps {
-  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
-    run_and_time install_build_prerequisites
-  fi
+  run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
   run_and_time install_double_conversion
   run_and_time install_re2
@@ -133,17 +142,23 @@ function install_velox_deps {
 (return 2> /dev/null) && return # If script was sourced, don't run commands.
 
 (
-  echo "Installing mac dependencies"
   update_brew
   if [[ $# -ne 0 ]]; then
     for cmd in "$@"; do
       run_and_time "${cmd}"
     done
+    echo "All specified dependencies installed!"
   else
+    if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+      echo "Installing build dependencies"
+      run_and_time install_build_prerequisites
+    else
+      echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+    fi
     install_velox_deps
+    echo "All deps for Velox installed! Now try \"make\""
   fi
 )
 
-echo "All deps for Velox installed! Now try \"make\""
 echo 'To add cmake-format bin to your $PATH, consider adding this to your ~/.profile:'
 echo 'export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH'

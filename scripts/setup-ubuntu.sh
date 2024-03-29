@@ -13,6 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script documents setting up a Centos8 host for Velox
+# development.  Running it should make you ready to compile.
+#
+# Environment variables:
+# * INSTALL_PREREQUISITES="N": Skip installation of packages for build.
+# * PROMPT_ALWAYS_RESPOND="n": Automatically respond to interactive prompts.
+#     Use "n" to never wipe directories.
+#
+# You can also run individual functions below by specifying them as arguments:
+# $ scripts/setup-ubuntu.sh install_googletest install_fmt
+#
+
 # Minimal setup for Ubuntu 20.04.
 set -eufx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
@@ -31,43 +43,50 @@ DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 export CMAKE_BUILD_TYPE=Release
 SUDO="${SUDO:-"sudo --preserve-env"}"
 
-# Install all velox and folly dependencies.
-# The is an issue on 22.04 where a version conflict prevents glog install,
-# installing libunwind first fixes this.
+# Install packages required for build.
+function install_build_prerequisites {
+  ${SUDO} apt update
+  # The is an issue on 22.04 where a version conflict prevents glog install,
+  # installing libunwind first fixes this.
+  ${SUDO} apt install -y libunwind-dev
+  ${SUDO} apt install -y \
+    build-essential \
+    cmake \
+    ccache \
+    ninja-build \
+    checkinstall \
+    git \
+    wget
+}
 
-${SUDO} apt update
-${SUDO} apt install -y libunwind-dev
-${SUDO} apt install -y \
-  g++ \
-  cmake \
-  ccache \
-  ninja-build \
-  checkinstall \
-  git \
-  libc-ares-dev \
-  libcurl4-openssl-dev \
-  libssl-dev \
-  libicu-dev \
-  libdouble-conversion-dev \
-  libgoogle-glog-dev \
-  libbz2-dev \
-  libgflags-dev \
-  libgmock-dev \
-  libevent-dev \
-  liblz4-dev \
-  libzstd-dev \
-  libre2-dev \
-  libsnappy-dev \
-  libsodium-dev \
-  libthrift-dev \
-  liblzo2-dev \
-  libelf-dev \
-  libdwarf-dev \
-  bison \
-  flex \
-  libfl-dev \
-  tzdata \
-  wget
+# Install packages required for build.
+function install_velox_deps_from_apt {
+  ${SUDO} apt update
+  ${SUDO} apt install -y \
+    libc-ares-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libicu-dev \
+    libdouble-conversion-dev \
+    libgoogle-glog-dev \
+    libbz2-dev \
+    libgflags-dev \
+    libgmock-dev \
+    libevent-dev \
+    liblz4-dev \
+    libzstd-dev \
+    libre2-dev \
+    libsnappy-dev \
+    libsodium-dev \
+    libthrift-dev \
+    liblzo2-dev \
+    libelf-dev \
+    libdwarf-dev \
+    bison \
+    flex \
+    libfl-dev \
+    tzdata
+}
 
 function install_fmt {
   github_checkout fmtlib/fmt "${FMT_VERSION}"
@@ -124,6 +143,7 @@ function install_conda {
 
 
 function install_velox_deps {
+  run_and_time install_velox_deps_from_apt
   run_and_time install_fmt
   run_and_time install_boost
   run_and_time install_folly
@@ -134,16 +154,29 @@ function install_velox_deps {
   run_and_time install_conda
 }
 
-(return 2> /dev/null) && return # If script was sourced, don't run commands.
+function install_apt_deps {
+  install_build_prerequisites
+  install_velox_deps_from_apt
+}
+
+# For backward compatibility, invoke install_apt_deps
+(return 2> /dev/null) && install_apt_deps && return # If script was sourced, don't run commands.
 
 (
   if [[ $# -ne 0 ]]; then
     for cmd in "$@"; do
       run_and_time "${cmd}"
     done
+    echo "All specified dependencies installed!"
   else
+    if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+      echo "Installing build dependencies"
+      run_and_time install_build_prerequisites
+    else
+      echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+    fi
     install_velox_deps
+    echo "All dependencies for Velox installed!"
   fi
 )
 
-echo "All dependencies for Velox installed!"

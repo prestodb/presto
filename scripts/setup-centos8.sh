@@ -13,6 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script documents setting up a Centos8 host for Velox
+# development.  Running it should make you ready to compile.
+#
+# Environment variables:
+# * INSTALL_PREREQUISITES="N": Skip installation of packages for build.
+# * PROMPT_ALWAYS_RESPOND="n": Automatically respond to interactive prompts.
+#     Use "n" to never wipe directories.
+#
+# You can also run individual functions below by specifying them as arguments:
+# $ scripts/setup-centos8.sh install_googletest install_fmt
+#
+
 set -efx -o pipefail
 # Some of the packages must be build with the same compiler flags
 # so that some low level types are the same size. Also, disable warnings.
@@ -25,27 +37,32 @@ export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
+export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
+export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 function dnf_install {
   dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
 
-dnf update -y
-dnf_install epel-release dnf-plugins-core # For ccache, ninja
-dnf config-manager --set-enabled powertools
-dnf update -y
-dnf_install ninja-build cmake curl ccache gcc-toolset-9 git wget which libevent-devel \
-  openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
-  libdwarf-devel curl-devel libicu-devel
+# Install packages required for build.
+function install_build_prerequisites {
+  dnf update -y
+  dnf_install epel-release dnf-plugins-core # For ccache, ninja
+  dnf config-manager --set-enabled powertools
+  dnf update -y
+  dnf_install ninja-build cmake curl ccache gcc-toolset-9 git wget which
+  dnf_install autoconf automake python39 python39-devel python39-pip libtool
+}
 
-dnf_install autoconf automake libtool bison flex python3 libsodium-devel
+# Install dependencies from the package managers.
+function install_velox_deps_from_dnf {
+  dnf_install libevent-devel \
+    openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
+    libdwarf-devel curl-devel libicu-devel bison flex libsodium-devel
 
-# install sphinx for doc gen
-pip3 install sphinx sphinx-tabs breathe sphinx_rtd_theme
-
-# Activate gcc9; enable errors on unset variables afterwards.
-source /opt/rh/gcc-toolset-9/enable || exit 1
-set -u
+  # install sphinx for doc gen
+  pip3 install sphinx sphinx-tabs breathe sphinx_rtd_theme
+}
 
 function install_conda {
   dnf_install conda
@@ -169,6 +186,7 @@ function install_duckdb {
 }
 
 function install_velox_deps {
+  run_and_time install_velox_deps_from_dnf
   run_and_time install_conda
   run_and_time install_gflags
   run_and_time install_glog
@@ -189,14 +207,26 @@ function install_velox_deps {
 
 (
   if [[ $# -ne 0 ]]; then
+    # Activate gcc9; enable errors on unset variables afterwards.
+    source /opt/rh/gcc-toolset-9/enable || exit 1
+    set -u
     for cmd in "$@"; do
       run_and_time "${cmd}"
     done
+    echo "All specified dependencies installed!"
   else
+    if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+      echo "Installing build dependencies"
+      run_and_time install_build_prerequisites
+    else
+      echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+    fi
+    # Activate gcc9; enable errors on unset variables afterwards.
+    source /opt/rh/gcc-toolset-9/enable || exit 1
+    set -u
     install_velox_deps
+    echo "All dependencies for Velox installed!"
+    dnf clean all
   fi
 )
 
-echo "All dependencies for Velox installed!"
-
-dnf clean all
