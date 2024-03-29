@@ -69,19 +69,33 @@ TEST_F(TransformValuesTest, evaluateSubsetOfRows) {
           nullEvery(13)),
   });
 
-  SelectivityVector inputRows(size, false);
-  inputRows.setValidRange(0, size / 3, true);
-  inputRows.updateBounds();
-
-  auto result = evaluate<MapVector>(
-      "transform_values(c0, (k, v) -> v + 5)", input, inputRows);
+  // Test using 2 selectivity vectors. One of size 100 with 33 first rows
+  // selected. Another of size 33 with all rows selected. Both should produce
+  // the same result.
   auto expectedResult = makeMapVector<int32_t, int64_t>(
       size / 3,
       [](auto row) { return row % 5; },
       [](auto row) { return row % 7; },
       [](auto row) { return row % 11 + 5; },
       nullEvery(13));
-  assertEqualVectors(expectedResult, result, inputRows);
+
+  {
+    SelectivityVector inputRows(size, false);
+    inputRows.setValidRange(0, size / 3, true);
+    inputRows.updateBounds();
+
+    auto result = evaluate<MapVector>(
+        "transform_values(c0, (k, v) -> v + 5)", input, inputRows);
+    assertEqualVectors(expectedResult, result, inputRows);
+  }
+
+  {
+    SelectivityVector inputRows(size / 3);
+
+    auto result = evaluate<MapVector>(
+        "transform_values(c0, (k, v) -> v + 5)", input, inputRows);
+    assertEqualVectors(expectedResult, result, inputRows);
+  }
 }
 
 TEST_F(TransformValuesTest, differentResultType) {

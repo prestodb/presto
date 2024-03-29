@@ -45,19 +45,32 @@ TEST_F(TransformTest, evaluateSubsetOfRows) {
   auto input = makeRowVector(
       {makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11))});
 
-  SelectivityVector inputRows(size, false);
-  inputRows.setValidRange(0, size / 3, true);
-  inputRows.updateBounds();
-
-  auto result =
-      evaluate<ArrayVector>("transform(c0, x -> x + 5)", input, inputRows);
+  // Test using 2 selectivity vectors. One of size 100 with 33 first rows
+  // selected. Another of size 33 with all rows selected. Both should produce
+  // the same result.
 
   auto expectedResult = makeArrayVector<int64_t>(
       size / 3,
       modN(5),
       [](vector_size_t row) { return row % 7 + 5; },
       nullEvery(11));
-  assertEqualVectors(expectedResult, result, inputRows);
+  {
+    SelectivityVector inputRows(size, false);
+    inputRows.setValidRange(0, size / 3, true);
+    inputRows.updateBounds();
+
+    auto result =
+        evaluate<ArrayVector>("transform(c0, x -> x + 5)", input, inputRows);
+    assertEqualVectors(expectedResult, result, inputRows);
+  }
+
+  {
+    SelectivityVector inputRows(size / 3);
+
+    auto result =
+        evaluate<ArrayVector>("transform(c0, x -> x + 5)", input, inputRows);
+    assertEqualVectors(expectedResult, result, inputRows);
+  }
 }
 
 TEST_F(TransformTest, differentResultType) {
