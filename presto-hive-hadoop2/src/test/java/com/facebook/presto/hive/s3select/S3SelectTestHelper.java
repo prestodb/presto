@@ -170,7 +170,7 @@ public class S3SelectTestHelper
                 new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
-                new NodeVersion("test_version"),
+                new NodeVersion("JAVA:test_version"),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
                 new HivePartitionStats(),

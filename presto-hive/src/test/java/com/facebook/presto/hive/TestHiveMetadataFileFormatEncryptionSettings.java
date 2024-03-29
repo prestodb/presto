@@ -89,7 +89,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHiveMetadataFileFormatEncryptionSettings
 {
-    private static final String TEST_SERVER_VERSION = "test_version";
+    private static final String TEST_SERVER_VERSION = "JAVA:test_version";
     private static final String TEST_DB_NAME = "test_db";
     private static final JsonCodec<PartitionUpdate> PARTITION_CODEC = jsonCodec(PartitionUpdate.class);
     private static final ConnectorSession SESSION = new TestingConnectorSession(

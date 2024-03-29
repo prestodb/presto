@@ -355,7 +355,7 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
-    protected static final String TEST_SERVER_VERSION = "test_version";
+    protected static final String TEST_SERVER_VERSION = "JAVA:test_version";
 
     protected static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
     protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT = PageSinkContext.builder().setCommitRequired(false).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build();

@@ -213,7 +213,7 @@ public class TestHiveClientFileMetastore
     private Partition createDummyPartition(Table table, String partitionName, Optional<HiveBucketProperty> bucketProperty, Map<String, String> dynamicPartitionParameters)
     {
         Map<String, String> staticPartitionParameters = ImmutableMap.of(
-                PRESTO_VERSION_NAME, "testversion",
+                PRESTO_VERSION_NAME, "JAVA:testversion",
                 PRESTO_QUERY_ID_NAME, "20200101_123456_00001_x1y2z");
         Map<String, String> partitionParameters = ImmutableMap.<String, String>builder()
                 .putAll(staticPartitionParameters)
