@@ -815,6 +815,12 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withApproximateOutputRowCount(double expectedOutputRowCount, double error)
+    {
+        matchers.add(new ApproximateStatsOutputRowCountMatcher(expectedOutputRowCount, error));
+        return this;
+    }
+
     public PlanMatchPattern withOutputSize(double expectedOutputSize)
     {
         matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));

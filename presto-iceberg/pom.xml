@@ -510,19 +510,16 @@
             <artifactId>presto-cache</artifactId>
             <scope>compile</scope>
         </dependency>
-        
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
-
         <dependency>
           <groupId>com.facebook.presto</groupId>
           <artifactId>presto-parser</artifactId>
           <scope>test</scope>
         </dependency>
-
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-analyzer</artifactId>
@@ -604,7 +601,7 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
-            <version>1.5.0</version>
+            <version>${dep.iceberg.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
             <exclusions>
@@ -633,6 +630,10 @@
                     <artifactId>RoaringBitmap</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
         </dependency>
     </dependencies>
 

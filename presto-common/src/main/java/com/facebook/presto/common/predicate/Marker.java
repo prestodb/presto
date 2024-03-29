@@ -129,6 +129,11 @@ public final class Marker
         return Utils.blockToNativeValue(type, valueBlock.get());
     }
 
+    public Optional<Object> getObjectValue()
+    {
+        return valueBlock.map(block -> Utils.blockToNativeValue(type, block));
+    }
+
     public Object getPrintableValue(SqlFunctionProperties properties)
     {
         if (!valueBlock.isPresent()) {

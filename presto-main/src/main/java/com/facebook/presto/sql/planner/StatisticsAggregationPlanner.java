@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -62,13 +63,13 @@ public class StatisticsAggregationPlanner
     private final Session session;
     private final FunctionAndTypeManager functionAndTypeManager;
 
-    public StatisticsAggregationPlanner(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, Session session, boolean useHistograms)
+    public StatisticsAggregationPlanner(VariableAllocator variableAllocator, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.session = requireNonNull(session, "session is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
-        this.useHistograms = useHistograms;
+        this.useHistograms = shouldOptimizerUseHistograms(session);
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)

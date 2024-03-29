@@ -12,9 +12,8 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
 import org.apache.commons.math3.distribution.RealDistribution;
 import org.testng.annotations.Test;
 

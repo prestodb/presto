@@ -12,17 +12,13 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.max;
@@ -48,7 +44,7 @@ public class UniformDistributionHistogram
             @JsonProperty("lowValue") double lowValue,
             @JsonProperty("highValue") double highValue)
     {
-        verify(isNaN(lowValue) || isNaN(highValue) || (lowValue <= highValue), "lowValue must be <= highValue");
+        checkArgument(isNaN(lowValue) || isNaN(highValue) || (lowValue <= highValue), "lowValue must be <= highValue");
         this.lowValue = lowValue;
         this.highValue = highValue;
     }
@@ -122,10 +118,10 @@ public class UniformDistributionHistogram
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("lowValue", lowValue)
-                .add("highValue", highValue)
-                .toString();
+        return "UniformDistributionHistogram{" +
+                "lowValue=" + lowValue +
+                ", highValue=" + highValue +
+                "}";
     }
 
     @Override
@@ -151,6 +147,6 @@ public class UniformDistributionHistogram
 
     private static boolean equalsOrBothNaN(Double first, Double second)
     {
-        return first.equals(second) || (Double.isNaN(first) && Double.isNaN(second));
+        return first.equals(second) || (isNaN(first) && isNaN(second));
     }
 }

@@ -12,11 +12,8 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
-import com.google.common.base.VerifyException;
 import org.apache.commons.math3.distribution.RealDistribution;
 import org.apache.commons.math3.distribution.UniformRealDistribution;
 import org.testng.annotations.Test;
@@ -48,7 +45,7 @@ public class TestUniformHistogram
     @Test
     public void testInvalidConstruction()
     {
-        assertThrows(VerifyException.class, () -> new UniformDistributionHistogram(2.0, 1.0));
+        assertThrows(IllegalArgumentException.class, () -> new UniformDistributionHistogram(2.0, 1.0));
     }
 
     @Test
