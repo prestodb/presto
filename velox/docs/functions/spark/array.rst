@@ -51,6 +51,18 @@ Array Functions
         SELECT array_min(ARRAY [4.0, float('nan')]); -- 4.0
         SELECT array_min(ARRAY [NULL, float('nan')]); -- NaN
 
+.. function:: array_remove(x, element) -> array
+
+    Remove all elements that equal ``element`` from array ``x``. Returns NULL as result if ``element`` is NULL.
+    If array ``x`` is empty array, returns empty array. If all elements in array ``x`` are NULL but ``element`` is not NULL,
+    returns array ``x``. ::
+
+        SELECT array_remove(ARRAY [1, 2, 3], 3); -- [1, 2]
+        SELECT array_remove(ARRAY [2, 1, NULL], 1); -- [2, NULL]
+        SELECT array_remove(ARRAY [1, 2, NULL], NULL); -- NULL
+        SELECT array_remove(ARRAY [], 1); -- []
+        SELECT array_remove(ARRAY [NULL, NULL], -1); -- [NULL, NULL]
+
 .. spark:function:: array_repeat(element, count) -> array(E)
 
     Returns an array containing ``element`` ``count`` times. If ``count`` is negative or zero,

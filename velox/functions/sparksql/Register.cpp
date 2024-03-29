@@ -22,6 +22,7 @@
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/lib/Repeat.h"
+#include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/prestosql/StringFunctions.h"
@@ -51,6 +52,32 @@ namespace facebook::velox::functions {
 extern void registerElementAtFunction(
     const std::string& name,
     bool enableCaching);
+
+template <typename T>
+inline void registerArrayRemoveFunctions(const std::string& prefix) {
+  registerFunction<ArrayRemoveFunction, Array<T>, Array<T>, T>(
+      {prefix + "array_remove"});
+}
+
+inline void registerArrayRemoveFunctions(const std::string& prefix) {
+  registerArrayRemoveFunctions<int8_t>(prefix);
+  registerArrayRemoveFunctions<int16_t>(prefix);
+  registerArrayRemoveFunctions<int32_t>(prefix);
+  registerArrayRemoveFunctions<int64_t>(prefix);
+  registerArrayRemoveFunctions<int128_t>(prefix);
+  registerArrayRemoveFunctions<float>(prefix);
+  registerArrayRemoveFunctions<double>(prefix);
+  registerArrayRemoveFunctions<bool>(prefix);
+  registerArrayRemoveFunctions<Timestamp>(prefix);
+  registerArrayRemoveFunctions<Date>(prefix);
+  registerArrayRemoveFunctions<Varbinary>(prefix);
+  registerArrayRemoveFunctions<Generic<T1>>(prefix);
+  registerFunction<
+      ArrayRemoveFunctionString,
+      Array<Varchar>,
+      Array<Varchar>,
+      Varchar>({prefix + "array_remove"});
+}
 
 static void workAroundRegistrationMacro(const std::string& prefix) {
   // VELOX_REGISTER_VECTOR_FUNCTION must be invoked in the same namespace as the
@@ -82,6 +109,7 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
   registerIsNullFunction(prefix + "isnull");
   registerIsNotNullFunction(prefix + "isnotnull");
+  registerArrayRemoveFunctions(prefix);
 }
 
 namespace sparksql {
