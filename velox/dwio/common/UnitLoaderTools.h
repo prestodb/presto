@@ -45,7 +45,7 @@ class Measure {
 
  private:
   const std::function<void(uint64_t)>& blockedOnIoMsCallback_;
-  const std::chrono::system_clock::time_point startTime_;
+  const std::chrono::time_point<std::chrono::high_resolution_clock> startTime_;
 };
 
 inline std::optional<Measure> measureBlockedOnIo(
