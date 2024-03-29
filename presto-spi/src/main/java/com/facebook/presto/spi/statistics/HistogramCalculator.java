@@ -12,12 +12,14 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
-import com.google.common.math.DoubleMath;
+import com.facebook.presto.common.predicate.Range;
 
+import static com.facebook.presto.spi.statistics.ColumnStatistics.INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
+import static com.facebook.presto.spi.statistics.ColumnStatistics.INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.min;
@@ -43,16 +45,19 @@ public class HistogramCalculator
      * heuristic would have been used
      * @return an estimate, x, where 0.0 <= x <= 1.0.
      */
-    public static Estimate calculateFilterFactor(StatisticRange range, ConnectorHistogram histogram, Estimate totalDistinctValues, boolean useHeuristics)
+    public static Estimate calculateFilterFactor(Range range, double rangeDistinctValues, ConnectorHistogram histogram, Estimate totalDistinctValues, boolean useHeuristics)
     {
-        boolean openHigh = range.getOpenHigh();
-        boolean openLow = range.getOpenLow();
+        boolean openHigh = !range.isHighInclusive();
+        boolean openLow = !range.isLowInclusive();
         Estimate min = histogram.inverseCumulativeProbability(0.0);
         Estimate max = histogram.inverseCumulativeProbability(1.0);
+        double rangeLow = range.getLowValue().map(Double.class::cast).orElse(NEGATIVE_INFINITY);
+        double rangeHigh = range.getHighValue().map(Double.class::cast).orElse(POSITIVE_INFINITY);
+        double rangeLength = rangeHigh - rangeLow;
 
         // range is either above or below histogram
-        if ((!max.isUnknown() && (openHigh ? max.getValue() <= range.getLow() : max.getValue() < range.getLow()))
-                || (!min.isUnknown() && (openLow ? min.getValue() >= range.getHigh() : min.getValue() > range.getHigh()))) {
+        if ((!max.isUnknown() && (openHigh ? max.getValue() <= rangeLow : max.getValue() < rangeLow))
+                || (!min.isUnknown() && (openLow ? min.getValue() >= rangeHigh : min.getValue() > rangeHigh))) {
             return Estimate.of(0.0);
         }
 
@@ -63,14 +68,14 @@ public class HistogramCalculator
                 return Estimate.unknown();
             }
 
-            if (range.length() == 0.0) {
+            if (rangeLength == 0.0) {
                 return totalDistinctValues.map(distinct -> 1.0 / distinct);
             }
 
-            if (isFinite(range.length())) {
-                return Estimate.of(StatisticRange.INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
+            if (isFinite(rangeLength)) {
+                return Estimate.of(INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
             }
-            return Estimate.of(StatisticRange.INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
+            return Estimate.of(INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
         }
 
         // we know the bounds are both known, so calculate the percentile for each bound
@@ -82,8 +87,8 @@ public class HistogramCalculator
         // thus for the "lowPercentile" calculation we should pass "false" to be non-inclusive
         // (same as openness) however, on the high-end we want the inclusivity to be the opposite
         // of the openness since if it's open, we _don't_ want to include the bound.
-        Estimate lowPercentile = histogram.cumulativeProbability(range.getLow(), openLow);
-        Estimate highPercentile = histogram.cumulativeProbability(range.getHigh(), !openHigh);
+        Estimate lowPercentile = histogram.cumulativeProbability(rangeLow, openLow);
+        Estimate highPercentile = histogram.cumulativeProbability(rangeHigh, !openHigh);
 
         // both bounds are probably infinity, use the infinite-infinite heuristic
         if (lowPercentile.isUnknown() || highPercentile.isUnknown()) {
@@ -91,26 +96,26 @@ public class HistogramCalculator
                 return Estimate.unknown();
             }
             // in the case the histogram has no values
-            if (totalDistinctValues.equals(Estimate.zero()) || range.getDistinctValuesCount() == 0.0) {
+            if (totalDistinctValues.equals(Estimate.zero()) || rangeDistinctValues == 0.0) {
                 return Estimate.of(0.0);
             }
 
             // in the case only one is unknown
             if (((lowPercentile.isUnknown() && !highPercentile.isUnknown()) ||
                     (!lowPercentile.isUnknown() && highPercentile.isUnknown())) &&
-                    isFinite(range.length())) {
-                return Estimate.of(StatisticRange.INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
+                    isFinite(rangeLength)) {
+                return Estimate.of(INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
             }
 
-            if (range.length() == 0.0) {
+            if (rangeLength == 0.0) {
                 return totalDistinctValues.map(distinct -> 1.0 / distinct);
             }
 
-            if (!isNaN(range.getDistinctValuesCount())) {
-                return totalDistinctValues.map(distinct -> min(1.0, range.getDistinctValuesCount() / distinct));
+            if (!isNaN(rangeDistinctValues)) {
+                return totalDistinctValues.map(distinct -> min(1.0, rangeDistinctValues / distinct));
             }
 
-            return Estimate.of(StatisticRange.INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
+            return Estimate.of(INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR);
         }
 
         // in the case the range is a single value, this can occur if the input
@@ -134,15 +139,23 @@ public class HistogramCalculator
             }
 
             return totalDistinctValues.flatMap(totalDistinct -> {
-                if (DoubleMath.fuzzyEquals(totalDistinct, 0.0, 1E-6)) {
+                if (fuzzyEquals(totalDistinct, 0.0, 1E-6)) {
                     return Estimate.of(1.0);
                 }
-                return Estimate.of(min(1.0, range.getDistinctValuesCount() / totalDistinct));
+                return Estimate.of(min(1.0, rangeDistinctValues / totalDistinct));
             })
-            // in the case totalDistinct is NaN or 0
-            .or(() -> Estimate.of(StatisticRange.INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR));
+                    // in the case totalDistinct is NaN or 0
+                    .or(() -> Estimate.of(INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR));
         }
 
         return lowPercentile.flatMap(lowPercent -> highPercentile.map(highPercent -> highPercent - lowPercent));
+    }
+
+    private static boolean fuzzyEquals(double a, double b, double tolerance)
+    {
+        return Math.copySign(a - b, 1.0) <= tolerance
+                // copySign(x, 1.0) is a branch-free version of abs(x), but with different NaN semantics
+                || (a == b) // needed to ensure that infinities equal themselves
+                || (Double.isNaN(a) && Double.isNaN(b));
     }
 }
