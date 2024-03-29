@@ -191,6 +191,16 @@ public class TestMarker
         assertDifferentMarker(Marker.upperUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT), true);
     }
 
+    @Test
+    public void testGetValue()
+    {
+        assertTrue(Marker.exactly(BIGINT, 1L).getObjectValue().isPresent());
+        assertTrue(Marker.above(BIGINT, 1L).getObjectValue().isPresent());
+        assertTrue(Marker.below(BIGINT, 1L).getObjectValue().isPresent());
+        assertFalse(Marker.upperUnbounded(BIGINT).getObjectValue().isPresent());
+        assertFalse(Marker.lowerUnbounded(BIGINT).getObjectValue().isPresent());
+    }
+
     private void assertSameMarker(Marker marker1, Marker marker2, boolean removeConstants)
             throws Exception
     {
