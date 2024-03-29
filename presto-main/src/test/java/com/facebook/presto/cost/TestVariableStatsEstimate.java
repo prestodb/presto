@@ -15,7 +15,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.google.common.collect.Range;
+import com.facebook.presto.spi.statistics.UniformDistributionHistogram;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -33,7 +33,7 @@ public class TestVariableStatsEstimate
         VariableStatsEstimate estimate = VariableStatsEstimate.builder()
                 .setAverageRowSize(100)
                 .setDistinctValuesCount(100)
-                .setStatisticsRange(StatisticRange.fromRange(Range.open(1.0d, 2.0d)))
+                .setStatisticsRange(new StatisticRange(55, 65, 100))
                 .setHistogram(Optional.of(new UniformDistributionHistogram(55, 65)))
                 .setNullsFraction(0.1)
                 .build();
