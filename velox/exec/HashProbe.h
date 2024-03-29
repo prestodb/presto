@@ -44,7 +44,7 @@ class HashProbe : public Operator {
     }
     // NOTE: if we can't apply dynamic filtering, then we can start early to
     // read input even before the hash table has been built.
-    auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
+    const auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
         this, keyChannels_);
     return channels.empty();
   }
@@ -59,16 +59,14 @@ class HashProbe : public Operator {
 
   bool isFinished() override;
 
-  /// NOTE: we can't reclaim memory from a hash probe operator. The disk
-  /// spilling in hash probe is used to coordinate with the disk spilling
-  /// triggered by the hash build operator.
-  bool canReclaim() const override {
-    return false;
-  }
+  void reclaim(uint64_t targetBytes, memory::MemoryReclaimer::Stats& stats)
+      override;
 
   void close() override;
 
   void clearDynamicFilters() override;
+
+  bool canReclaim() const override;
 
  private:
   void setState(ProbeOperatorState state);
@@ -79,24 +77,20 @@ class HashProbe : public Operator {
   bool isRunning() const;
 
   // Invoked to wait for the hash table to be built by the hash build operators
-  // asynchronously.
+  // asynchronously. The function also sets up the internal state for
+  // potentially spilling input or reading spilled input or recursively spill
+  // the hash table.
   void asyncWaitForHashTable();
-
-  // Invoked to set up spilling related input processing. The function sets up a
-  // reader to read probe inputs from spilled data on disk if
-  // 'restoredSpillPartitionId' is not null. If 'spillPartitionIds' is not
-  // empty, then spilling has been triggered at the build side and the function
-  // will set up a spiller and the associated data structures to spill probe
-  // inputs.
-  void maybeSetupSpillInput(
-      const std::optional<SpillPartitionId>& restoredSpillPartitionId,
-      const SpillPartitionIdSet& spillPartitionIds);
 
   // Sets up 'filter_' and related members.p
   void initializeFilter(
       const core::TypedExprPtr& filter,
       const RowTypePtr& probeType,
       const RowTypePtr& tableType);
+
+  // If 'toSpillOutput', the produced output is spilled to disk for memory
+  // arbitration.
+  RowVectorPtr getOutputInternal(bool toSpillOutput);
 
   // Check if output_ can be re-used and if not make a new one.
   void prepareOutput(vector_size_t size);
@@ -174,6 +168,21 @@ class HashProbe : public Operator {
   // partitions have been spilled at the build side.
   bool skipProbeOnEmptyBuild() const;
 
+  // If 'spillPartitionIds' is not empty, then spilling has been triggered at
+  // the build side and the function will set up 'inputSpiller_' to spill probe
+  // inputs.
+  void maybeSetupInputSpiller(const SpillPartitionIdSet& spillPartitionIds);
+
+  // If 'restoredSpillPartitionId' is set, then setup 'spillInputReader_' to
+  // read probe inputs from spilled data on disk.
+  void maybeSetupSpillInputReader(
+      const std::optional<SpillPartitionId>& restoredSpillPartitionId);
+
+  // Prepares the table spill by checking the spill level limit, setting spill
+  // partition bits and table spill type.
+  void prepareTableSpill(
+      const std::optional<SpillPartitionId>& restoredPartitionId);
+
   bool spillEnabled() const;
 
   // Indicates if the probe input is read from spilled data or not.
@@ -188,6 +197,19 @@ class HashProbe : public Operator {
   // to spill the corresponding probe-side rows as well.
   bool needSpillInput() const;
 
+  // This ensures there is sufficient buffer reserved to produce the next output
+  // batch. This might trigger memory arbitration underneath and the probe
+  // operator is set to reclaimable at this stage.
+  void ensureOutputFits();
+
+  // Reads from the spilled output if the spilling has been triggered during the
+  // middle of an input processing. The latter produces all the outputs and
+  // spill them on to disk in case the output is too large to fit in memory in
+  // some edge case, like one input row has many matches with the build side.
+  // The function returns true if it has read the spilled output and saves in
+  // 'output_'.
+  bool maybeReadSpillOutput();
+
   // Invoked after finishes processing the probe inputs and there is spill data
   // remaining to restore. The function will reset the internal states which
   // are relevant to the last finished probe run. The last finished probe
@@ -197,6 +219,20 @@ class HashProbe : public Operator {
 
   // Invoked to read next batch of spilled probe inputs from disk to process.
   void addSpillInput();
+
+  // Produces and spills outputs from operator which has pending input to
+  // process in probe 'operators'.
+  void spillOutput(const std::vector<Operator*>& operators);
+  // Produces and spills output from this probe operator.
+  void spillOutput();
+
+  // Spills the composed 'table_' from the built side.
+  SpillPartitionSet spillTable();
+  // Spills the row container from one of the sub-table from 'table_' to
+  // parallelize the table spilling. The function spills all the rows from the
+  // row container and returns the spiller for the caller to collect the spilled
+  // partitions and stats.
+  std::unique_ptr<Spiller> spillTable(RowContainer* subTableRows);
 
   // Invoked to spill rows in 'input' to disk directly if the corresponding
   // partitions have been spilled at the build side.
@@ -220,6 +256,10 @@ class HashProbe : public Operator {
   // next hash table from the spilled data.
   void noMoreInputInternal();
 
+  // Indicates if this hash probe operator is under non-reclaimable state or
+  // not.
+  bool nonReclaimableState() const;
+
   // Returns the index of the 'match' column in the output for semi project
   // joins.
   VectorPtr& matchColumn() const {
@@ -237,6 +277,11 @@ class HashProbe : public Operator {
     return table_->numDistinct() == 0 && spillPartitionSet_.empty() &&
         spillInputPartitionIds_.empty();
   }
+
+  // Wake up the peer hash probe operators when last probe operator finishes.
+  void wakeupPeers();
+
+  //  std::vector<Operator*> findPeerOperators();
 
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
@@ -291,8 +336,8 @@ class HashProbe : public Operator {
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
 
-  // Table shared between other HashProbes in other Drivers of the
-  // same pipeline.
+  // Table shared between other HashProbes in other Drivers of the same
+  // pipeline.
   std::shared_ptr<BaseHashTable> table_;
 
   // Indicates whether there was no input. Used for right semi join project.
@@ -578,10 +623,24 @@ class HashProbe : public Operator {
   // input.
   SelectivityVector passingInputRows_;
 
-  // 'spiller_' is only created if some part of build-side rows have been
+  // Indicates if this hash probe has exceeded max spill limit which is not
+  // allowed to spill. This is reset when hash probe operator starts to probe
+  // the next previously spilled hash table partition.
+  bool exceededMaxSpillLevelLimit_{false};
+
+  // The partition bits used to spill the hash table.
+  HashBitRange tableSpillHashBits_;
+  // The row type used to spill hash table on disk.
+  RowTypePtr tableSpillType_;
+
+  // The reader used to read the spilled output produced by pending input during
+  // the spill processing.
+  std::unique_ptr<UnorderedStreamReader<BatchStream>> spillOutputReader_;
+
+  // 'inputSpiller_' is created if some part of build-side rows have been
   // spilled. It is used to spill probe-side rows if the corresponding
   // build-side rows have been spilled.
-  std::unique_ptr<Spiller> spiller_;
+  std::unique_ptr<Spiller> inputSpiller_;
 
   // If not empty, the probe inputs with partition id set in
   // 'spillInputPartitionIds_' needs to spill. It is set along with 'spiller_'

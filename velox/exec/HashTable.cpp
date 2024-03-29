@@ -727,7 +727,9 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::clear(bool freeTable) {
-  rows_->clear();
+  for (auto* rowContainer : allRows()) {
+    rowContainer->clear();
+  }
   if (table_) {
     if (!freeTable) {
       // All modes have 8 bytes per slot.
@@ -1785,21 +1787,21 @@ int32_t HashTable<ignoreNullKeys>::listRows(
     uint64_t maxBytes,
     char** rows) {
   if (iter->hashTableIndex_ == -1) {
-    auto numRows = rows_->listRows<probeType>(
+    const auto numRows = rows_->listRows<probeType>(
         &iter->rowContainerIterator_, maxRows, maxBytes, rows);
-    if (numRows) {
+    if (numRows > 0) {
       return numRows;
     }
     iter->hashTableIndex_ = 0;
     iter->rowContainerIterator_.reset();
   }
   while (iter->hashTableIndex_ < otherTables_.size()) {
-    auto numRows =
+    const auto numRows =
         otherTables_[iter->hashTableIndex_]
             ->rows()
             ->template listRows<probeType>(
                 &iter->rowContainerIterator_, maxRows, maxBytes, rows);
-    if (numRows) {
+    if (numRows > 0) {
       return numRows;
     }
     ++iter->hashTableIndex_;
@@ -1994,6 +1996,13 @@ void populateLookupRows(
   }
 }
 } // namespace
+
+std::string BaseHashTable::RowsIterator::toString() const {
+  return fmt::format(
+      "[hashTableIndex:{} rowContainerIter:{}",
+      hashTableIndex_,
+      rowContainerIterator_.toString());
+}
 
 void BaseHashTable::prepareForGroupProbe(
     HashLookup& lookup,

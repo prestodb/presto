@@ -454,7 +454,7 @@ class TestScopedSpillInjection {
  public:
   explicit TestScopedSpillInjection(
       int32_t spillPct,
-      int32_t maxInjections = std::numeric_limits<int32_t>::max());
+      uint32_t maxInjections = std::numeric_limits<uint32_t>::max());
 
   ~TestScopedSpillInjection();
 };
@@ -462,6 +462,8 @@ class TestScopedSpillInjection {
 /// Test utility that returns true if triggered spill is evaluated to happen,
 /// false otherwise.
 bool testingTriggerSpill();
+
+tsan_atomic<uint32_t>& injectedSpillCount();
 
 /// Removes empty partitions from given spill partition set.
 void removeEmptyPartitions(SpillPartitionSet& partitionSet);

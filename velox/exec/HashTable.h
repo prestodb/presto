@@ -165,6 +165,8 @@ class BaseHashTable {
     void reset() {
       *this = {};
     }
+
+    std::string toString() const;
   };
 
   struct NullKeyRowsIterator {

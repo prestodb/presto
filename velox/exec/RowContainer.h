@@ -91,6 +91,8 @@ struct RowContainerIterator {
   void reset() {
     *this = {};
   }
+
+  std::string toString() const;
 };
 
 /// Container with a 8-bit partition number field for each row in a

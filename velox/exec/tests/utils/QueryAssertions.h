@@ -310,4 +310,10 @@ void assertEqualTypeAndNumRows(
 
 void printResults(const RowVectorPtr& result, std::ostream& out);
 
+/// Aggregates operator stats by operator type. If a task has more than one plan
+/// nodes having the same operator types, then their operator stats are merged
+/// together.
+std::unordered_map<std::string, OperatorStats> toOperatorStats(
+    const TaskStats& taskStats);
+
 } // namespace facebook::velox::exec::test

@@ -1544,7 +1544,6 @@ TEST_F(TaskTest, spillDirNotCreated) {
       {{core::QueryConfig::kSpillEnabled, "true"},
        {core::QueryConfig::kJoinSpillEnabled, "true"}});
   params.maxDrivers = 1;
-  TestScopedSpillInjection scopedSpillInjection(100);
 
   auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();
@@ -1555,14 +1554,14 @@ TEST_F(TaskTest, spillDirNotCreated) {
   while (cursor->moveNext()) {
   }
   ASSERT_TRUE(waitForTaskCompletion(task, 5'000'000));
-  EXPECT_EQ(exec::TaskState::kFinished, task->state());
+  ASSERT_EQ(exec::TaskState::kFinished, task->state());
   auto taskStats = exec::toPlanStats(task->taskStats());
   auto& stats = taskStats.at(hashJoinNodeId);
   ASSERT_EQ(stats.spilledRows, 0);
   // Check for spill folder without destroying the Task object to ensure its
   // destructor has not removed the directory if it was created earlier.
   auto fs = filesystems::getFileSystem(tmpDirectoryPath, nullptr);
-  EXPECT_FALSE(fs->exists(tmpDirectoryPath));
+  ASSERT_FALSE(fs->exists(tmpDirectoryPath));
 }
 
 DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {

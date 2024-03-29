@@ -1553,6 +1553,24 @@ void printResults(const RowVectorPtr& result, std::ostream& out) {
   }
 }
 
+std::unordered_map<std::string, OperatorStats> toOperatorStats(
+    const TaskStats& taskStats) {
+  std::unordered_map<std::string, OperatorStats> opStatsMap;
+
+  for (const auto& pipelineStats : taskStats.pipelineStats) {
+    for (const auto& opStats : pipelineStats.operatorStats) {
+      const auto& opType = opStats.operatorType;
+      auto it = opStatsMap.find(opType);
+      if (it != opStatsMap.end()) {
+        it->second.add(opStats);
+      } else {
+        opStatsMap.emplace(opType, opStats);
+      }
+    }
+  }
+  return opStatsMap;
+}
+
 } // namespace facebook::velox::exec::test
 
 template <>

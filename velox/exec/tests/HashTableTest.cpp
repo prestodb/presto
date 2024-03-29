@@ -175,6 +175,10 @@ class HashTableTest : public testing::TestWithParam<bool>,
     testGroupBySpill(size, buildType, numKeys);
     const auto memoryUsage = pool()->currentBytes();
     topTable_->clear(true);
+    for (const auto* rowContainer : topTable_->allRows()) {
+      ASSERT_EQ(rowContainer->numRows(), 0);
+    }
+    ASSERT_EQ(topTable_->numDistinct(), 0);
     ASSERT_LT(pool()->currentBytes(), memoryUsage);
   }
 

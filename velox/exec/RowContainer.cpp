@@ -119,6 +119,14 @@ int32_t RowContainer::combineAlignments(int32_t a, int32_t b) {
   return std::max(a, b);
 }
 
+std::string RowContainerIterator::toString() const {
+  return fmt::format(
+      "[allocationIndex:{} rowOffset:{} rowNumber:{}]",
+      allocationIndex,
+      rowOffset,
+      rowNumber);
+}
+
 RowContainer::RowContainer(
     const std::vector<TypePtr>& keyTypes,
     bool nullableKeys,

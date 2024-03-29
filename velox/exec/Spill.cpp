@@ -291,38 +291,51 @@ SpillPartitionIdSet toSpillPartitionIdSet(
   return partitionIdSet;
 }
 
-tsan_atomic<int32_t>& testingSpillPct() {
-  static tsan_atomic<int32_t> spillPct = 0;
-  return spillPct;
+namespace {
+tsan_atomic<uint32_t>& maxSpillInjections() {
+  static tsan_atomic<uint32_t> maxInjections{0};
+  return maxInjections;
 }
+} // namespace
 
-tsan_atomic<int32_t>& testingSpillCounter() {
-  static tsan_atomic<int32_t> spillCounter = 0;
-  return spillCounter;
+tsan_atomic<uint32_t>& testingSpillPct() {
+  static tsan_atomic<uint32_t> spillPct{0};
+  return spillPct;
 }
 
 TestScopedSpillInjection::TestScopedSpillInjection(
     int32_t spillPct,
-    int32_t maxInjections) {
-  VELOX_CHECK_EQ(testingSpillCounter(), 0);
+    uint32_t maxInjections) {
+  VELOX_CHECK_EQ(injectedSpillCount(), 0);
   testingSpillPct() = spillPct;
-  testingSpillCounter() = maxInjections;
+  maxSpillInjections() = maxInjections;
+  injectedSpillCount() = 0;
 }
 
 TestScopedSpillInjection::~TestScopedSpillInjection() {
   testingSpillPct() = 0;
-  testingSpillCounter() = 0;
+  injectedSpillCount() = 0;
+  maxSpillInjections() = 0;
+}
+
+tsan_atomic<uint32_t>& injectedSpillCount() {
+  static tsan_atomic<uint32_t> injectedCount{0};
+  return injectedCount;
 }
 
 bool testingTriggerSpill() {
   // Do not evaluate further if trigger is not set.
-  if (testingSpillCounter() <= 0 || testingSpillPct() <= 0) {
+  if (testingSpillPct() <= 0) {
     return false;
   }
-  if (folly::Random::rand32() % 100 < testingSpillPct()) {
-    return testingSpillCounter()-- > 0;
+  if (folly::Random::rand32() % 100 > testingSpillPct()) {
+    return false;
   }
-  return false;
+  if (injectedSpillCount() >= maxSpillInjections()) {
+    return false;
+  }
+  ++injectedSpillCount();
+  return true;
 }
 
 void removeEmptyPartitions(SpillPartitionSet& partitionSet) {
