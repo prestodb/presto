@@ -30,7 +30,10 @@ random input vectors.
 
 The Aggregation Fuzzer tests global aggregations (no grouping keys), group-by
 aggregations (one or more grouping keys), distinct aggregations(no aggregates),
-aggregations with and without masks.
+aggregations with and without masks, aggregations over sorted and distinct inputs.
+
+The Aggregation Fuzzer includes testing of spilling and abandoning partial
+aggregation.
 
 The results of aggregations using functions supported by DuckDB are compared
 with DuckDB results.
@@ -58,10 +61,71 @@ using OrderBy and StreamingAggregation.
 Fuzzer iterations alternate between generating plans using Values or TableScan
 nodes.
 
+Many functions work well with random input data. However, some functions have
+restrictions on the input values and random data tend to violate these causing
+failures and preventing the fuzzer from exercising the aggregation beyond the
+initial sanity checks.
+
+For example, “min” function has 2 signatures:
+
+.. code-block::
+
+    min(x) → [same as x]
+    Returns the minimum value of all input values.
+
+    min(x, n) → array<[same as x]>
+    Returns n smallest values of all input values of x. n must be a positive integer and not exceed 10,000.
+
+The second signature, let's call it min_n, has 2 arguments. The first argument
+is the value and the second is a constant number of minimum values to return.
+Most of the time, randomly generated value for the second argument doesn’t fall
+into [1, 10’000] range and aggregation fails:
+
+.. code-block::
+
+    VeloxUserError
+    Error Source: USER
+    Error Code: INVALID_ARGUMENT
+    Reason: (3069436511015786487 vs. 10000) second argument of max/min must be less than or equal to 10000
+    Retriable: False
+    Expression: newN <= 10'000
+    Function: checkAndSetN
+    File: /Users/mbasmanova/cpp/velox-1/velox/functions/prestosql/aggregates/MinMaxAggregates.cpp
+    Line: 574
+
+Similarly, approx_distinct function has a signature that allows to specify max
+standard error in the range of [0.0040625, 0.26000]. Random values for 'e' have
+near zero chance to fall into this range.
+
+To enable effective testing of these functions, Aggregation Fuzzer allows
+registering custom input generators for individual functions.
+
 When testing aggregate functions whose results depend on the order of inputs
 (e.g. map_agg, map_union, arbitrary, etc.), the Fuzzer verifies that all plans
 succeed or fail with compatible user exceptions. When plans succeed, the Fuzzer
 verifies that number of result rows is the same across all plans.
+
+Additionally, Fuzzer tests order-sensitive functions using aggregations over
+sorted inputs. When inputs are sorted, the results are deterministic and therefore
+can be verified.
+
+Fuzzer also supports specifying custom result verifiers. For example, array_agg
+results can be verified by first sorting the result arrays. Similarly, map_agg
+results can be partially verified by transforming result maps into sorted arrays
+of map keys. approx_distinct can be verified by comparing the results with
+count(distinct).
+
+A custom verifier may work by comparing results of executing two logically
+equivalent Velox plans or results of executing Velox plan and equivalent query
+in Reference DB. These verifiers using transform the results to make them
+deterministic, then compare. This is used to verify array_agg, set_agg,
+set_union, map_agg, and similar functions.
+
+A custom verifier may also work by analyzing the results of single execution
+of a Velox plan. For example, approx_distinct verifies the results by
+computing count(distinct) on input data and checking whether the results
+of approx_distinct are within expected error bound. Verifier for approx_percentile
+works similarly.
 
 At the end of the run, Fuzzer prints out statistics that show what has been
 tested:
@@ -119,13 +183,8 @@ aggregate functions supported by the engine, and call
 .. _AggregationFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzerTest.cpp
 
 Aggregation Fuzzer allows to indicate functions whose results depend on the
-order of inputs and optionally provide an expression to apply to the result to
-make it stable. For example, the results of array_agg can be stabilized by
-applying array_sort on top: array_sort(array_map(x)) and the results of map_agg
-can be stabilized using array_sort(map_keys(map_agg(k, v))). Order-dependent
-functions are tested to ensure no crashes or failures. The results of
-order-dependent functions with stabilizing expressions are further verified for
-correctness by ensuring that results of logically equivalent plans match.
+order of inputs and optionally provide custom result verifiers. The Fuzzer
+also allows to provide custom input generators for individual functions.
 
 How to run
 ----------------------------
@@ -176,7 +235,7 @@ In addition, Aggregation Fuzzer supports the tuning parameter:
 
 * ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
 
-Window Fuzzer supports verifiering window query results against reference DB:
+Window Fuzzer supports verifying window query results against reference DB:
 
 * ``--enable_window_reference_verification``: When true, the results of the window aggregation are compared to reference DB results. Default is false.
 
