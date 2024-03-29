@@ -39,6 +39,7 @@ add_library(
   ExecutorBarrier.cpp
   FileSink.cpp
   FlatMapHelper.cpp
+  OnDemandUnitLoader.cpp
   InputStream.cpp
   IntDecoder.cpp
   MetadataFilter.cpp
