@@ -200,32 +200,16 @@ the signature of the "filter" function:
 Testing
 -------
 
-Testing framework doesn't support Presto SQL lambda expressions, e.g. one cannot
-evaluate "filter(a, x - >x >= b)" expression directly. Instead, use the
-registerLambda helper method of the FunctionBaseTest class to register lambda
-expression and give it a name, then use that name to specify the lambda
-parameter. Here is an example that evaluates "filter(a, x ->x >= b)" expression
-in a test:
+Testing framework fully supports evaluating lambda expression. Just write
+an expression as you would in Presto SQL:
 
 .. code-block:: c++
 
-  auto rowType = ROW({"a", "b"}, {ARRAY(BIGINT()), BIGINT()});
+  auto result = evaluate("filter(a, x -> (x >= b))", data);
 
-  registerLambda("lambda", ROW({"x"}, {BIGINT()}), rowType, "x >= b"));
+In the above, 'data' is expected to have a column "a" of type array and
+column "b" of type matching array element type. For example, "a" can be
+an array(integer) and "b" an integer.
 
-  auto result =
-      evaluate<BaseVector>("filter(a, function('lambda'))", data);
-
-The first argument to registerLambda is the name for the lambda. This name can
-later be used to refer to the lambda in a function call.
-
-The second argument is the signature of the lambda, e.g. the list of lambda
-parameters along with their names and types.
-
-The third argument is the type of the input data to the overall expression. This
-is used to resolve the types of captures.
-
-The last argument is the lambda body as SQL expression.
-
-To specify lambda expression as an argument of a lambda function use function
-(‘<lambda-name>’) syntax.
+The only caveat is you need to put lambda body in parentheses.
+`x -> (x >= b)` works, but `x -> x >= b` doesn't.
