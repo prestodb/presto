@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
@@ -80,6 +81,7 @@ import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.SqlTimestamp.MICROSECONDS_PER_MILLISECOND;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -372,6 +374,9 @@ public class ShowStatsRewrite
             }
             if (type.equals(TIMESTAMP)) {
                 return new StringLiteral(new SqlTimestamp(round(value) / MICROSECONDS_PER_MILLISECOND, session.getSqlFunctionProperties().getTimeZoneKey(), MILLISECONDS).toString());
+            }
+            if (type.equals(TIME)) {
+                return new StringLiteral(new SqlTime(round(value)).toString());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);
         }

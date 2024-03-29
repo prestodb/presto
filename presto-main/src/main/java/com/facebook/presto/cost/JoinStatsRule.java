@@ -34,10 +34,10 @@ import java.util.Queue;
 
 import static com.facebook.presto.SystemSessionProperties.getDefaultJoinSelectivityCoefficient;
 import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
-import static com.facebook.presto.cost.DisjointRangeDomainHistogram.addConjunction;
 import static com.facebook.presto.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static com.facebook.presto.cost.VariableStatsEstimate.buildFrom;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram.addConjunction;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -250,7 +250,7 @@ public class JoinStatsRule
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv);
         if (useHistograms) {
-            newLeftStats.setHistogram(leftStats.getHistogram().map(leftHistogram -> addConjunction(leftHistogram, intersect)));
+            newLeftStats.setHistogram(leftStats.getHistogram().map(leftHistogram -> addConjunction(leftHistogram, intersect.toPrestoRange())));
         }
 
         VariableStatsEstimate.Builder newRightStats = buildFrom(rightStats)
@@ -258,7 +258,7 @@ public class JoinStatsRule
                 .setStatisticsRange(intersect)
                 .setDistinctValuesCount(retainedNdv);
         if (useHistograms) {
-            newRightStats.setHistogram(rightStats.getHistogram().map(rightHistogram -> addConjunction(rightHistogram, intersect)));
+            newRightStats.setHistogram(rightStats.getHistogram().map(rightHistogram -> addConjunction(rightHistogram, intersect.toPrestoRange())));
         }
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(stats)
