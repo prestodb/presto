@@ -24,6 +24,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -162,7 +163,22 @@ static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 class TaskManagerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    filesystems::registerLocalFileSystem();
+    test::setupMutableSystemConfig();
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
+    ASSERT_EQ(SystemConfig::instance()->memoryArbitratorKind(), "SHARED");
+    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+    FLAGS_velox_memory_leak_check_enabled = true;
+    velox::memory::SharedArbitrator::registerFactory();
+    velox::memory::MemoryManagerOptions options;
+    options.allocatorCapacity = 8L << 30;
+    options.arbitratorCapacity = 6L << 30;
+    options.memoryPoolInitCapacity = 512 << 20;
+    options.arbitratorKind = "SHARED";
+    options.checkUsageLeak = true;
+    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+    memory::MemoryManager::testingSetInstance(options);
     common::testutil::TestValue::enable();
   }
 
@@ -193,7 +209,6 @@ class TaskManagerTest : public testing::Test {
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     };
-    filesystems::registerLocalFileSystem();
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
@@ -561,10 +576,9 @@ class TaskManagerTest : public testing::Test {
         fmt::format("{}/config.properties", spillDirectory->path);
     auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
-    sysConfigFile->append(fmt::format(
-        "{}={}\n", SystemConfig::kSpillerSpillPath, spillDirectory->path));
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kSpillerSpillPath), spillDirectory->path);
     sysConfigFile->close();
-    SystemConfig::instance()->initialize(sysConfigFilePath);
 
     auto nodeConfigFilePath =
         fmt::format("{}/node.properties", spillDirectory->path);
@@ -998,7 +1012,6 @@ TEST_F(TaskManagerTest, distributedSort) {
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
-  test::setupMutableSystemConfig();
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (auto i = 0; i < filePaths.size(); i++) {
