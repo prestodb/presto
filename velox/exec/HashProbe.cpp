@@ -385,17 +385,30 @@ void HashProbe::prepareForSpillRestore() {
   // Notify the hash build operators to build the next hash table.
   joinBridge_->probeFinished();
 
-  wakeupPeers();
+  wakeupPeerOperators();
 
   lastProber_ = false;
 }
 
-void HashProbe::wakeupPeers() {
+void HashProbe::wakeupPeerOperators() {
   VELOX_CHECK(lastProber_);
   auto promises = std::move(promises_);
   for (auto& promise : promises) {
     promise.setValue();
   }
+}
+
+std::vector<HashProbe*> HashProbe::findPeerOperators() {
+  auto task = operatorCtx_->task();
+  const std::vector<Operator*> operators =
+      task->findPeerOperators(operatorCtx_->driverCtx()->pipelineId, this);
+  std::vector<HashProbe*> probeOps;
+  probeOps.reserve(operators.size());
+  for (auto* op : operators) {
+    auto* probeOp = dynamic_cast<HashProbe*>(op);
+    probeOps.push_back(probeOp);
+  }
+  return probeOps;
 }
 
 void HashProbe::addSpillInput() {
@@ -913,7 +926,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
       } else {
         if (lastProber_ && spillEnabled()) {
           joinBridge_->probeFinished();
-          wakeupPeers();
+          wakeupPeerOperators();
         }
         setState(ProbeOperatorState::kFinish);
       }
@@ -1566,30 +1579,27 @@ void HashProbe::reclaim(
 
   const auto& task = driver->task();
   VELOX_CHECK(task->pauseRequested());
-  const std::vector<Operator*> operators =
-      task->findPeerOperators(operatorCtx_->driverCtx()->pipelineId, this);
+  const std::vector<HashProbe*> probeOps = findPeerOperators();
   bool hasMoreProbeInput{false};
-  for (auto* op : operators) {
-    HashProbe* probeOp = dynamic_cast<HashProbe*>(op);
+  for (auto* probeOp : probeOps) {
     VELOX_CHECK_NOT_NULL(probeOp);
     VELOX_CHECK(probeOp->canReclaim());
     if (probeOp->nonReclaimableState()) {
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
-      LOG(WARNING) << "Can't reclaim from hash probe operator, state_["
-                   << ProbeOperatorState(probeOp->state_)
-                   << "], nonReclaimableSection_["
-                   << probeOp->nonReclaimableSection_ << "], "
-                   << probeOp->pool()->name()
-                   << ", usage: " << succinctBytes(pool()->currentBytes())
-                   << ", node pool usage: "
-                   << succinctBytes(pool()->parent()->currentBytes());
+      LOG_EVERY_N(WARNING, 1'000)
+          << "Can't reclaim from hash probe operator, state_["
+          << ProbeOperatorState(probeOp->state_) << "], nonReclaimableSection_["
+          << probeOp->nonReclaimableSection_ << "], " << probeOp->pool()->name()
+          << ", usage: " << succinctBytes(pool()->currentBytes())
+          << ", node pool usage: "
+          << succinctBytes(pool()->parent()->currentBytes());
       return;
     }
     hasMoreProbeInput |= !probeOp->noMoreSpillInput_;
   }
 
-  spillOutput(operators);
+  spillOutput(probeOps);
 
   SpillPartitionSet spillPartitionSet;
   if (hasMoreProbeInput) {
@@ -1600,8 +1610,7 @@ void HashProbe::reclaim(
   }
   const auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
 
-  for (auto* op : operators) {
-    HashProbe* probeOp = dynamic_cast<HashProbe*>(op);
+  for (auto* probeOp : probeOps) {
     VELOX_CHECK_NOT_NULL(probeOp);
     // Setup all the probe operators to spill the rest of probe inputs if the
     // table has been spilled.
@@ -1620,7 +1629,7 @@ void HashProbe::reclaim(
   }
 }
 
-void HashProbe::spillOutput(const std::vector<Operator*>& operators) {
+void HashProbe::spillOutput(const std::vector<HashProbe*>& operators) {
   struct SpillResult {
     const std::exception_ptr error{nullptr};
 
@@ -1795,9 +1804,9 @@ void HashProbe::prepareTableSpill(
     // run out of memory if the restored partition still can't fit in memory.
     if (config->exceedSpillLevelLimit(startPartitionBit)) {
       RECORD_METRIC_VALUE(kMetricMaxSpillLevelExceededCount);
-      LOG(WARNING) << "Exceeded spill level limit: " << config->maxSpillLevel
-                   << ", and disable spilling for memory pool: "
-                   << pool()->name();
+      LOG_EVERY_N(WARNING, 1'000)
+          << "Exceeded spill level limit: " << config->maxSpillLevel
+          << ", and disable spilling for memory pool: " << pool()->name();
       exceededMaxSpillLevelLimit_ = true;
       ++spillStats_.wlock()->spillMaxLevelExceededCount;
       return;

@@ -358,6 +358,20 @@ void MemoryPool::dropChild(const MemoryPool* child) {
       toString());
 }
 
+bool MemoryPool::aborted() const {
+  if (parent_ != nullptr) {
+    return parent_->aborted();
+  }
+  return aborted_;
+}
+
+std::exception_ptr MemoryPool::abortError() const {
+  if (parent_ != nullptr) {
+    return parent_->abortError();
+  }
+  return abortError_;
+}
+
 size_t MemoryPool::preferredSize(size_t size) {
   if (size < 8) {
     return 8;
@@ -1021,13 +1035,6 @@ uint64_t MemoryPoolImpl::grow(uint64_t bytes) noexcept {
   return capacity_;
 }
 
-bool MemoryPoolImpl::aborted() const {
-  if (parent_ != nullptr) {
-    return parent_->aborted();
-  }
-  return aborted_;
-}
-
 void MemoryPoolImpl::abort(const std::exception_ptr& error) {
   VELOX_CHECK_NOT_NULL(error);
   if (parent_ != nullptr) {
@@ -1051,8 +1058,8 @@ void MemoryPoolImpl::setAbortError(const std::exception_ptr& error) {
 
 void MemoryPoolImpl::checkIfAborted() const {
   if (FOLLY_UNLIKELY(aborted())) {
-    VELOX_CHECK_NOT_NULL(abortError_);
-    std::rethrow_exception(abortError_);
+    VELOX_CHECK_NOT_NULL(abortError());
+    std::rethrow_exception(abortError());
   }
 }
 

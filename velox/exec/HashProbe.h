@@ -222,7 +222,7 @@ class HashProbe : public Operator {
 
   // Produces and spills outputs from operator which has pending input to
   // process in probe 'operators'.
-  void spillOutput(const std::vector<Operator*>& operators);
+  void spillOutput(const std::vector<HashProbe*>& operators);
   // Produces and spills output from this probe operator.
   void spillOutput();
 
@@ -278,8 +278,11 @@ class HashProbe : public Operator {
         spillInputPartitionIds_.empty();
   }
 
+  // Find the peer hash probe operators in the same pipeline.
+  std::vector<HashProbe*> findPeerOperators();
+
   // Wake up the peer hash probe operators when last probe operator finishes.
-  void wakeupPeers();
+  void wakeupPeerOperators();
 
   //  std::vector<Operator*> findPeerOperators();
 

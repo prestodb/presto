@@ -599,7 +599,12 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
   VELOX_CHECK(
       !driver->state().isOnThread() || driver->state().isSuspended ||
-      driver->state().isTerminated);
+          driver->state().isTerminated,
+      "driverOnThread {}, driverSuspended {} driverTerminated {} {}",
+      driver->state().isOnThread(),
+      driver->state().isSuspended,
+      driver->state().isTerminated,
+      pool->name());
   VELOX_CHECK(driver->task()->pauseRequested());
 
   TestValue::adjust(

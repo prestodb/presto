@@ -824,7 +824,8 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
 
   // Test-only spill path.
   if (testingTriggerSpill()) {
-    spill();
+    memory::ReclaimableSectionGuard guard(nonReclaimableSection_);
+    memory::testingRunArbitration(&pool_);
     return;
   }
 

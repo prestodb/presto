@@ -219,9 +219,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     // out of memory if the restored partition still can't fit in memory.
     if (config->exceedSpillLevelLimit(startPartitionBit)) {
       RECORD_METRIC_VALUE(kMetricMaxSpillLevelExceededCount);
-      LOG(WARNING) << "Exceeded spill level limit: " << config->maxSpillLevel
-                   << ", and disable spilling for memory pool: "
-                   << pool()->name();
+      LOG_EVERY_N(WARNING, 1'000)
+          << "Exceeded spill level limit: " << config->maxSpillLevel
+          << ", and disable spilling for memory pool: " << pool()->name();
       ++spillStats_.wlock()->spillMaxLevelExceededCount;
       exceededMaxSpillLevelLimit_ = true;
       return;
@@ -456,8 +456,6 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
     if (testingTriggerSpill()) {
       Operator::ReclaimableSectionGuard guard(this);
       memory::testingRunArbitration(pool());
-      // NOTE: the memory arbitration should have triggered spilling on this
-      // hash build operator so we return true to indicate have enough memory.
       return;
     }
   }
@@ -772,6 +770,13 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
     return;
   }
 
+  // Test-only spill path.
+  if (testingTriggerSpill()) {
+    Operator::ReclaimableSectionGuard guard(this);
+    memory::testingRunArbitration(pool());
+    return;
+  }
+
   TestValue::adjust("facebook::velox::exec::HashBuild::ensureTableFits", this);
 
   // NOTE: reserve a bit more memory to consider the extra memory used for
@@ -1046,11 +1051,11 @@ void HashBuild::reclaim(
       // TODO: reduce the log frequency if it is too verbose.
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
-      LOG(WARNING) << "Can't reclaim from hash build operator, state_["
-                   << stateName(buildOp->state_) << "], nonReclaimableSection_["
-                   << buildOp->nonReclaimableSection_ << "], "
-                   << buildOp->pool()->name() << ", usage: "
-                   << succinctBytes(buildOp->pool()->currentBytes());
+      LOG_EVERY_N(WARNING, 1'000)
+          << "Can't reclaim from hash build operator, state_["
+          << stateName(buildOp->state_) << "], nonReclaimableSection_["
+          << buildOp->nonReclaimableSection_ << "], " << buildOp->pool()->name()
+          << ", usage: " << succinctBytes(buildOp->pool()->currentBytes());
       return;
     }
   }

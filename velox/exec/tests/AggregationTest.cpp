@@ -3145,7 +3145,6 @@ TEST_F(AggregationTest, maxSpillBytes) {
                         .capturePlanNodeId(aggregationNodeId)
                         .planNode();
   auto spillDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
 
   struct {
     int32_t maxSpilledBytes;
@@ -3153,10 +3152,11 @@ TEST_F(AggregationTest, maxSpillBytes) {
     std::string debugString() const {
       return fmt::format("maxSpilledBytes {}", maxSpilledBytes);
     }
-  } testSettings[] = {{1 << 30, false}, {16 << 20, true}, {0, false}};
+  } testSettings[] = {{1 << 30, false}, {1, true}, {0, false}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
@@ -3170,12 +3170,12 @@ TEST_F(AggregationTest, maxSpillBytes) {
     } catch (const VeloxRuntimeError& e) {
       ASSERT_TRUE(testData.expectedExceedLimit);
       ASSERT_NE(
-          e.message().find(
-              "Query exceeded per-query local spill limit of 16.00MB"),
+          e.message().find("Query exceeded per-query local spill limit of 1B"),
           std::string::npos);
       ASSERT_EQ(
           e.errorCode(), facebook::velox::error_code::kSpillLimitExceeded);
     }
+    waitForAllTasksToBeDeleted();
   }
 }
 
