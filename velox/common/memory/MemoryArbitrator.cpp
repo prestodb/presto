@@ -485,12 +485,19 @@ void testingRunArbitration(
     uint64_t targetBytes,
     bool allowSpill) {
   pool->enterArbitration();
-  static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
-      targetBytes, allowSpill);
-  pool->leaveArbitration();
-
-  // This function is simulating an arbitration triggered by growCapacity, which
-  // would check this.
+  // Seraliazes the testing arbitration injection to make sure that the previous
+  // op has left arbitration section before starting the next one. This is
+  // guaranteed by the production code for operation triggered arbitration.
+  static std::mutex lock;
+  {
+    std::lock_guard<std::mutex> l(lock);
+    static_cast<MemoryPoolImpl*>(pool)->testingManager()->shrinkPools(
+        targetBytes, allowSpill);
+    pool->leaveArbitration();
+  }
+  // This function is simulating an operator triggered arbitration which
+  // would check if the query has been aborted after finish arbitration by the
+  // memory pool capacity grow path.
   static_cast<MemoryPoolImpl*>(pool)->testingCheckIfAborted();
 }
 } // namespace facebook::velox::memory
