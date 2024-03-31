@@ -35,7 +35,7 @@ public class RemoveRedundantDistinct
 
     private static boolean distinctOfUniqueKey(AggregationNode node)
     {
-        return node.hasNonEmptyGroupingSet() &&
+        return node.getGroupingSetCount() == 1 &&
                 node.getAggregations().isEmpty() &&
                 ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
                 ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(node.getGroupingKeys().stream().collect(Collectors.toSet()));

@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 

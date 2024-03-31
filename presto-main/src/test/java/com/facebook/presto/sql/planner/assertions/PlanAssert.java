@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
@@ -52,7 +53,7 @@ public final class PlanAssert
         // TODO (Issue #13231) add back printing unresolved plan once we have no need to translate OriginalExpression to RowExpression
         if (!matches.isMatch()) {
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(planSanitizer.apply(resolvedPlan), actual.getTypes(), StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
+            String resolvedFormattedPlan = textLogicalPlan(planSanitizer.apply(resolvedPlan), actual.getTypes(), StatsAndCosts.create(resolvedPlan, statsProvider, node -> PlanCostEstimate.unknown()), metadata.getFunctionAndTypeManager(), session, 0);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n]",
                     pattern,

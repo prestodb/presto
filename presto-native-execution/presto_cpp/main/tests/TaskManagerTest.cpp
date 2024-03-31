@@ -24,6 +24,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -162,7 +163,22 @@ static const uint64_t kGB = 1024 * 1024 * 1024ULL;
 class TaskManagerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
-    memory::MemoryManager::testingSetInstance({});
+    filesystems::registerLocalFileSystem();
+    test::setupMutableSystemConfig();
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kMemoryArbitratorKind), "SHARED");
+    ASSERT_EQ(SystemConfig::instance()->memoryArbitratorKind(), "SHARED");
+    FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+    FLAGS_velox_memory_leak_check_enabled = true;
+    velox::memory::SharedArbitrator::registerFactory();
+    velox::memory::MemoryManagerOptions options;
+    options.allocatorCapacity = 8L << 30;
+    options.arbitratorCapacity = 6L << 30;
+    options.memoryPoolInitCapacity = 512 << 20;
+    options.arbitratorKind = "SHARED";
+    options.checkUsageLeak = true;
+    options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+    memory::MemoryManager::testingSetInstance(options);
     common::testutil::TestValue::enable();
   }
 
@@ -193,7 +209,6 @@ class TaskManagerTest : public testing::Test {
     if (!isRegisteredVectorSerde()) {
       serializer::presto::PrestoVectorSerde::registerVectorSerde();
     };
-    filesystems::registerLocalFileSystem();
 
     registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
@@ -561,10 +576,9 @@ class TaskManagerTest : public testing::Test {
         fmt::format("{}/config.properties", spillDirectory->path);
     auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
-    sysConfigFile->append(fmt::format(
-        "{}={}\n", SystemConfig::kSpillerSpillPath, spillDirectory->path));
+    SystemConfig::instance()->setValue(
+        std::string(SystemConfig::kSpillerSpillPath), spillDirectory->path);
     sysConfigFile->close();
-    SystemConfig::instance()->initialize(sysConfigFilePath);
 
     auto nodeConfigFilePath =
         fmt::format("{}/node.properties", spillDirectory->path);
@@ -998,7 +1012,6 @@ TEST_F(TaskManagerTest, distributedSort) {
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
-  test::setupMutableSystemConfig();
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (auto i = 0; i < filePaths.size(); i++) {
@@ -1254,41 +1267,79 @@ TEST_F(TaskManagerTest, getResultsFromFailedTask) {
 }
 
 TEST_F(TaskManagerTest, testCumulativeMemory) {
-  auto filePaths = makeFilePaths(10);
-  auto vectors = makeVectors(10, 1'000);
-  for (int i = 0; i < 10; ++i) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+  const std::vector<RowVectorPtr> batches = makeVectors(4, 128);
+  const auto planFragment = exec::test::PlanBuilder()
+                                .values(batches)
+                                .partitionedOutput({}, 1)
+                                .planFragment();
+  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+  const protocol::TaskId taskId = "scan.0.0.1.0";
+  auto veloxTask =
+      Task::create(taskId, std::move(planFragment), 0, std::move(queryCtx));
+
+  const uint64_t startTimeMs = velox::getCurrentTimeMs();
+  auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");
+  prestoTask->task = veloxTask;
+  veloxTask->start(1);
+  prestoTask->taskStarted = true;
+
+  auto outputBufferManager = OutputBufferManager::getInstance().lock();
+  ASSERT_TRUE(outputBufferManager != nullptr);
+  // Wait until the task has produced all the output buffers so its memory usage
+  // stay constant to ease test.
+  for (;;) {
+    auto outputBufferStats = outputBufferManager->stats(taskId).value();
+    if (outputBufferStats.noMoreData) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  duckDbQueryRunner_.createTable("tmp", vectors);
-  const protocol::TaskId taskId = "scan.0.0.0.0";
-  long splitSequenceId{0};
-  auto planFragment = exec::test::PlanBuilder()
-                          .tableScan(rowType_)
-                          .partitionedOutput({}, 1, {"c0", "c1"})
-                          .planFragment();
-  protocol::TaskUpdateRequest updateRequest;
-  updateRequest.sources.push_back(
-      makeSource("0", filePaths, true, splitSequenceId));
-  auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
-  std::vector<std::string> tasks;
-  tasks.emplace_back(taskInfo->taskStatus.self);
-  // Wait for the input task to produce data to cause memory allocation.
-  while (taskInfo->stats.cumulativeUserMemory == 0) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    auto cbState = std::make_shared<http::CallbackRequestHandlerState>();
-    taskInfo =
-        taskManager_
-            ->getTaskInfo(taskId, false, std::nullopt, std::nullopt, cbState)
-            .get();
-  }
-  ASSERT_GT(taskInfo->stats.cumulativeUserMemory, 0);
+  const auto memoryUsage = veloxTask->queryCtx()->pool()->currentBytes();
+  ASSERT_GT(memoryUsage, 0);
+
+  const uint64_t lastTimeMs = velox::getCurrentTimeMs();
+  protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo();
+  ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
+  ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
+  const auto lastCumulativeTotalMemory =
+      prestoTaskInfo.stats.cumulativeTotalMemory;
+  ASSERT_GT(lastCumulativeTotalMemory, 0);
+
+  // The initial reported cumulative memory must be less than the expected value
+  // below.
+  ASSERT_LE(
+      lastCumulativeTotalMemory,
+      memoryUsage * (lastTimeMs - startTimeMs) / 1'000);
   // Presto native doesn't differentiate user and system memory.
   ASSERT_EQ(
-      taskInfo->stats.cumulativeTotalMemory,
-      taskInfo->stats.cumulativeUserMemory);
-  auto outputTaskInfo = createOutputTask(
-      tasks, planFragment.planNode->outputType(), splitSequenceId);
-  assertResults(outputTaskInfo->taskId, rowType_, "SELECT * FROM tmp");
+      lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeUserMemory);
+
+  // Wait for 1 second to check the updated cumulative memory usage is within
+  // bound.
+  std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
+
+  prestoTaskInfo = prestoTask->updateInfo();
+  // Wait a bit to avoid the timing related flakiness in test check below.
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  // There won't be any task memory usage change as we don't consume any output
+  // buffers.
+  ASSERT_EQ(memoryUsage, prestoTaskInfo.stats.userMemoryReservationInBytes);
+  ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
+  ASSERT_LE(
+      prestoTaskInfo.stats.cumulativeTotalMemory,
+      lastCumulativeTotalMemory +
+          memoryUsage * (currentTimeMs - lastTimeMs) / 1'000);
+  ASSERT_LT(
+      lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeTotalMemory);
+  ASSERT_EQ(
+      prestoTaskInfo.stats.cumulativeTotalMemory,
+      prestoTaskInfo.stats.cumulativeUserMemory);
+
+  veloxTask->requestAbort();
+  prestoTask.reset();
+  veloxTask.reset();
+  velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
 }
 
 TEST_F(TaskManagerTest, checkBatchSplits) {
@@ -1371,7 +1422,6 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
     setAggregationSpillConfig(queryConfigs);
 
     auto planFragment = exec::test::PlanBuilder()
-                            //.tableScan(rowType_)
                             .values(batches)
                             .singleAggregation({"c0"}, {"count(c1)"}, {})
                             .planFragment();

@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,7 @@ import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTION
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -61,6 +63,8 @@ public class TestChecksumValidator
     private static final Column VARCHAR_COLUMN = createColumn("varchar", VARCHAR);
     private static final Column DOUBLE_COLUMN = createColumn("double", DOUBLE);
     private static final Column REAL_COLUMN = createColumn("real", REAL);
+    private static final Column DOUBLE_ARRAY_COLUMN = createColumn("double_array", new ArrayType(DOUBLE));
+    private static final Column REAL_ARRAY_COLUMN = createColumn("real_array", new ArrayType(REAL));
     private static final Column INT_ARRAY_COLUMN = createColumn("int_array", new ArrayType(INTEGER));
     private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(row(a int,b varchar))")));
     private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(map(int,varchar))")));
@@ -110,6 +114,8 @@ public class TestChecksumValidator
                         VARCHAR_COLUMN,
                         DOUBLE_COLUMN,
                         REAL_COLUMN,
+                        DOUBLE_ARRAY_COLUMN,
+                        REAL_ARRAY_COLUMN,
                         INT_ARRAY_COLUMN,
                         ROW_ARRAY_COLUMN,
                         MAP_ARRAY_COLUMN,
@@ -129,6 +135,18 @@ public class TestChecksumValidator
                         ", \"count\"(\"real\") FILTER (WHERE \"is_nan\"(\"real\")) \"real$nan_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = \"infinity\"())) \"real$pos_inf_count\"\n" +
                         ", \"count\"(\"real\") FILTER (WHERE (\"real\" = -\"infinity\"())) \"real$neg_inf_count\"\n" +
+                        ", \"sum\"(\"array_sum\"(\"filter\"(\"double_array\", (x) -> \"is_finite\"(x)))) \"double_array$sum\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"double_array\", (x) -> \"is_nan\"(x)))) \"double_array$nan_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"double_array\", (x) -> (x = +\"infinity\"())))) \"double_array$pos_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(\"double_array\", (x) -> (x = -\"infinity\"())))) \"double_array$neg_inf_count\"\n" +
+                        ", \"checksum\"(\"cardinality\"(\"double_array\")) \"double_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(\"double_array\")), 0) \"double_array$cardinality_sum\"\n" +
+                        ", \"sum\"(\"array_sum\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> \"is_finite\"(x)))) \"real_array$sum\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> \"is_nan\"(x)))) \"real_array$nan_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> (x = +\"infinity\"())))) \"real_array$pos_inf_count\"\n" +
+                        ", \"sum\"(\"cardinality\"(\"filter\"(CAST(\"real_array\" AS array(double)), (x) -> (x = -\"infinity\"())))) \"real_array$neg_inf_count\"\n" +
+                        ", \"checksum\"(\"cardinality\"(CAST(\"real_array\" AS array(double)))) \"real_array$cardinality_checksum\"\n" +
+                        ", COALESCE(\"sum\"(\"cardinality\"(CAST(\"real_array\" AS array(double)))), 0) \"real_array$cardinality_sum\"\n" +
                         ", \"checksum\"(\"array_sort\"(\"int_array\")) \"int_array$checksum\"\n" +
                         ", \"checksum\"(\"cardinality\"(\"int_array\")) \"int_array$cardinality_checksum\"\n" +
                         ", COALESCE(\"sum\"(\"cardinality\"(\"int_array\")), 0) \"int_array$cardinality_sum\"\n" +
@@ -165,7 +183,12 @@ public class TestChecksumValidator
                         "FROM\n" +
                         "  test:di\n",
                 PARSING_OPTIONS);
-        assertEquals(formatSql(checksumQuery, Optional.empty()), formatSql(expectedChecksumQuery, Optional.empty()));
+
+        String[] arrayExpected = formatSql(expectedChecksumQuery, Optional.empty()).split("\n");
+        String[] arrayActual = formatSql(checksumQuery, Optional.empty()).split("\n");
+        Arrays.sort(arrayExpected);
+        Arrays.sort(arrayActual);
+        assertEquals(arrayActual, arrayExpected);
     }
 
     @Test
@@ -242,6 +265,102 @@ public class TestChecksumValidator
                         .put("real$neg_inf_count", 4L)
                         .build());
         List<ColumnMatchResult<?>> mismatchedColumns = assertMismatchedColumns(columns, controlChecksum, testChecksum, DOUBLE_COLUMN, REAL_COLUMN);
+        assertEquals(mismatchedColumns.get(1).getMessage(), Optional.of("relative error: 1.0000500025000149E-4"));
+    }
+
+    @Test
+    public void testFloatingPointArray()
+    {
+        List<Column> columns = ImmutableList.of(DOUBLE_ARRAY_COLUMN, REAL_ARRAY_COLUMN);
+
+        Map<String, Object> stableCounts = new HashMap<>(10);
+        stableCounts.put("double_array$nan_count", 2L);
+        stableCounts.put("double_array$pos_inf_count", 3L);
+        stableCounts.put("double_array$neg_inf_count", 4L);
+        stableCounts.put("double_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}));
+        stableCounts.put("double_array$cardinality_sum", 10L);
+        stableCounts.put("real_array$nan_count", 2L);
+        stableCounts.put("real_array$pos_inf_count", 3L);
+        stableCounts.put("real_array$neg_inf_count", 4L);
+        stableCounts.put("real_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}));
+        stableCounts.put("real_array$cardinality_sum", 10L);
+
+        Map<String, Object> emptyTableCounts = new HashMap<>(12);
+        emptyTableCounts.put("double_array$nan_count", null);
+        emptyTableCounts.put("double_array$pos_inf_count", null);
+        emptyTableCounts.put("double_array$neg_inf_count", null);
+        emptyTableCounts.put("double_array$cardinality_checksum", null);
+        emptyTableCounts.put("double_array$cardinality_sum", null);
+        emptyTableCounts.put("double_array$sum", null);
+        emptyTableCounts.put("real_array$nan_count", null);
+        emptyTableCounts.put("real_array$pos_inf_count", null);
+        emptyTableCounts.put("real_array$neg_inf_count", null);
+        emptyTableCounts.put("real_array$cardinality_checksum", null);
+        emptyTableCounts.put("real_array$cardinality_sum", null);
+        emptyTableCounts.put("real_array$sum", null);
+
+        final ChecksumResult controlChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(stableCounts)
+                        .put("double_array$sum", 1.0)
+                        .put("real_array$sum", 1.0)
+                        .build());
+
+        // Matched
+        ChecksumResult testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(stableCounts)
+                        .put("double_array$sum", 1 + RELATIVE_ERROR_MARGIN)
+                        .put("real_array$sum", 1 - RELATIVE_ERROR_MARGIN + RELATIVE_ERROR_MARGIN * RELATIVE_ERROR_MARGIN)
+                        .build());
+        assertTrue(checksumValidator.getMismatchedColumns(columns, controlChecksum, testChecksum).isEmpty());
+
+        // Matched two empty tables
+        final ChecksumResult testEmptyChecksum = new ChecksumResult(0, emptyTableCounts);
+        assertTrue(checksumValidator.getMismatchedColumns(columns, testEmptyChecksum, testEmptyChecksum).isEmpty());
+
+        // Mismatched empty and non-empty (number of rows differs).
+        assertThatThrownBy(() -> checksumValidator.getMismatchedColumns(columns, controlChecksum, testEmptyChecksum))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        // Mismatched
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("double_array$sum", 1.0)
+                        .put("double_array$nan_count", 0L)
+                        .put("double_array$pos_inf_count", 3L)
+                        .put("double_array$neg_inf_count", 4L)
+                        .put("double_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("double_array$cardinality_sum", 10L)
+                        .put("real_array$sum", 1.0)
+                        .put("real_array$nan_count", 2L)
+                        .put("real_array$pos_inf_count", 0L)
+                        .put("real_array$neg_inf_count", 4L)
+                        .put("real_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("real_array$cardinality_sum", 10L)
+                        .build());
+        assertMismatchedColumns(columns, controlChecksum, testChecksum, DOUBLE_ARRAY_COLUMN, REAL_ARRAY_COLUMN);
+
+        testChecksum = new ChecksumResult(
+                5,
+                ImmutableMap.<String, Object>builder()
+                        .put("double_array$sum", 1.0)
+                        .put("double_array$nan_count", 2L)
+                        .put("double_array$pos_inf_count", 3L)
+                        .put("double_array$neg_inf_count", 0L)
+                        .put("double_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xb}))
+                        .put("double_array$cardinality_sum", 10L)
+                        .put("real_array$sum", 1 - RELATIVE_ERROR_MARGIN)
+                        .put("real_array$nan_count", 2L)
+                        .put("real_array$pos_inf_count", 3L)
+                        .put("real_array$neg_inf_count", 4L)
+                        .put("real_array$cardinality_checksum", new SqlVarbinary(new byte[] {0xd}))
+                        .put("real_array$cardinality_sum", 10L)
+                        .build());
+        List<ColumnMatchResult<?>> mismatchedColumns = assertMismatchedColumns(columns, controlChecksum, testChecksum, DOUBLE_ARRAY_COLUMN, REAL_ARRAY_COLUMN);
         assertEquals(mismatchedColumns.get(1).getMessage(), Optional.of("relative error: 1.0000500025000149E-4"));
     }
 

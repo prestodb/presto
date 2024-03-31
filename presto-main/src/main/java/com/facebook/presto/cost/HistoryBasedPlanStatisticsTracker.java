@@ -23,6 +23,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
@@ -78,22 +80,38 @@ public class HistoryBasedPlanStatisticsTracker
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedOptimizationConfig config;
+    private final boolean isNativeExecution;
+    private final String serverVersion;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
             SessionPropertyManager sessionPropertyManager,
-            HistoryBasedOptimizationConfig config)
+            HistoryBasedOptimizationConfig config,
+            boolean isNativeExecution,
+            String serverVersion)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.isNativeExecution = isNativeExecution;
+        this.serverVersion = serverVersion;
     }
 
     public void updateStatistics(QueryExecution queryExecution)
     {
         queryExecution.addFinalQueryInfoListener(this::updateStatistics);
+    }
+
+    public Map<PlanCanonicalizationStrategy, String> getCanonicalPlan(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getCanonicalPlan(queryId);
+    }
+
+    public Optional<PlanNode> getStatsEquivalentPlanRootNode(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getStatsEquivalentPlanRootNode(queryId);
     }
 
     @VisibleForTesting
@@ -138,6 +156,9 @@ public class HistoryBasedPlanStatisticsTracker
         if (allStages.isEmpty()) {
             return ImmutableMap.of();
         }
+
+        HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo = new HistoricalPlanStatisticsEntryInfo(
+                isNativeExecution ? HistoricalPlanStatisticsEntryInfo.WorkerType.CPP : HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, queryInfo.getQueryId(), serverVersion);
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap = new HashMap<>();
@@ -216,7 +237,7 @@ public class HistoryBasedPlanStatisticsTracker
                         PlanStatisticsWithSourceInfo planStatsWithSourceInfo = new PlanStatisticsWithSourceInfo(
                                 planNode.getId(),
                                 newPlanNodeStats,
-                                new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics)));
+                                new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics), Optional.of(historicalPlanStatisticsEntryInfo)));
                         planStatisticsMap.put(planNodeWithHash, planStatsWithSourceInfo);
 
                         if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent() && trackPartialAggregationHistory(session)) {
@@ -317,7 +338,8 @@ public class HistoryBasedPlanStatisticsTracker
         Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
                 .filter(entry -> entry.getKey().getHash().isPresent() &&
                         entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&
-                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent())
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent() &&
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getHistoricalPlanStatisticsEntryInfo().isPresent())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> {
@@ -328,7 +350,8 @@ public class HistoryBasedPlanStatisticsTracker
                                     historicalPlanStatistics,
                                     historyBasedSourceInfo.getInputTableStatistics().get(),
                                     entry.getValue().getPlanStatistics(),
-                                    config);
+                                    config,
+                                    historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().get());
                         }));
 
         if (!newPlanStatistics.isEmpty()) {

@@ -17,23 +17,15 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
-import com.facebook.presto.hive.metastore.PartitionWithStatistics;
-import com.facebook.presto.hive.metastore.PrincipalPrivileges;
-import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
-import com.facebook.presto.spi.constraints.TableConstraint;
-import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,13 +46,10 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -244,7 +233,6 @@ public class TestHiveCommitHandleOutput
                 true,
                 false,
                 false,
-                false,
                 true,
                 true,
                 hiveClientConfig.getMaxPartitionBatchSize(),
@@ -269,7 +257,8 @@ public class TestHiveCommitHandleOutput
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
         return hiveMetadataFactory.get();
     }
 
@@ -287,163 +276,6 @@ public class TestHiveCommitHandleOutput
                 .setSealedPartition(true)
                 .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, "random_query_id"));
         return partitionBuilder.build();
-    }
-
-    private static class TestingExtendedHiveMetastore
-            extends UnimplementedHiveMetastore
-    {
-        private final Map<String, Long> lastDataCommitTimes = new HashMap<>();
-        private final Map<String, Table> tables = new HashMap<>();
-        private final Map<String, Partition> partitions = new HashMap<>();
-
-        @Override
-        public List<String> getAllDatabases(MetastoreContext metastoreContext)
-        {
-            return ImmutableList.of("hive_test");
-        }
-
-        @Override
-        public Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName)
-        {
-            return Optional.of(new Database(databaseName, Optional.of("/"), "test_owner", PrincipalType.USER, Optional.empty(), ImmutableMap.of()));
-        }
-
-        @Override
-        public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
-        {
-            String tableKey = createTableKey(table.getDatabaseName(), table.getTableName());
-            tables.put(tableKey, table);
-            long currentTime = System.currentTimeMillis() / 1000;
-            lastDataCommitTimes.put(tableKey, currentTime);
-
-            return new MetastoreOperationResult(ImmutableList.of(currentTime));
-        }
-
-        @Override
-        public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
-        {
-            String tableKey = createTableKey(databaseName, tableName);
-            return Optional.ofNullable(tables.get(tableKey));
-        }
-
-        @Override
-        public void dropTable(MetastoreContext metastoreContext, String databaseName, String tableName, boolean deleteData)
-        {
-            String tableKey = createTableKey(databaseName, tableName);
-            lastDataCommitTimes.remove(tableKey);
-            tables.remove(tableKey);
-        }
-
-        @Override
-        public void updateTableStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
-        {
-        }
-
-        @Override
-        public MetastoreOperationResult addPartitions(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionWithStatistics> partitions)
-        {
-            List<Long> times = new ArrayList<>();
-            for (PartitionWithStatistics partition : partitions) {
-                String partitionKey = createPartitionKey(databaseName, tableName, partition.getPartitionName());
-                Partition oldPartition = this.partitions.put(partitionKey, partition.getPartition());
-
-                if (oldPartition != null) {
-                    String oldLocation = oldPartition.getStorage().getLocation();
-                    String newLocation = partition.getPartition().getStorage().getLocation();
-
-                    // Use old data commit time if the location does not change.
-                    if (oldLocation.equals(newLocation)) {
-                        times.add(lastDataCommitTimes.get(partitionKey));
-                    }
-                    else {
-                        // Update the data commit time if the partition location changes.
-                        // Adding 1000 to ensure their times are different since their data commit times are compared in seconds.
-                        long currentTime = System.currentTimeMillis() / 1000;
-                        lastDataCommitTimes.put(partitionKey, currentTime);
-                        times.add(currentTime);
-                    }
-                }
-                else {
-                    // If the partition is new, add the data commit time.
-                    long currentTime = System.currentTimeMillis() / 1000;
-                    lastDataCommitTimes.put(partitionKey, currentTime);
-                    times.add(currentTime);
-                }
-            }
-            return new MetastoreOperationResult(times);
-        }
-
-        @Override
-        public MetastoreOperationResult alterPartition(MetastoreContext metastoreContext, String databaseName, String tableName, PartitionWithStatistics partition)
-        {
-            String partitionKey = createPartitionKey(databaseName, tableName, partition.getPartitionName());
-            Partition oldPartition = partitions.get(partitionKey);
-            partitions.put(partitionKey, partition.getPartition());
-
-            // When its location changes, we should generate a new commit time.
-            if (oldPartition != null && oldPartition.getStorage().getLocation().equals(partition.getPartition().getStorage().getLocation())) {
-                lastDataCommitTimes.put(partitionKey, System.currentTimeMillis() / 1000);
-            }
-
-            if (!lastDataCommitTimes.containsKey(partitionKey)) {
-                return new MetastoreOperationResult(ImmutableList.of());
-            }
-            return new MetastoreOperationResult(ImmutableList.of(lastDataCommitTimes.get(partitionKey)));
-        }
-
-        @Override
-        public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
-        {
-            String partitionKey = createPartitionKey(databaseName, tableName, partitionValues);
-            long time = lastDataCommitTimes.getOrDefault(partitionKey, 0L);
-
-            Partition partition = partitions.get(partitionKey);
-            if (partition != null) {
-                Partition.Builder builder = Partition.builder(partition)
-                        .setLastDataCommitTime(time);
-                return Optional.ofNullable(builder.build());
-            }
-            return Optional.empty();
-        }
-
-        @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
-        {
-            Map<String, Optional<Partition>> result = new HashMap<>();
-            for (String partitionName : partitionNames) {
-                List<String> partitionValues = toPartitionValues(partitionName);
-                String partitionKey = createPartitionKey(databaseName, tableName, partitionValues);
-                long time = lastDataCommitTimes.getOrDefault(partitionKey, 0L);
-
-                Partition partition = partitions.get(partitionKey);
-                if (partition != null) {
-                    Partition.Builder builder = Partition.builder(partition)
-                            .setLastDataCommitTime(time);
-                    result.put(partitionName, Optional.of(builder.build()));
-                }
-                else {
-                    result.put(partitionName, Optional.empty());
-                }
-            }
-            return result;
-        }
-
-        private String createPartitionKey(String databaseName, String tableName, String partitionName)
-        {
-            List<String> partitionValues = toPartitionValues(partitionName);
-
-            return String.join(".", databaseName, tableName, partitionValues.toString());
-        }
-
-        private String createPartitionKey(String databaseName, String tableName, List<String> partitionValues)
-        {
-            return String.join(".", databaseName, tableName, partitionValues.toString());
-        }
-
-        private String createTableKey(String databaseName, String tableName)
-        {
-            return String.join(".", databaseName, tableName);
-        }
     }
 
     private static class TestingHdfsEnvironment

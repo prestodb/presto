@@ -138,12 +138,9 @@ public class TestHistoryBasedStatsTracking
         assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(Double.NaN))));
 
         // HBO Statistics
-        try {
-            getQueryRunner().execute(session, sql);
-        }
-        catch (Exception e) {
-            getHistoryProvider().waitProcessQueryEvents();
-        }
+        assertQueryFails(session, sql, ".*Key not present in map.*");
+        getHistoryProvider().waitProcessQueryEvents();
+
         assertPlan(session, sql, anyTree(anyTree(any()), anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(15000))));
     }
 

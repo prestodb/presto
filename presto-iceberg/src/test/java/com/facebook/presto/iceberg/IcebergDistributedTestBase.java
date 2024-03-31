@@ -19,6 +19,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
@@ -94,6 +95,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -110,6 +112,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -809,6 +812,29 @@ public class IcebergDistributedTestBase
         assertUpdate("DROP TABLE test_stat_dist");
     }
 
+    @Test
+    public void testStatsDataSizePrimitives()
+    {
+        assertUpdate("CREATE TABLE test_stat_data_size (c0 int, c1 bigint, c2 double, c3 decimal(4, 0), c4 varchar, c5 varchar(10), c6 date, c7 time, c8 timestamp, c10 boolean)");
+        assertUpdate("INSERT INTO test_stat_data_size VALUES (0, 1, 2.0, CAST(4.01 as decimal(4, 0)), 'testvc', 'testvc10', date '2024-03-14', localtime, localtimestamp, TRUE)", 1);
+        TableStatistics stats = getTableStats("test_stat_data_size");
+        stats.getColumnStatistics().entrySet().stream()
+                .filter((e) -> ((IcebergColumnHandle) e.getKey()).getColumnType() != SYNTHESIZED)
+                .forEach((entry) -> {
+                    IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
+                    ColumnStatistics stat = entry.getValue();
+                    if (handle.getType() instanceof FixedWidthType) {
+                        assertEquals(stat.getDataSize(), Estimate.unknown());
+                    }
+                    else {
+                        assertNotEquals(stat.getDataSize(), Estimate.unknown(), String.format("for column %s", handle));
+                        assertTrue(stat.getDataSize().getValue() > 0);
+                    }
+                });
+
+        getQueryRunner().execute("DROP TABLE test_stat_data_size");
+    }
+
     private static void assertEither(Runnable first, Runnable second)
     {
         try {
@@ -975,6 +1001,19 @@ public class IcebergDistributedTestBase
         testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
         assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 AND nationkey != 0");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testPartitionedTableWithEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_equality_delete" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey'], format = '" + fileFormat + "') " + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "nationkey", 1L), ImmutableMap.of("nationkey", 1L));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 or nationkey != 1 ");
+        assertQuery(session, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1 or nationkey != 1");
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
