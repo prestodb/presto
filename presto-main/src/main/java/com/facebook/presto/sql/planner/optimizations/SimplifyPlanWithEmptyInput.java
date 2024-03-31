@@ -18,6 +18,8 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -25,6 +27,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -43,6 +46,8 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -123,7 +128,7 @@ public class SimplifyPlanWithEmptyInput
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            Rewriter rewriter = new Rewriter(idAllocator);
+            Rewriter rewriter = new Rewriter(idAllocator, session);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
             return PlanOptimizerResult.optimizerResult(rewrittenNode, rewriter.isPlanChanged());
         }
@@ -136,10 +141,13 @@ public class SimplifyPlanWithEmptyInput
         private final PlanNodeIdAllocator idAllocator;
         private boolean planChanged;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator)
+        private final Session session;
+
+        public Rewriter(PlanNodeIdAllocator idAllocator, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.planChanged = false;
+            this.session = session;
         }
 
         private static boolean isEmptyNode(PlanNode planNode)
@@ -195,6 +203,51 @@ public class SimplifyPlanWithEmptyInput
                     break;
             }
             return node.replaceChildren(ImmutableList.of(rewrittenLeft, rewrittenRight));
+        }
+
+        @Override
+        public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> cteProducers = node.getCteProducers();
+            List<PlanNode> newSequenceChildrenList = new ArrayList<>();
+            // Visit in the order of execution
+            for (int i = cteProducers.size() - 1; i >= 0; i--) {
+                PlanNode rewrittenProducer = context.rewrite(cteProducers.get(i));
+                if (!isEmptyNode(rewrittenProducer)) {
+                    newSequenceChildrenList.add(rewrittenProducer);
+                }
+            }
+            PlanNode rewrittenPrimarySource = context.rewrite(node.getPrimarySource());
+            if (isEmptyNode(rewrittenPrimarySource) || newSequenceChildrenList.isEmpty()) {
+                return rewrittenPrimarySource;
+            }
+            // Reverse order for execution
+            Collections.reverse(newSequenceChildrenList);
+            // Add the primary source at the end of the list
+            newSequenceChildrenList.add(rewrittenPrimarySource);
+            return node.replaceChildren(newSequenceChildrenList);
+        }
+
+        @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Void> context)
+        {
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            if (isEmptyNode(rewrittenSource)) {
+                // Remove CTE materialization from session
+                // This will be used to convert consumer to values and in further optimizations
+                session.getCteInformationCollector().disallowCteMaterialization(node.getCteId());
+                return convertToEmptyValuesNode(node);
+            }
+            return node.replaceChildren(ImmutableList.of(rewrittenSource));
+        }
+
+        @Override
+        public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Void> context)
+        {
+            if (!session.getCteInformationCollector().getCteInformationMap().get(node.getCteId()).isMaterialized()) {
+                return convertToEmptyValuesNode(node);
+            }
+            return node;
         }
 
         @Override

@@ -12,8 +12,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>1.4.3</dep.iceberg.version>
-        <dep.nessie.version>0.71.0</dep.nessie.version>
+        <dep.iceberg.version>1.5.0</dep.iceberg.version>
+        <dep.nessie.version>0.77.1</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -371,6 +371,10 @@
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
                 <exclusion>
@@ -392,6 +396,10 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.core</groupId>

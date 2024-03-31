@@ -187,11 +187,11 @@ public class PlanNodeStats
         checkArgument(planNodeId.equals(other.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeId, other.getPlanNodeId());
 
         long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
-        DataSize planNodeInputDataSize = succinctBytes(this.planNodeInputDataSize.toBytes() + other.planNodeInputDataSize.toBytes());
+        DataSize planNodeInputDataSize = succinctBytes((long) ((double) this.planNodeInputDataSize.toBytes() + (double) other.planNodeInputDataSize.toBytes()));
         long planNodeRawInputPositions = this.planNodeRawInputPositions + other.planNodeRawInputPositions;
-        DataSize planNodeRawInputDataSize = succinctBytes(this.planNodeRawInputDataSize.toBytes() + other.planNodeRawInputDataSize.toBytes());
+        DataSize planNodeRawInputDataSize = succinctBytes((long) ((double) this.planNodeRawInputDataSize.toBytes() + (double) other.planNodeRawInputDataSize.toBytes()));
         long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
-        DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
+        DataSize planNodeOutputDataSize = succinctBytes((long) ((double) this.planNodeOutputDataSize.toBytes() + (double) other.planNodeOutputDataSize.toBytes()));
 
         Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
         long planNodeNullJoinBuildKeyCount = this.planNodeNullJoinBuildKeyCount + other.planNodeNullJoinBuildKeyCount;

@@ -275,6 +275,7 @@ public final class SystemSessionProperties
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
     public static final String HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY = "history_based_optimization_plan_canonicalization_strategy";
+    public static final String LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER = "log_query_plans_used_in_history_based_optimizer";
     public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
@@ -326,10 +327,7 @@ public final class SystemSessionProperties
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
-    public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "native_aggregation_spill_memory_threshold";
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
-    public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "native_join_spill_memory_threshold";
-    public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "native_order_by_spill_memory_threshold";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
@@ -340,7 +338,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
-    public static final String NATIVE_JOIN_SPILLER_PARTITION_BITS = "native_join_spiller_partition_bits";
+    public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
     private static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
@@ -1565,6 +1563,11 @@ public final class SystemSessionProperties
                                         .collect(joining(","))),
                         featuresConfig.getHistoryBasedOptimizerPlanCanonicalizationStrategies(),
                         false),
+                booleanProperty(
+                        LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER,
+                        "Enable logging of query plans generated and used in history based optimizer",
+                        featuresConfig.isLogPlansUsedInHistoryBasedOptimizer(),
+                        false),
                 new PropertyMetadata<>(
                         MAX_LEAF_NODES_IN_PLAN,
                         "Maximum number of leaf nodes in the logical plan of SQL statement",
@@ -1594,11 +1597,6 @@ public final class SystemSessionProperties
                         "Native Execution only. Enable simplified path in expression evaluation",
                         false,
                         false),
-                integerProperty(
-                        NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD,
-                        "Native Execution only. The max memory that a final aggregation can use before spilling. If it is 0, then there is no limit",
-                        0,
-                        false),
                 booleanProperty(
                         NATIVE_AGGREGATION_SPILL_ALL,
                         "Native Execution only. If true and spilling has been triggered during the input " +
@@ -1606,16 +1604,6 @@ public final class SystemSessionProperties
                                 "output processing. This is to simplify the aggregation query OOM prevention in " +
                                 "output processing stage.",
                         true,
-                        false),
-                integerProperty(
-                        NATIVE_JOIN_SPILL_MEMORY_THRESHOLD,
-                        "Native Execution only. The max memory that hash join can use before spilling. If it is 0, then there is no limit",
-                        0,
-                        false),
-                integerProperty(
-                        NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD,
-                        "Native Execution only. The max memory that order by can use before spilling. If it is 0, then there is no limit",
-                        0,
                         false),
                 integerProperty(
                         NATIVE_MAX_SPILL_LEVEL,
@@ -1673,35 +1661,10 @@ public final class SystemSessionProperties
                         false,
                         false),
                 integerProperty(
-                        NATIVE_JOIN_SPILLER_PARTITION_BITS,
+                        NATIVE_SPILLER_NUM_PARTITION_BITS,
                         "Native Execution only. The number of bits (N) used to calculate the " +
                                 "spilling partition number for hash join and RowNumber: 2 ^ N",
-                        2,
-                        false),
-                booleanProperty(
-                        NATIVE_EXECUTION_ENABLED,
-                        "Enable execution on native engine",
-                        featuresConfig.isNativeExecutionEnabled(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_EXECUTABLE_PATH,
-                        "The native engine executable file path for native engine execution",
-                        featuresConfig.getNativeExecutionExecutablePath(),
-                        false),
-                stringProperty(
-                        NATIVE_EXECUTION_PROGRAM_ARGUMENTS,
-                        "Program arguments for native engine execution. The main target use case for this " +
-                        "property is to control logging levels using glog flags. E,g, to enable verbose mode, add " +
-                        "'--v 1'. More advanced glog gflags usage can be found at " +
-                        "https://rpg.ifi.uzh.ch/docs/glog.html\n" +
-                        "e.g. --vmodule=mapreduce=2,file=1,gfs*=3 --v=0\n" +
-                        "will:\n" +
-                        "\n" +
-                        "a. Print VLOG(2) and lower messages from mapreduce.{h,cc}\n" +
-                        "b. Print VLOG(1) and lower messages from file.{h,cc}\n" +
-                        "c. Print VLOG(3) and lower messages from files prefixed with \"gfs\"\n" +
-                        "d. Print VLOG(0) and lower messages from elsewhere",
-                        featuresConfig.getNativeExecutionProgramArguments(),
+                        3,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
@@ -3034,6 +2997,11 @@ public final class SystemSessionProperties
         }
 
         return strategyList;
+    }
+
+    public static boolean logQueryPlansUsedInHistoryBasedOptimizer(Session session)
+    {
+        return session.getSystemProperty(LOG_QUERY_PLANS_USED_IN_HISTORY_BASED_OPTIMIZER, Boolean.class);
     }
 
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)

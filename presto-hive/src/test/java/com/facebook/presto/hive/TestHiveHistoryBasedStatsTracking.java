@@ -32,6 +32,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -71,6 +72,19 @@ public class TestHiveHistoryBasedStatsTracking
             }
         });
         return queryRunner;
+    }
+
+    @BeforeMethod(alwaysRun = true)
+    public void setUp()
+    {
+        getHistoryProvider().clearCache();
+    }
+
+    private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
+    {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
+        return (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
     }
 
     @Test
@@ -252,12 +266,8 @@ public class TestHiveHistoryBasedStatsTracking
 
     private void executeAndTrackHistory(String sql, Session session)
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
-        InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
-
-        queryRunner.execute(session, sql);
-        provider.waitProcessQueryEvents();
+        getQueryRunner().execute(session, sql);
+        getHistoryProvider().waitProcessQueryEvents();
     }
 
     private Session defaultSession()

@@ -1093,10 +1093,6 @@ void PrestoServer::populateMemAndCPUInfo() {
 
   // Fill global pool fields.
   poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
-  // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
-  // child contexts below, then use the one we sum up, rather than call
-  // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool_->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -1111,6 +1107,7 @@ void PrestoServer::populateMemAndCPUInfo() {
     poolInfo.queryMemoryAllocations.insert(
         {queryId, {protocol::MemoryAllocation{"total", bytes}}});
     ++numContexts;
+    poolInfo.reservedBytes += bytes;
   });
   RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();

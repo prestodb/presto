@@ -44,4 +44,11 @@ public class CTEInformationCollector
     {
         return cteInformationMap;
     }
+
+    public void disallowCteMaterialization(String cteId)
+    {
+        CTEInformation cteInfo = cteInformationMap.get(cteId);
+        cteInformationMap.put(cteId,
+                new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), cteInfo.getNumberOfReferences(), cteInfo.getIsView(), false));
+    }
 }
