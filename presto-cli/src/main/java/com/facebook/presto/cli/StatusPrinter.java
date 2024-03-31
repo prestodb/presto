@@ -67,13 +67,15 @@ public class StatusPrinter
     private final ConsolePrinter console;
 
     private boolean debug;
+    private boolean runtime;
 
-    public StatusPrinter(StatementClient client, PrintStream out, boolean debug)
+    public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean runtime)
     {
         this.client = client;
         this.out = out;
         this.console = new ConsolePrinter(out);
         this.debug = debug;
+        this.runtime = runtime;
     }
 
 /*
@@ -203,7 +205,7 @@ Spilled: 20GB
                 stats.getProgressPercentage().orElse(0.0));
         out.println(splitsSummary);
 
-        if (debug) {
+        if (runtime) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
             Duration cpuTime = millis(stats.getCpuTimeMillis());
             String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
@@ -223,7 +225,7 @@ Spilled: 20GB
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
-            out.println(format("Parallelism: %.1f", parallelism));
+            out.printf("Parallelism: %.1f%n", parallelism);
 
             // Peak User Memory: 1.97GB
             reprintLine("Peak User Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true));
