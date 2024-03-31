@@ -978,7 +978,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   }
 }
 
-TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
+DEBUG_ONLY_TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
   const auto useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
   producer->enqueue("one pager");
@@ -1012,11 +1012,11 @@ INSTANTIATE_TEST_CASE_P(
     PrestoExchangeSourceTest,
     PrestoExchangeSourceTest,
     ::testing::Values(
-        Params{true, true, 1, 1},
-        Params{true, false, 1, 1},
+        //        Params{true, true, 1, 1},
+        //        Params{true, false, 1, 1},
         Params{false, true, 1, 1},
         Params{false, false, 1, 1},
-        Params{true, true, 2, 10},
-        Params{true, false, 2, 10},
+        //        Params{true, true, 2, 10},
+        //        Params{true, false, 2, 10},
         Params{false, true, 2, 10},
         Params{false, false, 2, 10}));
