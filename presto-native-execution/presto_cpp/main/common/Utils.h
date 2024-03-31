@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/io/async/SSLContext.h>
 #include <glog/logging.h>
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 
@@ -25,5 +26,9 @@ namespace facebook::presto::util {
   LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 
 protocol::DateTime toISOTimestamp(uint64_t timeMilli);
+
+std::shared_ptr<folly::SSLContext> createSSLContext(
+    const std::string& clientCertAndKeyPath,
+    const std::string& ciphers);
 
 } // namespace facebook::presto::util

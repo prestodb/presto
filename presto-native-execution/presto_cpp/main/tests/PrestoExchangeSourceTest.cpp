@@ -18,10 +18,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include "presto_cpp/main/PrestoExchangeSource.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -32,8 +32,6 @@
 DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace fs = boost::filesystem;
-using namespace facebook::presto;
-
 using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
@@ -413,9 +411,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         GetParam().immediateBufferTransfer ? "true" : "false");
     const std::string keyPath = getCertsPath("client_ca.pem");
     const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-    sslContext_ = std::make_shared<folly::SSLContext>();
-    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
-    sslContext_->setCiphersOrThrow(ciphers);
+    sslContext_ = facebook::presto::util::createSSLContext(keyPath, ciphers);
   }
 
   void TearDown() override {

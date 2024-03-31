@@ -188,19 +188,9 @@ void PrestoServer::run() {
         VELOX_USER_FAIL(
             "Https Client Certificates are not configured correctly");
       }
-      clientCertAndKeyPath = optionalClientCertPath.value();
 
-      try {
-        sslContext_ = std::make_shared<folly::SSLContext>();
-        sslContext_->loadCertKeyPairFromFiles(
-            clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
-        sslContext_->setCiphersOrThrow(ciphers);
-      } catch (const std::exception& ex) {
-        LOG(FATAL) << fmt::format(
-            "Unable to load certificate or key from {} : {}",
-            clientCertAndKeyPath,
-            ex.what());
-      }
+      sslContext_ =
+          util::createSSLContext(optionalClientCertPath.value(), ciphers);
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
