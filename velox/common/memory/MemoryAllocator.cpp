@@ -183,7 +183,7 @@ bool MemoryAllocator::allocateNonContiguous(
       try {
         reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
       } catch (const std::exception&) {
-        VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+        VELOX_MEM_LOG_EVERY_MS(WARNING, 1'000)
             << "Exceeded memory reservation limit when reserve "
             << numNeededPages << " new pages when allocate " << mix.totalPages
             << " pages";
@@ -249,7 +249,7 @@ bool MemoryAllocator::allocateContiguous(
       try {
         reservationCB(AllocationTraits::pageBytes(numNeededPages), true);
       } catch (const std::exception& e) {
-        VELOX_MEM_LOG_EVERY_MS(WARNING, 1000)
+        VELOX_MEM_LOG_EVERY_MS(WARNING, 1'000)
             << "Exceeded memory reservation limit when reserve "
             << numNeededPages << " new pages when allocate " << numPages
             << " pages, error: " << e.what();

@@ -432,13 +432,13 @@ MemoryPoolImpl::~MemoryPoolImpl() {
 
   if (isLeaf()) {
     if (usedReservationBytes_ > 0) {
-      LOG(ERROR) << "Memory leak (Used memory): " << toString();
+      VELOX_MEM_LOG(ERROR) << "Memory leak (Used memory): " << toString();
       RECORD_METRIC_VALUE(
           kMetricMemoryPoolUsageLeakBytes, usedReservationBytes_);
     }
 
     if (minReservationBytes_ > 0) {
-      LOG(ERROR) << "Memory leak (Reserved Memory): " << toString();
+      VELOX_MEM_LOG(ERROR) << "Memory leak (Reserved Memory): " << toString();
       RECORD_METRIC_VALUE(
           kMetricMemoryPoolReservationLeakBytes, minReservationBytes_);
     }
@@ -1185,7 +1185,7 @@ void MemoryPoolImpl::leakCheckDbg() {
 void MemoryPoolImpl::handleAllocationFailure(
     const std::string& failureMessage) {
   if (coreOnAllocationFailureEnabled_) {
-    LOG(ERROR) << failureMessage;
+    VELOX_MEM_LOG(ERROR) << failureMessage;
     // SIGBUS is one of the standard signals in Linux that triggers a core dump
     // Normally it is raised by the operating system when a misaligned memory
     // access occurs. On x86 and aarch64 misaligned access is allowed by default

@@ -1567,7 +1567,7 @@ void HashProbe::reclaim(
     // TODO: reduce the log frequency if it is too verbose.
     RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
     ++stats.numNonReclaimableAttempts;
-    LOG_EVERY_N(WARNING, 1'000)
+    FB_LOG_EVERY_MS(WARNING, 1'000)
         << "Can't reclaim from hash probe operator, state_["
         << ProbeOperatorState(state_) << "], nonReclaimableSection_["
         << nonReclaimableSection_ << "], " << pool()->name()
@@ -1587,7 +1587,7 @@ void HashProbe::reclaim(
     if (probeOp->nonReclaimableState()) {
       RECORD_METRIC_VALUE(kMetricMemoryNonReclaimableCount);
       ++stats.numNonReclaimableAttempts;
-      LOG_EVERY_N(WARNING, 1'000)
+      FB_LOG_EVERY_MS(WARNING, 1'000)
           << "Can't reclaim from hash probe operator, state_["
           << ProbeOperatorState(probeOp->state_) << "], nonReclaimableSection_["
           << probeOp->nonReclaimableSection_ << "], " << probeOp->pool()->name()
@@ -1804,7 +1804,7 @@ void HashProbe::prepareTableSpill(
     // run out of memory if the restored partition still can't fit in memory.
     if (config->exceedSpillLevelLimit(startPartitionBit)) {
       RECORD_METRIC_VALUE(kMetricMaxSpillLevelExceededCount);
-      LOG_EVERY_N(WARNING, 1'000)
+      FB_LOG_EVERY_MS(WARNING, 1'000)
           << "Exceeded spill level limit: " << config->maxSpillLevel
           << ", and disable spilling for memory pool: " << pool()->name();
       exceededMaxSpillLevelLimit_ = true;
