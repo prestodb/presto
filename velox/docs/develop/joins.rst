@@ -363,11 +363,11 @@ right side whose values need to match, and an optional filter to apply to join
 results.
 
 To execute a plan with a merge join, Velox creates two separate pipelines. One
-pipeline processes the right side data and puts it into JoinMergeSource. The
+pipeline processes the right side data and puts it into MergeJoinSource. The
 other pipeline processes the data on the left side, joins it with the right
 side data and continues execution as specified by downstream plan nodes.
 MergeJoinNode is translated into MergeJoin operator and a CallbackSink backed
-by JoinMergeSource. MergeJoin operator becomes part of the left-side
+by MergeJoinSource. MergeJoin operator becomes part of the left-side
 pipeline. CallbackSink is installed at the end of the right-side pipeline.
 
 .. image:: images/merge-join-pipelines.png
