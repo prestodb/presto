@@ -2754,6 +2754,12 @@ TEST_F(VectorTest, flattenVector) {
   test(dictionary, false);
   EXPECT_TRUE(dictionary->isFlatEncoding());
 
+  VectorPtr lazyDictionary =
+      wrapInLazyDictionary(makeFlatVector<int32_t>({1, 2, 3}));
+  test(lazyDictionary, true);
+  EXPECT_TRUE(lazyDictionary->isLazy());
+  EXPECT_TRUE(lazyDictionary->loadedVector()->isFlatEncoding());
+
   // Array with constant elements.
   auto* arrayVector = array->as<ArrayVector>();
   arrayVector->elements() = BaseVector::wrapInConstant(100, 1, flat);

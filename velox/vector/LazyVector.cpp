@@ -271,4 +271,28 @@ void LazyVector::load(RowSet rows, ValueHook* hook) const {
   }
 }
 
+void LazyVector::loadVectorInternal() const {
+  if (!allLoaded_) {
+    if (!vector_) {
+      vector_ = BaseVector::create(type_, 0, pool_);
+    }
+    SelectivityVector allRows(BaseVector::length_);
+    loader_->load(allRows, nullptr, size(), &vector_);
+    VELOX_CHECK(vector_);
+    if (vector_->encoding() == VectorEncoding::Simple::LAZY) {
+      vector_ = vector_->asUnchecked<LazyVector>()->loadedVectorShared();
+    } else {
+      // If the load produced a wrapper, load the wrapped vector.
+      vector_->loadedVector();
+    }
+    allLoaded_ = true;
+    const_cast<LazyVector*>(this)->BaseVector::nulls_ = vector_->nulls_;
+    if (BaseVector::nulls_) {
+      const_cast<LazyVector*>(this)->BaseVector::rawNulls_ =
+          BaseVector::nulls_->as<uint64_t>();
+    }
+  } else {
+    VELOX_CHECK(vector_);
+  }
+}
 } // namespace facebook::velox

@@ -188,29 +188,13 @@ class LazyVector : public BaseVector {
   // Returns a shared_ptr to the vector holding the values. If vector is not
   // loaded, loads all the rows, otherwise returns the loaded vector which can
   // have partially loaded rows.
+  VectorPtr& loadedVectorShared() {
+    loadVectorInternal();
+    return vector_;
+  }
+
   const VectorPtr& loadedVectorShared() const {
-    if (!allLoaded_) {
-      if (!vector_) {
-        vector_ = BaseVector::create(type_, 0, pool_);
-      }
-      SelectivityVector allRows(BaseVector::length_);
-      loader_->load(allRows, nullptr, size(), &vector_);
-      VELOX_CHECK(vector_);
-      if (vector_->encoding() == VectorEncoding::Simple::LAZY) {
-        vector_ = vector_->asUnchecked<LazyVector>()->loadedVectorShared();
-      } else {
-        // If the load produced a wrapper, load the wrapped vector.
-        vector_->loadedVector();
-      }
-      allLoaded_ = true;
-      const_cast<LazyVector*>(this)->BaseVector::nulls_ = vector_->nulls_;
-      if (BaseVector::nulls_) {
-        const_cast<LazyVector*>(this)->BaseVector::rawNulls_ =
-            BaseVector::nulls_->as<uint64_t>();
-      }
-    } else {
-      VELOX_CHECK(vector_);
-    }
+    loadVectorInternal();
     return vector_;
   }
 
@@ -286,6 +270,8 @@ class LazyVector : public BaseVector {
       DecodedVector& decoded,
       const SelectivityVector& rows,
       SelectivityVector& baseRows);
+
+  void loadVectorInternal() const;
 
   std::unique_ptr<VectorLoader> loader_;
 

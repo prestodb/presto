@@ -864,7 +864,7 @@ void BaseVector::flattenVector(VectorPtr& vector) {
       return;
     }
     case VectorEncoding::Simple::LAZY: {
-      auto loadedVector =
+      auto& loadedVector =
           vector->asUnchecked<LazyVector>()->loadedVectorShared();
       BaseVector::flattenVector(loadedVector);
       return;
