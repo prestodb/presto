@@ -191,6 +191,8 @@ void PrestoExchangeSource::doRequest(
     maxBytes = 1 << 20;
   }
 
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::PrestoExchangeSource::doRequest", this);
   requestBuilder
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
@@ -201,41 +203,59 @@ void PrestoExchangeSource::doRequest(
               .toString())
       .send(httpClient_.get(), "", delayMs)
       .via(driverExecutor_)
-      .thenValue([path, maxBytes, maxWait, self](
-                     std::unique_ptr<http::HttpResponse> response) {
-        velox::common::testutil::TestValue::adjust(
-            "facebook::presto::PrestoExchangeSource::doRequest", self.get());
-        auto* headers = response->headers();
-        if (headers->getStatusCode() != http::kHttpOk &&
-            headers->getStatusCode() != http::kHttpNoContent) {
-          // Ideally, not all errors are retryable - especially internal server
-          // errors - which usually point to a query failure on another machine.
-          // But we retry all such errors and rely on the coordinator to
-          // cancel other tasks, when some tasks have failed.
-          self->processDataError(
-              path,
-              maxBytes,
-              maxWait,
-              fmt::format(
-                  "Received HTTP {} {} {}",
-                  headers->getStatusCode(),
-                  headers->getStatusMessage(),
-                  bodyAsString(
-                      *response,
-                      self->immediateBufferTransfer_ ? self->pool_.get()
-                                                     : nullptr)));
-        } else if (response->hasError()) {
-          self->processDataError(path, maxBytes, maxWait, response->error());
-        } else {
-          self->processDataResponse(std::move(response));
-        }
-      })
-      .thenError(
-          folly::tag_t<std::exception>{},
-          [path, maxBytes, maxWait, self](const std::exception& e) {
-            self->processDataError(path, maxBytes, maxWait, e.what());
+      .thenTry(
+          [this, path, maxBytes, maxWait, self = getSelfPtr()](
+              folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
+            // self needs to be held for keeping 'this' source alive during
+            // processing
+            handleDataResponse(std::move(responseTry), maxWait, maxBytes, path);
           });
 };
+
+void PrestoExchangeSource::handleDataResponse(
+    folly::Try<std::unique_ptr<http::HttpResponse>> responseTry,
+    std::chrono::microseconds maxWait,
+    uint32_t maxBytes,
+    const std::string& httpRequestPath) {
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::PrestoExchangeSource::handleDataResponse", this);
+  if (responseTry.hasException()) {
+    processDataError(
+        httpRequestPath,
+        maxBytes,
+        maxWait,
+        responseTry.exception().what().toStdString());
+  } else {
+    try {
+      auto& response = responseTry.value();
+      auto* headers = response->headers();
+      if (headers->getStatusCode() != http::kHttpOk &&
+          headers->getStatusCode() != http::kHttpNoContent) {
+        // Ideally, not all errors are retryable - especially internal
+        // server errors - which usually point to a query failure on another
+        // machine. But we retry all such errors and rely on the coordinator
+        // to cancel other tasks, when some tasks have failed.
+        processDataError(
+            httpRequestPath,
+            maxBytes,
+            maxWait,
+            fmt::format(
+                "Received HTTP {} {} {}",
+                headers->getStatusCode(),
+                headers->getStatusMessage(),
+                bodyAsString(
+                    *response,
+                    immediateBufferTransfer_ ? pool_.get() : nullptr)));
+      } else if (response->hasError()) {
+        processDataError(httpRequestPath, maxBytes, maxWait, response->error());
+      } else {
+        processDataResponse(std::move(response));
+      }
+    } catch (const std::exception& e) {
+      processDataError(httpRequestPath, maxBytes, maxWait, e.what());
+    }
+  }
+}
 
 void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response) {
