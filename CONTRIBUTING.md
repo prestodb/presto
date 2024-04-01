@@ -357,6 +357,14 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * Categorize errors when throwing an exception
 * **Tests**
     * Avoid adding `Thread.sleep` in tests--these can fail due to environmental conditions, such as garbage collection or noisy neighbors in the CI environment.
+    * Do not use random values in tests. All tests should be reproducible.
+    * Be careful when storing test data in fields because doing so is
+      only appropriate for constant, immutable values. Presto tests
+      run with TestNG which, unlike JUnit, does not create a new object for
+      each test. Shared instance fields can make tests tightly coupled,
+      order dependent, and flaky. If you do use instance fields, 
+      reinitialize them before each test in a `@BeforeMethod` method,
+      and annotate the class with `@Test(singleThreaded = true)`.
 
 
 ## Commit Standards
