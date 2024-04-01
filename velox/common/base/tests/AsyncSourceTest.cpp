@@ -112,7 +112,7 @@ TEST(AsyncSourceTest, errorsWithThreads) {
   std::atomic<int32_t> numErrors{0};
   for (auto i = 0; i < kNumGizmos; ++i) {
     gizmos.push_back(
-        std::make_shared<AsyncSource<Gizmo>>([i]() -> std::unique_ptr<Gizmo> {
+        std::make_shared<AsyncSource<Gizmo>>([]() -> std::unique_ptr<Gizmo> {
           std::this_thread::sleep_for(std::chrono::milliseconds(1)); // NOLINT
           VELOX_USER_FAIL("Testing error");
         }));

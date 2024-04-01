@@ -180,7 +180,7 @@ class AsyncDataCacheTest : public testing::Test {
     std::vector<std::thread> threads;
     threads.reserve(numThreads);
     for (int32_t i = 0; i < numThreads; ++i) {
-      threads.push_back(std::thread([this, i, func]() { func(i); }));
+      threads.push_back(std::thread([i, func]() { func(i); }));
     }
     for (auto& thread : threads) {
       thread.join();
