@@ -1978,11 +1978,11 @@ DEBUG_ONLY_TEST_F(
 
   arbitrationRun.wait(arbitrationRunKey);
 
-  // Allocate a new root memory pool and check its initial memory reservation is
-  // zero.
+  // Allocate a new root memory pool and check it has its initial capacity
+  // allocated.
   std::shared_ptr<MockTask> skipTask = addTask(kMemoryCapacity);
   MockMemoryOperator* skipTaskOp = addMemoryOp(skipTask);
-  ASSERT_EQ(skipTaskOp->pool()->capacity(), 0);
+  ASSERT_EQ(skipTaskOp->pool()->capacity(), kMemoryPoolInitCapacity);
 
   arbitrationBlock.notify();
   allocThread.join();
