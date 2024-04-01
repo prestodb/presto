@@ -305,8 +305,20 @@ class Operator : public BaseRuntimeStatWriter {
     }
   };
 
-  /// The name of the runtime spill read stats collected and reported by
-  /// operators that support spilling.
+  /// The name of the runtime spill stats collected and reported by operators
+  /// that support spilling.
+  /// The spill write stats.
+  static inline const std::string kSpillFillTime{"spillFillTime"};
+  static inline const std::string kSpillSortTime{"spillSortTime"};
+  static inline const std::string kSpillSerializationTime{
+      "spillSerializationTime"};
+  static inline const std::string kSpillFlushTime{"spillFlushTime"};
+  static inline const std::string kSpillWrites{"spillWrites"};
+  static inline const std::string kSpillWriteTime{"spillWriteTime"};
+  static inline const std::string kSpillRuns{"spillRuns"};
+  static inline const std::string kExceededMaxSpillLevel{
+      "exceededMaxSpillLevel"};
+  /// The spill read stats.
   static inline const std::string kSpillReadBytes{"spillReadBytes"};
   static inline const std::string kSpillReads{"spillReads"};
   static inline const std::string kSpillReadTimeUs{"spillReadTimeUs"};

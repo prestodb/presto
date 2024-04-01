@@ -106,33 +106,33 @@ void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
     ASSERT_GT(stats.spilledInputBytes, 0);
     ASSERT_GT(stats.spilledBytes, 0);
     ASSERT_EQ(stats.spilledPartitions, 1);
-    ASSERT_GT(stats.customStats["spillRuns"].sum, 0);
-    ASSERT_GT(stats.customStats["spillFillTime"].sum, 0);
-    ASSERT_GT(stats.customStats["spillSortTime"].sum, 0);
-    ASSERT_GT(stats.customStats["spillSerializationTime"].sum, 0);
-    ASSERT_GT(stats.customStats["spillFlushTime"].sum, 0);
-    ASSERT_GT(stats.customStats["spillWrites"].sum, 0);
-    ASSERT_GT(stats.customStats["spillWriteTime"].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillRuns].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillFillTime].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillSortTime].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillSerializationTime].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillFlushTime].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillWrites].sum, 0);
+    ASSERT_GT(stats.customStats[Operator::kSpillWriteTime].sum, 0);
   } else {
     ASSERT_EQ(stats.spilledRows, 0);
     ASSERT_EQ(stats.spilledInputBytes, 0);
     ASSERT_EQ(stats.spilledBytes, 0);
     ASSERT_EQ(stats.spilledPartitions, 0);
     ASSERT_EQ(stats.spilledFiles, 0);
-    ASSERT_EQ(stats.customStats["spillRuns"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillFillTime"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillSortTime"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillSerializationTime"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillFlushTime"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillWrites"].sum, 0);
-    ASSERT_EQ(stats.customStats["spillWriteTime"].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillRuns].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillFillTime].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillSortTime].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillSerializationTime].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillFlushTime].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillWrites].sum, 0);
+    ASSERT_EQ(stats.customStats[Operator::kSpillWriteTime].sum, 0);
   }
   ASSERT_EQ(
-      stats.customStats["spillSerializationTime"].count,
-      stats.customStats["spillFlushTime"].count);
+      stats.customStats[Operator::kSpillSerializationTime].count,
+      stats.customStats[Operator::kSpillFlushTime].count);
   ASSERT_EQ(
-      stats.customStats["spillWrites"].count,
-      stats.customStats["spillWriteTime"].count);
+      stats.customStats[Operator::kSpillWrites].count,
+      stats.customStats[Operator::kSpillWriteTime].count);
 }
 
 class AggregationTest : public OperatorTestBase {
@@ -1109,7 +1109,8 @@ TEST_F(AggregationTest, spillAll) {
                   .assertResults(results);
 
   auto stats = task->taskStats().pipelineStats;
-  ASSERT_LT(0, stats[0].operatorStats[1].runtimeStats["spillRuns"].count);
+  ASSERT_LT(
+      0, stats[0].operatorStats[1].runtimeStats[Operator::kSpillRuns].count);
   // Check spilled bytes.
   ASSERT_LT(0, stats[0].operatorStats[1].spilledInputBytes);
   ASSERT_LT(0, stats[0].operatorStats[1].spilledBytes);

@@ -3230,13 +3230,13 @@ TEST_P(BucketSortOnlyTableWriterTest, sortWriterSpill) {
   // One spilled partition per each written files.
   const int numWrittenFiles = stats.customStats["numWrittenFiles"].sum;
   ASSERT_GE(stats.spilledPartitions, numWrittenFiles);
-  ASSERT_GT(stats.customStats["spillRuns"].sum, 0);
-  ASSERT_GT(stats.customStats["spillFillTime"].sum, 0);
-  ASSERT_GT(stats.customStats["spillSortTime"].sum, 0);
-  ASSERT_GT(stats.customStats["spillSerializationTime"].sum, 0);
-  ASSERT_GT(stats.customStats["spillFlushTime"].sum, 0);
-  ASSERT_GT(stats.customStats["spillWrites"].sum, 0);
-  ASSERT_GT(stats.customStats["spillWriteTime"].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillRuns].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillFillTime].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillSortTime].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillSerializationTime].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillFlushTime].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillWrites].sum, 0);
+  ASSERT_GT(stats.customStats[Operator::kSpillWriteTime].sum, 0);
 }
 
 DEBUG_ONLY_TEST_P(BucketSortOnlyTableWriterTest, outputBatchRows) {

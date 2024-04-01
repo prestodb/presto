@@ -507,19 +507,19 @@ TEST_F(OrderByTest, spill) {
   ASSERT_GT(planStats.spilledInputBytes, 0);
   ASSERT_EQ(planStats.spilledPartitions, 1);
   ASSERT_GT(planStats.spilledFiles, 0);
-  ASSERT_GT(planStats.customStats["spillRuns"].count, 0);
-  ASSERT_GT(planStats.customStats["spillFillTime"].sum, 0);
-  ASSERT_GT(planStats.customStats["spillSortTime"].sum, 0);
-  ASSERT_GT(planStats.customStats["spillSerializationTime"].sum, 0);
-  ASSERT_GT(planStats.customStats["spillFlushTime"].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillRuns].count, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillFillTime].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillSortTime].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillSerializationTime].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillFlushTime].sum, 0);
   ASSERT_EQ(
-      planStats.customStats["spillSerializationTime"].count,
-      planStats.customStats["spillFlushTime"].count);
-  ASSERT_GT(planStats.customStats["spillWrites"].sum, 0);
-  ASSERT_GT(planStats.customStats["spillWriteTime"].sum, 0);
+      planStats.customStats[Operator::kSpillSerializationTime].count,
+      planStats.customStats[Operator::kSpillFlushTime].count);
+  ASSERT_GT(planStats.customStats[Operator::kSpillWrites].sum, 0);
+  ASSERT_GT(planStats.customStats[Operator::kSpillWriteTime].sum, 0);
   ASSERT_EQ(
-      planStats.customStats["spillWrites"].count,
-      planStats.customStats["spillWriteTime"].count);
+      planStats.customStats[Operator::kSpillWrites].count,
+      planStats.customStats[Operator::kSpillWriteTime].count);
   OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
 }
 

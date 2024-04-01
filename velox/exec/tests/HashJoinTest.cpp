@@ -103,13 +103,14 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
       if ((op.operatorType == "HashBuild") ||
           (op.operatorType == "HashProbe")) {
         if (!expectedSpill) {
-          ASSERT_EQ(op.runtimeStats["spillRuns"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillFillTime"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillSortTime"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillSerializationTime"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillFlushTime"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillWrites"].count, 0);
-          ASSERT_EQ(op.runtimeStats["spillWriteTime"].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillRuns].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillFillTime].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillSortTime].count, 0);
+          ASSERT_EQ(
+              op.runtimeStats[Operator::kSpillSerializationTime].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillFlushTime].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillWrites].count, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillWriteTime].count, 0);
           ASSERT_EQ(op.runtimeStats[Operator::kSpillReadBytes].count, 0);
           ASSERT_EQ(op.runtimeStats[Operator::kSpillReads].count, 0);
           ASSERT_EQ(op.runtimeStats[Operator::kSpillReadTimeUs].count, 0);
@@ -117,26 +118,26 @@ void verifyTaskSpilledRuntimeStats(const exec::Task& task, bool expectedSpill) {
               op.runtimeStats[Operator::kSpillDeserializationTimeUs].count, 0);
         } else {
           if (op.operatorType == "HashBuild") {
-            ASSERT_GT(op.runtimeStats["spillRuns"].count, 0);
-            ASSERT_GT(op.runtimeStats["spillFillTime"].sum, 0);
+            ASSERT_GT(op.runtimeStats[Operator::kSpillRuns].count, 0);
+            ASSERT_GT(op.runtimeStats[Operator::kSpillFillTime].sum, 0);
           } else {
             // The table spilling might also be triggered from hash probe side.
-            ASSERT_GE(op.runtimeStats["spillRuns"].count, 0);
-            ASSERT_GE(op.runtimeStats["spillFillTime"].sum, 0);
+            ASSERT_GE(op.runtimeStats[Operator::kSpillRuns].count, 0);
+            ASSERT_GE(op.runtimeStats[Operator::kSpillFillTime].sum, 0);
           }
-          ASSERT_EQ(op.runtimeStats["spillSortTime"].sum, 0);
-          ASSERT_GT(op.runtimeStats["spillSerializationTime"].sum, 0);
-          ASSERT_GE(op.runtimeStats["spillFlushTime"].sum, 0);
+          ASSERT_EQ(op.runtimeStats[Operator::kSpillSortTime].sum, 0);
+          ASSERT_GT(op.runtimeStats[Operator::kSpillSerializationTime].sum, 0);
+          ASSERT_GE(op.runtimeStats[Operator::kSpillFlushTime].sum, 0);
           // NOTE: spill flush might take less than one microsecond.
           ASSERT_GE(
-              op.runtimeStats["spillSerializationTime"].count,
-              op.runtimeStats["spillFlushTime"].count);
-          ASSERT_GT(op.runtimeStats["spillWrites"].sum, 0);
-          ASSERT_GE(op.runtimeStats["spillWriteTime"].sum, 0);
+              op.runtimeStats[Operator::kSpillSerializationTime].count,
+              op.runtimeStats[Operator::kSpillFlushTime].count);
+          ASSERT_GT(op.runtimeStats[Operator::kSpillWrites].sum, 0);
+          ASSERT_GE(op.runtimeStats[Operator::kSpillWriteTime].sum, 0);
           // NOTE: spill flush might take less than one microsecond.
           ASSERT_GE(
-              op.runtimeStats["spillWrites"].count,
-              op.runtimeStats["spillWriteTime"].count);
+              op.runtimeStats[Operator::kSpillWrites].count,
+              op.runtimeStats[Operator::kSpillWriteTime].count);
           ASSERT_GT(op.runtimeStats[Operator::kSpillReadBytes].sum, 0);
           ASSERT_GT(op.runtimeStats[Operator::kSpillReads].sum, 0);
           ASSERT_GT(op.runtimeStats[Operator::kSpillReadTimeUs].sum, 0);
@@ -6326,16 +6327,24 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceededMaxSpillLevel) {
       .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
         auto opStats = toOperatorStats(task->taskStats());
         ASSERT_EQ(
-            opStats.at("HashProbe").runtimeStats["exceededMaxSpillLevel"].sum,
+            opStats.at("HashProbe")
+                .runtimeStats[Operator::kExceededMaxSpillLevel]
+                .sum,
             8);
         ASSERT_EQ(
-            opStats.at("HashProbe").runtimeStats["exceededMaxSpillLevel"].count,
+            opStats.at("HashProbe")
+                .runtimeStats[Operator::kExceededMaxSpillLevel]
+                .count,
             1);
         ASSERT_EQ(
-            opStats.at("HashBuild").runtimeStats["exceededMaxSpillLevel"].sum,
+            opStats.at("HashBuild")
+                .runtimeStats[Operator::kExceededMaxSpillLevel]
+                .sum,
             8);
         ASSERT_EQ(
-            opStats.at("HashBuild").runtimeStats["exceededMaxSpillLevel"].count,
+            opStats.at("HashBuild")
+                .runtimeStats[Operator::kExceededMaxSpillLevel]
+                .count,
             1);
       })
       .run();
@@ -7292,10 +7301,14 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillExceedLimit) {
             ASSERT_EQ(opStats.at("HashBuild").spilledBytes, 0);
           }
           ASSERT_GT(
-              opStats.at("HashProbe").runtimeStats["exceededMaxSpillLevel"].sum,
+              opStats.at("HashProbe")
+                  .runtimeStats[Operator::kExceededMaxSpillLevel]
+                  .sum,
               0);
           ASSERT_GT(
-              opStats.at("HashBuild").runtimeStats["exceededMaxSpillLevel"].sum,
+              opStats.at("HashBuild")
+                  .runtimeStats[Operator::kExceededMaxSpillLevel]
+                  .sum,
               0);
         })
         .run();

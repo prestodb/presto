@@ -81,6 +81,32 @@ These stats are reported by operators that support spilling.
    * - Stats
      - Unit
      - Description
+   * - spillFillTime
+     - microseconds
+     - The time spent on filling rows for spilling.
+   * - spillSortTime
+     - microseconds
+     - The time spent on sorting rows for spilling.
+   * - spillSerializationTime
+     - microseconds
+     - The time spent on serializing rows for spilling.
+   * - spillFlushTime
+     - microseconds
+     - The time spent on copy out serialized rows for disk write. If compression
+       is enabled, this includes the compression time.
+   * - spillWrites
+     -
+     - The number of spill writer flushes, equivalent to number of write calls to
+       underlying filesystem.
+   * - spillWriteTime
+     - microseconds
+     - The time spent on writing spilled rows to disk.
+   * - spillRuns
+     -
+     - The number of times that spilling runs on an operator.
+   * - exceededMaxSpillLevel
+     -
+     - The number of times that an operator exceeds the max spill limit.
    * - spillReadBytes
      - bytes
      - The number of bytes read from spilled files.
