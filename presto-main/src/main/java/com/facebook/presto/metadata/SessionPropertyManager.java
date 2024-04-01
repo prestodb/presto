@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -75,7 +76,7 @@ public final class SessionPropertyManager
     {
         this(systemSessionProperties.getSessionProperties());
         // Dummy provider manager.
-        this.providerManager = new SystemSessionPropertyProviderManager(null);
+        this.providerManager = new SystemSessionPropertyProviderManager(new TestingNodeManager());
     }
 
     @Inject
