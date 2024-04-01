@@ -14,18 +14,16 @@
 
 if(VELOX_BUILD_PYTHON_PACKAGE)
   message("Creating pyvelox module")
-  include_directories(SYSTEM ${CMAKE_SOURCE_DIR})
-  add_definitions(-DCREATE_PYVELOX_MODULE -DVELOX_DISABLE_GOOGLETEST)
   # Define our Python module:
   pybind11_add_module(
     pyvelox
     MODULE
+    complex.cpp
+    conversion.cpp
     pyvelox.cpp
     serde.cpp
-    signatures.cpp
-    complex.cpp
-    conversion.cpp)
-  # Link with Velox:
+    signatures.cpp)
+
   target_link_libraries(
     pyvelox
     PRIVATE velox_type
@@ -37,11 +35,8 @@ if(VELOX_BUILD_PYTHON_PACKAGE)
             velox_functions_prestosql
             velox_functions_spark)
 
+  target_include_directories(pyvelox SYSTEM
+                             PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)
+  target_compile_definitions(pyvelox PRIVATE -DCREATE_PYVELOX_MODULE)
   install(TARGETS pyvelox LIBRARY DESTINATION .)
-else()
-  # Torcharrow will not use pyvelox as an extension module for compatibility
-  # reasons.
-  message("Creating pyvelox library")
-  add_library(pyvelox pyvelox.cpp pyvelox.h)
-  target_link_libraries(pyvelox velox_type pybind11::module)
 endif()

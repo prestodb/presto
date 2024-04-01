@@ -38,7 +38,7 @@ RUN npm install -g azurite
 ENV HADOOP_HOME=/usr/local/hadoop \
     HADOOP_ROOT_LOGGER="WARN,DRFA" \
     LC_ALL=C \
-    LIBHDFS3_CONF=/velox/.circleci/hdfs-client.xml \
+    LIBHDFS3_CONF=/velox/scripts/hdfs-client.xml \
     PATH=/usr/local/hadoop/bin:${PATH}
 
 ENTRYPOINT ["/bin/bash", "-c", "source /opt/rh/gcc-toolset-9/enable && exec \"$@\"", "--"]

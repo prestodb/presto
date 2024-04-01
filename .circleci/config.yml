@@ -17,28 +17,17 @@ version: 2.1
 # This allows us to use CircleCI's dynamic configuration feature
 setup: true
 
-
-# Path-filtering orb is required to continue a pipeline based on
-# the path of an updated fileset
-orbs:
-  path-filtering: circleci/path-filtering@0.1.1
+jobs:
+  noop-build:
+    docker:
+      - image: cimg/base:2024.02
+    steps:
+      - run: circleci-agent step halt
 
 workflows:
   version: 2
 
   path-filtering-workflow:
     jobs:
+      - noop-build
 
-      - path-filtering/filter:
-          name: check-sensitive-paths
-
-          # Format is: <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
-          # Regex below will filter out paths with test in them.
-          mapping: |
-            velox/expression/((?!.*test).*).*  run-longer-expression-fuzzer true
-            velox/exec/((?!.*test).*).*  run-longer-expression-fuzzer true
-            velox/common/((?!.*test).*).*  run-longer-expression-fuzzer true
-            velox/core/((?!.*test).*).* run-longer-expression-fuzzer true
-            velox/vector/((?!.*test).*).* run-longer-expression-fuzzer true
-
-          config-path: .circleci/dist_compile.yml

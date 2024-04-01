@@ -24,7 +24,6 @@ on:
       - "third_party/**"
       - "scripts/setup-ubuntu.sh"
       - "scripts/setup-helper-functions.sh"
-      - ".github/workflows/linux-build.yml"
       - ".github/workflows/scheduled.yml"
 
   schedule:
@@ -71,46 +70,133 @@ env:
 jobs:
   compile:
     name: Build
-    runs-on: 8-core
+    runs-on: 16-core
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
+      CCACHE_DIR: "/__w/velox/velox/.ccache"
       LINUX_DISTRO: "ubuntu"
+      MAKEFLAGS: "NUM_THREADS=${{ inputs.numThreads || 16 }} MAX_HIGH_MEM_JOBS=${{ inputs.maxHighMemJobs || 8 }} MAX_LINK_JOBS=${{ inputs.maxLinkJobs || 4 }}"
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: velox
+    outputs:
+      presto_bias: ${{ steps.sig-check.outputs.presto_functions }}
+      presto_error: ${{ steps.sig-check.outputs.presto_error }}
+      spark_bias: ${{ steps.sig-check.outputs.spark_functions }}
+      spark_error: ${{ steps.sig-check.outputs.spark_error }}
+
     steps:
 
-      - name: "Restore ccache"
+      - name: Get Function Signature Stash
+        uses: assignUser/stash/restore@v1
+        id: get-sig
+        with:
+          path: /tmp/signatures
+          key: function-signatures
+
+      - name: Restore ccache
         uses: assignUser/stash/restore@v1
         with:
           path: "${{ env.CCACHE_DIR }}"
-          key: ccache-fuzzer
+          key: ccache-fuzzer-centos
 
-      - name: "Checkout Repo"
+      - name: Fix git permissions
+        working-directory: ${{ github.workspace }}
+          # Usually actions/checkout does this but as we run in a container
+          # it doesn't work
+        run: |
+          git config --global --add safe.directory /__w/velox/velox/velox
+          git config --global --add safe.directory /__w/velox/velox/velox_main
+
+      - name: Ensure Stash Dirs Exists
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p '${{ env.CCACHE_DIR }}'
+          mkdir -p /tmp/signatures
+
+      - name: Checkout Main
+        if: ${{ steps.get-sig.outputs.stash-hit != 'true' }}
+        uses: actions/checkout@v4
+        with:
+          # hardcode ref without broken pr
+          ref: 'main'
+          path: velox_main
+
+      - name: Build PyVelox
+        if: ${{ steps.get-sig.outputs.stash-hit != 'true' }}
+        working-directory: velox_main
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+
+          make python-build
+
+      - name: Create Baseline Signatures
+        if: ${{ steps.get-sig.outputs.stash-hit != 'true' }}
+        working-directory: velox_main
+        run: |
+          source .venv/bin/activate
+          python3 -m pip install deepdiff
+          python3 scripts/signature.py export --spark /tmp/signatures/spark_signatures_main.json
+          python3 scripts/signature.py export --presto /tmp/signatures/presto_signatures_main.json
+
+      - name: Save Function Signature Stash
+        if: ${{ steps.get-sig.outputs.stash-hit != 'true' }}
+        uses: assignUser/stash/save@v1
+        with:
+          path: /tmp/signatures
+          key: function-signatures
+
+      - name: Checkout Contender
         uses: actions/checkout@v4
         with:
           path: velox
           submodules: 'recursive'
           ref: "${{ inputs.ref }}"
 
-      - name: "Install dependencies"
+      - name: Zero Ccache Statistics
         run: |
-          cd  velox
-          source ./scripts/setup-ubuntu.sh
-          ccache -vsz
+          ccache -sz
 
       - name: Build
+        env:
+          EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON -DVELOX_BUILD_PYTHON_PACKAGE=ON ${{ inputs.extraCMakeFlags }}"
         run: |
-          cd velox
-          make debug NUM_THREADS="${{ inputs.numThreads || 8 }}" MAX_HIGH_MEM_JOBS="${{ inputs.maxHighMemJobs || 8 }}" MAX_LINK_JOBS="${{ inputs.maxLinkJobs || 4 }}" EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON ${{ inputs.extraCMakeFlags }}"
+          EXTRA_CMAKE_FLAGS="-DPYTHON_EXECUTABLE=$(which python3) $EXTRA_CMAKE_FLAGS"
+          make debug
 
       - name: Ccache after
-        run: ccache -vs
+        run: ccache -s
 
-      - name: "Save ccache"
+      - name: Save ccache
         uses: assignUser/stash/save@v1
         with:
           path: "${{ env.CCACHE_DIR }}"
-          key: ccache-fuzzer
+          key: ccache-fuzzer-centos
+
+      - name: Build PyVelox
+        env:
+          VELOX_BUILD_DIR: "_build/debug"
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python3 -m pip install -e .
+
+      - name: Create and test new function signatures
+        id: sig-check
+        run: |
+          source .venv/bin/activate
+          python3 -m pip install deepdiff
+          python3 scripts/signature.py gh_bias_check presto spark
+
+      - name: Upload Signature Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: signatures
+          path: /tmp/signatures
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload presto fuzzer
@@ -155,20 +241,14 @@ jobs:
           path: velox/_build/debug//velox/exec/tests/velox_exchange_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
-  linux-presto-fuzzer-run:
-    name: "Presto Fuzzer"
+  presto-fuzzer-run:
+    name: Presto Fuzzer
+    if: ${{ needs.compile.outputs.presto_bias  != 'true' }}
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
     timeout-minutes: 120
     steps:
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
 
       - uses: dorny/paths-filter@v3
         if: github.event_name == 'pull_request'
@@ -204,7 +284,7 @@ jobs:
         with:
           name: presto
 
-      - name: "Run Presto Fuzzer"
+      - name: Run Presto Fuzzer
         run: |
           mkdir -p /tmp/fuzzer_repro/
           chmod -R 777 /tmp/fuzzer_repro
@@ -221,7 +301,7 @@ jobs:
                 --enable_dereference \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_persist_path=/tmp/fuzzer_repro \
           && echo -e "\n\nFuzzer run finished successfully."
 
@@ -233,27 +313,71 @@ jobs:
           path: |
             /tmp/fuzzer_repro
 
-  linux-spark-aggregate-fuzzer-run:
-    name: "Spark Aggregate Fuzzer"
+  presto-bias-fuzzer:
+    name: Presto Bias Fuzzer
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
+    needs: compile
+    if: ${{ needs.compile.outputs.presto_bias  == 'true' }}
+    timeout-minutes: 120
+    steps:
+
+      - name: Download presto expression fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: presto
+
+      - name: Download Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signatures
+          path: /tmp/signatures
+
+      - name: Run Presto Expression Fuzzer
+        run: |
+          ls /tmp/signatures
+          mkdir -p /tmp/presto_fuzzer_repro/
+            chmod -R 777 /tmp/presto_fuzzer_repro
+            chmod +x velox_expression_fuzzer_test
+            ./velox_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --lazy_vector_generation_ratio 0.2 \
+                --assign_function_tickets  $(cat /tmp/signatures/presto_bias_functions) \
+                --duration_sec 3600 \
+                --enable_variadic_signatures \
+                --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
+                --max_expression_trees_per_step 2 \
+                --retry_with_try \
+                --enable_dereference \
+                --logtostderr=1 \
+                --minloglevel=1 \
+                --repro_persist_path=/tmp/presto_fuzzer_repro \
+            && echo -e "\n\nPresto Fuzzer run finished successfully."
+
+      - name: Archive Spark expression production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-bias-fuzzer-failure-artifacts
+          path: |
+            /tmp/presto_bias_fuzzer_repro
+
+  spark-aggregate-fuzzer-run:
+    name: Spark Aggregate Fuzzer
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
     timeout-minutes: 60
     steps:
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download spark aggregation fuzzer
         uses: actions/download-artifact@v4
         with:
           name: spark_aggregation_fuzzer
 
-      - name: "Run Spark Aggregate Fuzzer"
+      - name: Run Spark Aggregate Fuzzer
         run: |
           mkdir -p /tmp/spark_aggregate_fuzzer_repro/
           chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
@@ -262,7 +386,7 @@ jobs:
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_persist_path=/tmp/spark_aggregate_fuzzer_repro \
           && echo -e "\n\nSpark Aggregation Fuzzer run finished successfully."
 
@@ -274,27 +398,64 @@ jobs:
           path: |
             /tmp/spark_aggregate_fuzzer_repro
 
-  linux-spark-fuzzer-run:
-    name: "Spark Fuzzer"
+  spark-bias-fuzzer:
+    name: Spark Bias Fuzzer
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
+    if: ${{ needs.compile.outputs.spark_bias  == 'true' }}
     timeout-minutes: 120
     steps:
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download spark expression fuzzer
         uses: actions/download-artifact@v4
         with:
           name: spark_expression_fuzzer
 
-      - name: "Run Spark Expression Fuzzer"
+      - name: Download Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signatures
+          path: /tmp/signatures
+
+      - name: Run Spark Expression Fuzzer
+        run: |
+          ls /tmp/signatures
+          mkdir -p /tmp/spark_fuzzer_repro/
+            chmod -R 777 /tmp/spark_fuzzer_repro
+            chmod +x spark_expression_fuzzer_test
+            ./spark_expression_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --logtostderr=1 \
+                --minloglevel=1 \
+                --assign_function_tickets  $(cat /tmp/signatures/spark_bias_functions) \
+                --repro_persist_path=/tmp/spark_fuzzer_repro \
+            && echo -e "\n\nSpark Fuzzer run finished successfully."
+
+      - name: Archive Spark expression production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-fuzzer-failure-artifacts
+          path: |
+            /tmp/spark_bias_fuzzer_repro
+
+  spark-fuzzer:
+    name: Spark Fuzzer
+    if: ${{ needs.compile.outputs.spark_bias  != 'true' }}
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: Download spark expression fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: spark_expression_fuzzer
+
+      - name: Run Spark Expression Fuzzer
         run: |
           mkdir -p /tmp/spark_fuzzer_repro/
             chmod -R 777 /tmp/spark_fuzzer_repro
@@ -310,7 +471,7 @@ jobs:
                 --enable_dereference \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_persist_path=/tmp/spark_fuzzer_repro \
             && echo -e "\n\nSpark Fuzzer run finished successfully."
 
@@ -322,27 +483,20 @@ jobs:
           path: |
             /tmp/spark_fuzzer_repro
 
-  linux-aggregate-fuzzer-run:
-    name: "Aggregate Fuzzer"
+  aggregate-fuzzer-run:
+    name: Aggregate Fuzzer
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
     timeout-minutes: 120
     steps:
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download aggregation fuzzer
         uses: actions/download-artifact@v4
         with:
           name: aggregation
 
-      - name: "Run Aggregate Fuzzer"
+      - name: Run Aggregate Fuzzer
         run: |
           mkdir -p /tmp/aggregate_fuzzer_repro/
             rm -rfv /tmp/aggregate_fuzzer_repro/*
@@ -352,7 +506,7 @@ jobs:
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
@@ -364,27 +518,20 @@ jobs:
           path: |
             /tmp/aggregate_fuzzer_repro
 
-  linux-join-fuzzer-run:
-    name: "Join Fuzzer"
+  join-fuzzer-run:
+    name: Join Fuzzer
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
     timeout-minutes: 120
     steps:
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download join fuzzer
         uses: actions/download-artifact@v4
         with:
           name: join
 
-      - name: "Run Join Fuzzer"
+      - name: Run Join Fuzzer
         run: |
           mkdir -p /tmp/join_fuzzer_repro/
           rm -rfv /tmp/join_fuzzer_repro/*
@@ -394,7 +541,7 @@ jobs:
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
             && echo -e "\n\nAggregation fuzzer run finished successfully."
 
       - name: Archive aggregate production artifacts
@@ -405,19 +552,13 @@ jobs:
           path: |
             /tmp/join_fuzzer_repro
 
-  linux-exchange-fuzzer-run:
+  exchange-fuzzer-run:
+    name: Exchange Fuzzer
     runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos8
     needs: compile
     timeout-minutes: 120
     steps:
-
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-        with:
-          ref: "${{ inputs.ref }}"
-
-      - name: Install dependencies
-        run: source ./scripts/setup-ubuntu.sh
 
       - name: Download exchange fuzzer
         uses: actions/download-artifact@v4
@@ -426,7 +567,6 @@ jobs:
 
       - name: Run exchange Fuzzer
         run: |
-          sudo sysctl -w vm.max_map_count=67108864
           cat /proc/sys/vm/max_map_count
           mkdir -p /tmp/exchange_fuzzer_repro/
           rm -rfv /tmp/exchange_fuzzer_repro/*
@@ -434,9 +574,9 @@ jobs:
           chmod +x velox_exchange_fuzzer_test
           ./velox_exchange_fuzzer_test \
                 --seed ${RANDOM} \
-                --duration_sec $DURATION \
+                --duration_sec ${{ env.DURATION }} \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_path=/tmp/exchange_fuzzer_repro \
             && echo -e "\n\Exchange fuzzer run finished successfully."
 
@@ -448,54 +588,22 @@ jobs:
             path: |
               /tmp/exchange_fuzzer_repro
 
-
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
-    runs-on: 8-core
+    needs: compile
+    runs-on: ubuntu-latest
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     if: ${{ github.event_name != 'pull_request' }}
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
       LINUX_DISTRO: "centos"
     steps:
 
-      - name: "Restore ccache"
-        uses: assignUser/stash/restore@v1
+      - name: Download aggregation fuzzer
+        uses: actions/download-artifact@v4
         with:
-          path: "${{ env.CCACHE_DIR }}"
-          key: ccache-presto-java-fuzzer
-
-      - name: "Checkout Repo"
-        uses: actions/checkout@v4
-        with:
-          path: velox
-          submodules: 'recursive'
-          ref: "${{ inputs.ref }}"
-
-      - name: Fix git permissions
-          # Usually actions/checkout does this but as we run in a container
-          # it doesn't work
-        run: git config --global --add safe.directory /__w/velox/velox/velox
-
-      - name: Zero Ccache Statistics
-        run: ccache -sz
-
-
-      - name: "Build"
-        env:
-          EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON ${{ inputs.extraCMakeFlags }}"
-        run: |
-          cd velox
-          make debug NUM_THREADS="${{ inputs.numThreads || 8 }}" MAX_HIGH_MEM_JOBS="${{ inputs.maxHighMemJobs || 8 }}" MAX_LINK_JOBS="${{ inputs.maxLinkJobs || 4 }}" EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON ${{ inputs.extraCMakeFlags }}"
-          ccache -s
-
-      - name: "Save ccache"
-        uses: assignUser/stash/save@v1
-        with:
-          path: "${{ env.CCACHE_DIR }}"
-          key: ccache-presto-java-fuzzer
+          name: aggregation
 
       - name: "Run Aggregate Fuzzer"
         run: |
@@ -504,16 +612,16 @@ jobs:
           ls -lR $PRESTO_HOME/etc
           $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
           # Sleep for 60 seconds to allow Presto server to start.
-          sleep 60          
+          sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
           mkdir -p /tmp/aggregate_fuzzer_repro/
           rm -rfv /tmp/aggregate_fuzzer_repro/*
           chmod -R 777 /tmp/aggregate_fuzzer_repro
-          _build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test \
+          velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
-                --minloglevel=0 \
+                --minloglevel=1 \
                 --repro_persist_path=/tmp/aggregate_fuzzer_repro \
                 --enable_sorted_aggregations=true \
                 --presto_url=http://127.0.0.1:8080 \
@@ -527,3 +635,21 @@ jobs:
           path: |
             /tmp/aggregate_fuzzer_repro
             /tmp/server.log
+
+  surface-signature-errors:
+    name: Signature Changes
+    needs: compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signatures
+          path: /tmp/signatures
+
+      - name: Surface Presto function signature errors
+        if: ${{ needs.compile.outputs.presto_error == 'true' }}
+        run: |
+          cat /tmp/signatures/presto_errors
+          exit 1
+

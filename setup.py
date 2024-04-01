@@ -109,6 +109,16 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        # Allow using a pre-built Velox library (for CI and development) e.g. 'VELOX_BUILD_DIR=_build/velox/debug'
+        # The build in question must have been built with 'VELOX_BUILD_PYTHON_PACKAGE=ON' and the same python version.
+        if "VELOX_BUILD_DIR" in os.environ:
+            velox_dir = os.path.abspath(os.environ["VELOX_BUILD_DIR"])
+
+            if not os.path.isdir(extdir):
+                os.symlink(velox_dir, os.path.dirname(extdir), target_is_directory=True)
+
+            print(f"Using pre-built Velox library from {velox_dir}")
+            return
 
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
@@ -126,6 +136,7 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_BUILD_TYPE={cfg}",
             f"-DCMAKE_INSTALL_PREFIX={extdir}",
             "-DCMAKE_VERBOSE_MAKEFILE=ON",
+            "-DVELOX_BUILD_MINIMAL=ON",
             "-DVELOX_BUILD_PYTHON_PACKAGE=ON",
             f"-DPYTHON_EXECUTABLE={exec_path} ",
         ]
@@ -148,9 +159,9 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
 
         subprocess.check_call(
-            ["cmake", str(ROOT_DIR)] + cmake_args, cwd=self.build_temp
+            ["cmake", str(os.path.join(ROOT_DIR, "pyvelox"))] + cmake_args,
+            cwd=self.build_temp,
         )
-        print(self.build_temp)
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )

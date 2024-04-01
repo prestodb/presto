@@ -53,8 +53,7 @@ jobs:
       run:
         shell: bash
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
+      CCACHE_DIR: "/__w/velox/velox/.ccache"
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
@@ -70,6 +69,10 @@ jobs:
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-linux-adapters
+
+      - name: "Zero Ccache Statistics"
+        run: |
+          ccache -sz
 
       - name: Make Release Build
         env:
@@ -87,6 +90,9 @@ jobs:
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
           )
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
+    
+      - name: Ccache after
+        run: ccache -s
 
       - uses: assignUser/stash/save@v1
         with:
@@ -97,7 +103,7 @@ jobs:
         # Some of the adapters dependencies are in the 'adapters' conda env
         shell: mamba run --no-capture-output -n adapters /usr/bin/bash -e {0}
         env:
-          LIBHDFS3_CONF: "${{ github.workspace }}/.circleci/hdfs-client.xml"
+          LIBHDFS3_CONF: "/__w/velox/velox/scripts/hdfs-client.xml"
         working-directory: _build/release
         run: |
           ctest -j 8 --output-on-failure --no-tests=error
@@ -107,24 +113,30 @@ jobs:
     name: "Ubuntu debug with resolve_dependency"
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache"
-      CCACHE_BASEDIR: "${{ github.workspace }}"
     defaults:
       run:
         shell: bash
+        working-directory: velox
     steps:
-      - uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: |
-          source scripts/setup-ubuntu.sh
-
-      - uses: assignUser/stash/restore@v1
+      - name: Get Ccache Stash
+        uses: assignUser/stash/restore@v1
         with:
           path: '${{ env.CCACHE_DIR }}'
           key: ccache-ubuntu-debug-default
 
-      - run: |
-          mkdir -p .ccache
+      - name: Ensure Stash Dirs Exists
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p '${{ env.CCACHE_DIR }}'
+
+      - uses: actions/checkout@v4
+        with:
+          path: velox
+
+      - name: Install Dependencies
+        run: |
+          source scripts/setup-ubuntu.sh
 
       - name: Clear CCache Statistics
         run: |
@@ -134,8 +146,9 @@ jobs:
         env:
           VELOX_DEPENDENCY_SOURCE: BUNDLED
           MAKEFLAGS: "NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4"
+          EXTRA_CMAKE_FLAGS: "-DVELOX_ENABLE_ARROW=ON"
         run: |
-          make debug EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+          make debug 
 
       - name: CCache after
         run: |
