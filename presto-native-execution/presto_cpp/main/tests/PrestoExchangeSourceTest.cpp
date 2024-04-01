@@ -17,6 +17,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -680,25 +681,35 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
 }
 
-TEST_P(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
+DEBUG_ONLY_TEST_P(
+    PrestoExchangeSourceTest,
+    slowProducerAndEarlyTerminatingConsumer) {
   const bool useHttps = GetParam().useHttps;
-  std::atomic<bool> codePointHit{false};
+  std::atomic_bool codePointHit{false};
+  folly::EventCount closeWait;
+  std::atomic_bool allCloseCheckPassed{false};
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::doRequest",
       std::function<void(const PrestoExchangeSource*)>(
+          ([&](const auto* prestoExchangeSource) {
+            allCloseCheckPassed = true;
+          })));
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::handleDataResponse",
+      std::function<void(const PrestoExchangeSource*)>(
           ([&](const auto* prestoExchangeSource) { codePointHit = true; })));
-  auto producer = std::make_unique<Producer>();
 
+  auto producer = std::make_unique<Producer>();
   auto producerServer = createHttpServer(useHttps);
   producer->registerEndpoints(producerServer.get());
-
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
   auto queue = makeSingleSourceQueue();
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
-
   requestNextPage(queue, exchangeSource);
+
+  closeWait.await([&]() { return allCloseCheckPassed.load(); });
 
   // Simulation of an early destruction of 'Task' will release following
   // resources, including pool_
