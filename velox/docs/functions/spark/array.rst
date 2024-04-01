@@ -32,24 +32,24 @@ Array Functions
     Returns maximum non-NULL element of the array. Returns NULL if array is empty or all elements are NULL.
     When E is DOUBLE or REAL, returns NaN if any element is NaN. ::
 
-        SELECT array_max(ARRAY [1, 2, 3]); -- 3
-        SELECT array_max(ARRAY [-1, -2, -2]); -- -1
-        SELECT array_max(ARRAY [-1, -2, NULL]); -- -1
-        SELECT array_max(ARRAY []); -- NULL
-        SELECT array_max(ARRAY [-0.0001, -0.0002, -0.0003, float('nan')]); -- NaN
+        SELECT array_max(array(1, 2, 3)); -- 3
+        SELECT array_max(array(-1, -2, -2)); -- -1
+        SELECT array_max(array(-1, -2, NULL)); -- -1
+        SELECT array_max(array()); -- NULL
+        SELECT array_max(array(-0.0001, -0.0002, -0.0003, float('nan'))); -- NaN
 
 .. function:: array_min(array(E)) -> E
 
     Returns minimum non-NULL element of the array. Returns NULL if array is empty or all elements are NULL.
     When E is DOUBLE or REAL, NaN value is considered greater than any non-NaN value. ::
 
-        SELECT array_min(ARRAY [1, 2, 3]); -- 1
-        SELECT array_min(ARRAY [-1, -2, -2]); -- -2
-        SELECT array_min(ARRAY [-1, -2, NULL]); -- -2
-        SELECT array_min(ARRAY [NULL, NULL]); -- NULL
-        SELECT array_min(ARRAY []); -- NULL
-        SELECT array_min(ARRAY [4.0, float('nan')]); -- 4.0
-        SELECT array_min(ARRAY [NULL, float('nan')]); -- NaN
+        SELECT array_min(array(1, 2, 3）); -- 1
+        SELECT array_min(array(-1, -2, -2）); -- -2
+        SELECT array_min(array(-1, -2, NULL)); -- -2
+        SELECT array_min(array(NULL, NULL)); -- NULL
+        SELECT array_min(array()); -- NULL
+        SELECT array_min(array(4.0, float('nan')]); -- 4.0
+        SELECT array_min(array(NULL, float('nan'))); -- NaN
 
 .. function:: array_remove(x, element) -> array
 
@@ -57,11 +57,11 @@ Array Functions
     If array ``x`` is empty array, returns empty array. If all elements in array ``x`` are NULL but ``element`` is not NULL,
     returns array ``x``. ::
 
-        SELECT array_remove(ARRAY [1, 2, 3], 3); -- [1, 2]
-        SELECT array_remove(ARRAY [2, 1, NULL], 1); -- [2, NULL]
-        SELECT array_remove(ARRAY [1, 2, NULL], NULL); -- NULL
-        SELECT array_remove(ARRAY [], 1); -- []
-        SELECT array_remove(ARRAY [NULL, NULL], -1); -- [NULL, NULL]
+        SELECT array_remove(array(1, 2, 3), 3); -- [1, 2]
+        SELECT array_remove(array(2, 1, NULL), 1); -- [2, NULL]
+        SELECT array_remove(array(1, 2, NULL), NULL); -- NULL
+        SELECT array_remove(array(), 1); -- []
+        SELECT array_remove(array(NULL, NULL), -1); -- [NULL, NULL]
 
 .. spark:function:: array_repeat(element, count) -> array(E)
 
@@ -80,11 +80,11 @@ Array Functions
     Returns an array which has the sorted order of the input array(E). The elements of array(E) must
     be orderable. Null elements will be placed at the end of the returned array. ::
 
-        SELECT array_sort(ARRAY [1, 2, 3]); -- [1, 2, 3]
-        SELECT array_sort(ARRAY [3, 2, 1]); -- [1, 2, 3]
-        SELECT array_sort(ARRAY [2, 1, NULL]; -- [1, 2, NULL]
-        SELECT array_sort(ARRAY [NULL, 1, NULL]); -- [1, NULL, NULL]
-        SELECT array_sort(ARRAY [NULL, 2, 1]); -- [1, 2, NULL]
+        SELECT array_sort(array(1, 2, 3)); -- [1, 2, 3]
+        SELECT array_sort(array(3, 2, 1)); -- [1, 2, 3]
+        SELECT array_sort(array(2, 1, NULL); -- [1, 2, NULL]
+        SELECT array_sort(array(NULL, 1, NULL)); -- [1, NULL, NULL]
+        SELECT array_sort(array(NULL, 2, 1)); -- [1, 2, NULL]
 
 .. spark:function:: concat(array(E), array(E1), ..., array(En)) -> array(E, E1, ..., En)
 
@@ -116,8 +116,8 @@ Array Functions
     Returns an array which has the sorted order of the input array. The elements of array must
     be orderable. Null elements will be placed at the beginning of the returned array. ::
 
-        SELECT sort_array(ARRAY [1, 2, 3]); -- [1, 2, 3]
-        SELECT sort_array(ARRAY [NULL, 2, 1]); -- [NULL, 1, 2]
+        SELECT sort_array(array(1, 2, 3)); -- [1, 2, 3]
+        SELECT sort_array(array(NULL, 2, 1)); -- [NULL, 1, 2]
 
 .. spark:function:: sort_array(array(E), ascendingOrder) -> array(E)
    :noindex:
@@ -126,9 +126,9 @@ Array Functions
     be orderable. Null elements will be placed at the beginning of the returned array in ascending
     order or at the end of the returned array in descending order. ::
 
-        SELECT sort_array(ARRAY [3, 2, 1], true); -- [1, 2, 3]
-        SELECT sort_array(ARRAY [2, 1, NULL, true]; -- [NULL, 1, 2]
-        SELECT sort_array(ARRAY [NULL, 1, NULL], false); -- [1, NULL, NULL]
+        SELECT sort_array(array(3, 2, 1), true); -- [1, 2, 3]
+        SELECT sort_array(array(2, 1, NULL, true); -- [NULL, 1, 2]
+        SELECT sort_array(array(NULL, 1, NULL), false); -- [1, NULL, NULL]
 
 .. spark:function:: transform(array(E), function) -> array(E)
 
