@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-@Test(groups = "ci")
+@Test(groups = "ci", singleThreaded = true)
 public class TestFullParquetReader
         extends AbstractTestParquetReader
 {
     public TestFullParquetReader()
     {
         super(ParquetTester.fullParquetTester());
+    }
+
+    @BeforeMethod
+    public void newParquetTester()
+    {
+        super.tester = ParquetTester.fullParquetTester();
     }
 }

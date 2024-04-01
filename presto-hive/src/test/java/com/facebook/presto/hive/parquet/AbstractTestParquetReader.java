@@ -130,7 +130,7 @@ public abstract class AbstractTestParquetReader
     private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
     private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
 
-    private final ParquetTester tester;
+    protected ParquetTester tester;
 
     public AbstractTestParquetReader(ParquetTester tester)
     {
