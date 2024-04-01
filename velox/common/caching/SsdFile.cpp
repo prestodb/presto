@@ -454,7 +454,7 @@ void SsdFile::verifyWrite(AsyncDataCacheEntry& entry, SsdRun ssdRun) {
   auto testData = std::make_unique<char[]>(entry.size());
   const auto rc = ::pread(fd_, testData.get(), entry.size(), ssdRun.offset());
   VELOX_CHECK_EQ(rc, entry.size());
-  if (entry.tinyData() != 0) {
+  if (entry.tinyData() != nullptr) {
     if (::memcmp(testData.get(), entry.tinyData(), entry.size()) != 0) {
       VELOX_FAIL("bad read back");
     }
