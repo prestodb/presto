@@ -45,7 +45,7 @@ class VectorFunction {
   /// vector as flat or constant, but not dictionary encoded.
   ///
   /// Single-argument functions that specify null-in-null-out behavior, e.g.
-  /// isDefaultNullBehavior returns true, will never see a null row in 'rows'.
+  /// defaultNullBehavior is true, will never see a null row in 'rows'.
   /// Hence, they can safely assume that args[0] vector is flat or constant and
   /// has no nulls in specified positions.
   ///

@@ -580,15 +580,9 @@ The “rows” parameter specifies the set of rows in the incoming batch to
 process. This set may not include all the rows. By default, a vector function
 is assumed to have the default null behavior, e.g. null in any input produces
 a null result. In this case, the expression evaluation engine will exclude
-rows with nulls from the “rows” specified in the call to “apply”. If a
-function has a different behavior for null inputs, it must override the
-isDefaultNullBehavior method to return false.
-
-.. code-block:: c++
-
-    bool isDefaultNullBehavior() const override {
-      return false;
-    }
+rows with nulls from the “rows” specified in the call to “apply”. If a function
+has a different behavior for null inputs, it must specify that during registration.
+See :ref:`vector function registration<Registration>` for more details.
 
 In this case, the “rows” parameter will include rows with null inputs and the
 function will need to handle these. By default, the function can assume that
@@ -641,14 +635,9 @@ of the function arguments. These vectors are not necessarily flat and may be
 dictionary or constant encoded. However, a deterministic function that takes
 a single argument and has default null behavior is guaranteed to receive its
 only input as a flat or constant vector. By default, a function is assumed to
-be deterministic. If that’s not the case, the function must override
-isDeterministic method to return false.
-
-.. code-block:: c++
-
-    bool isDeterministic() const override {
-      return false;
-    }
+be deterministic. If that’s not the case, it must specify the non-deterministic
+behavior during registration. See :ref:`vector function registration<Registration>`
+for more details.
 
 Note that :ref:`decoded-vector` can be used to get a flat vector-like interface to any
 vector. A helper class exec::DecodedArgs can be used to decode multiple arguments.
@@ -859,6 +848,8 @@ Simple functions are compatible with the TRY expression by default. The framewor
 wraps the “call” and “callNullable” methods in a try-catch and reports errors
 using context.setError.
 
+.. _Registration:
+
 Registration
 ^^^^^^^^^^^^
 
@@ -870,12 +861,22 @@ Use exec::registerVectorFunction to register a stateless vector function.
         const std::string& name,
         std::vector<FunctionSignaturePtr> signatures,
         std::unique_ptr<VectorFunction> func,
+        VectorFunctionMetadata metadata = {},
         bool overwrite = true)
 
 exec::registerVectorFunction takes a name, a list of supported signatures
-and unique_ptr to an instance of the function. An optional “overwrite” flag
-specifies whether to overwrite a function if a function with the specified
-name already exists.
+and unique_ptr to an instance of the function. It takes an optional 'metadata'
+parameter that specifies whether a function is deterministic, has default null
+behavior, and other properties. A helper VectorFunctionMetadataBuilder class
+allows to easily construct 'metadata'. For example,
+
+.. code-block:: c++
+
+    VectorFunctionMetadataBuilder().defaultNullBehavior(false).build();
+
+
+An optional “overwrite” flag specifies whether to overwrite a function if a function
+with the specified name already exists.
 
 Use exec::registerStatefulVectorFunction to register a stateful vector
 function.
@@ -890,6 +891,7 @@ to a vector function over an equivalent simple function.
         const std::string& name,
         std::vector<FunctionSignaturePtr> signatures,
         VectorFunctionFactory factory,
+        VectorFunctionMetadata metadata = {},
         bool overwrite = true)
 
 exec::registerStatefulVectorFunction takes a name, a list of supported
