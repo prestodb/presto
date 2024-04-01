@@ -200,10 +200,10 @@ public abstract class IcebergAbstractMetadata
     protected abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
     /**
-     * This class implements the default implementation for getTableLayouts which will be used in the case of a Java Worker
+     * This class implements the default implementation for getTableLayoutForConstraint which will be used in the case of a Java Worker
      */
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public ConnectorTableLayoutResult getTableLayoutForConstraint(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
@@ -233,7 +233,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitions(Optional.empty())
                         .setTable(handle)
                         .build());
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
 
     public static Subfield toSubfield(ColumnHandle columnHandle)
