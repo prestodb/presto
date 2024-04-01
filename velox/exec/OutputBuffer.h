@@ -293,9 +293,10 @@ class OutputBuffer {
 
   void acknowledge(int destination, int64_t sequence);
 
-  /// Deletes all data for 'destination'. Returns true if all destinations are
-  /// deleted, meaning that the buffer is fully consumed and the producer can be
-  /// marked finished and the buffers freed.
+  /// Deletes all buffered data and makes all subsequent getData requests
+  /// for 'destination' return empty results. Returns true if all destinations
+  /// are deleted, meaning that the buffer is fully consumed and the producer
+  /// can be marked finished and the buffers freed.
   bool deleteResults(int destination);
 
   void getData(

@@ -724,15 +724,17 @@ void OutputBuffer::getData(
 
     VELOX_CHECK_LT(destination, buffers_.size());
     auto* buffer = buffers_[destination].get();
-    VELOX_CHECK_NOT_NULL(
-        buffer,
-        "getData received after its buffer is deleted. Destination: {}, sequence: {}",
-        destination,
-        sequence);
-    freed = buffer->acknowledge(sequence, true);
-    updateAfterAcknowledgeLocked(freed, promises);
-    data = buffer->getData(
-        maxBytes, sequence, notify, activeCheck, arbitraryBuffer_.get());
+    if (buffer) {
+      freed = buffer->acknowledge(sequence, true);
+      updateAfterAcknowledgeLocked(freed, promises);
+      data = buffer->getData(
+          maxBytes, sequence, notify, activeCheck, arbitraryBuffer_.get());
+    } else {
+      data.data.emplace_back(nullptr);
+      data.immediate = true;
+      VLOG(1) << "getData received after deleteResults for destination "
+              << destination << " and sequence " << sequence;
+    }
   }
   releaseAfterAcknowledge(freed, promises);
   if (data.immediate) {
