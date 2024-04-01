@@ -4239,7 +4239,7 @@ TEST_F(ColumnWriterTest, ColumnIdInStream) {
   const uint32_t kColumnId = 2;
   auto typeWithId = std::make_shared<const TypeWithId>(
       type,
-      std::vector<std::shared_ptr<const TypeWithId>>{},
+      std::vector<std::unique_ptr<TypeWithId>>{},
       /* id */ kNodeId,
       /* maxId */ kNodeId,
       /* column */ kColumnId);

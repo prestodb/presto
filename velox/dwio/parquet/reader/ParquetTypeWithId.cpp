@@ -34,6 +34,41 @@ bool containsList(const ParquetTypeWithId& type) {
 } // namespace
 using arrow::LevelInfo;
 
+std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>>
+ParquetTypeWithId::moveChildren() && {
+  std::vector<std::unique_ptr<TypeWithId>> children;
+  for (auto& child : getChildren()) {
+    auto type = child->type();
+    auto id = child->id();
+    auto maxId = child->maxId();
+    auto column = child->column();
+    auto* parquetChild = (ParquetTypeWithId*)child.get();
+    auto name = parquetChild->name_;
+    auto parquetType = parquetChild->parquetType_;
+    auto logicalType = parquetChild->logicalType_;
+    auto maxRepeat = parquetChild->maxRepeat_;
+    auto maxDefine = parquetChild->maxDefine_;
+    auto precision = parquetChild->precision_;
+    auto scale = parquetChild->scale_;
+    auto typeLength = parquetChild->typeLength_;
+    children.push_back(std::make_unique<ParquetTypeWithId>(
+        std::move(type),
+        std::move(*parquetChild).moveChildren(),
+        id,
+        maxId,
+        column,
+        std::move(name),
+        parquetType,
+        std::move(logicalType),
+        maxRepeat,
+        maxDefine,
+        precision,
+        scale,
+        typeLength));
+  }
+  return children;
+}
+
 bool ParquetTypeWithId::hasNonRepeatedLeaf() const {
   if (type()->kind() == TypeKind::ARRAY) {
     return false;
@@ -67,7 +102,7 @@ LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
   if (isStruct) {
     bool isAllLists = true;
     for (auto i = 0; i < getChildren().size(); ++i) {
-      auto child = parquetChildAt(i);
+      auto& child = parquetChildAt(i);
       if (child.type()->kind() != TypeKind ::ARRAY) {
         isAllLists = false;
       }

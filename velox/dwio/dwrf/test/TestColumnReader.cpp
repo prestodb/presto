@@ -133,7 +133,7 @@ class ColumnReaderTestBase {
     EXPECT_CALL(streams_, getRowReaderOptionsProxy())
         .WillRepeatedly(testing::Return(&options));
 
-    auto fileTypeWithId =
+    std::shared_ptr<const TypeWithId> fileTypeWithId =
         TypeWithId::create(fileType ? fileType : requestedType);
 
     if (useSelectiveReader()) {

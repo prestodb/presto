@@ -36,7 +36,7 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
 
   ParquetTypeWithId(
       TypePtr type,
-      std::vector<std::shared_ptr<const TypeWithId>>&& children,
+      std::vector<std::unique_ptr<TypeWithId>>&& children,
       uint32_t id,
       uint32_t maxId,
       uint32_t column,
@@ -73,6 +73,8 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
 
   /// Fills 'info' and returns the mode for interpreting levels.
   LevelMode makeLevelInfo(arrow::LevelInfo& info) const;
+
+  std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>> moveChildren() &&;
 
   const std::string name_;
   const std::optional<thrift::Type::type> parquetType_;

@@ -22,9 +22,21 @@ namespace facebook::velox::dwio::common {
 using velox::Type;
 using velox::TypeKind;
 
+namespace {
+std::vector<std::shared_ptr<const TypeWithId>> toShared(
+    std::vector<std::unique_ptr<TypeWithId>> nodes) {
+  std::vector<std::shared_ptr<const TypeWithId>> result;
+  result.reserve(nodes.size());
+  for (auto&& node : nodes) {
+    result.emplace_back(std::move(node));
+  }
+  return result;
+}
+} // namespace
+
 TypeWithId::TypeWithId(
     std::shared_ptr<const Type> type,
-    std::vector<std::shared_ptr<const TypeWithId>>&& children,
+    std::vector<std::unique_ptr<TypeWithId>>&& children,
     uint32_t id,
     uint32_t maxId,
     uint32_t column)
@@ -33,13 +45,13 @@ TypeWithId::TypeWithId(
       id_{id},
       maxId_{maxId},
       column_{column},
-      children_{std::move(children)} {
+      children_{toShared(std::move(children))} {
   for (auto& child : children_) {
     const_cast<const TypeWithId*&>(child->parent_) = this;
   }
 }
 
-std::shared_ptr<const TypeWithId> TypeWithId::create(
+std::unique_ptr<TypeWithId> TypeWithId::create(
     const std::shared_ptr<const Type>& root,
     uint32_t next) {
   return create(root, next, 0);
@@ -54,13 +66,13 @@ const std::shared_ptr<const TypeWithId>& TypeWithId::childAt(
   return children_.at(idx);
 }
 
-std::shared_ptr<const TypeWithId> TypeWithId::create(
+std::unique_ptr<TypeWithId> TypeWithId::create(
     const std::shared_ptr<const Type>& type,
     uint32_t& next,
     uint32_t column) {
   DWIO_ENSURE_NOT_NULL(type);
   const uint32_t myId = next++;
-  std::vector<std::shared_ptr<const TypeWithId>> children{};
+  std::vector<std::unique_ptr<TypeWithId>> children;
   children.reserve(type->size());
   auto offset = 0;
   for (const auto& child : *type) {
@@ -70,7 +82,7 @@ std::shared_ptr<const TypeWithId> TypeWithId::create(
         (myId == 0 && type->kind() == TypeKind::ROW) ? offset++ : column));
   }
   const uint32_t maxId = next - 1;
-  return std::make_shared<const TypeWithId>(
+  return std::make_unique<TypeWithId>(
       type, std::move(children), myId, maxId, column);
 }
 

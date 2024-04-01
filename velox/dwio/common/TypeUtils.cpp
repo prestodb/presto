@@ -39,49 +39,53 @@ void checkChildrenSelected(
   }
 }
 
-std::shared_ptr<const TypeWithId> visit(
+std::unique_ptr<TypeWithId> visit(
     const std::shared_ptr<const TypeWithId>& typeWithId,
     const std::function<bool(size_t)>& selector) {
   if (typeWithId->type()->isPrimitiveType()) {
-    return typeWithId;
+    return std::make_unique<TypeWithId>(
+        typeWithId->type(),
+        std::vector<std::unique_ptr<TypeWithId>>(),
+        typeWithId->id(),
+        typeWithId->maxId(),
+        typeWithId->column());
   }
   if (typeWithId->type()->isRow()) {
     std::vector<std::string> names;
-    std::vector<std::shared_ptr<const TypeWithId>> typesWithId;
+    std::vector<std::unique_ptr<TypeWithId>> children;
     std::vector<std::shared_ptr<const Type>> types;
     auto& row = typeWithId->type()->asRow();
     for (auto i = 0; i < typeWithId->size(); ++i) {
       auto& child = typeWithId->childAt(i);
       if (selector(child->id())) {
         names.push_back(row.nameOf(i));
-        std::shared_ptr<const TypeWithId> twid;
-        twid = visit(child, selector);
-        typesWithId.push_back(twid);
-        types.push_back(twid->type());
+        auto newChild = visit(child, selector);
+        types.push_back(newChild->type());
+        children.push_back(std::move(newChild));
       }
     }
     VELOX_USER_CHECK(
         !types.empty(), "selected nothing from row: " + row.toString());
-    return std::make_shared<TypeWithId>(
+    return std::make_unique<TypeWithId>(
         ROW(std::move(names), std::move(types)),
-        std::move(typesWithId),
+        std::move(children),
         typeWithId->id(),
         typeWithId->maxId(),
         typeWithId->column());
   } else {
     checkChildrenSelected(typeWithId, selector);
-    std::vector<std::shared_ptr<const TypeWithId>> typesWithId;
+    std::vector<std::unique_ptr<TypeWithId>> children;
     std::vector<std::shared_ptr<const Type>> types;
     for (auto i = 0; i < typeWithId->size(); ++i) {
       auto& child = typeWithId->childAt(i);
-      std::shared_ptr<const TypeWithId> twid = visit(child, selector);
-      typesWithId.push_back(twid);
-      types.push_back(twid->type());
+      auto newChild = visit(child, selector);
+      types.push_back(newChild->type());
+      children.push_back(std::move(newChild));
     }
     auto type = createType(typeWithId->type()->kind(), std::move(types));
-    return std::make_shared<TypeWithId>(
+    return std::make_unique<TypeWithId>(
         type,
-        std::move(typesWithId),
+        std::move(children),
         typeWithId->id(),
         typeWithId->maxId(),
         typeWithId->column());

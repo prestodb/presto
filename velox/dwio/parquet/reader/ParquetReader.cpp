@@ -90,7 +90,7 @@ class ReaderBase {
 
   void initializeSchema();
 
-  std::shared_ptr<const ParquetTypeWithId> getParquetColumnInfo(
+  std::unique_ptr<ParquetTypeWithId> getParquetColumnInfo(
       uint32_t maxSchemaElementIdx,
       uint32_t maxRepeat,
       uint32_t maxDefine,
@@ -100,9 +100,9 @@ class ReaderBase {
 
   TypePtr convertType(const thrift::SchemaElement& schemaElement) const;
 
+  template <typename T>
   static std::shared_ptr<const RowType> createRowType(
-      std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>>
-          children,
+      const std::vector<T>& children,
       bool fileColumnNamesReadAsLowerCase);
 
   memory::MemoryPool& pool_;
@@ -222,7 +222,7 @@ void ReaderBase::initializeSchema() {
       schemaWithId_->getChildren(), isFileColumnNamesReadAsLowerCase());
 }
 
-std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
+std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     uint32_t maxSchemaElementIdx,
     uint32_t maxRepeat,
     uint32_t maxDefine,
@@ -256,7 +256,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         schemaElement.__isset.num_children && schemaElement.num_children > 0,
         "Node has no children but should");
 
-    std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>> children;
+    std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>> children;
 
     auto curSchemaIdx = schemaIdx;
     for (int32_t i = 0; i < schemaElement.num_children; i++) {
@@ -267,7 +267,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           curSchemaIdx,
           ++schemaIdx,
           columnIdx);
-      children.push_back(child);
+      children.push_back(std::move(child));
     }
     VELOX_CHECK(!children.empty());
 
@@ -284,11 +284,11 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 thrift::FieldRepetitionType::REPEATED);
             VELOX_CHECK_EQ(children.size(), 2);
 
-            auto childrenCopy = children;
-            return std::make_shared<const ParquetTypeWithId>(
-                TypeFactory<TypeKind::MAP>::create(
-                    children[0]->type(), children[1]->type()),
-                std::move(childrenCopy),
+            auto type = TypeFactory<TypeKind::MAP>::create(
+                children[0]->type(), children[1]->type());
+            return std::make_unique<ParquetTypeWithId>(
+                std::move(type),
+                std::move(children),
                 curSchemaIdx, // TODO: there are holes in the ids
                 maxSchemaElementIdx,
                 ParquetTypeWithId::kNonLeaf, // columnIdx,
@@ -308,10 +308,10 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         case thrift::ConvertedType::MAP: {
           VELOX_CHECK_EQ(children.size(), 1);
           const auto& child = children[0];
-          auto grandChildren = child->getChildren();
-          return std::make_shared<const ParquetTypeWithId>(
-              child->type(),
-              std::move(grandChildren),
+          auto type = child->type();
+          return std::make_unique<ParquetTypeWithId>(
+              std::move(type),
+              std::move(*(ParquetTypeWithId*)child.get()).moveChildren(),
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
@@ -335,10 +335,10 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             children.size(), 2, "children size should not be larger than 2");
         if (children.size() == 1) {
           // child of LIST
-          auto childrenCopy = children;
-          return std::make_shared<ParquetTypeWithId>(
-              TypeFactory<TypeKind::ARRAY>::create(children[0]->type()),
-              std::move(childrenCopy),
+          auto type = TypeFactory<TypeKind::ARRAY>::create(children[0]->type());
+          return std::make_unique<ParquetTypeWithId>(
+              std::move(type),
+              std::move(children),
               curSchemaIdx,
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
@@ -349,11 +349,11 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxDefine);
         } else if (children.size() == 2) {
           // children  of MAP
-          auto childrenCopy = children;
-          return std::make_shared<const ParquetTypeWithId>(
-              TypeFactory<TypeKind::MAP>::create(
-                  children[0]->type(), children[1]->type()),
-              std::move(childrenCopy),
+          auto type = TypeFactory<TypeKind::MAP>::create(
+              children[0]->type(), children[1]->type());
+          return std::make_unique<ParquetTypeWithId>(
+              std::move(type),
+              std::move(children),
               curSchemaIdx, // TODO: there are holes in the ids
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
@@ -365,10 +365,10 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         }
       } else {
         // Row type
-        auto childrenCopy = children;
-        return std::make_shared<const ParquetTypeWithId>(
-            createRowType(children, isFileColumnNamesReadAsLowerCase()),
-            std::move(childrenCopy),
+        auto type = createRowType(children, isFileColumnNamesReadAsLowerCase());
+        return std::make_unique<ParquetTypeWithId>(
+            std::move(type),
+            std::move(children),
             curSchemaIdx,
             maxSchemaElementIdx,
             ParquetTypeWithId::kNonLeaf, // columnIdx,
@@ -386,34 +386,33 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
     int32_t scale = schemaElement.__isset.scale ? schemaElement.scale : 0;
     int32_t type_length =
         schemaElement.__isset.type_length ? schemaElement.type_length : 0;
-    std::vector<std::shared_ptr<const dwio::common::TypeWithId>> children;
+    std::vector<std::unique_ptr<dwio::common::TypeWithId>> children;
     const std::optional<thrift::LogicalType> logicalType_ =
         schemaElement.__isset.logicalType
         ? std::optional<thrift::LogicalType>(schemaElement.logicalType)
         : std::nullopt;
-    std::shared_ptr<const ParquetTypeWithId> leafTypePtr =
-        std::make_shared<const ParquetTypeWithId>(
-            veloxType,
-            std::move(children),
-            curSchemaIdx,
-            maxSchemaElementIdx,
-            columnIdx++,
-            name,
-            schemaElement.type,
-            logicalType_,
-            maxRepeat,
-            maxDefine,
-            precision,
-            scale,
-            type_length);
+    auto leafTypePtr = std::make_unique<ParquetTypeWithId>(
+        veloxType,
+        std::move(children),
+        curSchemaIdx,
+        maxSchemaElementIdx,
+        columnIdx++,
+        name,
+        schemaElement.type,
+        logicalType_,
+        maxRepeat,
+        maxDefine,
+        precision,
+        scale,
+        type_length);
 
     if (schemaElement.repetition_type ==
         thrift::FieldRepetitionType::REPEATED) {
       // Array
       children.clear();
       children.reserve(1);
-      children.push_back(leafTypePtr);
-      return std::make_shared<const ParquetTypeWithId>(
+      children.push_back(std::move(leafTypePtr));
+      return std::make_unique<ParquetTypeWithId>(
           TypeFactory<TypeKind::ARRAY>::create(veloxType),
           std::move(children),
           curSchemaIdx,
@@ -571,14 +570,14 @@ TypePtr ReaderBase::convertType(
   }
 }
 
+template <typename T>
 std::shared_ptr<const RowType> ReaderBase::createRowType(
-    std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>> children,
+    const std::vector<T>& children,
     bool fileColumnNamesReadAsLowerCase) {
   std::vector<std::string> childNames;
   std::vector<TypePtr> childTypes;
   for (auto& child : children) {
-    auto childName =
-        std::static_pointer_cast<const ParquetTypeWithId>(child)->name_;
+    auto childName = static_cast<const ParquetTypeWithId&>(*child).name_;
     if (fileColumnNamesReadAsLowerCase) {
       folly::toLowerAscii(childName);
     }

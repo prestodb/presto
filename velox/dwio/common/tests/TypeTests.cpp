@@ -39,7 +39,7 @@ TEST(TestType, selectedType) {
       "col3:map<float,double>,col4:float,"
       "col5:int,col6:bigint,col7:string>",
       HiveTypeSerializer::serialize(type).c_str());
-  auto typeWithId = TypeWithId::create(type);
+  std::shared_ptr<const TypeWithId> typeWithId = TypeWithId::create(type);
   EXPECT_EQ(0, typeWithId->id());
   EXPECT_EQ(11, typeWithId->maxId());
 
