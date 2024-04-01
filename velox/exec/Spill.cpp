@@ -239,13 +239,15 @@ std::string SpillPartition::toString() const {
 }
 
 std::unique_ptr<UnorderedStreamReader<BatchStream>>
-SpillPartition::createUnorderedReader(memory::MemoryPool* pool) {
+SpillPartition::createUnorderedReader(
+    memory::MemoryPool* pool,
+    folly::Synchronized<common::SpillStats>* spillStats) {
   VELOX_CHECK_NOT_NULL(pool);
   std::vector<std::unique_ptr<BatchStream>> streams;
   streams.reserve(files_.size());
   for (auto& fileInfo : files_) {
-    streams.push_back(
-        FileSpillBatchStream::create(SpillReadFile::create(fileInfo, pool)));
+    streams.push_back(FileSpillBatchStream::create(
+        SpillReadFile::create(fileInfo, pool, spillStats)));
   }
   files_.clear();
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
@@ -253,12 +255,14 @@ SpillPartition::createUnorderedReader(memory::MemoryPool* pool) {
 }
 
 std::unique_ptr<TreeOfLosers<SpillMergeStream>>
-SpillPartition::createOrderedReader(memory::MemoryPool* pool) {
+SpillPartition::createOrderedReader(
+    memory::MemoryPool* pool,
+    folly::Synchronized<common::SpillStats>* spillStats) {
   std::vector<std::unique_ptr<SpillMergeStream>> streams;
   streams.reserve(files_.size());
   for (auto& fileInfo : files_) {
-    streams.push_back(
-        FileSpillMergeStream::create(SpillReadFile::create(fileInfo, pool)));
+    streams.push_back(FileSpillMergeStream::create(
+        SpillReadFile::create(fileInfo, pool, spillStats)));
   }
   files_.clear();
   // Check if the partition is empty or not.

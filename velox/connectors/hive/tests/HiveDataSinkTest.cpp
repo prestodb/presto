@@ -480,7 +480,12 @@ TEST_F(HiveDataSinkTest, basic) {
   ASSERT_TRUE(stats.empty()) << stats.toString();
   ASSERT_EQ(
       stats.toString(),
-      "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] spillWrites[0] spillFlushTime[0us] spillWriteTime[0us] maxSpillExceededLimitCount[0]");
+      "numWrittenBytes 0B numWrittenFiles 0 spillRuns[0] spilledInputBytes[0B] "
+      "spilledBytes[0B] spilledRows[0] spilledPartitions[0] spilledFiles[0] "
+      "spillFillTimeUs[0us] spillSortTime[0us] spillSerializationTime[0us] "
+      "spillWrites[0] spillFlushTime[0us] spillWriteTime[0us] "
+      "maxSpillExceededLimitCount[0] spillReadBytes[0B] spillReads[0] "
+      "spillReadTime[0us] spillReadDeserializationTime[0us]");
 
   const int numBatches = 10;
   const auto vectors = createVectors(500, numBatches);

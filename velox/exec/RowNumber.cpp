@@ -127,12 +127,13 @@ void RowNumber::restoreNextSpillPartition() {
   }
 
   auto it = spillInputPartitionSet_.begin();
-  spillInputReader_ = it->second->createUnorderedReader(pool());
+  spillInputReader_ = it->second->createUnorderedReader(pool(), &spillStats_);
 
   // Find matching partition for the hash table.
   auto hashTableIt = spillHashTablePartitionSet_.find(it->first);
   if (hashTableIt != spillHashTablePartitionSet_.end()) {
-    spillHashTableReader_ = hashTableIt->second->createUnorderedReader(pool());
+    spillHashTableReader_ =
+        hashTableIt->second->createUnorderedReader(pool(), &spillStats_);
 
     RowVectorPtr data;
     while (spillHashTableReader_->nextBatch(data)) {

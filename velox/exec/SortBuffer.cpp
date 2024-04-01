@@ -382,7 +382,7 @@ void SortBuffer::getOutputWithSpill() {
 void SortBuffer::finishSpill() {
   VELOX_CHECK_NULL(spillMerger_);
   auto spillPartition = spiller_->finishSpill();
-  spillMerger_ = spillPartition.createOrderedReader(pool());
+  spillMerger_ = spillPartition.createOrderedReader(pool(), spillStats_);
 }
 
 } // namespace facebook::velox::exec

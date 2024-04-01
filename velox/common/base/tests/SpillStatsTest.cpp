@@ -21,7 +21,7 @@
 
 using namespace facebook::velox::common;
 
-TEST(SpillTest, spillStats) {
+TEST(SpillStatsTest, spillStats) {
   SpillStats stats1;
   ASSERT_TRUE(stats1.empty());
   stats1.spillRuns = 100;
@@ -37,6 +37,10 @@ TEST(SpillTest, spillStats) {
   stats1.spilledRows = 1023;
   stats1.spillSerializationTimeUs = 1023;
   stats1.spillMaxLevelExceededCount = 3;
+  stats1.spillReadBytes = 1024;
+  stats1.spillReads = 10;
+  stats1.spillReadTimeUs = 100;
+  stats1.spillDeserializationTimeUs = 100;
   ASSERT_FALSE(stats1.empty());
   SpillStats stats2;
   stats2.spillRuns = 100;
@@ -52,6 +56,10 @@ TEST(SpillTest, spillStats) {
   stats2.spilledRows = 1031;
   stats2.spillSerializationTimeUs = 1032;
   stats2.spillMaxLevelExceededCount = 4;
+  stats2.spillReadBytes = 2048;
+  stats2.spillReads = 10;
+  stats2.spillReadTimeUs = 100;
+  stats2.spillDeserializationTimeUs = 100;
   ASSERT_TRUE(stats1 < stats2);
   ASSERT_TRUE(stats1 <= stats2);
   ASSERT_FALSE(stats1 > stats2);
@@ -78,6 +86,10 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(delta.spillFillTimeUs, 7);
   ASSERT_EQ(delta.spilledRows, 8);
   ASSERT_EQ(delta.spillSerializationTimeUs, 9);
+  ASSERT_EQ(delta.spillReadBytes, 1024);
+  ASSERT_EQ(delta.spillReads, 0);
+  ASSERT_EQ(delta.spillReadTimeUs, 0);
+  ASSERT_EQ(delta.spillDeserializationTimeUs, 0);
   delta = stats1 - stats2;
   ASSERT_EQ(delta.spilledInputBytes, 0);
   ASSERT_EQ(delta.spilledBytes, 0);
@@ -91,8 +103,13 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(delta.spilledRows, -8);
   ASSERT_EQ(delta.spillSerializationTimeUs, -9);
   ASSERT_EQ(delta.spillMaxLevelExceededCount, -1);
+  ASSERT_EQ(delta.spillReadBytes, -1024);
+  ASSERT_EQ(delta.spillReads, 0);
+  ASSERT_EQ(delta.spillReadTimeUs, 0);
+  ASSERT_EQ(delta.spillDeserializationTimeUs, 0);
   stats1.spilledInputBytes = 2060;
   stats1.spilledBytes = 1030;
+  stats1.spillReadBytes = 4096;
   VELOX_ASSERT_THROW(stats1 < stats2, "");
   VELOX_ASSERT_THROW(stats1 > stats2, "");
   VELOX_ASSERT_THROW(stats1 <= stats2, "");
@@ -104,8 +121,21 @@ TEST(SpillTest, spillStats) {
   ASSERT_EQ(zeroStats, stats1);
   ASSERT_EQ(
       stats2.toString(),
-      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
+      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
+      "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
+      "spillFillTimeUs[1.03ms] spillSortTime[1.03ms] "
+      "spillSerializationTime[1.03ms] spillWrites[1028] spillFlushTime[1.03ms] "
+      "spillWriteTime[1.03ms] maxSpillExceededLimitCount[4] "
+      "spillReadBytes[2.00KB] spillReads[10] spillReadTime[100us] "
+      "spillReadDeserializationTime[100us]");
   ASSERT_EQ(
       fmt::format("{}", stats2),
-      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] spillFillTimeUs[1.03ms] spillSortTime[1.03ms] spillSerializationTime[1.03ms] spillWrites[1028] spillFlushTime[1.03ms] spillWriteTime[1.03ms] maxSpillExceededLimitCount[4]");
+      "spillRuns[100] spilledInputBytes[2.00KB] spilledBytes[1.00KB] "
+      "spilledRows[1031] spilledPartitions[1025] spilledFiles[1026] "
+      "spillFillTimeUs[1.03ms] spillSortTime[1.03ms] "
+      "spillSerializationTime[1.03ms] spillWrites[1028] "
+      "spillFlushTime[1.03ms] spillWriteTime[1.03ms] "
+      "maxSpillExceededLimitCount[4] "
+      "spillReadBytes[2.00KB] spillReads[10] spillReadTime[100us] "
+      "spillReadDeserializationTime[100us]");
 }

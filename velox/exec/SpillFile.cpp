@@ -32,8 +32,22 @@ void SpillInputStream::next(bool /*throwIfPastEnd*/) {
   const int32_t readBytes = std::min(size_ - offset_, buffer_->capacity());
   VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
   setRange({buffer_->asMutable<uint8_t>(), readBytes, 0});
-  file_->pread(offset_, readBytes, buffer_->asMutable<char>());
+  uint64_t readTimeUs{0};
+  {
+    MicrosecondTimer timer{&readTimeUs};
+    file_->pread(offset_, readBytes, buffer_->asMutable<char>());
+  }
+  updateSpillStats(readBytes, readTimeUs);
   offset_ += readBytes;
+}
+
+void SpillInputStream::updateSpillStats(uint64_t readBytes, uint64_t readTimeUs)
+    const {
+  auto lockedStats = stats_->wlock();
+  lockedStats->spillReadBytes += readBytes;
+  lockedStats->spillReadTimeUs += readTimeUs;
+  ++(lockedStats->spillReads);
+  common::updateGlobalSpillReadStats(readBytes, readTimeUs);
 }
 
 std::unique_ptr<SpillWriteFile> SpillWriteFile::create(
@@ -268,7 +282,8 @@ std::vector<uint32_t> SpillWriter::testingSpilledFileIds() const {
 
 std::unique_ptr<SpillReadFile> SpillReadFile::create(
     const SpillFileInfo& fileInfo,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    folly::Synchronized<common::SpillStats>* stats) {
   return std::unique_ptr<SpillReadFile>(new SpillReadFile(
       fileInfo.id,
       fileInfo.path,
@@ -277,7 +292,8 @@ std::unique_ptr<SpillReadFile> SpillReadFile::create(
       fileInfo.numSortKeys,
       fileInfo.sortFlags,
       fileInfo.compressionKind,
-      pool));
+      pool,
+      stats));
 }
 
 SpillReadFile::SpillReadFile(
@@ -288,7 +304,8 @@ SpillReadFile::SpillReadFile(
     uint32_t numSortKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     common::CompressionKind compressionKind,
-    memory::MemoryPool* pool)
+    memory::MemoryPool* pool,
+    folly::Synchronized<common::SpillStats>* stats)
     : id_(id),
       path_(path),
       size_(size),
@@ -300,23 +317,32 @@ SpillReadFile::SpillReadFile(
           kDefaultUseLosslessTimestamp,
           compressionKind_,
           true /*nullsFirst*/},
-      pool_(pool) {
+      pool_(pool),
+      stats_(stats) {
   constexpr uint64_t kMaxReadBufferSize =
       (1 << 20) - AlignedBuffer::kPaddedSize; // 1MB - padding.
   auto fs = filesystems::getFileSystem(path_, nullptr);
   auto file = fs->openFileForRead(path_);
   auto buffer = AlignedBuffer::allocate<char>(
       std::min<uint64_t>(size_, kMaxReadBufferSize), pool_);
-  input_ =
-      std::make_unique<SpillInputStream>(std::move(file), std::move(buffer));
+  input_ = std::make_unique<SpillInputStream>(
+      std::move(file), std::move(buffer), stats_);
 }
 
 bool SpillReadFile::nextBatch(RowVectorPtr& rowVector) {
   if (input_->atEnd()) {
     return false;
   }
-  VectorStreamGroup::read(
-      input_.get(), pool_, type_, &rowVector, &readOptions_);
+
+  uint64_t timeUs{0};
+  {
+    MicrosecondTimer timer{&timeUs};
+    VectorStreamGroup::read(
+        input_.get(), pool_, type_, &rowVector, &readOptions_);
+  }
+  stats_->wlock()->spillDeserializationTimeUs += timeUs;
+  common::updateGlobalSpillDeserializationTimeUs(timeUs);
+
   return true;
 }
 } // namespace facebook::velox::exec

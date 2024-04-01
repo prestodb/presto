@@ -275,6 +275,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     ASSERT_EQ(stats.spilledPartitions, numPartitions_);
     ASSERT_EQ(stats.spilledRows, kNumRows);
     ASSERT_EQ(stats.spilledBytes, totalSpilledBytes);
+    ASSERT_EQ(stats.spillReadBytes, totalSpilledBytes);
     ASSERT_GT(stats.spillWriteTimeUs, 0);
     if (type_ == Spiller::Type::kAggregateOutput) {
       ASSERT_EQ(stats.spillSortTimeUs, 0);
@@ -296,6 +297,17 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         newGStats.spilledPartitions);
     ASSERT_EQ(
         prevGStats.spilledBytes + stats.spilledBytes, newGStats.spilledBytes);
+    ASSERT_EQ(
+        prevGStats.spillReadBytes + stats.spillReadBytes,
+        newGStats.spillReadBytes);
+    ASSERT_EQ(prevGStats.spillReads + stats.spillReads, newGStats.spillReads);
+    ASSERT_EQ(
+        prevGStats.spillReadTimeUs + stats.spillReadTimeUs,
+        newGStats.spillReadTimeUs);
+    ASSERT_EQ(
+        prevGStats.spillDeserializationTimeUs +
+            stats.spillDeserializationTimeUs,
+        newGStats.spillDeserializationTimeUs);
     ASSERT_EQ(
         prevGStats.spillWriteTimeUs + stats.spillWriteTimeUs,
         newGStats.spillWriteTimeUs);
@@ -596,9 +608,10 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
     // We make a merge reader that merges the spill files and the rows that
     // are still in the RowContainer.
-    auto merge = spillPartition->createOrderedReader(pool());
+    auto merge = spillPartition->createOrderedReader(pool(), &spillStats_);
     ASSERT_TRUE(merge != nullptr);
-    ASSERT_TRUE(spillPartition->createOrderedReader(pool()) == nullptr);
+    ASSERT_TRUE(
+        spillPartition->createOrderedReader(pool(), &spillStats_) == nullptr);
 
     // We read the spilled data back and check that it matches the sorted
     // order of the partition.
@@ -868,6 +881,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     // Read back data from all the spilled partitions and verify.
     verifyNonSortedSpillData(
         std::move(spillers), spillPartitionNumSet, inputsByPartition);
+
     // Spilled file stats should be updated after finalizing spiller.
     ASSERT_GT(common::globalSpillStats().spilledFiles, 0);
   }
@@ -894,7 +908,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
           hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
-      auto reader = spillPartitionEntry.second->createUnorderedReader(pool());
+      auto reader = spillPartitionEntry.second->createUnorderedReader(
+          pool(), &spillStats_);
       if (type_ == Spiller::Type::kHashJoinProbe) {
         // For hash probe type, we append each input vector as one batch in
         // spill file so that we can do one-to-one comparison.
@@ -967,7 +982,8 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
           hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
-      auto reader = spillPartitionEntry.second->createUnorderedReader(pool());
+      auto reader = spillPartitionEntry.second->createUnorderedReader(
+          pool(), &spillStats_);
       if (type_ == Spiller::Type::kHashJoinProbe) {
         // For hash probe type, we append each input vector as one batch in
         // spill file so that we can do one-to-one comparison.
@@ -1153,7 +1169,7 @@ class NoHashJoin : public SpillerTest,
   }
 };
 
-TEST_P(NoHashJoin, spilFew) {
+TEST_P(NoHashJoin, spillFew) {
   // Test with distinct sort keys.
   testSortedSpill(10, 1);
   testSortedSpill(10, 1, false, false);
@@ -1166,7 +1182,7 @@ TEST_P(NoHashJoin, spilFew) {
   testSortedSpill(10, 10, true, false);
 }
 
-TEST_P(NoHashJoin, spilMost) {
+TEST_P(NoHashJoin, spillMost) {
   // Test with distinct sort keys.
   testSortedSpill(60, 1);
   testSortedSpill(60, 1, false, false);
@@ -1360,7 +1376,7 @@ TEST_P(AggregationOutputOnly, basic) {
     ASSERT_TRUE(spiller_->finalized());
 
     const int expectedNumSpilledRows = numRows - numListedRows;
-    auto merge = spillPartition.createOrderedReader(pool());
+    auto merge = spillPartition.createOrderedReader(pool(), &spillStats_);
     if (expectedNumSpilledRows == 0) {
       ASSERT_TRUE(merge == nullptr);
     } else {
@@ -1449,7 +1465,7 @@ TEST_P(OrderByOutputOnly, basic) {
     ASSERT_TRUE(spiller_->finalized());
 
     const int expectedNumSpilledRows = numListedRows;
-    auto merge = spillPartition.createOrderedReader(pool());
+    auto merge = spillPartition.createOrderedReader(pool(), &spillStats_);
     if (expectedNumSpilledRows == 0) {
       ASSERT_TRUE(merge == nullptr);
     } else {

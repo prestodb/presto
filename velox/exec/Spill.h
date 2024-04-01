@@ -289,13 +289,19 @@ class SpillPartition {
 
   /// Invoked to create an unordered stream reader from this spill partition.
   /// The created reader will take the ownership of the spill files.
+  /// 'spillStats' is provided to collect the spill stats when reading data from
+  /// spilled files.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> createUnorderedReader(
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   /// Invoked to create an ordered stream reader from this spill partition.
   /// The created reader will take the ownership of the spill files.
+  /// 'spillStats' is provided to collect the spill stats when reading data from
+  /// spilled files.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> createOrderedReader(
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      folly::Synchronized<common::SpillStats>* spillStats);
 
   std::string toString() const;
 

@@ -239,7 +239,7 @@ void SortWindowBuild::noMoreInput() {
 
     VELOX_CHECK_NULL(merge_);
     auto spillPartition = spiller_->finishSpill();
-    merge_ = spillPartition.createOrderedReader(pool_);
+    merge_ = spillPartition.createOrderedReader(pool_, spillStats_);
   } else {
     // At this point we have seen all the input rows. The operator is
     // being prepared to output rows now.
