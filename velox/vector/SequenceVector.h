@@ -126,6 +126,10 @@ class SequenceVector : public SimpleVector<T> {
     return sequenceValues_;
   }
 
+  VectorPtr& valueVector() override {
+    return sequenceValues_;
+  }
+
   BufferPtr getSequenceLengths() const {
     return sequenceLengths_;
   }

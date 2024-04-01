@@ -249,6 +249,10 @@ class ConstantVector final : public SimpleVector<T> {
     return valueVector_;
   }
 
+  VectorPtr& valueVector() override {
+    return valueVector_;
+  }
+
   // Index of the element of the base vector that determines the value of this
   // constant vector.
   vector_size_t index() const {

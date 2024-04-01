@@ -623,6 +623,10 @@ class BaseVector {
     VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
+  virtual VectorPtr& valueVector() {
+    VELOX_UNSUPPORTED("Vector is not a wrapper");
+  }
+
   virtual BaseVector* loadedVector() {
     return this;
   }

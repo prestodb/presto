@@ -409,7 +409,9 @@ static void registerTypedVectors(
           [](DictionaryVectorPtr<NativeType> vec) {
             return DictionaryIndices{vec->indices()};
           })
-      .def("values", &DictionaryVector<NativeType>::valueVector);
+      .def("values", [](DictionaryVectorPtr<NativeType> vec) {
+        return vec->valueVector();
+      });
 }
 
 static void addVectorBindings(

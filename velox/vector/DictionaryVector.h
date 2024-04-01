@@ -121,7 +121,15 @@ class DictionaryVector : public SimpleVector<T> {
     return indices_;
   }
 
+  inline BufferPtr& indices() {
+    return indices_;
+  }
+
   const VectorPtr& valueVector() const override {
+    return dictionaryValues_;
+  }
+
+  VectorPtr& valueVector() override {
     return dictionaryValues_;
   }
 
