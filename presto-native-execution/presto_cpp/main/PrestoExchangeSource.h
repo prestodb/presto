@@ -226,11 +226,25 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void acknowledgeResults(int64_t ackSequence);
 
+  // Handles returned http response from acknowledge result request.
+  //
+  // NOTE: This method is normally called within callbacks. Caller should make
+  // sure 'this' lives during the entire duration of this method call.
+  void handleAckResponse(
+      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
+
   void abortResults();
 
   /// Send abort results after specified delay. This function is called
   /// multiple times by abortResults for retries.
   void doAbortResults(int64_t delayMs);
+
+  // Handles returned http response from abort result request.
+  //
+  // NOTE: This method is normally called within callbacks. Caller should make
+  // sure 'this' lives during the entire duration of this method call.
+  void handleAbortResponse(
+      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
 
   /// Completes the future returned from 'request()' if it hasn't completed
   /// already.
