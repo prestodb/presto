@@ -71,7 +71,8 @@ int main(int argc, char** argv) {
           {"max_by", nullptr},
           {"min_by", nullptr},
           {"skewness", nullptr},
-          {"kurtosis", nullptr}};
+          {"kurtosis", nullptr},
+          {"collect_list", nullptr}};
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
@@ -88,6 +89,9 @@ int main(int argc, char** argv) {
       // coefficient. Meanwhile, DuckDB employs the sample kurtosis calculation
       // formula. The results from the two methods are completely different.
       "kurtosis",
+      // When all data in a group are null, Spark returns an empty array while
+      // DuckDB returns null.
+      "collect_list",
   });
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
