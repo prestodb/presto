@@ -154,16 +154,31 @@ public final class ColumnStatistics
             return this;
         }
 
+        public Estimate getNullsFraction()
+        {
+            return nullsFraction;
+        }
+
         public Builder setDistinctValuesCount(Estimate distinctValuesCount)
         {
             this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
             return this;
         }
 
+        public Estimate getDistinctValuesCount()
+        {
+            return distinctValuesCount;
+        }
+
         public Builder setDataSize(Estimate dataSize)
         {
             this.dataSize = requireNonNull(dataSize, "dataSize is null");
             return this;
+        }
+
+        public Estimate getDataSize()
+        {
+            return dataSize;
         }
 
         public Builder setRange(DoubleRange range)
