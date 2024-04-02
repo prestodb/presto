@@ -853,6 +853,7 @@ void Driver::closeByTask() {
   VELOX_CHECK(isOnThread());
   VELOX_CHECK(isTerminated());
   closeOperators();
+  updateStats();
   closed_ = true;
 }
 
