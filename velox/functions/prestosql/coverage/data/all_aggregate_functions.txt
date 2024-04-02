@@ -45,6 +45,10 @@ merge_set_digest
 min
 min_by
 multimap_agg
+noisy_avg_gaussian
+noisy_count_gaussian
+noisy_count_if_gaussian
+noisy_sum_gaussian
 numeric_histogram
 qdigest_agg
 reduce_agg

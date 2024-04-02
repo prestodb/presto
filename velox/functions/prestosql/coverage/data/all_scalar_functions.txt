@@ -13,6 +13,7 @@ array_frequency
 array_has_duplicates
 array_intersect
 array_join
+array_least_frequent
 array_max
 array_max_by
 array_min
@@ -23,6 +24,7 @@ array_remove
 array_sort
 array_sort_desc
 array_sum
+array_top_n
 array_union
 arrays_overlap
 asin
@@ -188,6 +190,7 @@ map_entries
 map_filter
 map_from_entries
 map_keys
+map_keys_by_top_n_values
 map_normalize
 map_remove_null_values
 map_subset
@@ -240,6 +243,7 @@ remove_nulls
 render
 repeat
 replace
+replace_first
 reverse
 rgb
 round
@@ -247,6 +251,7 @@ rpad
 rtrim
 scale_qdigest
 second
+secure_rand
 secure_random
 sequence
 sha1
@@ -332,6 +337,7 @@ tdigest_agg
 timezone_hour
 timezone_minute
 to_base
+to_base32
 to_base64
 to_base64url
 to_big_endian_32
@@ -345,6 +351,7 @@ to_milliseconds
 to_spherical_geography
 to_unixtime
 to_utf8
+trail
 transform
 transform_keys
 transform_values
