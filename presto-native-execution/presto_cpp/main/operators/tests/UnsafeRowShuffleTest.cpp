@@ -776,7 +776,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
   TestShuffleWriter::reset();
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
+DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -819,6 +819,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   }
 
   TestShuffleWriter::reset();
+  exec::test::waitForAllTasksToBeDeleted();
 }
 
 TEST_F(UnsafeRowShuffleTest, endToEnd) {
