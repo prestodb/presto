@@ -16,6 +16,7 @@
 
 #include <fmt/format.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
@@ -2184,6 +2185,63 @@ TEST_F(MinMaxByNTest, incrementalWindow) {
         {{{{{"1"_sv}}}}, {{{{"1"_sv}}, {{"2"_sv}}}}});
     AssertQueryBuilder(plan).assertResults(makeRowVector(result));
   }
+}
+
+TEST_F(MinMaxByNTest, peakMemory) {
+  auto data = makeRowVector({
+      // Each array has 100 elements.
+      makeArrayVector<int64_t>(
+          1'000,
+          [](auto /*row*/) { return 100; },
+          [](auto row) { return row; }),
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+      makeFlatVector<std::string>(
+          1'000,
+          [](auto row) {
+            return fmt::format("this is a very long string for row {}", row);
+          }),
+      makeFlatVector<std::string>(
+          1'000,
+          [](auto row) {
+            return fmt::format(
+                "this is another very long string for row {}", row);
+          }),
+  });
+
+  auto getPeakMemoryBytes = [&](const std::string& aggregate) {
+    core::PlanNodeId aggId;
+    auto plan = PlanBuilder()
+                    .values({data})
+                    .singleAggregation({}, {aggregate})
+                    .capturePlanNodeId(aggId)
+                    .planNode();
+
+    std::shared_ptr<exec::Task> task;
+    auto results = AssertQueryBuilder(plan).copyResults(pool(), task);
+
+    auto planStats = toPlanStats(task->taskStats());
+    auto& aggrStats = planStats[aggId];
+
+    return aggrStats.peakMemoryBytes;
+  };
+
+  auto minByPeak = getPeakMemoryBytes("min_by(c0, c1, 2)");
+  auto maxByPeak = getPeakMemoryBytes("max_by(c0, c1, 2)");
+
+  EXPECT_EQ(minByPeak, maxByPeak);
+  EXPECT_LT(maxByPeak, 140000);
+
+  minByPeak = getPeakMemoryBytes("min_by(c2, c1, 2)");
+  maxByPeak = getPeakMemoryBytes("max_by(c2, c1, 2)");
+
+  EXPECT_EQ(minByPeak, maxByPeak);
+  EXPECT_LT(maxByPeak, 190000);
+
+  minByPeak = getPeakMemoryBytes("min_by(c2, c3, 2)");
+  maxByPeak = getPeakMemoryBytes("max_by(c2, c3, 2)");
+
+  EXPECT_EQ(minByPeak, maxByPeak);
+  EXPECT_LT(maxByPeak, 190000);
 }
 
 } // namespace
