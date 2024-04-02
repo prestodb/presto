@@ -178,6 +178,10 @@ public class TableStatisticsMaker
                     .setRowCount(Estimate.of(0))
                     .build();
         }
+        // the total record count for the whole table
+        Optional<Long> totalRecordCount = Optional.of(intersection)
+                .filter(domain -> !domain.isAll())
+                .map(domain -> getDataTableSummary(tableHandle, ImmutableList.of(), TupleDomain.all(), idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields).getRecordCount());
 
         double recordCount = summary.getRecordCount();
         TableStatistics.Builder result = TableStatistics.builder();
@@ -185,6 +189,10 @@ public class TableStatisticsMaker
 
         Map<Integer, ColumnStatistics.Builder> tableStats = getClosestStatisticsFileForSnapshot(tableHandle)
                 .map(this::loadStatisticsFile).orElseGet(Collections::emptyMap);
+        // scale all NDV values loaded from puffin files based on row count
+        totalRecordCount.ifPresent(fullTableRecordCount -> tableStats.forEach((id, stat) ->
+                stat.setDistinctValuesCount(stat.getDistinctValuesCount().map(value -> value * recordCount / fullTableRecordCount))));
+
         for (IcebergColumnHandle columnHandle : selectedColumns) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = tableStats.getOrDefault(fieldId, ColumnStatistics.builder());
