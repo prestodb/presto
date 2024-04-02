@@ -33,7 +33,9 @@ if(VELOX_BUILD_PYTHON_PACKAGE)
             velox_functions_prestosql
             velox_parse_parser
             velox_functions_prestosql
-            velox_functions_spark)
+            velox_functions_spark
+            velox_aggregates
+            velox_functions_spark_aggregates)
 
   target_include_directories(pyvelox SYSTEM
                              PRIVATE ${CMAKE_CURRENT_LIST_DIR}/..)

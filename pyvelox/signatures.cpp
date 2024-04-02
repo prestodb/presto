@@ -15,9 +15,12 @@
  */
 
 #include "signatures.h" // @manual
+#include "velox/exec/Aggregate.h"
 #include "velox/functions/FunctionRegistry.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/sparksql/Register.h"
+#include "velox/functions/sparksql/aggregates/Register.h"
 
 namespace facebook::velox::py {
 
@@ -29,6 +32,24 @@ void registerPrestoFunctions(const std::string& prefix) {
 
 void registerSparkFunctions(const std::string& prefix) {
   facebook::velox::functions::sparksql::registerFunctions(prefix);
+}
+
+void registerPrestoAggregateFunctions(const std::string& prefix) {
+  facebook::velox::aggregate::prestosql::registerAllAggregateFunctions(prefix);
+}
+
+void registerSparkAggregateFunctions(const std::string& prefix) {
+  facebook::velox::functions::aggregate::sparksql::registerAggregateFunctions(
+      prefix);
+}
+
+exec::AggregateFunctionSignatureMap getAggregateSignatures() {
+  return exec::getAggregateFunctionSignatures();
+}
+
+void clearAggregateSignatures() {
+  exec::aggregateFunctions().withWLock(
+      [&](auto& aggregateFunctions) { aggregateFunctions.clear(); });
 }
 
 void addSignatureBindings(py::module& m, bool asModuleLocalDefinitions) {
@@ -53,6 +74,19 @@ void addSignatureBindings(py::module& m, bool asModuleLocalDefinitions) {
   functionSignature.def(
       "constant_arguments", &exec::FunctionSignature::constantArguments);
 
+  // AggregateFunctionSignature
+  py::class_<
+      exec::AggregateFunctionSignature,
+      std::unique_ptr<exec::AggregateFunctionSignature, py::nodelete>>
+      aggregateFunctionSignature(
+          m,
+          "AggregateFunctionSignature",
+          py::module_local(asModuleLocalDefinitions));
+  aggregateFunctionSignature.def(
+      "__str__", &exec::AggregateFunctionSignature::toString);
+  aggregateFunctionSignature.def(
+      "intermediate_type", &exec::AggregateFunctionSignature::intermediateType);
+
   m.def(
       "clear_signatures",
       &clearFunctionRegistry,
@@ -75,5 +109,28 @@ void addSignatureBindings(py::module& m, bool asModuleLocalDefinitions) {
       &getFunctionSignatures,
       py::return_value_policy::reference,
       "Returns a dictionary of the current signatures.");
+
+  m.def(
+      "register_presto_aggregate_signatures",
+      &registerPrestoAggregateFunctions,
+      "Adds Presto Aggregate signatures to the function registry.",
+      py::arg("prefix") = "");
+
+  m.def(
+      "register_spark_aggregate_signatures",
+      &registerSparkAggregateFunctions,
+      "Adds Spark Aggregate signatures to the function registry.",
+      py::arg("prefix") = "");
+
+  m.def(
+      "get_aggregate_function_signatures",
+      &getAggregateSignatures,
+      py::return_value_policy::reference,
+      "Returns a dictionary of the current aggregate signatures.");
+
+  m.def(
+      "clear_aggregate_signatures",
+      &clearAggregateSignatures,
+      "Clears the Aggregate function registry.");
 }
 } // namespace facebook::velox::py

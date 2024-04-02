@@ -64,3 +64,21 @@ class TestFunctionSignatures(unittest.TestCase):
 
         concat_signatures = spark_signatures["barconcat"]
         self.assertTrue(len(concat_signatures) > 0)
+
+    def test_aggregate_signatures(self):
+        pv.clear_aggregate_signatures()
+
+        pv.register_presto_aggregate_signatures()
+        presto_agg_signatures = pv.get_aggregate_function_signatures()
+
+        min_signatures = presto_agg_signatures["min"]
+        self.assertTrue(len(min_signatures) > 0)
+
+        max_signatures = presto_agg_signatures["max"]
+        self.assertTrue(len(max_signatures) > 0)
+
+        pv.clear_aggregate_signatures()
+
+        pv.register_spark_aggregate_signatures()
+        spark_agg_signatures = pv.get_aggregate_function_signatures()
+        self.assertTrue(len(spark_agg_signatures) > 0)

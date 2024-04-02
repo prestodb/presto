@@ -88,6 +88,28 @@ def export(args):
     return 0
 
 
+def export_aggregates(args):
+    """Exports Velox Aggregate function signatures."""
+    pv.clear_aggregate_signatures()
+
+    if args.spark:
+        pv.register_spark_aggregate_signatures()
+
+    if args.presto:
+        pv.register_presto_aggregate_signatures()
+
+    signatures = pv.get_aggregate_function_signatures()
+
+    # Convert signatures to json
+    jsoned_signatures = {}
+    for key in signatures.keys():
+        jsoned_signatures[key] = [str(value) for value in signatures[key]]
+
+    # Persist to file
+    json.dump(jsoned_signatures, args.output_file)
+    return 0
+
+
 def diff_signatures(base_signatures, contender_signatures, error_path=""):
     """Diffs Velox function signatures. Returns a tuple of the delta diff and exit status"""
 
@@ -252,6 +274,13 @@ def parse_args(args):
     export_command_parser.add_argument("--spark", action="store_true")
     export_command_parser.add_argument("--presto", action="store_true")
     export_command_parser.add_argument("output_file", type=str)
+
+    export_aggregates_command_parser = command.add_parser("export_aggregates")
+    export_aggregates_command_parser.add_argument("--spark", action="store_true")
+    export_aggregates_command_parser.add_argument("--presto", action="store_true")
+    export_aggregates_command_parser.add_argument(
+        "output_file", type=argparse.FileType("w")
+    )
 
     diff_command_parser = command.add_parser("diff")
     diff_command_parser.add_argument("base", type=str)
