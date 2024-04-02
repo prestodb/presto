@@ -159,7 +159,7 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
 
         subprocess.check_call(
-            ["cmake", str(os.path.join(ROOT_DIR, "pyvelox"))] + cmake_args,
+            ["cmake", str(ROOT_DIR)] + cmake_args,
             cwd=self.build_temp,
         )
         subprocess.check_call(
