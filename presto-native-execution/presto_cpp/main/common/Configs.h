@@ -301,10 +301,11 @@ class SystemConfig : public ConfigBase {
       "async-cache-ssd-checkpoint-gb"};
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
 
-  /// Specifies the amount of memory we want to shrink the cache by in an
-  /// emergency situation
-  static constexpr std::string_view kAsyncCacheShrinkGb{
-      "async-cache-shrink-gb"};
+  /// If we want to enable cache shrinking periodic task.
+  /// CacheShrink class must be overridden and registered
+  /// via call to PeriodicTaskManager::registerCacheShrink
+  static constexpr std::string_view kAsyncCacheShrinkEnabled{
+      "async-cache-shrink-enabled"};
 
   /// In file systems, such as btrfs, supporting cow (copy on write), the ssd
   /// cache can use all ssd space and stop working. To prevent that, use this
@@ -609,7 +610,7 @@ class SystemConfig : public ConfigBase {
 
   std::string asyncCacheSsdPath() const;
 
-  uint64_t asyncCacheShrinkGb() const;
+  bool asyncCacheShrinkEnabled() const;
 
   bool asyncCacheSsdDisableFileCow() const;
 
