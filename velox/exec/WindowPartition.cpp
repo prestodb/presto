@@ -20,12 +20,16 @@ namespace facebook::velox::exec {
 WindowPartition::WindowPartition(
     RowContainer* data,
     const folly::Range<char**>& rows,
-    const std::vector<exec::RowColumn>& columns,
+    const std::vector<column_index_t>& inputMapping,
     const std::vector<std::pair<column_index_t, core::SortOrder>>& sortKeyInfo)
     : data_(data),
       partition_(rows),
-      columns_(columns),
-      sortKeyInfo_(sortKeyInfo) {}
+      inputMapping_(inputMapping),
+      sortKeyInfo_(sortKeyInfo) {
+  for (int i = 0; i < inputMapping_.size(); i++) {
+    columns_.emplace_back(data_->columnAt(inputMapping_[i]));
+  }
+}
 
 void WindowPartition::extractColumn(
     int32_t columnIndex,
@@ -270,7 +274,7 @@ void WindowPartition::updateKRangeFrameBounds(
     const vector_size_t* rawPeerBounds,
     vector_size_t* rawFrameBounds) const {
   column_index_t orderByColumn = sortKeyInfo_[0].first;
-  RowColumn frameRowColumn = data_->columnAt(frameColumn);
+  RowColumn frameRowColumn = columns_[frameColumn];
 
   vector_size_t start = 0;
   vector_size_t end;
@@ -297,7 +301,12 @@ void WindowPartition::updateKRangeFrameBounds(
         end = partition_.size();
       }
       rawFrameBounds[i] = searchFrameValue<isAscending>(
-          firstMatch, start, end, currentRow, orderByColumn, frameColumn);
+          firstMatch,
+          start,
+          end,
+          currentRow,
+          orderByColumn,
+          inputMapping_[frameColumn]);
     }
   }
 }

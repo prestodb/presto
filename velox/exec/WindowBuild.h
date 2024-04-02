@@ -91,23 +91,25 @@ class WindowBuild {
   std::vector<std::pair<column_index_t, core::SortOrder>> sortKeyInfo_;
 
   // Input columns in the order of: partition keys, sorting keys, the rest.
-  const std::vector<column_index_t> inputChannels_;
+  std::vector<column_index_t> inputChannels_;
+
+  // The mapping from original input column index to the index after column
+  // reordering. This is the inversed mapping of inputChannels_.
+  std::vector<column_index_t> inversedInputChannels_;
 
   // Input column types in 'inputChannels_' order.
-  const RowTypePtr inputType_;
+  RowTypePtr inputType_;
 
   const common::SpillConfig* const spillConfig_;
   tsan_atomic<bool>* const nonReclaimableSection_;
 
-  // The RowContainer holds all the input rows in WindowBuild.
+  // The RowContainer holds all the input rows in WindowBuild. Columns are
+  // already reordered according to inputChannels_.
   std::unique_ptr<RowContainer> data_;
 
   // The decodedInputVectors_ are reused across addInput() calls to decode
   // the partition and sort keys for the above RowContainer.
   std::vector<DecodedVector> decodedInputVectors_;
-
-  // RowColumns for window build used to construct WindowPartition.
-  std::vector<exec::RowColumn> inputColumns_;
 
   // Number of input rows.
   vector_size_t numRows_ = 0;

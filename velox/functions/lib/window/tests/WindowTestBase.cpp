@@ -192,11 +192,12 @@ void WindowTestBase::testWindowFunction(
   assertQuery(queryInfo.planNode, expectedResult);
 }
 
-void WindowTestBase::rangeFrameTest(
+void WindowTestBase::rangeFrameTestImpl(
     bool ascending,
     const std::string& function,
     const RangeFrameBound& startBound,
-    const RangeFrameBound& endBound) {
+    const RangeFrameBound& endBound,
+    bool unorderedColumns) {
   auto size = 25;
   // For frames with k RANGE PRECEDING/FOLLOWING, Velox requires the application
   // to add columns with the range frame boundary value computed according
@@ -227,14 +228,7 @@ void WindowTestBase::rangeFrameTest(
   auto endColumn = makeFlatVector<int64_t>(
       size, [offset](auto row) { return row + offset; });
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
-      makeFlatVector<int64_t>(size, [](auto row) { return row; }),
-      startColumn,
-      endColumn,
-  });
-  createDuckDbTable({vectors});
-
+  RowVectorPtr vectors;
   // Velox frames require the column bounds.
   auto veloxFrameBound = [](const RangeFrameBound& frame,
                             const std::string& colName) -> std::string {
@@ -246,9 +240,33 @@ void WindowTestBase::rangeFrameTest(
     }
     return colName + " FOLLOWING";
   };
-  std::string veloxFrame = "range between " +
-      veloxFrameBound(startBound, "c2") + " and " +
-      veloxFrameBound(endBound, "c3");
+  std::string veloxFrame;
+  std::string overClause;
+  if (unorderedColumns) {
+    vectors = makeRowVector({
+        endColumn,
+        startColumn,
+        makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+    });
+    veloxFrame = "range between " + veloxFrameBound(startBound, "c1") +
+        " and " + veloxFrameBound(endBound, "c0");
+    overClause = "partition by c3 order by c2";
+  } else {
+    vectors = makeRowVector({
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+        startColumn,
+        endColumn,
+    });
+    veloxFrame = "range between " + veloxFrameBound(startBound, "c2") +
+        " and " + veloxFrameBound(endBound, "c3");
+    overClause = "partition by c0 order by c1";
+  }
+  if (!ascending) {
+    overClause += " desc";
+  }
+  createDuckDbTable({vectors});
 
   // DuckDB frames uses the constant bounds.
   auto duckFrameBound = [](const RangeFrameBound& frame) -> std::string {
@@ -264,10 +282,6 @@ void WindowTestBase::rangeFrameTest(
   std::string duckFrame = "range between " + duckFrameBound(startBound) +
       " and " + duckFrameBound(endBound);
 
-  std::string overClause = "partition by c0 order by c1";
-  if (!ascending) {
-    overClause += " desc";
-  }
   std::string veloxFunction =
       fmt::format("{} over ({} {})", function, overClause, veloxFrame);
   std::string duckFunction =
@@ -284,6 +298,15 @@ void WindowTestBase::rangeFrameTest(
       fmt::format("SELECT {}, {} FROM tmp", columnsString, duckFunction);
   SCOPED_TRACE(veloxFunction);
   assertQuery(op, querySql);
+}
+
+void WindowTestBase::rangeFrameTest(
+    bool ascending,
+    const std::string& function,
+    const RangeFrameBound& startBound,
+    const RangeFrameBound& endBound) {
+  rangeFrameTestImpl(ascending, function, startBound, endBound, false);
+  rangeFrameTestImpl(ascending, function, startBound, endBound, true);
 }
 
 void WindowTestBase::testKRangeFrames(const std::string& function) {

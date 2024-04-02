@@ -90,7 +90,7 @@ std::unique_ptr<WindowPartition> StreamingWindowBuild::nextPartition() {
       partitionSize);
 
   return std::make_unique<WindowPartition>(
-      data_.get(), partition, inputColumns_, sortKeyInfo_);
+      data_.get(), partition, inversedInputChannels_, sortKeyInfo_);
 }
 
 bool StreamingWindowBuild::hasNextPartition() {
