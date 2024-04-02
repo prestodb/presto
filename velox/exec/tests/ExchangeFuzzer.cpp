@@ -24,6 +24,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
@@ -56,8 +57,18 @@ DEFINE_string(
     "",
     "File to replay. Files are produced on failure in --repro_path");
 
+DEFINE_bool(
+    enable_oom_injection,
+    false,
+    "When enabled OOMs will randomly be triggered while executing query "
+    "plans. The goal of this mode is to ensure unexpected exceptions "
+    "aren't thrown and the process isn't killed in the process of cleaning "
+    "up after failures. Therefore, results are not compared when this is "
+    "enabled. Note that this option only works in debug builds.");
+
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
 using namespace facebook::velox::test;
 
 /// Generates random data and runs this through repartition and
@@ -128,8 +139,6 @@ class ExchangeFuzzer : public VectorTestBase {
       tasks.push_back(leafTask);
       leafTask->start(params.numDriversPerTask);
     }
-
-    std::vector<std::string> partialAggTaskIds;
     auto partialAggPlan =
         exec::test::PlanBuilder()
             .exchange(leafPlan->outputType())
@@ -137,11 +146,10 @@ class ExchangeFuzzer : public VectorTestBase {
             .partitionedOutput({}, 1)
             .planNode();
 
-    std::vector<exec::Split> partialAggSplits;
+    std::vector<std::string> partialAggTaskIds;
     for (int i = 0; i < params.numDestinationTasks; i++) {
       auto taskId = makeTaskId(iteration, "partial-agg", i);
-      partialAggSplits.push_back(
-          exec::Split(std::make_shared<exec::RemoteConnectorSplit>(taskId)));
+      partialAggTaskIds.push_back(taskId);
       auto task = makeTask(taskId, partialAggPlan, i);
       tasks.push_back(task);
       task->start(params.numDriversPerTask);
@@ -157,18 +165,122 @@ class ExchangeFuzzer : public VectorTestBase {
                     .planNode();
 
     try {
-      exec::test::AssertQueryBuilder(plan)
-          .splits(partialAggSplits)
-          .assertResults(expected);
+      // Create the Task to do the final aggregation using a TaskCursor so we
+      // can inspect the results.
+      CursorParameters cursorParams;
+      cursorParams.planNode = plan;
+
+      auto cursor = TaskCursor::create(cursorParams);
+      cursor->start();
+
+      auto task = cursor->task();
+      tasks.push_back(task);
+      addRemoteSplits(task, partialAggTaskIds);
+
+      // Setup listeners for each Task that will abandon the other Tasks if the
+      // given Task fails.  This acts sort of like the Presto coordinator
+      // cleaning up the query if any portition of it fails.
+      for (const auto& otherTask : tasks) {
+        auto* taskPtr = otherTask.get();
+        otherTask->taskCompletionFuture(0)
+            .via(executor_.get())
+            .thenValue([&tasks, taskPtr](auto) {
+              VELOX_CHECK(!taskPtr->isRunning());
+
+              if (taskPtr->state() == TaskState::kFailed) {
+                for (const auto& taskToAbort : tasks) {
+                  taskToAbort->requestAbort();
+                }
+              }
+            });
+      }
+
+      ScopedOOMInjector oomInjector(
+          []() -> bool { return folly::Random::oneIn(10); },
+          10); // Check the condition every 10 ms.
+      if (FLAGS_enable_oom_injection) {
+        oomInjector.enable();
+      }
+
+      std::vector<RowVectorPtr> result;
+
+      while (cursor->moveNext()) {
+        result.push_back(cursor->current());
+      }
+
+      assertEqualResults({expected}, result);
+
       if (FLAGS_inject_failure) {
         VELOX_FAIL("Testing error");
       }
     } catch (const std::exception& e) {
-      LOG(ERROR) << "Terminating with error: " << e.what();
-      if (!FLAGS_replay.empty()) {
-        LOG(INFO) << "No replay saved since --replay is specified";
-        return false;
+      if (FLAGS_enable_oom_injection) {
+        // If we enabled OOM injection go through the tasks to see if any threw
+        // an exception other than the one we expect the ScopedOOMInjector to
+        // have thrown.  We log the first instance of an unexpected exception we
+        // find (this should be towards the top of the tree of Tasks).
+
+        if (const auto* veloxException =
+                dynamic_cast<const VeloxRuntimeError*>(&e)) {
+          const bool isInjectedOomException = veloxException->errorCode() ==
+                  facebook::velox::error_code::kMemCapExceeded &&
+              veloxException->message() == ScopedOOMInjector::kErrorMessage;
+          const bool isTaskAbortedException = veloxException->errorCode() ==
+                  facebook::velox::error_code::kInvalidState &&
+              veloxException->message() == "Aborted for external error";
+          // It's expected that execution of the final Task will either fail
+          // with the exception thrown by the ScopedOomInjector or the exception
+          // thrown when a Task is abandoned because an upstream Task failed
+          // with the exception thrown by the ScopedOomInjector.
+          // If the Task was abandoned because an upstream Task failed for a
+          // different reason, that will be handled in the for loop below.
+          if (!isInjectedOomException && !isTaskAbortedException) {
+            LOG(ERROR) << "Terminating with error: " << e.what();
+
+            saveRepro(vectors, params);
+            return false;
+          }
+        }
+
+        for (const auto& task : tasks) {
+          if (!waitForTaskCompletion(task.get(), 1'000'000)) {
+            if (task->state() == TaskState::kFailed) {
+              try {
+                std::rethrow_exception(task->error());
+              } catch (const std::exception& taskException) {
+                if (const auto* veloxException =
+                        dynamic_cast<const VeloxRuntimeError*>(
+                            &taskException)) {
+                  if (veloxException->errorCode() ==
+                          facebook::velox::error_code::kMemCapExceeded &&
+                      veloxException->message() ==
+                          ScopedOOMInjector::kErrorMessage) {
+                    // This is the expected exception from the
+                    // ScopedOOMInjector.
+                    continue;
+                  }
+                }
+
+                // This must be an unexpected exception.
+                LOG(ERROR) << "Task " << task->toString()
+                           << " failed with error " << taskException.what();
+                saveRepro(vectors, params);
+                return false;
+              }
+            }
+          } else {
+            VELOX_FAIL(
+                "Timed out waiting for task to complete, task: {}",
+                task->toString());
+          }
+        }
+
+        // All exceptions were expected.
+        return true;
       }
+
+      LOG(ERROR) << "Terminating with error: " << e.what();
+
       saveRepro(vectors, params);
       return false;
     }
@@ -312,6 +424,11 @@ class ExchangeFuzzer : public VectorTestBase {
 
  private:
   void saveRepro(const std::vector<RowVectorPtr>& vectors, Params params) {
+    if (!FLAGS_replay.empty()) {
+      LOG(INFO) << "No replay saved since --replay is specified";
+      return;
+    }
+
     auto filePath =
         fmt::format("{}/exchange_fuzzer_repro.{}", FLAGS_repro_path, getpid());
     std::ofstream out(filePath, std::ofstream::binary);
