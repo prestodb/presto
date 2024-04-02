@@ -131,8 +131,11 @@ class EntropyAggregate : public exec::Aggregate {
       if (!decodedRaw_.isNullAt(0)) {
         const T value = decodedRaw_.valueAt<T>(0);
         const auto numRows = rows.countSelected();
-        EntropyAccumulator accData(
-            numRows * value, numRows * value * std::log(value));
+        // The "sum" is the constant value times the number of rows.
+        // Use double to prevent overflows (this is the same as what is done in
+        // updateNonNullValue).
+        const auto sum = (double)numRows * (double)value;
+        EntropyAccumulator accData(sum, sum * std::log(value));
         updateNonNullValue(group, accData);
       }
     } else if (decodedRaw_.mayHaveNulls()) {
