@@ -43,8 +43,6 @@ class DecimalSumAggregate {
   /// default-null behavior is disabled.
   static constexpr bool default_null_behavior_ = false;
 
-  static constexpr bool aligned_accumulator_ = true;
-
   static bool toIntermediate(
       exec::out_type<Row<TSumType, bool>>& out,
       exec::optional_arg_type<TInputType> in) {
@@ -67,6 +65,8 @@ class DecimalSumAggregate {
     std::optional<int128_t> sum{0};
     int64_t overflow{0};
     bool isEmpty{true};
+
+    static constexpr bool is_aligned_ = true;
 
     AccumulatorType() = delete;
 
