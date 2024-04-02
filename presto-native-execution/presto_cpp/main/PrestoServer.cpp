@@ -19,6 +19,7 @@
 #include <glog/logging.h>
 #include "CoordinatorDiscoverer.h"
 #include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/LinuxCacheShrink.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
@@ -487,6 +488,7 @@ void PrestoServer::run() {
 
   auto* memoryAllocator = velox::memory::memoryManager()->allocator();
   auto* asyncDataCache = cache::AsyncDataCache::getInstance();
+  auto linuxShrink = std::make_shared<LinuxCacheShrink>();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       httpServer_->getExecutor(),
@@ -497,6 +499,7 @@ void PrestoServer::run() {
       this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
+  periodicTaskManager_->registerCacheShrink(linuxShrink);
   periodicTaskManager_->start();
 
   // Start everything. After the return from the following call we are shutting

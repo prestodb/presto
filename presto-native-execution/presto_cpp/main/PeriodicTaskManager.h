@@ -37,6 +37,28 @@ namespace facebook::presto {
 class TaskManager;
 class PrestoServer;
 
+/// Cache Shrink condition and shrink amount.
+class CacheShrink {
+ public:
+  virtual ~CacheShrink() = default;
+
+  void shrink() {
+    if (shrinkConditionFunc()) {
+      auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
+      asyncDataCache->shrink(shrinkAmount());
+    }
+  }
+
+  // Returns true if we should shrink.
+  virtual bool shrinkConditionFunc() = 0;
+
+  // Amount that we should shrink by in bytes
+  virtual unsigned long long shrinkAmount() = 0;
+
+  // How often we should check the system memory usage in microseconds.
+  virtual size_t interval() = 0;
+};
+
 /// Manages a set of periodic tasks via folly::FunctionScheduler.
 /// This is a place to add a new task or add more functionality to an existing
 /// one.
@@ -98,6 +120,9 @@ class PeriodicTaskManager {
   /// Stops all periodic tasks. Returns only when everything is stopped.
   void stop();
 
+  /// Register cache shrink function
+  bool registerCacheShrink(std::shared_ptr<CacheShrink> cacheShrinkP);
+
  private:
   void addExecutorStatsTask();
   void updateExecutorStats();
@@ -118,8 +143,6 @@ class PeriodicTaskManager {
   void updateCacheStats();
 
   void addCacheShrinkTask();
-
-  void runCacheShrink(bool (*shrinkConditionFunc)());
 
   void addConnectorStatsTask();
 
