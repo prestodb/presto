@@ -59,11 +59,6 @@ class CacheShrink {
   virtual size_t interval() = 0;
 };
 
-/// Register a cache shrink function. Returns true if
-/// function was successfully registered, false if function is already
-/// registered.
-bool registerCacheShrink(std::shared_ptr<CacheShrink> cacheShrink);
-
 /// Manages a set of periodic tasks via folly::FunctionScheduler.
 /// This is a place to add a new task or add more functionality to an existing
 /// one.
