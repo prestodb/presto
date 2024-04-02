@@ -770,7 +770,7 @@ public class HiveMetadata
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(
                     tableLayoutHandle.getPartitions().get().stream()
-                            .map(HivePartition::getPartitionId)
+                            .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toList()),
                     false));
         }
@@ -1508,7 +1508,7 @@ public class HiveMetadata
                 partitionValuesList = metastore.getPartitionNames(metastoreContext, handle.getSchemaName(), handle.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(((HiveTableHandle) tableHandle).getSchemaTableName()))
                         .stream()
-                        .map(MetastoreUtil::toPartitionValues)
+                        .map(partitionNameWithVersion -> MetastoreUtil.toPartitionValues(partitionNameWithVersion.getPartitionName()))
                         .collect(toImmutableList());
             }
 
@@ -1711,7 +1711,7 @@ public class HiveMetadata
         metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), false, tableStatistics, emptyList());
 
         if (handle.getPartitionedBy().isEmpty()) {
-            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID)));
+            return Optional.of(new HiveWrittenPartitions(ImmutableList.of(UNPARTITIONED_ID.getPartitionName())));
         }
 
         if (isRespectTableFormat(session)) {
@@ -2142,7 +2142,7 @@ public class HiveMetadata
         return Optional.of(new HiveWrittenPartitions(
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
-                        .map(name -> name.isEmpty() ? UNPARTITIONED_ID : name)
+                        .map(name -> name.isEmpty() ? UNPARTITIONED_ID.getPartitionName() : name)
                         .collect(toList())));
     }
 
@@ -2209,7 +2209,7 @@ public class HiveMetadata
 
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
-                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).entrySet().stream()
+                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, MetastoreUtil.getPartitionsWithEmptyVersion(partitionNames)).entrySet().stream()
                         .filter(entry -> entry.getValue().isPresent()))
                 .forEach(entry -> existingPartitions.put(entry.getKey(), entry.getValue()));
 
@@ -2512,7 +2512,7 @@ public class HiveMetadata
         }
         else {
             for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
-                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.get().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId()));
+                metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), table.get().getStorage().getLocation(), toPartitionValues(hivePartition.getPartitionId().getPartitionName()));
             }
         }
         // it is too expensive to determine the exact number of deleted rows
