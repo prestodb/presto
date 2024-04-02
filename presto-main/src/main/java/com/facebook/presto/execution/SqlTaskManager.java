@@ -301,6 +301,7 @@ public class SqlTaskManager
                 Thread.currentThread().interrupt();
             }
         }
+        driverYieldExecutor.shutdownNow();
         taskNotificationExecutor.shutdownNow();
     }
 
