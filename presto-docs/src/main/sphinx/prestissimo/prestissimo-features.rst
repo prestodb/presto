@@ -136,7 +136,7 @@ Async Data Cache and Prefetching
 --------------------------------
 
 ``connector.num-io-threads-hw-multiplier``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``double``
 * **Default value:** ``1.0``
@@ -163,7 +163,7 @@ Whether async data cache is enabled.
 Size of the SSD cache when async data cache is enabled.
 
 ``enable-old-task-cleanup``
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``bool``
 * **Default value:** ``true``
@@ -174,7 +174,7 @@ however for Presto on Spark this defaults to ``false`` as zombie/stuck tasks
 are handled by spark via speculative execution.
 
 ``old-task-cleanup-ms``
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type** ``integer``
 * **Default value:** ``60000``
