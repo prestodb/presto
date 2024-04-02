@@ -71,7 +71,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: cd  velox && source ./scripts/setup-ubuntu.sh
+        run: cd  velox && source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: "Build"
         run: |
@@ -181,7 +181,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download spark aggregation fuzzer
         uses: actions/download-artifact@v3
@@ -222,7 +222,7 @@ jobs:
           ref: "${{ inputs.ref || 'main' }}"
 
       - name: "Install dependencies"
-        run: source ./scripts/setup-ubuntu.sh
+        run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download join fuzzer
         uses: actions/download-artifact@v3

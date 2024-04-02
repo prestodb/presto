@@ -159,8 +159,7 @@ function install_apt_deps {
   install_velox_deps_from_apt
 }
 
-# For backward compatibility, invoke install_apt_deps
-(return 2> /dev/null) && install_apt_deps && return # If script was sourced, don't run commands.
+(return 2> /dev/null) && return # If script was sourced, don't run commands.
 
 (
   if [[ $# -ne 0 ]]; then

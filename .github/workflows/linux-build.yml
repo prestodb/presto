@@ -136,7 +136,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          source scripts/setup-ubuntu.sh
+          source scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Clear CCache Statistics
         run: |
