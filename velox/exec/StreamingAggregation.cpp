@@ -386,6 +386,8 @@ void StreamingAggregation::initializeAggregates(uint32_t numKeys) {
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
+        rowColumn.initializedByte(),
+        rowColumn.initializedMask(),
         rows_->rowSizeOffset());
     columnIndex++;
   }
@@ -397,6 +399,8 @@ void StreamingAggregation::initializeAggregates(uint32_t numKeys) {
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
+        rowColumn.initializedByte(),
+        rowColumn.initializedMask(),
         rows_->rowSizeOffset());
     columnIndex++;
   }
@@ -410,6 +414,8 @@ void StreamingAggregation::initializeAggregates(uint32_t numKeys) {
           rowColumn.offset(),
           rowColumn.nullByte(),
           rowColumn.nullMask(),
+          rowColumn.initializedByte(),
+          rowColumn.initializedMask(),
           rows_->rowSizeOffset());
       columnIndex++;
     }

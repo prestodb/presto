@@ -1186,7 +1186,7 @@ std::unique_ptr<exec::Aggregate> createAggregateFunction(
       finalType,
       queryConfig);
   func->setAllocator(&allocator);
-  func->setOffsets(kOffset, 0, 1, kRowSizeOffset);
+  func->setOffsets(kOffset, 0, 1, 0, 2, kRowSizeOffset);
 
   VELOX_CHECK(intermediateType->equivalent(
       *func->intermediateType(functionName, inputTypes)));

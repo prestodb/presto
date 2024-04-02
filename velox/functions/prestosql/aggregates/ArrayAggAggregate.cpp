@@ -91,14 +91,6 @@ class ArrayAggAggregate : public exec::Aggregate {
         loadedElements);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    for (auto index : indices) {
-      new (groups[index] + offset_) ArrayAccumulator();
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto vector = (*result)->as<ArrayVector>();
@@ -212,9 +204,20 @@ class ArrayAggAggregate : public exec::Aggregate {
     });
   }
 
-  void destroy(folly::Range<char**> groups) override {
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    for (auto index : indices) {
+      new (groups[index] + offset_) ArrayAccumulator();
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      value<ArrayAccumulator>(group)->elements.free(allocator_);
+      if (isInitialized(group)) {
+        value<ArrayAccumulator>(group)->elements.free(allocator_);
+      }
     }
   }
 

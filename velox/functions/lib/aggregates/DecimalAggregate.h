@@ -81,15 +81,6 @@ class DecimalAggregate : public exec::Aggregate {
     return static_cast<int32_t>(sizeof(int128_t));
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) LongDecimalWithOverflowState();
-    }
-  }
-
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -324,6 +315,16 @@ class DecimalAggregate : public exec::Aggregate {
     accumulator->overflow +=
         DecimalUtil::addWithOverflow(accumulator->sum, value, accumulator->sum);
     accumulator->count += 1;
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) LongDecimalWithOverflowState();
+    }
   }
 
  private:

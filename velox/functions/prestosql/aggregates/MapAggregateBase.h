@@ -37,16 +37,6 @@ class MapAggregateBase : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    const auto& type = resultType()->childAt(0);
-    for (auto index : indices) {
-      new (groups[index] + offset_) AccumulatorType(type, allocator_);
-    }
-    setAllNulls(groups, indices);
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto mapVector = (*result)->as<MapVector>();
@@ -105,13 +95,6 @@ class MapAggregateBase : public exec::Aggregate {
     addSingleGroupMapInputToAccumulator(group, rows, args, false);
   }
 
-  void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      auto accumulator = value<AccumulatorType>(group);
-      accumulator->free(*allocator_);
-    }
-  }
-
  protected:
   vector_size_t countElements(char** groups, int32_t numGroups) const {
     vector_size_t size = 0;
@@ -119,6 +102,15 @@ class MapAggregateBase : public exec::Aggregate {
       size += value<AccumulatorType>(groups[i])->size();
     }
     return size;
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      if (isInitialized(group)) {
+        auto accumulator = value<AccumulatorType>(group);
+        accumulator->free(*allocator_);
+      }
+    }
   }
 
   AccumulatorType* accumulator(char* group) {
@@ -193,6 +185,16 @@ class MapAggregateBase : public exec::Aggregate {
         }
       }
     });
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    const auto& type = resultType()->childAt(0);
+    for (auto index : indices) {
+      new (groups[index] + offset_) AccumulatorType(type, allocator_);
+    }
+    setAllNulls(groups, indices);
   }
 
   DecodedVector decodedKeys_;

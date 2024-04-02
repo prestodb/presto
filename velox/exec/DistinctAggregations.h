@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateInfo.h"
 #include "velox/exec/RowContainer.h"
@@ -49,16 +50,31 @@ class DistinctAggregations {
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t initializedByte,
+      uint8_t initializedMask,
       int32_t rowSizeOffset) {
     offset_ = offset;
     nullByte_ = nullByte;
     nullMask_ = nullMask;
+    initializedByte_ = initializedByte;
+    initializedMask_ = initializedMask;
     rowSizeOffset_ = rowSizeOffset;
   }
 
-  virtual void initializeNewGroups(
+  // Initializes null flags and accumulators for newly encountered groups.  This
+  // function should be called only once for each group.
+  //
+  // @param groups Pointers to the start of the new group rows.
+  // @param indices Indices into 'groups' of the new entries.
+  void initializeNewGroups(
       char** groups,
-      folly::Range<const vector_size_t*> indices) = 0;
+      folly::Range<const vector_size_t*> indices) {
+    initializeNewGroupsInternal(groups, indices);
+
+    for (auto index : indices) {
+      groups[index][initializedByte_] |= initializedMask_;
+    }
+  }
 
   virtual void addInput(
       char** groups,
@@ -76,10 +92,21 @@ class DistinctAggregations {
       const RowVectorPtr& result) = 0;
 
  protected:
+  // Initializes null flags and accumulators for newly encountered groups.  This
+  // function should be called only once for each group.
+  //
+  // @param groups Pointers to the start of the new group rows.
+  // @param indices Indices into 'groups' of the new entries.
+  virtual void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) = 0;
+
   HashStringAllocator* allocator_;
   int32_t offset_;
   int32_t nullByte_;
   uint8_t nullMask_;
+  int32_t initializedByte_;
+  uint8_t initializedMask_;
   int32_t rowSizeOffset_;
 };
 

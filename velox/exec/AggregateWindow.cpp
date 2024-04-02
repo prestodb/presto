@@ -75,8 +75,8 @@ class AggregateWindowFunction : public exec::WindowFunction {
     //
     // Here we always make space for a row size since we only have one
     // row and no RowContainer. We also have a single aggregate here, so there
-    // is only one null bit.
-    static const int32_t kNullOffset = 0;
+    // is only one null bit and one initialized bit.
+    static const int32_t kAccumulatorFlagsOffset = 0;
     static const int32_t kRowSizeOffset = bits::nbytes(1);
     singleGroupRowSize_ = kRowSizeOffset + sizeof(int32_t);
     // Accumulator offset must be aligned by their alignment size.
@@ -84,8 +84,10 @@ class AggregateWindowFunction : public exec::WindowFunction {
         singleGroupRowSize_, aggregate_->accumulatorAlignmentSize());
     aggregate_->setOffsets(
         singleGroupRowSize_,
-        exec::RowContainer::nullByte(kNullOffset),
-        exec::RowContainer::nullMask(kNullOffset),
+        exec::RowContainer::nullByte(kAccumulatorFlagsOffset),
+        exec::RowContainer::nullMask(kAccumulatorFlagsOffset),
+        exec::RowContainer::initializedByte(kAccumulatorFlagsOffset),
+        exec::RowContainer::initializedMask(kAccumulatorFlagsOffset),
         /* needed for out of line allocations */ kRowSizeOffset);
     singleGroupRowSize_ += aggregate_->accumulatorFixedWidthSize();
 

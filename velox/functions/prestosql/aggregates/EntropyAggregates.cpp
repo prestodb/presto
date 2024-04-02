@@ -85,15 +85,6 @@ class EntropyAggregate : public exec::Aggregate {
     return sizeof(EntropyAccumulator);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) EntropyAccumulator();
-    }
-  }
-
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -288,6 +279,15 @@ class EntropyAggregate : public exec::Aggregate {
  protected:
   inline EntropyAccumulator* accumulator(char* group) {
     return exec::Aggregate::value<EntropyAccumulator>(group);
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) EntropyAccumulator();
+    }
   }
 
  private:

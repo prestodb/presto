@@ -55,16 +55,6 @@ class FirstLastAggregateBase
     return 1;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    Aggregate::setAllNulls(groups, indices);
-
-    for (auto i : indices) {
-      new (groups[i] + Aggregate::offset_) TAccumulator();
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     if constexpr (numeric) {
@@ -112,19 +102,6 @@ class FirstLastAggregateBase
     }
   }
 
-  void destroy(folly::Range<char**> groups) override {
-    if constexpr (!numeric) {
-      for (auto group : groups) {
-        auto accumulator = Aggregate::value<TAccumulator>(group);
-        // If ignoreNull is true and groups are all null, accumulator will not
-        // set.
-        if (accumulator->has_value()) {
-          accumulator->value().destroy(Aggregate::allocator_);
-        }
-      }
-    }
-  }
-
  protected:
   void decodeIntermediateRows(
       const SelectivityVector& rows,
@@ -138,6 +115,31 @@ class FirstLastAggregateBase
         2,
         "intermediate results must have 2 children");
     this->decodedValue_.decode(*rowVector->childAt(0), rows);
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    Aggregate::setAllNulls(groups, indices);
+
+    for (auto i : indices) {
+      new (groups[i] + Aggregate::offset_) TAccumulator();
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    if constexpr (!numeric) {
+      for (auto group : groups) {
+        if (BaseAggregate::isInitialized(group)) {
+          auto accumulator = Aggregate::value<TAccumulator>(group);
+          // If ignoreNull is true and groups are all null, accumulator will not
+          // set.
+          if (accumulator->has_value()) {
+            accumulator->value().destroy(Aggregate::allocator_);
+          }
+        }
+      }
+    }
   }
 
   DecodedVector decodedValue_;

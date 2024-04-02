@@ -83,15 +83,6 @@ class AverageAggregateBase : public exec::Aggregate {
     return sizeof(SumCount<TAccumulator>);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) SumCount<TAccumulator>();
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto vector = (*result)->as<FlatVector<TResult>>();
@@ -382,6 +373,15 @@ class AverageAggregateBase : public exec::Aggregate {
         totalSum += baseSumDecoded.template valueAt<TAccumulator>(decodedIndex);
       });
       updateNonNullValue(group, totalCount, totalSum);
+    }
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) SumCount<TAccumulator>();
     }
   }
 

@@ -76,15 +76,6 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) BloomFilterAccumulator(allocator_);
-    }
-  }
-
   static FOLLY_ALWAYS_INLINE void checkBloomFilterNotNull(
       DecodedVector& decoded,
       vector_size_t idx) {
@@ -203,6 +194,16 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     extractValues(groups, numGroups, result);
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) BloomFilterAccumulator(allocator_);
+    }
   }
 
  private:

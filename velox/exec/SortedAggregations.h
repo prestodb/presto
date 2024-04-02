@@ -54,10 +54,14 @@ class SortedAggregations {
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t initializedByte,
+      uint8_t initializedMask,
       int32_t rowSizeOffset) {
     offset_ = offset;
     nullByte_ = nullByte;
     nullMask_ = nullMask;
+    initializedByte_ = initializedByte;
+    initializedMask_ = initializedMask;
     rowSizeOffset_ = rowSizeOffset;
   }
 
@@ -154,6 +158,8 @@ class SortedAggregations {
   int32_t offset_;
   int32_t nullByte_;
   uint8_t nullMask_;
+  int32_t initializedByte_;
+  uint8_t initializedMask_;
   int32_t rowSizeOffset_;
 };
 

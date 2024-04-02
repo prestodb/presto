@@ -194,15 +194,6 @@ class SimpleAggregateAdapter : public Aggregate {
     return Aggregate::accumulatorAlignmentSize();
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) typename FUNC::AccumulatorType(allocator_);
-    }
-  }
-
   // Add raw input to accumulators. If the simple aggregation function has
   // default null behavior, input rows that has nulls are skipped. Otherwise,
   // the accumulator type's addInput() method handles null inputs.
@@ -353,16 +344,27 @@ class SimpleAggregateAdapter : public Aggregate {
     writer.finish();
   }
 
-  void destroy(folly::Range<char**> groups) override {
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) typename FUNC::AccumulatorType(allocator_);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
     if constexpr (accumulator_custom_destroy_) {
       for (auto group : groups) {
         auto accumulator = value<typename FUNC::AccumulatorType>(group);
-        if (!isNull(group)) {
+        if (isInitialized(group) && !isNull(group)) {
           accumulator->destroy(allocator_);
         }
       }
+    } else {
+      destroyAccumulators<typename FUNC::AccumulatorType>(groups);
     }
-    destroyAccumulators<typename FUNC::AccumulatorType>(groups);
   }
 
  private:

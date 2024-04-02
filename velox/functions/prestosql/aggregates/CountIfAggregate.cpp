@@ -33,14 +33,6 @@ class CountIfAggregate : public exec::Aggregate {
     return sizeof(int64_t);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    for (auto i : indices) {
-      *value<int64_t>(groups[i]) = 0;
-    }
-  }
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     extractValues(groups, numGroups, result);
@@ -160,6 +152,15 @@ class CountIfAggregate : public exec::Aggregate {
     rows.applyToSelected([&](auto row) { numTrue += arg->valueAt(row); });
 
     addToGroup(group, numTrue);
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    for (auto i : indices) {
+      *value<int64_t>(groups[i]) = 0;
+    }
   }
 
  private:

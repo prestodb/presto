@@ -61,10 +61,6 @@ class AggregateFunc : public Aggregate {
     return Aggregate::isNull(group);
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/) override {}
-
   void addRawInput(
       char** /*groups*/,
       const SelectivityVector& /*rows*/,
@@ -98,6 +94,11 @@ class AggregateFunc : public Aggregate {
       char** /*groups*/,
       int32_t /*numGroups*/,
       VectorPtr* /*result*/) override {}
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {}
 };
 
 void checkSpillStats(PlanNodeStats& stats, bool expectedSpill) {
@@ -673,11 +674,13 @@ TEST_F(AggregationTest, aggregateOfNulls) {
 // Verify behavior of setNull method.
 TEST_F(AggregationTest, setNull) {
   AggregateFunc aggregate(BIGINT());
-  int32_t nullOffset = 0;
+  int32_t accumulatorFlagsOffset = 0;
   aggregate.setOffsets(
       0,
-      RowContainer::nullByte(nullOffset),
-      RowContainer::nullMask(nullOffset),
+      RowContainer::nullByte(accumulatorFlagsOffset),
+      RowContainer::nullMask(accumulatorFlagsOffset),
+      RowContainer::initializedByte(accumulatorFlagsOffset),
+      RowContainer::initializedMask(accumulatorFlagsOffset),
       0);
   char group{0};
   aggregate.clearNullTest(&group);
@@ -3549,4 +3552,120 @@ TEST_F(AggregationTest, ignoreOrderBy) {
   AssertQueryBuilder(plan, duckDbQueryRunner_)
       .assertResults("SELECT c0, sum(c1), avg(c1) FROM tmp GROUP BY 1");
 }
+
+class TestAccumulator {
+ public:
+  ~TestAccumulator() {
+    VELOX_FAIL("Destructor should not be called.");
+  }
+};
+
+class TestAggregate : public Aggregate {
+ public:
+  explicit TestAggregate(TypePtr resultType) : Aggregate(resultType) {}
+
+  void addRawInput(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void extractValues(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void addIntermediateResults(
+      char** /*groups*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void addSingleGroupRawInput(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void addSingleGroupIntermediateResults(
+      char* /*group*/,
+      const SelectivityVector& /*rows*/,
+      const std::vector<VectorPtr>& /*args*/,
+      bool /*mayPushdown*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void extractAccumulators(
+      char** /*groups*/,
+      int32_t /*numGroups*/,
+      VectorPtr* /*result*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  int32_t accumulatorFixedWidthSize() const override {
+    return sizeof(TestAccumulator);
+  }
+
+  bool destroyCalled = false;
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {
+    VELOX_UNSUPPORTED("This shouldn't get called.");
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    destroyCalled = true;
+    destroyAccumulators<TestAccumulator>(groups);
+  }
+};
+
+TEST_F(AggregationTest, destroyAfterPartialInitialization) {
+  TestAggregate agg(INTEGER());
+
+  Accumulator accumulator(
+      true, // isFixedSize
+      sizeof(TestAccumulator), // fixedSize
+      true, // usesExternalMemory, this is set to force RowContainer.clear() to
+            // call eraseRows.
+      1, // alignment
+      INTEGER(), // spillType,
+      [](folly::Range<char**>, VectorPtr&) {
+        VELOX_UNSUPPORTED("This shouldn't get called.");
+      },
+      [&agg](folly::Range<char**> groups) { agg.destroy(groups); });
+
+  RowContainer rows(
+      {}, // keyTypes
+      false, // nullableKeys
+      {accumulator},
+      {}, // dependentTypes
+      false, // hasNext
+      false, // isJoinBuild
+      false, // hasProbedFlag
+      false, // hasNormalizedKeys
+      pool());
+  const auto rowColumn = rows.columnAt(0);
+  agg.setOffsets(
+      rowColumn.offset(),
+      rowColumn.nullByte(),
+      rowColumn.nullMask(),
+      rowColumn.initializedByte(),
+      rowColumn.initializedMask(),
+      rows.rowSizeOffset());
+  rows.newRow();
+  rows.clear();
+
+  ASSERT_TRUE(agg.destroyCalled);
+}
+
 } // namespace facebook::velox::exec::test

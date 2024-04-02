@@ -48,15 +48,6 @@ class SumDataSizeForStatsAggregate
     });
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto index : indices) {
-      *BaseAggregate ::value<int64_t>(groups[index]) = 0;
-    }
-  }
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     // Partial and final aggregations are the same.
@@ -170,6 +161,15 @@ class SumDataSizeForStatsAggregate
     rows.applyToSelected([&](auto row) {
       updateOneAccumulator(group, row, rowSizes_[sizeIndex++]);
     });
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto index : indices) {
+      *BaseAggregate ::value<int64_t>(groups[index]) = 0;
+    }
   }
 
  private:

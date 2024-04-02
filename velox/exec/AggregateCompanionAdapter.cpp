@@ -27,8 +27,16 @@ void AggregateCompanionFunctionBase::setOffsetsInternal(
     int32_t offset,
     int32_t nullByte,
     uint8_t nullMask,
+    int32_t initializedByte,
+    uint8_t initializedMask,
     int32_t rowSizeOffset) {
-  fn_->setOffsets(offset, nullByte, nullMask, rowSizeOffset);
+  fn_->setOffsets(
+      offset,
+      nullByte,
+      nullMask,
+      initializedByte,
+      initializedMask,
+      rowSizeOffset);
 }
 
 int32_t AggregateCompanionFunctionBase::accumulatorFixedWidthSize() const {
@@ -56,11 +64,22 @@ void AggregateCompanionFunctionBase::destroy(folly::Range<char**> groups) {
   fn_->destroy(groups);
 }
 
+void AggregateCompanionFunctionBase::destroyInternal(
+    folly::Range<char**> groups) {
+  fn_->destroy(groups);
+}
+
 void AggregateCompanionFunctionBase::clearInternal() {
   fn_->clear();
 }
 
 void AggregateCompanionFunctionBase::initializeNewGroups(
+    char** groups,
+    folly::Range<const vector_size_t*> indices) {
+  fn_->initializeNewGroups(groups, indices);
+}
+
+void AggregateCompanionFunctionBase::initializeNewGroupsInternal(
     char** groups,
     folly::Range<const vector_size_t*> indices) {
   fn_->initializeNewGroups(groups, indices);
@@ -154,6 +173,8 @@ int32_t AggregateCompanionAdapter::ExtractFunction::setOffset() const {
       offset,
       RowContainer::nullByte(0),
       RowContainer::nullMask(0),
+      RowContainer::initializedByte(0),
+      RowContainer::initializedMask(0),
       rowSizeOffset);
   return offset;
 }

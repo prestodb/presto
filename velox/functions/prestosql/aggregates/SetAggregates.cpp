@@ -38,16 +38,6 @@ class SetBaseAggregate : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    const auto& type = resultType()->childAt(0);
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) AccumulatorType(type, allocator_);
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto arrayVector = (*result)->as<ArrayVector>();
@@ -118,14 +108,6 @@ class SetBaseAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     addSingleGroupIntermediateResultsInt(group, rows, args, false);
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    for (auto* group : groups) {
-      if (!isNull(group)) {
-        value(group)->free(*allocator_);
-      }
-    }
   }
 
  protected:
@@ -200,6 +182,24 @@ class SetBaseAggregate : public exec::Aggregate {
             *baseArray, decodedIndex, decodedElements_, allocator_);
       }
     });
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    const auto& type = resultType()->childAt(0);
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) AccumulatorType(type, allocator_);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    for (auto* group : groups) {
+      if (isInitialized(group) && !isNull(group)) {
+        value(group)->free(*allocator_);
+      }
+    }
   }
 
   DecodedVector decoded_;

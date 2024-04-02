@@ -322,6 +322,8 @@ void initializeAggregates(
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
+        rowColumn.initializedByte(),
+        rowColumn.initializedMask(),
         rows.rowSizeOffset());
     ++i;
   }
@@ -373,6 +375,8 @@ void GroupingSet::createHashTable() {
         rowColumn.offset(),
         rowColumn.nullByte(),
         rowColumn.nullMask(),
+        rowColumn.initializedByte(),
+        rowColumn.initializedMask(),
         rows.rowSizeOffset());
 
     ++numColumns;
@@ -387,6 +391,8 @@ void GroupingSet::createHashTable() {
           rowColumn.offset(),
           rowColumn.nullByte(),
           rowColumn.nullMask(),
+          rowColumn.initializedByte(),
+          rowColumn.initializedMask(),
           rows.rowSizeOffset());
       ++numColumns;
     }
@@ -416,7 +422,7 @@ void GroupingSet::initializeGlobalAggregation() {
   // requirements of all aggregate functions are satisfied.
   int32_t rowSizeOffset = bits::nbytes(aggregates_.size());
   int32_t offset = rowSizeOffset + sizeof(int32_t);
-  int32_t nullOffset = 0;
+  int32_t accumulatorFlagsOffset = 0;
   int32_t alignment = 1;
 
   for (auto& aggregate : aggregates_) {
@@ -431,12 +437,14 @@ void GroupingSet::initializeGlobalAggregation() {
     function->setAllocator(&stringAllocator_);
     function->setOffsets(
         offset,
-        RowContainer::nullByte(nullOffset),
-        RowContainer::nullMask(nullOffset),
+        RowContainer::nullByte(accumulatorFlagsOffset),
+        RowContainer::nullMask(accumulatorFlagsOffset),
+        RowContainer::initializedByte(accumulatorFlagsOffset),
+        RowContainer::initializedMask(accumulatorFlagsOffset),
         rowSizeOffset);
 
     offset += accumulator.fixedWidthSize();
-    ++nullOffset;
+    accumulatorFlagsOffset += RowContainer::kNumAccumulatorFlags;
     alignment =
         RowContainer::combineAlignments(accumulator.alignment(), alignment);
   }
@@ -449,12 +457,14 @@ void GroupingSet::initializeGlobalAggregation() {
     sortedAggregations_->setAllocator(&stringAllocator_);
     sortedAggregations_->setOffsets(
         offset,
-        RowContainer::nullByte(nullOffset),
-        RowContainer::nullMask(nullOffset),
+        RowContainer::nullByte(accumulatorFlagsOffset),
+        RowContainer::nullMask(accumulatorFlagsOffset),
+        RowContainer::initializedByte(accumulatorFlagsOffset),
+        RowContainer::initializedMask(accumulatorFlagsOffset),
         rowSizeOffset);
 
     offset += accumulator.fixedWidthSize();
-    ++nullOffset;
+    accumulatorFlagsOffset += RowContainer::kNumAccumulatorFlags;
     alignment =
         RowContainer::combineAlignments(accumulator.alignment(), alignment);
   }
@@ -468,12 +478,14 @@ void GroupingSet::initializeGlobalAggregation() {
       aggregation->setAllocator(&stringAllocator_);
       aggregation->setOffsets(
           offset,
-          RowContainer::nullByte(nullOffset),
-          RowContainer::nullMask(nullOffset),
+          RowContainer::nullByte(accumulatorFlagsOffset),
+          RowContainer::nullMask(accumulatorFlagsOffset),
+          RowContainer::initializedByte(accumulatorFlagsOffset),
+          RowContainer::initializedMask(accumulatorFlagsOffset),
           rowSizeOffset);
 
       offset += accumulator.fixedWidthSize();
-      ++nullOffset;
+      accumulatorFlagsOffset += RowContainer::kNumAccumulatorFlags;
       alignment =
           RowContainer::combineAlignments(accumulator.alignment(), alignment);
     }

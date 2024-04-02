@@ -559,15 +559,6 @@ class CovarianceAggregate : public exec::Aggregate {
     return sizeof(TAccumulator);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) TAccumulator();
-    }
-  }
-
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -711,6 +702,16 @@ class CovarianceAggregate : public exec::Aggregate {
         clearNull(rawNulls, i);
         covarResult.set(i, *accumulator(group));
       }
+    }
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) TAccumulator();
     }
   }
 

@@ -46,22 +46,6 @@ class SumNonPODAggregate : public Aggregate {
     return true;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const velox::vector_size_t*> indices) override {
-    for (auto i : indices) {
-      char* group = value<char>(groups[i]);
-      VELOX_CHECK_EQ(reinterpret_cast<uintptr_t>(group) % alignment_, 0);
-      new (group) NonPODInt64(0);
-    }
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      value<NonPODInt64>(group)->~NonPODInt64();
-    }
-  }
-
   void extractAccumulators(
       char** groups,
       int32_t numGroups,
@@ -132,6 +116,25 @@ class SumNonPODAggregate : public Aggregate {
       const std::vector<velox::VectorPtr>& args,
       bool mayPushdown) override {
     addSingleGroupIntermediateResults(group, rows, args, mayPushdown);
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const velox::vector_size_t*> indices) override {
+    for (auto i : indices) {
+      char* group = value<char>(groups[i]);
+      VELOX_CHECK_EQ(reinterpret_cast<uintptr_t>(group) % alignment_, 0);
+      new (group) NonPODInt64(0);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      if (isInitialized(group)) {
+        value<NonPODInt64>(group)->~NonPODInt64();
+      }
+    }
   }
 
  private:

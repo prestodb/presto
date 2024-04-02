@@ -120,15 +120,6 @@ class MaxAggregate : public MinMaxAggregate<T> {
  public:
   explicit MaxAggregate(TypePtr resultType) : MinMaxAggregate<T>(resultType) {}
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
-    }
-  }
-
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -191,6 +182,16 @@ class MaxAggregate : public MinMaxAggregate<T> {
     addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
+    }
+  }
+
  private:
   static const T kInitialValue_;
 };
@@ -204,15 +205,6 @@ class MinAggregate : public MinMaxAggregate<T> {
 
  public:
   explicit MinAggregate(TypePtr resultType) : MinMaxAggregate<T>(resultType) {}
-
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
-    }
-  }
 
   void addRawInput(
       char** groups,
@@ -272,6 +264,16 @@ class MinAggregate : public MinMaxAggregate<T> {
     addSingleGroupRawInput(group, rows, args, mayPushdown);
   }
 
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      *exec::Aggregate::value<T>(groups[i]) = kInitialValue_;
+    }
+  }
+
  private:
   static const T kInitialValue_;
 };
@@ -288,15 +290,6 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
 
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(SingleValueAccumulator);
-  }
-
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) SingleValueAccumulator();
-    }
   }
 
   bool supportsToIntermediate() const override {
@@ -367,12 +360,6 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     extractValues(groups, numGroups, result);
   }
 
-  void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      value<SingleValueAccumulator>(group)->destroy(allocator_);
-    }
-  }
-
  protected:
   template <typename TCompareTest>
   void doUpdate(
@@ -439,6 +426,23 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
         accumulator->write(baseVector, indices[i], allocator_);
       }
     });
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) SingleValueAccumulator();
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      if (isInitialized(group)) {
+        value<SingleValueAccumulator>(group)->destroy(allocator_);
+      }
+    }
   }
 
  private:
@@ -624,7 +628,7 @@ class MinMaxNAggregateBase : public exec::Aggregate {
     return sizeof(AccumulatorType);
   }
 
-  void initializeNewGroups(
+  void initializeNewGroupsInternal(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
@@ -747,7 +751,7 @@ class MinMaxNAggregateBase : public exec::Aggregate {
     extractValues(groups, numGroups, rawOffsets, rawSizes, rawValues, rawNs);
   }
 
-  void destroy(folly::Range<char**> groups) override {
+  void destroyInternal(folly::Range<char**> groups) override {
     destroyAccumulators<AccumulatorType>(groups);
   }
 

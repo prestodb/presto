@@ -62,7 +62,8 @@ class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
     extractValues(groups, numGroups, result);
   }
 
-  void initializeNewGroups(
+ protected:
+  void initializeNewGroupsInternal(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
     setAllNulls(groups, indices);
@@ -71,7 +72,6 @@ class BoolAndOrAggregate : public SimpleNumericAggregate<bool, bool, bool> {
     }
   }
 
- protected:
   const bool initialValue_;
 };
 

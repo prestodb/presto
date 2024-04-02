@@ -186,15 +186,6 @@ class MapUnionSumAggregate : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto index : indices) {
-      new (groups[index] + offset_) AccumulatorType{allocator_};
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto mapVector = (*result)->as<MapVector>();
@@ -290,10 +281,20 @@ class MapUnionSumAggregate : public exec::Aggregate {
     addSingleGroupRawInput(group, rows, args, false);
   }
 
-  void destroy(folly::Range<char**> groups) override {
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto index : indices) {
+      new (groups[index] + offset_) AccumulatorType{allocator_};
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
     if constexpr (std::is_same_v<K, StringView>) {
       for (auto* group : groups) {
-        if (!isNull(group)) {
+        if (isInitialized(group) && !isNull(group)) {
           value<AccumulatorType>(group)->strings.free(*allocator_);
         }
       }

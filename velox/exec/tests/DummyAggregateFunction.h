@@ -28,10 +28,6 @@ class DummyDicitonaryFunction : public exec::Aggregate {
     return 0;
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/) override {}
-
   void addRawInput(
       char** /*groups*/,
       const SelectivityVector& /*rows*/,
@@ -65,6 +61,11 @@ class DummyDicitonaryFunction : public exec::Aggregate {
       char** /*groups*/,
       int32_t /*numGroups*/,
       VectorPtr* /*result*/) override {}
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {}
 };
 
 AggregateRegistrationResult registerDummyAggregateFunction(

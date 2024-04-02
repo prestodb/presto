@@ -34,10 +34,6 @@ class AggregateFunc : public Aggregate {
     return 0;
   }
 
-  void initializeNewGroups(
-      char** /*groups*/,
-      folly::Range<const vector_size_t*> /*indices*/) override {}
-
   void addRawInput(
       char** /*groups*/,
       const SelectivityVector& /*rows*/,
@@ -93,6 +89,11 @@ class AggregateFunc : public Aggregate {
     };
     return signatures;
   }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** /*groups*/,
+      folly::Range<const vector_size_t*> /*indices*/) override {}
 };
 
 bool registerAggregateFunc(const std::string& name, bool overwrite = false) {

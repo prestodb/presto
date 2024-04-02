@@ -56,20 +56,6 @@ class TypedDistinctAggregations : public DistinctAggregations {
         }};
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    for (auto i : indices) {
-      groups[i][nullByte_] |= nullMask_;
-      new (groups[i] + offset_) AccumulatorType(inputType_, allocator_);
-    }
-
-    for (auto i = 0; i < aggregates_.size(); ++i) {
-      const auto& aggregate = *aggregates_[i];
-      aggregate.function->initializeNewGroups(groups, indices);
-    }
-  }
-
   void addInput(
       char** groups,
       const RowVectorPtr& input,
@@ -145,6 +131,21 @@ class TypedDistinctAggregations : public DistinctAggregations {
           groups.data(),
           folly::Range<const int32_t*>(
               iota(groups.size(), temp), groups.size()));
+    }
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    for (auto i : indices) {
+      groups[i][nullByte_] |= nullMask_;
+      new (groups[i] + offset_) AccumulatorType(inputType_, allocator_);
+    }
+
+    for (auto i = 0; i < aggregates_.size(); ++i) {
+      const auto& aggregate = *aggregates_[i];
+      aggregate.function->initializeNewGroups(groups, indices);
     }
   }
 

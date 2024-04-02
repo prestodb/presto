@@ -148,16 +148,6 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      auto group = groups[i];
-      new (group + offset_) HllAccumulator(allocator_);
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     if (hllAsFinalResult_) {
@@ -203,10 +193,6 @@ class ApproxDistinctAggregate : public exec::Aggregate {
           }
           result->setNoCopy(index, serialized);
         });
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    destroyAccumulators<HllAccumulator>(groups);
   }
 
   void addRawInput(
@@ -305,6 +291,21 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       auto accumulator = value<HllAccumulator>(group);
       accumulator->mergeWith(serialized, allocator_);
     });
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      auto group = groups[i];
+      new (group + offset_) HllAccumulator(allocator_);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    destroyAccumulators<HllAccumulator>(groups);
   }
 
  private:

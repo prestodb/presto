@@ -301,6 +301,8 @@ TEST_F(SimpleArrayAggAggregationTest, trackRowSize) {
         offset,
         RowContainer::nullByte(0),
         RowContainer::nullMask(0),
+        RowContainer::initializedByte(0),
+        RowContainer::initializedMask(0),
         rowSizeOffset);
 
     // Make two groups for odd and even rows.

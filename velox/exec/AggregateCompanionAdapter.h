@@ -74,11 +74,19 @@ class AggregateCompanionFunctionBase : public Aggregate {
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t initializedByte,
+      uint8_t initializedMask,
       int32_t rowSizeOffset) override final;
 
   void setAllocatorInternal(HashStringAllocator* allocator) override final;
 
   void clearInternal() override final;
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override final;
+
+  void destroyInternal(folly::Range<char**> groups) override final;
 
   std::unique_ptr<Aggregate> fn_;
 };

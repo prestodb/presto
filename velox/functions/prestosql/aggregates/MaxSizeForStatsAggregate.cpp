@@ -56,15 +56,6 @@ class MaxSizeForStatsAggregate
     });
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *BaseAggregate ::value<int64_t>(groups[i]) = 0;
-    }
-  }
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     // Partial and final aggregations are the same.
@@ -198,6 +189,15 @@ class MaxSizeForStatsAggregate
       rows.applyToSelected([&](auto row) {
         updateOneAccumulator(group, row, elementSizes_[sizeIndex++]);
       });
+    }
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      *BaseAggregate ::value<int64_t>(groups[i]) = 0;
     }
   }
 };

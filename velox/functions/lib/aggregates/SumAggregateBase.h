@@ -43,15 +43,6 @@ class SumAggregateBase
     return 1;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      *exec::Aggregate::value<TAccumulator>(groups[i]) = 0;
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     BaseAggregate::template doExtractValues<ResultType>(
@@ -144,6 +135,15 @@ class SumAggregateBase
     } else {
       BaseAggregate::template updateGroups<false, TData, TValue>(
           groups, rows, arg, &updateSingleValue<TData>, false);
+    }
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      *exec::Aggregate::value<TAccumulator>(groups[i]) = 0;
     }
   }
 

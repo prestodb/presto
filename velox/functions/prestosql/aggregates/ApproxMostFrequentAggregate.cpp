@@ -72,18 +72,6 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     return sizeof(Accumulator<T>);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    for (auto index : indices) {
-      new (groups[index] + offset_) Accumulator<T>(allocator_);
-    }
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    destroyAccumulators<Accumulator<T>>(groups);
-  }
-
   void addRawInput(
       char** groups,
       const SelectivityVector& rows,
@@ -216,6 +204,19 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
         entryCount += summary->size();
       }
     }
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    for (auto index : indices) {
+      new (groups[index] + offset_) Accumulator<T>(allocator_);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    destroyAccumulators<Accumulator<T>>(groups);
   }
 
  private:

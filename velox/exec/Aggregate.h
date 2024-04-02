@@ -105,6 +105,10 @@ class Aggregate {
   // @param offset Offset in bytes from the start of the row of the accumulator
   // @param nullByte Offset in bytes from the start of the row of the null flag
   // @param nullMask The specific bit in the nullByte that stores the null flag
+  // @param initializedByte Offset in bytes from the start of the row of the
+  // initialized flag
+  // @param initializedMask The specific bit in the initializedByte that stores
+  // the initialized flag
   // @param rowSizeOffset The offset of a uint32_t row size from the start of
   // the row. Only applies to accumulators that store variable size data out of
   // line. Fixed length accumulators do not use this. 0 if the row does not have
@@ -113,8 +117,16 @@ class Aggregate {
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t initializedByte,
+      int8_t initializedMask,
       int32_t rowSizeOffset) {
-    setOffsetsInternal(offset, nullByte, nullMask, rowSizeOffset);
+    setOffsetsInternal(
+        offset,
+        nullByte,
+        nullMask,
+        initializedByte,
+        initializedMask,
+        rowSizeOffset);
   }
 
   // Initializes null flags and accumulators for newly encountered groups.  This
@@ -124,7 +136,13 @@ class Aggregate {
   // @param indices Indices into 'groups' of the new entries.
   virtual void initializeNewGroups(
       char** groups,
-      folly::Range<const vector_size_t*> indices) = 0;
+      folly::Range<const vector_size_t*> indices) {
+    initializeNewGroupsInternal(groups, indices);
+
+    for (auto index : indices) {
+      groups[index][initializedByte_] |= initializedMask_;
+    }
+  }
 
   // Single Aggregate instance is able to take both raw data and
   // intermediate result as input based on the assumption that Partial
@@ -242,8 +260,14 @@ class Aggregate {
   }
 
   // Frees any out of line storage for the accumulator in
-  // 'groups'. No-op for fixed length accumulators.
-  virtual void destroy(folly::Range<char**> /*groups*/) {}
+  // 'groups' and marks the aggregate as uninitialized.
+  virtual void destroy(folly::Range<char**> groups) {
+    destroyInternal(groups);
+
+    for (auto* group : groups) {
+      group[initializedByte_] &= ~initializedMask_;
+    }
+  }
 
   // Clears state between reuses, e.g. this is called before reusing
   // the aggregation operator's state after flushing a partial
@@ -294,9 +318,24 @@ class Aggregate {
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t initializedByte,
+      uint8_t initializedMask,
       int32_t rowSizeOffset);
 
   virtual void clearInternal();
+
+  // Initializes null flags and accumulators for newly encountered groups.  This
+  // function should be called only once for each group.
+  //
+  // @param groups Pointers to the start of the new group rows.
+  // @param indices Indices into 'groups' of the new entries.
+  virtual void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) = 0;
+
+  // Frees any out of line storage for the accumulator in
+  // 'groups'. No-op for fixed length accumulators.
+  virtual void destroyInternal(folly::Range<char**> groups) {}
 
   // Shorthand for maintaining accumulator variable length size in
   // accumulator update methods. Use like: { auto tracker =
@@ -308,6 +347,10 @@ class Aggregate {
 
   bool isNull(char* group) const {
     return numNulls_ && (group[nullByte_] & nullMask_);
+  }
+
+  bool isInitialized(char* group) const {
+    return group[initializedByte_] & initializedMask_;
   }
 
   // Sets null flag for all specified groups to true.
@@ -351,9 +394,11 @@ class Aggregate {
 
   template <typename T>
   void destroyAccumulator(char* group) const {
-    auto accumulator = value<T>(group);
-    std::destroy_at(accumulator);
-    memset(accumulator, 0, sizeof(T));
+    if (isInitialized(group)) {
+      auto accumulator = value<T>(group);
+      std::destroy_at(accumulator);
+      ::memset(accumulator, 0, sizeof(T));
+    }
   }
 
   template <typename T>
@@ -384,6 +429,9 @@ class Aggregate {
   // Byte position of null flag in group row.
   int32_t nullByte_;
   uint8_t nullMask_;
+  // Byte position of the initialized flag in group row.
+  int32_t initializedByte_;
+  uint8_t initializedMask_;
   // Offset of fixed length accumulator state in group row.
   int32_t offset_;
 

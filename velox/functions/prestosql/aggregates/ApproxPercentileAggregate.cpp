@@ -146,22 +146,6 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     return false;
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    exec::Aggregate::setAllNulls(groups, indices);
-    for (auto i : indices) {
-      auto group = groups[i];
-      new (group + offset_) KllSketchAccumulator<T>(allocator_);
-    }
-  }
-
-  void destroy(folly::Range<char**> groups) override {
-    for (auto group : groups) {
-      value<KllSketchAccumulator<T>>(group)->~KllSketchAccumulator<T>();
-    }
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     finalize(groups, numGroups);
@@ -416,6 +400,25 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     addIntermediate<true>(group, rows, args);
+  }
+
+ protected:
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    exec::Aggregate::setAllNulls(groups, indices);
+    for (auto i : indices) {
+      auto group = groups[i];
+      new (group + offset_) KllSketchAccumulator<T>(allocator_);
+    }
+  }
+
+  void destroyInternal(folly::Range<char**> groups) override {
+    for (auto group : groups) {
+      if (isInitialized(group)) {
+        value<KllSketchAccumulator<T>>(group)->~KllSketchAccumulator<T>();
+      }
+    }
   }
 
  private:

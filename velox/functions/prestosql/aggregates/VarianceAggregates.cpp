@@ -146,15 +146,6 @@ class VarianceAggregate : public exec::Aggregate {
     return sizeof(VarianceAccumulator);
   }
 
-  void initializeNewGroups(
-      char** groups,
-      folly::Range<const vector_size_t*> indices) override {
-    setAllNulls(groups, indices);
-    for (auto i : indices) {
-      new (groups[i] + offset_) VarianceAccumulator();
-    }
-  }
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto rowVector = (*result)->as<RowVector>();
@@ -374,6 +365,15 @@ class VarianceAggregate : public exec::Aggregate {
  protected:
   inline VarianceAccumulator* accumulator(char* group) {
     return exec::Aggregate::value<VarianceAccumulator>(group);
+  }
+
+  void initializeNewGroupsInternal(
+      char** groups,
+      folly::Range<const vector_size_t*> indices) override {
+    setAllNulls(groups, indices);
+    for (auto i : indices) {
+      new (groups[i] + offset_) VarianceAccumulator();
+    }
   }
 
  private:

@@ -203,6 +203,7 @@ void SortedAggregations::initializeNewGroups(
   for (auto i : indices) {
     groups[i][nullByte_] |= nullMask_;
     new (groups[i] + offset_) RowPointers();
+    groups[i][initializedByte_] |= initializedMask_;
   }
 
   for (const auto& [sortingSpec, aggregates] : aggregates_) {

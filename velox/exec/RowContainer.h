@@ -147,6 +147,20 @@ class RowColumn {
     return packedOffsets_ & 0xff;
   }
 
+  // The null bits and the initialized bits for accumulators start at the
+  // beginning of the first byte following the null bits for the keys.  This
+  // guarantees that they always appear on the same byte for any given
+  // accumulator (since 2 evenly divides 8).
+  int32_t initializedByte() const {
+    return nullByte();
+  }
+
+  // The initialized bit for an accumulator is guaranteed to appear on the same
+  // byte immediately following the null bit for that accumulator.
+  int32_t initializedMask() const {
+    return nullMask() << 1;
+  }
+
  private:
   static uint64_t PackOffsets(int32_t offset, int32_t nullOffset) {
     if (nullOffset == kNotNullOffset) {
@@ -166,6 +180,9 @@ class RowColumn {
 class RowContainer {
  public:
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
+  // The number of flags (bits) per accumulator, one for null and one for
+  // initialized.
+  static constexpr size_t kNumAccumulatorFlags = 2;
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
   /// 'keyTypes' gives the type of row and use 'allocator' for bulk
@@ -425,6 +442,22 @@ class RowContainer {
 
   static inline uint8_t nullMask(int32_t nullOffset) {
     return 1 << (nullOffset & 7);
+  }
+
+  // Only accumulators have initialized flags. accumulatorFlagsOffset is the
+  // offset at which the flags for an accumulator begin. Currently this is the
+  // null flag, followed by the initialized flag.  So it's equivalent to the
+  // nullOffset.
+
+  // It's guaranteed that the flags for an accumulator appear in the same byte.
+  static inline int32_t initializedByte(int32_t accumulatorFlagsOffset) {
+    return nullByte(accumulatorFlagsOffset);
+  }
+
+  // accumulatorFlagsOffset is the offset at which the flags for an accumulator
+  // begin.
+  static inline int32_t initializedMask(int32_t accumulatorFlagsOffset) {
+    return nullMask(accumulatorFlagsOffset) << 1;
   }
 
   /// No tsan because probed flags may have been set by a different thread.
@@ -1218,6 +1251,8 @@ class RowContainer {
   int32_t rowSizeOffset_ = 0;
 
   int32_t fixedRowSize_;
+  // How many bytes do the flags (null, probed, free) occupy.
+  int32_t flagBytes_;
   // True if normalized keys are enabled in initial state.
   const bool hasNormalizedKeys_;
   // The count of entries that have an extra normalized_key_t before the
