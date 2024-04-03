@@ -48,9 +48,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isSimplifyPlanWithEmptyInputEnabled;
@@ -209,23 +211,33 @@ public class SimplifyPlanWithEmptyInput
         public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
         {
             List<PlanNode> cteProducers = node.getCteProducers();
-            List<PlanNode> newSequenceChildrenList = new ArrayList<>();
+            List<PlanNode> newCteProducerList = new ArrayList<>();
             // Visit in the order of execution
+            Set<Integer> removedIndexes = new HashSet<>();
             for (int i = cteProducers.size() - 1; i >= 0; i--) {
                 PlanNode rewrittenProducer = context.rewrite(cteProducers.get(i));
                 if (!isEmptyNode(rewrittenProducer)) {
-                    newSequenceChildrenList.add(rewrittenProducer);
+                    newCteProducerList.add(rewrittenProducer);
+                }
+                else {
+                    this.planChanged = true;
+                    removedIndexes.add(i);
                 }
             }
             PlanNode rewrittenPrimarySource = context.rewrite(node.getPrimarySource());
-            if (isEmptyNode(rewrittenPrimarySource) || newSequenceChildrenList.isEmpty()) {
+            if (isEmptyNode(rewrittenPrimarySource) || newCteProducerList.isEmpty()) {
                 return rewrittenPrimarySource;
             }
+            if (!this.planChanged) {
+                return node;
+            }
             // Reverse order for execution
-            Collections.reverse(newSequenceChildrenList);
-            // Add the primary source at the end of the list
-            newSequenceChildrenList.add(rewrittenPrimarySource);
-            return node.replaceChildren(newSequenceChildrenList);
+            Collections.reverse(newCteProducerList);
+            return new SequenceNode(node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    ImmutableList.copyOf(newCteProducerList),
+                    rewrittenPrimarySource,
+                    node.removeCteProducersFromCteDependencyGraph(removedIndexes));
         }
 
         @Override

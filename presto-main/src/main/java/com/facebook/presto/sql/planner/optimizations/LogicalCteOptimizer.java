@@ -35,6 +35,7 @@ import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
 import com.google.common.graph.Traverser;
@@ -135,8 +136,11 @@ public class LogicalCteOptimizer
                 return transformedCte;
             }
             isPlanRewritten = true;
-            SequenceNode sequenceNode = new SequenceNode(root.getSourceLocation(), planNodeIdAllocator.getNextId(), topologicalOrderedList,
-                    transformedCte.getSources().get(0));
+            SequenceNode sequenceNode = new SequenceNode(root.getSourceLocation(),
+                    planNodeIdAllocator.getNextId(),
+                    topologicalOrderedList,
+                    transformedCte.getSources().get(0),
+                    context.createIndexedGraphFromTopologicallySortedCteProducers(topologicalOrderedList));
             return root.replaceChildren(Arrays.asList(sequenceNode));
         }
 
@@ -271,23 +275,25 @@ public class LogicalCteOptimizer
                     node.getCorrelation(),
                     node.getOriginSubqueryError(),
                     node.getMayParticipateInAntiJoin());
-        }}
+        }
+    }
 
     public static class LogicalCteOptimizerContext
     {
         public Map<String, CteProducerNode> cteProducerMap;
 
-        // a -> b indicates that b needs to be processed before a
-        MutableGraph<String> graph;
-        public Stack<String> activeCteStack;
+        // a -> b indicates that a needs to be processed before b
+        private MutableGraph<String> cteDependencyGraph;
 
-        public Set<String> complexCtes;
+        private Stack<String> activeCteStack;
+
+        private Set<String> complexCtes;
 
         public LogicalCteOptimizerContext()
         {
             cteProducerMap = new HashMap<>();
             // The cte graph will never have cycles because sql won't allow it
-            graph = GraphBuilder.directed().build();
+            cteDependencyGraph = GraphBuilder.directed().build();
             activeCteStack = new Stack<>();
             complexCtes = new HashSet<>();
         }
@@ -319,9 +325,10 @@ public class LogicalCteOptimizer
 
         public void addDependency(String currentCte)
         {
-            graph.addNode(currentCte);
+            cteDependencyGraph.addNode(currentCte);
             Optional<String> parentCte = peekActiveCte();
-            parentCte.ifPresent(s -> graph.putEdge(currentCte, s));
+            // (current -> parentCte) this indicates that currentCte must be processed first
+            parentCte.ifPresent(s -> cteDependencyGraph.putEdge(currentCte, s));
         }
 
         public void addComplexCte(String cteId)
@@ -342,9 +349,29 @@ public class LogicalCteOptimizer
         public List<PlanNode> getTopologicalOrdering()
         {
             ImmutableList.Builder<PlanNode> topSortedCteProducerListBuilder = ImmutableList.builder();
-            Traverser.forGraph(graph).depthFirstPostOrder(graph.nodes())
+            Traverser.forGraph(cteDependencyGraph).depthFirstPostOrder(cteDependencyGraph.nodes())
                     .forEach(cteName -> topSortedCteProducerListBuilder.add(cteProducerMap.get(cteName)));
             return topSortedCteProducerListBuilder.build();
+        }
+
+        public Graph<Integer> createIndexedGraphFromTopologicallySortedCteProducers(List<PlanNode> topologicalSortedCteProducerList)
+        {
+            Map<String, Integer> cteIdToProducerIndexMap = new HashMap<>();
+            MutableGraph<Integer> indexGraph = GraphBuilder
+                    .directed()
+                    .expectedNodeCount(topologicalSortedCteProducerList.size())
+                    .build();
+            for (int i = 0; i < topologicalSortedCteProducerList.size(); i++) {
+                cteIdToProducerIndexMap.put(((CteProducerNode) topologicalSortedCteProducerList.get(i)).getCteId(), i);
+                indexGraph.addNode(i);
+            }
+
+            // Populate the new graph with edges based on the index mapping
+            for (String cteId : cteDependencyGraph.nodes()) {
+                cteDependencyGraph.successors(cteId).forEach(successor ->
+                        indexGraph.putEdge(cteIdToProducerIndexMap.get(cteId), cteIdToProducerIndexMap.get(successor)));
+            }
+            return indexGraph;
         }
     }
 }
