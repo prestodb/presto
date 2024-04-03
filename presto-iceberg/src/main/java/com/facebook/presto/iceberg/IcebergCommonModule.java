@@ -37,9 +37,8 @@ import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
-import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
-import com.facebook.presto.iceberg.rest.IcebergRestConfig;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
@@ -91,6 +90,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -125,13 +125,12 @@ public class IcebergCommonModule
         binder.bind(CacheFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
-        binder.bind(IcebergResourceFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(IcebergConfig.class);
-        configBinder(binder).bindConfig(NessieConfig.class);
-        configBinder(binder).bindConfig(IcebergRestConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties
+
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);

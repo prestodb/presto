@@ -11,18 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.nessie;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.iceberg.IcebergMetadataFactory;
+import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
+import com.facebook.presto.iceberg.IcebergNativeMetadataFactory;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
-public class IcebergNativeModule
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+
+public class IcebergNessieCatalogModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     public void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(IcebergNessieConfig.class);
+
+        binder.bind(IcebergNativeCatalogFactory.class).to(IcebergNessieCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).to(IcebergNativeMetadataFactory.class).in(Scopes.SINGLETON);
     }
 }
