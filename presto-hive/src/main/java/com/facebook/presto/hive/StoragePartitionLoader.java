@@ -253,7 +253,7 @@ public class StoragePartitionLoader
     public ListenableFuture<?> loadPartition(HivePartitionMetadata partition, HiveSplitSource hiveSplitSource, boolean stopped)
             throws IOException
     {
-        String partitionName = partition.getHivePartition().getPartitionId();
+        String partitionName = partition.getHivePartition().getPartitionId().getPartitionName();
         Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
         Properties schema = getPartitionSchema(table, partition.getPartition());
         String inputFormatName = storage.getStorageFormat().getInputFormat();

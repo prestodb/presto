@@ -34,6 +34,7 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
@@ -347,7 +348,7 @@ public class TestHiveClientGlueMetastore
                     .addBigintValues(regularColumnPartitionName, 2L)
                     .build();
 
-            List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+            List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                     METASTORE_CONTEXT,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
@@ -894,7 +895,7 @@ public class TestHiveClientGlueMetastore
                         .map(expectedPartitionValues -> makePartName(partitionColumnNames, expectedPartitionValues.getValues()))
                         .collect(toImmutableList());
 
-                List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                         METASTORE_CONTEXT,
                         tableName.getSchemaName(),
                         tableName.getTableName(),
