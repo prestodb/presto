@@ -19,12 +19,12 @@ import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
