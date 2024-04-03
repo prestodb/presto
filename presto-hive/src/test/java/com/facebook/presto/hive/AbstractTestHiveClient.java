@@ -3007,13 +3007,23 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         SchemaTableName table = temporaryTable("create_sorted");
-        SchemaTableName tableWithTempPath = temporaryTable("create_sorted_with_temp_path");
         try {
             doTestBucketSortedTables(table, false, ORC);
-            doTestBucketSortedTables(tableWithTempPath, true, ORC);
         }
         finally {
             dropTable(table);
+        }
+    }
+
+    @Test
+    public void testBucketSortedTablesTempPath()
+            throws Exception
+    {
+        SchemaTableName tableWithTempPath = temporaryTable("create_sorted_with_temp_path");
+        try {
+            doTestBucketSortedTables(tableWithTempPath, true, ORC);
+        }
+        finally {
             dropTable(tableWithTempPath);
         }
     }
@@ -3077,7 +3087,6 @@ public abstract class AbstractTestHiveClient
                     table.getTableName(),
                     outputHandle.getLocationHandle().getTargetPath().toString(),
                     true);
-            Set<String> files = listAllDataFiles(context, path);
             assertThat(listAllDataFiles(context, path))
                     .filteredOn(file -> file.contains(".tmp-sort"))
                     .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
