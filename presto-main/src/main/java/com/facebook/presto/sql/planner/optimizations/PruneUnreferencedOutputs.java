@@ -532,7 +532,7 @@ public class PruneUnreferencedOutputs
                     .map(leftSource -> context.rewrite(leftSource, leftInputs)).collect(toImmutableList());
             Set<VariableReferenceExpression> rightInputs = ImmutableSet.copyOf(node.getPrimarySource().getOutputVariables());
             PlanNode primarySource = context.rewrite(node.getPrimarySource(), rightInputs);
-            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getCteDependencyGraph());
         }
 
         @Override

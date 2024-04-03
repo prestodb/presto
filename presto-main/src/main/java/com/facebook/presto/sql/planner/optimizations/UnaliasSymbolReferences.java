@@ -188,7 +188,7 @@ public class UnaliasSymbolReferences
                             SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), c))
                     .collect(Collectors.toList());
             PlanNode primarySource = context.rewrite(node.getPrimarySource());
-            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getCteDependencyGraph());
         }
 
         @Override
