@@ -76,7 +76,7 @@ public class RecordingHiveMetastore
     private final Cache<String, Optional<List<String>>> allViewsCache;
     private final Cache<HivePartitionName, Optional<Partition>> partitionCache;
     private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
-    private final Cache<String, List<String>> partitionNamesByFilterCache;
+    private final Cache<String, List<PartitionNameWithVersion>> partitionNamesByFilterCache;
     private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
     private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final Cache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
@@ -363,7 +363,7 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public List<String> getPartitionNamesByFilter(
+    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -386,12 +386,12 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNameWithVersions)
     {
         return loadValue(
                 partitionsByNamesCache,
-                getHivePartitionNames(databaseName, tableName, ImmutableSet.copyOf(partitionNames)),
-                () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames));
+                getHivePartitionNames(databaseName, tableName, ImmutableSet.copyOf(MetastoreUtil.getPartitionNames(partitionNameWithVersions))),
+                () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNameWithVersions));
     }
 
     @Override
@@ -548,7 +548,7 @@ public class RecordingHiveMetastore
         private final List<Pair<String, Optional<List<String>>>> allViews;
         private final List<Pair<HivePartitionName, Optional<Partition>>> partitions;
         private final List<Pair<HiveTableName, Optional<List<String>>>> partitionNames;
-        private final List<Pair<String, List<String>>> partitionNamesByFilter;
+        private final List<Pair<String, List<PartitionNameWithVersion>>> partitionNamesByFilter;
         private final List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants;
@@ -567,7 +567,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("allViews") List<Pair<String, Optional<List<String>>>> allViews,
                 @JsonProperty("partitions") List<Pair<HivePartitionName, Optional<Partition>>> partitions,
                 @JsonProperty("partitionNames") List<Pair<HiveTableName, Optional<List<String>>>> partitionNames,
-                @JsonProperty("partitionNamesByFilter") List<Pair<String, List<String>>> partitionNamesByFilter,
+                @JsonProperty("partitionNamesByFilter") List<Pair<String, List<PartitionNameWithVersion>>> partitionNamesByFilter,
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
                 @JsonProperty("roleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants)
@@ -663,7 +663,7 @@ public class RecordingHiveMetastore
         }
 
         @JsonProperty
-        public List<Pair<String, List<String>>> getPartitionNamesByFilter()
+        public List<Pair<String, List<PartitionNameWithVersion>>> getPartitionNamesByFilter()
         {
             return partitionNamesByFilter;
         }

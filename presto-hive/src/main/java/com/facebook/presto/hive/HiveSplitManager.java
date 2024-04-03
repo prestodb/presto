@@ -511,8 +511,8 @@ public class HiveSplitManager
             Map<String, Set<String>> partitionsNotReadable = new HashMap<>();
             int unreadablePartitionsSkipped = 0;
             for (HivePartition hivePartition : partitionBatch) {
-                Partition partition = partitions.get(hivePartition.getPartitionId());
-                if (partitionSplitInfo.get(hivePartition.getPartitionId()).isPruned()) {
+                Partition partition = partitions.get(hivePartition.getPartitionId().getPartitionName());
+                if (partitionSplitInfo.get(hivePartition.getPartitionId().getPartitionName()).isPruned()) {
                     continue;
                 }
 
@@ -561,7 +561,7 @@ public class HiveSplitManager
                         throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                 "Hive table (%s) is bucketed but partition (%s) is not bucketed",
                                 hivePartition.getTableName(),
-                                hivePartition.getPartitionId()));
+                                hivePartition.getPartitionId().getPartitionName()));
                     }
                     int tableBucketCount = hiveBucketHandle.get().getTableBucketCount();
                     int partitionBucketCount = partitionBucketProperty.get().getBucketCount();
@@ -575,7 +575,7 @@ public class HiveSplitManager
                                 hivePartition.getTableName(),
                                 tableBucketColumns,
                                 tableBucketCount,
-                                hivePartition.getPartitionId(),
+                                hivePartition.getPartitionId().getPartitionName(),
                                 partitionBucketColumns,
                                 partitionBucketCount));
                     }
@@ -587,7 +587,7 @@ public class HiveSplitManager
                                 Optional.of(partition),
                                 tableToPartitionMapping,
                                 encryptionInformation,
-                                partitionSplitInfo.get(hivePartition.getPartitionId()).getRedundantColumnDomains(),
+                                partitionSplitInfo.get(hivePartition.getPartitionId().getPartitionName()).getRedundantColumnDomains(),
                                 Optional.empty()));
             }
             if (unreadablePartitionsSkipped > 0) {
@@ -745,7 +745,7 @@ public class HiveSplitManager
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     partitionBatch.stream()
-                            .map(HivePartition::getPartitionId)
+                            .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                             .collect(toImmutableSet()));
         }
 

@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -245,15 +246,15 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public synchronized Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return Optional.ofNullable(partitionNames);
+        return Optional.ofNullable(getPartitionsWithEmptyVersion(partitionNames));
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNamesByFilter(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle, Map<Column, Domain> effectivePredicate)
+    public synchronized Optional<List<PartitionNameWithVersion>> getPartitionNamesByFilter(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle, Map<Column, Domain> effectivePredicate)
     {
-        return Optional.ofNullable(partitionsMap.get(hiveTableHandle));
+        return Optional.ofNullable(getPartitionsWithEmptyVersion(partitionsMap.get(hiveTableHandle)));
     }
 
     @Override
@@ -263,7 +264,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
     {
         throw new UnsupportedOperationException("method not implemented");
     }

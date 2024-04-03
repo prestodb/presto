@@ -154,11 +154,11 @@ public class TestingExtendedHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNamesWithVersion)
     {
         Map<String, Optional<Partition>> result = new HashMap<>();
-        for (String partitionName : partitionNames) {
-            List<String> partitionValues = toPartitionValues(partitionName);
+        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
+            List<String> partitionValues = toPartitionValues(partitionNameWithVersion.getPartitionName());
             String partitionKey = createPartitionKey(databaseName, tableName, partitionValues);
             long time = lastDataCommitTimes.getOrDefault(partitionKey, 0L);
 
@@ -166,10 +166,10 @@ public class TestingExtendedHiveMetastore
             if (partition != null) {
                 Partition.Builder builder = Partition.builder(partition)
                         .setLastDataCommitTime(time);
-                result.put(partitionName, Optional.of(builder.build()));
+                result.put(partitionNameWithVersion.getPartitionName(), Optional.of(builder.build()));
             }
             else {
-                result.put(partitionName, Optional.empty());
+                result.put(partitionNameWithVersion.getPartitionName(), Optional.empty());
             }
         }
         return result;

@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
@@ -173,8 +174,8 @@ public class TestRecordingHiveMetastore
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty(), Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, "database", "table", map), ImmutableList.of("value"));
-        assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, "database", "table", map), ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty())));
+        assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty()))), ImmutableMap.of("value", Optional.of(PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges(TEST_METASTORE_CONTEXT, "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(TEST_METASTORE_CONTEXT), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(TEST_METASTORE_CONTEXT, new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
@@ -283,7 +284,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getPartitionNamesByFilter(
+        public List<PartitionNameWithVersion> getPartitionNamesByFilter(
                 MetastoreContext metastoreContext,
                 String databaseName,
                 String tableName,
@@ -291,16 +292,16 @@ public class TestRecordingHiveMetastore
         {
             List<String> parts = convertPredicateToParts(partitionPredicates);
             if (databaseName.equals("database") && tableName.equals("table") && parts.equals(ImmutableList.of("value"))) {
-                return ImmutableList.of("value");
+                return ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty()));
             }
 
             return ImmutableList.of();
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
         {
-            if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains("value")) {
+            if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains(new PartitionNameWithVersion("value", Optional.empty()))) {
                 return ImmutableMap.of("value", Optional.of(PARTITION));
             }
 

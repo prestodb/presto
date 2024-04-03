@@ -165,7 +165,7 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getPartitionNamesByFilter(
+    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -185,7 +185,7 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
     {
         throw new UnsupportedOperationException();
     }
