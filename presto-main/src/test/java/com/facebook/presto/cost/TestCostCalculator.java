@@ -70,6 +70,7 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.GraphBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -531,7 +532,8 @@ public class TestCostCalculator
                 Optional.empty(),
                 new PlanNodeId("sequence"),
                 ImmutableList.of(cteProducerNode1, cteProducerNode2),
-                joinNode);
+                joinNode,
+                GraphBuilder.directed().build());
 
         // Define cost of sequence children
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(

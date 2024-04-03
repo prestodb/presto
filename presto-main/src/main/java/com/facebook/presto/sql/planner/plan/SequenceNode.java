@@ -19,10 +19,23 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.graph.Graph;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.ImmutableGraph;
+import com.google.common.graph.MutableGraph;
+import com.google.common.graph.Traverser;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class SequenceNode
         extends InternalPlanNode
@@ -31,24 +44,32 @@ public class SequenceNode
     private final List<PlanNode> cteProducers;
     private final PlanNode primarySource;
 
+    // Directed graph of cte Producer Indexes (0 indexed)
+    // a -> b indicates that producer at index a needs to be processed before producer at index b
+    private final Graph<Integer> cteDependencyGraph;
+
     @JsonCreator
     public SequenceNode(Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId planNodeId,
-            @JsonProperty("cteProducers") List<PlanNode> left,
-            @JsonProperty("primarySource") PlanNode primarySource)
+            @JsonProperty("cteProducers") List<PlanNode> cteProducerList,
+            @JsonProperty("primarySource") PlanNode primarySource,
+            Graph<Integer> cteDependencyGraph)
     {
-        this(sourceLocation, planNodeId, Optional.empty(), left, primarySource);
+        this(sourceLocation, planNodeId, Optional.empty(), cteProducerList, primarySource, cteDependencyGraph);
     }
 
     public SequenceNode(Optional<SourceLocation> sourceLocation,
             PlanNodeId planNodeId,
             Optional<PlanNode> statsEquivalentPlanNode,
-            List<PlanNode> leftList,
-            PlanNode primarySource)
+            List<PlanNode> cteProducerList,
+            PlanNode primarySource,
+            Graph<Integer> cteDependencyGraph)
     {
         super(sourceLocation, planNodeId, statsEquivalentPlanNode);
-        this.cteProducers = leftList;
+        this.cteProducers = ImmutableList.copyOf(cteProducerList);
         this.primarySource = primarySource;
+        checkArgument(cteDependencyGraph.isDirected(), "Sequence Node expects a directed graph");
+        this.cteDependencyGraph = ImmutableGraph.copyOf(cteDependencyGraph);
     }
 
     @JsonProperty
@@ -80,14 +101,83 @@ public class SequenceNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
+        checkArgument(newChildren.size() == cteProducers.size() + 1, "expected newChildren to contain same number of nodes as current." +
+                " If the child count please update the dependency graph");
         return new SequenceNode(newChildren.get(0).getSourceLocation(), getId(), getStatsEquivalentPlanNode(),
-                newChildren.subList(0, newChildren.size() - 1), newChildren.get(newChildren.size() - 1));
+                newChildren.subList(0, newChildren.size() - 1), newChildren.get(newChildren.size() - 1), cteDependencyGraph);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new SequenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, cteProducers, this.getPrimarySource());
+        return new SequenceNode(getSourceLocation(), getId(), statsEquivalentPlanNode, cteProducers, this.getPrimarySource(), cteDependencyGraph);
+    }
+
+    public Graph<Integer> getCteDependencyGraph()
+    {
+        return cteDependencyGraph;
+    }
+
+    // Returns a Graph after removing indexes
+    public Graph<Integer> removeCteProducersFromCteDependencyGraph(Set<Integer> indexesToRemove)
+    {
+        Graph<Integer> originalGraph = getCteDependencyGraph();
+        MutableGraph newCteDependencyGraph = GraphBuilder.from(getCteDependencyGraph()).build();
+        Map<Integer, Integer> indexMapping = new HashMap<>();
+        // update the dependency graph remove the indexes from dependency graph
+        int removed = 0;
+        for (int prevIndex = 0; prevIndex < cteProducers.size(); prevIndex++) {
+            if (indexesToRemove.contains(prevIndex)) {
+                removed++;
+            }
+            else {
+                int newIndex = prevIndex - removed;
+                indexMapping.put(prevIndex, newIndex);
+            }
+        }
+        for (int oldIndex : originalGraph.nodes()) {
+            if (!indexesToRemove.contains(oldIndex)) {
+                Integer newIndex = indexMapping.get(oldIndex);
+                for (Integer successor : originalGraph.successors(oldIndex)) {
+                    if (!indexesToRemove.contains(successor)) {
+                        Integer newSuccessorIndex = indexMapping.get(successor);
+                        newCteDependencyGraph.putEdge(newIndex, newSuccessorIndex);
+                    }
+                }
+            }
+        }
+        return ImmutableGraph.copyOf(newCteDependencyGraph);
+    }
+
+    public List<List<PlanNode>> getIndependentCteProducers()
+    {
+        MutableGraph<Integer> undirectedDependencyGraph = GraphBuilder.undirected().allowsSelfLoops(false).build();
+        cteDependencyGraph.nodes().forEach(undirectedDependencyGraph::addNode);
+        cteDependencyGraph.edges().forEach(edge -> undirectedDependencyGraph.putEdge(edge.nodeU(), edge.nodeV()));
+
+        Set<Integer> visitedCteSet = new HashSet<>();
+        ImmutableList.Builder<List<PlanNode>> independentCteProducerList = ImmutableList.builder();
+        // Construct Subgraphs
+        List<PlanNode> result = new ArrayList<>();
+        for (Integer cteIndex : cteDependencyGraph.nodes()) {
+            if (!visitedCteSet.contains(cteIndex)) {
+                // Identify all nodes in the current connected component
+                Set<Integer> componentNodes = new HashSet<>();
+                Traverser.forGraph(undirectedDependencyGraph).breadthFirst(cteIndex).forEach(componentNode -> {
+                    if (visitedCteSet.add(componentNode)) {
+                        componentNodes.add(componentNode);
+                    }
+                });
+
+                List<Integer> topSortedCteProducerList = new ArrayList<>();
+                Traverser.forGraph(cteDependencyGraph).depthFirstPostOrder(componentNodes)
+                        .forEach(topSortedCteProducerList::add);
+                if (!topSortedCteProducerList.isEmpty()) {
+                    independentCteProducerList.add(topSortedCteProducerList.stream().map(index -> cteProducers.get(index)).collect(Collectors.toList()));
+                }
+            }
+        }
+        return independentCteProducerList.build();
     }
 
     @Override

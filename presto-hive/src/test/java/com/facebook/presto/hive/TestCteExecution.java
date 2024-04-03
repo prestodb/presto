@@ -58,6 +58,20 @@ public class TestCteExecution
     }
 
     @Test
+    public void testCteExecutionWhereOneCteRemovedBySimplifyEmptyInputRule()
+    {
+        String sql = "WITH t as(select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey)," +
+                "t1 as (SELECT * FROM orders)," +
+                " b AS ((SELECT orderkey FROM t) UNION (SELECT orderkey FROM t1)) " +
+                "SELECT * FROM b";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        sql),
+                queryRunner.execute(getSession(),
+                        sql));
+    }
+
+    @Test
     public void testSimplePersistentCte()
     {
         QueryRunner queryRunner = getQueryRunner();
