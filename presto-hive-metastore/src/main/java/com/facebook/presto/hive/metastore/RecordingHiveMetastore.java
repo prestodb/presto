@@ -20,6 +20,7 @@ import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
