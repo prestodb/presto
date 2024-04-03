@@ -6,6 +6,7 @@ Presto Functions
     :maxdepth: 1
 
     functions/presto/math
+    functions/presto/decimal
     functions/presto/bitwise
     functions/presto/comparison
     functions/presto/string
