@@ -13,7 +13,7 @@ Iceberg tables store most of the metadata in the metadata files, along with the 
 filesystem, but it still requires a central place to find the current location of the
 current metadata pointer for a table. This central place is called the ``Iceberg Catalog``.
 The Presto Iceberg connector supports different types of Iceberg Catalogs : ``Hive Metastore``,
-``GLUE``, ``NESSIE``, and ``HADOOP``.
+``GLUE``, ``NESSIE``, ``REST`` and ``HADOOP``.
 
 To configure the Iceberg connector, create a catalog properties file
 ``etc/catalog/iceberg.properties``. To define the catalog type, ``iceberg.catalog.type`` property
@@ -144,12 +144,49 @@ If an error similar to the following example is displayed, this is probably beca
     	at org.projectnessie.client.http.impl.jdk8.UrlConnectionRequest.executeRequest(UrlConnectionRequest.java:71)
     	... 42 more
 
+REST catalog
+^^^^^^^^^^^^
+
+To use a REST catalog, configure the catalog type as
+``iceberg.catalog.type=rest``. A minimal configuration includes:
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=rest
+    iceberg.rest.uri=https://localhost:8181
+
+Additional supported properties for the REST catalog:
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``iceberg.rest.uri``                                 REST API endpoint URI (required).
+                                                     Example: ``https://localhost:8181``
+
+``iceberg.rest.auth.type``                           The authentication type to use.
+                                                     Available values are ``NONE`` or ``OAUTH2`` (default: ``NONE``).
+                                                     ``OAUTH2`` requires either a credential or token.
+
+``iceberg.rest.auth.oauth2.credential``              The credential to use for OAUTH2 authentication.
+                                                     Example: ``key:secret``
+
+``iceberg.rest.auth.oauth2.token``                   The Bearer token to use for OAUTH2 authentication.
+                                                     Example: ``SXVLUXUhIExFQ0tFUiEK``
+
+``iceberg.rest.session.type``                        The session type to use when communicating with the REST catalog.
+                                                     Available values are ``NONE`` or ``USER`` (default: ``NONE``).
+
+``iceberg.catalog.warehouse``                        A catalog warehouse root path for Iceberg tables (optional).
+                                                     Example: ``s3://warehouse/``
+
+==================================================== ============================================================
 
 Hadoop catalog
 ^^^^^^^^^^^^^^
 
 To use a Hadoop catalog, configure the catalog type as
-``iceberg.catalog.type=hadoop``
+``iceberg.catalog.type=hadoop``. A minimal configuration includes:
 
 .. code-block:: none
 
@@ -190,7 +227,7 @@ Property Name                                           Description             
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
                                                         This property is required if the ``iceberg.catalog.type`` is
-                                                        ``hadoop``. Otherwise, it will be ignored.
+                                                        ``hadoop``.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
@@ -897,6 +934,11 @@ A metadata file can optionally be included as an argument to ``register_table``
 in the case where a specific metadata file contains the targeted table state::
 
     CALL iceberg.system.register_table('schema_name', 'table_name', 'hdfs://localhost:9000/path/to/iceberg/table/metadata/dir', '00000-35a08aed-f4b0-4010-95d2-9d73ef4be01c.metadata.json')
+
+.. note::
+
+    The Iceberg REST catalog may not support table register depending on the
+    type of the backing catalog.
 
 .. note::
 

@@ -1385,7 +1385,7 @@ public abstract class IcebergDistributedTestBase
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
     }
 
-    protected static HdfsEnvironment getHdfsEnvironment()
+    public static HdfsEnvironment getHdfsEnvironment()
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
