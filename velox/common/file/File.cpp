@@ -273,6 +273,7 @@ void LocalWriteFile::append(std::string_view data) {
       bytesWritten,
       data.size(),
       folly::errnoStr(errno));
+  size_ += bytesWritten;
 }
 
 void LocalWriteFile::append(std::unique_ptr<folly::IOBuf> data) {
@@ -298,6 +299,7 @@ void LocalWriteFile::append(std::unique_ptr<folly::IOBuf> data) {
       "Failure in LocalWriteFile::append, {} vs {}",
       totalBytesWritten,
       totalBytesToWrite);
+  size_ += totalBytesWritten;
 }
 
 void LocalWriteFile::flush() {
@@ -322,7 +324,4 @@ void LocalWriteFile::close() {
   }
 }
 
-uint64_t LocalWriteFile::size() const {
-  return ftell(file_);
-}
 } // namespace facebook::velox

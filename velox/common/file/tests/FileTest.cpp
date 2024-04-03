@@ -134,6 +134,8 @@ TEST(LocalFile, writeAndRead) {
     {
       LocalWriteFile writeFile(filename);
       writeData(&writeFile, useIOBuf);
+      writeFile.close();
+      ASSERT_EQ(writeFile.size(), 15 + kOneMB);
     }
     LocalReadFile readFile(filename);
     readData(&readFile);
