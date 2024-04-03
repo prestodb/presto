@@ -638,7 +638,7 @@
                     <artifactId>maven-dependency-plugin</artifactId>
                     <configuration>
                         <ignoredUsedUndeclaredDependencies>
-                            <!-- Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner-->
+                            <!-- Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner -->
                             <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>
                             <dependency>org.eclipse.jetty:jetty-server:jar</dependency>
                             <!-- Ignore these because they are picked up as false-positives when configuring REST catalog testing http server -->

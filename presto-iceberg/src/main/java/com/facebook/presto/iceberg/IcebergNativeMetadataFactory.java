@@ -29,7 +29,7 @@ public class IcebergNativeMetadataFactory
 {
     final TypeManager typeManager;
     final JsonCodec<CommitTaskData> commitTaskCodec;
-    final IcebergResourceFactory resourceFactory;
+    final IcebergNativeCatalogFactory catalogFactory;
     final CatalogType catalogType;
     final StandardFunctionResolution functionResolution;
     final RowExpressionService rowExpressionService;
@@ -38,14 +38,14 @@ public class IcebergNativeMetadataFactory
     @Inject
     public IcebergNativeMetadataFactory(
             IcebergConfig config,
-            IcebergResourceFactory resourceFactory,
+            IcebergNativeCatalogFactory catalogFactory,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion)
     {
-        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -57,6 +57,6 @@ public class IcebergNativeMetadataFactory
 
     public ConnectorMetadata create()
     {
-        return new IcebergNativeMetadata(resourceFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
+        return new IcebergNativeMetadata(catalogFactory, typeManager, functionResolution, rowExpressionService, commitTaskCodec, catalogType, nodeVersion);
     }
 }
