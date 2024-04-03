@@ -15,12 +15,10 @@
  */
 #pragma once
 
-#include <fmt/core.h>
-#include <fmt/format.h>
-#include <folly/Format.h>
+#include <folly/CPortability.h>
 #include <folly/Range.h>
-#include <folly/String.h>
-#include <folly/json.h>
+#include <folly/dynamic.h>
+
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -33,7 +31,6 @@
 #include <typeindex>
 #include <vector>
 
-#include "folly/CPortability.h"
 #include "velox/common/base/ClassName.h"
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/HugeInt.h"
