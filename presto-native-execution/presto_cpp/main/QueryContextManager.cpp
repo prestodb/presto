@@ -15,6 +15,8 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -191,6 +193,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       !SystemConfig::instance()->memoryArbitratorKind().empty()
           ? memory::MemoryReclaimer::create()
           : nullptr);
+  RECORD_HISTOGRAM_METRIC_VALUE(
+      kCounterQueryMemoryPoolInitCapacity, pool->capacity());
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       driverExecutor_,
