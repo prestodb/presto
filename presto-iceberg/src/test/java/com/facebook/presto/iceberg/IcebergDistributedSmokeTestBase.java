@@ -765,7 +765,7 @@ public class IcebergDistributedSmokeTestBase
         testWithAllFormatVersions(this::testCreateTableWithFormatVersion);
     }
 
-    private void testCreateTableWithFormatVersion(String formatVersion, String defaultDeleteMode)
+    protected void testCreateTableWithFormatVersion(String formatVersion, String defaultDeleteMode)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_table_with_format_version_" + formatVersion + " " +

@@ -39,6 +39,7 @@ import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
+import com.facebook.presto.iceberg.rest.IcebergRestConfig;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
@@ -128,6 +129,7 @@ public class IcebergCommonModule
 
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(NessieConfig.class);
+        configBinder(binder).bindConfig(IcebergRestConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);

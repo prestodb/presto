@@ -13,22 +13,27 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
+import com.facebook.presto.iceberg.rest.IcebergRestConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.jsonwebtoken.Jwts;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SupportsNamespaces;
+import org.apache.iceberg.rest.auth.OAuth2Properties;
 
 import javax.inject.Inject;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +45,18 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getNessieRefe
 import static com.facebook.presto.iceberg.IcebergUtil.loadCachingProperties;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.nessie.AuthenticationType.BEARER;
+import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
+import static com.facebook.presto.iceberg.rest.SessionType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.FILE_IO_IMPL;
+import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
 /**
  * Factory for loading Iceberg resources such as Catalog.
@@ -63,9 +74,18 @@ public class IcebergResourceFactory
     private final GcsConfigurationInitializer gcsConfigurationInitialize;
 
     private final IcebergConfig icebergConfig;
+    private final IcebergRestConfig restConfig;
+    private final NodeVersion nodeVersion;
 
     @Inject
-    public IcebergResourceFactory(IcebergConfig config, IcebergCatalogName catalogName, NessieConfig nessieConfig, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
+    public IcebergResourceFactory(
+            IcebergConfig config,
+            IcebergCatalogName catalogName,
+            NessieConfig nessieConfig,
+            IcebergRestConfig restConfig,
+            S3ConfigurationUpdater s3ConfigurationUpdater,
+            GcsConfigurationInitializer gcsConfigurationInitialize,
+            NodeVersion nodeVersion)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
         this.icebergConfig = requireNonNull(config, "config is null");
@@ -73,8 +93,10 @@ public class IcebergResourceFactory
         this.catalogWarehouse = config.getCatalogWarehouse();
         this.hadoopConfigResources = config.getHadoopConfigResources();
         this.nessieConfig = requireNonNull(nessieConfig, "nessieConfig is null");
+        this.restConfig = requireNonNull(restConfig, "restConfig is null");
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         catalogCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCatalogCacheSize())
                 .build();
@@ -150,31 +172,63 @@ public class IcebergResourceFactory
         if (catalogWarehouse != null) {
             properties.put(WAREHOUSE_LOCATION, catalogWarehouse);
         }
-        if (catalogType == NESSIE) {
-            properties.put("ref", getNessieReferenceName(session));
-            properties.put("uri", nessieConfig.getServerUri().orElseThrow(() -> new IllegalStateException("iceberg.nessie.uri must be set for Nessie")));
-            String hash = getNessieReferenceHash(session);
-            if (hash != null) {
-                properties.put("ref.hash", hash);
-            }
-            nessieConfig.getReadTimeoutMillis().ifPresent(val -> properties.put("transport.read-timeout", val.toString()));
-            nessieConfig.getConnectTimeoutMillis().ifPresent(val -> properties.put("transport.connect-timeout", val.toString()));
-            nessieConfig.getClientBuilderImpl().ifPresent(val -> properties.put("client-builder-impl", val));
-            nessieConfig.getAuthenticationType().ifPresent(type -> {
-                if (type == BASIC) {
-                    properties.put("authentication.username", nessieConfig.getUsername()
-                            .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.basic.username must be set with BASIC authentication")));
-                    properties.put("authentication.password", nessieConfig.getPassword()
-                            .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.basic.password must be set with BASIC authentication")));
+        switch (catalogType) {
+            case NESSIE:
+                properties.put("ref", getNessieReferenceName(session));
+                properties.put("uri", nessieConfig.getServerUri().orElseThrow(() -> new IllegalStateException("iceberg.nessie.uri must be set for Nessie")));
+                String hash = getNessieReferenceHash(session);
+                if (hash != null) {
+                    properties.put("ref.hash", hash);
                 }
-                else if (type == BEARER) {
-                    properties.put("authentication.token", nessieConfig.getBearerToken()
-                            .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.bearer.token must be set with BEARER authentication")));
+                nessieConfig.getReadTimeoutMillis().ifPresent(val -> properties.put("transport.read-timeout", val.toString()));
+                nessieConfig.getConnectTimeoutMillis().ifPresent(val -> properties.put("transport.connect-timeout", val.toString()));
+                nessieConfig.getClientBuilderImpl().ifPresent(val -> properties.put("client-builder-impl", val));
+                nessieConfig.getAuthenticationType().ifPresent(type -> {
+                    if (type == BASIC) {
+                        properties.put("authentication.username", nessieConfig.getUsername()
+                                .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.basic.username must be set with BASIC authentication")));
+                        properties.put("authentication.password", nessieConfig.getPassword()
+                                .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.basic.password must be set with BASIC authentication")));
+                    }
+                    else if (type == BEARER) {
+                        properties.put("authentication.token", nessieConfig.getBearerToken()
+                                .orElseThrow(() -> new IllegalStateException("iceberg.nessie.auth.bearer.token must be set with BEARER authentication")));
+                    }
+                });
+                if (!nessieConfig.isCompressionEnabled()) {
+                    properties.put("transport.disable-compression", "true");
                 }
-            });
-            if (!nessieConfig.isCompressionEnabled()) {
-                properties.put("transport.disable-compression", "true");
-            }
+                break;
+            case REST:
+                properties.put(URI, restConfig.getServerUri().orElseThrow(
+                        () -> new IllegalStateException("iceberg.rest.uri must be set for REST catalog")));
+                restConfig.getAuthenticationType().ifPresent(type -> {
+                    if (type == OAUTH2) {
+                        if (!restConfig.credentialOrTokenExists()) {
+                            throw new IllegalStateException("iceberg.rest.auth.oauth2 requires either a credential or a token");
+                        }
+                        restConfig.getCredential().ifPresent(credential -> properties.put(CREDENTIAL, credential));
+                        restConfig.getToken().ifPresent(token -> properties.put(TOKEN, token));
+                    }
+                });
+                restConfig.getSessionType().ifPresent(type -> {
+                    if (type == USER) {
+                        properties.putAll(session.getIdentity().getExtraCredentials());
+
+                        String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
+                        String jwt = Jwts.builder()
+                                .setId(sessionId)
+                                .setSubject(session.getUser())
+                                .setIssuedAt(new Date())
+                                .setIssuer(nodeVersion.toString())
+                                .claim("user", session.getUser())
+                                .claim("source", session.getSource().orElse(""))
+                                .compact();
+
+                        properties.put(OAuth2Properties.JWT_TOKEN_TYPE, jwt);
+                    }
+                });
+                break;
         }
         return properties;
     }
