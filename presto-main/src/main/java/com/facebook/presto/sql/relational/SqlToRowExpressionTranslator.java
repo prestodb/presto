@@ -144,6 +144,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -707,7 +708,9 @@ public final class SqlToRowExpressionTranslator
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
                 if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
-                    checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    if (index >= 0) {
+                        throw new SemanticException(DUPLICATE_COLUMN_NAME, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
+                    }
                     index = i;
                 }
             }
