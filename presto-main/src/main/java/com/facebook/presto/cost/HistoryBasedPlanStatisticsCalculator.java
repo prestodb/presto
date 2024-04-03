@@ -204,7 +204,7 @@ public class HistoryBasedPlanStatisticsCalculator
                             if (predictedPlanStatistics.getConfidence() > 0) {
                                 return delegateStats.combineStats(
                                         predictedPlanStatistics,
-                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.of(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
                             }
                         }
                     }
