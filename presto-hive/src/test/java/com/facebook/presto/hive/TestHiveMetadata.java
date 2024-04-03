@@ -122,7 +122,7 @@ public class TestHiveMetadata
         for (int i = 0; i < 5_000; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
@@ -137,7 +137,7 @@ public class TestHiveMetadata
         for (int i = 0; i < 5; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
         }
 
@@ -152,13 +152,13 @@ public class TestHiveMetadata
         for (int i = 0; i < 5; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
-                "null",
+                new PartitionNameWithVersion("null", Optional.empty()),
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
