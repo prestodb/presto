@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
