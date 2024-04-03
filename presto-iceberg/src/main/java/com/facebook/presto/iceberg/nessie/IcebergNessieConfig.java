@@ -20,7 +20,7 @@ import javax.validation.constraints.NotEmpty;
 
 import java.util.Optional;
 
-public class NessieConfig
+public class IcebergNessieConfig
 {
     private String defaultReferenceName = "main";
     private String serverUri;
@@ -41,7 +41,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.ref")
     @ConfigDescription("The default Nessie reference to work on")
-    public NessieConfig setDefaultReferenceName(String defaultReferenceName)
+    public IcebergNessieConfig setDefaultReferenceName(String defaultReferenceName)
     {
         this.defaultReferenceName = defaultReferenceName;
         return this;
@@ -54,7 +54,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.uri")
     @ConfigDescription("The URI to connect to the Nessie server")
-    public NessieConfig setServerUri(String serverUri)
+    public IcebergNessieConfig setServerUri(String serverUri)
     {
         this.serverUri = serverUri;
         return this;
@@ -62,7 +62,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.auth.type")
     @ConfigDescription("The authentication type to use. Available values are BASIC | BEARER")
-    public NessieConfig setAuthenticationType(AuthenticationType authenticationType)
+    public IcebergNessieConfig setAuthenticationType(AuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
         return this;
@@ -76,7 +76,7 @@ public class NessieConfig
     @Config("iceberg.nessie.auth.basic.username")
     @ConfigDescription("The username to use with BASIC authentication")
     @Deprecated
-    public NessieConfig setUsername(String username)
+    public IcebergNessieConfig setUsername(String username)
     {
         this.username = username;
         return this;
@@ -91,7 +91,7 @@ public class NessieConfig
     @Config("iceberg.nessie.auth.basic.password")
     @ConfigDescription("The password to use with BASIC authentication")
     @Deprecated
-    public NessieConfig setPassword(String password)
+    public IcebergNessieConfig setPassword(String password)
     {
         this.password = password;
         return this;
@@ -105,7 +105,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.auth.bearer.token")
     @ConfigDescription("The token to use with BEARER authentication")
-    public NessieConfig setBearerToken(String bearerToken)
+    public IcebergNessieConfig setBearerToken(String bearerToken)
     {
         this.bearerToken = bearerToken;
         return this;
@@ -118,7 +118,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.read-timeout-ms")
     @ConfigDescription("The read timeout in milliseconds for the client")
-    public NessieConfig setReadTimeoutMillis(Integer readTimeoutMillis)
+    public IcebergNessieConfig setReadTimeoutMillis(Integer readTimeoutMillis)
     {
         this.readTimeoutMillis = readTimeoutMillis;
         return this;
@@ -131,7 +131,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.connect-timeout-ms")
     @ConfigDescription("The connection timeout in milliseconds for the client")
-    public NessieConfig setConnectTimeoutMillis(Integer connectTimeoutMillis)
+    public IcebergNessieConfig setConnectTimeoutMillis(Integer connectTimeoutMillis)
     {
         this.connectTimeoutMillis = connectTimeoutMillis;
         return this;
@@ -144,7 +144,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.compression-enabled")
     @ConfigDescription("Configure whether compression should be enabled or not. Default: true")
-    public NessieConfig setCompressionEnabled(boolean compressionEnabled)
+    public IcebergNessieConfig setCompressionEnabled(boolean compressionEnabled)
     {
         this.compressionEnabled = compressionEnabled;
         return this;
@@ -157,7 +157,7 @@ public class NessieConfig
 
     @Config("iceberg.nessie.client-builder-impl")
     @ConfigDescription("Configure the custom ClientBuilder implementation class to be used")
-    public NessieConfig setClientBuilderImpl(String clientBuilderImpl)
+    public IcebergNessieConfig setClientBuilderImpl(String clientBuilderImpl)
     {
         this.clientBuilderImpl = clientBuilderImpl;
         return this;

@@ -22,9 +22,8 @@ import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
+import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.iceberg.IcebergResourceFactory;
-import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
@@ -107,17 +106,17 @@ public class TestIcebergSmokeRest
                 Optional.of(warehouseLocation.toPath()));
     }
 
-    protected IcebergResourceFactory getResourceFactory()
+    protected IcebergNativeCatalogFactory getCatalogFactory()
     {
         IcebergConfig icebergConfig = new IcebergConfig()
                 .setCatalogType(REST)
                 .setCatalogWarehouse(warehouseLocation.getAbsolutePath().toString());
         IcebergRestConfig restConfig = new IcebergRestConfig().setServerUri(serverUri);
 
-        return new IcebergResourceFactory(icebergConfig,
-                new IcebergCatalogName(ICEBERG_CATALOG),
-                new NessieConfig(),
+        return new IcebergRestCatalogFactory(
+                icebergConfig,
                 restConfig,
+                new IcebergCatalogName(ICEBERG_CATALOG),
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
                 new NodeVersion("test_version"));
@@ -126,7 +125,7 @@ public class TestIcebergSmokeRest
     @Override
     protected Table getIcebergTable(ConnectorSession session, String schema, String tableName)
     {
-        return getNativeIcebergTable(getResourceFactory(),
+        return getNativeIcebergTable(getCatalogFactory(),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }
