@@ -24,7 +24,7 @@ class PeriodicMemoryChecker {
  public:
   struct Config {
     /// The frequency 'PeriodicMemoryChecker' runs at.
-    uint64_t memoryCheckerIntervalSec{1};
+    uint64_t memoryCheckerIntervalMs{1'000};
 
     /// If true, starts memory limit checker to trigger memory pushback when
     /// server is under low memory pressure.
