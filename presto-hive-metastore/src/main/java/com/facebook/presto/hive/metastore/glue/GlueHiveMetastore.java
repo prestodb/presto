@@ -63,6 +63,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -74,7 +75,6 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -344,7 +344,7 @@ public class GlueHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(partitionNames)).forEach((partitionName, optionalPartition) -> {
+        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(MetastoreUtil.getPartitionsWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
             Partition partition = optionalPartition.orElseThrow(() ->
                     new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
@@ -716,7 +716,7 @@ public class GlueHiveMetastore
      * @return a list of partition names.
      */
     @Override
-    public List<String> getPartitionNamesByFilter(
+    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -725,7 +725,7 @@ public class GlueHiveMetastore
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
         String expression = buildGlueExpression(partitionPredicates);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
-        return buildPartitionNames(table.getPartitionColumns(), partitions);
+        return MetastoreUtil.getPartitionsWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
 
     @Override
@@ -810,17 +810,18 @@ public class GlueHiveMetastore
      *     Partition names = ['a=1/b=2', 'a=2/b=2']
      * </pre>
      *
-     * @param partitionNames List of full partition names
+     * @param partitionNamesWithVersion List of full partition names
      * @return Mapping of partition name to partition object
      */
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNamesWithVersion)
     {
-        requireNonNull(partitionNames, "partitionNames is null");
-        if (partitionNames.isEmpty()) {
+        requireNonNull(partitionNamesWithVersion, "partitionNames is null");
+        if (partitionNamesWithVersion.isEmpty()) {
             return ImmutableMap.of();
         }
 
+        List<String> partitionNames = MetastoreUtil.getPartitionNames(partitionNamesWithVersion);
         List<Partition> partitions = batchGetPartition(databaseName, tableName, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()

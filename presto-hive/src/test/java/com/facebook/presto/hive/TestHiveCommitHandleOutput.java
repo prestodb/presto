@@ -193,7 +193,7 @@ public class TestHiveCommitHandleOutput
                         connectorSession.getRuntimeStats()),
                 TEST_SCHEMA,
                 TEST_TABLE,
-                ImmutableList.of(partitionName));
+                ImmutableList.of(new PartitionNameWithVersion(partitionName, Optional.empty())));
         handle = hiveMeta.commit();
 
         Optional<Partition> partition = partitions.get(partitionName);

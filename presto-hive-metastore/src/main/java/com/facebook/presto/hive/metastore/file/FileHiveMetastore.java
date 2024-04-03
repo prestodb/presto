@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -34,7 +35,6 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -963,7 +963,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getPartitionNamesByFilter(
+    public synchronized List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -971,10 +971,10 @@ public class FileHiveMetastore
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
         // todo this should be more efficient by selectively walking the directory tree
-        return getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
+        return MetastoreUtil.getPartitionsWithEmptyVersion(getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
                         .filter(partitionName -> partitionMatches(partitionName, parts))
                         .collect(toImmutableList()))
-                .orElse(ImmutableList.of());
+                .orElse(ImmutableList.of()));
     }
 
     @Override
@@ -1003,10 +1003,10 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public synchronized Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNameWithVersion)
     {
         ImmutableMap.Builder<String, Optional<Partition>> builder = ImmutableMap.builder();
-        for (String partitionName : partitionNames) {
+        for (String partitionName : MetastoreUtil.getPartitionNames(partitionNameWithVersion)) {
             List<String> partitionValues = toPartitionValues(partitionName);
             builder.put(partitionName, getPartition(metastoreContext, databaseName, tableName, partitionValues));
         }

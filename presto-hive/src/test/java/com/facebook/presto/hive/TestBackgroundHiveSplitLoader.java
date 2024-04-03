@@ -231,7 +231,7 @@ public class TestBackgroundHiveSplitLoader
         List<HivePartitionMetadata> hivePartitionMetadatas =
                 ImmutableList.of(
                         new HivePartitionMetadata(
-                                new HivePartition(unsupportedTable.getSchemaTableName(), partitionId, ImmutableMap.of()),
+                                new HivePartition(unsupportedTable.getSchemaTableName(), new PartitionNameWithVersion(partitionId, Optional.empty()), ImmutableMap.of()),
                                 Optional.of(orcPartition()),
                                 TableToPartitionMapping.empty(),
                                 Optional.empty(),

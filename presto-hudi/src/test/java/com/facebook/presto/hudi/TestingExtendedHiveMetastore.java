@@ -15,8 +15,10 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 
@@ -45,12 +47,12 @@ public class TestingExtendedHiveMetastore
     }
 
     @Override
-    public List<String> getPartitionNamesByFilter(
+    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
             Map<Column, Domain> partitionPredicates)
     {
-        return partitions;
+        return MetastoreUtil.getPartitionsWithEmptyVersion(partitions);
     }
 }
