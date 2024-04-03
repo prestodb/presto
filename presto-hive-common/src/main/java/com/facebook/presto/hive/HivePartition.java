@@ -20,15 +20,16 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class HivePartition
 {
-    public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
+    public static final PartitionNameWithVersion UNPARTITIONED_ID = new PartitionNameWithVersion("<UNPARTITIONED>", Optional.empty());
 
     private final SchemaTableName tableName;
-    private final String partitionId;
+    private final PartitionNameWithVersion partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
 
     public HivePartition(SchemaTableName tableName)
@@ -38,7 +39,7 @@ public class HivePartition
 
     public HivePartition(
             SchemaTableName tableName,
-            String partitionId,
+            PartitionNameWithVersion partitionId,
             Map<ColumnHandle, NullableValue> keys)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -51,7 +52,7 @@ public class HivePartition
         return tableName;
     }
 
-    public String getPartitionId()
+    public PartitionNameWithVersion getPartitionId()
     {
         return partitionId;
     }

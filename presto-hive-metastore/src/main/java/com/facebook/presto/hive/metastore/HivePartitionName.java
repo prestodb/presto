@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,22 +34,32 @@ public class HivePartitionName
 {
     private final HiveTableName hiveTableName;
     private final List<String> partitionValues;
-    private final Optional<String> partitionName; // does not participate in hashCode/equals
+    private final Optional<PartitionNameWithVersion> partitionNameWithVersion;
 
     @JsonCreator
     public HivePartitionName(
             @JsonProperty("hiveTableName") HiveTableName hiveTableName,
             @JsonProperty("partitionValues") List<String> partitionValues,
-            @JsonProperty("partitionName") Optional<String> partitionName)
+            @JsonProperty("partitionNameWithVersion") Optional<PartitionNameWithVersion> partitionNameWithVersion)
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
         this.partitionValues = ImmutableList.copyOf(requireNonNull(partitionValues, "partitionValues is null"));
-        this.partitionName = requireNonNull(partitionName, "partitionName is null");
+        this.partitionNameWithVersion = requireNonNull(partitionNameWithVersion, "partitionNameWithVersion is null");
+    }
+
+    public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, PartitionNameWithVersion partitionName)
+    {
+        return new HivePartitionName(hiveTableName, toPartitionValues(partitionName.getPartitionName()), Optional.of(partitionName));
     }
 
     public static HivePartitionName hivePartitionName(HiveTableName hiveTableName, String partitionName)
     {
-        return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), Optional.of(partitionName));
+        return new HivePartitionName(hiveTableName, toPartitionValues(partitionName), Optional.of(new PartitionNameWithVersion(partitionName, Optional.empty())));
+    }
+
+    public static HivePartitionName hivePartitionName(String databaseName, String tableName, PartitionNameWithVersion partitionName)
+    {
+        return hivePartitionName(hiveTableName(databaseName, tableName), partitionName);
     }
 
     public static HivePartitionName hivePartitionName(String databaseName, String tableName, String partitionName)
@@ -74,9 +85,9 @@ public class HivePartitionName
     }
 
     @JsonProperty
-    public Optional<String> getPartitionName()
+    public Optional<PartitionNameWithVersion> getPartitionNameWithVersion()
     {
-        return partitionName;
+        return partitionNameWithVersion;
     }
 
     @Override
@@ -85,7 +96,7 @@ public class HivePartitionName
         return toStringHelper(this)
                 .add("hiveTableName", hiveTableName)
                 .add("partitionValues", partitionValues)
-                .add("partitionName", partitionName)
+                .add("partitionNameWithVersion", partitionNameWithVersion)
                 .toString();
     }
 
@@ -101,12 +112,13 @@ public class HivePartitionName
 
         HivePartitionName other = (HivePartitionName) o;
         return Objects.equals(hiveTableName, other.hiveTableName) &&
-                Objects.equals(partitionValues, other.partitionValues);
+                Objects.equals(partitionValues, other.partitionValues) &&
+                Objects.equals(partitionNameWithVersion, other.partitionNameWithVersion);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hiveTableName, partitionValues);
+        return Objects.hash(hiveTableName, partitionValues, partitionNameWithVersion);
     }
 }
