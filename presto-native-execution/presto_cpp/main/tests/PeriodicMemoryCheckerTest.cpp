@@ -80,21 +80,21 @@ TEST_F(PeriodicMemoryCheckerTest, basic) {
   ASSERT_NO_THROW(TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{}));
 
   ASSERT_NO_THROW(TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-      1, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
+      1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
   VELOX_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
+          1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
       "(0 vs. 0)");
   VELOX_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
+          1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
       "heapDumpLogDir cannot be empty when heap dump is enabled.");
   VELOX_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
-          1, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
+          1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
       "heapDumpFilePrefix cannot be empty when heap dump is enabled.");
   TestPeriodicMemoryChecker memChecker(PeriodicMemoryChecker::Config{
-      1, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
+      1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
   ASSERT_NO_THROW(memChecker.start());
   VELOX_ASSERT_THROW(memChecker.start(), "start() called more than once");
   ASSERT_NO_THROW(memChecker.stop());
@@ -105,7 +105,7 @@ TEST_F(PeriodicMemoryCheckerTest, periodicCb) {
     std::atomic_bool periodicCbInvoked{false};
     TestPeriodicMemoryChecker memChecker(
         PeriodicMemoryChecker::Config{
-            1,
+            1'000,
             pushbackEnabled,
             512,
             32,
@@ -135,7 +135,7 @@ TEST_F(PeriodicMemoryCheckerTest, heapdump) {
     std::atomic_bool heapdumpCbCalled{false};
     TestPeriodicMemoryChecker memChecker(
         PeriodicMemoryChecker::Config{
-            1, false, 0, 0, true, 5, "/path/to/dir", "prefix", 5, 512},
+            1'000, false, 0, 0, true, 5, "/path/to/dir", "prefix", 5, 512},
         1024,
         256,
         []() {},
@@ -155,7 +155,7 @@ TEST_F(PeriodicMemoryCheckerTest, heapdump) {
     std::atomic_bool heapdumpCbCalled{false};
     TestPeriodicMemoryChecker memChecker(
         PeriodicMemoryChecker::Config{
-            1, false, 0, 0, true, 1, "/path/to/dir", "prefix", 2, 512},
+            1'000, false, 0, 0, true, 1, "/path/to/dir", "prefix", 2, 512},
         1024,
         768,
         []() {},
@@ -198,7 +198,7 @@ TEST_F(PeriodicMemoryCheckerTest, pushbackMemory) {
 
   TestPeriodicMemoryChecker memChecker(
       PeriodicMemoryChecker::Config{
-          1,
+          1'000,
           true,
           16L << 20,
           8L << 20,

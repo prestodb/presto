@@ -44,7 +44,7 @@ void PeriodicMemoryChecker::start() {
         config_.systemMemShrinkBytes, 0, "Invalid system mem shrink provided");
     PRESTO_STARTUP_LOG(INFO)
         << "Creating server memory pushback checker, memory check interval "
-        << config_.memoryCheckerIntervalSec << "s, system memory limit: "
+        << config_.memoryCheckerIntervalMs << "ms, system memory limit: "
         << velox::succinctBytes(config_.systemMemLimitBytes)
         << ", memory shrink size: "
         << velox::succinctBytes(config_.systemMemShrinkBytes);
@@ -77,7 +77,7 @@ void PeriodicMemoryChecker::start() {
           pushbackMemory();
         }
       },
-      std::chrono::seconds(config_.memoryCheckerIntervalSec),
+      std::chrono::milliseconds(config_.memoryCheckerIntervalMs),
       "periodic-sys-mem-check",
       std::chrono::seconds(0));
   scheduler_->start();
