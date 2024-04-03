@@ -1905,6 +1905,20 @@ TEST_F(StringFunctionsTest, hammingDistance) {
       1);
   EXPECT_EQ(hammingDistance("\u0001", "\u0001"), 0);
   EXPECT_EQ(hammingDistance("\u0001", "\u0002"), 1);
+  // Test equal null characters on ASCII path.
+  EXPECT_EQ(
+      hammingDistance(std::string("\u0000", 1), std::string("\u0000", 1)), 0);
+  // Test null and non-null character on ASCII path.
+  EXPECT_EQ(hammingDistance(std::string("\u0000", 1), "\u0001"), 1);
+  // Test null and non-null character on non-ASCII path.
+  EXPECT_EQ(hammingDistance(std::string("\u0000", 1), "\u7231"), 1);
+  // Test equal null characters on non-ASCII path.
+  EXPECT_EQ(
+      hammingDistance(
+          std::string("\u7231\u0000", 2), std::string("\u7231\u0000", 2)),
+      0);
+  // Test invalid UTF-8 characters.
+  EXPECT_EQ(hammingDistance("\xFF\xFF", "\xF0\x82"), 0);
 
   VELOX_ASSERT_THROW(
       hammingDistance("\u0000", "\u0001"),
@@ -1927,5 +1941,9 @@ TEST_F(StringFunctionsTest, hammingDistance) {
   VELOX_ASSERT_THROW(
       hammingDistance(
           "\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u4FE1\u5FF5\u5E0C\u671B"),
+      "The input strings to hamming_distance function must have the same length");
+  // Test invalid UTF-8 characters.
+  VELOX_ASSERT_THROW(
+      hammingDistance("\xFF\x82\xFF", "\xF0\x82"),
       "The input strings to hamming_distance function must have the same length");
 }

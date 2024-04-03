@@ -368,8 +368,8 @@ struct HammingDistanceFunction {
       // if both code points are invalid, we do not care if they are equal
       // the following code treats them as equal if they happen to be of the
       // same length
-      leftPosition += codePointLeft > 0 ? leftSize : -codePointLeft;
-      rightPosition += codePointRight > 0 ? rightSize : -codePointRight;
+      leftPosition += codePointLeft >= 0 ? leftSize : -codePointLeft;
+      rightPosition += codePointRight >= 0 ? rightSize : -codePointRight;
 
       if (codePointLeft != codePointRight) {
         distance++;
