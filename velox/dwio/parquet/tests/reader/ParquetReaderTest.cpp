@@ -944,3 +944,28 @@ TEST_F(ParquetReaderTest, testEmptyRowGroups) {
 
   assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
 }
+
+TEST_F(ParquetReaderTest, testEnumType) {
+  // enum_type.parquet contains 1 column (ENUM) with 3 rows.
+  const std::string sample(getExampleFilePath("enum_type.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader->numberOfRows(), 3ULL);
+
+  auto rowType = reader->typeWithId();
+  EXPECT_EQ(rowType->type()->kind(), TypeKind::ROW);
+  EXPECT_EQ(rowType->size(), 1ULL);
+
+  EXPECT_EQ(rowType->childAt(0)->type()->kind(), TypeKind::VARCHAR);
+
+  auto fileSchema = ROW({"test"}, {VARCHAR()});
+  auto rowReaderOpts = getReaderOpts(fileSchema);
+  rowReaderOpts.setScanSpec(makeScanSpec(fileSchema));
+  auto rowReader = reader->createRowReader(rowReaderOpts);
+
+  auto expected =
+      makeRowVector({makeFlatVector<StringView>({"FOO", "BAR", "FOO"})});
+
+  assertReadWithReaderAndExpected(fileSchema, *rowReader, expected, *leafPool_);
+}

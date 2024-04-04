@@ -528,10 +528,16 @@ TypePtr ReaderBase::convertType(
             VELOX_FAIL(
                 "UTF8 converted type can only be set for thrift::Type::(FIXED_LEN_)BYTE_ARRAY");
         }
+      case thrift::ConvertedType::ENUM: {
+        VELOX_CHECK_EQ(
+            schemaElement.type,
+            thrift::Type::BYTE_ARRAY,
+            "ENUM converted type can only be set for value of thrift::Type::BYTE_ARRAY");
+        return VARCHAR();
+      }
       case thrift::ConvertedType::MAP:
       case thrift::ConvertedType::MAP_KEY_VALUE:
       case thrift::ConvertedType::LIST:
-      case thrift::ConvertedType::ENUM:
       case thrift::ConvertedType::TIME_MILLIS:
       case thrift::ConvertedType::TIME_MICROS:
       case thrift::ConvertedType::JSON:
@@ -539,7 +545,7 @@ TypePtr ReaderBase::convertType(
       case thrift::ConvertedType::INTERVAL:
       default:
         VELOX_FAIL(
-            "Unsupported Parquet SchemaElement converted type: ",
+            "Unsupported Parquet SchemaElement converted type: {}",
             schemaElement.converted_type);
     }
   } else {
@@ -565,7 +571,8 @@ TypePtr ReaderBase::convertType(
         }
 
       default:
-        VELOX_FAIL("Unknown Parquet SchemaElement type: ", schemaElement.type);
+        VELOX_FAIL(
+            "Unknown Parquet SchemaElement type: {}", schemaElement.type);
     }
   }
 }
