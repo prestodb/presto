@@ -228,6 +228,9 @@ TEST(TypeTest, shortDecimal) {
   EXPECT_NE(*DECIMAL(9, 5), *shortDecimal);
   EXPECT_NE(*DECIMAL(10, 4), *shortDecimal);
 
+  VELOX_ASSERT_THROW(
+      DECIMAL(0, 0), "Precision of decimal type must be at least 1");
+
   EXPECT_STREQ(shortDecimal->name(), "DECIMAL");
   EXPECT_EQ(shortDecimal->parameters().size(), 2);
   EXPECT_TRUE(
