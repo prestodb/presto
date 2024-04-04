@@ -591,9 +591,7 @@ public class InMemoryCachingHiveMetastore
             Map<Column, Domain> partitionPredicates)
     {
         if (partitionVersioningEnabled) {
-            List<PartitionNameWithVersion> partitionNamesWithVersion = getPartitionNamesWithVersionByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
-            invalidateStalePartitions(partitionNamesWithVersion, databaseName, tableName, metastoreContext);
-            return partitionNamesWithVersion;
+            return getPartitionNamesWithVersionByFilter(metastoreContext, databaseName, tableName, partitionPredicates);
         }
         return get(partitionFilterCache, getCachingKey(metastoreContext, partitionFilter(databaseName, tableName, partitionPredicates)));
     }
@@ -697,6 +695,9 @@ public class InMemoryCachingHiveMetastore
 
     private Optional<Partition> loadPartitionByName(KeyAndContext<HivePartitionName> partitionName)
     {
+        //Invalidate Partition Statistics Cache on a partition cache miss.
+        partitionStatisticsCache.invalidate(getCachingKey(partitionName.getContext(), partitionName.getKey()));
+
         return delegate.getPartition(
                 partitionName.getContext(),
                 partitionName.getKey().getHiveTableName().getDatabaseName(),
@@ -708,6 +709,9 @@ public class InMemoryCachingHiveMetastore
     {
         requireNonNull(partitionNamesKey, "partitionNames is null");
         checkArgument(!Iterables.isEmpty(partitionNamesKey), "partitionNames is empty");
+
+        //Invalidate Partition Statistics Cache on a partition cache miss.
+        partitionStatisticsCache.invalidateAll(transform(partitionNamesKey, partitionNameKey -> getCachingKey(partitionNameKey.getContext(), partitionNameKey.getKey())));
 
         KeyAndContext<HivePartitionName> firstPartitionKey = Iterables.get(partitionNamesKey, 0);
 
