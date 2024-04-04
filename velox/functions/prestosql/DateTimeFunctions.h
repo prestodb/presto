@@ -1488,4 +1488,15 @@ struct TimeZoneMinuteFunction : public TimestampWithTimezoneSupport<T> {
   }
 };
 
+template <typename T>
+struct ToISO8601Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Date>& date) {
+    result = DateType::toIso8601(date);
+  }
+};
+
 } // namespace facebook::velox::functions

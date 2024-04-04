@@ -3996,3 +3996,21 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeDouble) {
   });
   assertEqualVectors(expected, actual);
 }
+
+TEST_F(DateTimeFunctionsTest, toISO8601Date) {
+  const auto toISO8601 = [&](const char* dateString) {
+    return evaluateOnce<std::string, int32_t>(
+        "to_iso8601(c0)", {DATE()->toDays(dateString)}, {DATE()});
+  };
+
+  EXPECT_EQ("1970-01-01", toISO8601("1970-01-01"));
+  EXPECT_EQ("2020-02-05", toISO8601("2020-02-05"));
+  EXPECT_EQ("1919-11-28", toISO8601("1919-11-28"));
+  EXPECT_EQ("4653-07-01", toISO8601("4653-07-01"));
+  EXPECT_EQ("1844-10-14", toISO8601("1844-10-14"));
+  EXPECT_EQ("0001-01-01", toISO8601("1-01-01"));
+  EXPECT_EQ("9999-12-31", toISO8601("9999-12-31"));
+  EXPECT_EQ("872343-04-19", toISO8601("872343-04-19"));
+  EXPECT_EQ("-3492-10-05", toISO8601("-3492-10-05"));
+  EXPECT_EQ("-0653-07-12", toISO8601("-653-07-12"));
+}

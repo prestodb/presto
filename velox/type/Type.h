@@ -1266,6 +1266,10 @@ class DateType : public IntegerType {
 
   std::string toString(int32_t days) const;
 
+  /// Returns a date, represented as days since epoch,
+  /// as an ISO 8601-formatted string.
+  static std::string toIso8601(int32_t days);
+
   int32_t toDays(folly::StringPiece in) const;
 
   int32_t toDays(const char* in, size_t len) const;
