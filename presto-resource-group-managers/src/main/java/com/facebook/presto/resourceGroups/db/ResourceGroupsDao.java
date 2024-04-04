@@ -24,12 +24,12 @@ public interface ResourceGroupsDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups_global_properties (\n" +
             "  name VARCHAR(128) NOT NULL PRIMARY KEY,\n" +
-            "  value VARCHAR(512) NULL,\n" +
+            "  `value` VARCHAR(512) NULL,\n" +
             "  CHECK (name in ('cpu_quota_period'))\n" +
             ")")
     void createResourceGroupsGlobalPropertiesTable();
 
-    @SqlQuery("SELECT value FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
+    @SqlQuery("SELECT `value` FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
     @UseRowMapper(ResourceGroupGlobalProperties.Mapper.class)
     List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();
 
