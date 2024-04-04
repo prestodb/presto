@@ -717,6 +717,10 @@
                                 <groupId>org.slf4j</groupId>
                                 <artifactId>slf4j-jdk14</artifactId>
                             </dependency>
+                            <dependency>
+                                <groupId>org.alluxio</groupId>
+                                <artifactId>alluxio-shaded-client</artifactId>
+                            </dependency>
                         </ignoredDependencies>
                     </configuration>
                 </plugin>

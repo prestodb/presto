@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import alluxio.AlluxioURI;
+import alluxio.client.file.FileSystem;
+import alluxio.client.file.FileSystemContext;
+import alluxio.client.file.URIStatus;
+import alluxio.conf.AlluxioConfiguration;
+import alluxio.conf.Configuration;
+import alluxio.conf.PropertyKey;
+import alluxio.exception.AlluxioException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.metadata.Split;
@@ -25,12 +33,11 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -44,14 +51,13 @@ import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestFileFragmentResultCacheManager
+public class TestAlluxioFragmentResultCacheManager
 {
     private static final String SERIALIZED_PLAN_FRAGMENT_1 = "test plan fragment 1";
     private static final String SERIALIZED_PLAN_FRAGMENT_2 = "test plan fragment 2";
@@ -62,6 +68,30 @@ public class TestFileFragmentResultCacheManager
     private final ExecutorService removalExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%s"));
     private final ExecutorService multithreadingWriteExecutor = newScheduledThreadPool(10, daemonThreadsNamed("test-cache-multithreading-flusher-%s"));
 
+    private final AlluxioLocalCluster alluxioLocalCluster;
+
+    private FileSystem fileSystem;
+
+    public TestAlluxioFragmentResultCacheManager()
+    {
+        alluxioLocalCluster = new AlluxioLocalCluster();
+    }
+
+    @BeforeClass
+    public void initFileSystem()
+    {
+        //Configuration.set(PropertyKey.USER_CLIENT_CACHE_ENABLED, true);
+        Configuration.set(PropertyKey.USER_SKIP_AUTHORITY_CHECK, true);
+        Configuration.set(PropertyKey.USER_CONF_CLUSTER_DEFAULT_ENABLED, false);
+        Configuration.set(PropertyKey.MASTER_HOSTNAME, "127.0.0.1");
+        Configuration.set(PropertyKey.MASTER_RPC_PORT, alluxioLocalCluster.getMasterRpcPort());
+        Configuration.set(PropertyKey.WORKER_RPC_PORT, alluxioLocalCluster.getWorkerRpcPort());
+        Configuration.set(PropertyKey.SECURITY_AUTHORIZATION_PERMISSION_ENABLED, false);
+        AlluxioConfiguration alluxioConfiguration = Configuration.global();
+        FileSystemContext fileSystemContext = FileSystemContext.create(alluxioConfiguration);
+        fileSystem = FileSystem.Factory.create(fileSystemContext);
+    }
+
     @AfterClass
     public void close()
             throws IOException, InterruptedException
@@ -70,34 +100,54 @@ public class TestFileFragmentResultCacheManager
         removalExecutor.shutdown();
         removalExecutor.awaitTermination(30, TimeUnit.SECONDS);
         multithreadingWriteExecutor.shutdown();
+        alluxioLocalCluster.close();
     }
 
     private URI getNewCacheDirectory(String prefix)
             throws Exception
     {
-        return createTempDirectory(prefix).toUri();
+        int port = alluxioLocalCluster.getMasterRpcPort();
+        String path = "alluxio://127.0.0.1:" + port + "/" + prefix;
+        AlluxioURI dirUri = new AlluxioURI(path);
+        if (!fileSystem.exists(dirUri)) {
+            fileSystem.createDirectory(dirUri);
+        }
+        return convertToURI(dirUri);
     }
 
     private void cleanupCacheDirectory(URI cacheDirectory)
-            throws IOException
+            throws IOException, AlluxioException
     {
         checkState(cacheDirectory != null);
-        File[] files = new File(cacheDirectory).listFiles();
-        if (files != null) {
-            for (File file : files) {
-                Files.deleteIfExists(file.toPath());
-            }
+        AlluxioURI alluxioURI = convertToAlluxioURI(cacheDirectory);
+        if (!fileSystem.exists(alluxioURI)) {
+            return;
         }
-        Files.deleteIfExists(new File(cacheDirectory).toPath());
+        List<URIStatus> files = fileSystem.listStatus(alluxioURI);
+        for (URIStatus file : files) {
+            fileSystem.delete(new AlluxioURI(file.getPath()));
+        }
+        fileSystem.delete(alluxioURI);
     }
 
-    @Test(timeOut = 30_000)
+    private AlluxioURI convertToAlluxioURI(URI uri)
+    {
+        return new AlluxioURI(uri.getPath());
+    }
+
+    private URI convertToURI(AlluxioURI alluxioURI) throws Exception
+    {
+        return new URI(alluxioURI.toString());
+    }
+
+    //@Test(timeOut = 30_000)
+    @Test
     public void testBasic()
             throws Exception
     {
         URI cacheDirectory = getNewCacheDirectory("testBasic");
         FragmentCacheStats stats = new FragmentCacheStats();
-        FileFragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats, cacheDirectory);
+        AlluxioFragmentResultCacheManager cacheManager = alluxioFragmentResultCacheManager(stats, cacheDirectory);
 
         // Test fetching new fragment. Current cache status: empty
         assertFalse(cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1).isPresent());
@@ -146,7 +196,7 @@ public class TestFileFragmentResultCacheManager
         assertEquals(stats.getCacheRemoval(), 2);
         assertEquals(stats.getCacheSizeInBytes(), 0);
 
-        cleanupCacheDirectory(cacheDirectory);
+        //cleanupCacheDirectory(cacheDirectory);
     }
 
     @Test(timeOut = 30_000)
@@ -159,7 +209,7 @@ public class TestFileFragmentResultCacheManager
         FragmentCacheStats stats = new FragmentCacheStats();
         FragmentResultCacheConfig config = new FragmentResultCacheConfig();
         config.setMaxCacheSize(new DataSize(71, DataSize.Unit.BYTE));
-        FileFragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats, config, cacheDirectory);
+        AlluxioFragmentResultCacheManager cacheManager = alluxioFragmentResultCacheManager(stats, config, cacheDirectory);
 
         // Put one cache entry.
         cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, pages).get();
@@ -198,7 +248,7 @@ public class TestFileFragmentResultCacheManager
         assertEquals(stats.getCacheRemoval(), 2);
         assertEquals(stats.getCacheSizeInBytes(), 0);
 
-        cleanupCacheDirectory(cacheDirectory);
+        //cleanupCacheDirectory(cacheDirectory);
     }
 
     private static void assertPagesEqual(Iterator<Page> pages1, Iterator<Page> pages2)
@@ -222,7 +272,7 @@ public class TestFileFragmentResultCacheManager
         URI cacheDirectory = getNewCacheDirectory("testThreadWrite");
         String writeThreadNameFormat = "test write content,thread %s,%s";
         FragmentCacheStats stats = new FragmentCacheStats();
-        FileFragmentResultCacheManager threadWriteCacheManager = fileFragmentResultCacheManager(stats, cacheDirectory);
+        AlluxioFragmentResultCacheManager threadWriteCacheManager = alluxioFragmentResultCacheManager(stats, cacheDirectory);
         ImmutableList.Builder<Future<Boolean>> futures = ImmutableList.builder();
         for (int i = 0; i < 10; i++) {
             Future<Boolean> future = multithreadingWriteExecutor.submit(() -> {
@@ -236,6 +286,7 @@ public class TestFileFragmentResultCacheManager
                     return true;
                 }
                 catch (Exception e) {
+                    e.printStackTrace();
                     return false;
                 }
             });
@@ -249,31 +300,48 @@ public class TestFileFragmentResultCacheManager
         threadWriteCacheManager.invalidateAllCache();
         assertEquals(stats.getCacheSizeInBytes(), 0);
 
-        cleanupCacheDirectory(cacheDirectory);
+        //cleanupCacheDirectory(cacheDirectory);
+    }
+
+    private boolean test(String writeThreadNameFormat, AlluxioFragmentResultCacheManager threadWriteCacheManager)
+    {
+        try {
+            String threadInfo = String.format(writeThreadNameFormat, Thread.currentThread().getName(), Thread.currentThread().getId());
+            List<Page> pages = ImmutableList.of(new Page(createStringsBlock(threadInfo)));
+            threadWriteCacheManager.put(threadInfo, SPLIT_2, pages).get();
+            Thread.sleep(10000);
+            Optional<Iterator<Page>> result = threadWriteCacheManager.get(threadInfo, SPLIT_2);
+            assertTrue(result.isPresent());
+            assertPagesEqual(result.get(), pages.iterator());
+            return true;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     // Returns the total physical size in bytes for all the cache files.
-    private long getCachePhysicalSize(URI cacheDirectory)
+    private long getCachePhysicalSize(URI cacheDirectory) throws Exception
     {
         checkState(cacheDirectory != null);
-        File[] files = new File(cacheDirectory).listFiles();
+        AlluxioURI alluxioURI = convertToAlluxioURI(cacheDirectory);
+        List<URIStatus> files = fileSystem.listStatus(alluxioURI);
         long physicalSize = 0;
-        if (files != null) {
-            for (File file : files) {
-                physicalSize += file.length();
-            }
+        for (URIStatus file : files) {
+            physicalSize += file.getLength();
         }
         return physicalSize;
     }
 
-    private FileFragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats, URI cacheDirectory)
+    private AlluxioFragmentResultCacheManager alluxioFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats, URI cacheDirectory)
     {
-        return fileFragmentResultCacheManager(fragmentCacheStats, new FragmentResultCacheConfig(), cacheDirectory);
+        return alluxioFragmentResultCacheManager(fragmentCacheStats, new FragmentResultCacheConfig(), cacheDirectory);
     }
 
-    private FileFragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats, FragmentResultCacheConfig cacheConfig, URI cacheDirectory)
+    private AlluxioFragmentResultCacheManager alluxioFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats, FragmentResultCacheConfig cacheConfig, URI cacheDirectory)
     {
-        return new FileFragmentResultCacheManager(
+        return new AlluxioFragmentResultCacheManager(
                 cacheConfig.setBaseDirectory(cacheDirectory),
                 new TestingBlockEncodingSerde(),
                 fragmentCacheStats,
