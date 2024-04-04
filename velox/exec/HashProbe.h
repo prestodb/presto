@@ -68,6 +68,10 @@ class HashProbe : public Operator {
 
   bool canReclaim() const override;
 
+  bool testingHasInputSpiller() const {
+    return inputSpiller_ != nullptr;
+  }
+
  private:
   void setState(ProbeOperatorState state);
   void checkStateTransition(ProbeOperatorState state);

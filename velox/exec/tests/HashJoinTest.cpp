@@ -7192,6 +7192,79 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillInMiddeOfLastOutputProcessing) {
       .run();
 }
 
+// Inject probe-side spilling in the middle of output processing. If
+// 'recursiveSpill' is true, we trigger probe-spilling when probe the hash table
+// built from spilled data.
+DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillInMiddeOfOutputProcessing) {
+  for (bool recursiveSpill : {false, true}) {
+    std::atomic_int buildInputCount{0};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::addInput",
+        std::function<void(Operator*)>([&](Operator* op) {
+          if (!isHashBuildMemoryPool(*op->pool())) {
+            return;
+          }
+          if (!recursiveSpill) {
+            return;
+          }
+          // Trigger spill after the build side has processed some rows.
+          if (buildInputCount++ != 1) {
+            return;
+          }
+          testingRunArbitration(op->pool());
+        }));
+
+    std::atomic_bool injectProbeSpillOnce{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::Driver::runInternal::getOutput",
+        std::function<void(Operator*)>([&](Operator* op) {
+          if (!isHashProbeMemoryPool(*op->pool())) {
+            return;
+          }
+
+          if (op->testingHasInput()) {
+            return;
+          }
+          if (recursiveSpill) {
+            if (static_cast<HashProbe*>(op)->testingHasInputSpiller()) {
+              return;
+            }
+          }
+          if (!injectProbeSpillOnce.exchange(false)) {
+            return;
+          }
+          testingRunArbitration(op->pool());
+        }));
+
+    fuzzerOpts_.vectorSize = 128;
+    auto probeVectors = createVectors(10, probeType_, fuzzerOpts_);
+    auto buildVectors = createVectors(20, buildType_, fuzzerOpts_);
+
+    const auto spillDirectory = exec::test::TempDirectoryPath::create();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .numDrivers(1)
+        .spillDirectory(spillDirectory->path)
+        .probeKeys({"t_k1"})
+        .probeVectors(std::move(probeVectors))
+        .buildKeys({"u_k1"})
+        .buildVectors(std::move(buildVectors))
+        .config(core::QueryConfig::kJoinSpillEnabled, "true")
+        .config(
+            core::QueryConfig::kPreferredOutputBatchRows, std::to_string(10))
+        .joinType(core::JoinType::kRight)
+        .joinOutputLayout({"t_k1", "t_k2", "u_k1", "t_v1"})
+        .referenceQuery(
+            "SELECT t.t_k1, t.t_k2, u.u_k1, t.t_v1 FROM t RIGHT JOIN u ON t.t_k1 = u.u_k1")
+        .injectSpill(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+          auto opStats = toOperatorStats(task->taskStats());
+          ASSERT_GT(opStats.at("HashProbe").spilledBytes, 0);
+          ASSERT_GT(opStats.at("HashProbe").spilledPartitions, 1);
+        })
+        .run();
+  }
+}
+
 DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillWhenOneOfProbeFinish) {
   const int numDrivers{3};
 

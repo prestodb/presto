@@ -632,6 +632,10 @@ class Operator : public BaseRuntimeStatWriter {
     return nonReclaimableSection_;
   }
 
+  bool testingHasInput() const {
+    return input_ != nullptr;
+  }
+
  protected:
   static std::vector<std::unique_ptr<PlanNodeTranslator>>& translators();
   friend class NonReclaimableSection;

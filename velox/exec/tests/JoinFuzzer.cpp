@@ -434,7 +434,7 @@ RowVectorPtr JoinFuzzer::execute(const PlanWithSplits& plan, bool injectSpill) {
     builder.config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .spillDirectory(spillDirectory->path);
-    spillPct = 100;
+    spillPct = 10;
   }
 
   ScopedOOMInjector oomInjector(
