@@ -120,7 +120,13 @@ class ValueWriter {
 
   void addOffset(uint64_t offset, uint64_t inMapIndex) {
     if (UNLIKELY(inMapBuffer_[inMapIndex])) {
-      DWIO_RAISE("Duplicate key in map");
+      std::string duplicatedKey = "<unknown>";
+      if (keyInfo_.has_byteskey()) {
+        duplicatedKey = keyInfo_.byteskey();
+      } else if (keyInfo_.has_intkey()) {
+        duplicatedKey = std::to_string(keyInfo_.intkey());
+      }
+      DWIO_RAISE("Duplicated key in map: ", duplicatedKey);
     }
 
     ranges_.add(offset, offset + 1);

@@ -1215,22 +1215,41 @@ TEST_F(ColumnWriterTest, TestMapWriterInt64Key) {
   testMapWriterNumericKey<int64_t>(/* useFlatMap */ true, /* useStruct */ true);
 }
 
+TEST_F(ColumnWriterTest, TestMapWriterDuplicatedInt64Key) {
+  using T = int64_t;
+  using b = MapBuilder<T, T>;
+
+  auto pool = memory::memoryManager()->addLeafPool();
+  auto batch = b::create(
+      *pool, {typename b::row{typename b::pair{5, 3}, typename b::pair{5, 4}}});
+
+  EXPECT_THAT(
+      ([&]() { testMapWriter<T, T>(*pool, batch, /* useFlatMap */ true); }),
+      Throws<
+          facebook::velox::dwio::common::exception::LoggedException>(Property(
+          &facebook::velox::dwio::common::exception::LoggedException::message,
+          HasSubstr("Duplicated key in map: 5"))));
+}
+
 TEST_F(ColumnWriterTest, TestMapWriterInt32Key) {
   testMapWriterNumericKey<int32_t>(/* useFlatMap */ false);
   testMapWriterNumericKey<int32_t>(/* useFlatMap */ true);
-  testMapWriterNumericKey<int32_t>(/* useFlatMap */ true, /* useStruct */ true);
+  testMapWriterNumericKey<int32_t>(
+      /* useFlatMap */ true, /* useStruct */ true);
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterInt16Key) {
   testMapWriterNumericKey<int16_t>(/* useFlatMap */ false);
   testMapWriterNumericKey<int16_t>(/* useFlatMap */ true);
-  testMapWriterNumericKey<int16_t>(/* useFlatMap */ true, /* useStruct */ true);
+  testMapWriterNumericKey<int16_t>(
+      /* useFlatMap */ true, /* useStruct */ true);
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterInt8Key) {
   testMapWriterNumericKey<int8_t>(/* useFlatMap */ false);
   testMapWriterNumericKey<int8_t>(/* useFlatMap */ true);
-  testMapWriterNumericKey<int8_t>(/* useFlatMap */ true, /* useStruct */ true);
+  testMapWriterNumericKey<int8_t>(
+      /* useFlatMap */ true, /* useStruct */ true);
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterStringKey) {
@@ -1248,6 +1267,26 @@ TEST_F(ColumnWriterTest, TestMapWriterStringKey) {
   testMapWriter<keyType, valueType>(*pool_, batch, /* useFlatMap */ true);
   testMapWriter<keyType, valueType>(
       *pool_, batch, /* useFlatMap */ true, true, /* useStruct */ true);
+}
+
+TEST_F(ColumnWriterTest, TestMapWriterDuplicatedStringKey) {
+  using keyType = StringView;
+  using valueType = StringView;
+  using b = MapBuilder<keyType, valueType>;
+
+  auto pool = memory::memoryManager()->addLeafPool();
+  auto batch = b::create(
+      *pool_,
+      {b::row{b::pair{"2", "5"}, b::pair{"2", "8"}}}); // Duplicated key: 2
+
+  EXPECT_THAT(
+      ([&]() {
+        testMapWriter<keyType, valueType>(*pool_, batch, /* useFlatMap */ true);
+      }),
+      Throws<
+          facebook::velox::dwio::common::exception::LoggedException>(Property(
+          &facebook::velox::dwio::common::exception::LoggedException::message,
+          HasSubstr("Duplicated key in map: 2"))));
 }
 
 TEST_F(ColumnWriterTest, TestMapWriterDifferentNumericKeyValue) {
