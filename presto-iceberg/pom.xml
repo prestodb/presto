@@ -576,6 +576,17 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <!-- Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner-->
+                        <ignoredUsedUndeclaredDependencies>
+                            <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>
+                            <dependency>org.eclipse.jetty:jetty-server:jar</dependency>
+                        </ignoredUsedUndeclaredDependencies>
+                    </configuration>
+                </plugin>
+                <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>

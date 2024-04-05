@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiFunction;
 
+import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -142,8 +143,8 @@ public final class IcebergQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        Logging logger = Logging.initialize();
-        logger.setLevel("org.apache.iceberg", WARN);
+        setupLogging();
+
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
@@ -230,10 +231,25 @@ public final class IcebergQueryRunner
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + icebergCatalogType);
     }
 
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.facebook.presto.event", WARN);
+        logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
+        logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
+        logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);
+        logging.setLevel("org.glassfish.jersey.internal.inject.Providers", ERROR);
+        logging.setLevel("parquet.hadoop", WARN);
+        logging.setLevel("org.apache.iceberg", WARN);
+    }
+
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
+        setupLogging();
         Optional<Path> dataDirectory = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
