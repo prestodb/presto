@@ -605,6 +605,19 @@ jobs:
         with:
           name: aggregation
 
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+          # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox/velox
+
+
       - name: "Run Aggregate Fuzzer"
         run: |
           cd  velox
@@ -614,10 +627,12 @@ jobs:
           # Sleep for 60 seconds to allow Presto server to start.
           sleep 60
           /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
           mkdir -p /tmp/aggregate_fuzzer_repro/
           rm -rfv /tmp/aggregate_fuzzer_repro/*
           chmod -R 777 /tmp/aggregate_fuzzer_repro
-          velox_aggregation_fuzzer_test \
+          chmod +x velox_aggregation_fuzzer_test
+          ./velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec $DURATION \
                 --logtostderr=1 \
