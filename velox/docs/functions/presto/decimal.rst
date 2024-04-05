@@ -31,6 +31,10 @@ This number needs at least 18 digits (precision) of which at least 2 digits
 must appear after the decimal point (scale). This number can be represented
 using any DECIMAL type where scale >= 2 and precision is >= scale + 16.
 
+Note: This definition of precision and scale may appear counterintuitive. It is
+not uncommon to think about the number of digits after the decimal point as
+precision and the number of digits before the decimal point as scale.
+
 Addition and Subtraction
 ------------------------
 
@@ -126,15 +130,6 @@ difference in s1 and s.
 Like in Addition, the precision of the result may exceed 38. The choices are the
 same. Presto chooses to cap p at 38 and allow runtime errors.
 
-The choice of formula for the result scale produces the following behavior that
-might be surprising to users.
-
-::
-
-    0.01 / 0.001 = 0.000 (not 0.00001)
-
-, where 0.01 is a decimal(3, 2) and 0.001 is a decimal (4, 3).
-
 Velox implementation matches Presto.
 
 Decimal Functions
@@ -144,22 +139,27 @@ Decimal Functions
 
     Returns absolute value of x (r = `|x|`).
 
-.. function:: negate(x: decimal(p, s)) -> r: decimal(p, s)
+.. function:: divide(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
 
-    Returns negated value of x (r = -x).
-
-.. function:: plus(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
-
-    Returns the result of adding x to y (r = x + y).
+    Returns the result of dividing x by y (r = x / y).
 
     x and y are decimal values with possibly different precisions and scales. The
     precision and scale of the result are calculated as follows:
     ::
 
-        p = min(38, max(p1 - s1, p2 - s2) + 1 + max(s1, s2))
+        p = min(38, p1 + s2 + max(0, s2 - s1))
         s = max(s1, s2)
 
-    Throws if result cannot be represented using precision calculated above.
+    Throws if y is zero or result cannot be represented using precision calculated
+    above.
+
+.. function:: floor(x: decimal(p, s)) -> r: decimal(pr, 0)
+
+    Returns 'x' rounded down to the nearest integer. The scale of the result is 0.
+    The precision is calculated as:
+    ::
+
+        pr = min(38, p - s + min(s, 1))
 
 .. function:: minus(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
 
@@ -189,16 +189,48 @@ Decimal Functions
 
     Throws if result cannot be represented using precision calculated above.
 
-.. function:: divide(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
+.. function:: negate(x: decimal(p, s)) -> r: decimal(p, s)
 
-    Returns the result of dividing x by y (r = x / y).
+    Returns negated value of x (r = -x).
+
+.. function:: plus(x: decimal(p1, s1), y: decimal(p2, s2)) -> r: decimal(p, s)
+
+    Returns the result of adding x to y (r = x + y).
 
     x and y are decimal values with possibly different precisions and scales. The
     precision and scale of the result are calculated as follows:
     ::
 
-        p = min(38, p1 + s2 + max(0, s2 - s1))
+        p = min(38, max(p1 - s1, p2 - s2) + 1 + max(s1, s2))
         s = max(s1, s2)
 
-    Throws if y is zero or result cannot be represented using precision calculated
-    above.
+    Throws if result cannot be represented using precision calculated above.
+
+.. function:: round(x: decimal(p, s)) -> r: decimal(rp, 0)
+
+    Returns 'x' rounded to the nearest integer. The scale of the result is 0.
+    The precision is calculated as:
+    ::
+
+        pr = min(38, p - s + min(s, 1))
+
+.. function:: round(x: decimal(p, s), d: integer) -> r: decimal(rp, s)
+
+    Returns 'x' rounded to 'd' decimal places. The scale of the result is
+    the same as the scale of the input. The precision is calculated as:
+    ::
+
+        p = min(38, p + 1)
+
+    'd' can be positive, zero or negative. Returns 'x' unmodified if 'd' exceeds
+    the scale of the input.
+
+    ::
+
+        SELECT round(123.45, 0); -- 123.00
+        SELECT round(123.45, 1); -- 123.50
+        SELECT round(123.45, 2); -- 123.45
+        SELECT round(123.45, 3); -- 123.45
+        SELECT round(123.45, -1); -- 120.00
+        SELECT round(123.45, -2); -- 100.00
+        SELECT round(123.45, -10); -- 0.00
