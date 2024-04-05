@@ -38,7 +38,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Graph;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.MutableGraph;
+import com.google.common.graph.MutableValueGraph;
 import com.google.common.graph.Traverser;
+import com.google.common.graph.ValueGraphBuilder;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,11 +50,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getCteHeuristicReplicationThreshold;
 import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.HEURISTIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.HEURISTIC_COMPLEX_QUERIES_ONLY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -123,10 +128,7 @@ public class LogicalCteOptimizer
         {
             checkArgument(root.getSources().size() == 1, "expected newChildren to contain 1 node");
             LogicalCteOptimizerContext context = new LogicalCteOptimizerContext();
-            if (getCteMaterializationStrategy(session).equals(HEURISTIC_COMPLEX_QUERIES_ONLY)) {
-                // Mark all Complex CTES and store info in the context
-                root.accept(new ComplexCteAnalyzer(session), context);
-            }
+            determineMaterializationCandidatesAndUpdateContext(session, root, context);
             PlanNode transformedCte = SimplePlanRewriter.rewriteWith(new CteConsumerTransformer(session, planNodeIdAllocator, variableAllocator),
                     root, context);
             List<PlanNode> topologicalOrderedList = context.getTopologicalOrdering();
@@ -147,6 +149,38 @@ public class LogicalCteOptimizer
         public boolean isPlanRewritten()
         {
             return isPlanRewritten;
+        }
+
+        private void determineMaterializationCandidatesAndUpdateContext(Session session, PlanNode root, LogicalCteOptimizerContext context)
+        {
+            if (shouldPerformHeuristicAnalysis(session)) {
+                performHeuristicAnalysis(session, root, context);
+            }
+            else {
+                markAllCtesForMaterialization(session, context);
+            }
+        }
+
+        private boolean shouldPerformHeuristicAnalysis(Session session)
+        {
+            return !getCteMaterializationStrategy(session).equals(ALL);
+        }
+
+        private void performHeuristicAnalysis(Session session, PlanNode root, LogicalCteOptimizerContext context)
+        {
+            WeightedDependencyAnalyzer dependencyAnalyzer = new WeightedDependencyAnalyzer();
+            ComplexCteAnalyzer complexCteAnalyzer = new ComplexCteAnalyzer(session);
+
+            root.accept(dependencyAnalyzer, context);
+            root.accept(complexCteAnalyzer, context);
+            new HeuristicCteMaterializationDeterminer(session).determineHeuristicCandidates(context);
+        }
+
+        private void markAllCtesForMaterialization(Session session, LogicalCteOptimizerContext context)
+        {
+            session.getCteInformationCollector().getCTEInformationList().stream()
+                    .map(CTEInformation::getCteId)
+                    .forEach(context::addMaterializationCandidate);
         }
     }
 
@@ -206,6 +240,153 @@ public class LogicalCteOptimizer
         }
     }
 
+    /**
+     * Analyzes the query plan to build a weighted dependency graph for the CTEs
+     * The weight on each edge signifies the number of times the child CTE is referenced by the parent
+     **/
+    public static class WeightedDependencyAnalyzer
+            extends SimplePlanVisitor<LogicalCteOptimizerContext>
+    {
+        private final Set<String> visited;
+
+        public WeightedDependencyAnalyzer()
+        {
+            visited = new HashSet<>();
+        }
+
+        @Override
+        public Void visitCteReference(CteReferenceNode node, LogicalCteOptimizerContext context)
+        {
+            if (visited.contains(node.getCteId())) {
+                // already visited so skip traversal but add dependency
+                context.addCteReferenceDependency(node.getCteId());
+                return null;
+            }
+            visited.add(node.getCteId());
+            context.addCteReferenceDependency(node.getCteId());
+            context.pushActiveCte(node.getCteId());
+            node.getSource().accept(this, context);
+            context.popActiveCte();
+            return null;
+        }
+
+        @Override
+        public Void visitApply(ApplyNode node, LogicalCteOptimizerContext context)
+        {
+            node.getInput().accept(this, context);
+            node.getSubquery().accept(this, context);
+            return null;
+        }
+    }
+
+    /**
+     * Selects CTEs for materialization following a greedy heuristic approach.
+     * The algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization and then reduces the reference counts for its child CTEs,
+     * assuming they are now accessed via the materialized parent.
+     * The CTEs selected for materialization by this class adhere to the heuristic conditions, yet they might not represent the most optimal choices due to the nature of the heuristic decision-making process.
+     * Example:
+     * <p>
+     * CTE_A
+     * /    \
+     * CTE_B  CTE_C
+     * |      |
+     * CTE_D  CTE_E
+     * <p>
+     * In this graph, if CTE_B and CTE_C are heavily referenced, the algorithm might choose to materialize these first, reducing the reference count for CTE_D and CTE_E respectively.
+     * This means that subsequent decisions will consider the reduced reference count for CTE_D and CTE_E, potentially affecting whether they are materialized.
+     */
+    public static class HeuristicCteMaterializationDeterminer
+    {
+        private final Session session;
+
+        public HeuristicCteMaterializationDeterminer(Session session)
+        {
+            this.session = session;
+        }
+
+        private void decrementCteReferenceCount(String cteId, int referencesToRemove)
+        {
+            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
+            CTEInformation cteInfo = cteInformationMap.get(cteId);
+            int newReferenceCount = cteInfo.getNumberOfReferences() - referencesToRemove;
+
+            checkArgument(newReferenceCount >= 0, "CTE Reference count for cteId %s should be >= 0", cteId);
+            cteInformationMap.put(cteId, new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), newReferenceCount, cteInfo.getIsView(), cteInfo.isMaterialized()));
+        }
+
+        void rebaseReferences(MutableValueGraph<String, Integer> graph, String cteId, int currentMultiplier, int baseRemovalMultiplier, LogicalCteOptimizerContext context)
+        {
+            for (String childCte : graph.successors(cteId)) {
+                if (!context.shouldCteBeMaterialized(childCte)) {
+                    int edgeValue = graph.edgeValueOrDefault(cteId, childCte, 1);
+                    int referencesToRemove = baseRemovalMultiplier * currentMultiplier * edgeValue;
+                    decrementCteReferenceCount(childCte, referencesToRemove);
+                    rebaseReferences(graph, childCte, currentMultiplier * edgeValue, baseRemovalMultiplier, context);
+                }
+            }
+        }
+
+        /**
+         * Recursively adjusts the reference counts in the dependency graph due to the materialization of a CTE.
+         * This adjustment accounts for the reduced need to recompute the CTEs that are directly or indirectly
+         * referenced by the materialized CTE.
+         * <p>
+         * Example:
+         * Let's say A is referenced 3 times in a query and A references B 3 times, and B references C 2 times.
+         * The graph would be: Query - (3) - A -(3)-> B -(2)-> C
+         * If A was materialized, we would need to adjust B and C's references because their computations are
+         * effectively encapsulated by A's materialization.
+         * Initial reference counts are 9 for B and 18 for C.
+         * The decrement needed would be as follows:
+         * - For B, the adjustment would be 2 (A's references) * 3 (times A references B) = 6
+         * - For C, following B's adjustment, the adjustment would be 2 (A's references) * 3 (times A references B) * 2 (times B references C) = 12
+         * Therefore, the new reference counts would be 3 for B (9 - 6) and 6 for C (18 - 12).
+         */
+        private void adjustChildReferenceCounts(String parentCteId, int parentReferences, LogicalCteOptimizerContext context)
+        {
+            int adjustmentFactor = parentReferences - 1;
+            checkArgument(adjustmentFactor >= 0, "adjustment count cannot be negative");
+            rebaseReferences(context.cteReferenceDependencyGraph, parentCteId, 1, adjustmentFactor, context);
+        }
+
+        public void determineHeuristicCandidates(LogicalCteOptimizerContext context)
+        {
+            MutableValueGraph<String, Integer> cteReferenceDependencyGraph = context.copyOfCteReferenceDependencyGraph();
+            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
+
+            // populate vertexes with indegree 0
+            List<String> nodesWithInDegreeZero = cteReferenceDependencyGraph.nodes().stream()
+                    .filter(node -> cteReferenceDependencyGraph.inDegree(node) == 0)
+                    .collect(Collectors.toList());
+
+            while (!nodesWithInDegreeZero.isEmpty()) {
+                // traverse these edges and update
+                nodesWithInDegreeZero.forEach(cteId -> {
+                    CTEInformation cteInfo = cteInformationMap.get(cteId);
+                    boolean isAboveThreshold = cteInfo.getNumberOfReferences() >= getCteHeuristicReplicationThreshold(session);
+                    boolean isHeuristic = getCteMaterializationStrategy(session).equals(HEURISTIC);
+                    boolean isHeuristicComplexOnly = getCteMaterializationStrategy(session).equals(HEURISTIC_COMPLEX_QUERIES_ONLY);
+                    boolean isComplexCte = context.isComplexCte(cteInfo.getCteId());
+
+                    if (isAboveThreshold && (isHeuristic || (isHeuristicComplexOnly && isComplexCte))) {
+                        // should be materialized
+                        context.candidatesForMaterilization.add(cteId);
+                        // update child references
+                        adjustChildReferenceCounts(cteId, cteInfo.getNumberOfReferences(), context);
+                    }
+                });
+
+                // Remove these nodes from the graphs
+                nodesWithInDegreeZero.forEach(cteReferenceDependencyGraph::removeNode);
+
+                // Refresh the list of nodes with in-degree of zero
+                nodesWithInDegreeZero = cteReferenceDependencyGraph.nodes().stream()
+                        .filter(node -> cteReferenceDependencyGraph.inDegree(node) == 0)
+                        .collect(Collectors.toList());
+            }
+        }
+    }
+
     public static class CteConsumerTransformer
             extends SimplePlanRewriter<LogicalCteOptimizerContext>
     {
@@ -222,24 +403,11 @@ public class LogicalCteOptimizer
 
         public boolean shouldCteBeMaterialized(String cteId, LogicalCteOptimizerContext context)
         {
-            HashMap<String, CTEInformation> cteInformationMap = session.getCteInformationCollector().getCteInformationMap();
-            CTEInformation cteInfo = cteInformationMap.get(cteId);
-            switch (getCteMaterializationStrategy(session)) {
-                case HEURISTIC_COMPLEX_QUERIES_ONLY:
-                    if (!context.isComplexCte(cteId)) {
-                        break;
-                    }
-                case HEURISTIC:
-                    if (cteInfo.getNumberOfReferences() < getCteHeuristicReplicationThreshold(session)) {
-                        break;
-                    }
-                case ALL:
-                    return true;
-            }
-            // do not materialize and update the cteInfo
-            cteInformationMap.put(cteId,
-                    new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), cteInfo.getNumberOfReferences(), cteInfo.getIsView(), false));
-            return false;
+            CTEInformation cteInfo = session.getCteInformationCollector().getCteInformationMap().get(cteId);
+            boolean shouldBeMaterialized = context.shouldCteBeMaterialized(cteId);
+            session.getCteInformationCollector().getCteInformationMap().put(cteId,
+                    new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), cteInfo.getNumberOfReferences(), cteInfo.getIsView(), shouldBeMaterialized));
+            return shouldBeMaterialized;
         }
 
         @Override
@@ -248,7 +416,7 @@ public class LogicalCteOptimizer
             if (!shouldCteBeMaterialized(node.getCteId(), context.get())) {
                 return context.rewrite(node.getSource(), context.get());
             }
-            context.get().addDependency(node.getCteId());
+            context.get().addMaterializedCteDependency(node.getCteId());
             context.get().pushActiveCte(node.getCteId());
             // So that dependent CTEs are processed properly
             PlanNode actualSource = context.rewrite(node.getSource(), context.get());
@@ -282,20 +450,27 @@ public class LogicalCteOptimizer
     {
         public Map<String, CteProducerNode> cteProducerMap;
 
+        // a -> b indicates that b needs to be processed before a
+        private MutableValueGraph<String, Integer> cteReferenceDependencyGraph;
+
         // a -> b indicates that a needs to be processed before b
-        private MutableGraph<String> cteDependencyGraph;
+        private MutableGraph<String> materializedCteDependencyGraph;
 
         private Stack<String> activeCteStack;
 
         private Set<String> complexCtes;
 
+        private Set<String> candidatesForMaterilization;
+
         public LogicalCteOptimizerContext()
         {
             cteProducerMap = new HashMap<>();
             // The cte graph will never have cycles because sql won't allow it
-            cteDependencyGraph = GraphBuilder.directed().build();
+            cteReferenceDependencyGraph = ValueGraphBuilder.directed().allowsSelfLoops(false).build();
+            materializedCteDependencyGraph = GraphBuilder.directed().allowsSelfLoops(false).build();
             activeCteStack = new Stack<>();
             complexCtes = new HashSet<>();
+            candidatesForMaterilization = new HashSet<>();
         }
 
         public Map<String, CteProducerNode> getCteProducerMap()
@@ -303,9 +478,32 @@ public class LogicalCteOptimizer
             return ImmutableMap.copyOf(cteProducerMap);
         }
 
-        public void addProducer(String cteName, CteProducerNode cteProducer)
+        public MutableValueGraph<String, Integer> copyOfCteReferenceDependencyGraph()
         {
-            cteProducerMap.putIfAbsent(cteName, cteProducer);
+            MutableValueGraph<String, Integer> graphCopy = ValueGraphBuilder.from(cteReferenceDependencyGraph).build();
+            for (String node : cteReferenceDependencyGraph.nodes()) {
+                graphCopy.addNode(node);
+            }
+            for (String node : cteReferenceDependencyGraph.nodes()) {
+                cteReferenceDependencyGraph.successors(node).forEach(successor ->
+                        graphCopy.putEdgeValue(node, successor, cteReferenceDependencyGraph.edgeValueOrDefault(node, successor, 0)));
+            }
+            return cteReferenceDependencyGraph;
+        }
+
+        public void addProducer(String cteId, CteProducerNode cteProducer)
+        {
+            cteProducerMap.putIfAbsent(cteId, cteProducer);
+        }
+
+        public void addMaterializationCandidate(String cteId)
+        {
+            this.candidatesForMaterilization.add(cteId);
+        }
+
+        public boolean shouldCteBeMaterialized(String cteId)
+        {
+            return this.candidatesForMaterilization.contains(cteId);
         }
 
         public void pushActiveCte(String cte)
@@ -323,12 +521,28 @@ public class LogicalCteOptimizer
             return (this.activeCteStack.isEmpty()) ? Optional.empty() : Optional.ofNullable(this.activeCteStack.peek());
         }
 
-        public void addDependency(String currentCte)
+        public void addCteReferenceDependency(String currentCte)
         {
-            cteDependencyGraph.addNode(currentCte);
+            cteReferenceDependencyGraph.addNode(currentCte);
             Optional<String> parentCte = peekActiveCte();
-            // (current -> parentCte) this indicates that currentCte must be processed first
-            parentCte.ifPresent(s -> cteDependencyGraph.putEdge(currentCte, s));
+            parentCte.ifPresent(parent -> {
+                if (cteReferenceDependencyGraph.hasEdgeConnecting(parent, currentCte)) {
+                    // If the edge exists, increment its value
+                    int existingWeight = cteReferenceDependencyGraph.edgeValueOrDefault(parent, currentCte, 0);
+                    cteReferenceDependencyGraph.putEdgeValue(parent, currentCte, existingWeight + 1);
+                }
+                else {
+                    // If the edge does not exist, create it with a value of 1
+                    cteReferenceDependencyGraph.putEdgeValue(parent, currentCte, 1);
+                }
+            });
+        }
+
+        public void addMaterializedCteDependency(String currentCte)
+        {
+            materializedCteDependencyGraph.addNode(currentCte);
+            Optional<String> parentCte = peekActiveCte();
+            parentCte.ifPresent(s -> materializedCteDependencyGraph.putEdge(currentCte, s));
         }
 
         public void addComplexCte(String cteId)
@@ -349,8 +563,8 @@ public class LogicalCteOptimizer
         public List<PlanNode> getTopologicalOrdering()
         {
             ImmutableList.Builder<PlanNode> topSortedCteProducerListBuilder = ImmutableList.builder();
-            Traverser.forGraph(cteDependencyGraph).depthFirstPostOrder(cteDependencyGraph.nodes())
-                    .forEach(cteName -> topSortedCteProducerListBuilder.add(cteProducerMap.get(cteName)));
+            Traverser.forGraph(materializedCteDependencyGraph).depthFirstPostOrder(materializedCteDependencyGraph.nodes())
+                    .forEach(cteId -> topSortedCteProducerListBuilder.add(cteProducerMap.get(cteId)));
             return topSortedCteProducerListBuilder.build();
         }
 
@@ -367,8 +581,8 @@ public class LogicalCteOptimizer
             }
 
             // Populate the new graph with edges based on the index mapping
-            for (String cteId : cteDependencyGraph.nodes()) {
-                cteDependencyGraph.successors(cteId).forEach(successor ->
+            for (String cteId : materializedCteDependencyGraph.nodes()) {
+                materializedCteDependencyGraph.successors(cteId).forEach(successor ->
                         indexGraph.putEdge(cteIdToProducerIndexMap.get(cteId), cteIdToProducerIndexMap.get(successor)));
             }
             return indexGraph;
