@@ -955,7 +955,16 @@ void Expr::evaluateSharedSubexpr(
   context.deselectErrors(*missingRows);
 
   sharedSubexprRows->select(*missingRows);
-  context.moveOrCopyResult(sharedSubexprValues, rows, result);
+
+  if (context.errors()) {
+    LocalSelectivityVector rowsWithoutErrorsHolder(context, rows);
+    auto* rowsWithoutErrors = rowsWithoutErrorsHolder.get();
+    context.deselectErrors(*rowsWithoutErrors);
+
+    context.moveOrCopyResult(sharedSubexprValues, *rowsWithoutErrors, result);
+  } else {
+    context.moveOrCopyResult(sharedSubexprValues, rows, result);
+  }
 }
 
 SelectivityVector* singleRow(
