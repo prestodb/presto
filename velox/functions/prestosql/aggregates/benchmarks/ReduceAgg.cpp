@@ -36,8 +36,7 @@ namespace {
 // Compare performance of sum(x) with equivalent reduce_agg(x,..).
 class ReduceAggBenchmark : public HiveConnectorTestBase {
  public:
-  explicit ReduceAggBenchmark() {
-    OperatorTestBase::SetUpTestCase();
+  ReduceAggBenchmark() {
     HiveConnectorTestBase::SetUp();
 
     inputType_ = ROW({
@@ -224,10 +223,11 @@ BENCHMARK_RELATIVE(sum_groupby) {
 int main(int argc, char** argv) {
   folly::Init init(&argc, &argv);
 
-  memory::MemoryManager::initialize({});
+  OperatorTestBase::SetUpTestCase();
   benchmark = std::make_unique<ReduceAggBenchmark>();
   benchmark->verify();
   folly::runBenchmarks();
   benchmark.reset();
+  OperatorTestBase::TearDownTestCase();
   return 0;
 }

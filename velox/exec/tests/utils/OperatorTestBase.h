@@ -32,6 +32,14 @@
 namespace facebook::velox::exec::test {
 class OperatorTestBase : public testing::Test,
                          public velox::test::VectorTestBase {
+ public:
+  /// The following two methods are used by google unit test framework to do
+  /// one-time setup/teardown for all the unit tests from OperatorTestBase. We
+  /// make them public as some benchmark like ReduceAgg also call these methods
+  /// to setup/teardown benchmark test environment.
+  static void SetUpTestCase();
+  static void TearDownTestCase();
+
  protected:
   OperatorTestBase();
   ~OperatorTestBase() override;
@@ -43,10 +51,6 @@ class OperatorTestBase : public testing::Test,
   /// Allow base classes to register custom vector serde.
   /// By default, registers Presto-compatible serde.
   virtual void registerVectorSerde();
-
-  static void SetUpTestCase();
-
-  static void TearDownTestCase();
 
   void createDuckDbTable(const std::vector<RowVectorPtr>& data) {
     duckDbQueryRunner_.createTable("tmp", data);
