@@ -52,7 +52,7 @@ std::unique_ptr<TypeWithId> visit(
   }
   if (typeWithId->type()->isRow()) {
     std::vector<std::string> names;
-    std::vector<std::unique_ptr<TypeWithId>> children;
+    std::vector<std::unique_ptr<TypeWithId>> selectedChildren;
     std::vector<std::shared_ptr<const Type>> types;
     auto& row = typeWithId->type()->asRow();
     for (auto i = 0; i < typeWithId->size(); ++i) {
@@ -61,31 +61,31 @@ std::unique_ptr<TypeWithId> visit(
         names.push_back(row.nameOf(i));
         auto newChild = visit(child, selector);
         types.push_back(newChild->type());
-        children.push_back(std::move(newChild));
+        selectedChildren.push_back(std::move(newChild));
       }
     }
     VELOX_USER_CHECK(
         !types.empty(), "selected nothing from row: " + row.toString());
     return std::make_unique<TypeWithId>(
         ROW(std::move(names), std::move(types)),
-        std::move(children),
+        std::move(selectedChildren),
         typeWithId->id(),
         typeWithId->maxId(),
         typeWithId->column());
   } else {
     checkChildrenSelected(typeWithId, selector);
-    std::vector<std::unique_ptr<TypeWithId>> children;
+    std::vector<std::unique_ptr<TypeWithId>> selectedChildren;
     std::vector<std::shared_ptr<const Type>> types;
     for (auto i = 0; i < typeWithId->size(); ++i) {
       auto& child = typeWithId->childAt(i);
       auto newChild = visit(child, selector);
       types.push_back(newChild->type());
-      children.push_back(std::move(newChild));
+      selectedChildren.push_back(std::move(newChild));
     }
     auto type = createType(typeWithId->type()->kind(), std::move(types));
     return std::make_unique<TypeWithId>(
         type,
-        std::move(children),
+        std::move(selectedChildren),
         typeWithId->id(),
         typeWithId->maxId(),
         typeWithId->column());
