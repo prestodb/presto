@@ -609,6 +609,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, driverInitTriggeredArbitration) {
                 .project({"1+1+4 as t0", "1+3+3 as t1"})
                 .planNode())
       .assertResults(expectedVector);
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(
