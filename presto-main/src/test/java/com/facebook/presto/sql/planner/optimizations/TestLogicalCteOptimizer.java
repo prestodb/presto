@@ -338,6 +338,302 @@ public class TestLogicalCteOptimizer
     }
 
     @Test
+    public void testNoHeuristicCteMaterializationForInnerCtes()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "With inner_temp AS(  " +
+                        "  SELECT orderkey  FROM ORDERS GROUP BY orderkey)" +
+                        "SELECT * FROM inner_temp GROUP BY orderkey" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("temp", 1), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 1))))));
+    }
+
+    @Test
+    public void testHeuristicComplexCteMaterializationForBothCtes()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (\n" +
+                        "    WITH inner_temp AS (\n" +
+                        "        SELECT orderkey\n" +
+                        "        FROM ORDERS\n" +
+                        "        GROUP BY orderkey\n" +
+                        "    )\n" +
+                        "    SELECT * FROM inner_temp GROUP BY orderkey \n" +
+                        "    UNION\n" +
+                        "    SELECT * FROM inner_temp GROUP BY orderkey\n" +
+                        "    UNION\n" +
+                        "    SELECT * FROM inner_temp GROUP BY orderkey\n" +
+                        "    UNION\n" +
+                        "    SELECT * FROM inner_temp GROUP BY orderkey\n" +
+                        ")\n" +
+                        "SELECT * FROM temp\n" +
+                        "UNION\n" +
+                        "SELECT * FROM temp\n" +
+                        "UNION\n" +
+                        "SELECT * FROM temp\n" +
+                        "UNION\n" +
+                        "SELECT * FROM temp",
+                anyTree(
+                        // both materialized
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("temp", 1), anyTree(cteConsumer(addQueryScopeDelimiter("inner_temp", 0)))),
+                                cteProducer(addQueryScopeDelimiter("inner_temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 1))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithMultipleNestedCtesAllMaterialized()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "2")
+                        .build(),
+                "WITH outer_temp AS (\n" +
+                        "   WITH mid_temp AS (\n" +
+                        "       WITH inner_temp AS (\n" +
+                        "           SELECT orderkey, COUNT(*) as total_orders FROM ORDERS GROUP BY orderkey\n" +
+                        "       )\n" +
+                        "       SELECT orderkey FROM inner_temp WHERE total_orders > 1\n" +
+                        "       UNION ALL \n" +
+                        "       SELECT orderkey FROM inner_temp\n" +
+                        "   )\n" +
+                        "   SELECT orderkey FROM mid_temp\n" +
+                        "   UNION ALL \n" +
+                        "   SELECT orderkey FROM mid_temp\n" +
+                        ")\n" +
+                        "SELECT * FROM outer_temp \n" +
+                        "UNION ALL " +
+                        "SELECT * FROM outer_temp  \n" +
+                        "UNION ALL " +
+                        "SELECT * FROM outer_temp \n",
+                anyTree(
+                        // Expect specific materializations based on the threshold and complexity
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("outer_temp", 2), anyTree(cteConsumer(addQueryScopeDelimiter("mid_temp", 1)))),
+                                cteProducer(addQueryScopeDelimiter("mid_temp", 1), anyTree(cteConsumer(addQueryScopeDelimiter("inner_temp", 0)))),
+                                cteProducer(addQueryScopeDelimiter("inner_temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("outer_temp", 2))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithMultipleNestedCtesWhereInnerNotMaterialized()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "3")
+                        .build(),
+                "WITH outer_temp AS (\n" +
+                        "   WITH mid_temp AS (\n" +
+                        "       WITH inner_temp AS (\n" +
+                        "           SELECT orderkey, COUNT(*) as total_orders FROM ORDERS GROUP BY orderkey\n" +
+                        "       )\n" +
+                        "       SELECT orderkey FROM inner_temp WHERE total_orders > 1\n" +
+                        "       UNION ALL \n" +
+                        "       SELECT orderkey FROM inner_temp\n" +
+                        "   )\n" +
+                        "   SELECT orderkey FROM mid_temp\n" +
+                        "   UNION ALL \n" +
+                        "   SELECT orderkey FROM mid_temp\n" +
+                        "   UNION ALL \n" +
+                        "   SELECT orderkey FROM mid_temp\n" +
+                        ")" +
+                        "SELECT * FROM outer_temp \n" +
+                        "UNION ALL " +
+                        "SELECT * FROM outer_temp \n" +
+                        "UNION ALL " +
+                        "SELECT * FROM outer_temp \n",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("outer_temp", 2), anyTree(cteConsumer(addQueryScopeDelimiter("mid_temp", 1)))),
+                                cteProducer(addQueryScopeDelimiter("mid_temp", 1), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("outer_temp", 2))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithDifferentPaths()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "3")
+                        .build(),
+                "WITH first_cte AS (\n" +
+                        "   SELECT orderkey FROM ORDERS\n" +
+                        "), second_cte AS (\n" +
+                        "   SELECT orderkey FROM first_cte\n" +
+                        "), third_cte AS (\n" +
+                        "   SELECT orderkey FROM second_cte\n" +
+                        "   UNION ALL \n" +
+                        "   SELECT orderkey FROM first_cte \n" +
+                        ")\n" +
+                        "SELECT * FROM third_cte \n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM second_cte \n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM first_cte \n",
+                anyTree(
+                        // Check the materialization decisions based on usage across different paths
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("first_cte", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("first_cte", 0))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithDeepNestedCteUsage()
+    {
+        // Heuristic Threshold = 3
+        //CTE b is used 2 times in a.
+        //CTE a is used 2 times in y.
+        //CTE y is used 4 times in x.
+        //CTE x is used 3 times in the main query.
+        //Hence we expect cte x,y and b to be materialized
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "3")
+                        .build(),
+                "WITH b AS (\n" +
+                        "   SELECT orderkey FROM ORDERS\n" +
+                        "),\n" +
+                        "a AS (\n" +
+                        "   SELECT orderkey FROM b\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM b\n" +
+                        "),\n" +
+                        "y AS (\n" +
+                        "   SELECT orderkey FROM a\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM a\n" +
+                        "),\n" +
+                        "x AS (\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        ")\n" +
+                        "SELECT * FROM x\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM x\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM x\n",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("x", 3), anyTree(cteConsumer(addQueryScopeDelimiter("y", 2)))),
+                                cteProducer(addQueryScopeDelimiter("y", 2), anyTree(cteConsumer(addQueryScopeDelimiter("b", 0)))),
+                                cteProducer(addQueryScopeDelimiter("b", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("x", 3))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithDeepNestedCteUsage2()
+    {
+        // Heuristic Threshold = 5
+        //CTE b is used 2 times in a.
+        //CTE a is used 2 times in y.
+        //CTE y is used 4 times in x.
+        //CTE x is used 3 times in the main query.
+        // Hence we expect cte y to be materialized
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "5")
+                        .build(),
+                "WITH b AS (\n" +
+                        "   SELECT orderkey FROM ORDERS\n" +
+                        "),\n" +
+                        "a AS (\n" +
+                        "   SELECT orderkey FROM b\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM b\n" +
+                        "),\n" +
+                        "y AS (\n" +
+                        "   SELECT orderkey FROM a\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM a\n" +
+                        "),\n" +
+                        "x AS (\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        "   UNION ALL\n" +
+                        "   SELECT orderkey FROM y\n" +
+                        ")\n" +
+                        "SELECT * FROM x \n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM x\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM x\n",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("y", 2), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("y", 2))))));
+    }
+
+    @Test
+    public void testHeuristicMaterializationWithDeepNestedCteUsage3()
+    {
+        // Heuristic Threshold = 3
+        //CTE b is used 1 times in a and 1 time in c.
+        //CTE c is used 1 times in the main query.
+        //CTE a is used 3 times in the main query.
+        //Hence we expect: cte a to be materialized
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "3")
+                        .build(),
+                "WITH b AS (\n" +
+                        "   SELECT orderkey FROM ORDERS\n" +
+                        "),\n" +
+                        "a AS (\n" +
+                        "   SELECT orderkey FROM b\n" +
+                        "),\n" +
+                        "c as ( SELECT orderkey FROM b)\n" +
+                        "SELECT * FROM c\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM a\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM a\n" +
+                        "UNION ALL\n" +
+                        "SELECT * FROM a\n",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("a", 1), anyTree(tableScan("orders"))),
+                                anyTree(PlanMatchPattern.union(
+                                        PlanMatchPattern.union(
+                                                PlanMatchPattern.union(
+                                                        anyTree(tableScan("orders")), anyTree(cteConsumer(addQueryScopeDelimiter("a", 1)))),
+                                                anyTree(cteConsumer(addQueryScopeDelimiter("a", 1)))),
+                                        anyTree(cteConsumer(addQueryScopeDelimiter("a", 1))))))));
+    }
+
+    @Test
     public void testNoHeuristicComplexCteMaterializationWithoutComplexNodes()
     {
         assertUnitPlanWithValidator(
