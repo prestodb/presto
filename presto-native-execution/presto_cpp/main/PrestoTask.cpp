@@ -356,11 +356,14 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
     info.taskStatus.completedDriverGroups.push_back({true, splitGroupId});
   }
 
-  const auto veloxMemStats = task->pool()->stats();
-  info.taskStatus.memoryReservationInBytes = veloxMemStats.currentBytes;
+  const auto veloxTaskMemStats = task->pool()->stats();
+  info.taskStatus.memoryReservationInBytes = veloxTaskMemStats.currentBytes;
   info.taskStatus.systemMemoryReservationInBytes = 0;
+  // NOTE: a presto worker may run multiple tasks from the same query.
+  // 'peakNodeTotalMemoryReservationInBytes' represents peak memory usage across
+  // all these tasks.
   info.taskStatus.peakNodeTotalMemoryReservationInBytes =
-      veloxMemStats.peakBytes;
+      task->queryCtx()->pool()->peakBytes();
 
   TASK_STATS_SUM(
       veloxTaskStats,
@@ -527,16 +530,16 @@ void PrestoTask::updateMemoryInfoLocked(
     std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
-  const auto veloxMemstats = task->pool()->stats();
-  prestoTaskStats.userMemoryReservationInBytes = veloxMemstats.currentBytes;
+  const auto veloxTaskMemStats = task->pool()->stats();
+  prestoTaskStats.userMemoryReservationInBytes = veloxTaskMemStats.currentBytes;
   prestoTaskStats.systemMemoryReservationInBytes = 0;
-  prestoTaskStats.peakUserMemoryInBytes = veloxMemstats.peakBytes;
-  prestoTaskStats.peakTotalMemoryInBytes = veloxMemstats.peakBytes;
+  prestoTaskStats.peakUserMemoryInBytes = veloxTaskMemStats.peakBytes;
+  prestoTaskStats.peakTotalMemoryInBytes = veloxTaskMemStats.peakBytes;
 
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
 
-  const int64_t currentBytes = veloxMemstats.currentBytes;
+  const int64_t currentBytes = veloxTaskMemStats.currentBytes;
   const int64_t averageMemoryForLastPeriod =
       (currentBytes + lastMemoryReservation) / 2;
   const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;

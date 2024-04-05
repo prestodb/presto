@@ -1004,11 +1004,37 @@ TEST_F(TaskManagerTest, distributedSort) {
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(
       makeRemoteSource("0", partialSortUris, 0, splitSequenceId));
-  std::string finalTaskId = taskIdGenerator.makeTaskId(0, 0);
-  auto finalSortTask =
-      createOrUpdateTask(finalTaskId, updateRequest, finalSortPlan);
-
+  const std::string finalTaskId = taskIdGenerator.makeTaskId(0, 0);
+  createOrUpdateTask(finalTaskId, updateRequest, finalSortPlan);
   assertResults(finalTaskId, rowType_, "SELECT * FROM tmp ORDER BY c0");
+
+  auto infoRequestState = http::CallbackRequestHandlerState::create();
+  auto statusRequestState = http::CallbackRequestHandlerState::create();
+  auto resultRequestState = http::CallbackRequestHandlerState::create();
+
+  const auto finalPrestoTaskStats =
+      taskManager_
+          ->getTaskInfo(
+              finalTaskId, false, std::nullopt, std::nullopt, infoRequestState)
+          .get()
+          ->stats;
+  const auto finalPrestoTaskStatus =
+      taskManager_
+          ->getTaskStatus(
+              finalTaskId, std::nullopt, std::nullopt, statusRequestState)
+          .wait()
+          .get();
+  ASSERT_EQ(
+      finalPrestoTaskStatus->peakNodeTotalMemoryReservationInBytes,
+      finalPrestoTaskStats.peakNodeTotalMemoryInBytes);
+  // Since we have more than one tasks in a query, then the task peak memory
+  // usage might be lower than the node one.
+  ASSERT_LE(
+      finalPrestoTaskStats.peakTotalMemoryInBytes,
+      finalPrestoTaskStats.peakNodeTotalMemoryInBytes);
+  ASSERT_EQ(
+      finalPrestoTaskStats.peakTotalMemoryInBytes,
+      finalPrestoTaskStats.peakUserMemoryInBytes);
 }
 
 TEST_F(TaskManagerTest, outOfQueryUserMemory) {
@@ -1337,6 +1363,16 @@ TEST_F(TaskManagerTest, testCumulativeMemory) {
       prestoTaskInfo.stats.cumulativeUserMemory);
 
   veloxTask->requestAbort();
+  const auto taskStatus = prestoTask->updateStatus();
+  const auto taskStats = prestoTask->updateInfo().stats;
+  ASSERT_EQ(
+      taskStatus.peakNodeTotalMemoryReservationInBytes,
+      taskStats.peakNodeTotalMemoryInBytes);
+  // Since we have only one task in a query, then the task peak memory usage
+  // will be the same as the node one.
+  ASSERT_EQ(
+      taskStats.peakTotalMemoryInBytes, taskStats.peakNodeTotalMemoryInBytes);
+  ASSERT_EQ(taskStats.peakTotalMemoryInBytes, taskStats.peakUserMemoryInBytes);
   prestoTask.reset();
   veloxTask.reset();
   velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
