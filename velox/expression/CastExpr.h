@@ -189,6 +189,12 @@ class CastExpr : public SpecialForm {
       exec::EvalCtx& context,
       const TypePtr& fromType);
 
+  VectorPtr castFromIntervalDayTime(
+      const SelectivityVector& rows,
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const TypePtr& toType);
+
   template <typename TInput, typename TOutput>
   void applyDecimalCastKernel(
       const SelectivityVector& rows,

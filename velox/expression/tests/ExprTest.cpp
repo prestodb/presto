@@ -2635,8 +2635,7 @@ TEST_P(ParameterizedExprTest, constantToSql) {
   ASSERT_EQ(toSql(variant::null(TypeKind::TIMESTAMP)), "NULL::TIMESTAMP");
 
   ASSERT_EQ(
-      toSql(123'456LL, INTERVAL_DAY_TIME()),
-      "'123456'::INTERVAL DAY TO SECOND");
+      toSql(123'456LL, INTERVAL_DAY_TIME()), "INTERVAL 123456 MILLISECOND");
   ASSERT_EQ(
       toSql(variant::null(TypeKind::BIGINT), INTERVAL_DAY_TIME()),
       "NULL::INTERVAL DAY TO SECOND");

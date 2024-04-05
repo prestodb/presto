@@ -160,11 +160,25 @@ void appendSqlLiteral(
       break;
     }
     case TypeKind::TINYINT:
+      [[fallthrough]];
     case TypeKind::SMALLINT:
-    case TypeKind::BIGINT:
+      [[fallthrough]];
+    case TypeKind::BIGINT: {
+      if (vector.type()->isIntervalDayTime()) {
+        auto* intervalVector =
+            vector.wrappedVector()->as<SimpleVector<int64_t>>();
+        out << "INTERVAL " << intervalVector->valueAt(vector.wrappedIndex(row))
+            << " MILLISECOND";
+        break;
+      }
+      [[fallthrough]];
+    }
     case TypeKind::HUGEINT:
+      [[fallthrough]];
     case TypeKind::TIMESTAMP:
+      [[fallthrough]];
     case TypeKind::REAL:
+      [[fallthrough]];
     case TypeKind::DOUBLE:
       out << "'" << vector.wrappedVector()->toString(vector.wrappedIndex(row))
           << "'::" << vector.type()->toString();

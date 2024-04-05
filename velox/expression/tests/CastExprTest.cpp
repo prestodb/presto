@@ -2582,5 +2582,35 @@ TEST_F(CastExprTest, skipCastEvaluation) {
     assertEqualVectors(result, expected);
   }
 }
+
+TEST_F(CastExprTest, intervalDayTimeToVarchar) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(
+          {kMillisInDay,
+           kMillisInHour,
+           kMillisInMinute,
+           kMillisInSecond,
+           5 * kMillisInDay + 14 * kMillisInHour + 20 * kMillisInMinute +
+               52 * kMillisInSecond + 88},
+          INTERVAL_DAY_TIME()),
+  });
+
+  auto result = evaluate("cast(c0 as varchar)", data);
+  auto expected = makeFlatVector<std::string>({
+      "1 00:00:00.000",
+      "0 01:00:00.000",
+      "0 00:01:00.000",
+      "0 00:00:01.000",
+      "5 14:20:52.088",
+  });
+
+  assertEqualVectors(result, expected);
+
+  // Reverse cast is not supported.
+  VELOX_ASSERT_THROW(
+      evaluate("cast('5 14:20:52.088' as interval day to second)", data),
+      "Cast from VARCHAR to INTERVAL DAY TO SECOND is not supported");
+}
+
 } // namespace
 } // namespace facebook::velox::test
