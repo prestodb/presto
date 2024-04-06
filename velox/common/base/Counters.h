@@ -113,4 +113,7 @@ constexpr folly::StringPiece kMetricSpillFlushTimeMs{
 
 constexpr folly::StringPiece kMetricSpillWriteTimeMs{
     "velox.spill_write_time_ms"};
+
+constexpr folly::StringPiece kMetricFileWriterEarlyFlushedRawBytes{
+    "velox.file_writer_early_flushed_raw_bytes"};
 } // namespace facebook::velox

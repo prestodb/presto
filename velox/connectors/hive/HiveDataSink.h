@@ -411,6 +411,9 @@ struct HiveWriterIdEq {
 
 class HiveDataSink : public DataSink {
  public:
+  /// The list of runtime stats reported by hive data sink
+  static constexpr const char* kEarlyFlushedRawBytes = "earlyFlushedRawBytes";
+
   HiveDataSink(
       RowTypePtr inputType,
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
@@ -448,7 +451,8 @@ class HiveDataSink : public DataSink {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
         HiveDataSink* dataSink,
-        HiveWriterInfo* writerInfo);
+        HiveWriterInfo* writerInfo,
+        io::IoStatistics* ioStats);
 
     bool reclaimableBytes(
         const memory::MemoryPool& pool,
@@ -461,16 +465,22 @@ class HiveDataSink : public DataSink {
         memory::MemoryReclaimer::Stats& stats) override;
 
    private:
-    WriterReclaimer(HiveDataSink* dataSink, HiveWriterInfo* writerInfo)
+    WriterReclaimer(
+        HiveDataSink* dataSink,
+        HiveWriterInfo* writerInfo,
+        io::IoStatistics* ioStats)
         : exec::MemoryReclaimer(),
           dataSink_(dataSink),
-          writerInfo_(writerInfo) {
+          writerInfo_(writerInfo),
+          ioStats_(ioStats) {
       VELOX_CHECK_NOT_NULL(dataSink_);
       VELOX_CHECK_NOT_NULL(writerInfo_);
+      VELOX_CHECK_NOT_NULL(ioStats_);
     }
 
     HiveDataSink* const dataSink_;
     HiveWriterInfo* const writerInfo_;
+    io::IoStatistics* const ioStats_;
   };
 
   FOLLY_ALWAYS_INLINE bool sortWrite() const {
@@ -494,7 +504,9 @@ class HiveDataSink : public DataSink {
   std::shared_ptr<memory::MemoryPool> createWriterPool(
       const HiveWriterId& writerId);
 
-  void setMemoryReclaimers(HiveWriterInfo* writerInfo);
+  void setMemoryReclaimers(
+      HiveWriterInfo* writerInfo,
+      io::IoStatistics* ioStats);
 
   // Compute the partition id and bucket id for each row in 'input'.
   void computePartitionAndBucketIds(const RowVectorPtr& input);

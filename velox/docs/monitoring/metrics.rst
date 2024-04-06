@@ -222,6 +222,9 @@ Spilling
      - The distribution of the amount of time spent on writing spilled rows to
        disk in range of [0, 600s] with 20 buckets. It is configured to report the
        latency at P50, P90, P99, and P100 percentiles.
+   * - file_writer_early_flushed_raw_bytes
+     - Sum
+     - Number of bytes pre-maturely flushed from file writers because of memory reclaiming.
 
 Hive Connector
 --------------

@@ -70,6 +70,21 @@ These stats are reported only by HashBuild and HashAggregation operators.
      - Time spent on building the hash table from rows collected by all the
        hash build operators. This stat is only reported by the HashBuild operator.
 
+TableWriter
+-----------
+These stats are reported only by TableWriter operator
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - earlyFlushedRawBytes
+     - bytes
+     - Number of bytes pre-maturely flushed from file writers because of memory reclaiming.
+
 Spilling
 --------
 These stats are reported by operators that support spilling.

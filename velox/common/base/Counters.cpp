@@ -196,5 +196,10 @@ void registerVeloxMetrics() {
   // Tracks the number of times that we hit the max spill level limit.
   DEFINE_METRIC(
       kMetricMaxSpillLevelExceededCount, facebook::velox::StatType::COUNT);
+
+  // Tracks the total number of bytes in file writers that's pre-maturely
+  // flushed due to memory reclaiming.
+  DEFINE_METRIC(
+      kMetricFileWriterEarlyFlushedRawBytes, facebook::velox::StatType::SUM);
 }
 } // namespace facebook::velox

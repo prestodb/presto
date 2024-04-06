@@ -3431,30 +3431,56 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
 
       auto spillDirectory = exec::test::TempDirectoryPath::create();
       auto outputDirectory = TempDirectoryPath::create();
+      core::PlanNodeId tableWriteNodeId;
       auto writerPlan =
           PlanBuilder()
               .values(vectors)
               .tableWrite(outputDirectory->path)
+              .capturePlanNodeId(tableWriteNodeId)
               .project({TableWriteTraits::rowCountColumnName()})
               .singleAggregation(
                   {},
                   {fmt::format(
                       "sum({})", TableWriteTraits::rowCountColumnName())})
               .planNode();
-
-      AssertQueryBuilder(duckDbQueryRunner_)
-          .queryCtx(queryCtx)
-          .maxDrivers(1)
-          .spillDirectory(spillDirectory->path)
-          .config(core::QueryConfig::kSpillEnabled, writerSpillEnabled)
-          .config(core::QueryConfig::kWriterSpillEnabled, writerSpillEnabled)
-          // Set 0 file writer flush threshold to always trigger flush in test.
-          .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
-          .plan(std::move(writerPlan))
-          .assertResults(fmt::format("SELECT {}", numRows));
-
-      ASSERT_EQ(arbitrator->stats().numFailures, writerSpillEnabled ? 0 : 1);
-      ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+      {
+        auto task =
+            AssertQueryBuilder(duckDbQueryRunner_)
+                .queryCtx(queryCtx)
+                .maxDrivers(1)
+                .spillDirectory(spillDirectory->path)
+                .config(core::QueryConfig::kSpillEnabled, writerSpillEnabled)
+                .config(
+                    core::QueryConfig::kWriterSpillEnabled, writerSpillEnabled)
+                // Set 0 file writer flush threshold to always trigger flush in
+                // test.
+                .config(core::QueryConfig::kWriterFlushThresholdBytes, 0)
+                .plan(std::move(writerPlan))
+                .assertResults(fmt::format("SELECT {}", numRows));
+        auto planStats = exec::toPlanStats(task->taskStats());
+        auto& tableWriteStats =
+            planStats.at(tableWriteNodeId).operatorStats.at("TableWrite");
+        if (writerSpillEnabled) {
+          ASSERT_GT(
+              tableWriteStats->customStats
+                  .at(HiveDataSink::kEarlyFlushedRawBytes)
+                  .count,
+              0);
+          ASSERT_GT(
+              tableWriteStats->customStats
+                  .at(HiveDataSink::kEarlyFlushedRawBytes)
+                  .sum,
+              0);
+          ASSERT_EQ(arbitrator->stats().numFailures, 0);
+        } else {
+          ASSERT_EQ(
+              tableWriteStats->customStats.count(
+                  HiveDataSink::kEarlyFlushedRawBytes),
+              0);
+          ASSERT_EQ(arbitrator->stats().numFailures, 1);
+        }
+        ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+      }
       waitForAllTasksToBeDeleted(3'000'000);
     }
   }
@@ -3541,6 +3567,7 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
 
       ASSERT_EQ(arbitrator->stats().numFailures, writerSpillEnabled ? 0 : 1);
       ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 0);
+
       waitForAllTasksToBeDeleted(3'000'000);
       const auto updatedSpillStats = common::globalSpillStats();
       if (writerSpillEnabled) {
