@@ -589,6 +589,30 @@ TEST_F(AggregationTest, global) {
       "SELECT sum(15), sum(c1), sum(c2), sum(c4), sum(c5), "
       "min(15), min(c1), min(c2), min(c3), min(c4), min(c5), "
       "max(15), max(c1), max(c2), max(c3), max(c4), max(c5), sum(1) FROM tmp");
+}
+
+TEST_F(AggregationTest, manyGlobalAggregations) {
+  // Test a query with a large number of global aggregations.
+  // Global aggregations have a separate code path that does not use a
+  // HashTable, but rather a single row outside of a RowContainer.  Having many
+  // aggregations can expose issues with that single row that may not occur with
+  // only a few aggregations.
+  auto rowType =
+      velox::test::VectorMaker::rowType(std::vector<TypePtr>(100, SMALLINT()));
+  auto vectors = makeVectors(rowType, 10, 100);
+  createDuckDbTable(vectors);
+
+  std::vector<std::string> aggregates;
+  for (int i = 0; i < rowType->size(); i++) {
+    aggregates.push_back(fmt::format("sum({})", rowType->nameOf(i)));
+  }
+
+  auto op = PlanBuilder()
+                .values(vectors)
+                .singleAggregation({}, aggregates)
+                .planNode();
+
+  assertQuery(op, "SELECT " + folly::join(", ", aggregates) + " FROM tmp");
 
   EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
 }
