@@ -29,18 +29,18 @@ struct OperatorStats;
 
 /// Stores execution stats per pipeline.
 struct PipelineStats {
-  // Cumulative OperatorStats for finished Drivers. The subscript is the
-  // operator id, which is the initial ordinal position of the
-  // operator in the DriverFactory.
+  /// Cumulative OperatorStats for finished Drivers. The subscript is the
+  /// operator id, which is the initial ordinal position of the operator in the
+  /// DriverFactory.
   std::vector<OperatorStats> operatorStats;
 
-  // Runtime statistics per driver.
+  /// Runtime statistics per driver.
   std::vector<DriverStats> driverStats;
 
-  // True if contains the source node for the task.
+  /// True if contains the source node for the task.
   bool inputPipeline;
 
-  // True if contains the sync node for the task.
+  /// True if contains the sync node for the task.
   bool outputPipeline;
 
   PipelineStats(bool _inputPipeline, bool _outputPipeline)

@@ -828,10 +828,14 @@ void Driver::closeOperators() {
 
 void Driver::updateStats() {
   DriverStats stats;
-  stats.runtimeStats[DriverStats::kTotalPauseTime] = RuntimeMetric(
-      1'000'000 * state_.totalPauseTimeMs, RuntimeCounter::Unit::kNanos);
-  stats.runtimeStats[DriverStats::kTotalOffThreadTime] = RuntimeMetric(
-      1'000'000 * state_.totalOffThreadTimeMs, RuntimeCounter::Unit::kNanos);
+  if (state_.totalPauseTimeMs > 0) {
+    stats.runtimeStats[DriverStats::kTotalPauseTime] = RuntimeMetric(
+        1'000'000 * state_.totalPauseTimeMs, RuntimeCounter::Unit::kNanos);
+  }
+  if (state_.totalOffThreadTimeMs > 0) {
+    stats.runtimeStats[DriverStats::kTotalOffThreadTime] = RuntimeMetric(
+        1'000'000 * state_.totalOffThreadTimeMs, RuntimeCounter::Unit::kNanos);
+  }
   task()->addDriverStats(ctx_->pipelineId, std::move(stats));
 }
 

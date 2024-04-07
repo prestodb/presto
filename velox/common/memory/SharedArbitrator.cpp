@@ -566,7 +566,8 @@ uint64_t SharedArbitrator::reclaim(
       << "Reclaimed from memory pool " << pool->name() << " with target of "
       << succinctBytes(targetBytes) << ", actually reclaimed "
       << succinctBytes(freedBytes) << " free memory and "
-      << succinctBytes(reclaimedBytes - freedBytes) << " used memory";
+      << succinctBytes(reclaimedBytes - freedBytes) << " used memory, spent "
+      << succinctMicros(reclaimDurationUs);
   return reclaimedBytes;
 }
 

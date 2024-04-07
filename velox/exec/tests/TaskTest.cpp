@@ -18,6 +18,7 @@
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/future/VeloxPromise.h"
+#include "velox/common/memory/MemoryArbitrator.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
@@ -29,6 +30,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::common::testutil;
@@ -1665,8 +1667,65 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
   // Fail the task to finish test.
   task->requestAbort();
   ASSERT_TRUE(waitForTaskAborted(task.get()));
+  task.reset();
+  waitForAllTasksToBeDeleted();
+}
 
-  taskStats = task->taskStats();
+DEBUG_ONLY_TEST_F(TaskTest, taskPauseTime) {
+  auto rowType = ROW({"c0", "c1"}, {INTEGER(), DOUBLE()});
+  VectorFuzzer::Options opts;
+  opts.vectorSize = 32;
+  VectorFuzzer fuzzer(opts, pool_.get());
+  std::vector<RowVectorPtr> valueInputs;
+  for (int32_t i = 0; i < 4; ++i) {
+    valueInputs.push_back(fuzzer.fuzzRow(rowType));
+  }
+
+  const auto plan =
+      PlanBuilder()
+          .values(valueInputs)
+          .partitionedOutput({}, 1, std::vector<std::string>{"c0"})
+          .planFragment();
+
+  std::atomic_bool taskPauseWaitFlag{true};
+  folly::EventCount taskPauseWait;
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const exec::Values*)>([&](const exec::Values* values) {
+        if (taskPauseWaitFlag.exchange(false)) {
+          taskPauseWait.notifyAll();
+        }
+        // Inject some delay for task pause stats verification.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // NOLINT
+      }));
+
+  auto queryPool = memory::memoryManager()->addRootPool(
+      "taskPauseTime", 1UL << 30, exec::MemoryReclaimer::create());
+  auto queryCtx = std::make_shared<core::QueryCtx>(
+      driverExecutor_.get(),
+      core::QueryConfig{{}},
+      std::unordered_map<std::string, std::shared_ptr<Config>>{},
+      nullptr,
+      std::move(queryPool),
+      nullptr);
+  auto task = Task::create("task", std::move(plan), 0, std::move(queryCtx));
+  task->start(4, 1);
+
+  // Wait for the task driver starts to run.
+  taskPauseWait.await([&]() { return !taskPauseWaitFlag.load(); });
+  // Pause the task
+  task->requestPause().wait();
+  // Inject some delay for task pause stats verification.
+  std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  // Resume the task.
+  Task::resume(task);
+  // Inject some delay for task resume to run for a while.
+  std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+  // Fail the task to finish test.
+  task->requestAbort();
+  ASSERT_TRUE(waitForTaskAborted(task.get()));
+
+  auto taskStats = task->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);
   ASSERT_EQ(taskStats.pipelineStats[0].driverStats.size(), 1);
   const auto& driverStats = taskStats.pipelineStats[0].driverStats[0];
@@ -1702,16 +1761,15 @@ TEST_F(TaskTest, updateStatsWhileCloseOffThreadDriver) {
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   task->testingVisitDrivers(
       [](Driver* driver) { VELOX_CHECK(!driver->isOnThread()); });
+  // Sleep a bit to make sure off thread time is not zero.
+  std::this_thread::sleep_for(std::chrono::milliseconds{2});
   task->requestAbort();
   ASSERT_TRUE(waitForTaskAborted(task.get()));
   auto taskStats = task->taskStats();
   ASSERT_EQ(taskStats.pipelineStats.size(), 1);
   ASSERT_EQ(taskStats.pipelineStats[0].driverStats.size(), 4);
   const auto& driverStats = taskStats.pipelineStats[0].driverStats[0];
-  const auto& totalPauseTime =
-      driverStats.runtimeStats.at(DriverStats::kTotalPauseTime);
-  ASSERT_EQ(totalPauseTime.count, 1);
-  ASSERT_GE(totalPauseTime.sum, 0);
+  ASSERT_EQ(driverStats.runtimeStats.count(DriverStats::kTotalPauseTime), 0);
   const auto& totalOffThreadTime =
       driverStats.runtimeStats.at(DriverStats::kTotalOffThreadTime);
   ASSERT_EQ(totalOffThreadTime.count, 1);
