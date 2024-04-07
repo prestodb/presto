@@ -2246,7 +2246,7 @@
                 <plugin>
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
-                    <version>1.0.5</version>
+                    <version>2.1.1</version>
                 </plugin>
 
                 <plugin>
