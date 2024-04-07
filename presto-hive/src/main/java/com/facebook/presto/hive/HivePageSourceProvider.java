@@ -288,7 +288,7 @@ public class HivePageSourceProvider
     }
 
     @VisibleForTesting
-    protected static CacheQuota generateCacheQuota(HiveSplit hiveSplit)
+    static CacheQuota generateCacheQuota(HiveSplit hiveSplit)
     {
         Optional<DataSize> quota = hiveSplit.getCacheQuotaRequirement().getQuota();
         switch (hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope()) {
