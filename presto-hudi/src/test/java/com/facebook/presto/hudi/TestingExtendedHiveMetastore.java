@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static java.util.Objects.requireNonNull;
 
 public class TestingExtendedHiveMetastore
@@ -53,6 +53,6 @@ public class TestingExtendedHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates)
     {
-        return getPartitionsWithEmptyVersion(partitions);
+        return getPartitionNamesWithEmptyVersion(partitions);
     }
 }

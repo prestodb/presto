@@ -79,6 +79,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYP
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.SPARK_TABLE_PROVIDER_KEY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
@@ -247,9 +248,9 @@ public class TestHiveClientGlueMetastore
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
             Table table = getMetastoreClient().getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName()).get();
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
+            Optional<List<PartitionNameWithVersion>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
             assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+            assertEquals(partitionNames.get(), getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2016-01-01", "ds=2016-01-02")));
         }
         finally {
             dropTable(tableName);

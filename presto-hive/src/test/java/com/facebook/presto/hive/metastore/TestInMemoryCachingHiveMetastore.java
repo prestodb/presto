@@ -165,7 +165,7 @@ public class TestInMemoryCachingHiveMetastore
     @Test
     public void testGetPartitionNames()
     {
-        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+        ImmutableList<PartitionNameWithVersion> expectedPartitions = ImmutableList.of(TEST_PARTITION_NAME_WITHOUT_VERSION1, TEST_PARTITION_NAME_WITHOUT_VERSION2);
         assertEquals(mockClient.getAccessCount(), 0);
         assertEquals(metastore.getPartitionNames(TEST_METASTORE_CONTEXT, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);

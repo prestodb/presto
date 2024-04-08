@@ -55,7 +55,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
@@ -282,9 +282,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return delegate.getPartitionNames(metastoreContext, databaseName, tableName);
+        return delegate.getPartitionNames(metastoreContext, databaseName, tableName).map(MetastoreUtil::getPartitionNamesWithEmptyVersion);
     }
 
     @Override
@@ -294,7 +294,7 @@ public class BridgingHiveMetastore
             String tableName,
             Map<Column, Domain> partitionPredicates)
     {
-        return getPartitionsWithEmptyVersion(delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates));
+        return getPartitionNamesWithEmptyVersion(delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates));
     }
 
     @Override

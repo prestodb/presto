@@ -87,7 +87,7 @@ public class InMemoryCachingHiveMetastore
     private final LoadingCache<KeyAndContext<String>, Optional<List<String>>> viewNamesCache;
     private final LoadingCache<KeyAndContext<HivePartitionName>, Optional<Partition>> partitionCache;
     private final LoadingCache<KeyAndContext<PartitionFilter>, List<PartitionNameWithVersion>> partitionFilterCache;
-    private final LoadingCache<KeyAndContext<HiveTableName>, Optional<List<String>>> partitionNamesCache;
+    private final LoadingCache<KeyAndContext<HiveTableName>, Optional<List<PartitionNameWithVersion>>> partitionNamesCache;
     private final LoadingCache<KeyAndContext<UserTableKey>, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<KeyAndContext<String>, Set<String>> rolesCache;
     private final LoadingCache<KeyAndContext<PrestoPrincipal>, Set<RoleGrant>> roleGrantsCache;
@@ -573,12 +573,12 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         return get(partitionNamesCache, getCachingKey(metastoreContext, hiveTableName(databaseName, tableName)));
     }
 
-    private Optional<List<String>> loadPartitionNames(KeyAndContext<HiveTableName> hiveTableNameKey)
+    private Optional<List<PartitionNameWithVersion>> loadPartitionNames(KeyAndContext<HiveTableName> hiveTableNameKey)
     {
         return delegate.getPartitionNames(hiveTableNameKey.getContext(), hiveTableNameKey.getKey().getDatabaseName(), hiveTableNameKey.getKey().getTableName());
     }

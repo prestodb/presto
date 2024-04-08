@@ -52,7 +52,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -248,13 +248,13 @@ public class TestingSemiTransactionalHiveMetastore
     @Override
     public synchronized Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return Optional.ofNullable(getPartitionsWithEmptyVersion(partitionNames));
+        return Optional.ofNullable(getPartitionNamesWithEmptyVersion(partitionNames));
     }
 
     @Override
     public synchronized Optional<List<PartitionNameWithVersion>> getPartitionNamesByFilter(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle, Map<Column, Domain> effectivePredicate)
     {
-        return Optional.ofNullable(getPartitionsWithEmptyVersion(partitionsMap.get(hiveTableHandle)));
+        return Optional.ofNullable(getPartitionNamesWithEmptyVersion(partitionsMap.get(hiveTableHandle)));
     }
 
     @Override

@@ -291,7 +291,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NA
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNames;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
@@ -4708,10 +4707,10 @@ public abstract class AbstractTestHiveClient
                 .map(Column::getName)
                 .collect(toImmutableList());
         if (!table.getPartitionColumns().isEmpty()) {
-            List<String> partitionNames = metastoreClient.getPartitionNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
-                    .getPartitionsByNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName(), getPartitionsWithEmptyVersion(partitionNames))
+                    .getPartitionsByNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNames)
                     .entrySet()
                     .stream()
                     .map(Map.Entry::getValue)

@@ -124,7 +124,7 @@ import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -345,7 +345,7 @@ public class GlueHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionsWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
+        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionNamesWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
             Partition partition = optionalPartition.orElseThrow(() ->
                     new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
@@ -698,11 +698,11 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
         List<Partition> partitions = getPartitions(databaseName, tableName, WILDCARD_EXPRESSION);
-        return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
+        return Optional.of(getPartitionNamesWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions)));
     }
 
     /**
@@ -726,7 +726,7 @@ public class GlueHiveMetastore
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
         String expression = buildGlueExpression(partitionPredicates);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
-        return getPartitionsWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions));
+        return getPartitionNamesWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
 
     @Override

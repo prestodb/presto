@@ -114,7 +114,6 @@ import static com.facebook.presto.hive.HiveTestUtils.getDefaultOrcFileWriterFact
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultS3HiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_METASTORE_CACHE_STATS;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -589,9 +588,9 @@ public abstract class AbstractTestHiveFileSystem
                 locations.add(table.getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
+            Optional<List<PartitionNameWithVersion>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(metastoreContext, schemaName, tableName, getPartitionsWithEmptyVersion(partitionNames.get())).values().stream()
+                getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
                         .filter(location -> !location.startsWith(table.getStorage().getLocation()))
