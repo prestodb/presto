@@ -872,6 +872,7 @@ columns as a part of SQL query like any other columns of the table.
 * ``$path`` : Filepath for the given row data
 * ``$file_size`` : Filesize for the given row
 * ``$file_modified_time`` : Last file modified time for the given row
+* ``$row_id`` : A persistent, globally unique, binary identifier for the row that can be compared for equality, byte by byte
 
 How to invalidate metastore cache?
 ---------------------------------
