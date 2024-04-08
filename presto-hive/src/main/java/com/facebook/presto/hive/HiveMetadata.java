@@ -306,7 +306,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.createViewPropert
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionsWithEmptyVersion;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
@@ -2211,7 +2211,7 @@ public class HiveMetadata
 
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
-                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, getPartitionsWithEmptyVersion(partitionNames)).entrySet().stream()
+                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, getPartitionNamesWithEmptyVersion(partitionNames)).entrySet().stream()
                         .filter(entry -> entry.getValue().isPresent()))
                 .forEach(entry -> existingPartitions.put(entry.getKey(), entry.getValue()));
 

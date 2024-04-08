@@ -170,7 +170,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getAllTables(TEST_METASTORE_CONTEXT, "database"), Optional.of(ImmutableList.of("table")));
         assertEquals(hiveMetastore.getAllViews(TEST_METASTORE_CONTEXT, "database"), Optional.empty());
         assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty()))));
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty(), Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
@@ -274,10 +274,10 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+        public Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
         {
             if (databaseName.equals("database") && tableName.equals("table")) {
-                return Optional.of(ImmutableList.of("value"));
+                return Optional.of(ImmutableList.of(new PartitionNameWithVersion("value", Optional.empty())));
             }
 
             return Optional.empty();

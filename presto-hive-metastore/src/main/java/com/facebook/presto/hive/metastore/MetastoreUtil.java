@@ -1110,7 +1110,7 @@ public class MetastoreUtil
         }
     }
 
-    public static List<PartitionNameWithVersion> getPartitionsWithEmptyVersion(Collection<String> partitions)
+    public static List<PartitionNameWithVersion> getPartitionNamesWithEmptyVersion(Collection<String> partitions)
     {
         return partitions.stream()
                 .map(partition -> new PartitionNameWithVersion(partition, Optional.empty()))
