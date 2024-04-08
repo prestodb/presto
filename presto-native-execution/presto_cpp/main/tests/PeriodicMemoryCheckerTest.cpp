@@ -39,6 +39,8 @@ class PeriodicMemoryCheckerTest : public testing::Test {
           periodicCb_(std::move(periodicCb)),
           heapDumpCb_(std::move(heapDumpCb)) {}
 
+    ~TestPeriodicMemoryChecker() override {}
+
     void setMallocBytes(int64_t mallocBytes) {
       mallocBytes_ = mallocBytes;
     }

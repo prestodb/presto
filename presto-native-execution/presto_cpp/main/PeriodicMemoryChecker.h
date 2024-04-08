@@ -67,6 +67,8 @@ class PeriodicMemoryChecker {
 
   explicit PeriodicMemoryChecker(Config config);
 
+  virtual ~PeriodicMemoryChecker() = default;
+
   /// Starts the 'PeriodicMemoryChecker'. A background scheduler will be
   /// launched to perform the checks. This should only be called once.
   void start();
