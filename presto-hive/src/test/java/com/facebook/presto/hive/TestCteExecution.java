@@ -72,6 +72,18 @@ public class TestCteExecution
     }
 
     @Test
+    public void testCteExecutionWhereChildPlanRemovedBySimplifyEmptyInputRule()
+    {
+        String sql = "WITH t as(SELECT * FROM orders LEFT JOIN (select orderkey from orders where false) ON TRUE) " +
+                "SELECT * FROM t";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        sql),
+                queryRunner.execute(getSession(),
+                        sql));
+    }
+
+    @Test
     public void testSimplePersistentCte()
     {
         QueryRunner queryRunner = getQueryRunner();

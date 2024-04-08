@@ -71,6 +71,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -528,12 +529,16 @@ public class TestCostCalculator
                 cteConsumerNode2,
                 JoinDistributionType.PARTITIONED,
                 "orderkey", "custkey");
+        MutableGraph<Integer> sequenceGraph = GraphBuilder.directed().build();
+        // Add indexes to the graph
+        sequenceGraph.addNode(0);
+        sequenceGraph.addNode(1);
         SequenceNode sequenceNode = new SequenceNode(
                 Optional.empty(),
                 new PlanNodeId("sequence"),
                 ImmutableList.of(cteProducerNode1, cteProducerNode2),
                 joinNode,
-                GraphBuilder.directed().build());
+                sequenceGraph);
 
         // Define cost of sequence children
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(
