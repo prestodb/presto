@@ -113,7 +113,8 @@ centos-container:			#: Build the linux container for CircleCi
 linux-container:
 	rm -rf /tmp/docker && \
 	mkdir -p /tmp/docker && \
-	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/setup-helper-functions.sh /tmp/docker && \
+	$(eval VELOX_SETUP_SCRIPT=$(shell [ $(CONTAINER_NAME) == centos ] && echo setup-centos8.sh; [ $(CONTAINER_NAME) != centos ] && echo setup-$(CONTAINER_NAME).sh;)) \
+	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/${VELOX_SETUP_SCRIPT} velox/scripts/setup-helper-functions.sh /tmp/docker && \
 	cd /tmp/docker && \
 	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
 

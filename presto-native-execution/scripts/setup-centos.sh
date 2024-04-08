@@ -17,42 +17,72 @@ set -x
 export FB_OS_VERSION=v2024.04.01.00
 export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
-
-dnf install -y maven java python3-devel clang-tools-extra jq perl-XML-XPath
-
-python3 -m pip install regex pyyaml chevron black
-
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
+if [ -f "${SCRIPT_DIR}/setup-centos8.sh" ]
 then
-  source "${SCRIPT_DIR}/setup-helper-functions.sh"
+  source "${SCRIPT_DIR}/setup-centos8.sh"
 else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
+  source "${SCRIPT_DIR}/../velox/scripts/setup-centos8.sh"
 fi
 
-export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
+function install_presto_deps_from_package_managers {
+  dnf install -y maven java clang-tools-extra jq perl-XML-XPath
+  # This python version is installed by the Velox setup scripts
+  pip3.9 install regex pyyaml chevron black
+}
 
-(
+function install_gperf {
   wget http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
   tar xvfz gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
   make "-j$(nproc)" &&
-  make install &&
-  ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
-)
+  make install
+  if [ -f /usr/local/bin/gperf ]; then
+    echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
+  else
+    ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
+  fi
+}
 
-
-(
+function install_proxygen {
   git clone https://github.com/facebook/proxygen &&
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
-)
+}
 
+function install_presto_deps {
+  run_and_time install_presto_deps_from_package_managers
+  run_and_time install_gperf
+  run_and_time install_proxygen
+}
+
+if [[ $# -ne 0 ]]; then
+  # Activate gcc9; enable errors on unset variables afterwards.
+  source /opt/rh/gcc-toolset-9/enable || exit 1
+  set -u
+  for cmd in "$@"; do
+    run_and_time "${cmd}"
+  done
+  echo "All specified dependencies installed!"
+else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  # Activate gcc9; enable errors on unset variables afterwards.
+  source /opt/rh/gcc-toolset-9/enable || exit 1
+  set -u
+  install_velox_deps
+  install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
+fi
 
 dnf clean all
