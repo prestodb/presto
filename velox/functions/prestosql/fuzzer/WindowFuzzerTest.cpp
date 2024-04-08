@@ -112,7 +112,8 @@ int main(int argc, char** argv) {
       std::shared_ptr<facebook::velox::exec::test::ResultVerifier>>
       customVerificationFunctions = {
           // Approx functions.
-          {"approx_distinct", std::make_shared<ApproxDistinctResultVerifier>()},
+          // https://github.com/facebookincubator/velox/issues/9347
+          {"approx_distinct", nullptr},
           {"approx_set", nullptr},
           {"approx_percentile", nullptr},
           {"approx_most_frequent", nullptr},
