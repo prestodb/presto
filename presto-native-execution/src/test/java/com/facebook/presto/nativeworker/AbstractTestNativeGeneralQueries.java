@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -71,6 +72,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 public abstract class AbstractTestNativeGeneralQueries
         extends AbstractTestQueryFramework
@@ -976,6 +978,18 @@ public abstract class AbstractTestNativeGeneralQueries
                 "(SELECT nationkey FROM nation_partitioned_ds WHERE ds = '2022-04-09' GROUP BY nationkey, ds) T\n" +
                 "JOIN (SELECT nationkey FROM nation_partitioned_ds WHERE ds = '2022-03-18' GROUP BY nationkey, ds) U\n" +
                 "ON T.nationkey = U.nationkey");
+    }
+
+    public void testRowIDHiddenColumn()
+    {
+        assertQuery("SELECT \"$row_id\", * from orders");
+    }
+
+    @Test
+    public void testRowIDHiddenColumnValue()
+    {
+        SqlVarbinary rowId = (SqlVarbinary) computeActual("SELECT \"$row_id\" from orders LIMIT 1").getOnlyValue();
+        assertNotNull(rowId);
     }
 
     @Test
