@@ -53,8 +53,9 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           echo "=== AFTER ==="
           df -h
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v2
         with:
+          distribution: 'temurin'
           java-version: 8
       - name: Cache local Maven repository
         id: cache-maven
