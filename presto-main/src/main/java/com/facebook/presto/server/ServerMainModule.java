@@ -140,6 +140,7 @@ import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
+import com.facebook.presto.sessionpropertyproviders.BuiltInNativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -326,6 +327,7 @@ public class ServerMainModule
         binder.bind(AnalyzerProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
         binder.bind(JavaWorkerSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInNativeSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 

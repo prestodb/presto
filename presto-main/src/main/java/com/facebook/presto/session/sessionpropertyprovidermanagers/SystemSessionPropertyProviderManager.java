@@ -14,11 +14,13 @@
 package com.facebook.presto.session.sessionpropertyprovidermanagers;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.sessionpropertyproviders.BuiltInNativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.session.SessionPropertyContext;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
@@ -43,11 +45,20 @@ public class SystemSessionPropertyProviderManager
     public SystemSessionPropertyProviderManager(
             NodeManager nodeManager,
             TypeManager typeManager,
-            JavaWorkerSystemSessionPropertyProviderFactory javaWorkerProviderFactory)
+            JavaWorkerSystemSessionPropertyProviderFactory javaWorkerProviderFactory,
+            BuiltInNativeSystemSessionPropertyProviderFactory nativeProviderFactory,
+            FeaturesConfig featuresConfig)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.providerFactory = requireNonNull(javaWorkerProviderFactory, "javaWorkerProviderFactory is null");
+
+        // TODO: Temporarily provides default plugin for native session properties, to be removed once the sidecar is deployed.
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            this.providerFactory = requireNonNull(nativeProviderFactory, "nativeProviderFactory is null");
+        }
+        else {
+            this.providerFactory = requireNonNull(javaWorkerProviderFactory, "javaWorkerProviderFactory is null");
+        }
         this.provider = providerFactory.create(getConfig(), new SessionPropertyContext(typeManager, nodeManager));
     }
 

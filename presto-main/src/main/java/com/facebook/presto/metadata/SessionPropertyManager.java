@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
+import com.facebook.presto.sessionpropertyproviders.BuiltInNativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
 import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -105,7 +106,9 @@ public final class SessionPropertyManager
                         return false;
                     }
                 },
-                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(new FeaturesConfig(), new NodeSpillConfig())));
+                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(new FeaturesConfig(), new NodeSpillConfig())),
+                new BuiltInNativeSystemSessionPropertyProviderFactory(),
+                new FeaturesConfig());
     }
 
     @Inject
