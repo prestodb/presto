@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -36,7 +35,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -46,7 +44,8 @@ public class CachingDirectoryLister
 {
     private final Cache<Path, List<HiveFileInfo>> cache;
     private final CachedTableChecker cachedTableChecker;
-    private final DirectoryLister delegate;
+
+    protected final DirectoryLister delegate;
 
     @Inject
     public CachingDirectoryLister(@ForCachingDirectoryLister DirectoryLister delegate, HiveClientConfig hiveClientConfig)
@@ -119,24 +118,6 @@ public class CachingDirectoryLister
                 return next;
             }
         };
-    }
-
-    public void invalidateDirectoryListCache(Optional<String> directoryPath)
-    {
-        if (directoryPath.isPresent()) {
-            if (directoryPath.get().isEmpty()) {
-                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Directory path can not be a empty string");
-            }
-            Path path = new Path(directoryPath.get());
-            List<HiveFileInfo> files = cache.getIfPresent(path);
-            if (files == null) {
-                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Given directory path is not cached : " + directoryPath);
-            }
-            cache.invalidate(path);
-        }
-        else {
-            flushCache();
-        }
     }
 
     @Managed
