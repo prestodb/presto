@@ -33,7 +33,8 @@ public class TestDirectoryListCacheInvalidation
         query("CREATE TABLE hivecached.default.region_cache AS SELECT * FROM tpch.tiny.region");
     }
 
-    @Test(groups = {HIVE_LIST_CACHING})
+    // Flaky test: https://github.com/prestodb/presto/issues/22425
+    @Test(groups = {HIVE_LIST_CACHING}, enabled = false)
     public void testDirectoryListCacheInvalidation()
     {
         String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hivecached,type=cachingdirectorylister\"";
