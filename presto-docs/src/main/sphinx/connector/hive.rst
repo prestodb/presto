@@ -855,14 +855,6 @@ The following procedures are available:
     file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
     not conforming to this convention are ignored, unless the argument is set to ``false``.
 
-* ``system.invalidate_directory_list_cache()``
-
-    Flush full directory list cache.
-
-* ``system.invalidate_directory_list_cache(directory_path)``
-
-    Invalidate directory list cache for specified directory_path.
-
 Extra Hidden Columns
 --------------------
 
