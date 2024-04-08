@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cmath>
+#include <limits>
 #include <optional>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -83,29 +85,50 @@ TEST_F(GreatestLeastTest, leastReal) {
       {0, -100, -1.1});
 }
 
-TEST_F(GreatestLeastTest, nanInput) {
-  // Presto rejects NaN inputs of type DOUBLE, but allows NaN inputs of type
-  // REAL.
-  std::vector<double> input{0, 1.1, std::nan("1")};
-  VELOX_ASSERT_THROW(
-      runTest<double>("least(c0)", {{0.0 / 0.0}}, {0}),
-      "Invalid argument to least(): NaN");
-  runTest<double>("try(least(c0, 1.0))", {input}, {0, 1.0, std::nullopt});
+TEST_F(GreatestLeastTest, greatestNanInput) {
+  auto constexpr kInf32 = std::numeric_limits<float>::infinity();
+  auto constexpr kInf64 = std::numeric_limits<double>::infinity();
 
-  VELOX_ASSERT_THROW(
-      runTest<double>("greatest(c0)", {1, {0.0 / 0.0}}, {1, 0}),
-      "Invalid argument to greatest(): NaN");
-  runTest<double>("try(greatest(c0, 1.0))", {input}, {1.0, 1.1, std::nullopt});
+  auto greatestFloat = [&](float a, float b, float c) {
+    return evaluateOnce<float, float, float, float>(
+               "greatest(c0, c1, c2)", {a}, {b}, {c})
+        .value();
+  };
 
-  auto result = evaluateOnce<bool, float, float>(
-      "is_nan(least(c0))", std::nanf("1"), 1.2);
-  ASSERT_TRUE(result.has_value());
-  ASSERT_TRUE(result.value());
+  auto greatestDouble = [&](double a, double b, double c) {
+    return evaluateOnce<double, double, double, double>(
+               "greatest(c0, c1, c2)", {a}, {b}, {c})
+        .value();
+  };
 
-  result = evaluateOnce<bool, float, float>(
-      "is_nan(greatest(c0))", std::nanf("1"), 1.2);
-  ASSERT_TRUE(result.has_value());
-  ASSERT_TRUE(result.value());
+  EXPECT_TRUE(std::isnan(greatestFloat(1.0, std::nanf("1"), 2.0)));
+  EXPECT_TRUE(std::isnan(greatestFloat(std::nanf("1"), 1.0, kInf32)));
+
+  EXPECT_TRUE(std::isnan(greatestDouble(1.0, std::nan("1"), 2.0)));
+  EXPECT_TRUE(std::isnan(greatestDouble(std::nan("1"), 1.0, kInf64)));
+}
+
+TEST_F(GreatestLeastTest, leastNanInput) {
+  auto constexpr kInf32 = std::numeric_limits<float>::infinity();
+  auto constexpr kInf64 = std::numeric_limits<double>::infinity();
+
+  auto leastFloat = [&](float a, float b, float c) {
+    return evaluateOnce<float, float, float, float>(
+               "least(c0, c1, c2)", {a}, {b}, {c})
+        .value();
+  };
+
+  auto leastDouble = [&](double a, double b, double c) {
+    return evaluateOnce<double, double, double, double>(
+               "least(c0, c1, c2)", {a}, {b}, {c})
+        .value();
+  };
+
+  EXPECT_EQ(leastFloat(1.0, std::nanf("1"), 0.5), 0.5);
+  EXPECT_EQ(leastFloat(std::nanf("1"), 1.0, -kInf32), -kInf32);
+
+  EXPECT_EQ(leastDouble(1.0, std::nan("1"), 0.5), 0.5);
+  EXPECT_EQ(leastDouble(std::nan("1"), 1.0, -kInf64), -kInf64);
 }
 
 TEST_F(GreatestLeastTest, greatestDouble) {
