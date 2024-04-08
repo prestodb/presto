@@ -70,7 +70,6 @@ RUN --mount=type=ssh \
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
     set -exu && \
-    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-centos8.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
     set +exu && \
