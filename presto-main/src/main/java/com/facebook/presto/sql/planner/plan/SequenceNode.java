@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -69,6 +70,9 @@ public class SequenceNode
         this.cteProducers = ImmutableList.copyOf(cteProducerList);
         this.primarySource = primarySource;
         checkArgument(cteDependencyGraph.isDirected(), "Sequence Node expects a directed graph");
+        IntStream.range(0, cteProducerList.size())
+                .forEach(i -> checkArgument(cteDependencyGraph.nodes().contains(i),
+                        "Sequence Node Error: The cteProducer at index " + i + " is missing in the cte dependency graph."));
         this.cteDependencyGraph = ImmutableGraph.copyOf(cteDependencyGraph);
     }
 
@@ -121,6 +125,9 @@ public class SequenceNode
     // Returns a Graph after removing indexes
     public Graph<Integer> removeCteProducersFromCteDependencyGraph(Set<Integer> indexesToRemove)
     {
+        if (indexesToRemove.isEmpty()) {
+            return ImmutableGraph.copyOf(getCteDependencyGraph());
+        }
         Graph<Integer> originalGraph = getCteDependencyGraph();
         MutableGraph newCteDependencyGraph = GraphBuilder.from(getCteDependencyGraph()).build();
         Map<Integer, Integer> indexMapping = new HashMap<>();
@@ -138,6 +145,7 @@ public class SequenceNode
         for (int oldIndex : originalGraph.nodes()) {
             if (!indexesToRemove.contains(oldIndex)) {
                 Integer newIndex = indexMapping.get(oldIndex);
+                newCteDependencyGraph.addNode(newIndex);
                 for (Integer successor : originalGraph.successors(oldIndex)) {
                     if (!indexesToRemove.contains(successor)) {
                         Integer newSuccessorIndex = indexMapping.get(successor);
