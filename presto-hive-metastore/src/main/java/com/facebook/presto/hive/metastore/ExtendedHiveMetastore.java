@@ -99,7 +99,7 @@ public interface ExtendedHiveMetastore
 
     Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues);
 
-    Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
+    Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName);
 
     List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
