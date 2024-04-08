@@ -979,20 +979,28 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testPath()
+    public void testPathHiddenColumn()
     {
         assertQuery("SELECT \"$path\", * from orders");
 
         // Fetch one of the file paths and use it in a filter
         String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
         assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+    }
 
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
         assertQuery("SELECT \"$file_size\", * from orders");
 
         // Fetch one of the file sizes and use it in a filter
         Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
         assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+    }
 
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
         assertQuery("SELECT \"$file_modified_time\", * from orders");
 
         // Fetch one of the file modified times and use it as a filter.
