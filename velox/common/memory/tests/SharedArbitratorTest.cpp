@@ -402,6 +402,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
     ASSERT_GT(newStats.numReclaimedBytes, oldStats.numReclaimedBytes);
     ASSERT_GT(newStats.reclaimTimeUs, oldStats.reclaimTimeUs);
     ASSERT_EQ(arbitrator_->stats().numReserves, numAddedPools_);
+    ASSERT_GT(orderByQueryCtx->pool()->stats().numCapacityGrowths, 0);
   }
 }
 

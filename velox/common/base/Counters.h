@@ -55,6 +55,12 @@ constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeoutCount{
 constexpr folly::StringPiece kMetricMemoryNonReclaimableCount{
     "velox.memory_non_reclaimable_count"};
 
+constexpr folly::StringPiece kMetricMemoryPoolInitialCapacityBytes{
+    "velox.memory_pool_initial_capacity_bytes"};
+
+constexpr folly::StringPiece kMetricMemoryPoolCapacityGrowCount{
+    "velox.memory_pool_capacity_growth_count"};
+
 constexpr folly::StringPiece kMetricMemoryPoolUsageLeakBytes{
     "velox.memory_pool_usage_leak_bytes"};
 

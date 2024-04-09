@@ -2879,7 +2879,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   void* buf1 = leafChild1->allocate(bufferSize);
   ASSERT_EQ(
       leafChild1->stats().toString(),
-      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       leafChild1->toString(),
       fmt::format(
@@ -2888,7 +2888,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
           isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
   ASSERT_EQ(
       leafChild2->stats().toString(),
-      "currentBytes:0B reservedBytes:0B peakBytes:0B cumulativeBytes:0B numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:0B reservedBytes:0B peakBytes:0B cumulativeBytes:0B numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       leafChild1->toString(),
       fmt::format(
@@ -2897,36 +2897,36 @@ TEST_P(MemoryPoolTest, statsAndToString) {
           isLeafThreadSafe_ ? "thread-safe" : "non-thread-safe"));
   ASSERT_EQ(
       aggregateChild->stats().toString(),
-      "currentBytes:0B reservedBytes:0B peakBytes:0B cumulativeBytes:0B numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:0B reservedBytes:0B peakBytes:0B cumulativeBytes:0B numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       root->stats().toString(),
-      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   void* buf2 = leafChild2->allocate(bufferSize);
   ASSERT_EQ(
       leafChild1->stats().toString(),
-      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       leafChild2->stats().toString(),
-      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       aggregateChild->stats().toString(),
-      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       root->stats().toString(),
-      "currentBytes:2.00MB reservedBytes:2.00MB peakBytes:2.00MB cumulativeBytes:2.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:2.00MB reservedBytes:2.00MB peakBytes:2.00MB cumulativeBytes:2.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   leafChild1->free(buf1, bufferSize);
   ASSERT_EQ(
       leafChild1->stats().toString(),
-      "currentBytes:0B reservedBytes:0B peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:1 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:0B reservedBytes:0B peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:1 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       leafChild2->stats().toString(),
-      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00KB reservedBytes:1.00MB peakBytes:1.00KB cumulativeBytes:1.00KB numAllocs:1 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       aggregateChild->stats().toString(),
-      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:1.00MB cumulativeBytes:1.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   ASSERT_EQ(
       root->stats().toString(),
-      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:2.00MB cumulativeBytes:2.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0");
+      "currentBytes:1.00MB reservedBytes:1.00MB peakBytes:2.00MB cumulativeBytes:2.00MB numAllocs:0 numFrees:0 numReserves:0 numReleases:0 numShrinks:0 numReclaims:0 numCollisions:0 numCapacityGrowths:0");
   leafChild2->free(buf2, bufferSize);
   std::vector<void*> bufs;
   for (int i = 0; i < 10; ++i) {
@@ -2940,6 +2940,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(root->peakBytes(), 2097152);
   ASSERT_EQ(root->stats().cumulativeBytes, 3145728);
   ASSERT_EQ(root->stats().currentBytes, 1048576);
+  ASSERT_EQ(root->stats().numCapacityGrowths, 0);
   ASSERT_EQ(leafChild1->stats().numAllocs, 11);
   ASSERT_EQ(leafChild1->stats().numFrees, 1);
   ASSERT_EQ(leafChild1->stats().currentBytes, 10240);
@@ -2947,6 +2948,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(leafChild1->stats().cumulativeBytes, 11264);
   ASSERT_EQ(leafChild1->stats().numReserves, 0);
   ASSERT_EQ(leafChild1->stats().numReleases, 0);
+  ASSERT_EQ(leafChild1->stats().numCapacityGrowths, 0);
   for (auto* buf : bufs) {
     leafChild1->free(buf, bufferSize);
   }
@@ -2958,6 +2960,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(root->peakBytes(), 2097152);
   ASSERT_EQ(root->stats().cumulativeBytes, 3145728);
   ASSERT_EQ(root->stats().currentBytes, 0);
+  ASSERT_EQ(root->stats().numCapacityGrowths, 0);
   ASSERT_EQ(leafChild1->stats().numAllocs, 11);
   ASSERT_EQ(leafChild1->stats().numFrees, 11);
   ASSERT_EQ(leafChild1->stats().currentBytes, 0);
@@ -2965,6 +2968,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(leafChild1->stats().cumulativeBytes, 11264);
   ASSERT_EQ(leafChild1->stats().numReserves, 0);
   ASSERT_EQ(leafChild1->stats().numReleases, 0);
+  ASSERT_EQ(leafChild1->stats().numCapacityGrowths, 0);
   leafChild1->maybeReserve(bufferSize);
   ASSERT_EQ(leafChild1->stats().numAllocs, 11);
   ASSERT_EQ(leafChild1->stats().numFrees, 11);
@@ -2974,6 +2978,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(leafChild1->stats().cumulativeBytes, 11264);
   ASSERT_EQ(leafChild1->stats().numReserves, 1);
   ASSERT_EQ(leafChild1->stats().numReleases, 0);
+  ASSERT_EQ(leafChild1->stats().numCapacityGrowths, 0);
   leafChild1->release();
   ASSERT_EQ(leafChild1->stats().numAllocs, 11);
   ASSERT_EQ(leafChild1->stats().numFrees, 11);
@@ -2983,6 +2988,7 @@ TEST_P(MemoryPoolTest, statsAndToString) {
   ASSERT_EQ(leafChild1->peakBytes(), 10240);
   ASSERT_EQ(leafChild1->stats().numReserves, 1);
   ASSERT_EQ(leafChild1->stats().numReleases, 1);
+  ASSERT_EQ(leafChild1->stats().numCapacityGrowths, 0);
 }
 
 struct Buffer {

@@ -165,7 +165,7 @@ std::string capacityToString(int64_t capacity) {
 
 std::string MemoryPool::Stats::toString() const {
   return fmt::format(
-      "currentBytes:{} reservedBytes:{} peakBytes:{} cumulativeBytes:{} numAllocs:{} numFrees:{} numReserves:{} numReleases:{} numShrinks:{} numReclaims:{} numCollisions:{}",
+      "currentBytes:{} reservedBytes:{} peakBytes:{} cumulativeBytes:{} numAllocs:{} numFrees:{} numReserves:{} numReleases:{} numShrinks:{} numReclaims:{} numCollisions:{} numCapacityGrowths:{}",
       succinctBytes(currentBytes),
       succinctBytes(reservedBytes),
       succinctBytes(peakBytes),
@@ -176,7 +176,8 @@ std::string MemoryPool::Stats::toString() const {
       numReleases,
       numShrinks,
       numReclaims,
-      numCollisions);
+      numCollisions,
+      numCapacityGrowths);
 }
 
 bool MemoryPool::Stats::operator==(const MemoryPool::Stats& other) const {
@@ -189,7 +190,8 @@ bool MemoryPool::Stats::operator==(const MemoryPool::Stats& other) const {
              numFrees,
              numReserves,
              numReleases,
-             numCollisions) ==
+             numCollisions,
+             numCapacityGrowths) ==
       std::tie(
              other.currentBytes,
              other.reservedBytes,
@@ -199,7 +201,8 @@ bool MemoryPool::Stats::operator==(const MemoryPool::Stats& other) const {
              other.numFrees,
              other.numReserves,
              other.numReleases,
-             other.numCollisions);
+             other.numCollisions,
+             other.numCapacityGrowths);
 }
 
 std::ostream& operator<<(std::ostream& os, const MemoryPool::Stats& stats) {
@@ -449,6 +452,11 @@ MemoryPoolImpl::~MemoryPoolImpl() {
       "Bad memory usage track state: {}",
       toString());
 
+  if (isRoot()) {
+    RECORD_HISTOGRAM_METRIC_VALUE(
+        kMetricMemoryPoolCapacityGrowCount, numCapacityGrowths_);
+  }
+
   if (destructionCb_ != nullptr) {
     destructionCb_(this);
   }
@@ -470,6 +478,7 @@ MemoryPool::Stats MemoryPoolImpl::statsLocked() const {
   stats.numReserves = numReserves_;
   stats.numReleases = numReleases_;
   stats.numCollisions = numCollisions_;
+  stats.numCapacityGrowths = numCapacityGrowths_;
   return stats;
 }
 
@@ -795,6 +804,7 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
 
   VELOX_CHECK_NULL(parent_);
 
+  ++numCapacityGrowths_;
   if (growCapacityCb_(requestor, size)) {
     TestValue::adjust(
         "facebook::velox::memory::MemoryPoolImpl::incrementReservationThreadSafe::AfterGrowCallback",

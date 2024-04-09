@@ -156,6 +156,16 @@ Memory Management
      - Average
      - The average of total free memory capacity which is managed by the
        memory arbitrator.
+   * - memory_pool_initial_capacity_bytes
+     - Histogram
+     - The distribution of a root memory pool's initial capacity in range of [0 256MB]
+       with 32 buckets. It is configured to report the capacity at P50, P90, P99,
+       and P100 percentiles.
+   * - memory_pool_capacity_growth_count
+     - Histogram
+     - The distribution of a root memory pool cappacity growth attemps through
+       memory arbitration in range of [0, 256] with 32 buckets. It is configured
+       to report the count at P50, P90, P99, and P100 percentiles.
    * - memory_pool_usage_leak_bytes
      - Sum
      - The leaf memory pool usage leak in bytes.
