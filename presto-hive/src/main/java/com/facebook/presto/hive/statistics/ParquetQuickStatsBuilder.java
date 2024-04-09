@@ -298,7 +298,7 @@ public class ParquetQuickStatsBuilder
 
         // TODO: Consider refactoring storage and/or table format to the interface when we implement an ORC/Iceberg quick stats builder
         StorageFormat storageFormat;
-        if (UNPARTITIONED_ID.equals(partitionId)) {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
             Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
             storageFormat = resolvedTable.getStorage().getStorageFormat();
         }

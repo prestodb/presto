@@ -44,6 +44,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionOfflineException;
 import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.hive.TypeTranslator;
@@ -86,6 +87,7 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -131,6 +133,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
@@ -1105,5 +1108,19 @@ public class MetastoreUtil
         if (view == null) {
             throw new ViewNotFoundException(viewName);
         }
+    }
+
+    public static List<PartitionNameWithVersion> getPartitionsWithEmptyVersion(Collection<String> partitions)
+    {
+        return partitions.stream()
+                .map(partition -> new PartitionNameWithVersion(partition, Optional.empty()))
+                .collect(toImmutableList());
+    }
+
+    public static List<String> getPartitionNames(List<PartitionNameWithVersion> partitionNameWithVersions)
+    {
+        return partitionNameWithVersions.stream()
+                .map(PartitionNameWithVersion::getPartitionName)
+                .collect(toImmutableList());
     }
 }

@@ -50,6 +50,7 @@ import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
@@ -836,7 +837,7 @@ public abstract class AbstractTestHiveClient
                 .setRemainingPredicate(TRUE_CONSTANT)
                 .setPredicateColumns(ImmutableMap.of())
                 .setPartitionColumnPredicate(TupleDomain.all())
-                .setPartitions(ImmutableList.of(new HivePartition(invalidTable, "unknown", ImmutableMap.of())))
+                .setPartitions(ImmutableList.of(new HivePartition(invalidTable, new PartitionNameWithVersion("unknown", Optional.empty()), ImmutableMap.of())))
                 .setBucketHandle(Optional.empty())
                 .setBucketFilter(Optional.empty())
                 .setPushdownFilterEnabled(false)
@@ -857,28 +858,28 @@ public abstract class AbstractTestHiveClient
         List<HiveColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=textfile/dummy=1",
+                        new PartitionNameWithVersion("ds=2012-12-29/file_format=textfile/dummy=1", Optional.empty()),
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 1L))
                                 .build()))
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=sequencefile/dummy=2",
+                        new PartitionNameWithVersion("ds=2012-12-29/file_format=sequencefile/dummy=2", Optional.empty()),
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 2L))
                                 .build()))
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=rctext/dummy=3",
+                        new PartitionNameWithVersion("ds=2012-12-29/file_format=rctext/dummy=3", Optional.empty()),
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 3L))
                                 .build()))
                 .add(new HivePartition(tablePartitionFormat,
-                        "ds=2012-12-29/file_format=rcbinary/dummy=4",
+                        new PartitionNameWithVersion("ds=2012-12-29/file_format=rcbinary/dummy=4", Optional.empty()),
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rcbinary")))
@@ -1618,7 +1619,7 @@ public abstract class AbstractTestHiveClient
 
     protected void assertExpectedPartitions(List<HivePartition> actualPartitions, Iterable<HivePartition> expectedPartitions)
     {
-        Map<String, ?> actualById = uniqueIndex(actualPartitions, HivePartition::getPartitionId);
+        Map<PartitionNameWithVersion, ?> actualById = uniqueIndex(actualPartitions, HivePartition::getPartitionId);
         for (Object expected : expectedPartitions) {
             assertInstanceOf(expected, HivePartition.class);
             HivePartition expectedPartition = (HivePartition) expected;
@@ -4362,7 +4363,7 @@ public abstract class AbstractTestHiveClient
             locations.add(table.getStorage().getLocation());
         }
 
-        Optional<List<String>> partitionNames = metastore.getPartitionNames(metastoreContext, schemaName, tableName);
+        Optional<List<PartitionNameWithVersion>> partitionNames = metastore.getPartitionNames(metastoreContext, schemaName, tableName);
         if (partitionNames.isPresent()) {
             metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
                     .map(Optional::get)
@@ -4409,17 +4410,17 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
             // verify partitions were created
-            List<String> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
-            assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+            assertEqualsIgnoreOrder(MetastoreUtil.getPartitionNames(partitionNames), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
                     .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
                     .collect(toList()));
 
             // verify the node versions in partitions
             Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNames);
             assertEquals(partitions.size(), partitionNames.size());
-            for (String partitionName : partitionNames) {
-                Partition partition = partitions.get(partitionName).get();
+            for (PartitionNameWithVersion partitionName : partitionNames) {
+                Partition partition = partitions.get(partitionName.getPartitionName()).get();
                 assertEquals(partition.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
                 assertEquals(partition.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
             }
@@ -4438,8 +4439,8 @@ public abstract class AbstractTestHiveClient
             assertFalse(existingFiles.isEmpty());
 
             // test statistics
-            for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName);
+            for (PartitionNameWithVersion partitionName : partitionNames) {
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName.getPartitionName());
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 1L);
                 assertEquals(partitionStatistics.getFileCount().getAsLong(), 1L);
                 assertGreaterThan(partitionStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -4541,9 +4542,9 @@ public abstract class AbstractTestHiveClient
                 MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
 
                 // verify partitions were created
-                List<String> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
+                List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                         .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
-                assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+                assertEqualsIgnoreOrder(MetastoreUtil.getPartitionNames(partitionNames), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
                         .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
                         .collect(toList()));
 
@@ -4556,8 +4557,8 @@ public abstract class AbstractTestHiveClient
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), resultBuilder.build().getMaterializedRows());
 
                 // test statistics
-                for (String partitionName : partitionNames) {
-                    HiveBasicStatistics statistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName);
+                for (PartitionNameWithVersion partitionName : partitionNames) {
+                    HiveBasicStatistics statistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName.getPartitionName());
                     assertEquals(statistics.getRowCount().getAsLong(), i + 1L);
                     assertEquals(statistics.getFileCount().getAsLong(), i + 1L);
                     assertGreaterThan(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
@@ -4607,10 +4608,10 @@ public abstract class AbstractTestHiveClient
             }
 
             // verify statistics are visible from within of the current transaction
-            List<String> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
-            for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName);
+            for (PartitionNameWithVersion partitionName : partitionNames) {
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName.getPartitionName());
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 5L);
             }
 
@@ -4637,10 +4638,10 @@ public abstract class AbstractTestHiveClient
             assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
             // verify statistics have been rolled back
-            List<String> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
-            for (String partitionName : partitionNames) {
-                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName);
+            for (PartitionNameWithVersion partitionName : partitionNames) {
+                HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(metastoreContext, transaction, tableName, partitionName.getPartitionName());
                 assertEquals(partitionStatistics.getRowCount().getAsLong(), 3L);
             }
         }
@@ -4667,11 +4668,11 @@ public abstract class AbstractTestHiveClient
         insertData(tableName, CREATE_TABLE_PARTITIONED_DATA);
         ConnectorSession session = newSession();
         try (Transaction transaction = newTransaction()) {
-            List<String> partitionNames = transaction.getMetastore().getPartitionNames(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()), tableName.getSchemaName(), tableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()), tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
 
-            for (String partitionName : partitionNames) {
-                HiveBasicStatistics statistics = getBasicStatisticsForPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()), transaction, tableName, partitionName);
+            for (PartitionNameWithVersion partitionName : partitionNames) {
+                HiveBasicStatistics statistics = getBasicStatisticsForPartition(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()), transaction, tableName, partitionName.getPartitionName());
                 assertThat(statistics.getRowCount()).isNotPresent();
                 assertThat(statistics.getInMemoryDataSizeInBytes()).isNotPresent();
                 // fileCount and rawSize statistics are computed on the fly by the metastore, thus cannot be erased
@@ -4709,7 +4710,7 @@ public abstract class AbstractTestHiveClient
             List<String> partitionNames = metastoreClient.getPartitionNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
-                    .getPartitionsByNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNames)
+                    .getPartitionsByNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName(), MetastoreUtil.getPartitionsWithEmptyVersion(partitionNames))
                     .entrySet()
                     .stream()
                     .map(Map.Entry::getValue)
@@ -4793,9 +4794,9 @@ public abstract class AbstractTestHiveClient
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
 
             // verify partitions were created
-            List<String> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore().getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
-            assertEqualsIgnoreOrder(partitionNames, CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
+            assertEqualsIgnoreOrder(MetastoreUtil.getPartitionNames(partitionNames), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows().stream()
                     .map(row -> "ds=" + row.getField(CREATE_TABLE_PARTITIONED_DATA.getTypes().size() - 1))
                     .collect(toList()));
 
@@ -5262,7 +5263,7 @@ public abstract class AbstractTestHiveClient
 
     protected String getPartitionId(Object partition)
     {
-        return ((HivePartition) partition).getPartitionId();
+        return ((HivePartition) partition).getPartitionId().getPartitionName();
     }
 
     private static void assertPageSourceType(ConnectorPageSource pageSource, HiveStorageFormat hiveStorageFormat)
@@ -5728,11 +5729,11 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats());
             // verify partitions
-            List<String> partitionNames = transaction.getMetastore()
+            List<PartitionNameWithVersion> partitionNames = transaction.getMetastore()
                     .getPartitionNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             assertEqualsIgnoreOrder(
-                    partitionNames,
+                    MetastoreUtil.getPartitionNames(partitionNames),
                     expectedData.getMaterializedRows().stream()
                             .map(row -> format("pk1=%s/pk2=%s", row.getField(1), row.getField(2)))
                             .distinct()

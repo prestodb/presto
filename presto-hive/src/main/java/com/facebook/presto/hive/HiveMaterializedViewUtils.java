@@ -157,13 +157,13 @@ public class HiveMaterializedViewUtils
         Map<String, Type> partitionTypes = partitionKeyColumnHandles.stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getTypeSignature())));
 
-        List<String> partitionNames = metastore.getPartitionNames(metastoreContext, table.getDatabaseName(), table.getTableName())
+        List<PartitionNameWithVersion> partitionNames = metastore.getPartitionNames(metastoreContext, table.getDatabaseName(), table.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName())));
 
         ImmutableList.Builder<TupleDomain<String>> partitionNamesAndValues = ImmutableList.builder();
-        for (String partitionName : partitionNames) {
+        for (PartitionNameWithVersion partitionName : partitionNames) {
             ImmutableMap.Builder<String, NullableValue> partitionNameAndValuesMap = ImmutableMap.builder();
-            Map<String, String> partitions = toPartitionNamesAndValues(partitionName);
+            Map<String, String> partitions = toPartitionNamesAndValues(partitionName.getPartitionName());
             if (partitionColumns.size() != partitions.size()) {
                 throw new PrestoException(HIVE_INVALID_METADATA, String.format(
                         "Expected %d partition key values, but got %d", partitionColumns.size(), partitions.size()));
