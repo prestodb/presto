@@ -403,4 +403,250 @@ TEST_F(ArgumentTypeFuzzerTest, orderableConstraint) {
   }
 }
 
+TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalArgumentTypes) {
+  auto fuzzArgumentTypes = [](const exec::FunctionSignature& signature,
+                              const TypePtr& returnType) {
+    std::mt19937 seed{0};
+    ArgumentTypeFuzzer fuzzer{signature, returnType, seed};
+    bool ok = fuzzer.fuzzArgumentTypes(kMaxVariadicArgs);
+    VELOX_CHECK(
+        ok,
+        "Signature: {}, Return type: {}",
+        signature.toString(),
+        returnType->toString());
+    return fuzzer.argumentTypes();
+  };
+
+  // Argument type must match return type.
+  auto signature = exec::FunctionSignatureBuilder()
+                       .integerVariable("p")
+                       .integerVariable("s")
+                       .returnType("decimal(p,s)")
+                       .argumentType("decimal(p,s)")
+                       .build();
+
+  auto argTypes = fuzzArgumentTypes(*signature, DECIMAL(10, 7));
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), argTypes[0]->toString());
+
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .variableArity()
+                  .build();
+  argTypes = fuzzArgumentTypes(*signature, DECIMAL(10, 7));
+  ASSERT_LE(1, argTypes.size());
+  for (const auto& argType : argTypes) {
+    EXPECT_EQ(DECIMAL(10, 7)->toString(), argType->toString());
+  }
+
+  // Argument type can be any decimal.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("boolean")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, BOOLEAN());
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+
+  // Argument type can be any decimal with scale 30.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .returnType("boolean")
+                  .argumentType("decimal(p,30)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, BOOLEAN());
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+  EXPECT_EQ(30, getDecimalPrecisionScale(*argTypes[0]).second);
+
+  // Another way to specify fixed scale.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s", "3")
+                  .returnType("boolean")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, BOOLEAN());
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+  EXPECT_EQ(3, getDecimalPrecisionScale(*argTypes[0]).second);
+
+  // Argument type can be any decimal with precision 3.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("s")
+                  .returnType("boolean")
+                  .argumentType("decimal(3,s)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, BOOLEAN());
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+  EXPECT_EQ(3, getDecimalPrecisionScale(*argTypes[0]).first);
+
+  // Another way to specify fixed precision.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p", "30")
+                  .integerVariable("s")
+                  .returnType("boolean")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, BOOLEAN());
+  ASSERT_EQ(1, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+  EXPECT_EQ(30, getDecimalPrecisionScale(*argTypes[0]).first);
+
+  // Multiple arguments. All must be the same as return type.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, DECIMAL(10, 7));
+  ASSERT_EQ(3, argTypes.size());
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), argTypes[0]->toString());
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), argTypes[1]->toString());
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), argTypes[2]->toString());
+
+  // Multiple arguments. Some have fixed precision, scale or both.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .argumentType("decimal(p,10)")
+                  .argumentType("decimal(12,s)")
+                  .argumentType("decimal(2,1)")
+                  .build();
+
+  argTypes = fuzzArgumentTypes(*signature, DECIMAL(10, 7));
+  ASSERT_EQ(4, argTypes.size());
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), argTypes[0]->toString());
+  EXPECT_EQ(DECIMAL(10, 10)->toString(), argTypes[1]->toString());
+  EXPECT_EQ(DECIMAL(12, 7)->toString(), argTypes[2]->toString());
+  EXPECT_EQ(DECIMAL(2, 1)->toString(), argTypes[3]->toString());
+
+  // Multiple pairs of precision and scale variables.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p1")
+                  .integerVariable("s1")
+                  .integerVariable("p2")
+                  .integerVariable("s2")
+                  .returnType("bigint")
+                  .argumentType("decimal(p1,s1)")
+                  .argumentType("decimal(p2,s2)")
+                  .argumentType("decimal(p1,s1)")
+                  .argumentType("decimal(p2,s2)")
+                  .build();
+  argTypes = fuzzArgumentTypes(*signature, BIGINT());
+  ASSERT_EQ(4, argTypes.size());
+  EXPECT_TRUE(argTypes[0]->isDecimal());
+  EXPECT_TRUE(argTypes[1]->isDecimal());
+  EXPECT_EQ(argTypes[0]->toString(), argTypes[2]->toString());
+  EXPECT_EQ(argTypes[1]->toString(), argTypes[3]->toString());
+}
+
+TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalReturnType) {
+  auto fuzzReturnType = [](const exec::FunctionSignature& signature) {
+    std::mt19937 seed{0};
+    ArgumentTypeFuzzer fuzzer{signature, seed};
+    return fuzzer.fuzzReturnType();
+  };
+
+  // Return type can be any decimal.
+  auto signature = exec::FunctionSignatureBuilder()
+                       .integerVariable("p")
+                       .integerVariable("s")
+                       .returnType("decimal(p,s)")
+                       .argumentType("decimal(p,s)")
+                       .build();
+
+  auto returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .variableArity()
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+
+  // Return type can be any decimal with scale 3.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(p,3)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+  EXPECT_EQ(3, getDecimalPrecisionScale(*returnType).second);
+
+  // Another way to specify that scale must be 3.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s", "3")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+  EXPECT_EQ(3, getDecimalPrecisionScale(*returnType).second);
+
+  // Return type can be any decimal with precision 22.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(22,s)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+  EXPECT_EQ(22, getDecimalPrecisionScale(*returnType).first);
+
+  // Another way to specify that precision must be 22.
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p", "22")
+                  .integerVariable("s")
+                  .returnType("decimal(p,s)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_TRUE(returnType->isDecimal());
+  EXPECT_EQ(22, getDecimalPrecisionScale(*returnType).first);
+
+  // Return type can only be DECIMAL(10, 7).
+  signature = exec::FunctionSignatureBuilder()
+                  .integerVariable("p")
+                  .integerVariable("s")
+                  .returnType("decimal(10,7)")
+                  .argumentType("decimal(p,s)")
+                  .build();
+
+  returnType = fuzzReturnType(*signature);
+  EXPECT_EQ(DECIMAL(10, 7)->toString(), returnType->toString());
+}
+
 } // namespace facebook::velox::test

@@ -65,9 +65,17 @@ class ArgumentTypeFuzzer {
     return signature_.variables();
   }
 
-  /// Bind each type variable that is not determined by the return type to a
-  /// randomly generated type.
+  // Returns random integer between min and max inclusive.
+  int32_t rand32(int32_t min, int32_t max);
+
+  // Bind each type variable that is not determined by the return type to a
+  // randomly generated type.
   void determineUnboundedTypeVariables();
+
+  // Bind integer variables used in specified decimal(p,s) type signature to
+  // randomly generated values if not already bound.
+  // Noop if 'type' is not a decimal type signature.
+  void determineUnboundedIntegerVariables(const exec::TypeSignature& type);
 
   TypePtr randType();
 
@@ -82,6 +90,8 @@ class ArgumentTypeFuzzer {
 
   /// Bindings between type variables and their actual types.
   std::unordered_map<std::string, TypePtr> bindings_;
+
+  std::unordered_map<std::string, int> integerBindings_;
 
   /// RNG to generate random types for unbounded type variables when necessary.
   std::mt19937& rng_;

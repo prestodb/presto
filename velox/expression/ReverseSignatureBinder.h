@@ -40,15 +40,28 @@ class ReverseSignatureBinder : private SignatureBinderBase {
   /// tryBind() and only if tryBind() returns true. If a type variable is not
   /// determined by tryBind(), it maps to a nullptr.
   const std::unordered_map<std::string, TypePtr>& bindings() const {
+    VELOX_CHECK(
+        tryBindSucceeded_, "tryBind() must be called first and succeed");
     return typeVariablesBindings_;
   }
 
+  /// Return the integer bindings produced by 'tryBind'. This function should be
+  /// called after 'tryBind' and only if 'tryBind' returns true.
+  const std::unordered_map<std::string, int>& integerBindings() const {
+    VELOX_CHECK(
+        tryBindSucceeded_, "tryBind() must be called first and succeed");
+    return integerVariablesBindings_;
+  }
+
  private:
-  /// Return whether there is a constraint on an integer variable in type
-  /// signature.
+  // Return whether there is a constraint on an integer variable in type
+  // signature.
   bool hasConstrainedIntegerVariable(const TypeSignature& type) const;
 
   const TypePtr returnType_;
+
+  // True if 'tryBind' has been called and succeeded. False otherwise.
+  bool tryBindSucceeded_{false};
 };
 
 } // namespace facebook::velox::exec

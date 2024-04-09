@@ -39,7 +39,9 @@ bool ReverseSignatureBinder::tryBind() {
   if (hasConstrainedIntegerVariable(signature_.returnType())) {
     return false;
   }
-  return SignatureBinderBase::tryBind(signature_.returnType(), returnType_);
+  tryBindSucceeded_ =
+      SignatureBinderBase::tryBind(signature_.returnType(), returnType_);
+  return tryBindSucceeded_;
 }
 
 } // namespace facebook::velox::exec
