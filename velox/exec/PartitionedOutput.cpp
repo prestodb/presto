@@ -43,7 +43,7 @@ BlockingReason Destination::advance(
   // Collect rows to serialize.
   bool shouldFlush = false;
   while (rowIdx_ < rows_.size() && !shouldFlush) {
-    bytesInCurrent_ += sizes[rowIdx_];
+    bytesInCurrent_ += sizes[rows_[rowIdx_]];
     ++rowIdx_;
     ++rowsInCurrent_;
     shouldFlush =

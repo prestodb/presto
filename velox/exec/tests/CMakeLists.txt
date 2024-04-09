@@ -57,6 +57,7 @@ add_executable(
   NestedLoopJoinTest.cpp
   OrderByTest.cpp
   OutputBufferManagerTest.cpp
+  PartitionedOutputTest.cpp
   PlanNodeSerdeTest.cpp
   PlanNodeToStringTest.cpp
   PrefixSortTest.cpp
