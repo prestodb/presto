@@ -23,7 +23,8 @@ namespace facebook::velox::common::hll {
 
 constexpr double kLowestMaxStandardError = 0.0040625;
 constexpr double kHighestMaxStandardError = 0.26000;
-constexpr double kDefaultStandardError = 0.023;
+constexpr double kDefaultApproxDistinctStandardError = 0.023;
+constexpr double kDefaultApproxSetStandardError = 0.01625;
 
 const int8_t kPrestoSparseV2 = 2;
 const int8_t kPrestoDenseV2 = 3;

@@ -32,8 +32,7 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(
       const VectorPtr& values,
       double maxStandardError,
-      int64_t expectedResult,
-      bool testWithTableScan = true) {
+      int64_t expectedResult) {
     auto vectors = makeRowVector({values});
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
@@ -63,7 +62,7 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(
       const VectorPtr& values,
       int64_t expectedResult,
-      bool testWithTableScan = true) {
+      bool testApproxSet = true) {
     auto vectors = makeRowVector({values});
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
@@ -78,8 +77,10 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {expected});
 
-    testAggregations(
-        {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
+    if (testApproxSet) {
+      testAggregations(
+          {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
+    }
   }
 
   template <typename T, typename U>
@@ -100,7 +101,8 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGroupByAgg(
       const VectorPtr& keys,
       const VectorPtr& values,
-      const std::unordered_map<int32_t, int64_t>& expectedResults) {
+      const std::unordered_map<int32_t, int64_t>& expectedResults,
+      bool testApproxSet = true) {
     auto vectors = makeRowVector({keys, values});
     auto expected = toRowVector(expectedResults);
 
@@ -114,12 +116,14 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {expected});
 
-    testAggregations(
-        {vectors},
-        {"c0"},
-        {"approx_set(c1)"},
-        {"c0", "cardinality(a0)"},
-        {expected});
+    if (testApproxSet) {
+      testAggregations(
+          {vectors},
+          {"c0"},
+          {"approx_set(c1)"},
+          {"c0", "cardinality(a0)"},
+          {expected});
+    }
   }
 };
 
@@ -170,7 +174,13 @@ TEST_F(ApproxDistinctTest, groupByHighCardinalityIntegers) {
   auto keys = makeFlatVector<int32_t>(size, [](auto row) { return row % 2; });
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGroupByAgg(keys, values, {{0, 488}, {1, 493}});
+  testGroupByAgg(keys, values, {{0, 488}, {1, 493}}, false);
+  testAggregations(
+      {makeRowVector({keys, values})},
+      {"c0"},
+      {"approx_set(c1)"},
+      {"c0", "cardinality(a0)"},
+      {toRowVector<int32_t, int64_t>({{0, 500}, {1, 500}})});
 }
 
 TEST_F(ApproxDistinctTest, groupByVeryLowCardinalityIntegers) {
@@ -230,7 +240,13 @@ TEST_F(ApproxDistinctTest, globalAggHighCardinalityIntegers) {
   vector_size_t size = 1'000;
   auto values = makeFlatVector<int32_t>(size, [](auto row) { return row; });
 
-  testGlobalAgg(values, 977);
+  testGlobalAgg(values, 977, false);
+  testAggregations(
+      {makeRowVector({values})},
+      {},
+      {"approx_set(c0)"},
+      {"cardinality(a0)"},
+      {makeRowVector({makeFlatVector<int64_t>(std::vector<int64_t>({997}))})});
 }
 
 TEST_F(ApproxDistinctTest, globalAggVeryLowCardinalityIntegers) {
@@ -244,7 +260,13 @@ TEST_F(ApproxDistinctTest, toIndexBitLength) {
   ASSERT_EQ(
       common::hll::toIndexBitLength(common::hll::kHighestMaxStandardError), 4);
   ASSERT_EQ(
-      common::hll::toIndexBitLength(common::hll::kDefaultStandardError), 11);
+      common::hll::toIndexBitLength(
+          common::hll::kDefaultApproxDistinctStandardError),
+      11);
+  ASSERT_EQ(
+      common::hll::toIndexBitLength(
+          common::hll::kDefaultApproxSetStandardError),
+      12);
   ASSERT_EQ(
       common::hll::toIndexBitLength(common::hll::kLowestMaxStandardError), 16);
 
@@ -317,14 +339,16 @@ TEST_F(ApproxDistinctTest, globalAggAllNulls) {
 TEST_F(ApproxDistinctTest, hugeInt) {
   auto hugeIntValues =
       makeFlatVector<int128_t>(50000, [](auto row) { return row; });
-  // Last param is set false to disable tablescan test
-  // as DWRF writer doesn't have hugeint support.
-  // Refer:https://github.com/facebookincubator/velox/issues/7775
   testGlobalAgg(hugeIntValues, 49669, false);
-  testGlobalAgg(
-      hugeIntValues, common::hll::kLowestMaxStandardError, 50110, false);
-  testGlobalAgg(
-      hugeIntValues, common::hll::kHighestMaxStandardError, 41741, false);
+  testAggregations(
+      {makeRowVector({hugeIntValues})},
+      {},
+      {"approx_set(c0)"},
+      {"cardinality(a0)"},
+      {makeRowVector(
+          {makeFlatVector<int64_t>(std::vector<int64_t>({49958}))})});
+  testGlobalAgg(hugeIntValues, common::hll::kLowestMaxStandardError, 50110);
+  testGlobalAgg(hugeIntValues, common::hll::kHighestMaxStandardError, 41741);
 }
 
 TEST_F(ApproxDistinctTest, streaming) {
@@ -364,6 +388,23 @@ TEST_F(ApproxDistinctTest, memoryLeakInMerge) {
   // because we should be able to convert to DenseHll in the process.
   ASSERT_LT(
       toPlanStats(task->taskStats()).at(finalAgg).peakMemoryBytes, 180'000);
+}
+
+TEST_F(ApproxDistinctTest, mergeWithEmpty) {
+  constexpr int kSize = 500;
+  auto input = makeRowVector({
+      makeFlatVector<int32_t>(kSize, [](auto i) { return std::min(i, 1); }),
+      makeFlatVector<int32_t>(
+          kSize, folly::identity, [](auto i) { return i == 0; }),
+  });
+  auto op = PlanBuilder()
+                .values({input})
+                .singleAggregation({"c0"}, {"approx_set(c1)"})
+                .project({"coalesce(a0, empty_approx_set())"})
+                .singleAggregation({}, {"merge(p0)"})
+                .project({"cardinality(a0)"})
+                .planNode();
+  ASSERT_EQ(readSingleValue(op).value<TypeKind::BIGINT>(), 499);
 }
 
 } // namespace
