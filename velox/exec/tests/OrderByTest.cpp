@@ -21,6 +21,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Spiller.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
@@ -239,6 +240,19 @@ class OrderByTest : public OperatorTestBase {
     op->pool()->reclaim(targetBytes, 0, reclaimerStats);
     dynamic_cast<memory::MemoryPoolImpl*>(op->pool())
         ->testingSetCapacity(oldCapacity);
+  }
+
+  std::vector<RowVectorPtr> makeVectors(
+      const RowTypePtr& rowType,
+      int32_t numVectors,
+      int32_t rowsPerVector) {
+    std::vector<RowVectorPtr> vectors;
+    for (int32_t i = 0; i < numVectors; ++i) {
+      auto vector = std::dynamic_pointer_cast<RowVector>(
+          velox::test::BatchMaker::createBatch(rowType, rowsPerVector, *pool_));
+      vectors.push_back(vector);
+    }
+    return vectors;
   }
 
   folly::Random::DefaultGenerator rng_;
@@ -1043,14 +1057,8 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
 }
 
 DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  const auto batches = makeVectors(rowType, 10, 128);
 
   struct {
     bool abortFromRootMemoryPool;
@@ -1066,84 +1074,58 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringOutputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
-        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
                 .values(batches)
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
-            .queryCtx(queryCtx)
             .copyResults(pool_.get());
 
-    folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
-    folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
-
-    std::atomic<bool> injectOnce{true};
-    Operator* op;
+    std::atomic_bool injectOnce{true};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::noMoreInput",
-        std::function<void(Operator*)>(([&](Operator* testOp) {
-          if (testOp->operatorType() != "OrderBy") {
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "OrderBy") {
             return;
           }
-          op = testOp;
           if (!injectOnce.exchange(false)) {
             return;
           }
+          ASSERT_GT(op->pool()->currentBytes(), 0);
           auto* driver = op->testingOperatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testData.abortFromRootMemoryPool ? abortPool(op->pool()->root())
+                                           : abortPool(op->pool());
+          // We can't directly reclaim memory from this hash build operator as
+          // its driver thread is running and in suspension state.
+          ASSERT_GT(op->pool()->root()->currentBytes(), 0);
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
+          ASSERT_TRUE(op->pool()->aborted());
+          ASSERT_TRUE(op->pool()->root()->aborted());
           VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
-    std::thread taskThread([&]() {
-      VELOX_ASSERT_THROW(
-          AssertQueryBuilder(
-              PlanBuilder()
-                  .values(batches)
-                  .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
-                  .planNode())
-              .queryCtx(queryCtx)
-              .maxDrivers(1)
-              .assertResults(expectedResult),
-          "");
-    });
-
-    testWait.wait(testWaitKey);
-    ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? abortPool(queryCtx->pool())
-                                     : abortPool(op->pool());
-    ASSERT_TRUE(op->pool()->aborted());
-    ASSERT_TRUE(queryCtx->pool()->aborted());
-    ASSERT_EQ(queryCtx->pool()->currentBytes(), 0);
-    driverWait.notify();
-    taskThread.join();
-    task.reset();
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(batches)
+                .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                .planNode())
+            .maxDrivers(1)
+            .assertResults(expectedResult),
+        "Manual MemoryPool Abortion");
     waitForAllTasksToBeDeleted();
   }
 }
 
 DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBatches = 10;
-  std::vector<RowVectorPtr> batches;
-  for (int32_t i = 0; i < numBatches; ++i) {
-    batches.push_back(fuzzer.fuzzRow(rowType));
-  }
+  const auto batches = makeVectors(rowType, 10, 128);
 
   struct {
     bool abortFromRootMemoryPool;
@@ -1159,73 +1141,51 @@ DEBUG_ONLY_TEST_F(OrderByTest, abortDuringInputgProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-    queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
-        queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
     auto expectedResult =
         AssertQueryBuilder(
             PlanBuilder()
                 .values(batches)
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
-            .queryCtx(queryCtx)
             .copyResults(pool_.get());
 
-    folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
-    folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
-
-    std::atomic<int> numInputs{0};
-    Operator* op;
+    std::atomic_int numInputs{0};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
-        std::function<void(Operator*)>(([&](Operator* testOp) {
-          if (testOp->operatorType() != "OrderBy") {
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "OrderBy") {
             return;
           }
-          op = testOp;
-          ++numInputs;
-          if (numInputs != 2) {
+          if (++numInputs != 2) {
             return;
           }
           auto* driver = op->testingOperatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testData.abortFromRootMemoryPool ? abortPool(op->pool()->root())
+                                           : abortPool(op->pool());
+          // We can't directly reclaim memory from this hash build operator as
+          // its driver thread is running and in suspension state.
+          ASSERT_GT(op->pool()->root()->currentBytes(), 0);
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
+          ASSERT_TRUE(op->pool()->aborted());
+          ASSERT_TRUE(op->pool()->root()->aborted());
           // Simulate the memory abort by memory arbitrator.
           VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
-    std::thread taskThread([&]() {
-      VELOX_ASSERT_THROW(
-          AssertQueryBuilder(
-              PlanBuilder()
-                  .values(batches)
-                  .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
-                  .planNode())
-              .queryCtx(queryCtx)
-              .maxDrivers(1)
-              .assertResults(expectedResult),
-          "");
-    });
-
-    testWait.wait(testWaitKey);
-    ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? abortPool(queryCtx->pool())
-                                     : abortPool(op->pool());
-    ASSERT_TRUE(op->pool()->aborted());
-    ASSERT_TRUE(queryCtx->pool()->aborted());
-    ASSERT_EQ(queryCtx->pool()->currentBytes(), 0);
-    driverWait.notify();
-    taskThread.join();
-    task.reset();
+    VELOX_ASSERT_THROW(
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(batches)
+                .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                .planNode())
+            .maxDrivers(1)
+            .assertResults(expectedResult),
+        "Manual MemoryPool Abortion");
     waitForAllTasksToBeDeleted();
   }
 }

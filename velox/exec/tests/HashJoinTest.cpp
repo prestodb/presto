@@ -5800,18 +5800,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBuildVectors = 10;
-  std::vector<RowVectorPtr> buildVectors;
-  for (int32_t i = 0; i < numBuildVectors; ++i) {
-    buildVectors.push_back(fuzzer.fuzzRow(buildType_));
-  }
-  const int32_t numProbeVectors = 5;
-  std::vector<RowVectorPtr> probeVectors;
-  for (int32_t i = 0; i < numProbeVectors; ++i) {
-    probeVectors.push_back(fuzzer.fuzzRow(probeType_));
-  }
+  const auto buildVectors = makeVectors(buildType_, 10, 128);
+  const auto probeVectors = makeVectors(probeType_, 5, 128);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
@@ -5830,10 +5820,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::memoryManager()->addRootPool(
-        "", kMaxBytes, memory::MemoryReclaimer::create());
 
-    core::PlanNodeId probeScanId;
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan = PlanBuilder(planNodeIdGenerator)
                     .values(probeVectors, true)
@@ -5847,76 +5834,50 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringOutputProcessing) {
                         concat(probeType_->names(), buildType_->names()))
                     .planNode();
 
-    folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
-    folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
-
     std::atomic<bool> injectOnce{true};
-    Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::noMoreInput",
-        std::function<void(Operator*)>(([&](Operator* testOp) {
-          if (testOp->operatorType() != "HashBuild") {
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "HashBuild") {
             return;
           }
-          op = testOp;
           if (!injectOnce.exchange(false)) {
             return;
           }
+          ASSERT_GT(op->pool()->currentBytes(), 0);
           auto* driver = op->testingOperatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testData.abortFromRootMemoryPool ? abortPool(op->pool()->root())
+                                           : abortPool(op->pool());
+          // We can't directly reclaim memory from this hash build operator as
+          // its driver thread is running and in suspension state.
+          ASSERT_GT(op->pool()->root()->currentBytes(), 0);
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
+          ASSERT_TRUE(op->pool()->aborted());
+          ASSERT_TRUE(op->pool()->root()->aborted());
           VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
-    std::thread taskThread([&]() {
-      VELOX_ASSERT_THROW(
-          HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-              .numDrivers(numDrivers_)
-              .planNode(plan)
-              .queryPool(std::move(queryPool))
-              .injectSpill(false)
-              .referenceQuery(
-                  "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
-              .run(),
-          "");
-    });
-
-    testWait.wait(testWaitKey);
-    ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
-                                     : abortPool(op->pool());
-    ASSERT_TRUE(op->pool()->aborted());
-    ASSERT_TRUE(queryPool->aborted());
-    ASSERT_EQ(queryPool->currentBytes(), 0);
-    driverWait.notify();
-    taskThread.join();
-    task.reset();
+    VELOX_ASSERT_THROW(
+        HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+            .numDrivers(numDrivers_)
+            .planNode(plan)
+            .injectSpill(false)
+            .referenceQuery(
+                "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+            .run(),
+        "Manual MemoryPool Abortion");
     waitForAllTasksToBeDeleted();
   }
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputProcessing) {
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBuildVectors = 10;
-  std::vector<RowVectorPtr> buildVectors;
-  for (int32_t i = 0; i < numBuildVectors; ++i) {
-    buildVectors.push_back(fuzzer.fuzzRow(buildType_));
-  }
-  const int32_t numProbeVectors = 5;
-  std::vector<RowVectorPtr> probeVectors;
-  for (int32_t i = 0; i < numProbeVectors; ++i) {
-    probeVectors.push_back(fuzzer.fuzzRow(probeType_));
-  }
+  const auto buildVectors = makeVectors(buildType_, 10, 128);
+  const auto probeVectors = makeVectors(probeType_, 5, 128);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
@@ -5935,10 +5896,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::memoryManager()->addRootPool(
-        "", kMaxBytes, memory::MemoryReclaimer::create());
 
-    core::PlanNodeId probeScanId;
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan = PlanBuilder(planNodeIdGenerator)
                     .values(probeVectors, true)
@@ -5952,77 +5910,130 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringInputProcessing) {
                         concat(probeType_->names(), buildType_->names()))
                     .planNode();
 
-    folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
-    folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
-
     std::atomic<int> numInputs{0};
-    Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
-        std::function<void(Operator*)>(([&](Operator* testOp) {
-          if (testOp->operatorType() != "HashBuild") {
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "HashBuild") {
             return;
           }
-          op = testOp;
-          ++numInputs;
-          if (numInputs != 2) {
+          if (++numInputs != 2) {
             return;
           }
+          ASSERT_GT(op->pool()->currentBytes(), 0);
           auto* driver = op->testingOperatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testData.abortFromRootMemoryPool ? abortPool(op->pool()->root())
+                                           : abortPool(op->pool());
+          // We can't directly reclaim memory from this hash build operator as
+          // its driver thread is running and in suspension state.
+          ASSERT_GT(op->pool()->root()->currentBytes(), 0);
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
+          ASSERT_TRUE(op->pool()->aborted());
+          ASSERT_TRUE(op->pool()->root()->aborted());
           VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
-    std::thread taskThread([&]() {
-      VELOX_ASSERT_THROW(
-          HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-              .numDrivers(numDrivers_)
-              .planNode(plan)
-              .queryPool(std::move(queryPool))
-              .injectSpill(false)
-              .referenceQuery(
-                  "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
-              .run(),
-          "");
-    });
+    VELOX_ASSERT_THROW(
+        HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+            .numDrivers(numDrivers_)
+            .planNode(plan)
+            .injectSpill(false)
+            .referenceQuery(
+                "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+            .run(),
+        "Manual MemoryPool Abortion");
 
-    testWait.wait(testWaitKey);
-    ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
-                                     : abortPool(op->pool());
-    ASSERT_TRUE(op->pool()->aborted());
-    ASSERT_TRUE(queryPool->aborted());
-    ASSERT_EQ(queryPool->currentBytes(), 0);
-    driverWait.notify();
-    taskThread.join();
-    task.reset();
+    waitForAllTasksToBeDeleted();
+  }
+}
+
+DEBUG_ONLY_TEST_F(HashJoinTest, hashBuildAbortDuringAllocation) {
+  const auto buildVectors = makeVectors(buildType_, 10, 128);
+  const auto probeVectors = makeVectors(probeType_, 5, 128);
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  struct {
+    bool abortFromRootMemoryPool;
+    int numDrivers;
+
+    std::string debugString() const {
+      return fmt::format(
+          "abortFromRootMemoryPool {} numDrivers {}",
+          abortFromRootMemoryPool,
+          numDrivers);
+    }
+  } testSettings[] = {{true, 1}, {false, 1}, {true, 4}, {false, 4}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(probeVectors, true)
+                    .hashJoin(
+                        {"t_k1"},
+                        {"u_k1"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(buildVectors, true)
+                            .planNode(),
+                        "",
+                        concat(probeType_->names(), buildType_->names()))
+                    .planNode();
+
+    std::atomic_bool injectOnce{true};
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::common::memory::MemoryPoolImpl::allocateNonContiguous",
+        std::function<void(memory::MemoryPoolImpl*)>(
+            ([&](memory::MemoryPoolImpl* pool) {
+              if (!isHashBuildMemoryPool(*pool)) {
+                return;
+              }
+              if (!injectOnce.exchange(false)) {
+                return;
+              }
+
+              // ASSERT_GT(pool->currentBytes(), 0);
+              auto& driverCtx = driverThreadContext()->driverCtx;
+              ASSERT_EQ(
+                  driverCtx.task->enterSuspended(driverCtx.driver->state()),
+                  StopReason::kNone);
+              testData.abortFromRootMemoryPool ? abortPool(pool->root())
+                                               : abortPool(pool);
+              // We can't directly reclaim memory from this hash build operator
+              // as its driver thread is running and in suspegnsion state.
+              ASSERT_GE(pool->root()->currentBytes(), 0);
+              ASSERT_EQ(
+                  driverCtx.task->leaveSuspended(driverCtx.driver->state()),
+                  StopReason::kAlreadyTerminated);
+              ASSERT_TRUE(pool->aborted());
+              ASSERT_TRUE(pool->root()->aborted());
+              VELOX_MEM_POOL_ABORTED("Memory pool aborted");
+            })));
+
+    VELOX_ASSERT_THROW(
+        HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+            .numDrivers(numDrivers_)
+            .planNode(plan)
+            .injectSpill(false)
+            .referenceQuery(
+                "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+            .run(),
+        "Manual MemoryPool Abortion");
+
     waitForAllTasksToBeDeleted();
   }
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
-  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
-  VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
-  const int32_t numBuildVectors = 10;
-  std::vector<RowVectorPtr> buildVectors;
-  for (int32_t i = 0; i < numBuildVectors; ++i) {
-    buildVectors.push_back(fuzzer.fuzzRow(buildType_));
-  }
-  const int32_t numProbeVectors = 5;
-  std::vector<RowVectorPtr> probeVectors;
-  for (int32_t i = 0; i < numProbeVectors; ++i) {
-    probeVectors.push_back(fuzzer.fuzzRow(probeType_));
-  }
+  const auto buildVectors = makeVectors(buildType_, 10, 128);
+  const auto probeVectors = makeVectors(probeType_, 5, 128);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
@@ -6041,10 +6052,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
-    auto queryPool = memory::memoryManager()->addRootPool(
-        "", kMaxBytes, memory::MemoryReclaimer::create());
 
-    core::PlanNodeId probeScanId;
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan = PlanBuilder(planNodeIdGenerator)
                     .values(probeVectors, true)
@@ -6058,60 +6066,39 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeAbortDuringInputProcessing) {
                         concat(probeType_->names(), buildType_->names()))
                     .planNode();
 
-    folly::EventCount driverWait;
-    auto driverWaitKey = driverWait.prepareWait();
-    folly::EventCount testWait;
-    auto testWaitKey = testWait.prepareWait();
-
     std::atomic<int> numInputs{0};
-    Operator* op;
     SCOPED_TESTVALUE_SET(
         "facebook::velox::exec::Driver::runInternal::addInput",
-        std::function<void(Operator*)>(([&](Operator* testOp) {
-          if (testOp->operatorType() != "HashProbe") {
+        std::function<void(Operator*)>(([&](Operator* op) {
+          if (op->operatorType() != "HashProbe") {
             return;
           }
-          op = testOp;
-          ++numInputs;
-          if (numInputs != 2) {
+          if (++numInputs != 2) {
             return;
           }
           auto* driver = op->testingOperatorCtx()->driver();
           ASSERT_EQ(
               driver->task()->enterSuspended(driver->state()),
               StopReason::kNone);
-          testWait.notify();
-          driverWait.wait(driverWaitKey);
+          testData.abortFromRootMemoryPool ? abortPool(op->pool()->root())
+                                           : abortPool(op->pool());
           ASSERT_EQ(
               driver->task()->leaveSuspended(driver->state()),
               StopReason::kAlreadyTerminated);
+          ASSERT_TRUE(op->pool()->aborted());
+          ASSERT_TRUE(op->pool()->root()->aborted());
           VELOX_MEM_POOL_ABORTED("Memory pool aborted");
         })));
 
-    std::thread taskThread([&]() {
-      VELOX_ASSERT_THROW(
-          HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
-              .numDrivers(numDrivers_)
-              .planNode(plan)
-              .queryPool(std::move(queryPool))
-              .injectSpill(false)
-              .referenceQuery(
-                  "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
-              .run(),
-          "");
-    });
-
-    testWait.wait(testWaitKey);
-    ASSERT_TRUE(op != nullptr);
-    auto task = op->testingOperatorCtx()->task();
-    testData.abortFromRootMemoryPool ? abortPool(queryPool.get())
-                                     : abortPool(op->pool());
-    ASSERT_TRUE(op->pool()->aborted());
-    ASSERT_TRUE(queryPool->aborted());
-    ASSERT_EQ(queryPool->currentBytes(), 0);
-    driverWait.notify();
-    taskThread.join();
-    task.reset();
+    VELOX_ASSERT_THROW(
+        HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+            .numDrivers(numDrivers_)
+            .planNode(plan)
+            .injectSpill(false)
+            .referenceQuery(
+                "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
+            .run(),
+        "Manual MemoryPool Abortion");
     waitForAllTasksToBeDeleted();
   }
 }
