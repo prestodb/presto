@@ -76,6 +76,15 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   /// Returns 'freeCapacity' back to the arbitrator for testing.
   void testingFreeCapacity(uint64_t freeCapacity);
 
+  /// Operator level runtime stats that are reported during a shared arbitration
+  /// attempt.
+  static inline const std::string kMemoryArbitrationWallNanos{
+      "memoryArbitrationWallNanos"};
+  static inline const std::string kGlobalArbitrationCount{
+      "globalArbitrationCount"};
+  static inline const std::string kLocalArbitrationCount{
+      "localArbitrationCount"};
+
  private:
   // The kind string of shared arbitrator.
   inline static const std::string kind_{"SHARED"};
@@ -151,9 +160,14 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       std::vector<Candidate>& candidates,
       uint64_t targetBytes);
 
-  // Invoked to reclaim used memory from 'pool' with specified 'targetBytes'.
-  // The function returns the actually freed capacity.
-  uint64_t reclaim(MemoryPool* pool, uint64_t targetBytes) noexcept;
+  // Invoked to reclaim used memory from 'targetPool' with specified
+  // 'targetBytes'. The function returns the actually freed capacity.
+  // 'isLocalArbitration' is true when the reclaim attempt is within a local
+  // arbitration.
+  uint64_t reclaim(
+      MemoryPool* targetPool,
+      uint64_t targetBytes,
+      bool isLocalArbitration) noexcept;
 
   // Invoked to abort memory 'pool'.
   void abort(MemoryPool* pool, const std::exception_ptr& error);
@@ -181,6 +195,9 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   std::string toStringLocked() const;
 
   Stats statsLocked() const;
+
+  void incrementGlobalArbitrationCount();
+  void incrementLocalArbitrationCount();
 
   mutable std::mutex mutex_;
   uint64_t freeCapacity_{0};

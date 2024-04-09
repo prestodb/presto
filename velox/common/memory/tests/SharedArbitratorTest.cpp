@@ -33,6 +33,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/HashBuild.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
@@ -271,6 +272,30 @@ class SharedArbitrationTest : public exec::test::HiveConnectorTestBase {
     numAddedPools_ = 0;
   }
 
+  void checkOperatorStatsForArbitration(
+      PlanNodeStats& stats,
+      bool expectGlobalArbitration) {
+    if (expectGlobalArbitration) {
+      VELOX_CHECK_EQ(
+          stats.customStats.count(SharedArbitrator::kGlobalArbitrationCount),
+          1);
+      VELOX_CHECK_EQ(
+          stats.customStats.at(SharedArbitrator::kGlobalArbitrationCount).sum,
+          1);
+      VELOX_CHECK_EQ(
+          stats.customStats.count(SharedArbitrator::kLocalArbitrationCount), 0);
+    } else {
+      VELOX_CHECK_EQ(
+          stats.customStats.count(SharedArbitrator::kLocalArbitrationCount), 1);
+      VELOX_CHECK_EQ(
+          stats.customStats.at(SharedArbitrator::kLocalArbitrationCount).sum,
+          1);
+      VELOX_CHECK_EQ(
+          stats.customStats.count(SharedArbitrator::kGlobalArbitrationCount),
+          0);
+    }
+  }
+
   static inline FakeMemoryOperatorFactory* fakeOperatorFactory_;
   std::unique_ptr<memory::MemoryManager> memoryManager_;
   SharedArbitrator* arbitrator_;
@@ -340,14 +365,20 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToOrderBy) {
             ([&](Task* /*unused*/) { taskPauseWait.notify(); })));
 
     std::thread orderByThread([&]() {
+      core::PlanNodeId orderByNodeId;
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(orderByQueryCtx)
               .plan(PlanBuilder()
                         .values(vectors)
                         .orderBy({"c0 ASC NULLS LAST"}, false)
+                        .capturePlanNodeId(orderByNodeId)
                         .planNode())
               .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      auto& stats = taskStats.at(orderByNodeId);
+      checkOperatorStatsForArbitration(
+          stats, !sameQuery /*expectGlobalArbitration*/);
     });
 
     std::thread memThread([&]() {
@@ -434,15 +465,21 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToAggregation) {
             ([&](Task* /*unused*/) { taskPauseWait.notify(); })));
 
     std::thread aggregationThread([&]() {
+      core::PlanNodeId aggregationNodeId;
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(aggregationQueryCtx)
               .plan(PlanBuilder()
                         .values(vectors)
                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                        .capturePlanNodeId(aggregationNodeId)
                         .planNode())
               .assertResults(
                   "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      auto& stats = taskStats.at(aggregationNodeId);
+      checkOperatorStatsForArbitration(
+          stats, !sameQuery /*expectGlobalArbitration*/);
     });
 
     std::thread memThread([&]() {
@@ -530,6 +567,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
 
     std::thread joinThread([&]() {
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+      core::PlanNodeId joinNodeId;
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
               .queryCtx(joinQueryCtx)
@@ -546,9 +584,14 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, reclaimToJoinBuilder) {
                             "",
                             {"t1"},
                             core::JoinType::kAnti)
+                        .capturePlanNodeId(joinNodeId)
                         .planNode())
               .assertResults(
                   "SELECT c1 FROM tmp WHERE c0 NOT IN (SELECT c0 FROM tmp)");
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      auto& stats = taskStats.at(joinNodeId);
+      checkOperatorStatsForArbitration(
+          stats, !sameQuery /*expectGlobalArbitration*/);
     });
 
     std::thread memThread([&]() {
@@ -918,6 +961,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
             })));
 
     std::shared_ptr<Task> task;
+    core::PlanNodeId aggregationNodeId;
     std::thread queryThread([&]() {
       if (sameDriver) {
         task = AssertQueryBuilder(duckDbQueryRunner_)
@@ -925,6 +969,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
                    .plan(PlanBuilder()
                              .values(vectors)
                              .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .capturePlanNodeId(aggregationNodeId)
                              .localPartition(std::vector<std::string>{})
                              .planNode())
                    .assertResults(
@@ -936,6 +981,7 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
                              .values(vectors)
                              .localPartition({"c0", "c1"})
                              .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                             .capturePlanNodeId(aggregationNodeId)
                              .planNode())
                    .assertResults(
                        "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1");
@@ -943,6 +989,10 @@ DEBUG_ONLY_TEST_F(SharedArbitrationTest, arbitrateMemoryFromOtherOperator) {
     });
 
     queryThread.join();
+    auto taskStats = exec::toPlanStats(task->taskStats());
+    auto& aggNodeStats = taskStats.at(aggregationNodeId);
+    checkOperatorStatsForArbitration(
+        aggNodeStats, false /*expectGlobalArbitration*/);
     ASSERT_TRUE(buffer != nullptr);
     ASSERT_TRUE(bufferPool != nullptr);
     bufferPool.load()->free(buffer, initialBufferLen);
