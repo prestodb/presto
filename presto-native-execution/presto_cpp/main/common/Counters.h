@@ -72,10 +72,33 @@ constexpr folly::StringPiece kCounterNumTasksDeadlock{
     "presto_cpp.num_tasks_deadlock"};
 constexpr folly::StringPiece kCounterNumTaskManagerLockTimeOut{
     "presto_cpp.num_tasks_manager_lock_timeout"};
-constexpr folly::StringPiece kCounterNumRunningDrivers{
-    "presto_cpp.num_running_drivers"};
-constexpr folly::StringPiece kCounterNumBlockedDrivers{
-    "presto_cpp.num_blocked_drivers"};
+
+constexpr folly::StringPiece kCounterNumQueuedDrivers{
+    "presto_cpp.num_queued_drivers"};
+constexpr folly::StringPiece kCounterNumOnThreadDrivers{
+    "presto_cpp.num_on_thread_drivers"};
+constexpr folly::StringPiece kCounterNumSuspendedDrivers{
+    "presto_cpp.num_suspended_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForConsumerDrivers{
+    "presto_cpp.num_blocked_wait_for_consumer_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForSplitDrivers{
+    "presto_cpp.num_blocked_wait_for_split_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForProducerDrivers{
+    "presto_cpp.num_blocked_wait_for_producer_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForJoinBuildDrivers{
+    "presto_cpp.num_blocked_wait_for_join_build_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForJoinProbeDrivers{
+    "presto_cpp.num_blocked_wait_fro_join_probe_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForMergeJoinRightSideDrivers{
+    "presto_cpp.num_blocked_wait_for_merge_join_right_side_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForMemoryDrivers{
+    "presto_cpp.num_blocked_wait_for_memory_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForConnectorDrivers{
+    "presto_cpp.num_blocked_wait_for_connector_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedWaitForSpillDrivers{
+    "presto_cpp.num_blocked_wait_for_spill_drivers"};
+constexpr folly::StringPiece kCounterNumBlockedYieldDrivers{
+    "presto_cpp.num_blocked_yield_drivers"};
 constexpr folly::StringPiece kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
 

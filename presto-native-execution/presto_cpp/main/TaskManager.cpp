@@ -1030,18 +1030,22 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-DriverCountStats TaskManager::getDriverCountStats() const {
-  auto taskMap = taskMap_.rlock();
-  DriverCountStats driverCountStats;
-  for (const auto& pair : *taskMap) {
+velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+  const auto taskMap = *taskMap_.rlock();
+  velox::exec::Task::DriverCounts ret;
+  for (const auto& pair : taskMap) {
     if (pair.second->task != nullptr) {
-      driverCountStats.numRunningDrivers +=
-          pair.second->task->numRunningDrivers();
+      auto counts = pair.second->task->driverCounts();
+      // TODO (spershin): Move add logic to velox::exec::Task::DriverCounts.
+      ret.numQueuedDrivers += counts.numQueuedDrivers;
+      ret.numOnThreadDrivers += counts.numOnThreadDrivers;
+      ret.numSuspendedDrivers += counts.numSuspendedDrivers;
+      for (const auto& it : counts.numBlockedDrivers) {
+        ret.numBlockedDrivers[it.first] += it.second;
+      }
     }
   }
-  driverCountStats.numBlockedDrivers =
-      velox::exec::BlockingState::numBlockedDrivers();
-  return driverCountStats;
+  return ret;
 }
 
 bool TaskManager::getStuckOpCalls(
