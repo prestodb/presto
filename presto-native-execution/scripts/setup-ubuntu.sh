@@ -18,7 +18,7 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2023.12.04.00
+export FB_OS_VERSION=v2024.04.01.00
 sudo apt install -y gperf
 
 function install_proxygen {
