@@ -23,11 +23,6 @@
 
 namespace facebook::presto {
 
-struct DriverCountStats {
-  size_t numBlockedDrivers{0};
-  size_t numRunningDrivers{0};
-};
-
 class TaskManager {
  public:
   TaskManager(
@@ -139,8 +134,8 @@ class TaskManager {
     return taskMap_.rlock()->size();
   }
 
-  // Returns the number of running drivers in all tasks.
-  DriverCountStats getDriverCountStats() const;
+  /// Stores the number of drivers in various states of execution.
+  velox::exec::Task::DriverCounts getDriverCounts() const;
 
   // Returns array with number of tasks for each of five TaskState (enum defined
   // in exec/Task.h).
