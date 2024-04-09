@@ -458,6 +458,7 @@ public class HiveSplitManager
                         TableToPartitionMapping.empty(),
                         encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
                         ImmutableSet.of(),
+                        // TODO possibly here row ID partition component is not filled in and should be
                         Optional.empty()));
             }
         }
