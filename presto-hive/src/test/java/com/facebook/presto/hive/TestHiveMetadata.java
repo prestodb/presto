@@ -105,11 +105,11 @@ public class TestHiveMetadata
                 Optional.empty(),
                 Optional.empty());
 
-        ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter()).apply(hiveColumnHandle1);
+        ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter(), true).apply(hiveColumnHandle1);
         ColumnMetadata expected = new ColumnMetadata("c1", IntegerType.INTEGER);
         assertEquals(actual, expected);
 
-        actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new TestColumnConverter()).apply(hidden);
+        actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new TestColumnConverter(), true).apply(hidden);
         expected = ColumnMetadata.builder().setName(HiveColumnHandle.PATH_COLUMN_NAME).setType(IntegerType.INTEGER).setHidden(true).build();
         assertEquals(actual, expected);
     }
