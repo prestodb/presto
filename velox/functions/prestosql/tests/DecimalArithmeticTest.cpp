@@ -291,6 +291,14 @@ TEST_F(DecimalArithmeticTest, multiply) {
                   HugeInt::build(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)},
               DECIMAL(38, 0))}),
       "Decimal overflow. Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
+
+  // The sum of input scales exceeds 38.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "c0 * c0",
+          makeRowVector(
+              {makeFlatVector<int128_t>({1000, 2000}, DECIMAL(38, 30))})),
+      "");
 }
 
 TEST_F(DecimalArithmeticTest, decimalDivTest) {

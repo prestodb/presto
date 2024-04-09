@@ -363,6 +363,7 @@ void registerDecimalMultiply(const std::string& prefix) {
           exec::ParameterType::kIntegerParameter),
       exec::SignatureVariable(
           S3::name(),
+          // Result type resolution fails if sum of input scales exceeds 38.
           fmt::format(
               "{a_scale} + {b_scale}",
               fmt::arg("a_scale", S1::name()),
