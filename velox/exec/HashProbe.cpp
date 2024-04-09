@@ -331,29 +331,30 @@ void HashProbe::asyncWaitForHashTable() {
        isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_)) &&
       table_->hashMode() != BaseHashTable::HashMode::kHash && !isSpillInput() &&
       !hasMoreSpillData()) {
-    // Find out whether there are any upstream operators that can accept
-    // dynamic filters on all or a subset of the join keys. Create dynamic
-    // filters to push down.
+    // Find out whether there are any upstream operators that can accept dynamic
+    // filters on all or a subset of the join keys. Create dynamic filters to
+    // push down.
     //
     // NOTE: this optimization is not applied in the following cases: (1) if the
     // probe input is read from spilled data and there is no upstream operators
     // involved; (2) if there is spill data to restore, then we can't filter
     // probe inputs solely based on the current table's join keys.
     const auto& buildHashers = table_->hashers();
-    auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
+    const auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
         this, keyChannels_);
 
     // Null aware Right Semi Project join needs to know whether there are any
     // nulls on the probe side. Hence, cannot filter these out.
     const auto nullAllowed = isRightSemiProjectJoin(joinType_) && nullAware_;
 
-    for (auto i = 0; i < keyChannels_.size(); i++) {
+    for (auto i = 0; i < keyChannels_.size(); ++i) {
       if (channels.find(keyChannels_[i]) != channels.end()) {
         if (auto filter = buildHashers[i]->getFilter(nullAllowed)) {
           dynamicFilters_.emplace(keyChannels_[i], std::move(filter));
         }
       }
     }
+    hasGeneratedDynamicFilters_ = !dynamicFilters_.empty();
   }
 }
 
@@ -529,8 +530,8 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
 }
 
 void HashProbe::clearDynamicFilters() {
-  // The join can be completely replaced with a pushed down
-  // filter when the following conditions are met:
+  // The join can be completely replaced with a pushed down filter when the
+  // following conditions are met:
   //  * hash table has a single key with unique values,
   //  * build side has no dependent columns.
   if (keyChannels_.size() == 1 && !table_->hasDuplicateKeys() &&
@@ -833,7 +834,7 @@ bool HashProbe::skipProbeOnEmptyBuild() const {
 }
 
 bool HashProbe::spillEnabled() const {
-  return canReclaim();
+  return canSpill() && !operatorCtx_->task()->hasMixedExecutionGroup();
 }
 
 bool HashProbe::hasMoreSpillData() const {
@@ -1010,7 +1011,7 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
 
     numOut = evalFilter(numOut);
 
-    if (!numOut) {
+    if (numOut == 0) {
       continue;
     }
 
@@ -1547,7 +1548,9 @@ void HashProbe::ensureOutputFits() {
 }
 
 bool HashProbe::canReclaim() const {
-  return canSpill() && !operatorCtx_->task()->hasMixedExecutionGroup();
+  // NOTE: we can't spill from a hash probe operator if it has generated dynamic
+  // filters.
+  return spillEnabled() && !hasGeneratedDynamicFilters_;
 }
 
 void HashProbe::reclaim(
@@ -1692,13 +1695,26 @@ void HashProbe::spillOutput() {
       &spillStats_);
   outputSpiller->setPartitionsSpilled({0});
 
-  RowVectorPtr output;
-  while ((output = getOutputInternal(/*toSpillOutput=*/true))) {
-    // Ensure vector are lazy loaded before spilling.
-    for (int32_t i = 0; i < output->childrenSize(); ++i) {
-      output->childAt(i)->loadedVector();
+  RowVectorPtr output{nullptr};
+  for (;;) {
+    output = getOutputInternal(/*toSpillOutput=*/true);
+    if (output != nullptr) {
+      // Ensure vector are lazy loaded before spilling.
+      for (int32_t i = 0; i < output->childrenSize(); ++i) {
+        output->childAt(i)->loadedVector();
+      }
+      outputSpiller->spill(0, output);
+      continue;
     }
-    outputSpiller->spill(0, output);
+    // NOTE: for right semi join types, we need to check if 'input_' has been
+    // cleared or not instead of checking on output. The right semi joins only
+    // producing the output after processing all the probe inputs.
+    if (input_ == nullptr) {
+      break;
+    }
+    VELOX_CHECK(
+        isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_));
+    VELOX_CHECK((output == nullptr) && (input_ != nullptr));
   }
   VELOX_CHECK_LE(outputSpiller->spilledPartitionSet().size(), 1);
 

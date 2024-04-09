@@ -44,9 +44,9 @@ class HashProbe : public Operator {
     }
     // NOTE: if we can't apply dynamic filtering, then we can start early to
     // read input even before the hash table has been built.
-    const auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
-        this, keyChannels_);
-    return channels.empty();
+    return operatorCtx_->driverCtx()
+        ->driver->canPushdownFilters(this, keyChannels_)
+        .empty();
   }
 
   void addInput(RowVectorPtr input) override;
@@ -334,6 +334,12 @@ class HashProbe : public Operator {
 
   // Channel of probe keys in 'input_'.
   std::vector<column_index_t> keyChannels_;
+
+  // True if we have generated dynamic filters from the hash build join keys.
+  //
+  // NOTE: 'dynamicFilters_' might have been cleared once they have been pushed
+  // down to the upstream operators.
+  tsan_atomic<bool> hasGeneratedDynamicFilters_{false};
 
   // True if the join can become a no-op starting with the next batch of input.
   bool canReplaceWithDynamicFilter_{false};

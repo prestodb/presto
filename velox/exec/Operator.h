@@ -257,24 +257,24 @@ class OperatorCtx {
   mutable std::unique_ptr<core::ExecCtx> execCtx_;
 };
 
-// Query operator
+/// Query operator
 class Operator : public BaseRuntimeStatWriter {
  public:
-  // Factory class for mapping a user-registered PlanNode into the corresponding
-  // Operator.
+  /// Factory class for mapping a user-registered PlanNode into the
+  /// corresponding Operator.
   class PlanNodeTranslator {
    public:
     virtual ~PlanNodeTranslator() = default;
 
-    // Translates plan node to operator. Returns nullptr if the plan node cannot
-    // be handled by this factory.
+    /// Translates plan node to operator. Returns nullptr if the plan node
+    /// cannot be handled by this factory.
     virtual std::unique_ptr<Operator>
     toOperator(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& node) {
       return nullptr;
     }
 
-    // An overloaded method that should be called when the operator needs an
-    // ExchangeClient.
+    /// An overloaded method that should be called when the operator needs an
+    /// ExchangeClient.
     virtual std::unique_ptr<Operator> toOperator(
         DriverCtx* ctx,
         int32_t id,
@@ -283,22 +283,22 @@ class Operator : public BaseRuntimeStatWriter {
       return nullptr;
     }
 
-    // Translates plan node to join bridge. Returns nullptr if the plan node
-    // cannot be handled by this factory.
+    /// Translates plan node to join bridge. Returns nullptr if the plan node
+    /// cannot be handled by this factory.
     virtual std::unique_ptr<JoinBridge> toJoinBridge(
         const core::PlanNodePtr& /* node */) {
       return nullptr;
     }
 
-    // Translates plan node to operator supplier. Returns nullptr if the plan
-    // node cannot be handled by this factory.
+    /// Translates plan node to operator supplier. Returns nullptr if the plan
+    /// node cannot be handled by this factory.
     virtual OperatorSupplier toOperatorSupplier(
         const core::PlanNodePtr& /* node */) {
       return nullptr;
     }
 
-    // Returns max driver count for the plan node. Returns std::nullopt if the
-    // plan node cannot be handled by this factory.
+    /// Returns max driver count for the plan node. Returns std::nullopt if the
+    /// plan node cannot be handled by this factory.
     virtual std::optional<uint32_t> maxDrivers(
         const core::PlanNodePtr& /* node */) {
       return std::nullopt;

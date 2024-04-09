@@ -308,7 +308,8 @@ void Driver::pushdownFilters(int operatorIndex) {
       }
 
       const auto& identityProjections = prevOp->identityProjections();
-      auto inputChannel = getIdentityProjection(identityProjections, channel);
+      const auto inputChannel =
+          getIdentityProjection(identityProjections, channel);
       if (!inputChannel.has_value()) {
         // Filter channel is not an identity projection.
         VELOX_CHECK(
@@ -897,7 +898,7 @@ std::unordered_set<column_index_t> Driver::canPushdownFilters(
   for (auto i = 0; i < channels.size(); ++i) {
     auto channel = channels[i];
     for (auto j = filterSourceIndex - 1; j >= 0; --j) {
-      auto prevOp = operators_[j].get();
+      auto* prevOp = operators_[j].get();
 
       if (j == 0) {
         // Source operator.
@@ -908,7 +909,8 @@ std::unordered_set<column_index_t> Driver::canPushdownFilters(
       }
 
       const auto& identityProjections = prevOp->identityProjections();
-      auto inputChannel = getIdentityProjection(identityProjections, channel);
+      const auto inputChannel =
+          getIdentityProjection(identityProjections, channel);
       if (!inputChannel.has_value()) {
         // Filter channel is not an identity projection.
         if (prevOp->canAddDynamicFilter()) {

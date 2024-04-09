@@ -355,8 +355,8 @@ class Connector {
     VELOX_NYI("connectorConfig is not supported yet");
   }
 
-  // Returns true if this connector would accept a filter dynamically generated
-  // during query execution.
+  /// Returns true if this connector would accept a filter dynamically generated
+  /// during query execution.
   virtual bool canAddDynamicFilter() const {
     return false;
   }
