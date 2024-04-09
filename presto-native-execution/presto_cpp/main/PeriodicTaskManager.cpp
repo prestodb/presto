@@ -41,6 +41,37 @@ namespace {
 
 namespace facebook::presto {
 
+namespace {
+folly::StringPiece getCounterForBlockingReason(
+    velox::exec::BlockingReason reason) {
+  switch (reason) {
+    case velox::exec::BlockingReason::kWaitForConsumer:
+      return kCounterNumBlockedWaitForConsumerDrivers;
+    case velox::exec::BlockingReason::kWaitForSplit:
+      return kCounterNumBlockedWaitForSplitDrivers;
+    case velox::exec::BlockingReason::kWaitForProducer:
+      return kCounterNumBlockedWaitForProducerDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinBuild:
+      return kCounterNumBlockedWaitForJoinBuildDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinProbe:
+      return kCounterNumBlockedWaitForJoinProbeDrivers;
+    case velox::exec::BlockingReason::kWaitForMergeJoinRightSide:
+      return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
+    case velox::exec::BlockingReason::kWaitForMemory:
+      return kCounterNumBlockedWaitForMemoryDrivers;
+    case velox::exec::BlockingReason::kWaitForConnector:
+      return kCounterNumBlockedWaitForConnectorDrivers;
+    case velox::exec::BlockingReason::kWaitForSpill:
+      return kCounterNumBlockedWaitForSpillDrivers;
+    case velox::exec::BlockingReason::kYield:
+      return kCounterNumBlockedYieldDrivers;
+    case velox::exec::BlockingReason::kNotBlocked:
+      return {};
+  }
+  return {};
+}
+} // namespace
+
 // Every two seconds we export server counters.
 static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every two seconds we export memory counters.
@@ -183,11 +214,18 @@ void PeriodicTaskManager::updateTaskStats() {
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
 
-  auto driverCountStats = taskManager_->getDriverCountStats();
+  const auto driverCounts = taskManager_->getDriverCounts();
+  RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+      kCounterNumOnThreadDrivers, driverCounts.numOnThreadDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+      kCounterNumSuspendedDrivers, driverCounts.numSuspendedDrivers);
+  for (const auto& it : driverCounts.numBlockedDrivers) {
+    const auto counterName = getCounterForBlockingReason(it.first);
+    if (counterName.data() != nullptr) {
+      RECORD_METRIC_VALUE(counterName, it.second);
+    }
+  }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
       velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
