@@ -6693,8 +6693,6 @@ public class TestHiveIntegrationSmokeTest
 
     private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
     {
-        requireNonNull(storageFormat, "storageFormat is null");
-        requireNonNull(test, "test is null");
         Session session = storageFormat.getSession();
         try {
             test.accept(session, storageFormat.getFormat());
