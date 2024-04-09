@@ -29,21 +29,20 @@ public class TestDirectoryListCacheInvalidation
     @BeforeTestWithContext
     public void setUp()
     {
-        query("DROP TABLE IF EXISTS hivecached.default.region_cache");
-        query("CREATE TABLE hivecached.default.region_cache AS SELECT * FROM tpch.tiny.region");
+        query("DROP TABLE IF EXISTS hive_listcache.default.region_cache");
+        query("CREATE TABLE hive_listcache.default.region_cache AS SELECT * FROM tpch.tiny.region");
     }
 
-    // Flaky test: https://github.com/prestodb/presto/issues/22425
-    @Test(groups = {HIVE_LIST_CACHING}, enabled = false)
+    @Test(groups = {HIVE_LIST_CACHING})
     public void testDirectoryListCacheInvalidation()
     {
-        String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hivecached,type=cachingdirectorylister\"";
-        String regionQuery = "SELECT * FROM hivecached.default.region_cache";
+        String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hive_listcache,type=cachingdirectorylister\"";
+        String regionQuery = "SELECT * FROM hive_listcache.default.region_cache";
 
-        // Initial cache entries, hitcount, misscount will all be zero
+        // Initial hitcount, misscount based on cache entries,
         QueryResult queryResult = query(jmxMetricsQuery);
-        assertEquals((long) queryResult.row(0).get(0), 0L);
-        assertEquals((long) queryResult.row(0).get(1), 0L);
+        long hitCountInitial = (long) queryResult.row(0).get(0);
+        long missCountInitial = (long) queryResult.row(0).get(1);
 
         for (int i = 0; i < 2; i++) {
             query(regionQuery);
@@ -54,25 +53,25 @@ public class TestDirectoryListCacheInvalidation
         long hitCount = (long) result.row(0).get(0);
         long missCount = (long) result.row(0).get(1);
 
-        assertEquals(hitCount, 1L);
-        assertEquals(missCount, 1L);
+        assertEquals(hitCount, hitCountInitial + 1);
+        assertEquals(missCount, missCountInitial + 1);
 
         // Invalidate directory list cache
-        query("CALL hivecached.system.invalidate_directory_list_cache()");
+        query("CALL hive_listcache.system.invalidate_directory_list_cache()");
 
         query(regionQuery);
         result = query(jmxMetricsQuery);
 
-        hitCount = (long) result.row(0).get(0);
-        missCount = (long) result.row(0).get(1);
-        // No results are cached, miss count would increase
-        assertEquals(hitCount, 1L);
-        assertEquals(missCount, 2L);
+        long hitCountAfter = (long) result.row(0).get(0);
+        long missCountAfter = (long) result.row(0).get(1);
+        // No results are cached, miss count would increase but hit count remains same
+        assertEquals(hitCountAfter, hitCount);
+        assertEquals(missCountAfter, missCount + 1);
     }
 
     @AfterTestWithContext
     public void tearDown()
     {
-        query("DROP TABLE IF EXISTS hivecached.default.region_cache");
+        query("DROP TABLE IF EXISTS hive_listcache.default.region_cache");
     }
 }
