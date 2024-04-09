@@ -59,14 +59,12 @@ public class HiveColumnHandle
     public static final HiveType ROW_ID_TYPE = HIVE_BINARY;
     public static final TypeSignature ROW_ID_TYPE_SIGNATURE = ROW_ID_TYPE.getTypeSignature();
 
-    // TODO these are buggy. Column indexes less than -13 can conflict with partition key indexes.
-    // Renumber them if possible.
-    public static final int FILE_SIZE_COLUMN_INDEX = -15;
+    public static final int FILE_SIZE_COLUMN_INDEX = -9;
     public static final String FILE_SIZE_COLUMN_NAME = "$file_size";
     public static final HiveType FILE_SIZE_TYPE = HIVE_LONG;
     public static final TypeSignature FILE_SIZE_TYPE_SIGNATURE = FILE_SIZE_TYPE.getTypeSignature();
 
-    public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
+    public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -8;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
     public static final HiveType FILE_MODIFIED_TIME_TYPE = HIVE_LONG;
     public static final TypeSignature FILE_MODIFIED_TIME_TYPE_SIGNATURE = FILE_MODIFIED_TIME_TYPE.getTypeSignature();
