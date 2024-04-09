@@ -25,26 +25,17 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
-import com.facebook.presto.sessionpropertyproviders.BuiltInNativeSystemSessionPropertyProviderFactory;
-import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
-import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProviderFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
-import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
-import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -73,7 +64,7 @@ public final class SessionPropertyManager
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, PropertyMetadata<?>> workerSessionProperties = new ConcurrentHashMap<>();
-    private SystemSessionPropertyProviderManager providerManager;
+    private Optional<SystemSessionPropertyProviderManager> providerManager = Optional.empty();
 
     public SessionPropertyManager()
     {
@@ -83,39 +74,13 @@ public final class SessionPropertyManager
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
     {
         this(systemSessionProperties.getSessionProperties());
-        // Dummy provider manager.
-        this.providerManager = new SystemSessionPropertyProviderManager(
-                new TestingNodeManager(),
-                new TypeManager()
-                {
-                    @Override
-                    public Type getType(TypeSignature signature)
-                    {
-                        return null;
-                    }
-
-                    @Override
-                    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-                    {
-                        return null;
-                    }
-
-                    @Override
-                    public boolean canCoerce(Type actualType, Type expectedType)
-                    {
-                        return false;
-                    }
-                },
-                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(new FeaturesConfig(), new NodeSpillConfig())),
-                new BuiltInNativeSystemSessionPropertyProviderFactory(),
-                new FeaturesConfig());
     }
 
     @Inject
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties, SystemSessionPropertyProviderManager providerManager)
     {
         this(systemSessionProperties.getSessionProperties());
-        this.providerManager = providerManager;
+        this.providerManager = Optional.ofNullable(providerManager);
     }
 
     public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
@@ -136,15 +101,17 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
-    public void updateWorkerSessionProperties()
+    private void updateWorkerSessionProperties()
     {
-        SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
-        List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
-        nativeSystemSessionProperties.forEach(sessionProperty -> {
-            requireNonNull(sessionProperty, "sessionProperty is null");
-            // TODO: Implement fail fast in case of duplicate entries.
-            workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
-        });
+        if (providerManager.isPresent()) {
+            SystemSessionPropertyProvider sessionPropertyProvider = providerManager.get().getSessionPropertyProvider();
+            List<PropertyMetadata<?>> nativeSystemSessionProperties = sessionPropertyProvider.getSessionProperties();
+            nativeSystemSessionProperties.forEach(sessionProperty -> {
+                requireNonNull(sessionProperty, "sessionProperty is null");
+                // TODO: Implement fail fast in case of duplicate entries.
+                workerSessionProperties.put(sessionProperty.getName(), sessionProperty);
+            });
+        }
     }
 
     public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
