@@ -23,10 +23,18 @@
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::exec;
+using namespace facebook::velox::exec::test;
 
-class OperatorUtilsTest
-    : public ::facebook::velox::exec::test::OperatorTestBase {
+class OperatorUtilsTest : public OperatorTestBase {
  protected:
+  void TearDown() override {
+    driverCtx_.reset();
+    driver_.reset();
+    task_.reset();
+    waitForAllTasksToBeDeleted();
+    OperatorTestBase::TearDown();
+  }
+
   OperatorUtilsTest() {
     VectorMaker vectorMaker{pool_.get()};
     std::vector<RowVectorPtr> values = {vectorMaker.rowVector(
@@ -124,8 +132,6 @@ class OperatorUtilsTest
     }
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{
-      memory::memoryManager()->addLeafPool()};
   std::shared_ptr<Task> task_;
   std::shared_ptr<Driver> driver_;
   std::unique_ptr<DriverCtx> driverCtx_;

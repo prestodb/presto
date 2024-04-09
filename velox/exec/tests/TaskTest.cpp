@@ -457,8 +457,14 @@ class TestBadMemoryTranslator : public exec::Operator::PlanNodeTranslator {
   }
 };
 } // namespace
+
 class TaskTest : public HiveConnectorTestBase {
  protected:
+  void TearDown() override {
+    waitForAllTasksToBeDeleted();
+    HiveConnectorTestBase::TearDown();
+  }
+
   static std::pair<std::shared_ptr<exec::Task>, std::vector<RowVectorPtr>>
   executeSingleThreaded(
       core::PlanFragment plan,

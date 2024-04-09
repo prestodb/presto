@@ -21,13 +21,19 @@ namespace facebook::velox::exec::test {
 
 class SqlTest : public OperatorTestBase {
  protected:
+  void TearDown() override {
+    planner_.reset();
+    OperatorTestBase::TearDown();
+  }
+
   void assertSql(const std::string& sql, const std::string& duckSql = "") {
-    auto plan = planner_.plan(sql);
+    auto plan = planner_->plan(sql);
     AssertQueryBuilder(plan, duckDbQueryRunner_)
         .assertResults(duckSql.empty() ? sql : duckSql);
   }
 
-  core::DuckDbQueryPlanner planner_{pool()};
+  std::unique_ptr<core::DuckDbQueryPlanner> planner_{
+      std::make_unique<core::DuckDbQueryPlanner>(pool())};
 };
 
 TEST_F(SqlTest, values) {
@@ -40,7 +46,7 @@ TEST_F(SqlTest, values) {
 }
 
 TEST_F(SqlTest, customScalarFunctions) {
-  planner_.registerScalarFunction(
+  planner_->registerScalarFunction(
       "array_join", {ARRAY(BIGINT()), VARCHAR()}, VARCHAR());
 
   assertSql("SELECT array_join([1, 2, 3], '-')", "SELECT '1-2-3'");
@@ -49,7 +55,7 @@ TEST_F(SqlTest, customScalarFunctions) {
 TEST_F(SqlTest, customAggregateFunctions) {
   // We need an aggregate that DuckDB does not support. 'every' fits the need.
   // 'every' is an alias for bool_and().
-  planner_.registerAggregateFunction("every", {BOOLEAN()}, BOOLEAN());
+  planner_->registerAggregateFunction("every", {BOOLEAN()}, BOOLEAN());
 
   assertSql(
       "SELECT every(x) FROM UNNEST([true, false, true]) as t(x)",
@@ -81,8 +87,8 @@ TEST_F(SqlTest, tableScan) {
   createDuckDbTable("t", data.at("t"));
   createDuckDbTable("u", data.at("u"));
 
-  planner_.registerTable("t", data.at("t"));
-  planner_.registerTable("u", data.at("u"));
+  planner_->registerTable("t", data.at("t"));
+  planner_->registerTable("u", data.at("u"));
 
   assertSql("SELECT a, avg(b) FROM t WHERE c > 5 GROUP BY 1");
   assertSql("SELECT * FROM t, u WHERE t.a = u.a");

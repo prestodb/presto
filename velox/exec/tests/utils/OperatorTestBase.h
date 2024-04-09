@@ -33,12 +33,16 @@ namespace facebook::velox::exec::test {
 class OperatorTestBase : public testing::Test,
                          public velox::test::VectorTestBase {
  public:
-  /// The following two methods are used by google unit test framework to do
+  /// The following methods are used by google unit test framework to do
   /// one-time setup/teardown for all the unit tests from OperatorTestBase. We
   /// make them public as some benchmark like ReduceAgg also call these methods
   /// to setup/teardown benchmark test environment.
   static void SetUpTestCase();
   static void TearDownTestCase();
+
+  /// Sets up the velox memory system. A second call to this will clear the
+  /// previous memory system instances and create a new set.
+  static void resetMemory();
 
  protected:
   OperatorTestBase();

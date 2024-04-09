@@ -42,6 +42,12 @@ class SortBufferTest : public OperatorTestBase {
     rng_.seed(123);
   }
 
+  void TearDown() override {
+    pool_.reset();
+    rootPool_.reset();
+    OperatorTestBase::TearDown();
+  }
+
   common::SpillConfig getSpillConfig(const std::string& spillDir) const {
     return common::SpillConfig(
         [&]() -> const std::string& { return spillDir; },
@@ -73,11 +79,6 @@ class SortBufferTest : public OperatorTestBase {
       {true, true, false, CompareFlags::NullHandlingMode::kNullAsValue},
       {true, true, false, CompareFlags::NullHandlingMode::kNullAsValue}};
 
-  const int64_t maxBytes_ = 20LL << 20; // 20 MB
-  const std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::memoryManager()->addRootPool("SortBufferTest", maxBytes_)};
-  const std::shared_ptr<memory::MemoryPool> pool_{
-      rootPool_->addLeafChild("SortBufferTest", maxBytes_)};
   const std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};

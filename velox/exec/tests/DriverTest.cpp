@@ -100,6 +100,7 @@ class DriverTest : public OperatorTestBase {
     // NOTE: destroy the tasks first to release all the allocated memory held
     // by the plan nodes (Values) in tasks.
     tasks_.clear();
+    waitForAllTasksToBeDeleted();
 
     if (wakeupInitialized_) {
       wakeupCancelled_ = true;
@@ -1480,4 +1481,6 @@ TEST_F(OpCallStatusTest, basic) {
 
   task->start(1, 1);
   ASSERT_TRUE(waitForTaskCompletion(task.get(), 600'000'000));
+  task.reset();
+  waitForAllTasksToBeDeleted();
 };

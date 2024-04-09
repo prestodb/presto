@@ -144,6 +144,12 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
 
   void SetUp() override;
 
+  void TearDown() override {
+    dataVectorsByType_.clear();
+    rowVectors_.clear();
+    AggregationTestBase::TearDown();
+  }
+
   // Build a flat vector with numeric native type of T. The value in the
   // returned flat vector is in ascending order.
   template <typename T>

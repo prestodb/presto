@@ -25,6 +25,13 @@ namespace facebook::velox::exec::test {
 
 class ValuesTest : public OperatorTestBase {
  protected:
+  void TearDown() override {
+    waitForAllTasksToBeDeleted();
+    input_.reset();
+    input2_.reset();
+    OperatorTestBase::TearDown();
+  }
+
   // Sample row vectors.
   RowVectorPtr input_{makeRowVector({
       makeFlatVector<int32_t>({0, 1, 2, 3, 5}),

@@ -37,6 +37,7 @@ class MemoryCapExceededTest : public OperatorTestBase,
   }
 
   void TearDown() override {
+    waitForAllTasksToBeDeleted();
     OperatorTestBase::TearDown();
     FLAGS_velox_suppress_memory_capacity_exceeding_error_message = false;
   }

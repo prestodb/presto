@@ -792,6 +792,11 @@ class HashJoinTest : public HiveConnectorTestBase {
         .allowLazyVector = false};
   }
 
+  void TearDown() override {
+    waitForAllTasksToBeDeleted();
+    HiveConnectorTestBase::TearDown();
+  }
+
   // Make splits with each plan node having a number of source files.
   SplitInput makeSpiltInput(
       const std::vector<core::PlanNodeId>& nodeIds,
@@ -6395,7 +6400,6 @@ TEST_F(HashJoinTest, maxSpillBytes) {
           e.errorCode(), facebook::velox::error_code::kSpillLimitExceeded);
     }
   }
-  waitForAllTasksToBeDeleted();
 }
 
 TEST_F(HashJoinTest, onlyHashBuildMaxSpillBytes) {
@@ -6490,6 +6494,10 @@ TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
   auto& planStats = taskStats.at(result.planNodeId);
   ASSERT_GT(planStats.spilledBytes, 0);
   result.task.reset();
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
   ASSERT_GT(arbitrator->stats().numRequests, 0);
   ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
@@ -6564,6 +6572,10 @@ DEBUG_ONLY_TEST_F(
   memoryArbitrationWait.notifyAll();
 
   joinThread.join();
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 2);
 }
@@ -6648,10 +6660,13 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromHashJoinBuildInWaitForTableBuild) {
 
   // We expect the reclaimed bytes from hash build.
   ASSERT_GT(arbitrator->stats().numReclaimedBytes, 0);
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
   ASSERT_TRUE(fakeBuffer != nullptr);
   fakePool->free(fakeBuffer, kMemoryCapacity);
-  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
@@ -6703,6 +6718,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
       .assertResults(
           "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
   ASSERT_TRUE(parallelBuildTriggered);
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
 }
 
@@ -6789,6 +6808,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
           .assertResults(
               "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
   task.reset();
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(injectAllocations.size(), 2);
 }
@@ -6883,6 +6906,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
 
   joinThread.join();
   memThread.join();
+
+  // This test uses on-demand created memory manager instead of the global
+  // one. We need to make sure any used memory got cleaned up before exiting
+  // the scope
   waitForAllTasksToBeDeleted();
 }
 
@@ -6943,6 +6970,11 @@ DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
   waitForAllTasksToBeDeleted();
   ASSERT_EQ(arbitrator->stats().numFailures, 1);
   ASSERT_EQ(arbitrator->stats().numReserves, 1);
+
+  // Wait again here as this test uses on-demand created memory manager instead
+  // of the global one. We need to make sure any used memory got cleaned up
+  // before exiting the scope
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
@@ -7020,6 +7052,10 @@ DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
     buildBlockWait.notifyAll();
 
     queryThread.join();
+
+    // This test uses on-demand created memory manager instead of the global
+    // one. We need to make sure any used memory got cleaned up before exiting
+    // the scope
     waitForAllTasksToBeDeleted();
   }
 }

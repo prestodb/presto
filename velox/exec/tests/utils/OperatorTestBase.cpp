@@ -64,17 +64,7 @@ void OperatorTestBase::SetUpTestCase() {
   FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
   FLAGS_velox_memory_leak_check_enabled = true;
   memory::SharedArbitrator::registerFactory();
-  MemoryManagerOptions options;
-  options.allocatorCapacity = 8L << 30;
-  options.arbitratorCapacity = 6L << 30;
-  options.memoryPoolInitCapacity = 512 << 20;
-  options.arbitratorKind = "SHARED";
-  options.checkUsageLeak = true;
-  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
-  memory::MemoryManager::testingSetInstance(options);
-  asyncDataCache_ =
-      cache::AsyncDataCache::create(memory::memoryManager()->allocator());
-  cache::AsyncDataCache::setInstance(asyncDataCache_.get());
+  resetMemory();
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
   TestValue::enable();
@@ -86,6 +76,24 @@ void OperatorTestBase::TearDownTestCase() {
   memory::SharedArbitrator::unregisterFactory();
 }
 
+void OperatorTestBase::resetMemory() {
+  if (asyncDataCache_ != nullptr) {
+    asyncDataCache_->clear();
+    asyncDataCache_.reset();
+  }
+  MemoryManagerOptions options;
+  options.allocatorCapacity = 8L << 30;
+  options.arbitratorCapacity = 6L << 30;
+  options.memoryPoolInitCapacity = 512 << 20;
+  options.arbitratorKind = "SHARED";
+  options.checkUsageLeak = true;
+  options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
+  memory::MemoryManager::testingSetInstance(options);
+  asyncDataCache_ =
+      cache::AsyncDataCache::create(memory::memoryManager()->allocator());
+  cache::AsyncDataCache::setInstance(asyncDataCache_.get());
+}
+
 void OperatorTestBase::SetUp() {
   if (!isRegisteredVectorSerde()) {
     this->registerVectorSerde();
@@ -94,7 +102,11 @@ void OperatorTestBase::SetUp() {
   ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
 }
 
-void OperatorTestBase::TearDown() {}
+void OperatorTestBase::TearDown() {
+  pool_.reset();
+  rootPool_.reset();
+  resetMemory();
+}
 
 std::shared_ptr<Task> OperatorTestBase::assertQuery(
     const core::PlanNodePtr& plan,
