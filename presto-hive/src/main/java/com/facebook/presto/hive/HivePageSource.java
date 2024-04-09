@@ -42,6 +42,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
+import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
@@ -95,8 +96,7 @@ public class HivePageSource
             if (columnMapping.getCoercionFrom().isPresent()) {
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
             }
-            // TODO use isRowIdColumn once that diff lands
-            else if ("$row_id".equals(name) && rowIdPartitionComponent.isPresent()) {
+            else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle()) && rowIdPartitionComponent.isPresent()) {
                 String rowGroupId = Paths.get(path).getFileName().toString();
                 coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent.get(), rowGroupId);
             }
