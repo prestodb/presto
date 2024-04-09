@@ -17,7 +17,7 @@ set -eufx -o pipefail
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
 MACOS_DEPS="${MACOS_DEPS} bison gperf"
-export FB_OS_VERSION=v2023.12.04.00
+export FB_OS_VERSION=v2024.04.01.00
 
 export PATH=$(brew --prefix bison)/bin:$PATH
 
