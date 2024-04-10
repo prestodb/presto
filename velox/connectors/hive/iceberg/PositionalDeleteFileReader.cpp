@@ -30,8 +30,8 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
     FileHandleFactory* fileHandleFactory,
     const ConnectorQueryCtx* connectorQueryCtx,
     folly::Executor* executor,
-    const std::shared_ptr<HiveConfig> hiveConfig,
-    std::shared_ptr<io::IoStatistics> ioStats,
+    const std::shared_ptr<const HiveConfig>& hiveConfig,
+    const std::shared_ptr<io::IoStatistics>& ioStats,
     dwio::common::RuntimeStatistics& runtimeStats,
     uint64_t splitOffset,
     const std::string& connectorId)

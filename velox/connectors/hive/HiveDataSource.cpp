@@ -167,14 +167,14 @@ std::unique_ptr<SplitReader> HiveDataSource::createSplitReader() {
   return SplitReader::create(
       split_,
       hiveTableHandle_,
-      scanSpec_,
-      readerOutputType_,
       &partitionKeys_,
-      fileHandleFactory_,
-      executor_,
       connectorQueryCtx_,
       hiveConfig_,
-      ioStats_);
+      readerOutputType_,
+      ioStats_,
+      fileHandleFactory_,
+      executor_,
+      scanSpec_);
 }
 
 void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {

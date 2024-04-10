@@ -27,17 +27,17 @@ struct IcebergDeleteFile;
 class IcebergSplitReader : public SplitReader {
  public:
   IcebergSplitReader(
-      std::shared_ptr<velox::connector::hive::HiveConnectorSplit> hiveSplit,
-      std::shared_ptr<HiveTableHandle> hiveTableHandle,
-      std::shared_ptr<common::ScanSpec> scanSpec,
-      const RowTypePtr readerOutputType,
-      std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
+      const std::shared_ptr<const hive::HiveConnectorSplit>& hiveSplit,
+      const std::shared_ptr<const HiveTableHandle>& hiveTableHandle,
+      const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>*
           partitionKeys,
+      const ConnectorQueryCtx* connectorQueryCtx,
+      const std::shared_ptr<const HiveConfig>& hiveConfig,
+      const RowTypePtr& readerOutputType,
+      const std::shared_ptr<io::IoStatistics>& ioStats,
       FileHandleFactory* fileHandleFactory,
       folly::Executor* executor,
-      const ConnectorQueryCtx* connectorQueryCtx,
-      const std::shared_ptr<HiveConfig> hiveConfig,
-      std::shared_ptr<io::IoStatistics> ioStats);
+      const std::shared_ptr<common::ScanSpec>& scanSpec);
 
   ~IcebergSplitReader() override = default;
 
@@ -45,7 +45,7 @@ class IcebergSplitReader : public SplitReader {
       std::shared_ptr<common::MetadataFilter> metadataFilter,
       dwio::common::RuntimeStatistics& runtimeStats) override;
 
-  uint64_t next(int64_t size, VectorPtr& output) override;
+  uint64_t next(uint64_t size, VectorPtr& output) override;
 
  private:
   // The read offset to the beginning of the split in number of rows for the
