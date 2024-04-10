@@ -32,8 +32,11 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.airlift.units.DataSize.succinctDataSize;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -60,6 +63,8 @@ public class HiveCommonSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String S3_MIN_MULTIPART_PART_SIZE = "s3_multipart_min_part_size";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -176,6 +181,11 @@ public class HiveCommonSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveCommonClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false),
+                dataSizeProperty(
+                        S3_MIN_MULTIPART_PART_SIZE,
+                        "minimum upload size for multipart uploads to s3",
+                        succinctDataSize(10, MEGABYTE),
                         false));
     }
 
@@ -297,5 +307,10 @@ public class HiveCommonSessionProperties
                 hidden,
                 value -> DataSize.valueOf((String) value),
                 DataSize::toString);
+    }
+
+    public static long getS3UploadMinPartSize(ConnectorSession session)
+    {
+        return session.getProperty(S3_MIN_MULTIPART_PART_SIZE, DataSize.class).roundTo(DataSize.Unit.BYTE);
     }
 }
