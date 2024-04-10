@@ -28,7 +28,7 @@ import PrestoClient from "@prestodb/presto-js-client";
 export function createClient(catalog: string, schema: string, sessions: string): PrestoClient {
     const opt: PrestoClientConfig = {
         host: `${window.location.protocol}//${window.location.hostname}`,
-        port: window.location.port,
+        port: (window.location.port || (window.location.protocol === 'https:' ? '443' : '80')),
         user: 'prestoui',
     };
     if (catalog) {
