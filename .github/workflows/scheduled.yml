@@ -171,11 +171,7 @@ jobs:
       - name: Ccache after
         run: ccache -s
 
-      - name: Save ccache
-        uses: assignUser/stash/save@v1
-        with:
-          path: "${{ env.CCACHE_DIR }}"
-          key: ccache-fuzzer-centos
+      # TODO: Add step to save ccache
 
       - name: Build PyVelox
         env:
