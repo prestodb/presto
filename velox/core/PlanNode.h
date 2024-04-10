@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 #pragma once
+
 #include <fmt/format.h>
+
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
 
-#include "velox/vector/arrow/Abi.h"
-#include "velox/vector/arrow/Bridge.h"
+struct ArrowArrayStream;
 
 namespace facebook::velox::core {
 

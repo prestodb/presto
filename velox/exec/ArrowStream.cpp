@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/ArrowStream.h"
+#include "velox/vector/arrow/Bridge.h"
 
 namespace facebook::velox::exec {
 
