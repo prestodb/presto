@@ -47,7 +47,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session{
       .systemProperties = {
-          {"native_max_spill_level", "1"},
+          {"native_max_spill_level", "2"},
           {"native_spill_compression_codec", "NONE"},
           {"native_join_spill_enabled", "false"},
           {"native_spill_write_buffer_size", "1024"},
@@ -55,7 +55,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
           {"aggregation_spill_all", "true"}}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
-  EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 1);
+  EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 2);
   EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "NONE");
   EXPECT_FALSE(queryCtx->queryConfig().joinSpillEnabled());
   EXPECT_TRUE(queryCtx->queryConfig().validateOutputFromOperators());
@@ -63,15 +63,23 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
 }
 
 TEST_F(QueryContextManagerTest, defaultSessionProperties) {
+  const std::unordered_map<std::string, std::string> values;
+  auto defaultQC = std::make_shared<velox::core::QueryConfig>(values);
+
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session{.systemProperties = {}};
   auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
       taskId, session);
-  EXPECT_EQ(queryCtx->queryConfig().maxSpillLevel(), 4);
-  EXPECT_EQ(queryCtx->queryConfig().spillCompressionKind(), "none");
-  EXPECT_TRUE(queryCtx->queryConfig().joinSpillEnabled());
-  EXPECT_FALSE(queryCtx->queryConfig().validateOutputFromOperators());
-  EXPECT_EQ(queryCtx->queryConfig().spillWriteBufferSize(), 1L << 20);
+  const auto& queryConfig = queryCtx->queryConfig();
+  EXPECT_EQ(queryConfig.maxSpillLevel(), defaultQC->maxSpillLevel());
+  EXPECT_EQ(
+      queryConfig.spillCompressionKind(), defaultQC->spillCompressionKind());
+  EXPECT_EQ(queryConfig.joinSpillEnabled(), defaultQC->joinSpillEnabled());
+  EXPECT_EQ(
+      queryConfig.validateOutputFromOperators(),
+      defaultQC->validateOutputFromOperators());
+  EXPECT_EQ(
+      queryConfig.spillWriteBufferSize(), defaultQC->spillWriteBufferSize());
 }
 
 TEST_F(QueryContextManagerTest, overrdingSessionProperties) {
