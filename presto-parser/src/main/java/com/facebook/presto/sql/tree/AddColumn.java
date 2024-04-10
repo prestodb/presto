@@ -85,7 +85,7 @@ public class AddColumn
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, column);
+        return Objects.hash(name, column, tableExists, columnNotExists);
     }
 
     @Override
@@ -99,7 +99,9 @@ public class AddColumn
         }
         AddColumn o = (AddColumn) obj;
         return Objects.equals(name, o.name) &&
-                Objects.equals(column, o.column);
+                Objects.equals(column, o.column) &&
+                Objects.equals(tableExists, o.tableExists) &&
+                Objects.equals(columnNotExists, o.columnNotExists);
     }
 
     @Override
@@ -108,6 +110,8 @@ public class AddColumn
         return toStringHelper(this)
                 .add("name", name)
                 .add("column", column)
+                .add("tableExists", tableExists)
+                .add("columnNotExists", columnNotExists)
                 .toString();
     }
 }
