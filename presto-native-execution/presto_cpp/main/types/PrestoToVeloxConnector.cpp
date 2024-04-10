@@ -37,14 +37,14 @@ connectors() {
 
 void registerPrestoToVeloxConnector(
     std::unique_ptr<const PrestoToVeloxConnector> connector) {
-  auto& connectorId = connector->connectorId();
+  auto connectorName = connector->connectorName();
   auto connectorProtocol = connector->createConnectorProtocol();
   VELOX_CHECK(
-      connectors().insert({connectorId, std::move(connector)}).second,
+      connectors().insert({connectorName, std::move(connector)}).second,
       "Connector {} is already registered",
-      connectorId);
+      connectorName);
   protocol::registerConnectorProtocol(
-      connectorId, std::move(connectorProtocol));
+      connectorName, std::move(connectorProtocol));
 }
 
 void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
@@ -53,10 +53,10 @@ void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
 }
 
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
-    const std::string& connectorId) {
-  auto it = connectors().find(connectorId);
+    const std::string& connectorName) {
+  auto it = connectors().find(connectorName);
   VELOX_CHECK(
-      it != connectors().end(), "Connector {} not registered", connectorId);
+      it != connectors().end(), "Connector {} not registered", connectorName);
   return *(it->second);
 }
 
