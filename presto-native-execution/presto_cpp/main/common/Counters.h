@@ -141,9 +141,6 @@ constexpr folly::StringPiece kCounterMmapRawAllocBytesSmall{
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
-/// Initial capacity of the root memory pool of queries
-constexpr folly::StringPiece kCounterQueryMemoryPoolInitCapacity{
-    "presto_cpp.query_memory_pool_init_capacity"};
 
 /// ================== Memory Arbitrator Counters =================
 
