@@ -109,12 +109,34 @@ class DenseHll {
 
   void removeOverflow(int overflowEntry);
 
-  void mergeWith(
-      int8_t otherBaseline,
-      const int8_t* otherDeltas,
-      int16_t otherOverflows,
-      const uint16_t* otherOverflowBuckets,
-      const int8_t* otherOverflowValues);
+  struct HllView {
+    int8_t baseline;
+    const int8_t* deltas;
+    int16_t overflows;
+    const uint16_t* overflowBuckets;
+    const int8_t* overflowValues;
+  };
+
+  void mergeWith(const HllView& other);
+
+  // Merges 'other' HLL into this one using scalar (non-SIMD) code.
+  // @return Number of buckets with values equal to 'newBaseline'.
+  int32_t mergeWithScalar(const HllView& other, int8_t newBaseline);
+
+  // Merges 'other' HLL into this one using SIMD.
+  // @return Number of buckets with values equal to 'newBaseline'.
+  int32_t mergeWithSimd(const HllView& other, int8_t newBaseline);
+
+  // Given two deltas and a bucket, converts deltas into values and returns
+  // their max.
+  // @return Max of two values and an index into overflowBuckets_ and
+  // overflowValues_ if 'delta' has an overflow. If 'delta' doesn't have an
+  // overflow, the second value is -1.
+  std::pair<int8_t, int16_t> computeNewValue(
+      int8_t delta,
+      int8_t otherDelta,
+      int32_t bucket,
+      const HllView& other);
 
   /// Number of first bits of the hash to calculate buckets from.
   int8_t indexBitLength_;

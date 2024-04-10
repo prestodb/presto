@@ -532,11 +532,11 @@ void DenseHll::mergeWith(const DenseHll& other) {
       "Cannot merge HLLs with different number of buckets");
 
   mergeWith(
-      other.baseline_,
-      other.deltas_.data(),
-      other.overflows_,
-      other.overflowBuckets_.data(),
-      other.overflowValues_.data());
+      {other.baseline_,
+       other.deltas_.data(),
+       other.overflows_,
+       other.overflowBuckets_.data(),
+       other.overflowValues_.data()});
 }
 
 void DenseHll::mergeWith(const char* serialized) {
@@ -558,16 +558,200 @@ void DenseHll::mergeWith(const char* serialized) {
   auto overflows = stream.read<int16_t>();
   auto overflowBuckets = overflows ? stream.read<uint16_t>(overflows) : nullptr;
   auto overflowValues = overflows ? stream.read<int8_t>(overflows) : nullptr;
-  mergeWith(baseline, deltas, overflows, overflowBuckets, overflowValues);
+  mergeWith({baseline, deltas, overflows, overflowBuckets, overflowValues});
 }
 
-void DenseHll::mergeWith(
-    int8_t otherBaseline,
-    const int8_t* otherDeltas,
-    int16_t otherOverflows,
-    const uint16_t* otherOverflowBuckets,
-    const int8_t* otherOverflowValues) {
-  int8_t newBaseline = std::max(baseline_, otherBaseline);
+std::pair<int8_t, int16_t> DenseHll::computeNewValue(
+    int8_t delta,
+    int8_t otherDelta,
+    int32_t bucket,
+    const HllView& other) {
+  int8_t value1 = baseline_ + delta;
+  int8_t value2 = other.baseline + otherDelta;
+
+  int16_t overflowEntry = -1;
+  if (delta == kMaxDelta) {
+    overflowEntry = findOverflowEntry(bucket);
+    if (overflowEntry != -1) {
+      value1 += overflowValues_[overflowEntry];
+    }
+  }
+
+  if (otherDelta == kMaxDelta) {
+    value2 += getOverflowImpl(
+        bucket, other.overflows, other.overflowBuckets, other.overflowValues);
+  }
+
+  return {std::max(value1, value2), overflowEntry};
+}
+
+void DenseHll::mergeWith(const HllView& other) {
+  // Number of 'delta' bytes that fit in a single SIMD batch. Each 'delta' byte
+  // stores 2 4-bit deltas.
+  constexpr auto batchSize = xsimd::batch<int8_t>::size;
+
+  // If deltas_.size() is not a multiple of batchSize, we need to use scalar
+  // code to process the 'tail'. deltas_.size() is a power of 2. batchSize is
+  // also a power of 2. Hence, the only case where deltas_.size() is not a
+  // multiple of batchSize is when deltas_.size() is less than batchSize. In
+  // this case we can't use SIMD path at all. Therefore, there are only 2
+  // possibilities: all data can be processed using SIMD or none.
+
+  const int8_t newBaseline = std::max(baseline_, other.baseline);
+  if (deltas_.size() >= batchSize) {
+    baselineCount_ = mergeWithSimd(other, newBaseline);
+  } else {
+    baselineCount_ = mergeWithScalar(other, newBaseline);
+  }
+
+  baseline_ = newBaseline;
+
+  // If all baseline values in one of the HLLs lost to the values
+  // in the other HLL, we need to adjust the final baseline.
+  adjustBaselineIfNeeded();
+}
+
+int32_t DenseHll::mergeWithSimd(const HllView& other, int8_t newBaseline) {
+  const auto batchSize = xsimd::batch<int8_t>::size;
+
+  const auto bucketMaskBatch = xsimd::broadcast(kBucketMask);
+  const auto maxDeltaBatch = xsimd::broadcast(kMaxDelta);
+  const auto baselineBatch = xsimd::broadcast(baseline_);
+  const auto otherBaselineBatch = xsimd::broadcast(other.baseline);
+  const auto newBaselineBatch = xsimd::broadcast(newBaseline);
+  const auto zeroBatch = xsimd::broadcast((int8_t)0);
+
+  // SIMD doesn't support 4-bit integers. The smallest integer is 8-bit.
+  // We are going to use 2 SIMD registers to process a batch of values.
+  // One register will store values with odd indices (0, 2, 4...). The other
+  // register will store values with even indices (1, 3, 5...).
+
+  // Load deltas with even indices into SIMD register.
+  auto loadEven = [&](const int8_t* deltas) {
+    auto batch = xsimd::load_unaligned(deltas);
+    batch = xsimd::kernel::bitwise_rshift(batch, 4, xsimd::default_arch{});
+    return xsimd::bitwise_and(batch, bucketMaskBatch);
+  };
+
+  // Load deltas with odd indices into SIMD register.
+  auto loadOdd = [&](const int8_t* deltas) {
+    auto batch = xsimd::load_unaligned(deltas);
+    return xsimd::bitwise_and(batch, bucketMaskBatch);
+  };
+
+  // Count number of zeros in a SIMD register.
+  auto countZeros = [&](const xsimd::batch<int8_t>& batch) {
+    auto zerosBitmask = xsimd::eq(batch, zeroBatch).mask();
+    return bits::countBits(&zerosBitmask, 0, batchSize);
+  };
+
+  // Given two SIMD registers of deltas, converts deltas to values by adding
+  // baselines and returns their max along with a bitmask that has bits set for
+  // entries that may have an overflow.
+  auto processBatch = [&](xsimd::batch<int8_t>& batch,
+                          xsimd::batch<int8_t>& otherBatch) {
+    auto overflows = xsimd::eq(batch, maxDeltaBatch).mask();
+    batch += baselineBatch;
+
+    overflows |= xsimd::eq(otherBatch, maxDeltaBatch).mask();
+    otherBatch += otherBaselineBatch;
+
+    // Compute max.
+    auto maxBatch = xsimd::max(batch, otherBatch);
+    maxBatch -= newBaselineBatch;
+
+    return std::pair{maxBatch, overflows};
+  };
+
+  auto processOverflow = [&](int8_t delta1, int8_t delta2, int bucket) {
+    auto [newValue, overflowEntry] =
+        computeNewValue(delta1, delta2, bucket, other);
+
+    int8_t newDelta = newValue - newBaseline;
+
+    return updateOverflow(bucket, overflowEntry, newDelta);
+  };
+
+  int32_t baselineCount = 0;
+  for (int i = 0; i < deltas_.size(); i += batchSize) {
+    // Process values in even indices first.
+    auto evenBatch = loadEven(deltas_.data() + i);
+    auto otherEvenBatch = loadEven(other.deltas + i);
+
+    auto [evenMaxBatch, evenOverflows] =
+        processBatch(evenBatch, otherEvenBatch);
+
+    baselineCount += countZeros(evenMaxBatch);
+
+    // Process values in odd indices.
+    auto oddBatch = loadOdd(deltas_.data() + i);
+    auto otherOddBatch = loadOdd(other.deltas + i);
+
+    auto [oddMaxBatch, oddOverflows] = processBatch(oddBatch, otherOddBatch);
+
+    baselineCount += countZeros(oddMaxBatch);
+
+    // Combine even and odd batches. Shift even batch left by 4 bits, then OR
+    // with odd batch.
+    auto combinedBatch =
+        xsimd::kernel::bitwise_lshift(evenMaxBatch, 4, xsimd::default_arch{});
+    combinedBatch = xsimd::bitwise_or(combinedBatch, oddMaxBatch);
+
+    xsimd::store_unaligned(deltas_.data() + i, combinedBatch);
+
+    // Process overflows.
+    if (evenOverflows != 0) {
+      // deltas_ has been updated and can no longer be used to process overflow
+      // entries. evenBatch and otherEvenBatch contain original deltas +
+      // baseline.
+      int8_t temp[batchSize], otherTemp[batchSize];
+      xsimd::store_unaligned(temp, evenBatch);
+      xsimd::store_unaligned(otherTemp, otherEvenBatch);
+
+      bits::forEachSetBit(&evenOverflows, 0, batchSize, [&](auto index) {
+        const auto deltaIndex = i + index;
+        const auto bucket = deltaIndex * 2;
+        int8_t newDelta = processOverflow(
+            temp[index] - baseline_, otherTemp[index] - other.baseline, bucket);
+
+        if (newDelta == 0) {
+          baselineCount++;
+        }
+
+        // Store newDelta in deltas_[deltaIndex].
+        auto slot1 = deltas_[deltaIndex];
+        deltas_[deltaIndex] = (newDelta << 4) | (slot1 & kBucketMask);
+      });
+    }
+
+    if (oddOverflows != 0) {
+      // deltas_ has been updated and can no longer be used to process overflow
+      // entries. oddBatch and otherOddBatch contain original deltas + baseline.
+      int8_t temp[batchSize], otherTemp[batchSize];
+      xsimd::store_unaligned(temp, oddBatch);
+      xsimd::store_unaligned(otherTemp, otherOddBatch);
+
+      bits::forEachSetBit(&oddOverflows, 0, batchSize, [&](auto index) {
+        const auto deltaIndex = i + index;
+        const auto bucket = deltaIndex * 2 + 1;
+        int8_t newDelta = processOverflow(
+            temp[index] - baseline_, otherTemp[index] - other.baseline, bucket);
+
+        if (newDelta == 0) {
+          baselineCount++;
+        }
+
+        // Store newDelta.
+        auto slot1 = deltas_[deltaIndex];
+        deltas_[deltaIndex] = (((slot1 >> 4) & kBucketMask) << 4) | newDelta;
+      });
+    }
+  }
+
+  return baselineCount;
+}
+
+int32_t DenseHll::mergeWithScalar(const HllView& other, int8_t newBaseline) {
   int32_t baselineCount = 0;
 
   int bucket = 0;
@@ -575,29 +759,15 @@ void DenseHll::mergeWith(
     int newSlot = 0;
 
     int8_t slot1 = deltas_[i];
-    int8_t slot2 = otherDeltas[i];
+    int8_t slot2 = other.deltas[i];
 
     for (int shift = 4; shift >= 0; shift -= 4) {
       int8_t delta1 = (slot1 >> shift) & kBucketMask;
       int8_t delta2 = (slot2 >> shift) & kBucketMask;
 
-      int8_t value1 = baseline_ + delta1;
-      int8_t value2 = otherBaseline + delta2;
+      auto [newValue, overflowEntry] =
+          computeNewValue(delta1, delta2, bucket, other);
 
-      int16_t overflowEntry = -1;
-      if (delta1 == kMaxDelta) {
-        overflowEntry = findOverflowEntry(bucket);
-        if (overflowEntry != -1) {
-          value1 += overflowValues_[overflowEntry];
-        }
-      }
-
-      if (delta2 == kMaxDelta) {
-        value2 += getOverflowImpl(
-            bucket, otherOverflows, otherOverflowBuckets, otherOverflowValues);
-      }
-
-      int8_t newValue = std::max(value1, value2);
       int8_t newDelta = newValue - newBaseline;
 
       if (newDelta == 0) {
@@ -614,12 +784,7 @@ void DenseHll::mergeWith(
     deltas_[i] = newSlot;
   }
 
-  baseline_ = newBaseline;
-  baselineCount_ = baselineCount;
-
-  // All baseline values in one of the HLLs lost to the values
-  // in the other HLL, so we need to adjust the final baseline.
-  adjustBaselineIfNeeded();
+  return baselineCount;
 }
 
 int8_t
