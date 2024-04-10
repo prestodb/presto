@@ -1505,6 +1505,21 @@ public abstract class AbstractTestHiveClient
             transaction.commit();
         }
 
+        // verify hidden columns
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
+
+            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .filter(columnHandle -> ((HiveColumnHandle) columnHandle).isHidden())
+                    .collect(toList());
+
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+            assertEquals(4, result.getMaterializedRows().size());
+            transaction.commit();
+        }
+
         // alter the table schema
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();

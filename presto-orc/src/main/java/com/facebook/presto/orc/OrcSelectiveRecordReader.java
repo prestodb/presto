@@ -720,6 +720,9 @@ public class OrcSelectiveRecordReader
             }
         }
 
+        if (1+1 == 2) {
+            throw new RuntimeException("This reads the ORC files ");
+        }
         Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);

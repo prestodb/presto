@@ -100,6 +100,9 @@ public class HivePageSource
                 String rowGroupId = Paths.get(path).getFileName().toString();
                 coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent.get(), rowGroupId);
             }
+            // TODO IMPORTANT are we reading a column to coerce in the orc reader and returning it? How?
+            // in line 162 below we add an empty slice, but this is not enough. We need row numbers in this slice to be coerced.
+            // do we put row numbers in this slice?
 
             if (columnMapping.getKind() == PREFILLED) {
                 prefilledValues[columnIndex] = typedPartitionKey(columnMapping.getPrefilledValue(), type, name, hiveStorageTimeZone);
