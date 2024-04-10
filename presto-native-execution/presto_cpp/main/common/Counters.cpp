@@ -90,16 +90,6 @@ void registerPrestoMetrics() {
       0,
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
       100);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterQueryMemoryPoolInitCapacity,
-      4l * 1024 * 1024, // 4MB bucket size
-      0,
-      1024l * 1024 * 1024, // 1GB max size
-      5,
-      50,
-      90,
-      95,
-      100);
 
   /// ================== AsyncDataCache Counters ==================
 
