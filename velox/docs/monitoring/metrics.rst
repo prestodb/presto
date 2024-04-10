@@ -175,6 +175,11 @@ Memory Management
    * - memory_pool_capacity_leak_bytes
      - Sum
      - The root memory pool reservation leak in bytes.
+   * - memory_allocator_double_free_count
+     - Count
+     - Tracks the count of double frees in memory allocator, indicating the
+       possibility of buffer ownership issues when a buffer is freed more
+       than once.
 
 Spilling
 --------

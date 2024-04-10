@@ -67,6 +67,9 @@ constexpr folly::StringPiece kMetricMemoryPoolUsageLeakBytes{
 constexpr folly::StringPiece kMetricMemoryPoolReservationLeakBytes{
     "velox.memory_pool_reservation_leak_bytes"};
 
+constexpr folly::StringPiece kMetricMemoryAllocatorDoubleFreeCount{
+    "velox.memory_allocator_double_free_count"};
+
 constexpr folly::StringPiece kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
 

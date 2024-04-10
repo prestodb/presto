@@ -18,7 +18,9 @@
 
 #include <sys/mman.h>
 
+#include "velox/common/base/Counters.h"
 #include "velox/common/base/Portability.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/Memory.h"
 
 namespace facebook::velox::memory {
@@ -877,10 +879,10 @@ MachinePageCount MmapAllocator::SizeClass::free(Allocation& allocation) {
     const int firstBit =
         (runAddress - address_) / (AllocationTraits::kPageSize * unitSize_);
     for (auto page = firstBit; page < firstBit + numPages; ++page) {
-      if (!bits::isBitSet(pageAllocated_.data(), page)) {
-        // TODO: change this to a velox failure to catch the bug.
+      if (FOLLY_UNLIKELY(!bits::isBitSet(pageAllocated_.data(), page))) {
         VELOX_MEM_LOG(ERROR)
             << "Double free: page = " << page << " sizeclass = " << unitSize_;
+        RECORD_METRIC_VALUE(kMetricMemoryAllocatorDoubleFreeCount);
         continue;
       }
       if (bits::isBitSet(pageMapped_.data(), page)) {
