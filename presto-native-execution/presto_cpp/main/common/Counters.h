@@ -88,7 +88,7 @@ constexpr folly::StringPiece kCounterNumBlockedWaitForProducerDrivers{
 constexpr folly::StringPiece kCounterNumBlockedWaitForJoinBuildDrivers{
     "presto_cpp.num_blocked_wait_for_join_build_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedWaitForJoinProbeDrivers{
-    "presto_cpp.num_blocked_wait_fro_join_probe_drivers"};
+    "presto_cpp.num_blocked_wait_for_join_probe_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedWaitForMergeJoinRightSideDrivers{
     "presto_cpp.num_blocked_wait_for_merge_join_right_side_drivers"};
 constexpr folly::StringPiece kCounterNumBlockedWaitForMemoryDrivers{
