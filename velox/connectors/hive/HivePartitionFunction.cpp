@@ -51,6 +51,7 @@ inline uint32_t hashOne(
   VELOX_UNSUPPORTED(
       "Hive partitioning function doesn't support {} type",
       TypeTraits<kind>::name);
+  return 0; // Make compiler happy.
 }
 
 template <>

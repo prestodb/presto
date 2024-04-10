@@ -643,6 +643,7 @@ struct CastFromJsonTypedImpl {
     static simdjson::error_code apply(Input, exec::GenericWriter&) {
       VELOX_NYI(
           "Casting from JSON to {} is not supported.", TypeTraits<kind>::name);
+      return simdjson::error_code::UNEXPECTED_ERROR; // Make compiler happy.
     }
   };
 

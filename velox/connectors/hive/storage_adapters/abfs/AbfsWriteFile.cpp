@@ -118,11 +118,10 @@ class AbfsWriteFile::Impl {
       blobStorageFileClient_->getProperties();
       return true;
     } catch (Azure::Storage::StorageException& e) {
-      if (e.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        return false;
-      } else {
+      if (e.StatusCode != Azure::Core::Http::HttpStatusCode::NotFound) {
         throwStorageExceptionWithOperationDetails("GetProperties", path_, e);
       }
+      return false;
     }
   }
 
