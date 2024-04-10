@@ -150,6 +150,17 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     return false;
   }
 
+  bool supportsToIntermediate() const final {
+    return hllAsRawInput_;
+  }
+
+  void toIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const final {
+    singleInputAsIntermediate(rows, args, result);
+  }
+
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     if (hllAsFinalResult_) {

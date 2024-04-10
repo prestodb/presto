@@ -55,24 +55,7 @@ class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       VectorPtr& result) const override {
-    const auto& input = args[0];
-    if (rows.isAllSelected()) {
-      result = input;
-      return;
-    }
-
-    auto* pool = BaseAggregate::allocator_->pool();
-
-    result = BaseVector::create(input->type(), rows.size(), pool);
-
-    // Set result to NULL for rows that are masked out.
-    {
-      BufferPtr nulls = allocateNulls(rows.size(), pool, bits::kNull);
-      rows.clearNulls(nulls);
-      result->setNulls(nulls);
-    }
-
-    result->copy(input.get(), rows, nullptr);
+    this->singleInputAsIntermediate(rows, args, result);
   }
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)

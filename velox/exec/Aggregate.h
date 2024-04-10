@@ -337,6 +337,13 @@ class Aggregate {
   // 'groups'. No-op for fixed length accumulators.
   virtual void destroyInternal(folly::Range<char**> groups) {}
 
+  // Helper function to pass single input argument directly as intermediate
+  // result.
+  void singleInputAsIntermediate(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      VectorPtr& result) const;
+
   // Shorthand for maintaining accumulator variable length size in
   // accumulator update methods. Use like: { auto tracker =
   // trackRowSize(group); update(group); }
