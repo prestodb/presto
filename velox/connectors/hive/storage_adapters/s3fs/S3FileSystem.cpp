@@ -79,7 +79,13 @@ class S3ReadFile final : public ReadFile {
 
   // Gets the length of the file.
   // Checks if there are any issues reading the file.
-  void initialize() {
+  void initialize(const filesystems::FileOptions& options) {
+    if (options.fileSize.has_value()) {
+      VELOX_CHECK_GE(
+          options.fileSize.value(), 0, "File size must be non-negative");
+      length_ = options.fileSize.value();
+    }
+
     // Make it a no-op if invoked twice.
     if (length_ != -1) {
       return;
@@ -640,10 +646,10 @@ std::string S3FileSystem::getLogLevelName() const {
 
 std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(
     std::string_view path,
-    const FileOptions& /*unused*/) {
+    const FileOptions& options) {
   const auto file = s3Path(path);
   auto s3file = std::make_unique<S3ReadFile>(file, impl_->s3Client());
-  s3file->initialize();
+  s3file->initialize(options);
   return s3file;
 }
 

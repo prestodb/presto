@@ -24,7 +24,7 @@ class AbfsReadFile final : public ReadFile {
  public:
   explicit AbfsReadFile(const std::string& path, const std::string& connectStr);
 
-  void initialize();
+  void initialize(const FileOptions& options);
 
   std::string_view pread(uint64_t offset, uint64_t length, void* buf)
       const final;

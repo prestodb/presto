@@ -69,7 +69,8 @@ SpillWriteFile::SpillWriteFile(
       filesystems::FileOptions{
           {{filesystems::FileOptions::kFileCreateConfig.toString(),
             fileCreateConfig}},
-          nullptr});
+          nullptr,
+          std::nullopt});
 }
 
 void SpillWriteFile::finish() {
