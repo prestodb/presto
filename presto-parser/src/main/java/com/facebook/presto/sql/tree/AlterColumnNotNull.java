@@ -93,13 +93,14 @@ public class AlterColumnNotNull
         AlterColumnNotNull that = (AlterColumnNotNull) o;
         return Objects.equals(table, that.table) &&
                 Objects.equals(column, that.column) &&
+                Objects.equals(tableExists, that.tableExists) &&
                 Objects.equals(dropConstraint, that.dropConstraint);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, column, dropConstraint);
+        return Objects.hash(table, column, tableExists, dropConstraint);
     }
 
     @Override
@@ -108,6 +109,7 @@ public class AlterColumnNotNull
         return toStringHelper(this)
                 .add("table", table)
                 .add("column", column)
+                .add("tableExists", tableExists)
                 .add("dropConstraint", dropConstraint)
                 .toString();
     }

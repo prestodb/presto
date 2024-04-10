@@ -1617,6 +1617,9 @@ public final class SqlFormatter
         protected Void visitAddConstraint(AddConstraint node, Integer indent)
         {
             builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
             builder.append(node.getTableName().toString());
             builder.append(" ADD ");
             builder.append(processConstraintDefinition(node.getConstraintSpecification()));
