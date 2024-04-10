@@ -52,7 +52,7 @@ CODEOWNERS @prestodb/team-tsc
 
 #####################################################################
 # Presto Console UI
-/presto-main/src/main/resources/webapp/* @yhwang @prestodb/committers
+/presto-main/src/main/resources/webapp @yhwang @prestodb/committers
 
 #####################################################################
 # Presto documentation
