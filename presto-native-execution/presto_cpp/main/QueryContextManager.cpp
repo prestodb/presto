@@ -193,8 +193,6 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       !SystemConfig::instance()->memoryArbitratorKind().empty()
           ? memory::MemoryReclaimer::create()
           : nullptr);
-  RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterQueryMemoryPoolInitCapacity, pool->capacity());
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       driverExecutor_,
