@@ -420,4 +420,21 @@ TEST_F(MapTest, nestedNullInKeys) {
       "map key cannot be indeterminate");
 }
 
+TEST_F(MapTest, unknownType) {
+  // MAP(ARRAY[], ARRAY[])
+  auto emptyArrayVector = makeArrayVector<UnknownValue>({{}});
+  auto expectedMap = makeMapVector<UnknownValue, UnknownValue>({{}});
+  auto result = evaluate(
+      "map(c0, c1)", makeRowVector({emptyArrayVector, emptyArrayVector}));
+  assertEqualVectors(expectedMap, result);
+
+  // MAP(ARRAY[null], ARRAY[null])
+  auto elementVector = makeNullableFlatVector<UnknownValue>({std::nullopt});
+  auto nullArrayVector = makeArrayVector({0}, elementVector);
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "map(c0, c1)", makeRowVector({nullArrayVector, nullArrayVector})),
+      "map key cannot be null");
+}
+
 } // namespace
