@@ -102,7 +102,7 @@ public class OrcSelectiveRecordReader
     private final List<Integer> outputColumns;                        // elements are hive column indices
     private final Map<Integer, Type> columnTypes;                     // key: index into hiveColumnIndices array
     private final Object[] constantValues;                            // aligned with hiveColumnIndices array
-    private final Function<Block, Block>[] coercers;                   // aligned with hiveColumnIndices array
+    private final Function<Block, Block>[] coercers;                  // aligned with hiveColumnIndices array
 
     // non-deterministic filter function with no inputs (rand() < 0.1); evaluated before any column is read
     private final Optional<FilterFunction> filterFunctionWithoutInput;
@@ -260,7 +260,9 @@ public class OrcSelectiveRecordReader
         requireNonNull(coercers, "coercers is null");
         this.coercers = new Function[this.hiveColumnIndices.length];
         for (Map.Entry<Integer, Function<Block, Block>> entry : coercers.entrySet()) {
-            this.coercers[zeroBasedIndices.get(entry.getKey())] = entry.getValue();
+            Integer key = entry.getKey();
+            Integer zeroBasedIndex = zeroBasedIndices.get(key);
+            this.coercers[zeroBasedIndex] = entry.getValue();
         }
 
         requireNonNull(constantValues, "constantValues is null");
@@ -721,9 +723,23 @@ public class OrcSelectiveRecordReader
         }
 
         Block[] blocks = new Block[ appendRowNumber ? outputColumns.size() + 1 : outputColumns.size()];
+        Block rowNumbersBlock = null;
+        if (appendRowNumber) {
+            rowNumbersBlock = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
+            // QUESTION we end up adding a row numbers block even if we only want row IDs. Should this be fixed?
+            blocks[outputColumns.size()] = rowNumbersBlock;
+        }
         for (int i = 0; i < outputColumns.size(); i++) {
             int columnIndex = outputColumns.get(i);
-            if (constantValues[columnIndex] != null) {
+            // The column index here is not the same as HiveColumnHandle.ROW_ID_COLUMN_INDEX.
+            // We need to convert back to the hive column index instead.
+            if (hiveColumnIndices[columnIndex] == /* HiveColumnHandle.ROW_ID_COLUMN_INDEX */ -10) {
+                Function<Block, Block> coercer = coercers[columnIndex];
+                if (coercer != null) { // a row ID block was requested
+                    blocks[i] = coercer.apply(rowNumbersBlock);
+                }
+            }
+            else if (constantValues[columnIndex] != null) {
                 blocks[i] = RunLengthEncodedBlock.create(columnTypes.get(columnIndex), constantValues[columnIndex] == NULL_MARKER ? null : constantValues[columnIndex], positionCount);
             }
             else if (!hasAnyFilter(columnIndex)) {
@@ -741,9 +757,6 @@ public class OrcSelectiveRecordReader
             }
         }
 
-        if (appendRowNumber) {
-            blocks[outputColumns.size()] = createRowNumbersBlock(positionsToRead, positionCount, this.getFilePosition());
-        }
         Page page = new Page(positionCount, blocks);
         validateWritePageChecksum(page);
         return page;

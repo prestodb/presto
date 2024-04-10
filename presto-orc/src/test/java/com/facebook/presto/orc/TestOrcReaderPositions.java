@@ -16,9 +16,13 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.FilterFunction;
 import com.facebook.presto.common.relation.Predicate;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
@@ -29,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -49,9 +54,13 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -71,6 +80,7 @@ import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspec
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -78,6 +88,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestOrcReaderPositions
 {
+    private static final int BYTES_PER_LONG = 8;
+    public static final int ROW_ID_COLUMN_INDEX = -10;
+
     @Test
     public void testEntireFile()
             throws Exception
@@ -178,6 +191,122 @@ public class TestOrcReaderPositions
     }
 
     @Test
+    public void testRowIDs()
+            throws IOException, SerDeException
+    {
+        try (TempFile tempFile = new TempFile()) {
+            // create single stripe file with multiple row groups
+            int rowCount = 142_000;
+            createSequentialFile(tempFile.getFile(), rowCount);
+            ImmutableMap<Integer, Type> includedColumns = ImmutableMap.of(0, BIGINT, ROW_ID_COLUMN_INDEX, VarbinaryType.VARBINARY);
+            ImmutableList<Integer> outputColumns = ImmutableList.of(0, ROW_ID_COLUMN_INDEX);
+            File file = tempFile.getFile();
+            OrcAggregatedMemoryContext systemMemoryUsage = new TestingHiveOrcAggregatedMemoryContext();
+            OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            OrcReader orcReader = new OrcReader(
+                    orcDataSource,
+                    ORC,
+                    new StorageOrcFileTailSource(),
+                    new StorageStripeMetadataSource(),
+                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                    OrcReaderOptions.builder()
+                            .withMaxMergeDistance(new DataSize(1, MEGABYTE))
+                            .withTinyStripeThreshold(new DataSize(1, MEGABYTE))
+                            .withMaxBlockSize(MAX_BLOCK_SIZE)
+                            .withMapNullKeysEnabled(false)
+                            .withAppendRowNumber(true)
+                            .build(),
+                    false,
+                    new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                    DwrfKeyProvider.of(ImmutableMap.of()),
+                    new RuntimeStats());
+
+            byte[] partitionID = {45, 76}; // arbitrary data; values don't matter
+            String expectedRowGroupID = "somerowgroupID";
+            ImmutableMap<Integer, Function<Block, Block>> coercers = ImmutableMap.of(
+                    ROW_ID_COLUMN_INDEX,
+                    new RowIDCoercer(partitionID, expectedRowGroupID));
+            ImmutableMap<Integer, Object> constantValues = ImmutableMap.of();
+            OrcSelectiveRecordReader reader = orcReader.createSelectiveRecordReader(
+                    includedColumns,
+                    outputColumns,
+                    ImmutableMap.of(),
+                    ImmutableList.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    constantValues,
+                    coercers,
+                    OrcPredicate.TRUE,
+                    0,
+                    orcDataSource.getSize(),
+                    OrcTester.HIVE_STORAGE_TIME_ZONE,
+                    systemMemoryUsage,
+                    Optional.empty(),
+                    MAX_BATCH_SIZE);
+
+            long expectedRowNumber = 0; // row numbers do not reset to zero between blocks
+            for (Page returnPage = reader.getNextPage(); returnPage != null; returnPage = reader.getNextPage()) {
+                Block rowIDBlock = returnPage.getBlock(1);
+                for (int i = 0; i < rowIDBlock.getPositionCount(); i++, expectedRowNumber++) {
+                    byte[] rowID = rowIDBlock.getSlice(i, 0, rowIDBlock.getSliceLength(i)).getBytes();
+                    assertTrue(rowID.length > 0, "No row ID for row " + i);
+                    ByteBuffer buffer = ByteBuffer.wrap(rowID);
+                    byte[] actualRowNumber = new byte[BYTES_PER_LONG];
+                    buffer.get(actualRowNumber, 0, BYTES_PER_LONG);
+                    long rowNumber = ByteBuffer.wrap(actualRowNumber).order(ByteOrder.LITTLE_ENDIAN).getLong(); // because we write row numbers in little endian order
+                    assertEquals(rowNumber, expectedRowNumber, "Failed on row " + i);
+                    int rowGroupIDLength = rowID.length - BYTES_PER_LONG - partitionID.length;
+                    byte[] actualRowGroupID = new byte[rowGroupIDLength];
+                    buffer.get(actualRowGroupID, 0, rowGroupIDLength);
+                    assertEquals(actualRowGroupID, expectedRowGroupID.getBytes(UTF_8));
+                    byte[] actualPartitionID = new byte[2];
+                    buffer.get(actualPartitionID, 0, 2);
+                    assertEquals(actualPartitionID, partitionID, "Partition ID incorrect for row " + i);
+                }
+                Block dataBlock = returnPage.getBlock(0);
+                Block rowNumberBlock = returnPage.getBlock(2);
+                for (int i = 0; i < returnPage.getPositionCount(); i++) {
+                    assertEquals(dataBlock.getLong(i), rowNumberBlock.getLong(i));
+                }
+            }
+        }
+    }
+
+    // Duplicating code to avoid circular dependency on presto-hive
+    private static class RowIDCoercer
+            implements Function<Block, Block>
+    {
+        private final byte[] rowIDPartitionComponent;
+        private final byte[] rowGroupID; // file name
+
+        RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
+        {
+            this.rowIDPartitionComponent = requireNonNull(rowIDPartitionComponent);
+            this.rowGroupID = rowGroupID.getBytes(StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public Block apply(Block in)
+        {
+            BlockBuilder out = VarbinaryType.VARBINARY.createBlockBuilder(null, in.getPositionCount());
+            for (int i = 0; i < in.getPositionCount(); i++) {
+                if (in.isNull(i)) {
+                    out.appendNull();
+                    continue;
+                }
+                long rowNumber = BigintType.BIGINT.getLong(in, i);
+                ByteBuffer rowID = ByteBuffer.allocateDirect(this.rowIDPartitionComponent.length + this.rowGroupID.length + 8).order(ByteOrder.LITTLE_ENDIAN);
+                rowID.putLong(rowNumber);
+                rowID.put(this.rowGroupID);
+                rowID.put(this.rowIDPartitionComponent);
+                rowID.flip();
+                VarbinaryType.VARBINARY.writeSlice(out, Slices.wrappedBuffer(rowID));
+            }
+            return out.build();
+        }
+    }
+
+    @Test
     public void testFilterFunctionWithAppendRowNumber()
             throws Exception
     {
@@ -257,9 +386,8 @@ public class TestOrcReaderPositions
             List<Long> actualValues = new ArrayList<>();
             OrcSelectiveRecordReader reader = createCustomOrcSelectiveRecordReader(tempFile, ORC, predicate, BIGINT, MAX_BATCH_SIZE, false, true);
             assertNotNull(reader);
-            Page returnPage;
             while (true) {
-                returnPage = reader.getNextPage();
+                Page returnPage = reader.getNextPage();
                 if (returnPage == null) {
                     break;
                 }
@@ -275,8 +403,6 @@ public class TestOrcReaderPositions
     private void verifyAppendNumber(List<Long> expectedValues, OrcSelectiveRecordReader reader)
             throws IOException
     {
-        assertNotNull(reader);
-        assertNotNull(expectedValues);
         List<Long> actualValues = new ArrayList<>();
         while (true) {
             Page returnPage = reader.getNextPage();

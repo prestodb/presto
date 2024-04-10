@@ -512,7 +512,10 @@ public class MaterializedResult
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
                     Block block = page.getBlock(channel);
-                    values.add(type.getObjectValue(session.getSqlFunctionProperties(), block, position));
+                    if (block != null) { // block is null for an unfilled $row_id
+                        Object value = type.getObjectValue(session.getSqlFunctionProperties(), block, position);
+                        values.add(value);
+                    }
                 }
                 values = Collections.unmodifiableList(values);
 
