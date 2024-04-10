@@ -766,7 +766,7 @@ public class TestHiveIntegrationSmokeTest
                 ORC);
     }
 
-    public void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
+    private void testCreatePartitionedTableAsShuffleOnPartitionColumns(Session session, HiveStorageFormat storageFormat)
     {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as_shuffle_on_partition_columns " +
