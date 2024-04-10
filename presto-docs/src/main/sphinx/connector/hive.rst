@@ -411,7 +411,13 @@ Property Name                         Description                               
 
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
-``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
+``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size. Can also be set using  ``10MB``
+                                      the session property ``s3_multipart_min_part_size``.
+``hive.s3.use-streaming-uploads``     Whether data should be streamed to S3 directly rather than  ``false`` 
+                                      buffering the entire write on disk. Streaming uploads may
+                                      result in higher S3 request costs due to more frequent
+                                      multipart uploads. Increase ``hive.s3.multipart.min-size``
+                                      to reduce costs.
 ===================================== =========================================================== ===============
 
 S3 Data Encryption
