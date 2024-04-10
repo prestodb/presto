@@ -906,6 +906,22 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
 
+        //to_ieee754_32
+        assertQuery("SELECT to_ieee754_32(null)");
+        assertQuery("SELECT to_ieee754_32(cast(0.0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(totalprice as REAL)) FROM orders");
+        assertQuery("SELECT to_ieee754_32(cast(acctbal as REAL)) FROM customer");
+
+        //from_ieee754_32
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(null))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(0.0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(totalprice as REAL))) FROM orders");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(acctbal as REAL))) FROM customer");
+
         //to_ieee754_64
         assertQuery("SELECT to_ieee754_64(null)");
         assertQuery("SELECT to_ieee754_64(0.0)");
