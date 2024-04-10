@@ -32,14 +32,14 @@ void registerPrestoToVeloxConnector(
 void unregisterPrestoToVeloxConnector(const std::string& connectorName);
 
 const PrestoToVeloxConnector& getPrestoToVeloxConnector(
-    const std::string& connectorId);
+    const std::string& connectorName);
 
 class PrestoToVeloxConnector {
  public:
   virtual ~PrestoToVeloxConnector() = default;
 
-  [[nodiscard]] const std::string& connectorId() const {
-    return connectorId_;
+  [[nodiscard]] const std::string& connectorName() const {
+    return connectorName_;
   }
 
   [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorSplit>
@@ -103,15 +103,15 @@ class PrestoToVeloxConnector {
   createConnectorProtocol() const = 0;
 
  protected:
-  explicit PrestoToVeloxConnector(std::string connectorId)
-      : connectorId_(std::move(connectorId)) {}
-  const std::string connectorId_;
+  explicit PrestoToVeloxConnector(std::string connectorName)
+      : connectorName_(std::move(connectorName)) {}
+  const std::string connectorName_;
 };
 
 class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
  public:
-  explicit HivePrestoToVeloxConnector(std::string connectorId)
-      : PrestoToVeloxConnector(std::move(connectorId)) {}
+  explicit HivePrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
 
   std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
       const protocol::ConnectorId& catalogId,
@@ -161,8 +161,8 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
 class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
  public:
-  explicit IcebergPrestoToVeloxConnector(std::string connectorId)
-      : PrestoToVeloxConnector(std::move(connectorId)) {}
+  explicit IcebergPrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
 
   std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
       const protocol::ConnectorId& catalogId,
@@ -187,8 +187,8 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
 class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
  public:
-  explicit TpchPrestoToVeloxConnector(std::string connectorId)
-      : PrestoToVeloxConnector(std::move(connectorId)) {}
+  explicit TpchPrestoToVeloxConnector(std::string connectorName)
+      : PrestoToVeloxConnector(std::move(connectorName)) {}
 
   std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
       const protocol::ConnectorId& catalogId,
