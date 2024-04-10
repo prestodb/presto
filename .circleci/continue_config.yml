@@ -54,7 +54,7 @@ commands:
           name: "Maven Install"
           command: |
             export MAVEN_OPTS=<< parameters.maven_install_opts>>
-            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-relelated CI failures.
+            # Sometimes mvn build fails because of network failures. Add logic to rerun the build to avoid non PR-related CI failures.
             for i in $(seq 1 3); do ./mvnw clean install << parameters.maven_fast_install>> -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
 
 executors:
@@ -66,7 +66,7 @@ executors:
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError -XX:CompressedClassSpaceSize=3g"
       MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -XX:CompressedClassSpaceSize=3g"
-      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
       MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
   check:
     docker:

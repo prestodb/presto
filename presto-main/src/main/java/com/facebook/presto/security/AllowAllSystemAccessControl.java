@@ -219,4 +219,13 @@ public class AllowAllSystemAccessControl
     {
         return Optional.empty();
     }
+    
+    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
 }

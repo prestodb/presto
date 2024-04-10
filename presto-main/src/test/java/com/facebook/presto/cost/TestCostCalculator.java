@@ -32,6 +32,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinType;
@@ -55,6 +57,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -67,12 +70,15 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -429,6 +435,122 @@ public class TestCostCalculator
                 .network(0 * IS_NULL_OVERHEAD);
 
         assertCostHasUnknownComponentsForUnknownStats(aggregation);
+    }
+
+    @Test
+    public void testCteProducer()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+
+        CteProducerNode cteProducerNode = new CteProducerNode(
+                Optional.empty(),
+                new PlanNodeId("cteProducer"),
+                ts1,
+                "test_cte",
+                new VariableReferenceExpression(Optional.empty(), "rows", BIGINT),
+                ts1.getOutputVariables());
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000));
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT);
+        assertCost(cteProducerNode, costs, stats)
+                .cpu(14500)
+                .memory(10)
+                .network(14500);
+        assertCostEstimatedExchanges(cteProducerNode, costs, stats)
+                .cpu(14500)
+                .memory(10)
+                .network(14500);
+    }
+
+    @Test
+    public void testCteConsumer()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+
+        CteConsumerNode cteConsumerNode = new CteConsumerNode(
+                Optional.empty(),
+                new PlanNodeId("cteConsumer"),
+                ts1.getOutputVariables(),
+                "test_cte", ts1);
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000));
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "ts1", new PlanCostEstimate(1000, 10, 10, 1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT);
+        assertCost(cteConsumerNode, costs, stats)
+                .cpu(4500)
+                .memory(0)
+                .network(0);
+        assertCost(cteConsumerNode, costs, stats)
+                .cpu(4500)
+                .memory(0)
+                .network(0);
+    }
+
+    @Test
+    public void testSequence()
+    {
+        // Create PlanNodes
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        TableScanNode ts2 = tableScan("ts2", "custkey");
+        CteProducerNode cteProducerNode1 = new CteProducerNode(
+                Optional.empty(),
+                new PlanNodeId("cteProducer1"),
+                ts1,
+                "cte1",
+                new VariableReferenceExpression(Optional.empty(), "rows", BIGINT),
+                ts1.getOutputVariables());
+        CteProducerNode cteProducerNode2 = new CteProducerNode(
+                Optional.empty(),
+                new PlanNodeId("cteProducer2"),
+                ts2,
+                "cte2",
+                new VariableReferenceExpression(Optional.empty(), "rows", BIGINT),
+                ts2.getOutputVariables());
+        // Define the CTE consumer nodes that would be used in the join
+        CteConsumerNode cteConsumerNode1 = new CteConsumerNode(
+                Optional.empty(),
+                new PlanNodeId("cteConsumer1"),
+                ts1.getOutputVariables(),
+                "cte1",
+                ts1);
+        CteConsumerNode cteConsumerNode2 = new CteConsumerNode(
+                Optional.empty(),
+                new PlanNodeId("cteConsumer2"),
+                ts2.getOutputVariables(),
+                "cte2",
+                ts1);
+        JoinNode joinNode = join("join",
+                cteConsumerNode1,
+                cteConsumerNode2,
+                JoinDistributionType.PARTITIONED,
+                "orderkey", "custkey");
+        MutableGraph<Integer> sequenceGraph = GraphBuilder.directed().build();
+        // Add indexes to the graph
+        sequenceGraph.addNode(0);
+        sequenceGraph.addNode(1);
+        SequenceNode sequenceNode = new SequenceNode(
+                Optional.empty(),
+                new PlanNodeId("sequence"),
+                ImmutableList.of(cteProducerNode1, cteProducerNode2),
+                joinNode,
+                sequenceGraph);
+
+        // Define cost of sequence children
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "join", new PlanCostEstimate(5000, 5000, 5000, 5000),
+                "cteProducer1", new PlanCostEstimate(4000, 4000, 4000, 4000),
+                "cteProducer2", new PlanCostEstimate(3000, 3000, 3000, 3000));
+
+        // Assert costs for the sequence node
+        assertCost(sequenceNode, costs, new HashMap<>())
+                .cpu(12000)
+                .memory(12000)
+                .network(12000);
     }
 
     @Test

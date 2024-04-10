@@ -38,7 +38,6 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -68,6 +67,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -112,7 +112,6 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedIndexJoin
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPreferred;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
 import static com.facebook.presto.SystemSessionProperties.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
@@ -161,18 +160,20 @@ public class AddExchanges
     private final SqlParser parser;
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
+    private final boolean nativeExecution;
 
-    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager)
+    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager).accept(plan, PreferredProperties.any());
+        PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
         boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
         return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
     }
@@ -194,12 +195,14 @@ public class AddExchanges
         private final int hashPartitionCount;
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
+        private final boolean nativeExecution;
 
         public Rewriter(
                 PlanNodeIdAllocator idAllocator,
                 VariableAllocator variableAllocator,
                 Session session,
-                PartitioningProviderManager partitioningProviderManager)
+                PartitioningProviderManager partitioningProviderManager,
+                boolean nativeExecution)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -215,6 +218,7 @@ public class AddExchanges
             this.hashPartitionCount = getHashPartitionCount(session);
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -708,7 +712,7 @@ public class AddExchanges
             PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, idAllocator, metadata);
             // Presto Java and Presto Native use different hash functions for partitioning
             // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
-            if (isNativeExecutionEnabled(session) && containsSystemTableScan(plan)) {
+            if (nativeExecution && containsSystemTableScan(plan)) {
                 plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
             }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.

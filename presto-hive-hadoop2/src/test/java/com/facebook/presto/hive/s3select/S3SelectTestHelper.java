@@ -40,6 +40,7 @@ import com.facebook.presto.hive.HivePartitionSkippabilityChecker;
 import com.facebook.presto.hive.HivePartitionStats;
 import com.facebook.presto.hive.HiveSplitManager;
 import com.facebook.presto.hive.HiveStagingFileCommitter;
+import com.facebook.presto.hive.HiveTableWritabilityChecker;
 import com.facebook.presto.hive.HiveTestUtils;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.HiveTypeTranslator;
@@ -59,6 +60,7 @@ import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -77,10 +79,12 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.filterTable;
 import static com.facebook.presto.hive.HiveFileSystemTestUtils.getSplitsCount;
+import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultS3HiveRecordCursorProvider;
@@ -171,7 +175,9 @@ public class S3SelectTestHelper
                 new HiveEncryptionInformationProvider(ImmutableSet.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                columnConverterProvider);
+                columnConverterProvider,
+                new QuickStatsProvider(hdfsEnvironment, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(config));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -196,6 +202,7 @@ public class S3SelectTestHelper
                 getDefaultS3HiveRecordCursorProvider(config, metastoreClientConfig),
                 getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
                 getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
     }

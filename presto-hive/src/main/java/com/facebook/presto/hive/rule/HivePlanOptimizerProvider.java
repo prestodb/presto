@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HivePartitionManager;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -43,7 +44,8 @@ public class HivePlanOptimizerProvider
             HivePartitionManager partitionManager,
             FunctionMetadataManager functionMetadataManager,
             TypeManager typeManager,
-            Supplier<TransactionalMetadata> metadataFactory)
+            Supplier<TransactionalMetadata> metadataFactory,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -51,11 +53,15 @@ public class HivePlanOptimizerProvider
         requireNonNull(partitionManager, "partitionManager is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.planOptimizers = ImmutableSet.of(
-                new HiveFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, partitionManager),
-                new HiveAddRequestedColumnsToLayout(),
-                new HiveParquetDereferencePushDown(transactionManager, rowExpressionService),
-                new HivePartialAggregationPushdown(functionMetadataManager, functionResolution, metadataFactory));
+        ImmutableSet.Builder<ConnectorPlanOptimizer> planOptimizerBuilder = ImmutableSet.<ConnectorPlanOptimizer>builder()
+                .add(new HiveFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, partitionManager))
+                .add(new HiveAddRequestedColumnsToLayout())
+                .add(new HiveParquetDereferencePushDown(transactionManager, rowExpressionService));
+        if (!connectorSystemConfig.isNativeExecution()) {
+            planOptimizerBuilder.add(new HivePartialAggregationPushdown(functionResolution, metadataFactory));
+        }
+
+        this.planOptimizers = planOptimizerBuilder.build();
     }
 
     @Override

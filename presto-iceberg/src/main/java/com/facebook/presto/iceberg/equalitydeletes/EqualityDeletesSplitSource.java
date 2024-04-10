@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.equalitydeletes;
 
 import com.facebook.presto.iceberg.IcebergSplit;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -40,6 +42,7 @@ import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -102,6 +105,9 @@ public class EqualityDeletesSplitSource
 
     private IcebergSplit splitFromDeleteFile(DeleteFile deleteFile)
     {
+        PartitionSpec spec = specById.get(deleteFile.specId());
+        Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, deleteFile.partition());
+
         return new IcebergSplit(
                 deleteFile.path().toString(),
                 0,
@@ -109,6 +115,8 @@ public class EqualityDeletesSplitSource
                 fromIcebergFileFormat(deleteFile.format()),
                 ImmutableList.of(),
                 getPartitionKeys(specById.get(deleteFile.specId()), deleteFile.partition()),
+                PartitionSpecParser.toJson(spec),
+                partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
                 SplitWeight.standard(),
                 ImmutableList.of(),

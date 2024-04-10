@@ -231,11 +231,12 @@ public class TestBackgroundHiveSplitLoader
         List<HivePartitionMetadata> hivePartitionMetadatas =
                 ImmutableList.of(
                         new HivePartitionMetadata(
-                                new HivePartition(unsupportedTable.getSchemaTableName(), partitionId, ImmutableMap.of()),
+                                new HivePartition(unsupportedTable.getSchemaTableName(), new PartitionNameWithVersion(partitionId, Optional.empty()), ImmutableMap.of()),
                                 Optional.of(orcPartition()),
                                 TableToPartitionMapping.empty(),
                                 Optional.empty(),
-                                ImmutableSet.of()));
+                                ImmutableSet.of(),
+                                Optional.empty()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 SESSION,
@@ -271,7 +272,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 true,
                 0,
-                0);
+                0,
+                Optional.empty());
     }
 
     @Test
@@ -544,7 +546,8 @@ public class TestBackgroundHiveSplitLoader
                                 Optional.empty(),
                                 TableToPartitionMapping.empty(),
                                 Optional.empty(),
-                                ImmutableSet.of()));
+                                ImmutableSet.of(),
+                                Optional.empty()));
     }
 
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister, String fileStatusCacheTables)
@@ -612,7 +615,8 @@ public class TestBackgroundHiveSplitLoader
                                 Optional.empty(),
                                 TableToPartitionMapping.empty(),
                                 Optional.empty(),
-                                ImmutableSet.of());
+                                ImmutableSet.of(),
+                                Optional.empty());
                     case 1:
                         throw new RuntimeException("OFFLINE");
                     default:
@@ -634,7 +638,8 @@ public class TestBackgroundHiveSplitLoader
                 new DataSize(32, MEGABYTE),
                 backgroundHiveSplitLoader,
                 EXECUTOR,
-                new CounterStat());
+                new CounterStat(),
+                1);
     }
 
     private static Table table(

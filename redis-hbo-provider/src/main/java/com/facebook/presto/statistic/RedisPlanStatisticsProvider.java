@@ -93,11 +93,13 @@ public class RedisPlanStatisticsProvider
                         output.put(redisFutureEntry.getKey(), redisFutureEntry.getValue().get());
                     }
                     catch (Exception e) {
-                        log.error(String.format("Error reading done Redis future fore key %s", redisFutureEntry.getKey().toString()));
+                        // This exception will be handled by the RedisProviderApiStats which will increment metrics and not fail the query if stats not found
+                        log.error(String.format("Error reading done Redis future for key %s", redisFutureEntry.getKey().toString()));
                         throw e;
                     }
                 }
                 else {
+                    // This exception will be handled by the RedisProviderApiStats which will increment metrics and not fail the query if stats not found
                     // cancel
                     log.debug(String.format("Redis Timeout: Couldn't receive stats for key %s from redis", redisFutureEntry.getKey().toString()));
                     redisFutureEntry.getValue().cancel(true);

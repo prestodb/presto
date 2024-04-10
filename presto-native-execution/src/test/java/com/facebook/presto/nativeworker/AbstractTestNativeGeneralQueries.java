@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +29,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -92,6 +95,12 @@ public abstract class AbstractTestNativeGeneralQueries
         createPrestoBenchTables(queryRunner);
     }
 
+    @Override
+    protected FeaturesConfig createFeaturesConfig()
+    {
+        return new FeaturesConfig().setNativeExecutionEnabled(true);
+    }
+
     @Test
     public void testCatalogWithCacheEnabled()
     {
@@ -117,7 +126,7 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testFiltersAndProjections()
+    public void testFiltersAndProjections1()
     {
         assertQuery("SELECT * FROM nation");
         assertQuery("SELECT * FROM nation WHERE nationkey = 4");
@@ -137,6 +146,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // "SELECT * FROM nation WHERE nationkey NOT IN (2, 33, " + Long.MAX_VALUE + ")"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", 2, 33)"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", " + Long.MAX_VALUE + ")"
+    }
+
+    @Test
+    public void testFiltersAndProjections2()
+    {
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN 3 AND 7");
         assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN -10 AND 5");
         assertQuery("SELECT * FROM nation WHERE nationkey < 5 OR nationkey > 10");
@@ -149,6 +163,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('', ';', 'new country w1th $p3c1@l ch@r@c73r5')");
         assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should produce NegatedBytesRange
         assertQuery("SELECT * FROM nation WHERE name <= 'B' OR 'G' <= name");
+    }
+
+    @Test
+    public void testFiltersAndProjections3()
+    {
         assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('RAIL', 'AIR')");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('', 'TRUCK', 'FOB', 'RAIL')");
@@ -167,7 +186,11 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT * FROM lineitem WHERE linenumber = 1");
         assertQuery("SELECT * FROM lineitem WHERE linenumber > 3");
+    }
 
+    @Test
+    public void testFiltersAndProjections4()
+    {
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint = 3");
         assertQuery("SELECT * FROM lineitem WHERE linenumber_as_smallint > 5 AND linenumber_as_smallint < 2");
 
@@ -181,7 +204,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE discount_as_real BETWEEN 0.01 AND 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real < 0.02");
         assertQuery("SELECT linenumber, orderkey, discount FROM lineitem WHERE tax_as_real BETWEEN 0.02 AND 0.06");
+    }
 
+    @Test
+    public void testFiltersAndProjections5()
+    {
         assertQuery("SELECT * FROM lineitem WHERE is_open=true");
         assertQuery("SELECT * FROM lineitem WHERE is_open<>true");
         assertQuery("SELECT * FROM lineitem WHERE is_open");
@@ -199,7 +226,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT * FROM lineitem WHERE is_returned and NOT is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and is_open");
         assertQuery("SELECT * FROM lineitem WHERE NOT is_returned and  NOT is_open");
+    }
 
+    @Test
+    public void testFiltersAndProjections6()
+    {
         // query with filter using like
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK%'");
         assertQuery("SELECT * FROM lineitem WHERE shipinstruct like 'TAKE BACK#%' escape '#'");
@@ -207,7 +238,6 @@ public abstract class AbstractTestNativeGeneralQueries
         // no row passes the filter
         assertQuery(
                 "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount > 0.2");
-
         // remaining filter
         assertQuery("SELECT count(*) FROM orders_ex WHERE contains(map_keys(quantity_by_linenumber), 1)");
 
@@ -228,10 +258,10 @@ public abstract class AbstractTestNativeGeneralQueries
         // column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
         assertQuery("SHOW STATS FOR region",
                 "SELECT * FROM (VALUES" +
-                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL)," +
-                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL))");
+                        "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4', NULL)," +
+                        "('name', 54.0, 5.0, 0.0, NULL, NULL, NULL, NULL)," +
+                        "('comment', 350.0, 5.0, 0.0, NULL, NULL, NULL, NULL)," +
+                        "(NULL, NULL, NULL, NULL, 5.0, NULL, NULL, NULL))");
 
         // Create a partitioned table and run analyze on it.
         String tmpTableName = generateRandomTableName();
@@ -245,17 +275,17 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 25);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4')," +
-                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24')," +
-                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL))");
+                            "('name', 277.0, 1.0, 0.0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 5.0, 0.0, NULL, '0', '4', NULL)," +
+                            "('nationkey', NULL, 25.0, 0.0, NULL, '0', '24', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 25.0, NULL, NULL, NULL))");
             assertUpdate(String.format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['0','0'],ARRAY['4', '11']])", tmpTableName), 2);
             assertQuery(String.format("SHOW STATS for (SELECT * FROM %s where regionkey=4 and nationkey=11)", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL)," +
-                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4')," +
-                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11')," +
-                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL))");
+                            "('name', 8.0, 1.0, 0.0, NULL, NULL, NULL, NULL)," +
+                            "('regionkey', NULL, 1.0, 0.0, NULL, '4', '4', NULL)," +
+                            "('nationkey', NULL, 1.0, 0.0, NULL, '11', '11', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 1.0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -275,9 +305,9 @@ public abstract class AbstractTestNativeGeneralQueries
             assertUpdate(String.format("ANALYZE %s", tmpTableName), 7);
             assertQuery(String.format("SHOW STATS for %s", tmpTableName),
                     "SELECT * FROM (VALUES" +
-                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12')," +
-                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13')," +
-                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL))");
+                            "('c0', NULL,4.0 , 0.2857142857142857, NULL, '-542392.89', '1000000.12', NULL)," +
+                            "('c1', NULL,4.0 , 0.2857142857142857, NULL,  '-6.72398239210929E12', '2.823982323232357E13', NULL)," +
+                            "(NULL, NULL, NULL, NULL, 7.0, NULL, NULL, NULL))");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -728,6 +758,12 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
                 "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
 
+        // Short decimal / long decimal -> long decimal.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('0.01' as decimal(17, 4)), CAST('5' as decimal(21, 19)))," +
+                "(CAST('0.02' as decimal(17, 4)), CAST('4' as decimal(21, 19)))" +
+                ") t(n,m)");
+
         // Division overflow.
         assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01'))" +
                 " t(n,m)", ".*Decimal.*");
@@ -870,6 +906,22 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
 
+        //to_ieee754_32
+        assertQuery("SELECT to_ieee754_32(null)");
+        assertQuery("SELECT to_ieee754_32(cast(0.0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL))");
+        assertQuery("SELECT to_ieee754_32(cast(totalprice as REAL)) FROM orders");
+        assertQuery("SELECT to_ieee754_32(cast(acctbal as REAL)) FROM customer");
+
+        //from_ieee754_32
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(null))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(0.0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(-3.14158999999999988261834005243E0 as REAL)))");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(totalprice as REAL))) FROM orders");
+        assertQuery("SELECT from_ieee754_32(to_ieee754_32(cast(acctbal as REAL))) FROM customer");
+
         //to_ieee754_64
         assertQuery("SELECT to_ieee754_64(null)");
         assertQuery("SELECT to_ieee754_64(0.0)");
@@ -943,14 +995,33 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
-    public void testPath()
+    public void testPathHiddenColumn()
     {
         assertQuery("SELECT \"$path\", * from orders");
 
         // Fetch one of the file paths and use it in a filter
         String path = (String) computeActual("SELECT \"$path\" from orders LIMIT 1").getOnlyValue();
-
         assertQuery(format("SELECT * from orders WHERE \"$path\"='%s'", path));
+    }
+
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
+        assertQuery("SELECT \"$file_size\", * from orders");
+
+        // Fetch one of the file sizes and use it in a filter
+        Long fileSize = (Long) computeActual("SELECT \"$file_size\" from orders LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT * from orders WHERE \"$file_size\"=%d", fileSize));
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+    {
+        assertQuery("SELECT \"$file_modified_time\", * from orders");
+
+        // Fetch one of the file modified times and use it as a filter.
+        Long fileModifiedTime = (Long) computeActual("SELECT \"$file_modified_time\" from orders LIMIT 1").getOnlyValue();
+        assertQuery(format("SELECT *, \"$file_modified_time\" from orders WHERE \"$file_modified_time\"=%d", fileModifiedTime));
     }
 
     @Test
@@ -1145,7 +1216,8 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey)), date_trunc('quarter', from_unixtime(orderkey)), date_trunc('month', from_unixtime(orderkey)), date_trunc('day', from_unixtime(orderkey)), date_trunc('hour', from_unixtime(orderkey)), date_trunc('minute', from_unixtime(orderkey)), date_trunc('second', from_unixtime(orderkey)) FROM orders");
     }
 
-    @Test
+    // disabling flaky test https://github.com/prestodb/presto/issues/21821
+    @Test(enabled = false)
     public void testPrestoBenchTables()
     {
         assertQuery("SELECT name from prestobench_nation");
@@ -1477,6 +1549,19 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+    }
+
+    /**
+     * See GitHub issue: <a href="https://github.com/prestodb/presto/issues/22085">link</a>
+     */
+    @Test
+    public void testKeyBasedSamplingInlined()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "true")
+                .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(session, "select count(1) from orders join lineitem using(orderkey)");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)

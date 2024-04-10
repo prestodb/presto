@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
@@ -41,6 +42,7 @@ import com.facebook.presto.hive.parquet.ParquetPageSource;
 import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
+import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -88,6 +90,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
@@ -144,6 +147,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
+import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
@@ -189,6 +193,8 @@ public class IcebergPageSourceProvider
     private final StripeMetadataSourceFactory stripeMetadataSourceFactory;
     private final DwrfEncryptionProvider dwrfEncryptionProvider;
     private final HiveClientConfig hiveClientConfig;
+    private final IcebergFileWriterFactory fileWriterFactory;
+    private final JsonCodec<CommitTaskData> jsonCodec;
 
     private final ParquetMetadataSource parquetMetadataSource;
 
@@ -201,7 +207,9 @@ public class IcebergPageSourceProvider
             StripeMetadataSourceFactory stripeMetadataSourceFactory,
             HiveDwrfEncryptionProvider dwrfEncryptionProvider,
             HiveClientConfig hiveClientConfig,
-            ParquetMetadataSource parquetMetadataSource)
+            ParquetMetadataSource parquetMetadataSource,
+            IcebergFileWriterFactory fileWriterFactory,
+            JsonCodec<CommitTaskData> jsonCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
@@ -211,6 +219,8 @@ public class IcebergPageSourceProvider
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "DwrfEncryptionProvider is null").toDwrfEncryptionProvider();
         this.hiveClientConfig = requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
+        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
     }
 
     private static ConnectorPageSourceWithRowPositions createParquetPageSource(
@@ -755,6 +765,24 @@ public class IcebergPageSourceProvider
                 splitContext.isCacheable());
         ConnectorPageSource dataPageSource = connectorPageSourceWithRowPositions.getConnectorPageSource();
 
+        Optional<String> outputPath = table.getOutputPath();
+        Optional<Map<String, String>> storageProperties = table.getStorageProperties();
+        verify(outputPath.isPresent(), "outputPath is null");
+        verify(storageProperties.isPresent(), "storageProperties are null");
+
+        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
+        Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
+                tableSchema,
+                split.getPartitionSpecAsJson(),
+                split.getPartitionDataJson(),
+                locationProvider,
+                fileWriterFactory,
+                hdfsEnvironment,
+                hdfsContext,
+                jsonCodec,
+                session,
+                split.getPath(),
+                split.getFileFormat());
         Supplier<Optional<RowPredicate>> deletePredicate = Suppliers.memoize(() -> {
             // If equality deletes are optimized into a join they don't need to be applied here
             List<DeleteFile> deletesToApply = split
@@ -784,7 +812,7 @@ public class IcebergPageSourceProvider
             }
         }
 
-        ConnectorPageSource dataSource = new IcebergPageSource(icebergColumns, metadataValues, partitionKeys, dataPageSource, deletePredicate);
+        ConnectorPageSource dataSource = new IcebergUpdateablePageSource(icebergColumns, metadataValues, partitionKeys, dataPageSource, deleteSinkSupplier, deletePredicate);
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
         }

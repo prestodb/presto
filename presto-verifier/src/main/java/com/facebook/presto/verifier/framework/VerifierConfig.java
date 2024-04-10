@@ -48,6 +48,7 @@ public class VerifierConfig
 
     private double relativeErrorMargin = 1e-4;
     private double absoluteErrorMargin = 1e-12;
+    private boolean useErrorMarginForFloatingPointArrays = true;
     private boolean smartTeardown;
     private int verificationResubmissionLimit = 6;
 
@@ -59,6 +60,8 @@ public class VerifierConfig
 
     private boolean explain;
     private boolean saveSnapshot;
+
+    private boolean extendedVerification;
     private String runningMode = CONTROL_TEST_MODE;
 
     @NotNull
@@ -246,6 +249,19 @@ public class VerifierConfig
         return this;
     }
 
+    public boolean isUseErrorMarginForFloatingPointArrays()
+    {
+        return useErrorMarginForFloatingPointArrays;
+    }
+
+    @ConfigDescription("When set to true, arrays of floating point numbers are validated like floating point columns, using error margins. False by default.")
+    @Config("use-error-margin-for-floating-point-arrays")
+    public VerifierConfig setUseErrorMarginForFloatingPointArrays(boolean useErrorMarginForFloatingPointArrays)
+    {
+        this.useErrorMarginForFloatingPointArrays = useErrorMarginForFloatingPointArrays;
+        return this;
+    }
+
     public boolean isSmartTeardown()
     {
         return smartTeardown;
@@ -360,6 +376,19 @@ public class VerifierConfig
     public VerifierConfig setSaveSnapshot(boolean saveSnapshot)
     {
         this.saveSnapshot = saveSnapshot;
+        return this;
+    }
+
+    public boolean isExtendedVerification()
+    {
+        return extendedVerification;
+    }
+
+    @ConfigDescription("Run extended verification logic in verifier.")
+    @Config("extended-verification")
+    public VerifierConfig setExtendedVerification(boolean extendedVerification)
+    {
+        this.extendedVerification = extendedVerification;
         return this;
     }
 

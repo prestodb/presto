@@ -42,7 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
@@ -508,7 +508,7 @@ public class TestIcebergRegisterProcedure
     {
         ExtendedHiveMetastore metastore = getFileHiveMetastore();
         ConnectorSession connectorSession = session.toConnectorSession();
-        MetastoreContext metastoreContext = new MetastoreContext(connectorSession.getIdentity(), connectorSession.getQueryId(), connectorSession.getClientInfo(), connectorSession.getSource(), getMetastoreHeaders(connectorSession), isUserDefinedTypeEncodingEnabled(connectorSession), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, connectorSession.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(connectorSession.getIdentity(), connectorSession.getQueryId(), connectorSession.getClientInfo(), connectorSession.getSource(), getMetastoreHeaders(connectorSession), isUserDefinedTypeEncodingEnabled(connectorSession), HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, connectorSession.getWarningCollector(), connectorSession.getRuntimeStats());
 
         metastore.dropTableFromMetastore(metastoreContext, schemaName, tableName);
     }

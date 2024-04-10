@@ -30,9 +30,14 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
+import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
@@ -69,6 +74,19 @@ public class TestHiveHistoryBasedStatsTracking
         return queryRunner;
     }
 
+    @BeforeMethod(alwaysRun = true)
+    public void setUp()
+    {
+        getHistoryProvider().clearCache();
+    }
+
+    private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
+    {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
+        return (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
+    }
+
     @Test
     public void testHistoryBasedStatsCalculator()
     {
@@ -88,6 +106,38 @@ public class TestHiveHistoryBasedStatsTracking
             assertPlan(
                     "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and substr(orderpriority, 1, 1) = '1'",
                     anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
+        }
+    }
+
+    @Test
+    public void testHistoryBasedStatsCalculatorMultipleStrategies()
+    {
+        try {
+            getQueryRunner().execute("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['ds', 'ts']) AS " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds, '00:01' as ts FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-02' as ds, '00:02' as ts FROM orders WHERE orderkey >= 1000 AND orderkey < 2000");
+
+            // CBO Statistics
+            assertPlan(
+                    "SELECT *, 1 FROM test_orders where ds = '2020-09-01' and orderpriority = '1-URGENT'",
+                    anyTree(node(ProjectNode.class, any())).withOutputRowCount(51.0));
+
+            // HBO Statistics
+            executeAndTrackHistory("SELECT *, 1 FROM test_orders where ds = '2020-09-01' and orderpriority = '1-URGENT'",
+                    createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")));
+            assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")),
+                    "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '1-URGENT'",
+                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
+            assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")),
+                    "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '2-HIGH'",
+                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
+            assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS")),
+                    "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '2-HIGH'",
+                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(49.6)));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
@@ -165,7 +215,7 @@ public class TestHiveHistoryBasedStatsTracking
                     "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds, '00:01' as ts FROM orders where orderkey < 2000 ");
 
             String query = "SELECT count(*) FROM test_orders group by custkey";
-            Session session = createSession("always");
+            Session session = createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "always"));
             Plan plan = plan(query, session);
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
@@ -174,9 +224,9 @@ public class TestHiveHistoryBasedStatsTracking
                     .isPresent());
 
             // collect HBO Statistics
-            executeAndTrackHistory(query, createSession("always"));
+            executeAndTrackHistory(query, createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "always")));
 
-            plan = plan(query, createSession("automatic"));
+            plan = plan(query, createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "automatic")));
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
                     .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL).findAll().isEmpty());
@@ -197,11 +247,11 @@ public class TestHiveHistoryBasedStatsTracking
             // collect HBO Statistics
             String queryGBPartitionKey = "SELECT ds FROM test_orders group by ds";
 
-            Plan plan = plan(queryGBPartitionKey, createSession("always"));
+            Plan plan = plan(queryGBPartitionKey, createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "always")));
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
                     .where(node -> node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL).findFirst().isPresent());
-            executeAndTrackHistory(queryGBPartitionKey, createSession("always"));
+            executeAndTrackHistory(queryGBPartitionKey, createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "always")));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
@@ -216,29 +266,25 @@ public class TestHiveHistoryBasedStatsTracking
 
     private void executeAndTrackHistory(String sql, Session session)
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
-        InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
-
-        queryRunner.execute(session, sql);
-        provider.waitProcessQueryEvents();
+        getQueryRunner().execute(session, sql);
+        getHistoryProvider().waitProcessQueryEvents();
     }
 
     private Session defaultSession()
     {
-        return createSession("automatic");
+        return createSession(ImmutableMap.of(PARTIAL_AGGREGATION_STRATEGY, "automatic"));
     }
 
-    private Session createSession(String partialAggregationStrategy)
+    private Session createSession(Map<String, String> properties)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "automatic")
-                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, partialAggregationStrategy)
                 .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
-                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false")
-                .build();
+                .setSystemProperty(RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY, "false");
+        properties.forEach((property, value) -> builder.setSystemProperty(property, value));
+        return builder.build();
     }
 }

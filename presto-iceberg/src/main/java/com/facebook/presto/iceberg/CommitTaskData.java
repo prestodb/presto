@@ -25,19 +25,28 @@ public class CommitTaskData
     private final String path;
     private final long fileSizeInBytes;
     private final MetricsWrapper metrics;
+    private final int partitionSpecId;
     private final Optional<String> partitionDataJson;
+    private final FileFormat fileFormat;
+    private final Optional<String> referencedDataFile;
 
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("metrics") MetricsWrapper metrics,
-            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson)
+            @JsonProperty("partitionSpecJson") int partitionSpecId,
+            @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
+            @JsonProperty("fileFormat") FileFormat fileFormat,
+            @JsonProperty("referencedDataFile") String referencedDataFile)
     {
         this.path = requireNonNull(path, "path is null");
         this.fileSizeInBytes = fileSizeInBytes;
         this.metrics = requireNonNull(metrics, "metrics is null");
+        this.partitionSpecId = partitionSpecId;
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.referencedDataFile = Optional.ofNullable(referencedDataFile);
     }
 
     @JsonProperty
@@ -59,8 +68,26 @@ public class CommitTaskData
     }
 
     @JsonProperty
+    public int getPartitionSpecId()
+    {
+        return partitionSpecId;
+    }
+
+    @JsonProperty
     public Optional<String> getPartitionDataJson()
     {
         return partitionDataJson;
+    }
+
+    @JsonProperty
+    public FileFormat getFileFormat()
+    {
+        return fileFormat;
+    }
+
+    @JsonProperty
+    public Optional<String> getReferencedDataFile()
+    {
+        return referencedDataFile;
     }
 }

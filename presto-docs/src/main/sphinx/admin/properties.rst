@@ -157,7 +157,7 @@ Spilling Properties
     This config property can be overridden by the ``spill_enabled`` session property.
 
 ``experimental.join-spill-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -245,7 +245,7 @@ Spilling Properties
         risky if Presto is running without a reserved memory pool.
 
 ``experimental.memory-revoking-threshold``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     * **Type:** ``double``
     * **Minimum value:** ``0``
     * **Maximum value:** ``1``
@@ -365,7 +365,7 @@ Spilling Properties
     data spilled to disk
 
 ``experimental.spiller.single-stream-spiller-choice``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``String``
     * **Default value:** ``LOCAL_FILE``
@@ -374,7 +374,7 @@ Spilling Properties
     LOCAL_FILE (default) and TEMP_STORAGE.
 
 ``experimental.spiller.spiller-temp-storage``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``String``
     * **Default value:** ``local``
@@ -573,7 +573,7 @@ Task Properties
     a per-query basis using the ``task_writer_count`` session property.
 
 ``task.interrupt-runaway-splits-timeout``
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``duration``
     * **Default value:** ``10m``
@@ -770,7 +770,7 @@ Optimizer Properties
                  so increasing this value can cause serious performance issues.
 
 ``optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -787,7 +787,7 @@ Optimizer Properties
     join and thereby produces more optimal plans.
 
 ``optimizer.rewrite-expression-with-constant-variable``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -795,6 +795,38 @@ Optimizer Properties
     Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
     constant value.
 
+``optimizer.history-based-optimizer-plan-canonicalization-strategies``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``IGNORE_SAFE_CONSTANTS``
+
+    Plan canonicalization strategies used to canonicalize a query plan for history based optimization.
+
+``optimizer.track-history-stats-from-failed-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Track history based plan statistics from complete plan fragments in failed queries.
+
+``optimizer.log-plans-used-in-history-based-optimizer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Log the stats equivalent plan and canonicalized plans used in history based optimization.
+
+``optimizer.exploit-constraints``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Enable analysis and propagation of logical properties like distinct keys or cardinality among the nodes of
+    a query plan. The optimizer may then use these properties to perform various optimizations.
 
 Planner Properties
 --------------------------------------
@@ -871,7 +903,7 @@ CTE Materialization Properties
     This can also be specified on a per-query basis using the ``cte_materialization_strategy`` session property.
 
 ``query.cte-hash-partition-count``
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
     * **Default value:** ``100``
@@ -883,7 +915,7 @@ CTE Materialization Properties
     This can also be specified on a per-query basis using the ``cte_hash_partition_count`` session property.
 
 ``query.cte-partitioning-provider-catalog``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
     * **Default value:** ``system``
@@ -891,3 +923,69 @@ CTE Materialization Properties
     The name of the catalog to be used for Common Table Expressions (CTE) and which provides custom partitioning for Common Table Expression (CTE) materialization.
     This setting specifies which catalog should be used for CTE materialization and for determining how to partition the materialization of CTEs in queries.
     This can also be specified on a per-query basis using the ``cte_partitioning_provider_catalog`` session property.
+
+
+Logging Properties
+------------------
+
+``log.max-history``
+^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``30``
+
+    The ``log.max-history`` property controls the number of archive log periods that the application retains.
+    In Presto, one log period corresponds to one day. For instance, if ``log.max-history`` is set to 30, the system will keep logs for the
+    past 30 days.
+
+``log.max-size``
+^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the general application log file.
+
+``http-server.log.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable logging for the HTTP server.
+
+``http-server.log.compression.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Flag to enable or disable compression of the log files of the HTTP server.
+
+``http-server.log.path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``var/log/http-request.log``
+
+    The path to the log file used by the HTTP server. The path is relative to
+    the data directory, configured by the launcher script as detailed in
+    :ref:`running_presto`.
+
+``http-server.log.max-history``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``15``
+
+    The ``http-server.log.max-history`` property controls the number of archive log periods that the HTTP server retains.
+    In Presto, one log period corresponds to one day. For instance, if ``http-server.log.max-history`` is set to 15, the
+    system will keep logs for the past 15 days.
+
+``http-server.log.max-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``100MB``
+
+    The maximum file size for the log file of the HTTP server.

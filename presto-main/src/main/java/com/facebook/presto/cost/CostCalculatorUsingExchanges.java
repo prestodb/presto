@@ -16,6 +16,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -35,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
@@ -47,6 +50,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateCteProducerCost;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateLocalRepartitionCost;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteGatherCost;
@@ -78,19 +82,21 @@ public class CostCalculatorUsingExchanges
     @Override
     public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, CostProvider sourcesCosts, Session session)
     {
-        CostEstimator costEstimator = new CostEstimator(stats, sourcesCosts, taskCountEstimator);
+        CostEstimator costEstimator = new CostEstimator(session, stats, sourcesCosts, taskCountEstimator);
         return node.accept(costEstimator, null);
     }
 
     private static class CostEstimator
             extends InternalPlanVisitor<PlanCostEstimate, Void>
     {
+        private final Session session;
         private final StatsProvider stats;
         private final CostProvider sourcesCosts;
         private final TaskCountEstimator taskCountEstimator;
 
-        CostEstimator(StatsProvider stats, CostProvider sourcesCosts, TaskCountEstimator taskCountEstimator)
+        CostEstimator(Session session, StatsProvider stats, CostProvider sourcesCosts, TaskCountEstimator taskCountEstimator)
         {
+            this.session = requireNonNull(session, "session is null");
             this.stats = requireNonNull(stats, "stats is null");
             this.sourcesCosts = requireNonNull(sourcesCosts, "sourcesCosts is null");
             this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
@@ -154,6 +160,25 @@ public class CostCalculatorUsingExchanges
         {
             LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getSource()));
             return costForStreaming(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitCteProducer(CteProducerNode node, Void context)
+        {
+            LocalCostEstimate localCost = calculateCteProducerCost(session, stats, node.getSource());
+            return costForStreaming(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitCteConsumer(CteConsumerNode node, Void context)
+        {
+            return node.getOriginalSource().accept(this, context);
+        }
+
+        @Override
+        public PlanCostEstimate visitSequence(SequenceNode node, Void context)
+        {
+            return costForStreaming(node, LocalCostEstimate.zero());
         }
 
         @Override

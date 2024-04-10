@@ -156,7 +156,7 @@ public class HiveFilterPushdown
 
             SemiTransactionalHiveMetastore metastore = ((HiveMetadata) metadata).getMetastore();
 
-            MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
+            MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
             Table table = metastore.getTable(context, hiveTableHandle)
                     .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -171,7 +171,7 @@ public class HiveFilterPushdown
 
             Optional<Set<HiveColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
 
-            boolean appendRowNumbereEnabled = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).isAppendRowNumberEnabled()).orElse(false);
+            boolean appendRowNumber = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).isAppendRowNumberEnabled()).orElse(false);
 
             return new ConnectorPushdownFilterResult(
                     metadata.getTableLayout(
@@ -193,7 +193,7 @@ public class HiveFilterPushdown
                                     .setLayoutString(layoutString)
                                     .setRequestedColumns(requestedColumns)
                                     .setPartialAggregationsPushedDown(false)
-                                    .setAppendRowNumberEnabled(appendRowNumbereEnabled)
+                                    .setAppendRowNumberEnabled(appendRowNumber)
                                     .setHiveTableHandle(hiveTableHandle)
                                     .build()),
                     remainingExpressions.getDynamicFilterExpression());

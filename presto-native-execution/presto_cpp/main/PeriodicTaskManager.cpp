@@ -121,6 +121,7 @@ void PeriodicTaskManager::start() {
   }
 
   if (server_ && server_->hasCoordinatorDiscoverer()) {
+    numDriverThreads_ = server_->numDriverThreads();
     addWatchdogTask();
   }
 
@@ -670,7 +671,7 @@ void PeriodicTaskManager::addWatchdogTask() {
           LOG(ERROR)
               << "Cannot take lock on task manager, likely starving or deadlocked";
           RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 1);
-          detachWorker();
+          detachWorker("starving or deadlocked task manager");
           return;
         }
         RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 0);
@@ -684,8 +685,14 @@ void PeriodicTaskManager::addWatchdogTask() {
                      << " duration= " << velox::succinctMillis(call.durationMs);
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
-        if (!deadlockTasks.empty() || !stuckOpCalls.empty()) {
-          detachWorker();
+
+        // Detach worker from the cluster if more than half of driver threads
+        // are blocked by stuck operators (one unique operator can only get
+        // stuck on one unique thread).
+        if (stuckOpCalls.size() > numDriverThreads_ / 2) {
+          detachWorker("detected stuck operators");
+        } else if (!deadlockTasks.empty()) {
+          detachWorker("starving or deadlocked task");
         } else {
           maybeAttachWorker();
         }
@@ -694,11 +701,11 @@ void PeriodicTaskManager::addWatchdogTask() {
       "Watchdog");
 }
 
-void PeriodicTaskManager::detachWorker() {
+void PeriodicTaskManager::detachWorker(const char* reason) {
   LOG(WARNING) << "TraceContext::status:\n"
                << velox::process::TraceContext::statusLine();
   if (server_ && server_->nodeState() == NodeState::kActive) {
-    LOG(WARNING) << "Will detach worker due to detected stuck operators";
+    LOG(WARNING) << "Will detach worker due to " << reason;
     server_->detachWorker();
   }
 }

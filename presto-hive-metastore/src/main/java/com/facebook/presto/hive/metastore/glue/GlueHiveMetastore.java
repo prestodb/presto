@@ -63,6 +63,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
@@ -74,7 +75,6 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -87,6 +87,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
@@ -123,6 +124,7 @@ import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
@@ -343,7 +345,7 @@ public class GlueHiveMetastore
     public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(partitionNames)).forEach((partitionName, optionalPartition) -> {
+        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionNamesWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
             Partition partition = optionalPartition.orElseThrow(() ->
                     new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
@@ -521,8 +523,12 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges)
+    public MetastoreOperationResult createTable(MetastoreContext metastoreContext, Table table, PrincipalPrivileges principalPrivileges, List<TableConstraint<String>> constraints)
     {
+        if (constraints != null & !constraints.isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support table constraints");
+        }
+
         try {
             TableInput input = GlueInputConverter.convertTable(table);
             stats.getCreateTable().record(() -> glueClient.createTable(new CreateTableRequest()
@@ -692,11 +698,11 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<PartitionNameWithVersion>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
         List<Partition> partitions = getPartitions(databaseName, tableName, WILDCARD_EXPRESSION);
-        return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
+        return Optional.of(getPartitionNamesWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions)));
     }
 
     /**
@@ -711,7 +717,7 @@ public class GlueHiveMetastore
      * @return a list of partition names.
      */
     @Override
-    public List<String> getPartitionNamesByFilter(
+    public List<PartitionNameWithVersion> getPartitionNamesByFilter(
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName,
@@ -720,7 +726,7 @@ public class GlueHiveMetastore
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
         String expression = buildGlueExpression(partitionPredicates);
         List<Partition> partitions = getPartitions(databaseName, tableName, expression);
-        return buildPartitionNames(table.getPartitionColumns(), partitions);
+        return getPartitionNamesWithEmptyVersion(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
 
     @Override
@@ -805,17 +811,18 @@ public class GlueHiveMetastore
      *     Partition names = ['a=1/b=2', 'a=2/b=2']
      * </pre>
      *
-     * @param partitionNames List of full partition names
+     * @param partitionNamesWithVersion List of full partition names
      * @return Mapping of partition name to partition object
      */
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNamesWithVersion)
     {
-        requireNonNull(partitionNames, "partitionNames is null");
-        if (partitionNames.isEmpty()) {
+        requireNonNull(partitionNamesWithVersion, "partitionNames is null");
+        if (partitionNamesWithVersion.isEmpty()) {
             return ImmutableMap.of();
         }
 
+        List<String> partitionNames = MetastoreUtil.getPartitionNames(partitionNamesWithVersion);
         List<Partition> partitions = batchGetPartition(databaseName, tableName, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
@@ -1027,5 +1034,17 @@ public class GlueHiveMetastore
     public void unlock(MetastoreContext metastoreContext, long lockId)
     {
         //No-op
+    }
+
+    @Override
+    public MetastoreOperationResult dropConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, String constraintName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "dropConstraint is not supported by Glue");
+    }
+
+    @Override
+    public MetastoreOperationResult addConstraint(MetastoreContext metastoreContext, String databaseName, String tableName, TableConstraint<String> tableConstraint)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "addConstraint is not supported by Glue");
     }
 }

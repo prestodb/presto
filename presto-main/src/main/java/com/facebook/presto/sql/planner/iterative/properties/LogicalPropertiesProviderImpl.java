@@ -98,7 +98,7 @@ public class LogicalPropertiesProviderImpl
     {
         // map primary key and unique constraints from column handles to variable reference expressions
         List<Set<VariableReferenceExpression>> keys = new ArrayList<>();
-        List<TableConstraint<ColumnHandle>> uniqueConstraints = tableScanNode.getTableConstraints().stream().filter(tableConstraint -> tableConstraint instanceof UniqueConstraint && (tableConstraint.isEnforced() || tableConstraint.isRely())).collect(Collectors.toList());
+        List<TableConstraint<ColumnHandle>> uniqueConstraints = tableScanNode.getTableConstraints().stream().filter(tableConstraint -> tableConstraint instanceof UniqueConstraint && (tableConstraint.isEnabled() || tableConstraint.isRely())).collect(Collectors.toList());
         if (!uniqueConstraints.isEmpty()) {
             Map<VariableReferenceExpression, ColumnHandle> assignments = tableScanNode.getAssignments();
             Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = assignments.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
@@ -203,12 +203,8 @@ public class LogicalPropertiesProviderImpl
             throw new IllegalStateException("Expected source PlanNode to be a GroupReference with LogicalProperties");
         }
 
-        if (aggregationNode.getGroupingKeys().isEmpty() && aggregationNode.getAggregations().isEmpty()) {
-            throw new IllegalStateException("Aggregation node with no grouping columns and no aggregation functions");
-        }
-
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) aggregationNode.getSource()).getLogicalProperties().get();
-        if (!aggregationNode.getAggregations().isEmpty() && aggregationNode.getGroupingKeys().isEmpty()) {
+        if (aggregationNode.getGroupingKeys().isEmpty()) {
             //aggregation with no grouping variables, single row output
             return propagateAndLimitProperties(sourceProperties, Long.valueOf(1));
         }

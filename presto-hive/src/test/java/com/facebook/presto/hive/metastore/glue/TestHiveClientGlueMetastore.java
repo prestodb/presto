@@ -34,6 +34,7 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
@@ -78,6 +79,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYP
 import static com.facebook.presto.hive.metastore.MetastoreUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.SPARK_TABLE_PROVIDER_KEY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
@@ -246,9 +248,9 @@ public class TestHiveClientGlueMetastore
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
             Table table = getMetastoreClient().getTable(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName()).get();
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
+            Optional<List<PartitionNameWithVersion>> partitionNames = getMetastoreClient().getPartitionNames(METASTORE_CONTEXT, table.getDatabaseName(), table.getTableName());
             assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+            assertEquals(partitionNames.get(), getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2016-01-01", "ds=2016-01-02")));
         }
         finally {
             dropTable(tableName);
@@ -274,7 +276,8 @@ public class TestHiveClientGlueMetastore
                     getMetastoreHeaders(session),
                     false,
                     DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                    session.getWarningCollector());
+                    session.getWarningCollector(),
+                    session.getRuntimeStats());
             TableInput tableInput = new TableInput()
                     .withName(table.getTableName())
                     .withTableType(EXTERNAL_TABLE.name());
@@ -346,7 +349,7 @@ public class TestHiveClientGlueMetastore
                     .addBigintValues(regularColumnPartitionName, 2L)
                     .build();
 
-            List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+            List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                     METASTORE_CONTEXT,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
@@ -893,7 +896,7 @@ public class TestHiveClientGlueMetastore
                         .map(expectedPartitionValues -> makePartName(partitionColumnNames, expectedPartitionValues.getValues()))
                         .collect(toImmutableList());
 
-                List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
                         METASTORE_CONTEXT,
                         tableName.getSchemaName(),
                         tableName.getTableName(),

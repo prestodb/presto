@@ -21,7 +21,8 @@ public enum ColumnStatisticType
     NUMBER_OF_DISTINCT_VALUES("approx_distinct"),
     NUMBER_OF_NON_NULL_VALUES("count"),
     NUMBER_OF_TRUE_VALUES("count_if"),
-    TOTAL_SIZE_IN_BYTES("sum_data_size_for_stats");
+    TOTAL_SIZE_IN_BYTES("sum_data_size_for_stats"),
+    HISTOGRAM("tdigest_agg");
     private final String functionName;
 
     ColumnStatisticType(String functionName)

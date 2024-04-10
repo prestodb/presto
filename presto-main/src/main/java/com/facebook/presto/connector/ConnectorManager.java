@@ -34,6 +34,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
@@ -60,6 +61,7 @@ import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
@@ -119,6 +121,7 @@ public class ConnectorManager
     private final DeterminismEvaluator determinismEvaluator;
     private final FilterStatsCalculator filterStatsCalculator;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final ConnectorSystemConfig connectorSystemConfig;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -152,7 +155,8 @@ public class ConnectorManager
             PredicateCompiler predicateCompiler,
             DeterminismEvaluator determinismEvaluator,
             FilterStatsCalculator filterStatsCalculator,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            FeaturesConfig featuresConfig)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
@@ -177,6 +181,7 @@ public class ConnectorManager
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.connectorSystemConfig = () -> featuresConfig.isNativeExecutionEnabled();
     }
 
     @PreDestroy
@@ -382,7 +387,8 @@ public class ConnectorManager
                         determinismEvaluator,
                         new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
                 new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
-                blockEncodingSerde);
+                blockEncodingSerde,
+                connectorSystemConfig);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);

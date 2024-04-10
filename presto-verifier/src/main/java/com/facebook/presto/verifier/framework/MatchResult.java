@@ -17,6 +17,8 @@ public interface MatchResult
 {
     boolean isMatched();
 
+    String getDataType();
+
     String getMatchTypeName();
 
     boolean isMismatchPossiblyCausedByNonDeterminism();

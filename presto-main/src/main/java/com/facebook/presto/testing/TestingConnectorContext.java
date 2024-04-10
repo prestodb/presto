@@ -30,6 +30,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -152,5 +153,11 @@ public class TestingConnectorContext
     public BlockEncodingSerde getBlockEncodingSerde()
     {
         return blockEncodingSerde;
+    }
+
+    @Override
+    public ConnectorSystemConfig getConnectorSystemConfig()
+    {
+        return () -> false;
     }
 }

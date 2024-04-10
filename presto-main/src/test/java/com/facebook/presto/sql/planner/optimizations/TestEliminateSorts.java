@@ -141,8 +141,8 @@ public class TestEliminateSorts
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager()),
-                new AddLocalExchanges(getMetadata(), new SqlParser()),
+                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser(), new PartitioningProviderManager(), false),
+                new AddLocalExchanges(getMetadata(), new SqlParser(), false),
                 new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

@@ -38,8 +38,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
+import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +70,7 @@ public class CachingPlanCanonicalInfoProvider
     @Override
     public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, boolean cacheOnly)
     {
-        CacheKey key = new CacheKey(planNode, historyBasedPlanCanonicalizationStrategyList().get(0));
+        CacheKey key = new CacheKey(planNode, historyBasedPlanCanonicalizationStrategyList(session).get(0));
         return loadValue(session, key, cacheOnly).map(PlanNodeCanonicalInfo::getInputTableStatistics);
     }
 
@@ -95,13 +96,22 @@ public class CachingPlanCanonicalInfoProvider
         if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
             return Optional.empty();
         }
+        // Only log the canonicalized plan when the plan node is root node, whose serialized form will include the whole plan
+        Optional<PlanNode> statsEquivalentRootNode = historyBasedStatisticsCacheManager.getStatsEquivalentPlanRootNode(session.getQueryId());
+        boolean isRootNode = statsEquivalentRootNode.isPresent() && statsEquivalentRootNode.get() == key.getNode();
         for (Map.Entry<PlanNode, CanonicalPlan> entry : context.getCanonicalPlans().entrySet()) {
             CanonicalPlan canonicalPlan = entry.getValue();
             PlanNode plan = entry.getKey();
             if (enableVerboseRuntimeStats) {
                 profileStartTime = System.nanoTime();
             }
-            String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
+
+            String canonicalPlanString = canonicalPlan.toString(objectMapper);
+            String hashValue = hashCanonicalPlan(canonicalPlanString);
+            if (plan == key.getNode() && isRootNode && logQueryPlansUsedInHistoryBasedOptimizer(session)) {
+                historyBasedStatisticsCacheManager.getCanonicalPlan(session.getQueryId()).put(key.getStrategy(), canonicalPlanString);
+            }
+
             if (enableVerboseRuntimeStats) {
                 profileTime("HashCanonicalPlan", profileStartTime, session);
             }
@@ -178,9 +188,9 @@ public class CachingPlanCanonicalInfoProvider
         return historyBasedStatisticsCacheManager;
     }
 
-    private String hashCanonicalPlan(CanonicalPlan plan, ObjectMapper objectMapper)
+    private String hashCanonicalPlan(String planString)
     {
-        return sha256().hashString(plan.toString(objectMapper), UTF_8).toString();
+        return sha256().hashString(planString, UTF_8).toString();
     }
 
     public static class CacheKey

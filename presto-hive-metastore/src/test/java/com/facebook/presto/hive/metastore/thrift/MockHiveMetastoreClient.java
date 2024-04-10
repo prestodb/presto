@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,17 +69,19 @@ public class MockHiveMetastoreClient
     public static final Map<String, List<FieldSchema>> SCHEMA_MAP = ImmutableMap.of(
             TEST_DATABASE + TEST_TABLE, ImmutableList.of(new FieldSchema("key", "string", null)),
             TEST_DATABASE + TEST_TABLE_WITH_CONSTRAINTS, ImmutableList.of(new FieldSchema("c1", "string", "Primary Key"), new FieldSchema("c2", "string", "Unique Key")));
-    public static final List<SQLPrimaryKey> TEST_PRIMARY_KEY = ImmutableList.of(new SQLPrimaryKey(TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c1", 0, "", true, false, true));
-    public static final List<SQLUniqueConstraint> TEST_UNIQUE_CONSTRAINT = ImmutableList.of(new SQLUniqueConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c2", 1, "", true, false, true));
+    public static final List<SQLPrimaryKey> TEST_PRIMARY_KEY = ImmutableList.of(new SQLPrimaryKey(TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c1", 0, "pk", true, false, true));
+    public static final List<SQLUniqueConstraint> TEST_UNIQUE_CONSTRAINT = ImmutableList.of(new SQLUniqueConstraint("", TEST_DATABASE, TEST_TABLE_WITH_CONSTRAINTS, "c2", 1, "uk", true, false, true));
     public static final String TEST_TOKEN = "token";
-    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP);
+    public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
     public static final long PARTITION_VERSION = 1000;
     public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, Optional.of(PARTITION_VERSION));
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITHOUT_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, Optional.empty());
     public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, Optional.of(PARTITION_VERSION));
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITHOUT_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, Optional.empty());
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
@@ -331,6 +334,12 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropTable(String databaseName, String name, boolean deleteData)
     {
         throw new UnsupportedOperationException();
@@ -480,5 +489,26 @@ public class MockHiveMetastoreClient
             throw new UnsupportedOperationException();
         }
         return Optional.of(new UniqueConstraintsResponse(TEST_UNIQUE_CONSTRAINT));
+    }
+
+    @Override
+    public void dropConstraint(String dbName, String tableName, String constraintName)
+            throws TException
+    {
+        // No-op
+    }
+
+    @Override
+    public void addUniqueConstraint(List<SQLUniqueConstraint> constraint)
+            throws TException
+    {
+        // No-op
+    }
+
+    @Override
+    public void addPrimaryKeyConstraint(List<SQLPrimaryKey> constraint)
+            throws TException
+    {
+        // No-op
     }
 }

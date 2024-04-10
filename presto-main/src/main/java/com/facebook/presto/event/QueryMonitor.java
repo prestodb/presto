@@ -66,6 +66,8 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -80,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.logQueryPlansUsedInHistoryBasedOptimizer;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
@@ -87,6 +90,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistri
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -98,6 +102,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final JsonCodec<StageInfo> stageInfoCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
@@ -229,13 +234,16 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                Optional.empty()));
+                Optional.empty(),
+                ImmutableMap.of()));
 
         logQueryTimeline(queryInfo);
     }
@@ -268,13 +276,16 @@ public class QueryMonitor
                         createPlanStatistics(queryInfo.getPlanStatsAndCosts()),
                         historyBasedPlanStatisticsTracker.getQueryStats(queryInfo).values().stream().collect(toImmutableList()),
                         getPlanHash(queryInfo.getPlanCanonicalInfo()),
+                        historyBasedPlanStatisticsTracker.getCanonicalPlan(queryInfo.getQueryId()),
+                        logQueryPlansUsedInHistoryBasedOptimizer(queryInfo.getSession().toSession(sessionPropertyManager)) ? serializeStatsEquivalentPlan(historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())) : Optional.empty(),
                         queryInfo.getExpandedQuery(),
                         queryInfo.getOptimizerInformation(),
                         queryInfo.getCteInformationList(),
                         queryInfo.getScalarFunctions(),
                         queryInfo.getAggregateFunctions(),
                         queryInfo.getWindowsFunctions(),
-                        queryInfo.getPrestoSparkExecutionContext()));
+                        queryInfo.getPrestoSparkExecutionContext(),
+                        getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId()))));
 
         logQueryTimeline(queryInfo);
     }
@@ -732,5 +743,25 @@ public class QueryMonitor
                 createResourceDistribution(memoryDistribution.snapshot())));
 
         stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
+    }
+
+    private Map<PlanCanonicalizationStrategy, String> getPlanHash(List<CanonicalPlanWithInfo> canonicalPlanWithInfos, Optional<PlanNode> root)
+    {
+        if (root.isPresent()) {
+            return canonicalPlanWithInfos.stream().filter(x -> x.getCanonicalPlan().getPlan().equals(root.get())).collect(toImmutableMap(x -> x.getCanonicalPlan().getStrategy(), x -> x.getInfo().getHash(), (a, b) -> a));
+        }
+        return ImmutableMap.of();
+    }
+
+    private Optional<String> serializeStatsEquivalentPlan(Optional<PlanNode> root)
+    {
+        if (root.isPresent()) {
+            try {
+                return Optional.of(OBJECT_MAPPER.writeValueAsString(root));
+            }
+            catch (JsonProcessingException e) {
+            }
+        }
+        return Optional.empty();
     }
 }

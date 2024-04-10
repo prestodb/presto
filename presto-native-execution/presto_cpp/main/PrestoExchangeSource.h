@@ -130,7 +130,12 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   /// should not hold a lock over queue's mutex when making this call.
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      uint32_t maxWaitSeconds) override;
+      std::chrono::microseconds maxWait) override;
+
+  folly::SemiFuture<Response> requestDataSizes(
+      std::chrono::microseconds maxWait) override {
+    return request(0, maxWait);
+  }
 
   // Create an exchange source using pooled connections.
   static std::shared_ptr<PrestoExchangeSource> create(
@@ -193,39 +198,67 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   static void testingClearMemoryUsage();
 
  private:
-  void doRequest(int64_t delayMs, uint32_t maxBytes, uint32_t maxWaitSeconds);
+  void doRequest(
+      int64_t delayMs,
+      uint32_t maxBytes,
+      std::chrono::microseconds maxWait);
 
-  /// Handles successful, possibly empty, response. Adds received data to the
-  /// queue. If received an end marker, notifies the queue by adding null page.
-  /// Completes the future returned by 'request()' unless it has been completed
-  /// already by a call to 'close()'. Sends an ack if received non-empty
-  /// response without an end marker. Sends delete-results if received an end
-  /// marker. The sequence of operations is: add data or end marker to the
-  /// queue; complete the future, send ack or delete-results.
+  // Handles returned http response from the get result request. It dispatches
+  // the data handling to corresponding data processing methods.
+  //
+  // NOTE: This method is normally called within callbacks. Caller should make
+  // sure 'this' lives during the entire duration of this method call.
+  void handleDataResponse(
+      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry,
+      std::chrono::microseconds maxWait,
+      uint32_t maxBytes,
+      const std::string& httpRequestPath);
+
+  // Handles successful, possibly empty, response. Adds received data to the
+  // queue. If received an end marker, notifies the queue by adding null page.
+  // Completes the future returned by 'request()' unless it has been completed
+  // already by a call to 'close()'. Sends an ack if received non-empty
+  // response without an end marker. Sends delete-results if received an end
+  // marker. The sequence of operations is: add data or end marker to the
+  // queue; complete the future, send ack or delete-results.
   void processDataResponse(std::unique_ptr<http::HttpResponse> response);
 
-  /// If 'retry' is true, then retry the http request failure until reaches the
-  /// retry limit, otherwise just set exchange source error without retry. As
-  /// for now, we don't retry on the request failure which is caused by the
-  /// memory allocation failure for the http response data.
-  ///
-  /// Upon final failure, completes the future returned from 'request'.
+  // If 'retry' is true, then retry the http request failure until reaches the
+  // retry limit, otherwise just set exchange source error without retry. As
+  // for now, we don't retry on the request failure which is caused by the
+  // memory allocation failure for the http response data.
+  //
+  // Upon final failure, completes the future returned from 'request'.
   void processDataError(
       const std::string& path,
       uint32_t maxBytes,
-      uint32_t maxWaitSeconds,
+      std::chrono::microseconds maxWait,
       const std::string& error);
 
   void acknowledgeResults(int64_t ackSequence);
 
+  // Handles returned http response from acknowledge result request.
+  //
+  // NOTE: This method is normally called within callbacks. Caller should make
+  // sure 'this' lives during the entire duration of this method call.
+  void handleAckResponse(
+      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
+
   void abortResults();
 
-  /// Send abort results after specified delay. This function is called
-  /// multiple times by abortResults for retries.
+  // Send abort results after specified delay. This function is called
+  // multiple times by abortResults for retries.
   void doAbortResults(int64_t delayMs);
 
-  /// Completes the future returned from 'request()' if it hasn't completed
-  /// already.
+  // Handles returned http response from abort result request.
+  //
+  // NOTE: This method is normally called within callbacks. Caller should make
+  // sure 'this' lives during the entire duration of this method call.
+  void handleAbortResponse(
+      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
+
+  // Completes the future returned from 'request()' if it hasn't completed
+  // already.
   bool checkSetRequestPromise();
 
   // Returns a shared ptr owning the current object.

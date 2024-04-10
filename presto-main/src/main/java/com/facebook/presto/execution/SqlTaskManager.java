@@ -23,6 +23,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
@@ -300,6 +301,7 @@ public class SqlTaskManager
                 Thread.currentThread().interrupt();
             }
         }
+        driverYieldExecutor.shutdownNow();
         taskNotificationExecutor.shutdownNow();
     }
 
@@ -450,6 +452,14 @@ public class SqlTaskManager
         requireNonNull(maxSize, "maxSize is null");
 
         return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+    }
+
+    @Override
+    public Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBufferId bufferId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(bufferId, "bufferId is null");
+        return tasks.getUnchecked(taskId).getTaskBufferInfo(bufferId);
     }
 
     @Override

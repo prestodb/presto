@@ -92,6 +92,21 @@ public class TestHyperLogLogFunctions
     }
 
     @Test
+    public void testNoisyCardinalitySingleColumn()
+    {
+        int[] uniqueElementsCount = {0, 10000, 100000, 1000000};
+        for (int uniqueElements : uniqueElementsCount) {
+            double error = uniqueElements * 0.05;
+            HyperLogLog hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
+            for (int i = 0; i < uniqueElements; i++) {
+                hll.add(i);
+            }
+            String projection = getNoisyCardinalityProjection(hll);
+            functionAssertions.assertFunctionWithError(projection, BIGINT, uniqueElements, error);
+        }
+    }
+
+    @Test
     public void testCardinalityTwoColumns()
     {
         int blockSize = 2;
@@ -205,5 +220,13 @@ public class TestHyperLogLogFunctions
         projection += "])";
 
         return projection;
+    }
+
+    private String getNoisyCardinalityProjection(HyperLogLog hll)
+    {
+        Slice serializedHll = hll.serialize();
+        byte[] hllBytes = serializedHll.getBytes();
+        String encodedHll = BaseEncoding.base16().lowerCase().encode(hllBytes);
+        return String.format("noisy_cardinality(CAST(X'%s' AS HyperLogLog), infinity())", encodedHll);
     }
 }

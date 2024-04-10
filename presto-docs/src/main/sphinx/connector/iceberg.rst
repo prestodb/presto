@@ -168,58 +168,76 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================================== ============================================================= ============
-Property Name                                      Description                                                   Default
-================================================== ============================================================= ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default, and the rest of the URIs are
-                                                   fallback metastores.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-                                                   This property is required if the
-                                                   ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
-                                                   be ignored.
+======================================================= ============================================================= ============
+Property Name                                           Description                                                   Default
+======================================================= ============================================================= ============
+``hive.metastore.uri``                                  The URI(s) of the Hive metastore to connect to using the
+                                                        Thrift protocol. If multiple URIs are provided, the first
+                                                        URI is used by default, and the rest of the URIs are
+                                                        fallback metastores.
 
-``iceberg.file-format``                            The storage file format for Iceberg tables. The available     ``ORC``
-                                                   values are ``PARQUET`` and ``ORC``.
+                                                        Example: ``thrift://192.0.2.3:9083`` or
+                                                        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``.
 
-``iceberg.compression-codec``                      The compression codec to use when writing files. The          ``GZIP``
-                                                   available values are ``NONE``, ``SNAPPY``, ``GZIP``,
-                                                   ``LZ4``, and ``ZSTD``.
+                                                        This property is required if the
+                                                        ``iceberg.catalog.type`` is ``hive``. Otherwise, it will
+                                                        be ignored.
 
-``iceberg.catalog.type``                           The catalog type for Iceberg tables. The available values     ``hive``
-                                                   are ``hive``, ``hadoop``, and ``nessie`` corresponding to
-                                                   the catalogs in Iceberg.
+``iceberg.catalog.type``                                The catalog type for Iceberg tables. The available values     ``hive``
+                                                        are ``hive``, ``hadoop``, and ``nessie``.
 
-``iceberg.catalog.warehouse``                      The catalog warehouse root path for Iceberg tables.
-                                                   ``Example: hdfs://nn:8020/warehouse/path``
-                                                   This property is required if the ``iceberg.catalog.type`` is
-                                                   ``hadoop``. Otherwise, it will be ignored.
+``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
-``iceberg.catalog.cached-catalog-num``             The number of Iceberg catalogs to cache. This property is     ``10``
-                                                   required if the ``iceberg.catalog.type`` is ``hadoop``.
-                                                   Otherwise, it will be ignored.
+                                                        Example: ``hdfs://nn:8020/warehouse/path``
+                                                        This property is required if the ``iceberg.catalog.type`` is
+                                                        ``hadoop``. Otherwise, it will be ignored.
 
-``iceberg.hadoop.config.resources``                The path(s) for Hadoop configuration resources.
-                                                   ``Example: /etc/hadoop/conf/core-site.xml.`` This property
-                                                   is required if the iceberg.catalog.type is hadoop. Otherwise,
-                                                   it will be ignored.
+``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
+                                                        required if the ``iceberg.catalog.type`` is ``hadoop``.
+                                                        Otherwise, it will be ignored.
 
-``iceberg.max-partitions-per-writer``              The Maximum number of partitions handled per writer.          ``100``
+``iceberg.hadoop.config.resources``                     The path(s) for Hadoop configuration resources.
 
-``iceberg.minimum-assigned-split-weight``          A decimal value in the range (0, 1] is used as a minimum      ``0.05``
-                                                   for weights assigned to each split. A low value may improve
-                                                   performance on tables with small files. A higher value may
-                                                   improve performance for queries with highly skewed
-                                                   aggregations or joins.
+                                                        Example: ``/etc/hadoop/conf/core-site.xml.`` This property
+                                                        is required if the iceberg.catalog.type is ``hadoop``.
+                                                        Otherwise, it will be ignored.
 
-``iceberg.enable-merge-on-read-mode``              Enable reading base tables that use merge-on-read for          ``true``
-                                                   updates.
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``ORC``
+                                                        values are ``PARQUET`` and ``ORC``.
 
-``iceberg.delete-as-join-rewrite-enabled``         When enabled, equality delete row filtering is applied        ``true``
-                                                   as a join with the data of the equality delete files.
-================================================== ============================================================= ============
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``GZIP``
+                                                        available values are ``NONE``, ``SNAPPY``, ``GZIP``,
+                                                        ``LZ4``, and ``ZSTD``.
+
+``iceberg.max-partitions-per-writer``                   The Maximum number of partitions handled per writer.          ``100``
+
+``iceberg.minimum-assigned-split-weight``               A decimal value in the range (0, 1] is used as a minimum      ``0.05``
+                                                        for weights assigned to each split. A low value may improve
+                                                        performance on tables with small files. A higher value may
+                                                        improve performance for queries with highly skewed
+                                                        aggregations or joins.
+
+``iceberg.enable-merge-on-read-mode``                   Enable reading base tables that use merge-on-read for         ``true``
+                                                        updates.
+
+``iceberg.delete-as-join-rewrite-enabled``              When enabled, equality delete row filtering is applied        ``true``
+                                                        as a join with the data of the equality delete files.
+
+``iceberg.enable-parquet-dereference-pushdown``         Enable parquet dereference pushdown.                          ``true``
+
+``iceberg.hive-statistics-merge-strategy``              Determines how to merge statistics that are stored in the     ``NONE``
+                                                        Hive Metastore. The available values are ``NONE``,
+                                                        ``USE_NULLS_FRACTION_AND_NDV``, ``USE_NULLS_FRACTIONS``
+                                                        and, ``USE_NDV``
+
+``iceberg.statistic-snapshot-record-difference-weight`` The amount that the difference in total record count matters
+                                                        when calculating the closest snapshot when picking
+                                                        statistics. A value of 1 means a single record is equivalent
+                                                        to 1 millisecond of time difference.
+
+``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``
+                                                        only supported with Native Worker.
+======================================================= ============================================================= ============
 
 Table Properties
 ------------------------
@@ -238,11 +256,11 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-========================================= ===============================================================
-Property Name                             Description
-========================================= ===============================================================
-``format``                                 Optionally specifies the format of table data files,
-                                           either ``PARQUET`` or ``ORC``. Defaults to ``PARQUET``.
+=======================================   ===============================================================   ============
+Property Name                             Description                                                       Default
+=======================================   ===============================================================   ============
+``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
+                                           either ``PARQUET`` or ``ORC``.
 
 ``partitioning``                           Optionally specifies table partitioning. If a table
                                            is partitioned by columns ``c1`` and ``c2``, the partitioning
@@ -251,10 +269,16 @@ Property Name                             Description
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
-``format_version``                         Optionally specifies the format version of the Iceberg
+``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
                                            specification to use for new tables, either ``1`` or ``2``.
-                                           Defaults to ``1``.
-========================================= ===============================================================
+
+``commit_retries``                         Determines the number of attempts for committing the metadata    ``4``
+                                           in case of concurrent upsert requests, before failing.
+
+``delete_mode``                            Optionally specifies the write delete mode of the Iceberg        ``merge-on-read``
+                                           specification to use for new tables, either ``copy-on-write``
+                                           or ``merge-on-read``.
+=======================================   ===============================================================   ============
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -389,7 +413,7 @@ Metastore cache only caches schema and table names. Other metadata would be fetc
     hive.metastore-cache-maximum-size=10000000
 
 Extra Hidden Metadata Columns
-----------------------------
+-----------------------------
 
 The Iceberg connector exposes extra hidden metadata columns. You can query these
 as part of a SQL query by including them in your SELECT statement.
@@ -397,6 +421,7 @@ as part of a SQL query by including them in your SELECT statement.
 ``$path`` column
 ^^^^^^^^^^^^^^^^
 * ``$path``: Full file system path name of the file for this row
+
 .. code-block:: sql
 
     SELECT "$path", regionkey FROM "ctas_nation";
@@ -410,6 +435,7 @@ as part of a SQL query by including them in your SELECT statement.
 ``$data_sequence_number`` column
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * ``$data_sequence_number``: The Iceberg data sequence number in which this row was added
+
 .. code-block:: sql
 
     SELECT "$data_sequence_number", regionkey FROM "ctas_nation";
@@ -429,6 +455,7 @@ as a part of a SQL query by appending name to the table.
 ``$properties`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$properties`` : General properties of the given table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$properties";
@@ -442,6 +469,7 @@ as a part of a SQL query by appending name to the table.
 ``$history`` Table
 ^^^^^^^^^^^^^^^^^^
 * ``$history`` : History of table state changes
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$history";
@@ -455,6 +483,7 @@ as a part of a SQL query by appending name to the table.
 ``$snapshots`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$snapshots`` : Details about the table snapshots. For more information see `Snapshots <https://iceberg.apache.org/spec/#snapshots>`_ in the Iceberg Table Spec.
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$snapshots";
@@ -468,6 +497,7 @@ as a part of a SQL query by appending name to the table.
 ``$manifests`` Table
 ^^^^^^^^^^^^^^^^^^^^
 * ``$manifests`` : Details about the manifests of different table snapshots. For more information see `Manifests <https://iceberg.apache.org/spec/#manifests>`_ in the Iceberg Table Spec.
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$manifests";
@@ -481,6 +511,7 @@ as a part of a SQL query by appending name to the table.
 ``$partitions`` Table
 ^^^^^^^^^^^^^^^^^^^^^
 * ``$partitions`` : Detailed partition information for the table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$partitions";
@@ -494,6 +525,7 @@ as a part of a SQL query by appending name to the table.
 ``$files`` Table
 ^^^^^^^^^^^^^^^^
 * ``$files`` : Overview of data files in the current snapshot of the table
+
 .. code-block:: sql
 
     SELECT * FROM "ctas_nation$files";
@@ -787,7 +819,7 @@ dropping the table from the metadata catalog using ``TRUNCATE TABLE``.
 DELETE
 ^^^^^^^^
 
-The Iceberg connector can delete data in one or more entire partitions from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
+The Iceberg connector can delete data from tables by using ``DELETE FROM``. For example, to delete from the table ``lineitem``::
 
      DELETE FROM lineitem;
 
@@ -797,11 +829,13 @@ The Iceberg connector can delete data in one or more entire partitions from tabl
 
 .. note::
 
-    Columns in the filter must all be identity transformed partition columns of the target table.
-
     Filtered columns only support comparison operators, such as EQUALS, LESS THAN, or LESS THAN EQUALS.
 
     Deletes must only occur on the latest snapshot.
+
+    For V1 tables, the Iceberg connector can only delete data in one or more entire
+    partitions. Columns in the filter must all be identity transformed partition
+    columns of the target table.
 
 DROP TABLE
 ^^^^^^^^^^^
@@ -828,7 +862,7 @@ Drop the schema ``iceberg.web``::
     DROP SCHEMA iceberg.web
 
 Register table
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
 Iceberg tables for which table data and metadata already exist in the
 file system can be registered with the catalog using the ``register_table``
@@ -860,7 +894,7 @@ in the case where a specific metadata file contains the targeted table state::
     using the Hive connector will fail.
 
 Unregister table
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^
 
 Iceberg tables can be unregistered from the catalog using the ``unregister_table``
 procedure on the catalog's ``system`` schema::
@@ -1128,3 +1162,98 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             20 | canada        |         2 | comment
             30 | mexico        |         3 | comment
     (3 rows)
+
+
+Type mapping
+------------
+
+PrestoDB and Iceberg have data types not supported by the other. When using Iceberg to read or write data, Presto changes
+each Iceberg data type to the corresponding Presto data type, and from each Presto data type to the comparable Iceberg data type. 
+The following tables detail the specific type maps between PrestoDB and Iceberg. 
+
+Iceberg to PrestoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Map of Iceberg types to the relevant PrestoDB types:
+
+.. list-table:: Iceberg to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - Iceberg type
+    - PrestoDB type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``BINARY``, ``FIXED``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``LIST``
+    - ``ARRAY``
+  * - ``MAP``
+    - ``MAP``
+  * - ``STRUCT``
+    - ``ROW``
+
+
+No other types are supported.
+
+PrestoDB to Iceberg type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Map of PrestoDB types to the relevant Iceberg types:
+
+.. list-table:: PrestoDB to Iceberg type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - Iceberg type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``LONG``
+  * - ``REAL``
+    - ``FLOAT``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``VARCHAR``
+    - ``STRING``
+  * - ``VARBINARY``
+    - ``BINARY``
+  * - ``DATE``
+    - ``DATE``
+  * - ``ROW``
+    - ``STRUCT``
+  * - ``ARRAY``
+    - ``LIST``
+  * - ``MAP``
+    - ``MAP``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP WITHOUT ZONE``
+  * - ``TIMESTAMP WITH TIMEZONE``
+    - ``TIMESTAMP WITH ZONE``
+
+No other types are supported.

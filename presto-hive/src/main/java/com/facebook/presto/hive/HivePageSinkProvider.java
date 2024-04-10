@@ -46,7 +46,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -179,7 +179,7 @@ public class HivePageSinkProvider
                 new HivePageSinkMetadataProvider(
                         handle.getPageSinkMetadata(),
                         memoizeMetastore(metastore, metastoreImpersonationEnabled, perTransactionMetastoreCacheMaximumSize, metastorePartitionCacheMaxColumnCount),
-                        new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector())),
+                        new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), columnConverterProvider, session.getWarningCollector(), session.getRuntimeStats())),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,

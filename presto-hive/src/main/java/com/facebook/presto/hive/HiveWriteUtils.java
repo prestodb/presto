@@ -33,10 +33,8 @@ import com.facebook.presto.hive.RecordFileWriter.ExtendedRecordWriter;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -117,9 +115,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
-import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
-import static com.facebook.presto.hive.metastore.PrestoTableType.MATERIALIZED_VIEW;
-import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -300,24 +295,6 @@ public final class HiveWriteUtils
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
-    public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
-    {
-        PrestoTableType tableType = table.getTableType();
-        if (!writesToNonManagedTablesEnabled
-                && !tableType.equals(MANAGED_TABLE)
-                && !tableType.equals(MATERIALIZED_VIEW)
-                && !tableType.equals(TEMPORARY_TABLE)) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
-        }
-
-        checkWritable(
-                table.getSchemaTableName(),
-                Optional.empty(),
-                getProtectMode(table),
-                table.getParameters(),
-                table.getStorage());
-    }
-
     public static void checkPartitionIsWritable(String partitionName, Partition partition)
     {
         checkWritable(
@@ -328,7 +305,7 @@ public final class HiveWriteUtils
                 partition.getStorage());
     }
 
-    private static void checkWritable(
+    public static void checkWritable(
             SchemaTableName tableName,
             Optional<String> partitionName,
             ProtectMode protectMode,
@@ -356,7 +333,7 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(ConnectorSession session, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector());
+        MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
         Optional<String> location = getDatabase(session.getIdentity(), metastoreContext, metastore, schemaName).getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));

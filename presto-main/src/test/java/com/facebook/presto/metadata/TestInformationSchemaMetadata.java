@@ -43,7 +43,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -105,14 +104,13 @@ public class TestInformationSchemaMetadata
         Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
 
         InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
-        List<ConnectorTableLayoutResult> layoutResults = informationSchemaMetadata.getTableLayouts(
+        ConnectorTableLayoutResult layoutResult = informationSchemaMetadata.getTableLayoutForConstraint(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
                 constraint,
                 Optional.empty());
 
-        assertEquals(layoutResults.size(), 1);
-        ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
+        ConnectorTableLayoutHandle handle = layoutResult.getTableLayout().getHandle();
         assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
         InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
@@ -143,14 +141,13 @@ public class TestInformationSchemaMetadata
                 });
 
         InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
-        List<ConnectorTableLayoutResult> layoutResults = informationSchemaMetadata.getTableLayouts(
+        ConnectorTableLayoutResult layoutResult = informationSchemaMetadata.getTableLayoutForConstraint(
                 createNewSession(transactionId),
                 new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
                 constraint,
                 Optional.empty());
 
-        assertEquals(layoutResults.size(), 1);
-        ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
+        ConnectorTableLayoutHandle handle = layoutResult.getTableLayout().getHandle();
         assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
         InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));

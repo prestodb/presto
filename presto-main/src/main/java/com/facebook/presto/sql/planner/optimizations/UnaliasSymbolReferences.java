@@ -36,7 +36,6 @@ import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -64,6 +63,7 @@ import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
@@ -166,14 +166,14 @@ public class UnaliasSymbolReferences
         public PlanNode visitCteReference(CteReferenceNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new CteReferenceNode(node.getSourceLocation(), node.getId(), source, node.getCteName());
+            return new CteReferenceNode(node.getSourceLocation(), node.getId(), source, node.getCteId());
         }
 
         public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
             List<VariableReferenceExpression> canonical = Lists.transform(node.getOutputVariables(), this::canonicalize);
-            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteName(), node.getRowCountVariable(), canonical);
+            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteId(), node.getRowCountVariable(), canonical);
         }
 
         public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Void> context)
@@ -188,7 +188,7 @@ public class UnaliasSymbolReferences
                             SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager, warningCollector), c))
                     .collect(Collectors.toList());
             PlanNode primarySource = context.rewrite(node.getPrimarySource());
-            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getCteDependencyGraph());
         }
 
         @Override

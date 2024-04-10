@@ -14,14 +14,24 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.Optimizer;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_HEURISTIC_REPLICATION_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.sql.planner.SqlPlannerContext.CteInfo.delimiter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -32,10 +42,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.latera
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sequence;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static org.testng.Assert.assertFalse;
 
 public class TestLogicalCteOptimizer
         extends BasePlanTest
 {
+    private static final List<Class<? extends PlanNode>> CTE_PLAN_NODES = ImmutableList.of(CteReferenceNode.class, CteConsumerNode.class, CteProducerNode.class, SequenceNode.class);
+
     @Test
     public void testConvertSimpleCte()
     {
@@ -274,6 +287,147 @@ public class TestLogicalCteOptimizer
                 anyTree(values("text_column", "number_column")));
     }
 
+    @Test
+    public void testHeuristicComplexCteMaterialization()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "    SELECT orderkey FROM ORDERS GROUP BY orderkey" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))))));
+    }
+
+    @Test
+    public void testHeuristicComplexCteMaterializationForInnerCtes()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "With inner_temp AS(  " +
+                        "  SELECT orderkey FROM ORDERS GROUP BY orderkey)" +
+                        "SELECT * FROM inner_temp" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("inner_temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("inner_temp", 0))))));
+    }
+
+    @Test
+    public void testNoHeuristicComplexCteMaterializationWithoutComplexNodes()
+    {
+        assertUnitPlanWithValidator(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "    SELECT orderkey FROM ORDERS" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp",
+                anyTree(tableScan("orders")),
+                plan ->
+                        assertFalse(PlanNodeSearcher.searchFrom(plan.getRoot())
+                                .where(planNode -> CTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(planNode)))
+                                .matches()));
+    }
+
+    @Test
+    public void testNoHeuristicComplexCteMaterializationWithoutDataNodes()
+    {
+        assertUnitPlanWithValidator(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC_COMPLEX_QUERIES_ONLY")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "0")
+                        .build(),
+                "WITH temp AS (" +
+                        "    SELECT colB FROM (VALUES (1), (2)) AS TempTable(colB)" +
+                        ")" +
+                        "SELECT * FROM temp ",
+                anyTree(values("colB")),
+                plan ->
+                        assertFalse(PlanNodeSearcher.searchFrom(plan.getRoot())
+                                .where(planNode -> CTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(planNode)))
+                                .matches()));
+    }
+
+    @Test
+    public void testHeuristicCteMaterialization()
+    {
+        assertUnitPlan(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "    SELECT orderkey FROM ORDERS" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp",
+                anyTree(
+                        sequence(
+                                cteProducer(addQueryScopeDelimiter("temp", 0), anyTree(tableScan("orders"))),
+                                anyTree(cteConsumer(addQueryScopeDelimiter("temp", 0))))));
+    }
+
+    @Test
+    public void testNoHeuristicCteMaterializationWithLesserReferences()
+    {
+        assertUnitPlanWithValidator(
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "HEURISTIC")
+                        .setSystemProperty(CTE_HEURISTIC_REPLICATION_THRESHOLD, "4")
+                        .build(),
+                "WITH temp AS (" +
+                        "    SELECT orderkey FROM ORDERS" +
+                        ")" +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp " +
+                        "UNION " +
+                        "SELECT * FROM temp ",
+                anyTree(tableScan("orders")),
+                plan ->
+                        assertFalse(PlanNodeSearcher.searchFrom(plan.getRoot())
+                                .where(planNode -> CTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(planNode)))
+                                .matches()));
+    }
+
     public static String addQueryScopeDelimiter(String cteName, int scope)
     {
         return String.valueOf(scope) + delimiter + cteName;
@@ -281,9 +435,31 @@ public class TestLogicalCteOptimizer
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
+        assertUnitPlan(getSession(), sql, pattern);
+    }
+
+    private void assertUnitPlan(Session session, String sql, PlanMatchPattern pattern)
+    {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new LogicalCteOptimizer(getQueryRunner().getMetadata()));
-        assertPlan(sql, getSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
+        assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
+    }
+
+    private void assertUnitPlanWithValidator(Session session, String sql, PlanMatchPattern pattern, Consumer<Plan> planValidator)
+    {
+        List<PlanOptimizer> optimizers = ImmutableList.of(
+                new LogicalCteOptimizer(getQueryRunner().getMetadata()));
+        getQueryRunner().inTransaction(session, transactionSession -> {
+            Plan actualPlan = getQueryRunner().createPlan(
+                    transactionSession,
+                    sql,
+                    optimizers,
+                    Optimizer.PlanStage.OPTIMIZED,
+                    WarningCollector.NOOP);
+            PlanAssert.assertPlan(transactionSession, getQueryRunner().getMetadata(), getQueryRunner().getStatsCalculator(), actualPlan, pattern);
+            planValidator.accept(actualPlan);
+            return null;
+        });
     }
 
     private Session getSession()

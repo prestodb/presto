@@ -35,18 +35,18 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/Connectors.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/Config.h"
 #include "velox/exec/OutputBufferManager.h"
-#include "velox/exec/SharedArbitrator.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -152,8 +152,9 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
+    // velox.properties is optional.
     baseVeloxQueryConfig->initialize(
-        fmt::format("{}/velox.properties", configDirectoryPath_));
+        fmt::format("{}/velox.properties", configDirectoryPath_), true);
 
     if (systemConfig->enableRuntimeMetricsCollection()) {
       enableRuntimeMetricReporting();
@@ -187,19 +188,9 @@ void PrestoServer::run() {
         VELOX_USER_FAIL(
             "Https Client Certificates are not configured correctly");
       }
-      clientCertAndKeyPath = optionalClientCertPath.value();
 
-      try {
-        sslContext_ = std::make_shared<folly::SSLContext>();
-        sslContext_->loadCertKeyPairFromFiles(
-            clientCertAndKeyPath.c_str(), clientCertAndKeyPath.c_str());
-        sslContext_->setCiphersOrThrow(ciphers);
-      } catch (const std::exception& ex) {
-        LOG(FATAL) << fmt::format(
-            "Unable to load certificate or key from {} : {}",
-            clientCertAndKeyPath,
-            ex.what());
-      }
+      sslContext_ =
+          util::createSSLContext(optionalClientCertPath.value(), ciphers);
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -232,8 +223,15 @@ void PrestoServer::run() {
   registerMemoryArbitrators();
   registerShuffleInterfaceFactories();
   registerCustomOperators();
-  protocol::registerHiveConnectors();
-  protocol::registerTpchConnector();
+
+  registerPrestoToVeloxConnector(
+      std::make_unique<HivePrestoToVeloxConnector>("hive"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
+  registerPrestoToVeloxConnector(
+      std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
 
   initializeVeloxMemory();
   initializeThreadPools();
@@ -755,6 +753,13 @@ void PrestoServer::stop() {
   }
 }
 
+size_t PrestoServer::numDriverThreads() const {
+  VELOX_CHECK(
+      driverExecutor_ != nullptr,
+      "Driver executor is expected to be not null, but it is null!");
+  return driverExecutor_->numThreads();
+}
+
 void PrestoServer::detachWorker() {
   auto readLockedShuttingDown = shuttingDown_.rlock();
   if (!*readLockedShuttingDown && nodeState() == NodeState::kActive) {
@@ -919,6 +924,9 @@ std::vector<std::string> PrestoServer::registerConnectors(
       PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
                                << " using connector " << connectorName;
 
+      // make sure connector type is supported
+      getPrestoToVeloxConnector(connectorName);
+
       std::shared_ptr<velox::connector::Connector> connector =
           facebook::velox::connector::getConnectorFactory(connectorName)
               ->newConnector(
@@ -1029,7 +1037,7 @@ void PrestoServer::registerFileSystems() {
 }
 
 void PrestoServer::registerMemoryArbitrators() {
-  velox::exec::SharedArbitrator::registerFactory();
+  velox::memory::SharedArbitrator::registerFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
@@ -1051,7 +1059,7 @@ std::string PrestoServer::getLocalIp() const {
     }
   }
   VELOX_FAIL(
-      "Could not infer Node IP. Please specify node.ip in the node.properties file.");
+      "Could not infer Node IP. Please specify node.internal-address in the node.properties file.");
 }
 
 std::string PrestoServer::getBaseSpillDirectory() const {
@@ -1075,10 +1083,6 @@ void PrestoServer::populateMemAndCPUInfo() {
 
   // Fill global pool fields.
   poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
-  // TODO(sperhsin): If 'current bytes' is the same as we get by summing up all
-  // child contexts below, then use the one we sum up, rather than call
-  // 'getCurrentBytes'.
-  poolInfo.reservedBytes = pool_->currentBytes();
   poolInfo.reservedRevocableBytes = 0;
 
   // Fill basic per-query fields.
@@ -1093,6 +1097,7 @@ void PrestoServer::populateMemAndCPUInfo() {
     poolInfo.queryMemoryAllocations.insert(
         {queryId, {protocol::MemoryAllocation{"total", bytes}}});
     ++numContexts;
+    poolInfo.reservedBytes += bytes;
   });
   RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
   cpuMon_.update();

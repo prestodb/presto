@@ -35,12 +35,14 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ConnectorJoinNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -251,7 +253,11 @@ public class IcebergEqualityDeleteAsJoin
                     new SpecialFormExpression(SpecialFormExpression.Form.IS_NULL, BooleanType.BOOLEAN,
                             new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, BigintType.BIGINT, deleteVersionColumns)));
 
-            return filter;
+            Assignments.Builder assignmentsBuilder = Assignments.builder();
+            filter.getOutputVariables().stream()
+                    .filter(variableReferenceExpression -> !variableReferenceExpression.getName().startsWith(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE.getName()))
+                    .forEach(variableReferenceExpression -> assignmentsBuilder.put(variableReferenceExpression, variableReferenceExpression));
+            return new ProjectNode(Optional.empty(), idAllocator.getNextId(), filter, assignmentsBuilder.build(), ProjectNode.Locality.LOCAL);
         }
 
         private static ImmutableMap<Set<Integer>, DeleteSetInfo> collectDeleteInformation(Table icebergTable,
@@ -298,6 +304,8 @@ public class IcebergEqualityDeleteAsJoin
                             Optional.empty()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getPredicate(),
+                    icebergTableHandle.getOutputPath(),
+                    icebergTableHandle.getStorageProperties(),
                     Optional.of(SchemaParser.toJson(new Schema(deleteFields))),
                     Optional.of(deleteInfo.partitionFields.keySet()),                // Enforce reading only delete files that match this schema
                     Optional.of(deleteInfo.equalityFieldIds));
@@ -324,6 +332,8 @@ public class IcebergEqualityDeleteAsJoin
                             tableName.getChangelogEndSnapshot()),
                     icebergTableHandle.isSnapshotSpecified(),
                     icebergTableHandle.getPredicate(),
+                    icebergTableHandle.getOutputPath(),
+                    icebergTableHandle.getStorageProperties(),
                     icebergTableHandle.getTableSchemaJson(),
                     icebergTableHandle.getPartitionSpecId(),
                     icebergTableHandle.getEqualityFieldIds());
@@ -459,7 +469,9 @@ public class IcebergEqualityDeleteAsJoin
                                         return schema.findField(partitionFieldInfo.partitionField.sourceId());
                                     }
                                     return partitionFieldInfo.nestedField;
-                                })).collect(Collectors.toList());
+                                }))
+                        .distinct()
+                        .collect(Collectors.toList());
             }
         }
     }

@@ -29,12 +29,14 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -131,16 +133,20 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -151,6 +157,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -164,9 +171,12 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES;
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.DELETE_MODE;
+import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -177,6 +187,7 @@ public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
+    public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
 
     private IcebergUtil() {}
 
@@ -197,7 +208,7 @@ public final class IcebergUtil
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
         TableOperations operations = new HiveTableOperations(
                 metastore,
-                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector()),
+                new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, session.getWarningCollector(), session.getRuntimeStats()),
                 hdfsEnvironment,
                 hdfsContext,
                 table.getSchemaName(),
@@ -394,6 +405,17 @@ public final class IcebergUtil
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<String> tryGetLocation(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.location());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -608,7 +630,7 @@ public final class IcebergUtil
                 Map<ColumnHandle, NullableValue> values = builder.build();
                 HivePartition newPartition = new HivePartition(
                         ((IcebergTableHandle) tableHandle).getSchemaTableName(),
-                        partition.toString(),
+                        new PartitionNameWithVersion(partition.toString(), Optional.empty()),
                         values);
 
                 boolean isIncludePartition = true;
@@ -820,9 +842,9 @@ public final class IcebergUtil
         private DeleteFile currentFile;
 
         private DeleteFilesIterator(Map<Integer, PartitionSpec> partitionSpecsById,
-                CloseableIterator<FileScanTask> fileTasks,
-                Optional<Set<Integer>> requestedPartitionSpec,
-                Optional<Set<Integer>> requestedSchema)
+                                    CloseableIterator<FileScanTask> fileTasks,
+                                    Optional<Set<Integer>> requestedPartitionSpec,
+                                    Optional<Set<Integer>> requestedSchema)
         {
             this.partitionSpecsById = partitionSpecsById;
             this.fileTasks = fileTasks;
@@ -883,5 +905,74 @@ public final class IcebergUtil
             // (and make it final)
             fileTasks = CloseableIterator.empty();
         }
+    }
+
+    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat)
+    {
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        String formatVersion = getFormatVersion(tableMetadata.getProperties());
+        verify(formatVersion != null, "Format version cannot be null");
+        propertiesBuilder.put(FORMAT_VERSION, formatVersion);
+
+        if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
+            propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
+        }
+        else {
+            RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
+            propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
+        }
+
+        return propertiesBuilder.build();
+    }
+
+    public static int parseFormatVersion(String formatVersion)
+    {
+        try {
+            return parseInt(formatVersion);
+        }
+        catch (NumberFormatException | IndexOutOfBoundsException e) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION, "Unable to parse user provided format version");
+        }
+    }
+
+    public static RowLevelOperationMode getDeleteMode(Table table)
+    {
+        return RowLevelOperationMode.fromName(table.properties()
+                .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
+                .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static Optional<PartitionData> partitionDataFromJson(PartitionSpec spec, Optional<String> partitionDataAsJson)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = spec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        spec.schema().findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        Optional<PartitionData> partitionData = Optional.empty();
+        if (spec.isPartitioned()) {
+            verify(partitionDataAsJson.isPresent(), "partitionDataJson is null");
+            partitionData = Optional.of(PartitionData.fromJson(partitionDataAsJson.get(), partitionColumnTypes));
+        }
+        return partitionData;
+    }
+
+    public static Optional<PartitionData> partitionDataFromStructLike(PartitionSpec spec, StructLike partition)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = spec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        spec.schema().findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        Optional<PartitionData> partitionData = Optional.empty();
+        if (spec.isPartitioned()) {
+            partitionData = Optional.of(PartitionData.fromStructLike(partition, partitionColumnTypes));
+        }
+        return partitionData;
     }
 }

@@ -151,7 +151,7 @@ public class ManifestPartitionLoader
             boolean schedulerUsesHostAddresses)
             throws IOException
     {
-        String partitionName = partition.getHivePartition().getPartitionId();
+        String partitionName = partition.getHivePartition().getPartitionId().getPartitionName();
         Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
         String inputFormatName = storage.getStorageFormat().getInputFormat();
         int partitionDataColumnCount = partition.getPartition()
@@ -178,7 +178,8 @@ public class ManifestPartitionLoader
                         partitionDataColumnCount,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
-                        partition.getRedundantColumnDomains()),
+                        partition.getRedundantColumnDomains(),
+                        partition.getRowIdPartitionComponent()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
     }

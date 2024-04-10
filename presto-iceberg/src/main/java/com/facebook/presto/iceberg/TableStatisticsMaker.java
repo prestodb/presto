@@ -15,6 +15,8 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
@@ -57,6 +59,7 @@ import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,6 +80,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -94,16 +98,18 @@ public class TableStatisticsMaker
     private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
     private final Table icebergTable;
     private final ConnectorSession session;
+    private final TypeManager typeManager;
 
-    private TableStatisticsMaker(Table icebergTable, ConnectorSession session)
+    private TableStatisticsMaker(Table icebergTable, ConnectorSession session, TypeManager typeManager)
     {
         this.icebergTable = icebergTable;
         this.session = session;
+        this.typeManager = typeManager;
     }
 
-    public static TableStatistics getTableStatistics(ConnectorSession session, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
+    public static TableStatistics getTableStatistics(ConnectorSession session, TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable, List<IcebergColumnHandle> columns)
     {
-        return new TableStatisticsMaker(icebergTable, session).makeTableStatistics(tableHandle, constraint, columns);
+        return new TableStatisticsMaker(icebergTable, session, typeManager).makeTableStatistics(tableHandle, constraint, columns);
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint, List<IcebergColumnHandle> selectedColumns)
@@ -232,7 +238,8 @@ public class TableStatisticsMaker
                             toMap(idToTypeMapping, contentFile.lowerBounds()),
                             toMap(idToTypeMapping, contentFile.upperBounds()),
                             contentFile.nullValueCounts(),
-                            contentFile.columnSizes());
+                            new HashMap<>());
+                    updateColumnSizes(summary, contentFile.columnSizes());
                 }
                 else {
                     summary.incrementFileCount();
@@ -251,9 +258,9 @@ public class TableStatisticsMaker
         return summary;
     }
 
-    public static void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
+    public static void writeTableStatistics(NodeVersion nodeVersion, TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        new TableStatisticsMaker(icebergTable, session).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
+        new TableStatisticsMaker(icebergTable, session, typeManager).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
     }
 
     private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
@@ -322,11 +329,18 @@ public class TableStatisticsMaker
         }
         for (Types.NestedField column : summary.getNonPartitionPrimitiveColumns()) {
             int id = column.fieldId();
-
-            Long addedSize = addedColumnSizes.get(id);
-            if (addedSize != null) {
-                columnSizes.put(id, addedSize + columnSizes.getOrDefault(id, 0L));
+            com.facebook.presto.common.type.Type type = toPrestoType(column.type(), typeManager);
+            // allow the optimizer to infer the size of fixed-width types
+            // since it can be calculated accurately without collecting stats.
+            if (type instanceof FixedWidthType) {
+                continue;
             }
+            columnSizes.compute(id, (key, value) -> {
+                if (value == null) {
+                    value = 0L;
+                }
+                return value + addedColumnSizes.getOrDefault(id, 0L);
+            });
         }
     }
 

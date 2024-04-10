@@ -59,6 +59,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-blackhole</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
             <exclusions>
                 <exclusion>

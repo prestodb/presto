@@ -85,7 +85,7 @@ public class TestIcebergSmokeNessie
         String dataLocation = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory().toFile().toURI().toString();
         String relativeTableLocation = tempTableLocation.get().toURI().toString().replace(dataLocation, "");
 
-        return format("%s/%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
+        return format("%s%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
     }
 
     @Override

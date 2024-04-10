@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplit;
+import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -31,6 +32,8 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeletedDataFileScanTask;
 import org.apache.iceberg.DeletedRowsScanTask;
 import org.apache.iceberg.IncrementalChangelogScan;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.CloseableIterator;
 
@@ -46,6 +49,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_S
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.fromIcebergChangelogOperation;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.Iterators.limit;
@@ -118,6 +122,9 @@ public class ChangelogSplitSource
 
     private IcebergSplit splitFromContentScanTask(ContentScanTask<DataFile> task, ChangelogScanTask changeTask)
     {
+        PartitionSpec spec = task.spec();
+        Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, task.file().partition());
+
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -125,6 +132,8 @@ public class ChangelogSplitSource
                 FileFormat.fromIcebergFileFormat(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task),
+                PartitionSpecParser.toJson(spec),
+                partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),

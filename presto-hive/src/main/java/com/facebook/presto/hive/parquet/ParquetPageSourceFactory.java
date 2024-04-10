@@ -31,7 +31,6 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
@@ -49,11 +48,9 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.DecryptionPropertiesFactory;
 import org.apache.parquet.crypto.FileDecryptionProperties;
-import org.apache.parquet.crypto.HiddenColumnException;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -69,7 +66,6 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +92,6 @@ import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
@@ -106,12 +101,10 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMa
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactoryUtils.mapToPrestoException;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -122,9 +115,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
@@ -150,7 +141,7 @@ public class ParquetPageSourceFactory
             Optional.empty(),
             Optional.empty());
 
-    private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
+    public static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
@@ -211,10 +202,6 @@ public class ParquetPageSourceFactory
                     hiveFileContext.getModificationTime(),
                     fileDecryptor,
                     readMaskedValue).getParquetMetadata());
-
-            if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
-                return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
-            }
 
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -330,29 +317,7 @@ public class ParquetPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
-            }
-            if (e instanceof ParquetCorruptionException) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
-            }
-            if (e instanceof AccessControlException) {
-                throw new PrestoException(PERMISSION_DENIED, e.getMessage(), e);
-            }
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, fileSplit.getStart(), fileSplit.getLength(), e.getMessage());
-            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
-            }
-            if (e instanceof HiddenColumnException) {
-                message = format("User does not have access to encryption key for encrypted column = %s. If returning 'null' for encrypted " +
-                        "columns is acceptable to your query, please add 'set session hive.read_null_masked_parquet_encrypted_value_enabled=true' before your query", ((HiddenColumnException) e).getColumn());
-                throw new PrestoException(PERMISSION_DENIED, message, e);
-            }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw mapToPrestoException(e, path, fileSplit);
         }
     }
 

@@ -78,6 +78,7 @@ import static com.facebook.presto.hive.HiveTestUtils.PAGE_SORTER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
@@ -267,7 +268,8 @@ public class TestHivePageSink
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableSet.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                Optional.empty());
 
         HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
                 .setSchemaTableName(new SchemaTableName(SCHEMA_NAME, TABLE_NAME))
@@ -294,7 +296,15 @@ public class TestHivePageSink
                 new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
                 transaction,
                 Optional.of(layoutHandle));
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        HivePageSourceProvider provider = new HivePageSourceProvider(
+                config,
+                createTestHdfsEnvironment(config, metastoreClientConfig),
+                getDefaultHiveRecordCursorProvider(config, metastoreClientConfig),
+                getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
+                FUNCTION_AND_TYPE_MANAGER,
+                ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE);
     }
 

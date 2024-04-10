@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
@@ -25,4 +26,6 @@ public interface TransactionalMetadata
     void rollback();
 
     SemiTransactionalHiveMetastore getMetastore();
+
+    HiveStatisticsProvider getHiveStatisticsProvider();
 }

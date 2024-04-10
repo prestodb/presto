@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
@@ -51,7 +52,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
 
@@ -118,7 +119,7 @@ public class TestPrestoSparkStatsCalculator
                 .registerVariable(planBuilder.variable("c1"))
                 .filter(planBuilder.rowExpression("c1 IS NOT NULL"),
                         planBuilder.values(planBuilder.variable("c1")));
-        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, REMOVE_SAFE_CONSTANTS, false);
+        Optional<String> hash = historyBasedPlanStatisticsCalculator.getPlanCanonicalInfoProvider().hash(session, statsEquivalentRemoteSource, IGNORE_SAFE_CONSTANTS, false);
 
         InMemoryHistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = (InMemoryHistoryBasedPlanStatisticsProvider) historyBasedPlanStatisticsCalculator.getHistoryBasedPlanStatisticsProvider().get();
         historyBasedPlanStatisticsProvider.putStats(ImmutableMap.of(
@@ -129,7 +130,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1)), statsEquivalentRemoteSource))
                 .check(check -> check.totalSize(1000)
@@ -178,7 +179,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
                 .check(check -> check.totalSize(1000)
@@ -205,7 +206,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
                 .check(check -> check.totalSize(1000)

@@ -41,6 +41,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
+                .setUseErrorMarginForFloatingPointArrays(true)
                 .setSmartTeardown(false)
                 .setVerificationResubmissionLimit(6)
                 .setSetupOnMainClusters(true)
@@ -50,6 +51,7 @@ public class TestVerifierConfig
                 .setExplain(false)
                 .setConcurrentControlAndTest(false)
                 .setRunningMode("control-test")
+                .setExtendedVerification(false)
                 .setSaveSnapshot(false));
     }
 
@@ -70,6 +72,7 @@ public class TestVerifierConfig
                 .put("query-repetitions", "3")
                 .put("relative-error-margin", "2e-5")
                 .put("absolute-error-margin", "1e-14")
+                .put("use-error-margin-for-floating-point-arrays", "false")
                 .put("smart-teardown", "true")
                 .put("verification-resubmission.limit", "1")
                 .put("setup-on-main-clusters", "false")
@@ -79,6 +82,7 @@ public class TestVerifierConfig
                 .put("explain", "true")
                 .put("concurrent-control-and-test", "true")
                 .put("running-mode", "query-bank")
+                .put("extended-verification", "true")
                 .put("save-snapshot", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
@@ -95,6 +99,7 @@ public class TestVerifierConfig
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
+                .setUseErrorMarginForFloatingPointArrays(false)
                 .setSmartTeardown(true)
                 .setVerificationResubmissionLimit(1)
                 .setSetupOnMainClusters(false)
@@ -104,6 +109,7 @@ public class TestVerifierConfig
                 .setExplain(true)
                 .setConcurrentControlAndTest(true)
                 .setRunningMode("query-bank")
+                .setExtendedVerification(true)
                 .setSaveSnapshot(true);
 
         assertFullMapping(properties, expected);

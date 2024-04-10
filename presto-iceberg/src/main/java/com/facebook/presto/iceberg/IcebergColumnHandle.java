@@ -143,7 +143,7 @@ public class IcebergColumnHandle
     private static IcebergColumnHandle getIcebergColumnHandle(IcebergMetadataColumn metadataColumn)
     {
         return new IcebergColumnHandle(
-                columIdentity(metadataColumn),
+                columnIdentity(metadataColumn),
                 metadataColumn.getType(),
                 Optional.empty(),
                 SYNTHESIZED);
@@ -158,7 +158,7 @@ public class IcebergColumnHandle
                 .build();
     }
 
-    private static ColumnIdentity columIdentity(IcebergMetadataColumn metadata)
+    private static ColumnIdentity columnIdentity(IcebergMetadataColumn metadata)
     {
         return new ColumnIdentity(metadata.getId(), metadata.getColumnName(), metadata.getTypeCategory(), ImmutableList.of());
     }

@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -34,7 +35,9 @@ import javax.inject.Inject;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getCteProducerReplicationCoefficient;
 import static com.facebook.presto.cost.LocalCostEstimate.addPartialComponents;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -167,6 +170,13 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
+        public LocalCostEstimate visitSequence(SequenceNode node, Void context)
+        {
+            return addPartialComponents(node.getSources().stream().map(n -> n.accept(this, context))
+                    .collect(toImmutableList()));
+        }
+
+        @Override
         public LocalCostEstimate visitIntersect(IntersectNode node, Void context)
         {
             // Similar to Union
@@ -188,6 +198,13 @@ public class CostCalculatorWithEstimatedExchanges
     public static LocalCostEstimate calculateRemoteRepartitionCost(double inputSizeInBytes)
     {
         return LocalCostEstimate.of(inputSizeInBytes, 0, inputSizeInBytes);
+    }
+
+    public static LocalCostEstimate calculateCteProducerCost(Session session, StatsProvider statsProvider, PlanNode source)
+    {
+        double inputSizeInBytes = statsProvider.getStats(source).getOutputSizeInBytes(source);
+        double cteProducerReplicationCoefficient = getCteProducerReplicationCoefficient(session);
+        return LocalCostEstimate.of(cteProducerReplicationCoefficient * inputSizeInBytes, 0, cteProducerReplicationCoefficient * inputSizeInBytes);
     }
 
     public static LocalCostEstimate calculateLocalRepartitionCost(double inputSizeInBytes)

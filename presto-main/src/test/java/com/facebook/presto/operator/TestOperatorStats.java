@@ -77,7 +77,7 @@ public class TestOperatorStats
             new Duration(18, NANOSECONDS),
             new DataSize(345, BYTE),
 
-            new DataSize(19, BYTE),
+            new DataSize(Long.MAX_VALUE, BYTE),
             new DataSize(20, BYTE),
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
@@ -198,7 +198,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
         assertEquals(actual.getFinishAllocation(), new DataSize(345, BYTE));
 
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getUserMemoryReservation().toBytes(), Long.MAX_VALUE);
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(20, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(21, BYTE));
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
@@ -246,7 +246,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
         assertEquals(actual.getFinishAllocation(), new DataSize(3 * 345, BYTE));
 
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 19, BYTE));
+        assertEquals(actual.getUserMemoryReservation().toBytes(), Long.MAX_VALUE);
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));

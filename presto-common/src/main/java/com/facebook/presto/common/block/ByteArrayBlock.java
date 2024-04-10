@@ -35,6 +35,13 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 
+/**
+ * A block that contains positionCount bytes. Only bytes can be read.
+ * Other block methods like getInt(), getLong(), etc. throw UnsupportedOperationException.
+ *
+ * Despite the name, this block contains individual bytes, not byte arrays.
+ * For byte arrays use a VariableWidthBlock.
+ */
 public class ByteArrayBlock
         implements Block
 {
