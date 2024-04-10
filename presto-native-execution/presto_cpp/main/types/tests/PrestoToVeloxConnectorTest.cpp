@@ -23,19 +23,16 @@ class PrestoToVeloxConnectorTest : public ::testing::Test {};
 TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
   std::vector<std::pair<std::string, std::unique_ptr<PrestoToVeloxConnector>>>
       connectorList;
-  connectorList.emplace_back(std::move(std::pair(
-      "hive",
-      std::move(std::make_unique<HivePrestoToVeloxConnector>("hive")))));
-  connectorList.emplace_back(std::move(std::pair(
+  connectorList.emplace_back(
+      std::pair("hive", std::make_unique<HivePrestoToVeloxConnector>("hive")));
+  connectorList.emplace_back(std::pair(
       "hive-hadoop2",
-      std::move(
-          std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2")))));
-  connectorList.emplace_back(std::move(std::pair(
-      "iceberg",
-      std::move(std::make_unique<IcebergPrestoToVeloxConnector>("iceberg")))));
-  connectorList.emplace_back(std::move(std::pair(
-      "tpch",
-      std::move(std::make_unique<HivePrestoToVeloxConnector>("tpch")))));
+
+      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2")));
+  connectorList.emplace_back(std::pair(
+      "iceberg", std::make_unique<IcebergPrestoToVeloxConnector>("iceberg")));
+  connectorList.emplace_back(
+      std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
 
   for (auto& [connectorName, connector] : connectorList) {
     registerPrestoToVeloxConnector(std::move(connector));
