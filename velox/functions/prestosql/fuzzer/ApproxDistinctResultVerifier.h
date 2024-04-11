@@ -99,15 +99,17 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
                             .appendColumns({"'actual' as label"})
                             .planNode();
 
+    if (verifyWindow_) {
+      return verifyWindow(
+          expectedSource, actualSource, planNodeIdGenerator, result->pool());
+    }
+
     auto mapAgg = fmt::format("map_agg(label, {}) as m", name_);
-    std::vector<std::string> groupingKeyForWindow{"row_number"};
-    auto plan =
-        PlanBuilder(planNodeIdGenerator)
-            .localPartition({}, {expectedSource, actualSource})
-            .singleAggregation(
-                verifyWindow_ ? groupingKeyForWindow : groupingKeys_, {mapAgg})
-            .project({"m['actual'] as a", "m['expected'] as e"})
-            .planNode();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .localPartition({}, {expectedSource, actualSource})
+                    .singleAggregation(groupingKeys_, {mapAgg})
+                    .project({"m['actual'] as a", "m['expected'] as e"})
+                    .planNode();
     auto combined = AssertQueryBuilder(plan).copyResults(result->pool());
 
     auto* actual = combined->childAt(0)->as<SimpleVector<int64_t>>();
@@ -146,6 +148,64 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
               actualCnt);
           return false;
         }
+      }
+    }
+
+    // We expect large deviations (>2 stddev) in < 5% of values.
+    if (numGroups >= 50) {
+      return largeGaps.size() <= 3;
+    }
+
+    return largeGaps.empty();
+  }
+
+  // For approx_distinct in window operations, input sets for rows in the same
+  // partition are correlated. Since the error bound of approx_distinct only
+  // applies to independent input sets, we only take one max gap in each
+  // partition when checking the error bound.
+  bool verifyWindow(
+      core::PlanNodePtr& expectedSource,
+      core::PlanNodePtr& actualSource,
+      std::shared_ptr<core::PlanNodeIdGenerator>& planNodeIdGenerator,
+      memory::MemoryPool* pool) {
+    auto mapAgg = fmt::format("map_agg(label, {}) as m", name_);
+
+    auto keys = groupingKeys_;
+    keys.push_back("row_number");
+
+    // Calculate the gap between each actual and the corresponding expected
+    // counts.
+    auto projections = keys;
+    projections.push_back(
+        "cast(abs(m['actual'] - m['expected']) as double) / cast(m['expected'] as double) as gap");
+
+    auto plan =
+        PlanBuilder(planNodeIdGenerator)
+            .localPartition({}, {expectedSource, actualSource})
+            .singleAggregation(keys, {mapAgg})
+            .project(projections)
+            // groupingKeys_ are the partition-by keys for window operations.
+            // The error bound of approx_distinct is for independent input sets,
+            // while input sets in the same partition are correlated. So we only
+            // take one max gap in each partition.
+            .singleAggregation(groupingKeys_, {"max(gap)"})
+            .planNode();
+    auto combined = AssertQueryBuilder(plan).copyResults(pool);
+    const auto numGroups = combined->size();
+
+    std::vector<double> largeGaps;
+    for (auto i = 0; i < numGroups; ++i) {
+      const auto gap =
+          combined->children().back()->as<SimpleVector<double>>()->valueAt(i);
+      if (gap > 2 * error_) {
+        largeGaps.push_back(gap);
+        LOG(ERROR) << fmt::format(
+            "approx_distinct(x, {}) is more than 2 stddev away from "
+            "count(distinct x) at {}. Difference: {}. This is unusual, but doesn't necessarily "
+            "indicate a bug.",
+            error_,
+            combined->toString(i),
+            gap);
       }
     }
 
