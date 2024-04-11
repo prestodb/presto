@@ -25,6 +25,7 @@ add_executable(
   ExecutorBarrierTest.cpp
   OnDemandUnitLoaderTests.cpp
   LocalFileSinkTest.cpp
+  MemorySinkTest.cpp
   LoggedExceptionTest.cpp
   ParallelForTest.cpp
   RangeTests.cpp
