@@ -1033,6 +1033,52 @@ TEST_F(JsonCastTest, orderOfKeys) {
   testCast(data, map);
 }
 
+TEST_F(JsonCastTest, toRowOfArray) {
+  auto data = makeFlatVector<std::string>(
+      {
+          R"({"c0": [1, 2, 3], "c1": 1.2})",
+          R"({"c0": [], "c1": 1.3})",
+          R"({"c0": [10, null, 20, null], "c1": 1.4})",
+      },
+      JSON());
+
+  auto expected = makeRowVector({
+      makeArrayVectorFromJson<int64_t>({
+          "[1, 2, 3]",
+          "[]",
+          "[10, null, 20, null]",
+      }),
+  });
+
+  testCast(data, expected);
+}
+
+TEST_F(JsonCastTest, toRowDuplicateKey) {
+  std::vector<std::optional<std::string>> jsonStrings = {
+      R"({"c0": 1, "c1": 1.1})",
+      R"({"c0": 2, "c1": 1.2, "C0": 45})", // Duplicate keys: c0, C0.
+      R"({"c0": 3, "c1": 1.3, "c0": 55})", // Duplicate keys: c0, c0.
+      R"({"c0": 4, "c1": 1.4, "c2": 65})",
+  };
+
+  testThrow<std::string>(
+      JSON(),
+      ROW({"c0", "c1"}, {INTEGER(), REAL()}),
+      jsonStrings,
+      "Duplicate field: c0");
+
+  auto data = makeNullableFlatVector<std::string>(jsonStrings, JSON());
+
+  auto expected = makeRowVector({
+      makeFlatVector<int32_t>({1, 0, 0, 4}),
+      makeFlatVector<float>({1.1, 0.0, 0.0, 1.4}),
+  });
+  expected->setNull(1, true);
+  expected->setNull(2, true);
+
+  testCast(data, expected, true /*try_cast*/);
+}
+
 TEST_F(JsonCastTest, toRow) {
   // Test casting to ROW from JSON arrays.
   auto array = makeNullableFlatVector<JsonNativeType>(
@@ -1053,7 +1099,7 @@ TEST_F(JsonCastTest, toRow) {
   auto map = makeNullableFlatVector<JsonNativeType>(
       {R"({"c0":123,"c1":"abc","c2":true})"_sv,
        R"({"c1":"abc","c2":true,"c0":123})"_sv,
-       R"({"c0":123,"c2":true,"c0":456})"_sv,
+       R"({"c10":123,"c2":true,"c0":456})"_sv,
        R"({"c3":123,"c4":"abc","c2":false})"_sv,
        R"({"c0":null,"c2":false})"_sv,
        R"({"c0":null,"c2":null,"c1":null})"_sv},
@@ -1074,17 +1120,17 @@ TEST_F(JsonCastTest, toRow) {
 
   // Use a mix of lower case and upper case JSON keys.
   map = makeNullableFlatVector<JsonNativeType>(
-      {R"({"c0":123,"c1":"abc","c2":true})"_sv,
-       R"({"c1":"abc","c2":true,"c0":123})"_sv,
-       R"({"c0":123,"c2":true,"c0":456})"_sv,
-       R"({"c3":123,"c4":"abc","c2":false})"_sv,
+      {R"({"C0":123,"C1":"abc","C2":true})"_sv,
+       R"({"c1":"abc","C2":true,"c0":123})"_sv,
+       R"({"C10":123,"C2":true,"c0":456})"_sv,
+       R"({"c3":123,"C4":"abc","c2":false})"_sv,
        R"({"c0":null,"c2":false})"_sv,
-       R"({"c0":null,"c2":null,"c1":null})"_sv},
+       R"({"c0":null,"c2":null,"C1":null})"_sv},
       JSON());
   testCast(map, makeRowVector({child4, child5, child6}));
 
   // Use a mix of lower case and upper case field names in target ROW type.
-  testCast(map, makeRowVector({child4, child5, child6}));
+  testCast(map, makeRowVector({"c0", "C1", "C2"}, {child4, child5, child6}));
 
   // Test casting to ROW from JSON null.
   auto null = makeNullableFlatVector<JsonNativeType>({"null"_sv}, JSON());
