@@ -1846,3 +1846,86 @@ DEBUG_ONLY_TEST_F(RowContainerTest, eraseAfterOomStoringString) {
   // attempting to free a string the allocator doesn't own.
   rowContainer->eraseRows(folly::Range<char**>(rows.data(), numRows));
 }
+
+TEST_F(RowContainerTest, nextRowVector) {
+  int32_t numRows = 100;
+  auto data = makeRowContainer({SMALLINT()}, {SMALLINT()});
+  EXPECT_EQ(data->nextOffset(), 11);
+  std::unordered_set<char*> rowSet;
+  std::vector<char*> rows;
+
+  auto dataClear = [&]() {
+    data->clear();
+    EXPECT_EQ(0, data->numRows());
+    auto free = data->freeSpace();
+    EXPECT_EQ(0, free.first);
+    EXPECT_EQ(0, free.second);
+    rows.clear();
+    rowSet.clear();
+  };
+
+  auto validateNextRowVector = [&]() {
+    for (int i = 0; i < rows.size(); i++) {
+      auto vector = data->getNextRowVector(rows[i]);
+      if (vector) {
+        auto iter = std::find(vector->begin(), vector->end(), rows[i]);
+        EXPECT_NE(iter, vector->end());
+        EXPECT_TRUE(vector->size() <= 2 && vector->size() > 0);
+        for (auto next : *vector) {
+          EXPECT_EQ(data->getNextRowVector(next), vector);
+          EXPECT_TRUE(std::find(rows.begin(), rows.end(), next) != rows.end());
+        }
+      }
+    }
+  };
+
+  auto nextRowVectorAppendValidation = [&]() {
+    for (int i = 0; i < numRows; ++i) {
+      rows.push_back(data->newRow());
+      rowSet.insert(rows.back());
+      EXPECT_EQ(data->getNextRowVector(rows.back()), nullptr);
+    }
+    EXPECT_EQ(numRows, data->numRows());
+    std::vector<char*> rowsFromContainer(numRows);
+    RowContainerIterator iter;
+    EXPECT_EQ(
+        data->listRows(&iter, numRows, rowsFromContainer.data()), numRows);
+    EXPECT_EQ(0, data->listRows(&iter, numRows, rows.data()));
+    EXPECT_EQ(rows, rowsFromContainer);
+
+    for (int i = 0; i + 2 <= numRows; i += 2) {
+      data->appendNextRow(rows[i], rows[i + 1]);
+    }
+    validateNextRowVector();
+  };
+
+  auto nextRowVectorEraseValidation = [&](const std::vector<int>& eraseRows) {
+    dataClear();
+    nextRowVectorAppendValidation();
+    std::vector<char*> erasingRows;
+    for (auto index : eraseRows) {
+      erasingRows.emplace_back(rows[index]);
+    }
+    for (auto row : erasingRows) {
+      rows.erase(std::remove(rows.begin(), rows.end(), row), rows.end());
+    }
+    data->eraseRows(
+        folly::Range<char**>(erasingRows.data(), erasingRows.size()));
+    validateNextRowVector();
+    data->checkConsistency();
+  };
+
+  nextRowVectorAppendValidation();
+  nextRowVectorEraseValidation({0, 1});
+  nextRowVectorEraseValidation({34, 35, 98, 99});
+  nextRowVectorEraseValidation({2, 3, 22, 23, 88, 89, 58, 59});
+  std::vector<int> eraseRows(numRows);
+  std::iota(eraseRows.begin(), eraseRows.end(), 0);
+  nextRowVectorEraseValidation(eraseRows);
+
+  VELOX_ASSERT_THROW(
+      nextRowVectorEraseValidation({1}),
+      "All rows with the same keys must be present in 'rows'");
+
+  dataClear();
+}

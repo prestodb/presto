@@ -59,11 +59,12 @@ class HashTableTestHelper {
   }
 
   void insertForJoin(
+      RowContainer* rows,
       char** groups,
       uint64_t* hashes,
       int32_t numGroups,
       TableInsertPartitionInfo* partitionInfo) {
-    table_->insertForJoin(groups, hashes, numGroups, partitionInfo);
+    table_->insertForJoin(rows, groups, hashes, numGroups, partitionInfo);
   }
 
   void setHashMode(BaseHashTable::HashMode mode, int32_t numNew) {

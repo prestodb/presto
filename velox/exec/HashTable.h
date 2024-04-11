@@ -144,8 +144,8 @@ class BaseHashTable {
     void reset(const HashLookup& lookup) {
       rows = &lookup.rows;
       hits = &lookup.hits;
-      nextHit = nullptr;
       lastRowIndex = 0;
+      lastDuplicateRowIndex = 0;
     }
 
     bool atEnd() const {
@@ -154,8 +154,8 @@ class BaseHashTable {
 
     const raw_vector<vector_size_t>* rows{nullptr};
     const raw_vector<char*>* hits{nullptr};
-    char* nextHit{nullptr};
     vector_size_t lastRowIndex{0};
+    vector_size_t lastDuplicateRowIndex{0};
   };
 
   struct RowsIterator {
@@ -172,6 +172,7 @@ class BaseHashTable {
   struct NullKeyRowsIterator {
     bool initialized = false;
     char* nextHit;
+    vector_size_t lastDuplicateRowIndex{0};
   };
 
   /// Takes ownership of 'hashers'. These are used to keep key-level
@@ -324,7 +325,7 @@ class BaseHashTable {
       int32_t numNew,
       bool disableRangeArrayHash = false) = 0;
 
-  // Removes 'rows'  from the hash table and its RowContainer. 'rows' must exist
+  // Removes 'rows' from the hash table and its RowContainer. 'rows' must exist
   // and be unique.
   virtual void erase(folly::Range<char**> rows) = 0;
 
@@ -444,6 +445,15 @@ class HashTable : public BaseHashTable {
       uint32_t minTableSizeForParallelJoinBuild,
       memory::MemoryPool* pool,
       const std::shared_ptr<velox::HashStringAllocator>& stringArena = nullptr);
+
+  ~HashTable() override {
+    if (otherTables_.size() > 0) {
+      rows_->clearNextRowVectors();
+      for (auto i = 0; i < otherTables_.size(); ++i) {
+        otherTables_[i]->rows()->clearNextRowVectors();
+      }
+    }
+  }
 
   static std::unique_ptr<HashTable> createForAggregation(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
@@ -694,10 +704,6 @@ class HashTable : public BaseHashTable {
   int32_t
   listRows(RowsIterator* iter, int32_t maxRows, uint64_t maxBytes, char** rows);
 
-  char*& nextRow(char* row) {
-    return *reinterpret_cast<char**>(row + nextOffset_);
-  }
-
   void arrayGroupProbe(HashLookup& lookup);
 
   void setHashMode(HashMode mode, int32_t numNew) override;
@@ -760,6 +766,7 @@ class HashTable : public BaseHashTable {
   /// can't be inserted within this range, it is not inserted but rather added
   /// to the end of 'overflows' in 'partitionInfo'.
   void insertForJoin(
+      RowContainer* rows,
       char** groups,
       uint64_t* hashes,
       int32_t numGroups,
@@ -841,12 +848,15 @@ class HashTable : public BaseHashTable {
 
   // Adds a row to a hash join build side entry with multiple rows
   // with the same key.
-  void pushNext(char* row, char* next);
+  // 'rows' should be the same as the one in hash table except for
+  // 'parallelJoinBuild'.
+  void pushNext(RowContainer* rows, char* row, char* next);
 
   // Finishes inserting an entry into a join hash table. If 'partitionInfo' is
   // not null and the insert falls out-side of the partition range, then insert
   // is not made but row is instead added to 'overflow' in 'partitionInfo'
   void buildFullProbe(
+      RowContainer* rows,
       ProbeState& state,
       uint64_t hash,
       char* row,
