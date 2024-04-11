@@ -1,4 +1,18 @@
-// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "velox/dwio/common/tests/utils/UnitLoaderTestTools.h"
 
@@ -12,7 +26,7 @@ ReaderMock::ReaderMock(
     UnitLoaderFactory& factory)
     : rowsPerUnit_{std::move(rowsPerUnit)},
       ioSizes_{std::move(ioSizes)},
-      unitsLoaded_(rowsPerUnit_.size(), false),
+      unitsLoaded_(std::vector<std::atomic_bool>(rowsPerUnit_.size())),
       loader_{factory.create(getUnits())} {
   VELOX_CHECK(rowsPerUnit_.size() == ioSizes_.size());
 }
@@ -52,6 +66,14 @@ std::vector<std::unique_ptr<LoadUnit>> ReaderMock::getUnits() {
         rowsPerUnit_[i], ioSizes_[i], unitsLoaded_, i));
   }
   return units;
+}
+
+std::vector<std::atomic_bool> getUnitsLoadedWithFalse(size_t count) {
+  std::vector<std::atomic_bool> unitsLoaded(count);
+  for (auto& unit : unitsLoaded) {
+    unit = false;
+  }
+  return unitsLoaded;
 }
 
 } // namespace facebook::velox::dwio::common::test
