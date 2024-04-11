@@ -58,4 +58,6 @@ public class RuntimeMetricName
     public static final String WRITTEN_FILES_COUNT = "writtenFilesCount";
     public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES = "historyOptimizerQueryRegistrationGetPlanNodeHashes";
     public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
+    public static final String DIRECTORY_LISTING_CACHE_HIT = "directoryListingCacheHit";
+    public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
 }
