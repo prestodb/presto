@@ -89,6 +89,9 @@ Property                                                Description
                                                         used to secure TLS.
 ``http-server.https.keystore.key``                      The password for the keystore. This must match the
                                                         password you specified when creating the keystore.
+``http-server.authentication.allow-forwarded-https``    Enable treating forwarded HTTPS requests over HTTP as secure.
+                                                        Requires the ``X-Forwarded-Proto`` header to be set to ``https`` on forwarded requests.
+                                                        Default value is ``false``.
 ======================================================= ======================================================
 
 Password Authenticator Configuration
