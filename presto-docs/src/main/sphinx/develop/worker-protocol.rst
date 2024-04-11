@@ -125,3 +125,24 @@ upstream workers using buffer number 2.
 
 .. image:: worker-protocol-output-buffers.png
   :width: 600
+
+Failure Handling
+~~~~~~~~~~~~~~~~
+
+Task failures are reported to the coordinator via ``TaskStatus`` and ``TaskInfo``
+updates.
+
+When a task failure is discovered, the coordinator aborts all remaining tasks and
+reports a query failure to the client. When a task failure occurs or an abort
+request is received, all further processing stops, and all remaining task output
+is discarded.
+
+Failed or aborted tasks continue responding to data plane requests as usual to
+prevent cascading failures. Because the output is fully discarded upon failure, all
+following responses are empty. The ``X-Presto-Buffer-Complete`` header is set to
+``false`` to prevent downstream tasks from finishing successfully and producing
+incorrect results.
+
+To the client, these responses are indistinguishable from those of healthy tasks.
+To avoid request bursts, a standard delay before responding with an empty result
+set is applied.
