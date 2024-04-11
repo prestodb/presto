@@ -104,6 +104,11 @@ AbstractClasses:
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
 
+    ConnectorHistogram:
+      super: JsonEncodedSubclass
+      subclasses:
+        - { name: UniformDistributionHistogram, key: uniform-distribution}
+
     ExecutionWriterTarget:
       super: JsonEncodedSubclass
       subclasses:
@@ -123,7 +128,7 @@ AbstractClasses:
         - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
         - { name: LimitNode,                key: .LimitNode }
         - { name: MarkDistinctNode,         key: .MarkDistinctNode }
-        - { name: SortNode,                 key: com.facebook.presto.sql.planner.plan.SortNode }
+        - { name: SortNode,                 key: .SortNode }
         - { name: OutputNode,               key: .OutputNode }
         - { name: ProjectNode,              key: .ProjectNode }
         - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
@@ -322,6 +327,8 @@ JavaClasses:
   - presto-common/src/main/java/com/facebook/presto/common/predicate/ValueSet.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/statistics/ConnectorHistogram.java
+  - presto-main/src/main/java/com/facebook/presto/cost/UniformDistributionHistogram.java
   - presto-main/src/main/java/com/facebook/presto/metadata/MetadataUpdates.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/JoinNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SemiJoinNode.java
@@ -332,7 +339,7 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitioningHandle.java
   - presto-main/src/main/java/com/facebook/presto/split/EmptySplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/LambdaDefinitionExpression.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SortNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/SortNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
   - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
