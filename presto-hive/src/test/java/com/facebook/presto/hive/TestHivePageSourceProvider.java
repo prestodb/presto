@@ -649,7 +649,25 @@ public class TestHivePageSourceProvider
             implements HiveSelectivePageSourceFactory
     {
         @Override
-        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, Map<Integer, String> prefilledValues, Map<Integer, HiveCoercer> coercers, Optional<BucketAdaptation> bucketAdaptation, List<Integer> outputColumns, TupleDomain<Subfield> domainPredicate, RowExpression remainingPredicate, DateTimeZone hiveStorageTimeZone, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation, boolean appendRowNumberEnabled)
+        public Optional<? extends ConnectorPageSource> createPageSource(
+                Configuration configuration,
+                ConnectorSession session,
+                HiveFileSplit fileSplit,
+                Storage storage,
+                List<HiveColumnHandle> columns,
+                Map<Integer,
+                String> prefilledValues,
+                Map<Integer,
+                HiveCoercer> coercers,
+                Optional<BucketAdaptation> bucketAdaptation,
+                List<Integer> outputColumns,
+                TupleDomain<Subfield> domainPredicate,
+                RowExpression remainingPredicate,
+                DateTimeZone hiveStorageTimeZone,
+                HiveFileContext hiveFileContext,
+                Optional<EncryptionInformation> encryptionInformation,
+                boolean appendRowNumberEnabled,
+                Optional<byte[]> rowIDPartitionComponent)
         {
             if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
                 return Optional.empty();
@@ -662,7 +680,7 @@ public class TestHivePageSourceProvider
             implements HiveAggregatedPageSourceFactory
     {
         @Override
-        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation, boolean appendRowNumberEnabled)
+        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation)
         {
             if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
                 return Optional.empty();
