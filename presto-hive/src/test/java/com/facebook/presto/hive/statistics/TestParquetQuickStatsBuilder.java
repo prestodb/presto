@@ -15,23 +15,28 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.presto.hive.FileFormatDataSourceStats;
+import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveFileInfo;
+import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.TestingSemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
@@ -39,11 +44,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.mockito.Mockito;
-import org.mockito.stubbing.Answer;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.chrono.ChronoLocalDate;
 import java.util.Map;
@@ -53,17 +57,16 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.READ_MASKED_VALUE_ENABLED;
+import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.System.exit;
 import static java.time.LocalDate.parse;
 import static java.util.stream.Collectors.toMap;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 public class TestParquetQuickStatsBuilder
@@ -77,9 +80,10 @@ public class TestParquetQuickStatsBuilder
     public static final String TEST_TABLE = "quick_stats";
     private ParquetQuickStatsBuilder parquetQuickStatsBuilder;
     private MetastoreContext metastoreContext;
-    private SemiTransactionalHiveMetastore metastoreMock;
+    private SemiTransactionalHiveMetastore metastore;
     private HdfsEnvironment hdfsEnvironment;
     private HiveClientConfig hiveClientConfig;
+    private MetastoreClientConfig metastoreClientConfig;
 
     public static void main(String[] args)
             throws Exception
@@ -182,29 +186,24 @@ public class TestParquetQuickStatsBuilder
     @BeforeTest
     private void setUp()
     {
-        metastoreMock = Mockito.mock(SemiTransactionalHiveMetastore.class);
-        Storage mockStorage = new Storage(
-                fromHiveStorageFormat(PARQUET),
-                "some/path",
-                Optional.empty(),
-                true,
-                ImmutableMap.of(),
-                ImmutableMap.of());
-        Partition mockPartition = new Partition(
+        Table table = new Table(
                 TEST_SCHEMA,
                 TEST_TABLE,
+                "owner",
+                MANAGED_TABLE,
+                Storage.builder()
+                        .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                        .setLocation("location")
+                        .build(),
                 ImmutableList.of(),
-                mockStorage,
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                false,
-                true,
-                0,
-                0,
                 Optional.empty());
-        when(metastoreMock.getPartition(any(), eq(TEST_SCHEMA), eq(TEST_TABLE), any()))
-                .thenReturn(Optional.of(mockPartition));
+
+        TestingSemiTransactionalHiveMetastore mock = TestingSemiTransactionalHiveMetastore.create();
+        mock.addTable(TEST_SCHEMA, TEST_TABLE, table, ImmutableList.of());
+        metastore = mock;
 
         metastoreContext = new MetastoreContext(SESSION.getUser(),
                 SESSION.getQueryId(),
@@ -216,7 +215,7 @@ public class TestParquetQuickStatsBuilder
                 SESSION.getWarningCollector(),
                 SESSION.getRuntimeStats());
         hiveClientConfig = new HiveClientConfig();
-        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        metastoreClientConfig = new MetastoreClientConfig();
         // Use HiveUtils#createTestHdfsEnvironment to ensure that PrestoS3FileSystem is used for s3a paths
         hdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
 
@@ -229,8 +228,8 @@ public class TestParquetQuickStatsBuilder
         ImmutableList<HiveFileInfo> hiveFileInfos = buildHiveFileInfos(s3BucketUri, partitionPath, mockedFileCount);
 
         Stopwatch sw = Stopwatch.createStarted();
-        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastoreMock, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
-                metastoreContext, TEST_SCHEMA, hiveFileInfos.iterator());
+        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
         sw.stop();
 
         if (!isWarmup) {
@@ -244,24 +243,17 @@ public class TestParquetQuickStatsBuilder
 
     @Test
     public void testStatsBuildTimeIsBoundedUsingFooterFetchTimeout()
-            throws Exception
     {
         HiveClientConfig customHiveClientConfig = new HiveClientConfig().setParquetQuickStatsFileMetadataFetchTimeout(new Duration(10, TimeUnit.MILLISECONDS));
-        HdfsEnvironment mockHdfsEnvironment = mock(HdfsEnvironment.class);
-        when(mockHdfsEnvironment.getConfiguration(any(), any())).thenReturn(new Configuration());
-        when(mockHdfsEnvironment.getFileSystem(any(), any())).thenAnswer((Answer<ExtendedFileSystem>) invocationOnMock -> {
-            // Sleep for 1s to simulate a long-running footer fetch call
-            Thread.sleep(50);
-            return (ExtendedFileSystem) invocationOnMock.callRealMethod();
-        });
+        HdfsEnvironment mockHdfsEnvironment = new DelayingHdfsEnvironment(hdfsEnvironment, hiveClientConfig, metastoreClientConfig);
 
         String resourceDir = TestParquetQuickStatsBuilder.class.getClassLoader().getResource("quick_stats").toString();
         ParquetQuickStatsBuilder customParquetQuickStatsBuilder = new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), mockHdfsEnvironment, customHiveClientConfig);
         ImmutableList<HiveFileInfo> hiveFileInfos = buildHiveFileInfos(resourceDir, "tpcds_store_sales_sf_point_01", 1);
 
         try {
-            customParquetQuickStatsBuilder.buildQuickStats(SESSION, metastoreMock, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
-                    metastoreContext, TEST_SCHEMA, hiveFileInfos.iterator());
+            customParquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                    metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
         }
         catch (RuntimeException ex) {
             assertEquals(TimeoutException.class, ex.getCause().getClass());
@@ -275,8 +267,8 @@ public class TestParquetQuickStatsBuilder
 
         // Table :  TPCDS SF 0.01 store_sales
         ImmutableList<HiveFileInfo> hiveFileInfos = buildHiveFileInfos(resourceDir, "tpcds_store_sales_sf_point_01", 1);
-        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastoreMock, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
-                metastoreContext, TEST_SCHEMA, hiveFileInfos.iterator());
+        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
         assertEquals(8, partitionQuickStats.getFileCount());
         // We check a few of the columns
@@ -289,8 +281,8 @@ public class TestParquetQuickStatsBuilder
 
         // Table : TPCH orders table; 100 rows
         hiveFileInfos = buildHiveFileInfos(resourceDir, "tpch_orders_100_rows", 1);
-        partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastoreMock, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
-                metastoreContext, TEST_SCHEMA, hiveFileInfos.iterator());
+        partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
         assertEquals(1, partitionQuickStats.getFileCount());
         columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
@@ -313,11 +305,34 @@ public class TestParquetQuickStatsBuilder
         //     with (format = 'PARQUET')
         // 3  rows were added to the table
         ImmutableList<HiveFileInfo> hiveFileInfos = buildHiveFileInfos(resourceDir, "nested_table", 1);
-        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastoreMock, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
-                metastoreContext, TEST_SCHEMA, hiveFileInfos.iterator());
+        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
         assertEquals(partitionQuickStats.getStats().size(), 1, "Expected stats for only non-nested column : 'id'");
         ColumnQuickStats<?> idColumnQuickStats = partitionQuickStats.getStats().get(0);
         assertEquals(idColumnQuickStats, createLongStats("id", 3L, 0L, 1L, 3L));
+    }
+
+    public static class DelayingHdfsEnvironment
+            extends HdfsEnvironment
+    {
+        private final HdfsEnvironment hdfsEnvironment;
+
+        public DelayingHdfsEnvironment(HdfsEnvironment hdfsEnvironment, HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig)
+        {
+            super(
+                    new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig),
+                    metastoreClientConfig,
+                    new NoHdfsAuthentication());
+            this.hdfsEnvironment = hdfsEnvironment;
+        }
+
+        @Override
+        public ExtendedFileSystem getFileSystem(String user, Path path, Configuration configuration)
+                throws IOException
+        {
+            sleepUninterruptibly(50, TimeUnit.MILLISECONDS);
+            return hdfsEnvironment.getFileSystem(user, path, configuration);
+        }
     }
 }
