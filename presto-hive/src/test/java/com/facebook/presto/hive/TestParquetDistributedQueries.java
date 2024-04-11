@@ -96,6 +96,71 @@ public class TestParquetDistributedQueries
     }
 
     @Test
+    public void testQuickStatsPartitionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("hive." + COLLECT_COLUMN_STATISTICS_ON_WRITE, "false")
+                .setSystemProperty("hive." + QUICK_STATS_ENABLED, "true")
+                .build();
+
+        getQueryRunner().execute(session, "CREATE TABLE test_quick_stats_partitioned (" +
+                "    \"suppkey\" bigint," +
+                "    \"linenumber\" integer," +
+                "    \"orderkey\" bigint," +
+                "    \"partkey\" bigint" +
+                "   )" +
+                "   WITH (" +
+                "    format = 'PARQUET'," +
+                "    partitioned_by = ARRAY['orderkey','partkey']" +
+                "   )");
+
+        getQueryRunner().execute(session, "INSERT INTO test_quick_stats_partitioned (suppkey, linenumber, orderkey, partkey)" +
+                "VALUES" +
+                "(1, 1, 100, 1000)," +
+                "(2, 2, 101, 1001)," +
+                "(3, 3, 102, 1002)," +
+                "(4, 4, 103, 1003)," +
+                "(5, 5, 104, 1004)," +
+                "(6, 6, 105, 1005)," +
+                "(7, 7, 106, 1006)," +
+                "(8, 8, 107, 1007)," +
+                "(9, 9, 108, 1008)," +
+                "(10, 10, 109, 1009)");
+
+        try {
+            // Since no stats were collected during write, only the partitioned columns will have stats
+            assertQuery("SHOW STATS FOR test_quick_stats_partitioned",
+                    "SELECT * FROM (VALUES " +
+                            "   ('suppkey', null, null, null, null, null, null, null), " +
+                            "   ('linenumber', null, null, null, null, null, null, null), " +
+                            "   ('orderkey', null, 10.0, 0.0, null, 100, 109, null), " +
+                            "   ('partkey', null, 10.0, 0.0, null, 1000, 1009, null), " +
+                            "   (null, null, null, null, 10.0, null, null, null))");
+
+            // With quick stats enabled, we should get nulls_fraction, low_value and high_value for all columns
+            assertQuery(session, "SHOW STATS FOR test_quick_stats_partitioned",
+                    "SELECT * FROM (VALUES " +
+                            "   ('suppkey', null, null, 0.0, null, 1, 10, null), " +
+                            "   ('linenumber', null, null, 0.0, null, 1, 10, null), " +
+                            "   ('orderkey', null, 10.0, 0.0, null, 100, 109, null), " +
+                            "   ('partkey', null, 10.0, 0.0, null, 1000, 1009, null), " +
+                            "   (null, null, null, null, 10.0, null, null, null))");
+
+            // If a query targets a specific partition, stats are correctly limited to that partition
+            assertQuery(session, "show stats for (select * from test_quick_stats_partitioned where partkey = 1009)",
+                    "SELECT * FROM (VALUES " +
+                            "   ('suppkey', null, null, 0.0, null, 10, 10, null), " +
+                            "   ('linenumber', null, null, 0.0, null, 10, 10, null), " +
+                            "   ('orderkey', null, 1.0, 0.0, null, 109, 109, null), " +
+                            "   ('partkey', null, 1.0, 0.0, null, 1009, 1009, null), " +
+                            "   (null, null, null, null, 1.0, null, null, null))");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_quick_stats_partitioned");
+        }
+    }
+
+    @Test
     public void testSubfieldPruning()
     {
         getQueryRunner().execute("CREATE TABLE test_subfield_pruning AS " +
