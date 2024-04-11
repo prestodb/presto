@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileInfo;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
@@ -303,7 +304,8 @@ public class ParquetQuickStatsBuilder
             storageFormat = resolvedTable.getStorage().getStorageFormat();
         }
         else {
-            Partition partition = metastore.getPartition(metastoreContext, table.getSchemaName(), table.getTableName(), ImmutableList.of(partitionId)).get();
+            Partition partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
+                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId).get();
             storageFormat = partition.getStorage().getStorageFormat();
         }
 
