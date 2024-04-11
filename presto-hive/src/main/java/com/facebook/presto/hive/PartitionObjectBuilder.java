@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import java.util.Map;
 import java.util.Optional;
 
+// TODO interface only has one implementation; inline it
 public interface PartitionObjectBuilder
 {
     Partition buildPartitionObject(
@@ -28,5 +29,6 @@ public interface PartitionObjectBuilder
             PartitionUpdate partitionUpdate,
             String prestoVersion,
             Map<String, String> extraParameters,
-            Optional<Partition> previousPartition);
+            Optional<Partition> previousPartition,
+            Optional<byte[]> rowIDPartitionComponent);
 }

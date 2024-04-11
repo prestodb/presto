@@ -29,13 +29,13 @@ import java.nio.charset.StandardCharsets;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-class RowIDCoercer
+public class RowIDCoercer
         implements HiveCoercer
 {
     private final byte[] rowIDPartitionComponent;
     private final byte[] rowGroupID; // file name
 
-    RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
+    public RowIDCoercer(byte[] rowIDPartitionComponent, String rowGroupID)
     {
         this.rowIDPartitionComponent = requireNonNull(rowIDPartitionComponent);
         this.rowGroupID = rowGroupID.getBytes(StandardCharsets.UTF_8);

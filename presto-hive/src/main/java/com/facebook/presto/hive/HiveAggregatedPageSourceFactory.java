@@ -31,6 +31,5 @@ public interface HiveAggregatedPageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled);
+            Optional<EncryptionInformation> encryptionInformation);
 }
