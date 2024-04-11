@@ -14,26 +14,30 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.metadata.Split;
 
-import java.util.List;
+import java.util.Iterator;
 import java.util.Optional;
-import java.util.concurrent.Future;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.Objects.requireNonNull;
 
-public class NoOpFragmentResultCacheManager
-        implements FragmentResultCacheManager
+public class FragmentCacheResult
 {
-    @Override
-    public Future<?> put(String serializedPlan, Split split, List<Page> result, long inputDataSize)
+    Optional<Iterator<Page>> pages;
+    long inputDataSize;
+
+    public FragmentCacheResult(Optional<Iterator<Page>> pages, long inputDataSize)
     {
-        return immediateFuture(null);
+        this.pages = requireNonNull(pages, "pages is null");
+        this.inputDataSize = inputDataSize;
     }
 
-    @Override
-    public FragmentCacheResult get(String serializedPlan, Split split)
+    public Optional<Iterator<Page>> getPages()
     {
-        return new FragmentCacheResult(Optional.empty(), 0);
+        return pages;
+    }
+
+    public long getInputDataSize()
+    {
+        return inputDataSize;
     }
 }
