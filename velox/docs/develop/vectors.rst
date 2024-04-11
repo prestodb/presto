@@ -277,12 +277,13 @@ characters.
     bool isNull_ = false;
     BufferPtr stringBuffer_;
 
-BaseVector::wrapInConstant() static method can be used to create a constant
+BaseVector::createConstant() static method can be used to create a constant
 vector from a scalar value.
 
 .. code-block:: c++
 
     static std::shared_ptr<BaseVector> createConstant(
+        const TypePtr& type,
         variant value,
         vector_size_t size,
         velox::memory::MemoryPool* pool);
