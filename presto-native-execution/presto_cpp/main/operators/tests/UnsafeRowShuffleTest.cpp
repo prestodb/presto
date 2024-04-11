@@ -317,6 +317,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<ShuffleWriteTranslator>());
   }
 
+  void TearDown() override {
+    exec::test::waitForAllTasksToBeDeleted();
+    exec::test::OperatorTestBase::TearDown();
+  }
+
   static std::string makeTaskId(
       const std::string& prefix,
       int num,
