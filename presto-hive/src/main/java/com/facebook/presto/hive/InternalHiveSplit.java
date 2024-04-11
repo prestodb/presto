@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    // Overhead of ImmutableList and ImmutableMap is not accounted because of its complexity.
+    // Overhead of ImmutableList and ImmutableMap is not accounted for because of its complexity.
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
     private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
