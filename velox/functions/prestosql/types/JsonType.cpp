@@ -30,6 +30,7 @@
 #include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
@@ -826,6 +827,25 @@ struct CastFromJsonTypedImpl {
     }
   };
 
+  static folly::F14FastMap<std::string, int32_t> makeFieldIndicesMap(
+      const RowType& rowType,
+      bool allFieldsAreAscii) {
+    folly::F14FastMap<std::string, int32_t> fieldIndices;
+    const auto size = rowType.size();
+    for (auto i = 0; i < size; ++i) {
+      std::string key = rowType.nameOf(i);
+      if (allFieldsAreAscii) {
+        folly::toLowerAscii(key);
+      } else {
+        boost::algorithm::to_lower(key);
+      }
+
+      fieldIndices[key] = i;
+    }
+
+    return fieldIndices;
+  }
+
   template <typename Dummy>
   struct KindDispatcher<TypeKind::ROW, Dummy> {
     static simdjson::error_code apply(
@@ -860,20 +880,29 @@ struct CastFromJsonTypedImpl {
         // TODO Populate this mapping once, not per-row.
         // Mapping from lower-case field names of the target RowType to their
         // indices.
-        folly::F14FastMap<std::string, int32_t> fieldIndices;
+        bool allFieldsAreAscii = true;
         const auto size = rowType.size();
         for (auto i = 0; i < size; ++i) {
-          auto key = rowType.nameOf(i);
-          boost::algorithm::to_lower(key);
-          fieldIndices[key] = i;
+          const auto& name = rowType.nameOf(i);
+          allFieldsAreAscii &=
+              functions::stringCore::isAscii(name.data(), name.size());
         }
+
+        auto fieldIndices = makeFieldIndicesMap(rowType, allFieldsAreAscii);
 
         std::string key;
         for (auto fieldResult : object) {
           SIMDJSON_ASSIGN_OR_RAISE(auto field, fieldResult);
           if (!field.value().is_null()) {
             SIMDJSON_ASSIGN_OR_RAISE(key, field.unescaped_key(true));
-            boost::algorithm::to_lower(key);
+
+            // boost::algorithm::to_lower is very slow. Use much faster
+            // folly::toLowerAscii if possible.
+            if (allFieldsAreAscii) {
+              folly::toLowerAscii(key);
+            } else {
+              boost::algorithm::to_lower(key);
+            }
 
             auto it = fieldIndices.find(key);
             if (it != fieldIndices.end()) {
@@ -937,7 +966,8 @@ struct CastFromJsonTypedImpl {
         break;
       }
       case simdjson::ondemand::json_type::boolean: {
-        writer.castTo<T>() = value.get_bool();
+        SIMDJSON_ASSIGN_OR_RAISE(auto b, value.get_bool());
+        writer.castTo<T>() = b;
         break;
       }
       case simdjson::ondemand::json_type::string: {
@@ -962,7 +992,8 @@ struct CastFromJsonTypedImpl {
         return convertIfInRange<T>(num, writer);
       }
       case simdjson::ondemand::json_type::boolean: {
-        writer.castTo<T>() = value.get_bool();
+        SIMDJSON_ASSIGN_OR_RAISE(auto b, value.get_bool());
+        writer.castTo<T>() = b;
         break;
       }
       case simdjson::ondemand::json_type::string: {
