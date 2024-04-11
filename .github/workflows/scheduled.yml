@@ -107,11 +107,12 @@ jobs:
 
       - name: Get latest commit from main
         if: ${{ github.event_name != 'schedule' }}
+        working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ github.token }}
         id: get-head
         run: |
-          if [ '${{ github.event_name = 'push' }}' == "true" ]; then
+          if [ '${{ github.event_name == 'push' }}' == "true" ]; then
             # get the parent commit of the current one to get the relevant function signatures
             head_main=$(gh api -q '.parents.[0].sha' '/repos/facebookincubator/velox/commits/${{ github.sha }}')
           else
