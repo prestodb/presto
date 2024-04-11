@@ -84,7 +84,7 @@ jobs:
   compile:
     name: Build
     # prevent errors when forks ff their main branch
-    if: ${{ github.repository == "facebookincubator/velox" }}
+    if: ${{ github.repository == 'facebookincubator/velox' }}
     runs-on: 16-core
     container: ghcr.io/facebookincubator/velox-dev:centos8
     timeout-minutes: 120
