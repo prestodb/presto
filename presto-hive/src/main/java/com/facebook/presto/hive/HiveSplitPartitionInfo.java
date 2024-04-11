@@ -51,7 +51,7 @@ public class HiveSplitPartitionInfo
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
 
-    public HiveSplitPartitionInfo(
+    HiveSplitPartitionInfo(
             Storage storage,
             URI path,
             List<HivePartitionKey> partitionKeys,

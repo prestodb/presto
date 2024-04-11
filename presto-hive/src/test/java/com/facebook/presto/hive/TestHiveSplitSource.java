@@ -519,6 +519,8 @@ public class TestHiveSplitSource
     private static class TestSplit
             extends InternalHiveSplit
     {
+        private static final byte[] TEST_ROW_ID_PARTITION_COMPONENT = {9, 76, 32, 11};
+
         private TestSplit(int id)
         {
             this(id, OptionalInt.empty());
@@ -558,7 +560,7 @@ public class TestHiveSplitSource
                             TableToPartitionMapping.empty(),
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.empty()),
+                            Optional.of(TEST_ROW_ID_PARTITION_COMPONENT)),
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableMap.of());
