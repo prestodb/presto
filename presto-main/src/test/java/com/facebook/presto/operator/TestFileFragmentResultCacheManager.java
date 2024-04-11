@@ -57,6 +57,8 @@ public class TestFileFragmentResultCacheManager
     private static final String SERIALIZED_PLAN_FRAGMENT_2 = "test plan fragment 2";
     private static final Split SPLIT_1 = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new TestingSplit(1));
     private static final Split SPLIT_2 = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new TestingSplit(2));
+    private static final long INPUT_DATA_SIZE_1 = 1000;
+    private static final long INPUT_DATA_SIZE_2 = 2000;
 
     private final ExecutorService writeExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-flusher-%s"));
     private final ExecutorService removalExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-cache-remover-%s"));
@@ -100,17 +102,21 @@ public class TestFileFragmentResultCacheManager
         FileFragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats, cacheDirectory);
 
         // Test fetching new fragment. Current cache status: empty
-        assertFalse(cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1).isPresent());
+        FragmentCacheResult fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
+        assertFalse(fragmentCacheResult.getPages().isPresent());
+        assertEquals(fragmentCacheResult.getInputDataSize(), 0);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 0);
         assertEquals(stats.getCacheEntries(), 0);
         assertEquals(stats.getCacheSizeInBytes(), 0);
 
         // Test empty page. Current cache status: empty
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, ImmutableList.of()).get();
-        Optional<Iterator<Page>> result = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, ImmutableList.of(), INPUT_DATA_SIZE_1).get();
+        fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
+        Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
         assertFalse(result.get().hasNext());
+        assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_1);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
         assertEquals(stats.getCacheEntries(), 1);
@@ -118,10 +124,12 @@ public class TestFileFragmentResultCacheManager
 
         // Test non-empty page. Current cache status: { (plan1, split1) -> [] }
         List<Page> pages = ImmutableList.of(new Page(createStringsBlock("plan-1-split-2")));
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_2, pages).get();
-        result = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_2);
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_2, pages, INPUT_DATA_SIZE_2).get();
+        fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_2);
+        result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
         assertPagesEqual(result.get(), pages.iterator());
+        assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_2);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 2);
         assertEquals(stats.getCacheEntries(), 2);
@@ -162,28 +170,34 @@ public class TestFileFragmentResultCacheManager
         FileFragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats, config, cacheDirectory);
 
         // Put one cache entry.
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, pages).get();
-        Optional<Iterator<Page>> result = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, pages, INPUT_DATA_SIZE_1).get();
+        FragmentCacheResult fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
+        Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
         assertPagesEqual(result.get(), pages.iterator());
+        assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_1);
         assertEquals(stats.getCacheMiss(), 0);
         assertEquals(stats.getCacheHit(), 1);
         assertEquals(stats.getCacheEntries(), 1);
         assertEquals(stats.getCacheSizeInBytes(), getCachePhysicalSize(cacheDirectory));
 
         // Trying to add another cache entry which will fail due to total size limit.
-        assertNull(cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_2, pages).get());
-        result = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_2);
+        assertNull(cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_2, pages, INPUT_DATA_SIZE_2).get());
+        fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_2);
+        result = fragmentCacheResult.getPages();
         assertFalse(result.isPresent());
+        assertEquals(fragmentCacheResult.getInputDataSize(), 0);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
         assertEquals(stats.getCacheEntries(), 1);
         assertEquals(stats.getCacheSizeInBytes(), getCachePhysicalSize(cacheDirectory));
 
         // Adding an empty page is fine.
-        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1, ImmutableList.of()).get();
-        result = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1);
+        cacheManager.put(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1, ImmutableList.of(), 0).get();
+        fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1);
+        result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
+        assertEquals(fragmentCacheResult.getInputDataSize(), 0);
         assertFalse(result.get().hasNext());
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 2);
@@ -229,10 +243,12 @@ public class TestFileFragmentResultCacheManager
                 try {
                     String threadInfo = String.format(writeThreadNameFormat, Thread.currentThread().getName(), Thread.currentThread().getId());
                     List<Page> pages = ImmutableList.of(new Page(createStringsBlock(threadInfo)));
-                    threadWriteCacheManager.put(threadInfo, SPLIT_2, pages).get();
-                    Optional<Iterator<Page>> result = threadWriteCacheManager.get(threadInfo, SPLIT_2);
+                    threadWriteCacheManager.put(threadInfo, SPLIT_2, pages, INPUT_DATA_SIZE_2).get();
+                    FragmentCacheResult fragmentCacheResult = threadWriteCacheManager.get(threadInfo, SPLIT_2);
+                    Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
                     assertTrue(result.isPresent());
                     assertPagesEqual(result.get(), pages.iterator());
+                    assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_2);
                     return true;
                 }
                 catch (Exception e) {
@@ -274,7 +290,7 @@ public class TestFileFragmentResultCacheManager
     private FileFragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats, FileFragmentResultCacheConfig cacheConfig, URI cacheDirectory)
     {
         return new FileFragmentResultCacheManager(
-                cacheConfig.setBaseDirectory(cacheDirectory),
+                cacheConfig.setBaseDirectory(cacheDirectory).setInputDataStatsEnabled(true),
                 new TestingBlockEncodingSerde(),
                 fragmentCacheStats,
                 writeExecutor,

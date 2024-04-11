@@ -16,14 +16,12 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.Split;
 
-import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Future;
 
 public interface FragmentResultCacheManager
 {
-    Future<?> put(String serializedPlan, Split split, List<Page> result);
+    Future<?> put(String serializedPlan, Split split, List<Page> result, long inputDataSize);
 
-    Optional<Iterator<Page>> get(String serializedPlan, Split split);
+    FragmentCacheResult get(String serializedPlan, Split split);
 }
