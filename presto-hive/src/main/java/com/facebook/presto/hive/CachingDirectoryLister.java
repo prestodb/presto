@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
@@ -36,6 +37,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_HIT;
+import static com.facebook.presto.common.RuntimeMetricName.DIRECTORY_LISTING_CACHE_MISS;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -79,15 +83,18 @@ public class CachingDirectoryLister
             NamenodeStats namenodeStats,
             HiveDirectoryContext hiveDirectoryContext)
     {
+        RuntimeStats runtimeStats = hiveDirectoryContext.getRuntimeStats();
         if (hiveDirectoryContext.isCacheable()) {
             // DO NOT USE Caching, when cache is disabled.
             // This is useful for debugging issues, when cache is explicitly disabled via session property.
             List<HiveFileInfo> files = cache.getIfPresent(path);
             if (files != null) {
+                runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_HIT, NONE, 1);
                 return files.iterator();
             }
         }
 
+        runtimeStats.addMetricValue(DIRECTORY_LISTING_CACHE_MISS, NONE, 1);
         Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext);
         if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(table.getSchemaTableName())) {
             return cachingIterator(iterator, path);
@@ -173,6 +180,18 @@ public class CachingDirectoryLister
     public long getRequestCount()
     {
         return cache.stats().requestCount();
+    }
+
+    @Managed
+    public long getEvictionCount()
+    {
+        return cache.stats().evictionCount();
+    }
+
+    @Managed
+    public long getSize()
+    {
+        return cache.size();
     }
 
     private static class CachedTableChecker
