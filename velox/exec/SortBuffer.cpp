@@ -194,7 +194,7 @@ void SortBuffer::ensureInputFits(const VectorPtr& input) {
   const int64_t flatInputBytes = input->estimateFlatSize();
 
   // Test-only spill path.
-  if (numRows > 0 && testingTriggerSpill()) {
+  if (numRows > 0 && testingTriggerSpill(pool_->name())) {
     spill();
     return;
   }

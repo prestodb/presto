@@ -18,6 +18,7 @@
 
 #include <folly/container/F14Set.h>
 
+#include <re2/re2.h>
 #include "velox/common/base/SpillConfig.h"
 #include "velox/common/base/SpillStats.h"
 #include "velox/common/compression/Compression.h"
@@ -452,14 +453,17 @@ SpillPartitionIdSet toSpillPartitionIdSet(
 /// triggered spill.
 /// 'spillPct' indicates the chance of triggering spilling. 100% means spill
 /// will always be triggered.
+/// 'pools' is a regular expression string used to define the specific memory
+/// pools targeted for injecting spilling.
 /// 'maxInjections' indicates the max number of actual triggering. e.g. when
 /// 'spillPct' is 20 and 'maxInjections' is 10, continuous calls to
-/// testingTriggerSpill() will keep rolling the dice that has a chance of 20%
-/// triggering until 10 triggers have been invoked.
+/// testingTriggerSpill(poolName) will keep rolling the dice that has a
+/// chance of 20% triggering until 10 triggers have been invoked.
 class TestScopedSpillInjection {
  public:
   explicit TestScopedSpillInjection(
       int32_t spillPct,
+      const std::string& poolRegExp = ".*",
       uint32_t maxInjections = std::numeric_limits<uint32_t>::max());
 
   ~TestScopedSpillInjection();
@@ -467,7 +471,7 @@ class TestScopedSpillInjection {
 
 /// Test utility that returns true if triggered spill is evaluated to happen,
 /// false otherwise.
-bool testingTriggerSpill();
+bool testingTriggerSpill(const std::string& poolName = "");
 
 tsan_atomic<uint32_t>& injectedSpillCount();
 

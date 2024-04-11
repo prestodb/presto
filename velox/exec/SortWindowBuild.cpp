@@ -90,7 +90,7 @@ void SortWindowBuild::ensureInputFits(const RowVectorPtr& input) {
   }
 
   // Test-only spill path.
-  if (testingTriggerSpill()) {
+  if (testingTriggerSpill(pool_->name())) {
     spill();
     return;
   }

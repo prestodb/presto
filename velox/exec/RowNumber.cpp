@@ -195,7 +195,7 @@ void RowNumber::ensureInputFits(const RowVectorPtr& input) {
   const auto outOfLineBytesPerRow = outOfLineBytes / numDistinct;
 
   // Test-only spill path.
-  if (testingTriggerSpill()) {
+  if (testingTriggerSpill(pool()->name())) {
     Operator::ReclaimableSectionGuard guard(this);
     memory::testingRunArbitration(pool());
     return;

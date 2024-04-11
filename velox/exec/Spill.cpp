@@ -300,18 +300,25 @@ tsan_atomic<uint32_t>& maxSpillInjections() {
   static tsan_atomic<uint32_t> maxInjections{0};
   return maxInjections;
 }
-} // namespace
 
 tsan_atomic<uint32_t>& testingSpillPct() {
   static tsan_atomic<uint32_t> spillPct{0};
   return spillPct;
 }
 
+tsan_atomic<std::string>& testingSpillPoolRegExp() {
+  static tsan_atomic<std::string> spillPoolRegExp{".*"};
+  return spillPoolRegExp;
+}
+} // namespace
+
 TestScopedSpillInjection::TestScopedSpillInjection(
     int32_t spillPct,
+    const std::string& poolRegExp,
     uint32_t maxInjections) {
   VELOX_CHECK_EQ(injectedSpillCount(), 0);
   testingSpillPct() = spillPct;
+  testingSpillPoolRegExp() = poolRegExp;
   maxSpillInjections() = maxInjections;
   injectedSpillCount() = 0;
 }
@@ -319,6 +326,7 @@ TestScopedSpillInjection::TestScopedSpillInjection(
 TestScopedSpillInjection::~TestScopedSpillInjection() {
   testingSpillPct() = 0;
   injectedSpillCount() = 0;
+  testingSpillPoolRegExp() = ".*";
   maxSpillInjections() = 0;
 }
 
@@ -327,17 +335,24 @@ tsan_atomic<uint32_t>& injectedSpillCount() {
   return injectedCount;
 }
 
-bool testingTriggerSpill() {
+bool testingTriggerSpill(const std::string& pool) {
   // Do not evaluate further if trigger is not set.
+  if (!pool.empty() && !RE2::FullMatch(pool, testingSpillPoolRegExp())) {
+    return false;
+  }
+
   if (testingSpillPct() <= 0) {
     return false;
   }
-  if (folly::Random::rand32() % 100 > testingSpillPct()) {
-    return false;
-  }
+
   if (injectedSpillCount() >= maxSpillInjections()) {
     return false;
   }
+
+  if (folly::Random::rand32() % 100 > testingSpillPct()) {
+    return false;
+  }
+
   ++injectedSpillCount();
   return true;
 }

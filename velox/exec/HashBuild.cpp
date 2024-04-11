@@ -450,7 +450,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
 
   if (numRows != 0) {
     // Test-only spill path.
-    if (testingTriggerSpill()) {
+    if (testingTriggerSpill(pool()->name())) {
       Operator::ReclaimableSectionGuard guard(this);
       memory::testingRunArbitration(pool());
       return;
@@ -777,7 +777,7 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
   }
 
   // Test-only spill path.
-  if (testingTriggerSpill()) {
+  if (testingTriggerSpill(pool()->name())) {
     Operator::ReclaimableSectionGuard guard(this);
     memory::testingRunArbitration(pool());
     return;

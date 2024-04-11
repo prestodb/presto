@@ -820,6 +820,47 @@ TEST(SpillTest, removeEmptyPartitions) {
   }
 }
 
+TEST(SpillTest, scopedSpillInjectionRegex) {
+  {
+    TestScopedSpillInjection scopedSpillInjection(100, ".*?(TableWrite).*");
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite.hive-xyz"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite-hive-xyz"));
+    ASSERT_FALSE(testingTriggerSpill("op.1.0.0.RowNumber"));
+    ASSERT_TRUE(testingTriggerSpill(""));
+  }
+
+  {
+    TestScopedSpillInjection scopedSpillInjection(
+        100, ".*?(RowNumber|TableWrite|HashBuild).*");
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.RowNumber"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite.hive-xyz"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite-hive-xyz"));
+    ASSERT_TRUE(testingTriggerSpill("op.1..0.HashBuild"));
+    ASSERT_FALSE(testingTriggerSpill("op.1.0.0.Aggregation"));
+    ASSERT_TRUE(testingTriggerSpill(""));
+  }
+
+  {
+    TestScopedSpillInjection scopedSpillInjection(
+        100, R"(.*?(RowNumber|TableWrite|HashBuild)(?:\..*)?)");
+    ASSERT_TRUE(testingTriggerSpill("op.1.RowNumber"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite.hive-xyz"));
+    ASSERT_FALSE(testingTriggerSpill("op.1.0.0.TableWrite-hive-xyz"));
+    ASSERT_FALSE(testingTriggerSpill("op.1.0.0.Aggregation"));
+    ASSERT_TRUE(testingTriggerSpill(""));
+  }
+
+  {
+    TestScopedSpillInjection scopedSpillInjection(100);
+    ASSERT_TRUE(testingTriggerSpill("op.1.RowNumber"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite.hive-xyz"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.TableWrite-hive-xyz"));
+    ASSERT_TRUE(testingTriggerSpill("op.1.0.0.Aggregation"));
+    ASSERT_TRUE(testingTriggerSpill());
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     SpillTestSuite,
     SpillTest,

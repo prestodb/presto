@@ -674,7 +674,7 @@ void TopNRowNumber::ensureInputFits(const RowVectorPtr& input) {
   }
 
   // Test-only spill path.
-  if (testingTriggerSpill()) {
+  if (testingTriggerSpill(pool()->name())) {
     spill();
     return;
   }
