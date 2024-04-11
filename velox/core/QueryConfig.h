@@ -534,7 +534,7 @@ class QueryConfig {
   }
 
   int32_t maxSpillLevel() const {
-    return get<int32_t>(kMaxSpillLevel, 4);
+    return get<int32_t>(kMaxSpillLevel, 1);
   }
 
   /// Returns the start partition bit which is used with

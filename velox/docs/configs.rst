@@ -265,7 +265,7 @@ Spilling
        reservation grows along a series of powers of (1 + N / 100). If the memory reservation fails, it starts spilling.
    * - max_spill_level
      - integer
-     - 4
+     - 1
      - The maximum allowed spilling level with zero being the initial spilling level. Applies to hash join build
        spilling which might use recursive spilling when the build table is very large. -1 means unlimited.
        In this case an extremely large query might run out of spilling partition bits. The max spill level
