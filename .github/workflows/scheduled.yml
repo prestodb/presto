@@ -102,6 +102,8 @@ jobs:
       presto_error: ${{ steps.sig-check.outputs.presto_error }}
       spark_bias: ${{ steps.sig-check.outputs.spark_functions }}
       spark_error: ${{ steps.sig-check.outputs.spark_error }}
+      presto_aggregate_bias: ${{ steps.sig-check.outputs.presto_aggregate_functions }}
+      presto_aggregate_error: ${{ steps.sig-check.outputs.presto_aggregate_error }}
 
     steps:
 
@@ -148,14 +150,14 @@ jobs:
           mkdir -p /tmp/signatures
 
       - name: Checkout Main
-        if: ${{ github.even_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
+        if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.get-head.outputs.head_main || 'main' }}
           path: velox_main
 
       - name: Build PyVelox
-        if: ${{ github.even_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
+        if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
         working-directory: velox_main
         run: |
           python3 -m venv .venv
@@ -164,16 +166,17 @@ jobs:
           make python-build
 
       - name: Create Baseline Signatures
-        if: ${{ github.even_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
+        if: ${{ github.event_name != 'schedule' && steps.get-sig.outputs.stash-hit != 'true' }}
         working-directory: velox_main
         run: |
           source .venv/bin/activate
           python3 -m pip install deepdiff
           python3 scripts/signature.py export --spark /tmp/signatures/spark_signatures_main.json
           python3 scripts/signature.py export --presto /tmp/signatures/presto_signatures_main.json
+          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_main.json
 
       - name: Save Function Signature Stash
-        if: ${{ github.even_name == 'pull_request' && steps.get-sig.outputs.stash-hit != 'true' }}
+        if: ${{ github.event_name == 'pull_request' && steps.get-sig.outputs.stash-hit != 'true' }}
         uses: assignUser/stash/save@v1
         with:
           path: /tmp/signatures
@@ -203,14 +206,14 @@ jobs:
       - name: Save ccache
         # see https://github.com/actions/upload-artifact/issues/543
         continue-on-error: true
-        if: ${{ github.even_name != 'schedule' }}
+        if: ${{ github.event_name != 'schedule' }}
         uses: assignUser/stash/save@v1
         with:
           path: "${{ env.CCACHE_DIR }}"
           key: ccache-fuzzer-centos
 
       - name: Build PyVelox
-        if: ${{ github.even_name != 'schedule' }}
+        if: ${{ github.event_name != 'schedule' }}
         env:
           VELOX_BUILD_DIR: "_build/debug"
         run: |
@@ -219,15 +222,19 @@ jobs:
           python3 -m pip install -e .
 
       - name: Create and test new function signatures
-        if: ${{ github.even_name != 'schedule' }}
+        if: ${{ github.event_name != 'schedule' }}
         id: sig-check
         run: |
           source .venv/bin/activate
           python3 -m pip install deepdiff
           python3 scripts/signature.py gh_bias_check presto spark
+          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contendor.json
+          python3 scripts/signature.py bias_aggregates  /tmp/signatures/presto_aggregate_signatures_main.json \
+           /tmp/signatures/presto_aggregate_signatures_contendor.json /tmp/signatures/presto_aggregate_bias_functions \
+           /tmp/signatures/presto_aggregate_errors
 
       - name: Upload Signature Artifacts
-        if: ${{ github.even_name != 'schedule' }}
+        if: ${{ github.event_name != 'schedule' }}
         uses: actions/upload-artifact@v4
         with:
           name: signatures
@@ -247,7 +254,7 @@ jobs:
           done
 
       - name: Save Function Signature Stash
-        if: ${{ github.even_name == 'push' }}
+        if: ${{ github.event_name == 'push' }}
         uses: assignUser/stash/save@v1
         with:
           path: /tmp/signatures
@@ -704,6 +711,81 @@ jobs:
           path: |
             /tmp/aggregate_fuzzer_repro
             /tmp/server.log
+            
+
+  presto-bias-java-aggregation-fuzzer-run:
+    name: Biased Aggregation Fuzzer with Presto as source of truth
+    needs: compile
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
+    timeout-minutes: 120
+    if: ${{ needs.compile.outputs.presto_aggregate_bias  == 'true' }}
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      LINUX_DISTRO: "centos"
+    steps:
+
+      - name: Download aggregation fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: aggregation
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox/velox
+
+      - name: Download Signatures
+        uses: actions/download-artifact@v4
+        with:
+          name: signatures
+          path: /tmp/signatures
+
+      - name: "Run Bias Aggregate Fuzzer"
+        run: |
+          cd  velox
+          cp ./scripts/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
+          mkdir -p /tmp/aggregate_fuzzer_repro/
+          rm -rfv /tmp/aggregate_fuzzer_repro/*
+          chmod -R 777 /tmp/aggregate_fuzzer_repro
+          chmod +x velox_aggregation_fuzzer_test
+          echo "signatures folder"
+          ls /tmp/signatures/
+          echo "Biased functions:"
+          cat /tmp/signatures/presto_aggregate_bias_functions
+          echo "Running Fuzzer for $DURATION"
+          ./velox_aggregation_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --logtostderr=1 \
+                --minloglevel=1 \
+                --repro_persist_path=/tmp/aggregate_fuzzer_repro \
+                --enable_sorted_aggregations=true \
+                --only=$(cat /tmp/signatures/presto_aggregate_bias_functions) \
+                --presto_url=http://127.0.0.1:8080 \
+          && echo -e "\n\nAggregation fuzzer run finished successfully."
+
+      - name: Archive bias aggregate production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-bias-sot-aggregate-fuzzer-failure-artifacts
+          path: |
+            /tmp/aggregate_fuzzer_repro
+            /tmp/server.log
 
   surface-signature-errors:
     name: Signature Changes
@@ -721,4 +803,10 @@ jobs:
         if: ${{ needs.compile.outputs.presto_error == 'true' }}
         run: |
           cat /tmp/signatures/presto_errors
+          exit 1
+
+      - name: Surface Aggregate function signature errors
+        if: ${{ needs.compile.outputs.presto_aggregate_error == 'true' }}
+        run: |
+          cat /tmp/signatures/presto_aggregate_errors
           exit 1

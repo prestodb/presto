@@ -14,6 +14,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from typing import Any
 
@@ -31,6 +32,9 @@ class bcolors:
     WARNING = "\033[93m"
     FAIL = "\033[91m"
     BOLD = "\033[1m"
+
+
+aggregate_pattern = re.compile("(.*)(_merge|_merge_extract|_partial)")
 
 
 def get_error_string(error_message):
@@ -210,6 +214,48 @@ def bias_signatures(base_signatures, contender_signatures, tickets, error_path):
     return "", status
 
 
+def bias_aggregates(args):
+    """
+    Finds and exports aggregates whose signatures have been modified agasint a baseline.
+    Saves the results to a file and sets a Github Actions Output.
+    Currently this is hardcoded to presto aggregates.
+    """
+    with open(args.base) as f:
+        base_signatures = json.load(f)
+
+    with open(args.contender) as f:
+        contender_signatures = json.load(f)
+
+    delta, status = diff_signatures(
+        base_signatures, contender_signatures, args.error_path
+    )
+
+    set_gh_output("presto_aggregate_error", status == 1)
+
+    if not delta:
+        print(f"{bcolors.BOLD} No changes detected: Nothing to do!")
+        return status
+
+    function_set = set()
+    for items in delta.values():
+        for item in items:
+            fn_name = item.get_root_key()
+            pattern = aggregate_pattern.match(fn_name)
+            if pattern:
+                function_set.add(pattern.group(1))
+            else:
+                function_set.add(fn_name)
+
+    if function_set:
+        biased_functions = ",".join(function_set)
+        with open(args.output_path, "w") as f:
+            print(f"{biased_functions}", file=f, end="")
+
+        set_gh_output("presto_aggregate_functions", True)
+
+    return 0
+
+
 def gh_bias_check(args):
     """
     Exports signatures for the given group(s) and checks them for changes compared to a baseline.
@@ -294,6 +340,7 @@ def parse_args(args):
         "ticket_value", type=get_tickets, default=10, nargs="?"
     )
     bias_command_parser.add_argument("error_path", type=str, default="")
+
     gh_command_parser = command.add_parser("gh_bias_check")
     gh_command_parser.add_argument(
         "group",
@@ -313,6 +360,12 @@ def parse_args(args):
     gh_command_parser.add_argument(
         "--output_postfix", type=str, default="_bias_functions"
     )
+
+    bias_aggregate_command_parser = command.add_parser("bias_aggregates")
+    bias_aggregate_command_parser.add_argument("base", type=str)
+    bias_aggregate_command_parser.add_argument("contender", type=str)
+    bias_aggregate_command_parser.add_argument("output_path", type=str)
+    bias_aggregate_command_parser.add_argument("error_path", type=str, default="")
 
     parser.set_defaults(command="help")
 
