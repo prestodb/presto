@@ -634,11 +634,6 @@ public class OrcSelectivePageSourceFactory
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
-    {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
-    }
-
     private static class BucketAdapter
             implements Predicate
     {
