@@ -23,7 +23,7 @@ by Velox. See details on bundling below.
 | zstd              | default         | No       |
 | openssl           | default         | No       |
 | protobuf          | 21 (exact)      | Yes      |
-| boost             | 1.66.0          | Yes      |
+| boost             | 1.77.0          | Yes      |
 | flex              | 2.5.13          | No       |
 | bison             | 3.0.4           | No       |
 | cmake             | 3.14            | No       |

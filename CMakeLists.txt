@@ -380,7 +380,7 @@ set(BOOST_INCLUDE_LIBRARIES
     thread)
 
 set_source(Boost)
-resolve_dependency(Boost 1.66.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
+resolve_dependency(Boost 1.77.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 
 # Range-v3 will be enable when the codegen code actually lands keeping it here
 # for reference. find_package(range-v3)
