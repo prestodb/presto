@@ -545,7 +545,7 @@ class TaskManagerTest : public testing::Test {
                   finalAggTaskId, false, std::nullopt, std::nullopt, cbState)
               .get();
       const int64_t spilledBytes = sumOpSpillBytes("Aggregation", *taskInfo);
-      if (expectSpill) {
+      if (expectSpill && injectedSpillCount() > 0) {
         EXPECT_GT(spilledBytes, 0);
       } else {
         EXPECT_EQ(spilledBytes, 0);
