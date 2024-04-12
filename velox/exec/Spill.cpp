@@ -306,8 +306,8 @@ tsan_atomic<uint32_t>& testingSpillPct() {
   return spillPct;
 }
 
-tsan_atomic<std::string>& testingSpillPoolRegExp() {
-  static tsan_atomic<std::string> spillPoolRegExp{".*"};
+std::string testingSpillPoolRegExp() {
+  static std::string spillPoolRegExp{".*"};
   return spillPoolRegExp;
 }
 } // namespace
