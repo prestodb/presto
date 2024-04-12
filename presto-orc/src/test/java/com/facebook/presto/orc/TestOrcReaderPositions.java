@@ -75,6 +75,7 @@ import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestOrcReaderPositions
 {
@@ -396,7 +397,7 @@ public class TestOrcReaderPositions
                         currentStringBytes += baseStringBytes;
                     }
                     else if (rowCountsInCurrentRowGroup > rowsInRowGroup) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
                 }
             }
@@ -407,9 +408,9 @@ public class TestOrcReaderPositions
     public void testBatchSizesForFixedWidth()
             throws Exception
     {
-        // the test creates a table with one column and 10 row groups
-        // the each row group has bigints of length 8 in bytes,
-        // the test is to show that the loaded data is always bounded by MAX_BATCH_SIZE because 1024 X 8B < 1MB
+        // The test creates a table with one column and 10 row groups.
+        // Each row group has bigints of length 8 in bytes.
+        // The test is to show that the loaded data is always bounded by MAX_BATCH_SIZE because 1024 X 8B < 1MB
         try (TempFile tempFile = new TempFile()) {
             // create single strip file with multiple row groups
             int rowsInRowGroup = 10_000;
@@ -439,7 +440,7 @@ public class TestOrcReaderPositions
                         rowCountsInCurrentRowGroup = 0;
                     }
                     else if (rowCountsInCurrentRowGroup > rowsInRowGroup) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
                 }
             }
@@ -545,7 +546,7 @@ public class TestOrcReaderPositions
                         rowCountsInCurrentRowGroup = 0;
                     }
                     else if (rowCountsInCurrentRowGroup > 20) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
 
                     expectedBatchSize = min(min(nextBatchSize, MAX_BATCH_SIZE), 20 - rowCountsInCurrentRowGroup);
