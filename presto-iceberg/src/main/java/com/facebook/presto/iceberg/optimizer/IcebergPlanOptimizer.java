@@ -14,7 +14,11 @@
 package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -22,6 +26,8 @@ import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
+import com.facebook.presto.iceberg.PartitionTransforms;
+import com.facebook.presto.iceberg.PartitionTransforms.ColumnTransform;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
@@ -38,30 +44,36 @@ import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.base.Predicates;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.iceberg.IcebergPageSink.adjustTimestampForPartitionTransform;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
+import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class IcebergPlanOptimizer
         implements ConnectorPlanOptimizer
@@ -160,21 +172,30 @@ public class IcebergPlanOptimizer
                     .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName())));
             RowExpression subfieldPredicate = rowExpressionService.getDomainTranslator().toPredicate(subfieldTupleDomain);
 
-            // Get predicate tuple domain on identity partition columns, which could be enforced by iceberg table itself
-            Set<IcebergColumnHandle> identityPartitionColumns = getIdentityPartitionColumnHandles(icebergTable,
-                    nameToColumnHandlesMapping.values().stream().collect(Collectors.toList()));
+            // Get partition specs that really need to be checked
+            Set<Integer> partitionSpecIds = tableHandle.getIcebergTableName().getSnapshotId().map(
+                    snapshot -> icebergTable.snapshot(snapshot).allManifests(icebergTable.io()).stream()
+                            .map(ManifestFile::partitionSpecId)
+                            .collect(toImmutableSet()))
+                    .orElseGet(() -> ImmutableSet.copyOf(icebergTable.specs().keySet()));   // No snapshot, so no data. This case doesn't matter.
+
+            Set<IcebergColumnHandle> enforcedColumns = getEnforcedColumns(icebergTable,
+                    partitionSpecIds,
+                    entireColumnDomain,
+                    session);
+            // Get predicate tuple domain on the columns that could be enforced by iceberg table itself
             TupleDomain<ColumnHandle> identityPartitionColumnPredicate = TupleDomain.withColumnDomains(
                     Maps.filterKeys(
                             entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
                                     .getDomains().get(),
-                            Predicates.in(identityPartitionColumns)));
+                            Predicates.in(enforcedColumns)));
 
-            // Get predicate expression non-identity entire columns
+            // Get predicate expression on entire columns that could not be enforced by iceberg table
             TupleDomain<RowExpression> nonPartitionColumnPredicate = TupleDomain.withColumnDomains(
                     Maps.filterKeys(
                             entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
                                     .getDomains().get(),
-                            Predicates.not(Predicates.in(identityPartitionColumns))))
+                            Predicates.not(Predicates.in(enforcedColumns))))
                     .transform(columnHandle -> new Subfield(columnHandleToNameMapping.get(columnHandle), ImmutableList.of()))
                     .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName())));
             RowExpression nonPartitionColumn = rowExpressionService.getDomainTranslator().toPredicate(nonPartitionColumnPredicate);
@@ -229,23 +250,144 @@ public class IcebergPlanOptimizer
         }
     }
 
-    private static Set<IcebergColumnHandle> getIdentityPartitionColumnHandles(Table table,
-                                                                              List<IcebergColumnHandle> allColumns)
+    private static Set<IcebergColumnHandle> getEnforcedColumns(
+            Table table,
+            Set<Integer> partitionSpecIds,
+            TupleDomain<IcebergColumnHandle> entireColumnDomain,
+            ConnectorSession session)
     {
-        Map<Integer, IcebergColumnHandle> idToColumnsMap = allColumns.stream()
-                .filter(icebergColumnHandle -> icebergColumnHandle.getColumnType() != SYNTHESIZED)
-                .collect(Collectors.toMap(IcebergColumnHandle::getId, identity()));
+        ImmutableSet.Builder<IcebergColumnHandle> result = ImmutableSet.builder();
+        Map<IcebergColumnHandle, Domain> domains = entireColumnDomain.getDomains().orElseThrow(() -> new VerifyException("No domains"));
+        domains.forEach((columnHandle, domain) -> {
+            if (canEnforceColumnConstraintInSpecs(table, partitionSpecIds, columnHandle, domain, session)) {
+                result.add(columnHandle);
+            }
+        });
+        return result.build();
+    }
 
-        // In the case of partition evolution, we must check every partition specs of the table to figure out
-        //  whether the predicate on identity partition columns could be enforced by iceberg table itself
+    public static boolean canEnforceColumnConstraintInSpecs(
+            Table table,
+            Set<Integer> partitionSpecIds,
+            IcebergColumnHandle columnHandle,
+            Domain domain,
+            ConnectorSession session)
+    {
         return table.specs().values().stream()
-                .map(partitionSpec -> partitionSpec.fields().stream()
-                        .filter(field -> field.transform().isIdentity())
-                        .map(PartitionField::sourceId)
-                        .filter(idToColumnsMap::containsKey)
-                        .map(idToColumnsMap::get)
-                        .collect(Collectors.toSet()))
-                .reduce((columnHandleSet1, columnHandleSet2) -> columnHandleSet1.stream().filter(columnHandleSet2::contains).collect(toImmutableSet()))
-                .orElse(ImmutableSet.of());
+                .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
+                .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(spec, columnHandle, domain, session));
+    }
+
+    private static boolean canEnforceConstraintWithinPartitioningSpec(
+            PartitionSpec spec,
+            IcebergColumnHandle column,
+            Domain domain,
+            ConnectorSession session)
+    {
+        for (PartitionField field : spec.getFieldsBySourceId(column.getId())) {
+            if (canEnforceConstraintWithPartitionField(field, column, domain, session)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean canEnforceConstraintWithPartitionField(
+            PartitionField field,
+            IcebergColumnHandle column,
+            Domain domain,
+            ConnectorSession session)
+    {
+        if (field.transform().isVoid()) {
+            // Useless for filtering.
+            return false;
+        }
+        if (field.transform().isIdentity()) {
+            // A predicate on an identity partitioning column can always be enforced.
+            return true;
+        }
+
+        ColumnTransform transform = PartitionTransforms.getColumnTransform(field, column.getType());
+        ValueSet domainValues = domain.getValues();
+
+        boolean canEnforce = domainValues.getValuesProcessor().transform(
+                ranges -> {
+                    for (Range range : ranges.getOrderedRanges()) {
+                        if (!canEnforceRangeWithPartitioningField(field, transform, range, session)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+                discreteValues -> false,
+                allOrNone -> true);
+        return canEnforce;
+    }
+
+    private static boolean canEnforceRangeWithPartitioningField(
+            PartitionField field,
+            ColumnTransform transform,
+            Range range,
+            ConnectorSession session)
+    {
+        if (transform.getTransformName().startsWith("bucket")) {
+            // bucketing transform could not be enforced
+            return false;
+        }
+        Type type = range.getType();
+        if (!type.isOrderable()) {
+            return false;
+        }
+        if (!range.isLowUnbounded()) {
+            Object boundedValue = range.getLowBoundedValue();
+            Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, range.isLowInclusive());
+            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
+                return false;
+            }
+        }
+        if (!range.isHighUnbounded()) {
+            Object boundedValue = range.getHighBoundedValue();
+            Optional<Object> adjacentValue = getAdjacentValue(type, boundedValue, !range.isHighInclusive());
+            if (!adjacentValue.isPresent() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), session)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean yieldSamePartitioningValue(
+            PartitionField field,
+            ColumnTransform transform,
+            Type sourceType,
+            Object first,
+            Object second,
+            ConnectorSession session)
+    {
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
+
+        if (sourceType instanceof TimestampType &&
+                session.getSqlFunctionProperties().isLegacyTimestamp() &&
+                !field.transform().isIdentity()) {
+            TimestampType timestampType = (TimestampType) sourceType;
+            first = adjustTimestampForPartitionTransform(
+                            session.getSqlFunctionProperties(),
+                            timestampType,
+                            first);
+            second = adjustTimestampForPartitionTransform(
+                            session.getSqlFunctionProperties(),
+                            timestampType,
+                            second);
+        }
+        Object firstTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, first), 0);
+        Object secondTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, second), 0);
+        // The pushdown logic assumes NULLs and non-NULLs are segregated, so that we have to think about non-null values only.
+        verify(firstTransformed != null && secondTransformed != null, "Transform for %s returned null for non-null input", field);
+        try {
+            return Objects.equals(firstTransformed, secondTransformed);
+        }
+        catch (Throwable throwable) {
+            throw new RuntimeException(throwable);
+        }
     }
 }
