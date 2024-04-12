@@ -338,7 +338,8 @@ bool tryParseDateString(
   return daysSinceEpochFromDate(year, month, day, daysSinceEpoch).ok();
 }
 
-// String format is hh:mm:ss.microseconds (microseconds are optional).
+// String format is hh:mm:ss.microseconds (seconds and microseconds are
+// optional).
 // ISO 8601
 bool tryParseTimeString(
     const char* buf,
@@ -346,7 +347,7 @@ bool tryParseTimeString(
     size_t& pos,
     int64_t& result,
     bool strict) {
-  int32_t hour = -1, min = -1, sec = -1, micros = -1;
+  int32_t hour = 0, min = 0, sec = 0, micros = 0;
   pos = 0;
 
   if (len == 0) {
@@ -366,6 +367,7 @@ bool tryParseTimeString(
     return false;
   }
 
+  // Read the hours.
   if (!parseDoubleDigit(buf, len, pos, hour)) {
     return false;
   }
@@ -384,6 +386,7 @@ bool tryParseTimeString(
     return false;
   }
 
+  // Read the minutes.
   if (!parseDoubleDigit(buf, len, pos, min)) {
     return false;
   }
@@ -391,29 +394,30 @@ bool tryParseTimeString(
     return false;
   }
 
-  if (pos >= len) {
-    return false;
-  }
+  // Try to read seconds.
+  if (pos < len && buf[pos] == sep) {
+    ++pos;
+    if (!parseDoubleDigit(buf, len, pos, sec)) {
+      return false;
+    }
+    if (sec < 0 || sec > 60) {
+      return false;
+    }
 
-  if (buf[pos++] != sep) {
-    return false;
-  }
+    // Try to read microseconds.
+    if (pos < len && buf[pos] == '.') {
+      ++pos;
 
-  if (!parseDoubleDigit(buf, len, pos, sec)) {
-    return false;
-  }
-  if (sec < 0 || sec > 60) {
-    return false;
-  }
+      if (pos >= len) {
+        return false;
+      }
 
-  micros = 0;
-  if (pos < len && buf[pos] == '.') {
-    pos++;
-    // We expect microseconds.
-    int32_t mult = 100000;
-    for (; pos < len && characterIsDigit(buf[pos]); pos++, mult /= 10) {
-      if (mult > 0) {
-        micros += (buf[pos] - '0') * mult;
+      // We expect microseconds.
+      int32_t mult = 100000;
+      for (; pos < len && characterIsDigit(buf[pos]); pos++, mult /= 10) {
+        if (mult > 0) {
+          micros += (buf[pos] - '0') * mult;
+        }
       }
     }
   }

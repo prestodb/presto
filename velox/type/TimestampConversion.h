@@ -120,7 +120,7 @@ int64_t
 fromTime(int32_t hour, int32_t minute, int32_t second, int32_t microseconds);
 
 /// Parses the input string and returns the number of cumulative microseconds,
-/// following the "HH:MM:SS[.MS]" format (ISO 8601).
+/// following the "HH:MM[:SS[.MS]]" format (ISO 8601).
 //
 /// Throws VeloxUserError if the format or time is invalid.
 int64_t fromTimeString(const char* buf, size_t len);
@@ -132,7 +132,7 @@ inline int64_t fromTimeString(const StringView& str) {
 // Timestamp conversion
 
 /// Parses a full ISO 8601 timestamp string, following the format
-/// "YYYY-MM-DD HH:MM:SS[.MS] +00:00"
+/// "YYYY-MM-DD HH:MM[:SS[.MS]] +00:00"
 Timestamp fromTimestampString(const char* buf, size_t len);
 
 inline Timestamp fromTimestampString(const StringView& str) {
