@@ -1,0 +1,12 @@
+{
+  "mappings": [
+    {
+      "user": "admin"
+    },
+    {
+      "user": "analyst",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    }
+  ]
+}
