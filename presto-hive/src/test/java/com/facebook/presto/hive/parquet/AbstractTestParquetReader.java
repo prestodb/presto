@@ -1966,10 +1966,6 @@ public abstract class AbstractTestParquetReader
             nanos += 1_000_000_000;
             seconds -= 1;
         }
-        if (nanos > 1_000_000_000) {
-            nanos -= 1_000_000_000;
-            seconds += 1;
-        }
         timestamp.setTime(seconds * 1000);
         timestamp.setNanos(nanos);
         return timestamp;

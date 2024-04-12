@@ -802,7 +802,7 @@ public class MetastoreUtil
         for (Entry<Column, Domain> partitionPredicate : partitionPredicates.entrySet()) {
             Domain domain = partitionPredicate.getValue();
             if (!domain.isAll()) {
-                if (domain != null && domain.isNullableSingleValue()) {
+                if (domain.isNullableSingleValue()) {
                     Object value = domain.getNullableSingleValue();
                     Type type = domain.getType();
                     filter.add(convertRawValueToString(value, type));
