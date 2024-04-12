@@ -415,7 +415,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
         toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
     const auto finalInputRows =
         toPlanStats(task->taskStats()).at(finalNodeId).inputRows;
-    if (partialInputRows > 1) {
+    if (exec::injectedSpillCount() > 0) {
       EXPECT_LT(0, spilledBytes(*task))
           << "partial inputRows: " << partialInputRows
           << " final inputRows: " << finalInputRows
@@ -854,7 +854,7 @@ void AggregationTestBase::testAggregationsImpl(
         toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
     const auto finalInputRows =
         toPlanStats(task->taskStats()).at(finalNodeId).inputRows;
-    if (partialInputRows > 1) {
+    if (exec::injectedSpillCount() > 0) {
       EXPECT_LT(0, spilledBytes(*task))
           << "partial inputRows: " << partialInputRows
           << " final inputRows: " << finalInputRows

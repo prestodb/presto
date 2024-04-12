@@ -900,7 +900,8 @@ void GroupingSet::ensureOutputFits() {
   // to reserve memory for the output as we can't reclaim much memory from this
   // operator itself. The output processing can reclaim memory from the other
   // operator or query through memory arbitration.
-  if (isPartial_ || spillConfig_ == nullptr || hasSpilled()) {
+  if (isPartial_ || spillConfig_ == nullptr || hasSpilled() ||
+      table_ == nullptr || table_->numDistinct() == 0) {
     return;
   }
 
