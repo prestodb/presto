@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.READ_MASKED_VALUE_ENABLED;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
@@ -174,7 +173,9 @@ public class TestParquetQuickStatsBuilder
             while (fileList.hasNext()) {
                 LocatedFileStatus fileStatus = fileList.next();
                 // Add each discovered file repeatCount times - useful for simulating a large file test
-                IntStream.range(0, repeatCount).forEach(v -> fileInfoBuilder.add(HiveFileInfo.createHiveFileInfo(fileStatus, Optional.empty())));
+                for (int i = 0; i < repeatCount; i++) {
+                    fileInfoBuilder.add(HiveFileInfo.createHiveFileInfo(fileStatus, Optional.empty()));
+                }
             }
         }
         catch (Exception ex) {
