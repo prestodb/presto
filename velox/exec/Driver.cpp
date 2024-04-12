@@ -343,7 +343,7 @@ RowVectorPtr Driver::next(std::shared_ptr<BlockingState>& blockingState) {
   // error.
   VELOX_CHECK(
       stop == StopReason::kBlock || stop == StopReason::kAtEnd ||
-      stop == StopReason::kAlreadyTerminated);
+      stop == StopReason::kAlreadyTerminated || stop == StopReason::kTerminate);
 
   return result;
 }

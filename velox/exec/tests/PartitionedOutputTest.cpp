@@ -125,7 +125,9 @@ TEST_F(PartitionedOutputTest, flush) {
   const auto taskWaitUs = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::seconds{10})
                               .count();
-  auto future = task->taskCompletionFuture(taskWaitUs).via(executor_.get());
+  auto future = task->taskCompletionFuture()
+                    .within(std::chrono::microseconds(taskWaitUs))
+                    .via(executor_.get());
   future.wait();
 
   ASSERT_TRUE(waitForTaskDriversToFinish(task.get(), taskWaitUs));

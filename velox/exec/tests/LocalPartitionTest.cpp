@@ -78,7 +78,9 @@ class LocalPartitionTest : public HiveConnectorTestBase {
       exec::TaskState expected) {
     if (task->state() != expected) {
       auto& executor = folly::QueuedImmediateExecutor::instance();
-      auto future = task->taskCompletionFuture(1'000'000).via(&executor);
+      auto future = task->taskCompletionFuture()
+                        .within(std::chrono::microseconds(1'000'000))
+                        .via(&executor);
       future.wait();
       EXPECT_EQ(expected, task->state());
     }

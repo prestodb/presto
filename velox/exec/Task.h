@@ -247,9 +247,8 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Returns a future which is realized when the task is no longer in
   /// running state.
   /// If the task is not in running state at the time of call, the future is
-  /// immediately realized. The future is realized with an exception after
-  /// maxWaitMicros. A zero max wait means no timeout.
-  ContinueFuture taskCompletionFuture(uint64_t maxWaitMicros);
+  /// immediately realized.
+  ContinueFuture taskCompletionFuture();
 
   /// Returns task execution error or nullptr if no error occurred.
   std::exception_ptr error() const {

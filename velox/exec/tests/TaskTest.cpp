@@ -280,8 +280,8 @@ class ExternalBlocker {
 };
 
 // A test node that normally just re-project/passthrough the output from input
-// When the node is blocked by external even (via externalBlocker), the operator
-// will signal kBlocked. The pipeline can ONLY proceed again when it is
+// When the node is blocked by external event (via externalBlocker), the
+// operator will signal kBlocked. The pipeline can ONLY proceed again when it is
 // unblocked externally.
 class TestExternalBlockableNode : public core::PlanNode {
  public:
@@ -1614,6 +1614,127 @@ DEBUG_ONLY_TEST_F(TaskTest, resumeAfterTaskFinish) {
   ASSERT_TRUE(waitForTaskCompletion(task.get()));
   task.reset();
   waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(
+    TaskTest,
+    singleThreadedLongRunningOperatorInTaskReclaimerAbort) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  // Filter + Project.
+  auto plan =
+      PlanBuilder().values({data, data, data}).project({"c0"}).planFragment();
+
+  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+
+  auto blockingTask = Task::create("blocking.task.0", plan, 0, queryCtx);
+
+  // Before we block, we expect `next` to get data normally.
+  EXPECT_NE(nullptr, blockingTask->next());
+
+  // Now, we want to block the pipeline by blocking Values operator. We expect
+  // `next` to return null.  The `future` should be updated for the caller to
+  // wait before calling next() again
+  folly::EventCount getOutputWait;
+  std::atomic_bool getOutputWaitFlag{false};
+  folly::EventCount abortWait;
+  std::atomic_bool abortWaitFlag{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(Values*)>([&](Values* /*unused*/) {
+        abortWaitFlag = true;
+        abortWait.notify();
+        getOutputWait.await([&]() { return getOutputWaitFlag.load(); });
+      }));
+
+  const std::string abortErrorMessage("Synthetic Exception");
+  auto thread = std::thread(
+      [&]() { VELOX_ASSERT_THROW(blockingTask->next(), abortErrorMessage); });
+
+  try {
+    VELOX_FAIL(abortErrorMessage);
+  } catch (VeloxException& e) {
+    abortWait.await([&]() { return abortWaitFlag.load(); });
+    blockingTask->pool()->abort(std::current_exception());
+  }
+
+  waitForTaskCompletion(blockingTask.get(), 5'000'000);
+
+  // We expect that abort does not trigger the operator abort by checking if the
+  // memory pool memory has been released or not.
+  blockingTask->pool()->visitChildren([](auto* child) {
+    if (child->isLeaf()) {
+      EXPECT_EQ(child->stats().numReleases, 0);
+    }
+    return true;
+  });
+
+  getOutputWaitFlag = true;
+  getOutputWait.notify();
+
+  thread.join();
+
+  blockingTask->taskCompletionFuture().wait();
+  blockingTask->pool()->visitChildren([](auto* child) {
+    if (child->isLeaf()) {
+      EXPECT_EQ(child->stats().numReleases, 1);
+    }
+    return true;
+  });
+}
+
+DEBUG_ONLY_TEST_F(TaskTest, longRunningOperatorInTaskReclaimerAbort) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+  folly::EventCount getOutputWait;
+  std::atomic_bool getOutputWaitFlag{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(Values*)>([&](Values* /*unused*/) {
+        getOutputWait.await([&]() { return getOutputWaitFlag.load(); });
+      }));
+
+  // Project only dummy plan
+  auto plan =
+      PlanBuilder().values({data, data, data}).project({"c0"}).planFragment();
+
+  auto queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
+
+  auto blockingTask = Task::create("blocking.task.0", plan, 0, queryCtx);
+
+  blockingTask->start(4, 1);
+  const std::string abortErrorMessage("Synthetic Exception");
+  try {
+    VELOX_FAIL(abortErrorMessage);
+  } catch (VeloxException& e) {
+    blockingTask->pool()->abort(std::current_exception());
+  }
+  waitForTaskCompletion(blockingTask.get());
+
+  // We expect that arbitration does not trigger release of the operator pools.
+  blockingTask->pool()->visitChildren([](auto* child) {
+    if (child->isLeaf()) {
+      EXPECT_EQ(child->stats().numReleases, 0);
+    }
+    return true;
+  });
+
+  getOutputWaitFlag = true;
+  getOutputWait.notify();
+
+  VELOX_ASSERT_THROW(
+      std::rethrow_exception(blockingTask->error()), abortErrorMessage);
+
+  blockingTask->taskCompletionFuture().wait();
+  blockingTask->pool()->visitChildren([](auto* child) {
+    if (child->isLeaf()) {
+      EXPECT_EQ(child->stats().numReleases, 1);
+    }
+    return true;
+  });
 }
 
 DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {

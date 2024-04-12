@@ -182,7 +182,7 @@ class ExchangeFuzzer : public VectorTestBase {
       // cleaning up the query if any portition of it fails.
       for (const auto& otherTask : tasks) {
         auto* taskPtr = otherTask.get();
-        otherTask->taskCompletionFuture(0)
+        otherTask->taskCompletionFuture()
             .via(executor_.get())
             .thenValue([&tasks, taskPtr](auto) {
               VELOX_CHECK(!taskPtr->isRunning());

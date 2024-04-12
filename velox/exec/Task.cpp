@@ -2174,7 +2174,7 @@ ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
   return std::move(future);
 }
 
-ContinueFuture Task::taskCompletionFuture(uint64_t maxWaitMicros) {
+ContinueFuture Task::taskCompletionFuture() {
   std::lock_guard<std::timed_mutex> l(mutex_);
   // If 'this' is running, the future is realized on timeout or when
   // this no longer is running.
@@ -2185,9 +2185,6 @@ ContinueFuture Task::taskCompletionFuture(uint64_t maxWaitMicros) {
   auto [promise, future] = makeVeloxContinuePromiseContract(
       fmt::format("Task::taskCompletionFuture {}", taskId_));
   taskCompletionPromises_.emplace_back(std::move(promise));
-  if (maxWaitMicros > 0) {
-    return std::move(future).within(std::chrono::microseconds(maxWaitMicros));
-  }
   return std::move(future);
 }
 
@@ -2761,11 +2758,21 @@ void Task::MemoryReclaimer::abort(
     return;
   }
   VELOX_CHECK_EQ(task->pool()->name(), pool->name());
+
   task->setError(error);
-  const static int maxTaskAbortWaitUs = 60'000'000; // 60s
-  // Set timeout to zero to infinite wait until task completes.
-  task->taskCompletionFuture(maxTaskAbortWaitUs).wait();
-  memory::MemoryReclaimer::abort(pool, error);
+  const static uint32_t maxTaskAbortWaitUs = 6'000'000; // 60s
+  if (task->taskCompletionFuture().wait(
+          std::chrono::microseconds(maxTaskAbortWaitUs))) {
+    // If task is completed within 60s wait, we can safely propagate abortion.
+    // Otherwise long running operators might be in the middle of processing,
+    // making it unsafe to force abort. In this case we let running operators
+    // finish by hitting operator boundary, and rely on cleanup mechanism to
+    // release the resource.
+    memory::MemoryReclaimer::abort(pool, error);
+  } else {
+    LOG(WARNING)
+        << "Timeout waiting for task to complete during query memory aborting.";
+  }
 }
 
 } // namespace facebook::velox::exec
