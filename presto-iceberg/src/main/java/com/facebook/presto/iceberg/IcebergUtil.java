@@ -14,11 +14,13 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -154,15 +156,20 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.longBitsToDouble;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.parseFloat;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
+import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -188,6 +195,16 @@ public final class IcebergUtil
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
+
+    public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
+    public static final long DOUBLE_POSITIVE_INFINITE = 0x7ff0000000000000L;
+    public static final long DOUBLE_NEGATIVE_ZERO = 0x8000000000000000L;
+    public static final long DOUBLE_NEGATIVE_INFINITE = 0xfff0000000000000L;
+
+    public static final int REAL_POSITIVE_ZERO = 0x00000000;
+    public static final int REAL_POSITIVE_INFINITE = 0x7f800000;
+    public static final int REAL_NEGATIVE_ZERO = 0x80000000;
+    public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     private IcebergUtil() {}
 
@@ -736,6 +753,47 @@ public final class IcebergUtil
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
+    /**
+     * Returns the adjacent value that compares bigger than or less than {@code value} based on parameter {@code isPrevious}.
+     * <p>
+     * The type of the value must match {@code #type.getJavaType()}.
+     *
+     * @throws IllegalStateException if the type is not {@code #isOrderable()}
+     */
+    public static Optional<Object> getAdjacentValue(Type type, Object value, boolean isPrevious)
+    {
+        if (!type.isOrderable()) {
+            throw new IllegalStateException("Type is not orderable: " + type);
+        }
+        requireNonNull(value, "value is null");
+
+        if (type.equals(BIGINT) || type instanceof TimestampType) {
+            return getBigintAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(INTEGER) || type.equals(DATE)) {
+            return getIntegerAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(SMALLINT)) {
+            return getSmallIntAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(TINYINT)) {
+            return getTinyIntAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(DOUBLE)) {
+            return getDoubleAdjacentValue(value, isPrevious);
+        }
+
+        if (type.equals(REAL)) {
+            return getRealAdjacentValue(value, isPrevious);
+        }
+
+        return Optional.empty();
+    }
+
     public static Map<Integer, HivePartitionKey> getPartitionKeys(ContentScanTask<DataFile> scanTask)
     {
         StructLike partition = scanTask.file().partition();
@@ -805,10 +863,10 @@ public final class IcebergUtil
      * @param requestedSchema If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
-            long snapshot,
-            TupleDomain<IcebergColumnHandle> filter,
-            Optional<Set<Integer>> requestedPartitionSpec,
-            Optional<Set<Integer>> requestedSchema)
+                                                               long snapshot,
+                                                               TupleDomain<IcebergColumnHandle> filter,
+                                                               Optional<Set<Integer>> requestedPartitionSpec,
+                                                               Optional<Set<Integer>> requestedSchema)
     {
         Expression filterExpression = toIcebergExpression(filter);
         CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
@@ -828,6 +886,148 @@ public final class IcebergUtil
                 return new DeleteFilesIterator(table.specs(), fileTasks.iterator(), requestedPartitionSpec, requestedSchema);
             }
         };
+    }
+
+    private static Optional<Object> getBigintAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (isPrevious) {
+            if (currentValue == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getIntegerAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = toIntExact((long) value);
+        if (isPrevious) {
+            if (currentValue == Integer.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Integer.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getSmallIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Short.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_SHORT", value));
+        }
+        if (currentValue < Short.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_SHORT", value));
+        }
+
+        if (isPrevious) {
+            if (currentValue == Short.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Short.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getTinyIntAdjacentValue(Object value, boolean isPrevious)
+    {
+        long currentValue = (long) value;
+        if (currentValue > Byte.MAX_VALUE) {
+            throw new GenericInternalException(format("Value %d exceeds MAX_BYTE", value));
+        }
+        if (currentValue < Byte.MIN_VALUE) {
+            throw new GenericInternalException(format("Value %d is less than MIN_BYTE", value));
+        }
+
+        if (isPrevious) {
+            if (currentValue == Byte.MIN_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue - 1);
+        }
+        else {
+            if (currentValue == Byte.MAX_VALUE) {
+                return Optional.empty();
+            }
+            return Optional.of(currentValue + 1);
+        }
+    }
+
+    private static Optional<Object> getDoubleAdjacentValue(Object value, boolean isPrevious)
+    {
+        long longBitForDouble = (long) value;
+        if (longBitForDouble > DOUBLE_POSITIVE_INFINITE && longBitForDouble < DOUBLE_NEGATIVE_ZERO ||
+                longBitForDouble > DOUBLE_NEGATIVE_INFINITE && longBitForDouble < DOUBLE_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of double", longBitForDouble));
+        }
+
+        if (isPrevious) {
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.of(DOUBLE_POSITIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (longBitForDouble == DOUBLE_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (longBitForDouble == DOUBLE_NEGATIVE_INFINITE) {
+                return Optional.of(DOUBLE_NEGATIVE_INFINITE - 1);
+            }
+            double currentValue = longBitsToDouble(longBitForDouble);
+            return Optional.of(doubleToRawLongBits(currentValue + ulp(currentValue)));
+        }
+    }
+
+    private static Optional<Object> getRealAdjacentValue(Object value, boolean isPrevious)
+    {
+        int intBitForFloat = (int) value;
+        if (intBitForFloat > REAL_POSITIVE_INFINITE && intBitForFloat < REAL_NEGATIVE_ZERO ||
+                intBitForFloat > REAL_NEGATIVE_INFINITE && intBitForFloat < REAL_POSITIVE_ZERO) {
+            throw new GenericInternalException(format("Value %d exceeds the range of real", intBitForFloat));
+        }
+
+        if (isPrevious) {
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.of(REAL_POSITIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue - ulp(currentValue)));
+        }
+        else {
+            if (intBitForFloat == REAL_POSITIVE_INFINITE) {
+                return Optional.empty();
+            }
+            if (intBitForFloat == REAL_NEGATIVE_INFINITE) {
+                return Optional.of(REAL_NEGATIVE_INFINITE - 1);
+            }
+            float currentValue = intBitsToFloat(intBitForFloat);
+            return Optional.of(floatToRawIntBits(currentValue + ulp(currentValue)));
+        }
     }
 
     private static class DeleteFilesIterator
