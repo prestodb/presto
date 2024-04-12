@@ -897,13 +897,6 @@ public class OrcSelectiveRecordReader
         return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
     }
 
-    @Override
-    public void close()
-            throws IOException
-    {
-        super.close();
-    }
-
     private final class OrcBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
