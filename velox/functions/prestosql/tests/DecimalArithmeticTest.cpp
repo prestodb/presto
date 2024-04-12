@@ -378,6 +378,15 @@ TEST_F(DecimalArithmeticTest, decimalDivTest) {
               std::vector<int128_t>{DecimalUtil::kLongDecimalMax},
               DECIMAL(38, 0))}),
       "Decimal overflow: 99999999999999999999999999999999999999 * 10000");
+
+  // Rescale factor > max precision (38).
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "divide(c0, c1)",
+          makeRowVector(
+              {makeFlatVector<int128_t>({5000, 20000}, DECIMAL(20, 1)),
+               makeFlatVector<int128_t>({5000, 20000}, DECIMAL(33, 32))})),
+      "Decimal overflow");
 }
 
 TEST_F(DecimalArithmeticTest, decimalDivDifferentTypes) {

@@ -36,10 +36,8 @@ struct DecimalPlusFunction {
       B* /*b*/) {
     auto aType = inputTypes[0];
     auto bType = inputTypes[1];
-    auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
-    auto [bPrecision, bScale] = getDecimalPrecisionScale(*bType);
-    auto rPrecision =
-        computeResultPrecision(aPrecision, aScale, bPrecision, bScale);
+    auto aScale = getDecimalPrecisionScale(*aType).second;
+    auto bScale = getDecimalPrecisionScale(*bType).second;
     aRescale_ = computeRescaleFactor(aScale, bScale);
     bRescale_ = computeRescaleFactor(bScale, aScale);
   }
@@ -65,17 +63,6 @@ struct DecimalPlusFunction {
   }
 
  private:
-  inline static uint8_t computeResultPrecision(
-      const uint8_t aPrecision,
-      const uint8_t aScale,
-      const uint8_t bPrecision,
-      const uint8_t bScale) {
-    return std::min(
-        38,
-        std::max(aPrecision - aScale, bPrecision - bScale) +
-            std::max(aScale, bScale) + 1);
-  }
-
   inline static uint8_t computeRescaleFactor(
       uint8_t fromScale,
       uint8_t toScale) {
@@ -98,10 +85,8 @@ struct DecimalMinusFunction {
       B* /*b*/) {
     const auto& aType = inputTypes[0];
     const auto& bType = inputTypes[1];
-    const auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
-    const auto [bPrecision, bScale] = getDecimalPrecisionScale(*bType);
-    const auto rPrecision =
-        computeResultPrecision(aPrecision, aScale, bPrecision, bScale);
+    auto aScale = getDecimalPrecisionScale(*aType).second;
+    auto bScale = getDecimalPrecisionScale(*bType).second;
     aRescale_ = computeRescaleFactor(aScale, bScale);
     bRescale_ = computeRescaleFactor(bScale, aScale);
   }
@@ -127,17 +112,6 @@ struct DecimalMinusFunction {
   }
 
  private:
-  inline static uint8_t computeResultPrecision(
-      const uint8_t aPrecision,
-      const uint8_t aScale,
-      const uint8_t bPrecision,
-      const uint8_t bScale) {
-    return std::min(
-        38,
-        std::max(aPrecision - aScale, bPrecision - bScale) +
-            std::max(aScale, bScale) + 1);
-  }
-
   inline static uint8_t computeRescaleFactor(
       uint8_t fromScale,
       uint8_t toScale) {
@@ -171,11 +145,12 @@ struct DecimalDivideFunction {
       B* /*b*/) {
     auto aType = inputTypes[0];
     auto bType = inputTypes[1];
-    auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
-    auto [bPrecision, bScale] = getDecimalPrecisionScale(*bType);
-    auto [rPrecision, rScale] =
-        computeResultPrecisionScale(aPrecision, aScale, bPrecision, bScale);
-    aRescale_ = computeRescaleFactor(aScale, bScale, rScale);
+    auto aScale = getDecimalPrecisionScale(*aType).second;
+    auto bScale = getDecimalPrecisionScale(*bType).second;
+    auto rScale = std::max(aScale, bScale);
+    aRescale_ = rScale - aScale + bScale;
+    VELOX_CHECK_LE(
+        aRescale_, LongDecimalType::kMaxPrecision, "Decimal overflow");
   }
 
   template <typename R, typename A, typename B>
@@ -185,21 +160,6 @@ struct DecimalDivideFunction {
   }
 
  private:
-  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
-      const uint8_t aPrecision,
-      const uint8_t aScale,
-      const uint8_t /*bPrecision*/,
-      const uint8_t bScale) {
-    return {
-        std::min(38, aPrecision + bScale + std::max(0, bScale - aScale)),
-        std::max(aScale, bScale)};
-  }
-
-  inline static uint8_t
-  computeRescaleFactor(uint8_t fromScale, uint8_t toScale, uint8_t rScale) {
-    return rScale - fromScale + toScale;
-  }
-
   uint8_t aRescale_;
 };
 

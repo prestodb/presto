@@ -109,12 +109,12 @@ Division
 Perfect division is not possible. For example, 1 / 3 cannot be represented as a
 decimal value.
 
-When dividing a number with p1 digits over a number of s2 scale, we need p1 + s2
-digits for the result. In the worst case we divide by 0.0000001, which
-effectively is a multiplication by 10^s2.
+When dividing a number with p1 digits over a number of s2 scale, the biggest result requires s2 extra digits before the
+decimal point. To get the largest number we must divide by 0.0000001, which effectively is a multiplication by 10^s2.
+Hence, precision of the result needs to be at least p1 + s2.
 
 Presto also chooses to extend the scale of the result to a maximum of scales of
-the inputs. It is not clear exactly why.
+the inputs.
 
 ::
 
@@ -130,7 +130,49 @@ difference in s1 and s.
 Like in Addition, the precision of the result may exceed 38. The choices are the
 same. Presto chooses to cap p at 38 and allow runtime errors.
 
-Velox implementation matches Presto.
+Let’s say `a` is of type decimal(p1, s1) with unscaled value `A` and `b` is of
+type decimal(p2, s2) with unscaled value B.
+
+::
+
+    a = A / 10^s1
+    a = B / 10^s2
+
+The result type precision and scale are:
+
+::
+
+	s = max(s1, s2)
+	p = p1 + s2 + max(0, s2 - s1)
+
+The result 'r' has 's' digits after the decimal point and unscaled value R. We
+derive the value of R as follows:
+
+::
+
+   r = a / b = (A / 10^s1) / (B / 10^s2) = A * 10^(s2 - s1) / B
+   r = R / 10^s
+   R = r * 10^s = A * 10^(s + s2 - s1) / B
+
+To compute R, first rescale A using the rescale factor :code:`(s + s2 - s1)`,
+then divide by B and round to the nearest whole. This method works as long as
+rescale factor does not exceed 38. If :code:`s + s2 - s1` exceeds 38, an error
+is raised.
+
+The formula for the scale of the result is a choice. Presto chose max(s1, s2).
+Other systems made different choices.
+
+It is not clear why Presto chose max(s1, s2). Perhaps, the thinking was to
+assume that user's desired accuracy is the max of input scales. However, one
+could also say that desired accuracy is the scale of the dividend. In SQL,
+literal values get their types assigned by the actual number of digits after
+the decimal point. Hence, in the following SQL 1.2 has scale 1 and 0.01 has
+scale 2. One may argue that user's intention is to work with accuracy of 2
+digits after the decimal point, hence, max(s1, s2).
+
+::
+
+    SELECT 1.2 / 0.01
 
 Decimal Functions
 -----------------
@@ -150,8 +192,8 @@ Decimal Functions
         p = min(38, p1 + s2 + max(0, s2 - s1))
         s = max(s1, s2)
 
-    Throws if y is zero or result cannot be represented using precision calculated
-    above.
+    Throws if y is zero, or result cannot be represented using precision calculated
+    above, or rescale factor `max(s1, s2) - s1 + s2` exceeds 38.
 
 .. function:: floor(x: decimal(p, s)) -> r: decimal(pr, 0)
 
