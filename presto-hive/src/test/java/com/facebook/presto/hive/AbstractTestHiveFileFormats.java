@@ -772,18 +772,13 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, padEnd((String) expectedValue, ((CharType) type).getLength(), ' '), "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                        if (expectedValue instanceof Slice) {
-                            expectedValue = ((Slice) expectedValue).toStringUtf8();
-                        }
-
                         if (actualValue instanceof Slice) {
                             actualValue = ((Slice) actualValue).toStringUtf8();
                         }
-                        if (actualValue instanceof SqlVarbinary) {
+                        else if (actualValue instanceof SqlVarbinary) {
                             actualValue = new String(((SqlVarbinary) actualValue).getBytes(), UTF_8);
                         }
-
-                        if (actualValue instanceof SqlDecimal) {
+                        else if (actualValue instanceof SqlDecimal) {
                             actualValue = new BigDecimal(actualValue.toString());
                         }
                         assertEquals(actualValue, expectedValue, "Wrong value for column " + testColumn.getName());
