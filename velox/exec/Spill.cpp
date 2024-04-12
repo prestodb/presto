@@ -306,7 +306,7 @@ tsan_atomic<uint32_t>& testingSpillPct() {
   return spillPct;
 }
 
-std::string testingSpillPoolRegExp() {
+std::string& testingSpillPoolRegExp() {
   static std::string spillPoolRegExp{".*"};
   return spillPoolRegExp;
 }
