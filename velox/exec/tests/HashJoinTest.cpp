@@ -792,11 +792,6 @@ class HashJoinTest : public HiveConnectorTestBase {
         .allowLazyVector = false};
   }
 
-  void TearDown() override {
-    waitForAllTasksToBeDeleted();
-    HiveConnectorTestBase::TearDown();
-  }
-
   // Make splits with each plan node having a number of source files.
   SplitInput makeSpiltInput(
       const std::vector<core::PlanNodeId>& nodeIds,

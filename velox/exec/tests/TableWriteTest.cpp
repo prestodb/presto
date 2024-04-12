@@ -248,11 +248,6 @@ class TableWriteTest : public HiveConnectorTestBase {
     HiveConnectorTestBase::SetUp();
   }
 
-  void TearDown() override {
-    waitForAllTasksToBeDeleted();
-    HiveConnectorTestBase::TearDown();
-  }
-
   std::shared_ptr<Task> assertQueryWithWriterConfigs(
       const core::PlanNodePtr& plan,
       std::vector<std::shared_ptr<TempFilePath>> filePaths,

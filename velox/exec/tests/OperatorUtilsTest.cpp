@@ -31,7 +31,6 @@ class OperatorUtilsTest : public OperatorTestBase {
     driverCtx_.reset();
     driver_.reset();
     task_.reset();
-    waitForAllTasksToBeDeleted();
     OperatorTestBase::TearDown();
   }
 

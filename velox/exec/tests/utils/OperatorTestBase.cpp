@@ -103,6 +103,7 @@ void OperatorTestBase::SetUp() {
 }
 
 void OperatorTestBase::TearDown() {
+  waitForAllTasksToBeDeleted();
   pool_.reset();
   rootPool_.reset();
   resetMemory();

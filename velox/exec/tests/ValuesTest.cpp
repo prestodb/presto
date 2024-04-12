@@ -26,7 +26,6 @@ namespace facebook::velox::exec::test {
 class ValuesTest : public OperatorTestBase {
  protected:
   void TearDown() override {
-    waitForAllTasksToBeDeleted();
     input_.reset();
     input2_.reset();
     OperatorTestBase::TearDown();
