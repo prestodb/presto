@@ -828,7 +828,7 @@ TEST_F(JsonCastTest, toInteger) {
       JSON(),
       BIGINT(),
       {"233897314173811950000"_sv},
-      "Problem while parsing a number");
+      "BIGINT_ERROR: Big integer value that cannot be represented using 64 bits");
 }
 
 TEST_F(JsonCastTest, toDouble) {

@@ -31,7 +31,7 @@ by Velox. See details on bundling below.
 | xsimd             | 10.0.0          | Yes      |
 | re2               | 2021-04-01      | Yes      |
 | fmt               | 10.1.1          | Yes      |
-| simdjson          | 3.2.0           | Yes      |
+| simdjson          | 3.8.0           | Yes      |
 | folly             | v2024.04.01.00  | Yes      |
 | fizz              | v2024.04.01.00  | No       |
 | wangle            | v2024.04.01.00  | No       |
@@ -75,4 +75,3 @@ Ideally all patches should be upstream when possible and removed once merged.
 ## Specify a custom url/file path for an offline build
 
 Set environment variables `VELOX_<PACKAGE>_URL` to specify a custom dependency url or local tar file path, an optional sha256 checksum can be provided as `VELOX_<PACKAGE>_SHA256`.
-
