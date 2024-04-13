@@ -16,6 +16,7 @@
 
 #include "velox/expression/PrestoCastHooks.h"
 #include "velox/external/date/tz.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox::exec {
 
@@ -36,9 +37,9 @@ Timestamp PrestoCastHooks::castStringToTimestamp(const StringView& view) const {
 }
 
 int32_t PrestoCastHooks::castStringToDate(const StringView& dateString) const {
-  // Cast from string to date allows only ISO 8601 formatted strings:
+  // Cast from string to date allows only complete ISO 8601 formatted strings:
   // [+-](YYYY-MM-DD).
-  return util::castFromDateString(dateString, true /*isIso8601*/);
+  return util::castFromDateString(dateString, util::ParseMode::kStandardCast);
 }
 
 bool PrestoCastHooks::legacy() const {

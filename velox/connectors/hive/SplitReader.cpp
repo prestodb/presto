@@ -24,6 +24,7 @@
 #include "velox/connectors/hive/iceberg/IcebergSplitReader.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/ReaderFactory.h"
+#include "velox/type/TimestampConversion.h"
 
 namespace facebook::velox::connector::hive {
 namespace {
@@ -39,8 +40,8 @@ VectorPtr newConstantFromString(
   }
 
   if (type->isDate()) {
-    auto copy =
-        util::castFromDateString(StringView(value.value()), true /*isIso8601*/);
+    auto copy = util::castFromDateString(
+        StringView(value.value()), util::ParseMode::kStandardCast);
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, std::move(copy));
   }

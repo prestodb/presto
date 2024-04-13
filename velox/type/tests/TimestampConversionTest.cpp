@@ -132,76 +132,99 @@ TEST(DateTimeUtilTest, fromDateStrInvalid) {
 }
 
 TEST(DateTimeUtilTest, castFromDateString) {
-  for (bool isIso8601 : {true, false}) {
-    EXPECT_EQ(0, castFromDateString("1970-01-01", isIso8601));
-    EXPECT_EQ(3789742, castFromDateString("12345-12-18", isIso8601));
+  for (ParseMode mode :
+       {ParseMode::kStandardCast, ParseMode::kNonStandardCast}) {
+    EXPECT_EQ(0, castFromDateString("1970-01-01", mode));
+    EXPECT_EQ(3789742, castFromDateString("12345-12-18", mode));
 
-    EXPECT_EQ(1, castFromDateString("1970-1-2", isIso8601));
-    EXPECT_EQ(1, castFromDateString("1970-01-2", isIso8601));
-    EXPECT_EQ(1, castFromDateString("1970-1-02", isIso8601));
+    EXPECT_EQ(1, castFromDateString("1970-1-2", mode));
+    EXPECT_EQ(1, castFromDateString("1970-01-2", mode));
+    EXPECT_EQ(1, castFromDateString("1970-1-02", mode));
 
-    EXPECT_EQ(1, castFromDateString("+1970-01-02", isIso8601));
-    EXPECT_EQ(-719893, castFromDateString("-1-1-1", isIso8601));
+    EXPECT_EQ(1, castFromDateString("+1970-01-02", mode));
+    EXPECT_EQ(-719893, castFromDateString("-1-1-1", mode));
 
-    EXPECT_EQ(0, castFromDateString(" 1970-01-01", isIso8601));
+    EXPECT_EQ(0, castFromDateString(" 1970-01-01", mode));
   }
 
-  EXPECT_EQ(3789391, castFromDateString("12345", false));
-  EXPECT_EQ(16436, castFromDateString("2015", false));
-  EXPECT_EQ(16495, castFromDateString("2015-03", false));
-  EXPECT_EQ(16512, castFromDateString("2015-03-18T", false));
-  EXPECT_EQ(16512, castFromDateString("2015-03-18T123123", false));
-  EXPECT_EQ(16512, castFromDateString("2015-03-18 123142", false));
-  EXPECT_EQ(16512, castFromDateString("2015-03-18 (BC)", false));
+  EXPECT_EQ(3789391, castFromDateString("12345", ParseMode::kNonStandardCast));
+  EXPECT_EQ(16436, castFromDateString("2015", ParseMode::kNonStandardCast));
+  EXPECT_EQ(16495, castFromDateString("2015-03", ParseMode::kNonStandardCast));
+  EXPECT_EQ(
+      16512, castFromDateString("2015-03-18T", ParseMode::kNonStandardCast));
+  EXPECT_EQ(
+      16512,
+      castFromDateString("2015-03-18T123123", ParseMode::kNonStandardCast));
+  EXPECT_EQ(
+      16512,
+      castFromDateString("2015-03-18 123142", ParseMode::kNonStandardCast));
+  EXPECT_EQ(
+      16512,
+      castFromDateString("2015-03-18 (BC)", ParseMode::kNonStandardCast));
 
-  EXPECT_EQ(0, castFromDateString("1970-01-01 ", false));
-  EXPECT_EQ(0, castFromDateString(" 1970-01-01 ", false));
+  EXPECT_EQ(0, castFromDateString("1970-01-01 ", ParseMode::kNonStandardCast));
+  EXPECT_EQ(0, castFromDateString(" 1970-01-01 ", ParseMode::kNonStandardCast));
 }
 
 TEST(DateTimeUtilTest, castFromDateStringInvalid) {
   auto testCastFromDateStringInvalid = [&](const StringView& str,
-                                           bool isIso8601) {
-    if (isIso8601) {
+                                           ParseMode mode) {
+    if (mode == ParseMode::kStandardCast) {
       VELOX_ASSERT_THROW(
-          castFromDateString(str, isIso8601),
+          castFromDateString(str, mode),
           fmt::format(
-              "Unable to parse date value: \"{}\"."
+              "Unable to parse date value: \"{}\". "
               "Valid date string pattern is (YYYY-MM-DD), "
               "and can be prefixed with [+-]",
               std::string(str.data(), str.size())));
-    } else {
+    } else if (mode == ParseMode::kNonStandardCast) {
       VELOX_ASSERT_THROW(
-          castFromDateString(str, isIso8601),
+          castFromDateString(str, mode),
           fmt::format(
-              "Unable to parse date value: \"{}\"."
+              "Unable to parse date value: \"{}\". "
               "Valid date string patterns include "
-              "(yyyy*, yyyy*-[m]m, yyyy*-[m]m-[d]d, "
-              "yyyy*-[m]m-[d]d *, yyyy*-[m]m-[d]dT*), "
+              "([y]y*, [y]y*-[m]m*, [y]y*-[m]m*-[d]d*, "
+              "[y]y*-[m]m*-[d]d* *, [y]y*-[m]m*-[d]d*T*), "
+              "and any pattern prefixed with [+-]",
+              std::string(str.data(), str.size())));
+    } else if (mode == ParseMode::kNonStandardNoTimeCast) {
+      VELOX_ASSERT_THROW(
+          castFromDateString(str, mode),
+          fmt::format(
+              "Unable to parse date value: \"{}\". "
+              "Valid date string patterns include "
+              "([y]y*, [y]y*-[m]m*, [y]y*-[m]m*-[d]d*, "
+              "[y]y*-[m]m*-[d]d* *), "
               "and any pattern prefixed with [+-]",
               std::string(str.data(), str.size())));
     }
   };
 
-  for (bool isIso8601 : {true, false}) {
-    testCastFromDateStringInvalid("2012-Oct-23", isIso8601);
-    testCastFromDateStringInvalid("2012-Oct-23", isIso8601);
-    testCastFromDateStringInvalid("2015-03-18X", isIso8601);
-    testCastFromDateStringInvalid("2015/03/18", isIso8601);
-    testCastFromDateStringInvalid("2015.03.18", isIso8601);
-    testCastFromDateStringInvalid("20150318", isIso8601);
-    testCastFromDateStringInvalid("2015-031-8", isIso8601);
+  for (ParseMode mode :
+       {ParseMode::kStandardCast, ParseMode::kNonStandardCast}) {
+    testCastFromDateStringInvalid("2012-Oct-23", mode);
+    testCastFromDateStringInvalid("2012-Oct-23", mode);
+    testCastFromDateStringInvalid("2015-03-18X", mode);
+    testCastFromDateStringInvalid("2015/03/18", mode);
+    testCastFromDateStringInvalid("2015.03.18", mode);
+    testCastFromDateStringInvalid("20150318", mode);
+    testCastFromDateStringInvalid("2015-031-8", mode);
   }
 
-  testCastFromDateStringInvalid("12345", true);
-  testCastFromDateStringInvalid("2015", true);
-  testCastFromDateStringInvalid("2015-03", true);
-  testCastFromDateStringInvalid("2015-03-18 123412", true);
-  testCastFromDateStringInvalid("2015-03-18T", true);
-  testCastFromDateStringInvalid("2015-03-18T123412", true);
-  testCastFromDateStringInvalid("2015-03-18 (BC)", true);
+  testCastFromDateStringInvalid("12345", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015-03", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015-03-18 123412", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015-03-18T", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015-03-18T123412", ParseMode::kStrict);
+  testCastFromDateStringInvalid("2015-03-18 (BC)", ParseMode::kStrict);
+  testCastFromDateStringInvalid("1970-01-01 ", ParseMode::kStrict);
+  testCastFromDateStringInvalid(" 1970-01-01 ", ParseMode::kStrict);
 
-  testCastFromDateStringInvalid("1970-01-01 ", true);
-  testCastFromDateStringInvalid(" 1970-01-01 ", true);
+  testCastFromDateStringInvalid(
+      "1970-01-01T01:00:47", ParseMode::kNonStandardNoTimeCast);
+  testCastFromDateStringInvalid(
+      "1970-01-01T01:00:47.000", ParseMode::kNonStandardNoTimeCast);
 }
 
 TEST(DateTimeUtilTest, fromTimeString) {

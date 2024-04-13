@@ -1271,7 +1271,8 @@ struct FromIso8601Date {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& input) {
-    result = util::fromDateString(input.data(), input.size());
+    result = util::castFromDateString(
+        input.data(), input.size(), util::ParseMode::kNonStandardNoTimeCast);
   }
 };
 

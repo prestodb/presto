@@ -44,6 +44,39 @@ constexpr const int32_t kMaxYear{292278994};
 constexpr const int32_t kYearInterval{400};
 constexpr const int32_t kDaysPerYearInterval{146097};
 
+/// Enum to dictate parsing modes for date strings.
+enum class ParseMode {
+  // For date string conversion, align with DuckDB's implementation.
+  kStrict,
+
+  // For timestamp string conversion, align with DuckDB's implementation.
+  kNonStrict,
+
+  // Strictly processes dates only in complete ISO 8601 format,
+  // e.g. [+-](YYYY-MM-DD).
+  // Align with Presto casting conventions.
+  kStandardCast,
+
+  // Like kStandardCast but permits years less than four digits, missing
+  // day/month, and allows trailing 'T' or spaces.
+  // Align with Spark SQL casting conventions.
+  // Supported formats:
+  // `[+-][Y]Y*`
+  // `[+-][Y]Y*-[M]M`
+  // `[+-][Y]Y*-[M]M*-[D]D`
+  // `[+-][Y]Y*-[M]M*-[D]D *`
+  // `[+-][Y]Y*-[M]M*-[D]DT*`
+  kNonStandardCast,
+
+  // Like kNonStandardCast but does not permit inclusion of timestamp.
+  // Supported formats:
+  // `[+-][Y]Y*`
+  // `[+-][Y]Y*-[M]M`
+  // `[+-][Y]Y*-[M]M*-[D]D`
+  // `[+-][Y]Y*-[M]M*-[D]D *`
+  kNonStandardNoTimeCast
+};
+
 // Returns true if leap year, false otherwise
 bool isLeapYear(int32_t year);
 
@@ -91,22 +124,14 @@ inline int64_t fromDateString(const StringView& str) {
   return fromDateString(str.data(), str.size());
 }
 
-/// Cast string to date.
-/// When isIso8601 = true, only support "[+-]YYYY-MM-DD" format (ISO 8601).
-/// When isIso8601 = false, supported date formats include:
-///
-/// `[+-]YYYY*`
-/// `[+-]YYYY*-[M]M`
-/// `[+-]YYYY*-[M]M-[D]D`
-/// `[+-]YYYY*-[M]M-[D]D `
-/// `[+-]YYYY*-[M]M-[D]D *`
-/// `[+-]YYYY*-[M]M-[D]DT*`
+/// Cast string to date. Supported date formats vary, depending on input
+/// ParseMode. Refer to ParseMode enum for further info.
 ///
 /// Throws VeloxUserError if the format or date is invalid.
-int32_t castFromDateString(const char* buf, size_t len, bool isIso8601);
+int32_t castFromDateString(const char* buf, size_t len, ParseMode mode);
 
-inline int32_t castFromDateString(const StringView& str, bool isIso8601) {
-  return castFromDateString(str.data(), str.size(), isIso8601);
+inline int32_t castFromDateString(const StringView& str, ParseMode mode) {
+  return castFromDateString(str.data(), str.size(), mode);
 }
 
 // Extracts the day of the week from the number of days since epoch

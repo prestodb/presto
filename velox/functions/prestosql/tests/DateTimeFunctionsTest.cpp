@@ -3409,8 +3409,21 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
   EXPECT_EQ(0, fromIso("1970-01-01"));
   EXPECT_EQ(9, fromIso("1970-01-10"));
   EXPECT_EQ(-1, fromIso("1969-12-31"));
+  EXPECT_EQ(0, fromIso("1970"));
+  EXPECT_EQ(0, fromIso("1970-01"));
+  EXPECT_EQ(0, fromIso("1970-1"));
+  EXPECT_EQ(8, fromIso("1970-1-9"));
+  EXPECT_EQ(-31, fromIso("1969-12"));
+  EXPECT_EQ(-31, fromIso("1969-12-1"));
+  EXPECT_EQ(-31, fromIso("1969-12-01"));
+  EXPECT_EQ(-31, fromIso("   1969-12-01   "));
+  EXPECT_EQ(-719862, fromIso("-1-2-1"));
 
   VELOX_ASSERT_THROW(fromIso("2024-01-xx"), "Unable to parse date value");
+  VELOX_ASSERT_THROW(
+      fromIso("2024-01-02T12:31:00"), "Unable to parse date value");
+  VELOX_ASSERT_THROW(
+      fromIso("2024-01-02 12:31:00"), "Unable to parse date value");
 }
 
 TEST_F(DateTimeFunctionsTest, dateParse) {
