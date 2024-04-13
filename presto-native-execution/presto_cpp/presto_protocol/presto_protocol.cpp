@@ -9291,6 +9291,13 @@ void to_json(json& j, const ServerInfo& p) {
       j, "coordinator", p.coordinator, "ServerInfo", "bool", "coordinator");
   to_json_key(j, "starting", p.starting, "ServerInfo", "bool", "starting");
   to_json_key(j, "uptime", p.uptime, "ServerInfo", "Duration", "uptime");
+  to_json_key(
+      j,
+      "nativeExecution",
+      p.nativeExecution,
+      "ServerInfo",
+      "bool",
+      "nativeExecution");
 }
 
 void from_json(const json& j, ServerInfo& p) {
@@ -9307,6 +9314,13 @@ void from_json(const json& j, ServerInfo& p) {
       j, "coordinator", p.coordinator, "ServerInfo", "bool", "coordinator");
   from_json_key(j, "starting", p.starting, "ServerInfo", "bool", "starting");
   from_json_key(j, "uptime", p.uptime, "ServerInfo", "Duration", "uptime");
+  from_json_key(
+      j,
+      "nativeExecution",
+      p.nativeExecution,
+      "ServerInfo",
+      "bool",
+      "nativeExecution");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

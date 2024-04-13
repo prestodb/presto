@@ -79,7 +79,15 @@ To build the Presto docs, see the [docs README](presto-docs/README.md).
 
 ### Building the Web UI
 
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible JavaScript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
+The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible JavaScript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands.
+
+Install Node.js from [Download Node.js](https://nodejs.org/en/download/)
+
+To install Yarn using Homebrew:
+
+    brew install yarn
+
+To update this folder after making changes, run:
 
     yarn --cwd presto-main/src/main/resources/webapp/src install
 
@@ -92,6 +100,16 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
     yarn --cwd presto-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+
+Use `yarn serve` to spin up a web server to track source changes and compile code for web page in real time. Assuming you are working in the `webapp` folder:
+
+    cd git/presto/presto-main/src/main/resources/webapp/src
+    yarn serve --env=apiPort=8081
+`yarn` shows the http address to view the web UI: `http://localhost:8080/`.
+
+`yarn` uses the following parameters to specify the Presto Server's information:
+* To specify the Presto Server IP Address: `--env=apiHost=<IP address>`. The default value is `127.0.0.1`.
+* To specify the Presto Server port number: `--end=apiPort=<Port Number>`. The default value is `8080`.
 
 ## Presto native and Velox
 

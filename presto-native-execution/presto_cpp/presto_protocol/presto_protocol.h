@@ -2319,6 +2319,7 @@ struct ServerInfo {
   bool coordinator = {};
   bool starting = {};
   std::shared_ptr<Duration> uptime = {};
+  bool nativeExecution = {};
 };
 void to_json(json& j, const ServerInfo& p);
 void from_json(const json& j, ServerInfo& p);

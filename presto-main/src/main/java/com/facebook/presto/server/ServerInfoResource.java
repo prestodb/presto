@@ -18,6 +18,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -50,6 +51,7 @@ public class ServerInfoResource
 {
     private final NodeVersion version;
     private final String environment;
+    private final boolean nativeExecution;
     private final boolean coordinator;
     private final boolean resourceManager;
     private final StaticCatalogStore catalogStore;
@@ -59,10 +61,11 @@ public class ServerInfoResource
     private NodeState nodeState = ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, FeaturesConfig featureConfig, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.nativeExecution = requireNonNull(featureConfig, "featureConfig is null").isNativeExecutionEnabled();
         this.coordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
         this.resourceManager = serverConfig.isResourceManager();
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
@@ -74,8 +77,8 @@ public class ServerInfoResource
     @Produces({APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public ServerInfo getInfo()
     {
-        boolean starting = resourceManager ? true : !catalogStore.areCatalogsLoaded();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
+        boolean starting = resourceManager || !catalogStore.areCatalogsLoaded();
+        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)), nativeExecution);
     }
 
     @PUT

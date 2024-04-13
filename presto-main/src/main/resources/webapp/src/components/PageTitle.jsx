@@ -127,6 +127,11 @@ export class PageTitle extends React.Component<Props, State> {
                             <table>
                                 <tbody>
                                 <tr>
+                                    <span data-toggle="tooltip" title={`${info.nativeExecution ? `Powered by Velox` : 'Powered by Java'}`}>
+                                        <td>
+                                            <img src={`${this.props.path ? this.props.path : '.'}/assets/${info.nativeExecution ? `velox.png` : 'java.png'}`}/>
+                                        </td>
+                                    </span>
                                     <td>
                                         <a href="/ui/"><img src={`${this.props.path ? this.props.path : '.'}/assets/logo.png`}/></a>
                                     </td>

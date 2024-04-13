@@ -1132,7 +1132,8 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
       environment_,
       false,
       false,
-      std::make_shared<protocol::Duration>(getUptime(start_))};
+      std::make_shared<protocol::Duration>(getUptime(start_)),
+      true};
   http::sendOkResponse(downstream, json(serverInfo));
 }
 

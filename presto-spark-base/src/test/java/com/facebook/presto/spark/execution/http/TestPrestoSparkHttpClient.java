@@ -307,7 +307,7 @@ public class TestPrestoSparkHttpClient
     public void testGetServerInfo()
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), false);
 
         PrestoSparkHttpServerClient workerClient = new PrestoSparkHttpServerClient(
                 new TestingHttpClient(scheduledExecutorService, new TestingResponseManager(taskId.toString())),
@@ -328,7 +328,7 @@ public class TestPrestoSparkHttpClient
     public void testGetServerInfoWithRetry()
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
-        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        ServerInfo expected = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), false);
         Duration maxTimeout = new Duration(1, TimeUnit.MINUTES);
         NativeExecutionProcess process = createNativeExecutionProcess(
                 maxTimeout,
@@ -1149,7 +1149,7 @@ public class TestPrestoSparkHttpClient
             public Response createServerInfoResponse()
                     throws PrestoException
             {
-                ServerInfo serverInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+                ServerInfo serverInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), false);
                 HttpStatus httpStatus = HttpStatus.OK;
                 ListMultimap<HeaderName, String> headers = ArrayListMultimap.create();
                 headers.put(HeaderName.of(CONTENT_TYPE), String.valueOf(MediaType.create("application", "json")));

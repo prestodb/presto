@@ -55,7 +55,7 @@ public class ClusterStatusResource
     @Produces(APPLICATION_JSON)
     public ServerInfo getInfo()
     {
-        return new ServerInfo(UNKNOWN, environment, true, false, Optional.empty());
+        return new ServerInfo(UNKNOWN, environment, true, false, Optional.empty(), false);
     }
 
     @GET

@@ -67,14 +67,14 @@ public class TestServerInfo
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m"))));
-        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.empty()));
+        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), false));
+        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.empty(), false));
     }
 
     @Test
     public void testBackwardsCompatible()
     {
-        ServerInfo newServerInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.empty());
+        ServerInfo newServerInfo = new ServerInfo(UNKNOWN, "test", true, false, Optional.empty(), false);
         ServerInfo legacyServerInfo = SERVER_INFO_CODEC.fromJson("{\"nodeVersion\":{\"version\":\"<unknown>\"},\"environment\":\"test\",\"coordinator\":true}");
         assertEquals(newServerInfo, legacyServerInfo);
     }
@@ -108,7 +108,7 @@ public class TestServerInfo
 
     private ServerInfo getServerInfo()
     {
-        return new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")));
+        return new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m")), false);
     }
 
     private ServerInfo getRoundTripSerialize(ThriftCodec<ServerInfo> readCodec, ThriftCodec<ServerInfo> writeCodec,

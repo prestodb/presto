@@ -40,6 +40,8 @@ public class ServerInfo
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
 
+    private final boolean nativeExecution;
+
     @ThriftConstructor
     @JsonCreator
     public ServerInfo(
@@ -47,13 +49,15 @@ public class ServerInfo
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("starting") boolean starting,
-            @JsonProperty("uptime") Optional<Duration> uptime)
+            @JsonProperty("uptime") Optional<Duration> uptime,
+            @JsonProperty("nativeExecution") boolean nativeExecution)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.nativeExecution = requireNonNull(nativeExecution, "isNative is null");
     }
 
     @ThriftField(1)
@@ -91,6 +95,13 @@ public class ServerInfo
         return uptime;
     }
 
+    @ThriftField(6)
+    @JsonProperty
+    public boolean isNativeExecution()
+    {
+        return nativeExecution;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -120,6 +131,7 @@ public class ServerInfo
                 .add("environment", environment)
                 .add("coordinator", coordinator)
                 .add("uptime", uptime.orElse(null))
+                .add("nativeExecution", nativeExecution)
                 .omitNullValues()
                 .toString();
     }
