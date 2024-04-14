@@ -106,7 +106,7 @@ class AsyncDataCacheTest : public testing::Test {
         tempDirectory_ = exec::test::TempDirectoryPath::create();
       }
       ssdCache = std::make_unique<SsdCache>(
-          fmt::format("{}/cache", tempDirectory_->path),
+          fmt::format("{}/cache", tempDirectory_->getPath()),
           ssdBytes,
           4,
           executor(),
@@ -816,7 +816,7 @@ TEST_F(AsyncDataCacheTest, DISABLED_ssd) {
 
   cache_->ssdCache()->clear();
   // We cut the tail off one of the cache shards.
-  corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->path));
+  corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->getPath()));
   // We open the cache from checkpoint. Reading checks the data integrity, here
   // we check that more data was read than written.
   initializeCache(kRamBytes, kSsdBytes);

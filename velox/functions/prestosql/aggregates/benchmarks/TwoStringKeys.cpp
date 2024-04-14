@@ -58,7 +58,7 @@ class TwoStringKeysBenchmark : public HiveConnectorTestBase {
     }
 
     filePath_ = TempFilePath::create();
-    writeToFile(filePath_->path, vectors);
+    writeToFile(filePath_->getPath(), vectors);
   }
 
   ~TwoStringKeysBenchmark() override {
@@ -115,7 +115,8 @@ class TwoStringKeysBenchmark : public HiveConnectorTestBase {
         0,
         std::make_shared<core::QueryCtx>(executor_.get()));
 
-    task->addSplit("0", exec::Split(makeHiveConnectorSplit(filePath_->path)));
+    task->addSplit(
+        "0", exec::Split(makeHiveConnectorSplit((filePath_->getPath()))));
     task->noMoreSplits("0");
     return task;
   }

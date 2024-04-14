@@ -24,7 +24,8 @@ namespace facebook::velox::common {
 class FsTest : public testing::Test {};
 
 TEST_F(FsTest, createDirectory) {
-  auto rootPath = exec::test::TempDirectoryPath::createTempDirectory();
+  auto dir = exec::test::TempDirectoryPath::create();
+  auto rootPath = dir->getPath();
   auto tmpDirectoryPath = rootPath + "/first/second/third";
   // First time should generate directory successfully.
   EXPECT_FALSE(fs::exists(tmpDirectoryPath.c_str()));
@@ -34,7 +35,7 @@ TEST_F(FsTest, createDirectory) {
   // Directory already exist, not creating but should return success.
   EXPECT_TRUE(generateFileDirectory(tmpDirectoryPath.c_str()));
   EXPECT_TRUE(fs::exists(tmpDirectoryPath.c_str()));
-  boost::filesystem::remove_all(rootPath);
+  dir.reset();
   EXPECT_FALSE(fs::exists(rootPath.c_str()));
 }
 

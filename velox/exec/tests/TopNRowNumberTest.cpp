@@ -139,7 +139,7 @@ TEST_F(TopNRowNumberTest, largeOutput) {
               .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
-              .spillDirectory(spillDirectory->path)
+              .spillDirectory(spillDirectory->getPath())
               .assertResults(sql);
 
       auto taskStats = exec::toPlanStats(task->taskStats());
@@ -223,7 +223,7 @@ TEST_F(TopNRowNumberTest, manyPartitions) {
                   fmt::format("{}", outputBatchBytes))
               .config(core::QueryConfig::kSpillEnabled, "true")
               .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
-              .spillDirectory(spillDirectory->path)
+              .spillDirectory(spillDirectory->getPath())
               .assertResults(sql);
 
       auto taskStats = exec::toPlanStats(task->taskStats());
@@ -359,7 +359,7 @@ TEST_F(TopNRowNumberTest, maxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, "true")
           .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")

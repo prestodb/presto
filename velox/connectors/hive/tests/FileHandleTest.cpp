@@ -27,8 +27,8 @@ using namespace facebook::velox;
 TEST(FileHandleTest, localFile) {
   filesystems::registerLocalFileSystem();
 
-  auto tempFile = ::exec::test::TempFilePath::create();
-  const auto& filename = tempFile->path;
+  auto tempFile = exec::test::TempFilePath::create();
+  const auto& filename = tempFile->getPath();
   remove(filename.c_str());
 
   {

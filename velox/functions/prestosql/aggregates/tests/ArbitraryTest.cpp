@@ -402,7 +402,7 @@ TEST_F(ArbitraryTest, spilling) {
 
   exec::TestScopedSpillInjection scopedSpillInjection(100);
   spillDirectory = exec::test::TempDirectoryPath::create();
-  builder.spillDirectory(spillDirectory->path)
+  builder.spillDirectory(spillDirectory->getPath())
       .config(core::QueryConfig::kSpillEnabled, "true")
       .config(core::QueryConfig::kAggregationSpillEnabled, "true");
 

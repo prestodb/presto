@@ -79,7 +79,7 @@ TEST_F(LimitTest, limitOverLocalExchange) {
       {makeFlatVector<int32_t>(1'000, [](auto row) { return row; })});
 
   auto file = TempFilePath::create();
-  writeToFile(file->path, {data});
+  writeToFile(file->getPath(), {data});
 
   core::PlanNodeId scanNodeId;
 
@@ -93,7 +93,7 @@ TEST_F(LimitTest, limitOverLocalExchange) {
 
   auto cursor = TaskCursor::create(params);
   cursor->task()->addSplit(
-      scanNodeId, exec::Split(makeHiveConnectorSplit(file->path)));
+      scanNodeId, exec::Split(makeHiveConnectorSplit(file->getPath())));
 
   int32_t numRead = 0;
   while (cursor->moveNext()) {

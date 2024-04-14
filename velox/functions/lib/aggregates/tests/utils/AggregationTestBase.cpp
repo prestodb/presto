@@ -404,7 +404,7 @@ void AggregationTestBase::testAggregationsWithCompanion(
     queryBuilder.configs(config)
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kAggregationSpillEnabled, true)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .maxDrivers(4);
 
     exec::TestScopedSpillInjection scopedSpillInjection(100);
@@ -647,10 +647,10 @@ void AggregationTestBase::testReadFromFiles(
 
   for (auto& vector : inputs) {
     auto file = exec::test::TempFilePath::create();
-    writeToFile(file->path, vector, writerPool.get());
+    writeToFile(file->getPath(), vector, writerPool.get());
     files.push_back(file);
     splits.emplace_back(std::make_shared<connector::hive::HiveConnectorSplit>(
-        kHiveConnectorId, file->path, dwio::common::FileFormat::DWRF));
+        kHiveConnectorId, file->getPath(), dwio::common::FileFormat::DWRF));
   }
   // No need to test streaming as the streaming test generates its own inputs,
   // so it would be the same as the original test.
@@ -666,7 +666,7 @@ void AggregationTestBase::testReadFromFiles(
   }
 
   for (const auto& file : files) {
-    remove(file->path.c_str());
+    remove(file->getPath().c_str());
   }
 }
 
@@ -843,7 +843,7 @@ void AggregationTestBase::testAggregationsImpl(
     queryBuilder.configs(config)
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kAggregationSpillEnabled, true)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .maxDrivers(4);
 
     exec::TestScopedSpillInjection scopedSpillInjection(100);
@@ -945,7 +945,7 @@ void AggregationTestBase::testAggregationsImpl(
     queryBuilder.configs(config)
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-        .spillDirectory(spillDirectory->path);
+        .spillDirectory(spillDirectory->getPath());
 
     TestScopedSpillInjection scopedSpillInjection(100);
     auto task = assertResults(queryBuilder);

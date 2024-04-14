@@ -68,7 +68,7 @@ class ParquetTpchTest : public testing::Test {
     connector::registerConnector(tpchConnector);
 
     saveTpchTablesAsParquet();
-    tpchBuilder_->initialize(tempDirectory_->path);
+    tpchBuilder_->initialize(tempDirectory_->getPath());
   }
 
   static void TearDownTestSuite() {
@@ -86,7 +86,7 @@ class ParquetTpchTest : public testing::Test {
     for (const auto& table : tpch::tables) {
       auto tableName = toTableName(table);
       auto tableDirectory =
-          fmt::format("{}/{}", tempDirectory_->path, tableName);
+          fmt::format("{}/{}", tempDirectory_->getPath(), tableName);
       auto tableSchema = tpch::getTableSchema(table);
       auto columnNames = tableSchema->names();
       auto plan = PlanBuilder()

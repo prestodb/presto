@@ -49,8 +49,10 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   auto inputFile = exec::test::TempFilePath::create();
   auto sqlFile = exec::test::TempFilePath::create();
   auto resultFile = exec::test::TempFilePath::create();
-  const char* inputPath = inputFile->path.data();
-  const char* resultPath = resultFile->path.data();
+  const auto inputPathStr = inputFile->getPath();
+  const char* inputPath = inputPathStr.data();
+  const auto resultPathStr = resultFile->getPath();
+  const char* resultPath = resultPathStr.data();
   const int vectorSize = 100;
 
   VectorMaker vectorMaker(pool_.get());
@@ -108,8 +110,10 @@ TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
   // Emulate a reproduce from complex constant SQL
   auto sqlFile = exec::test::TempFilePath::create();
   auto complexConstantsFile = exec::test::TempFilePath::create();
-  auto sqlPath = sqlFile->path.c_str();
-  auto complexConstantsPath = complexConstantsFile->path.c_str();
+  const auto complexConstantsFilePathStr = complexConstantsFile->getPath();
+  auto sqlPathStr = sqlFile->getPath();
+  auto sqlPath = sqlPathStr.c_str();
+  auto complexConstantsPath = complexConstantsFilePathStr.c_str();
 
   // Write to file..
   saveStringToFile(complexConstantsSql, sqlPath);

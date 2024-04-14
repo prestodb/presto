@@ -112,13 +112,13 @@ class HashJoinBridgeTest : public testing::Test,
     static uint32_t fakeFileId{0};
     SpillFiles files;
     files.reserve(numFiles);
-    const std::string filePathPrefix = tempDir_->path + "/Spill";
+    const std::string filePathPrefix = tempDir_->getPath() + "/Spill";
     for (int32_t i = 0; i < numFiles; ++i) {
       const auto fileId = fakeFileId;
       files.push_back(
           {fileId,
            rowType_,
-           tempDir_->path + "/Spill_" + std::to_string(fileId),
+           tempDir_->getPath() + "/Spill_" + std::to_string(fileId),
            1024,
            1,
            std::vector<CompareFlags>({}),

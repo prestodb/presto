@@ -35,8 +35,8 @@ class ReadFileInputStreamTest : public testing::Test {
 };
 
 TEST_F(ReadFileInputStreamTest, LocalReadFile) {
-  auto tempFile = ::exec::test::TempFilePath::create();
-  const auto& filename = tempFile->path;
+  auto tempFile = exec::test::TempFilePath::create();
+  const auto& filename = tempFile->getPath();
   remove(filename.c_str());
   {
     LocalWriteFile writeFile(filename);

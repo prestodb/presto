@@ -82,7 +82,7 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
       const std::string& spillPath,
       uint64_t writerFlushThreshold) {
     return std::make_unique<SpillConfig>(
-        [&]() -> const std::string& { return spillPath; },
+        [spillPath]() -> const std::string& { return spillPath; },
         [&](uint64_t) {},
         "",
         0,
@@ -475,7 +475,7 @@ TEST_F(HiveDataSinkTest, hiveBucketProperty) {
 
 TEST_F(HiveDataSinkTest, basic) {
   const auto outputDirectory = TempDirectoryPath::create();
-  auto dataSink = createDataSink(rowType_, outputDirectory->path);
+  auto dataSink = createDataSink(rowType_, outputDirectory->getPath());
   auto stats = dataSink->stats();
   ASSERT_TRUE(stats.empty()) << stats.toString();
   ASSERT_EQ(
@@ -503,14 +503,14 @@ TEST_F(HiveDataSinkTest, basic) {
   ASSERT_EQ(partitions.size(), 1);
 
   createDuckDbTable(vectors);
-  verifyWrittenData(outputDirectory->path);
+  verifyWrittenData(outputDirectory->getPath());
 }
 
 TEST_F(HiveDataSinkTest, close) {
   for (bool empty : {true, false}) {
     SCOPED_TRACE(fmt::format("Data sink is empty: {}", empty));
     const auto outputDirectory = TempDirectoryPath::create();
-    auto dataSink = createDataSink(rowType_, outputDirectory->path);
+    auto dataSink = createDataSink(rowType_, outputDirectory->getPath());
 
     auto vectors = createVectors(500, 1);
 
@@ -532,7 +532,7 @@ TEST_F(HiveDataSinkTest, close) {
       ASSERT_EQ(partitions.size(), 1);
       ASSERT_GT(stats.numWrittenBytes, 0);
       createDuckDbTable(vectors);
-      verifyWrittenData(outputDirectory->path);
+      verifyWrittenData(outputDirectory->getPath());
     } else {
       ASSERT_TRUE(partitions.empty());
       ASSERT_EQ(stats.numWrittenBytes, 0);
@@ -544,7 +544,7 @@ TEST_F(HiveDataSinkTest, abort) {
   for (bool empty : {true, false}) {
     SCOPED_TRACE(fmt::format("Data sink is empty: {}", empty));
     const auto outputDirectory = TempDirectoryPath::create();
-    auto dataSink = createDataSink(rowType_, outputDirectory->path);
+    auto dataSink = createDataSink(rowType_, outputDirectory->getPath());
 
     auto vectors = createVectors(1, 1);
     int initialBytes = 0;
@@ -633,8 +633,8 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
     std::unique_ptr<SpillConfig> spillConfig;
     if (testData.writerSpillEnabled) {
       spillDirectory = exec::test::TempDirectoryPath::create();
-      spillConfig =
-          getSpillConfig(spillDirectory->path, testData.writerFlushThreshold);
+      spillConfig = getSpillConfig(
+          spillDirectory->getPath(), testData.writerFlushThreshold);
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
           opPool_.get(),
           connectorPool_.get(),
@@ -664,7 +664,7 @@ TEST_F(HiveDataSinkTest, memoryReclaim) {
 
     auto dataSink = createDataSink(
         rowType_,
-        outputDirectory->path,
+        outputDirectory->getPath(),
         testData.format,
         partitionBy,
         bucketProperty);
@@ -771,7 +771,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
     std::unique_ptr<SpillConfig> spillConfig;
     if (testData.writerSpillEnabled) {
       spillDirectory = exec::test::TempDirectoryPath::create();
-      spillConfig = getSpillConfig(spillDirectory->path, 0);
+      spillConfig = getSpillConfig(spillDirectory->getPath(), 0);
       auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
           opPool_.get(),
           connectorPool_.get(),
@@ -801,7 +801,7 @@ TEST_F(HiveDataSinkTest, memoryReclaimAfterClose) {
 
     auto dataSink = createDataSink(
         rowType_,
-        outputDirectory->path,
+        outputDirectory->getPath(),
         testData.format,
         partitionBy,
         bucketProperty);
@@ -865,7 +865,7 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
   const std::shared_ptr<TempDirectoryPath> spillDirectory =
       exec::test::TempDirectoryPath::create();
   std::unique_ptr<SpillConfig> spillConfig =
-      getSpillConfig(spillDirectory->path, 0);
+      getSpillConfig(spillDirectory->getPath(), 0);
   // Triggers the memory reservation in sort buffer.
   spillConfig->minSpillableReservationPct = 1'000;
   auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
@@ -883,7 +883,7 @@ DEBUG_ONLY_TEST_F(HiveDataSinkTest, sortWriterFailureTest) {
 
   auto dataSink = createDataSink(
       rowType_,
-      outputDirectory->path,
+      outputDirectory->getPath(),
       dwio::common::FileFormat::DWRF,
       partitionBy,
       bucketProperty);

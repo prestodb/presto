@@ -100,7 +100,7 @@ class AbfsFileSystemTest : public testing::Test {
  private:
   static std::shared_ptr<::exec::test::TempFilePath> createFile(
       uint64_t size = -1) {
-    auto tempFile = ::exec::test::TempFilePath::create();
+    auto tempFile = exec::test::TempFilePath::create();
     if (size == -1) {
       tempFile->append("aaaaa");
       tempFile->append("bbbbb");

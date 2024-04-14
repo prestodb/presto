@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
   // HiveConnectorSplit for each file, using the same HiveConnector id defined
   // above, the local file path (the "file:" prefix specifies which FileSystem
   // to use; local, in this case), and the file format (DWRF/ORC).
-  for (auto& filePath : fs::directory_iterator(tempDir->path)) {
+  for (auto& filePath : fs::directory_iterator(tempDir->getPath())) {
     auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
         kHiveConnectorId,
         "file:" + filePath.path().string(),

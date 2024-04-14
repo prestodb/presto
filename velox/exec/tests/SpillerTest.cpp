@@ -160,7 +160,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     RowContainerTestBase::SetUp();
     rng_.seed(1);
     tempDirPath_ = exec::test::TempDirectoryPath::create();
-    fs_ = filesystems::getFileSystem(tempDirPath_->path, nullptr);
+    fs_ = filesystems::getFileSystem(tempDirPath_->getPath(), nullptr);
     containerType_ = ROW({
         {"bool_val", BOOLEAN()},
         {"tiny_val", TINYINT()},
@@ -523,7 +523,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     common::GetSpillDirectoryPathCB badSpillDirCb =
         [&]() -> const std::string& { return kBadSpillDirPath; };
     common::GetSpillDirectoryPathCB tempSpillDirCb =
-        [&]() -> const std::string& { return tempDirPath_->path; };
+        [&]() -> const std::string& { return tempDirPath_->getPath(); };
     stats_.clear();
     spillStats_ = folly::Synchronized<common::SpillStats>();
 

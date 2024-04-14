@@ -94,7 +94,7 @@ QueryTestResult runHashJoinTask(
   if (enableSpilling) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data = AssertQueryBuilder(plan)
-                      .spillDirectory(spillDirectory->path)
+                      .spillDirectory(spillDirectory->getPath())
                       .config(core::QueryConfig::kSpillEnabled, true)
                       .config(core::QueryConfig::kJoinSpillEnabled, true)
                       .config(core::QueryConfig::kSpillStartPartitionBit, "29")
@@ -137,7 +137,7 @@ QueryTestResult runAggregateTask(
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data =
         AssertQueryBuilder(plan)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kAggregationSpillEnabled, "true")
             .queryCtx(queryCtx)
@@ -179,7 +179,7 @@ QueryTestResult runOrderByTask(
   if (enableSpilling) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data = AssertQueryBuilder(plan)
-                      .spillDirectory(spillDirectory->path)
+                      .spillDirectory(spillDirectory->getPath())
                       .config(core::QueryConfig::kSpillEnabled, "true")
                       .config(core::QueryConfig::kOrderBySpillEnabled, "true")
                       .queryCtx(queryCtx)
@@ -221,7 +221,7 @@ QueryTestResult runRowNumberTask(
   if (enableSpilling) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data = AssertQueryBuilder(plan)
-                      .spillDirectory(spillDirectory->path)
+                      .spillDirectory(spillDirectory->getPath())
                       .config(core::QueryConfig::kSpillEnabled, "true")
                       .config(core::QueryConfig::kRowNumberSpillEnabled, "true")
                       .queryCtx(queryCtx)
@@ -264,7 +264,7 @@ QueryTestResult runTopNTask(
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data =
         AssertQueryBuilder(plan)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kTopNRowNumberSpillEnabled, "true")
             .queryCtx(queryCtx)
@@ -306,12 +306,12 @@ QueryTestResult runWriteTask(
     const RowVectorPtr& expectedResult) {
   QueryTestResult result;
   const auto outputDirectory = TempDirectoryPath::create();
-  auto plan = writePlan(vectors, outputDirectory->path, result.planNodeId);
+  auto plan = writePlan(vectors, outputDirectory->getPath(), result.planNodeId);
   if (enableSpilling) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     result.data =
         AssertQueryBuilder(plan)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kAggregationSpillEnabled, "false")
             .config(core::QueryConfig::kWriterSpillEnabled, "true")

@@ -1130,7 +1130,7 @@ TEST_F(AggregationTest, spillAll) {
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task = AssertQueryBuilder(plan)
-                  .spillDirectory(tempDirectory->path)
+                  .spillDirectory(tempDirectory->getPath())
                   .config(QueryConfig::kSpillEnabled, true)
                   .config(QueryConfig::kAggregationSpillEnabled, true)
                   .assertResults(results);
@@ -1581,7 +1581,7 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
     TestScopedSpillInjection scopedSpillInjection(100);
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(tempDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .config(
@@ -1624,7 +1624,7 @@ TEST_F(AggregationTest, spillDuringOutputProcessing) {
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
-          .spillDirectory(tempDirectory->path)
+          .spillDirectory(tempDirectory->getPath())
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
           // Set very large output buffer size, the number of output rows is
@@ -1765,7 +1765,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, minSpillableMemoryReservation) {
     auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .config(
@@ -1791,7 +1791,7 @@ TEST_F(AggregationTest, distinctWithSpilling) {
   core::PlanNodeId aggrNodeId;
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                  .spillDirectory(spillDirectory->path)
+                  .spillDirectory(spillDirectory->getPath())
                   .config(QueryConfig::kSpillEnabled, true)
                   .config(QueryConfig::kAggregationSpillEnabled, true)
                   .plan(PlanBuilder()
@@ -1815,7 +1815,7 @@ TEST_F(AggregationTest, spillingForAggrsWithDistinct) {
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
           .plan(PlanBuilder()
@@ -1843,7 +1843,7 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
     SCOPED_TRACE(sql);
     TestScopedSpillInjection scopedSpillInjection(100);
     auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                    .spillDirectory(spillDirectory->path)
+                    .spillDirectory(spillDirectory->getPath())
                     .config(QueryConfig::kSpillEnabled, true)
                     .config(QueryConfig::kAggregationSpillEnabled, true)
                     .plan(plan)
@@ -1889,7 +1889,7 @@ TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
           .plan(PlanBuilder()
@@ -2044,7 +2044,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                             .planNode())
                         .queryCtx(queryCtx)
-                        .spillDirectory(tempDirectory->path)
+                        .spillDirectory(tempDirectory->getPath())
                         .config(QueryConfig::kSpillEnabled, true)
                         .config(QueryConfig::kAggregationSpillEnabled, true)
                         .maxDrivers(1)
@@ -2184,7 +2184,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringReserve) {
                            .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                            .planNode())
         .queryCtx(queryCtx)
-        .spillDirectory(tempDirectory->path)
+        .spillDirectory(tempDirectory->getPath())
         .config(QueryConfig::kSpillEnabled, true)
         .config(QueryConfig::kAggregationSpillEnabled, true)
         .maxDrivers(1)
@@ -2300,7 +2300,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringAllocation) {
                 .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(tempDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .maxDrivers(1)
@@ -2414,7 +2414,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringOutputProcessing) {
                 .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(tempDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .maxDrivers(1)
@@ -2588,7 +2588,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringNonReclaimableSection) {
                 .capturePlanNodeId(aggregationPlanNodeId)
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(tempDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .maxDrivers(1)
@@ -2704,7 +2704,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimWithEmptyAggregationTable) {
         AssertQueryBuilder(nullptr)
             .plan(aggregationPlan)
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(tempDirectory->getPath())
             .config(QueryConfig::kSpillEnabled, true)
             .config(QueryConfig::kAggregationSpillEnabled, true)
             .maxDrivers(1)
@@ -3032,7 +3032,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyInput) {
               .capturePlanNodeId(aggNodeId)
               .planNode(),
           duckDbQueryRunner_)
-          .spillDirectory(tempDirectory->path)
+          .spillDirectory(tempDirectory->getPath())
           .queryCtx(queryCtx)
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
@@ -3097,7 +3097,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimEmptyOutput) {
                              .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                              .capturePlanNodeId(aggNodeId)
                              .planNode())
-          .spillDirectory(tempDirectory->path)
+          .spillDirectory(tempDirectory->getPath())
           .queryCtx(queryCtx)
           .config(QueryConfig::kSpillEnabled, true)
           .config(QueryConfig::kAggregationSpillEnabled, true)
@@ -3141,7 +3141,7 @@ TEST_F(AggregationTest, maxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kAggregationSpillEnabled, true)
@@ -3186,7 +3186,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregation) {
     core::PlanNodeId aggrNodeId;
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kAggregationSpillEnabled, true)
             .config(
@@ -3233,7 +3233,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromDistinctAggregation) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     core::PlanNodeId aggrNodeId;
     auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                    .spillDirectory(spillDirectory->path)
+                    .spillDirectory(spillDirectory->getPath())
                     .config(core::QueryConfig::kSpillEnabled, true)
                     .config(core::QueryConfig::kAggregationSpillEnabled, true)
                     .config(
@@ -3305,7 +3305,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationOnNoMoreInput) {
     std::thread aggregationThread([&]() {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
-              .spillDirectory(spillDirectory->path)
+              .spillDirectory(spillDirectory->getPath())
               .config(core::QueryConfig::kSpillEnabled, true)
               .config(core::QueryConfig::kAggregationSpillEnabled, true)
               .queryCtx(aggregationQueryCtx)
@@ -3389,7 +3389,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimFromAggregationDuringOutput) {
     std::thread aggregationThread([&]() {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
-              .spillDirectory(spillDirectory->path)
+              .spillDirectory(spillDirectory->getPath())
               .config(core::QueryConfig::kSpillEnabled, true)
               .config(core::QueryConfig::kAggregationSpillEnabled, true)
               .config(

@@ -109,7 +109,7 @@ void SpillerBenchmarkBase::setUp() {
 
   if (FLAGS_spiller_benchmark_path.empty()) {
     tempDir_ = exec::test::TempDirectoryPath::create();
-    spillDir_ = tempDir_->path;
+    spillDir_ = tempDir_->getPath();
   } else {
     spillDir_ = FLAGS_spiller_benchmark_path;
   }

@@ -432,7 +432,7 @@ RowVectorPtr JoinFuzzer::execute(const PlanWithSplits& plan, bool injectSpill) {
     spillDirectory = exec::test::TempDirectoryPath::create();
     builder.config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-        .spillDirectory(spillDirectory->path);
+        .spillDirectory(spillDirectory->getPath());
     spillPct = 10;
   }
 
@@ -982,7 +982,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   const auto tableScanDir = exec::test::TempDirectoryPath::create();
   addPlansWithTableScan(
-      tableScanDir->path,
+      tableScanDir->getPath(),
       joinType,
       nullAware,
       probeKeys,

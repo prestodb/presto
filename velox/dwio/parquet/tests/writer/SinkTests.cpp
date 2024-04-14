@@ -25,7 +25,8 @@ class SinkTest : public ParquetTestBase {};
 TEST_F(SinkTest, close) {
   auto rowType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
   auto batches = createBatches(rowType, 2, 3);
-  auto filePath = fs::path(fmt::format("{}/test_close.txt", tempPath_->path));
+  auto filePath =
+      fs::path(fmt::format("{}/test_close.txt", tempPath_->getPath()));
   auto sink = createSink(filePath.string());
   auto sinkPtr = sink.get();
   auto writer = createWriter(
@@ -55,7 +56,8 @@ TEST_F(SinkTest, close) {
 TEST_F(SinkTest, abort) {
   auto rowType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
   auto batches = createBatches(rowType, 2, 3);
-  auto filePath = fs::path(fmt::format("{}/test_abort.txt", tempPath_->path));
+  auto filePath =
+      fs::path(fmt::format("{}/test_abort.txt", tempPath_->getPath()));
   auto sink = createSink(filePath.string());
   auto sinkPtr = sink.get();
   auto writer = createWriter(

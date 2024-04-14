@@ -172,7 +172,7 @@ HiveConnectorTestBase::makeHiveConnectorSplits(
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (auto filePath : filePaths) {
     splits.push_back(makeHiveConnectorSplit(
-        filePath->path,
+        filePath->getPath(),
         filePath->fileSize(),
         filePath->fileModifiedTime(),
         0,

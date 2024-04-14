@@ -225,14 +225,15 @@ class InMemoryWriteFile final : public WriteFile {
   std::string* file_;
 };
 
-// Current implementation for the local version is quite simple (e.g. no
-// internal arenaing), as local disk writes are expected to be cheap. Local
-// files match against any filepath starting with '/'.
-
+/// Current implementation for the local version is quite simple (e.g. no
+/// internal arenaing), as local disk writes are expected to be cheap. Local
+/// files match against any filepath starting with '/'.
 class LocalReadFile final : public ReadFile {
  public:
   explicit LocalReadFile(std::string_view path);
 
+  /// TODO: deprecate this after creating local file all through velox fs
+  /// interface.
   explicit LocalReadFile(int32_t fd);
 
   ~LocalReadFile();

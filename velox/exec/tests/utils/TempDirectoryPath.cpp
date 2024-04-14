@@ -20,11 +20,9 @@
 
 namespace facebook::velox::exec::test {
 
-std::shared_ptr<TempDirectoryPath> TempDirectoryPath::create() {
-  struct SharedTempDirectoryPath : public TempDirectoryPath {
-    SharedTempDirectoryPath() : TempDirectoryPath() {}
-  };
-  return std::make_shared<SharedTempDirectoryPath>();
+std::shared_ptr<TempDirectoryPath> TempDirectoryPath::create(bool injectFault) {
+  auto* tempDirPath = new TempDirectoryPath(injectFault);
+  return std::shared_ptr<TempDirectoryPath>(tempDirPath);
 }
 
 TempDirectoryPath::~TempDirectoryPath() {
@@ -35,6 +33,13 @@ TempDirectoryPath::~TempDirectoryPath() {
     LOG(WARNING)
         << "TempDirectoryPath:: destructor failed while calling boost::filesystem::remove_all";
   }
+}
+
+std::string TempDirectoryPath::createTempDirectory() {
+  char tempPath[] = "/tmp/velox_test_XXXXXX";
+  const char* tempDirectoryPath = ::mkdtemp(tempPath);
+  VELOX_CHECK_NOT_NULL(tempDirectoryPath, "Cannot open temp directory");
+  return tempDirectoryPath;
 }
 
 } // namespace facebook::velox::exec::test

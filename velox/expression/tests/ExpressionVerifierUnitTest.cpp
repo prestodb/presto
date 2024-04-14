@@ -88,7 +88,7 @@ class ExpressionVerifierUnitTest : public testing::Test, public VectorTestBase {
 TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {
   filesystems::registerLocalFileSystem();
   auto reproFolder = exec::test::TempDirectoryPath::create();
-  const auto reproPath = reproFolder->path;
+  const auto reproPath = reproFolder->getPath();
   auto localFs = filesystems::getFileSystem(reproPath, nullptr);
 
   ExpressionVerifierOptions options{false, reproPath.c_str(), false};

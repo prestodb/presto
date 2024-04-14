@@ -762,7 +762,7 @@ TEST_F(TaskTest, singleThreadedExecution) {
 
   // Project + Aggregation over TableScan.
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data, data});
+  writeToFile(filePath->getPath(), {data, data});
 
   core::PlanNodeId scanId;
   plan = PlanBuilder()
@@ -774,7 +774,7 @@ TEST_F(TaskTest, singleThreadedExecution) {
 
   {
     auto [task, results] =
-        executeSingleThreaded(plan, {{scanId, {filePath->path}}});
+        executeSingleThreaded(plan, {{scanId, {filePath->getPath()}}});
     assertEqualResults({expectedResult}, results);
   }
 
@@ -791,7 +791,7 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
           makeFlatVector<int64_t>({10, 20, 30, 40}),
       });
   auto leftPath = TempFilePath::create();
-  writeToFile(leftPath->path, {left});
+  writeToFile(leftPath->getPath(), {left});
 
   auto right = makeRowVector(
       {"u_c0"},
@@ -799,7 +799,7 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
           makeFlatVector<int64_t>({0, 1, 3, 5}),
       });
   auto rightPath = TempFilePath::create();
-  writeToFile(rightPath->path, {right});
+  writeToFile(rightPath->getPath(), {right});
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
@@ -827,7 +827,8 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
   {
     auto [task, results] = executeSingleThreaded(
         plan,
-        {{leftScanId, {leftPath->path}}, {rightScanId, {rightPath->path}}});
+        {{leftScanId, {leftPath->getPath()}},
+         {rightScanId, {rightPath->getPath()}}});
     assertEqualResults({expectedResult}, results);
   }
 }
@@ -835,11 +836,11 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
 TEST_F(TaskTest, singleThreadedCrossJoin) {
   auto left = makeRowVector({"t_c0"}, {makeFlatVector<int64_t>({1, 2, 3})});
   auto leftPath = TempFilePath::create();
-  writeToFile(leftPath->path, {left});
+  writeToFile(leftPath->getPath(), {left});
 
   auto right = makeRowVector({"u_c0"}, {makeFlatVector<int64_t>({10, 20})});
   auto rightPath = TempFilePath::create();
-  writeToFile(rightPath->path, {right});
+  writeToFile(rightPath->getPath(), {right});
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
@@ -864,7 +865,8 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   {
     auto [task, results] = executeSingleThreaded(
         plan,
-        {{leftScanId, {leftPath->path}}, {rightScanId, {rightPath->path}}});
+        {{leftScanId, {leftPath->getPath()}},
+         {rightScanId, {rightPath->getPath()}}});
     assertEqualResults({expectedResult}, results);
   }
 }
@@ -1344,7 +1346,7 @@ DEBUG_ONLY_TEST_F(TaskTest, driverCounters) {
       makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
   });
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data, data});
+  writeToFile(filePath->getPath(), {data, data});
 
   core::PlanNodeId scanNodeId;
   auto plan = PlanBuilder()
@@ -1429,7 +1431,7 @@ DEBUG_ONLY_TEST_F(TaskTest, driverCounters) {
 
   // Now add a split, finalize splits and wait for the task to finish.
   auto split = exec::Split(makeHiveConnectorSplit(
-      filePath->path, 0, std::numeric_limits<uint64_t>::max(), 1));
+      filePath->getPath(), 0, std::numeric_limits<uint64_t>::max(), 1));
   task->addSplit(scanNodeId, std::move(split));
   task->noMoreSplits(scanNodeId);
   taskThread.join();
@@ -1495,7 +1497,7 @@ TEST_F(TaskTest, spillDirectoryLifecycleManagement) {
   std::shared_ptr<Task> task = cursor->task();
   auto rootTempDir = exec::test::TempDirectoryPath::create();
   auto tmpDirectoryPath =
-      rootTempDir->path + "/spillDirectoryLifecycleManagement";
+      rootTempDir->getPath() + "/spillDirectoryLifecycleManagement";
   task->setSpillDirectory(tmpDirectoryPath, false);
 
   TestScopedSpillInjection scopedSpillInjection(100);
@@ -1551,7 +1553,7 @@ TEST_F(TaskTest, spillDirNotCreated) {
   auto cursor = TaskCursor::create(params);
   auto* task = cursor->task().get();
   auto rootTempDir = exec::test::TempDirectoryPath::create();
-  auto tmpDirectoryPath = rootTempDir->path + "/spillDirNotCreated";
+  auto tmpDirectoryPath = rootTempDir->getPath() + "/spillDirNotCreated";
   task->setSpillDirectory(tmpDirectoryPath, false);
 
   while (cursor->moveNext()) {

@@ -63,22 +63,22 @@ class HiveIcebergTest : public HiveConnectorTestBase {
     deleteFiles.reserve(deleteRowsVec.size());
     for (auto const& deleteRows : deleteRowsVec) {
       std::shared_ptr<TempFilePath> deleteFilePath = writePositionDeleteFile(
-          dataFilePath->path,
+          dataFilePath->getPath(),
           deleteRows,
           numDeleteRowsBefore,
           numDeleteRowsAfter);
+      auto path = deleteFilePath->getPath();
       IcebergDeleteFile deleteFile(
           FileContent::kPositionalDeletes,
-          deleteFilePath->path,
+          deleteFilePath->getPath(),
           fileFomat_,
           deleteRows.size() + numDeleteRowsBefore + numDeleteRowsAfter,
-          testing::internal::GetFileSize(
-              std::fopen(deleteFilePath->path.c_str(), "r")));
+          testing::internal::GetFileSize(std::fopen(path.c_str(), "r")));
       deleteFilePaths.emplace_back(deleteFilePath);
       deleteFiles.emplace_back(deleteFile);
     }
 
-    auto icebergSplit = makeIcebergSplit(dataFilePath->path, deleteFiles);
+    auto icebergSplit = makeIcebergSplit(dataFilePath->getPath(), deleteFiles);
 
     auto plan = tableScanNode();
     auto task = OperatorTestBase::assertQuery(plan, {icebergSplit}, duckdbSql);
@@ -162,7 +162,7 @@ class HiveIcebergTest : public HiveConnectorTestBase {
     auto dataVectors = makeVectors(1, numRows);
 
     auto dataFilePath = TempFilePath::create();
-    writeToFile(dataFilePath->path, dataVectors);
+    writeToFile(dataFilePath->getPath(), dataVectors);
     createDuckDbTable(dataVectors);
     return dataFilePath;
   }
@@ -217,7 +217,7 @@ class HiveIcebergTest : public HiveConnectorTestBase {
         {filePathVector, deletePositionsVector});
 
     auto deleteFilePath = TempFilePath::create();
-    writeToFile(deleteFilePath->path, deleteFileVectors);
+    writeToFile(deleteFilePath->getPath(), deleteFileVectors);
 
     return deleteFilePath;
   }
@@ -252,7 +252,7 @@ class HiveIcebergTest : public HiveConnectorTestBase {
       std::shared_ptr<TempFilePath> dataFilePath,
       const std::vector<IcebergDeleteFile>& deleteFiles,
       const std::string& duckDbSql) {
-    auto icebergSplit = makeIcebergSplit(dataFilePath->path, deleteFiles);
+    auto icebergSplit = makeIcebergSplit(dataFilePath->getPath(), deleteFiles);
     return OperatorTestBase::assertQuery(plan, {icebergSplit}, duckDbSql);
   }
 

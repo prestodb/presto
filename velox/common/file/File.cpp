@@ -238,10 +238,8 @@ LocalWriteFile::LocalWriteFile(
   {
     if (shouldThrowOnFileAlreadyExists) {
       FILE* exists = fopen(buf.get(), "rb");
-      VELOX_CHECK(
-          !exists,
-          "Failure in LocalWriteFile: path '{}' already exists.",
-          path);
+      VELOX_CHECK_NULL(
+          exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
     }
   }
   auto* file = fopen(buf.get(), "ab");

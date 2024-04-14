@@ -45,7 +45,7 @@ class ParquetReaderBenchmark {
     leafPool_ = rootPool_->addLeafChild("ParquetReaderBenchmark");
     dataSetBuilder_ =
         std::make_unique<facebook::velox::test::DataSetBuilder>(*leafPool_, 0);
-    auto path = fileFolder_->path + "/" + fileName_;
+    auto path = fileFolder_->getPath() + "/" + fileName_;
     auto localWriteFile =
         std::make_unique<facebook::velox::LocalWriteFile>(path, true, false);
     auto sink = std::make_unique<facebook::velox::dwio::common::WriteFileSink>(

@@ -181,7 +181,8 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
   const auto plan =
       PlanBuilder()
           .values({data})
-          .tableWrite(outputDirectory->path, dwio::common::FileFormat::PARQUET)
+          .tableWrite(
+              outputDirectory->getPath(), dwio::common::FileFormat::PARQUET)
           .planNode();
 
   CursorParameters params;

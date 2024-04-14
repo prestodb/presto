@@ -539,7 +539,7 @@ TEST_F(FirstAggregateTest, spillingAndSorting) {
   results = AssertQueryBuilder(plan)
                 .config(core::QueryConfig::kSpillEnabled, "true")
                 .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-                .spillDirectory(spillDirectory->path)
+                .spillDirectory(spillDirectory->getPath())
                 .copyResults(pool());
   exec::test::assertEqualResults({expected}, {results});
 }

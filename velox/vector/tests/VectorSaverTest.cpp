@@ -120,11 +120,11 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
   VectorPtr takeRoundTrip(const VectorPtr& vector) {
     auto path = exec::test::TempFilePath::create();
 
-    std::ofstream outputFile(path->path, std::ofstream::binary);
+    std::ofstream outputFile(path->getPath(), std::ofstream::binary);
     saveVector(*vector, outputFile);
     outputFile.close();
 
-    std::ifstream inputFile(path->path, std::ifstream::binary);
+    std::ifstream inputFile(path->getPath(), std::ifstream::binary);
     auto copy = restoreVector(inputFile, pool());
     inputFile.close();
     return copy;
@@ -139,11 +139,11 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
   void testTypeRoundTrip(const TypePtr& type) {
     auto path = exec::test::TempFilePath::create();
 
-    std::ofstream outputFile(path->path, std::ofstream::binary);
+    std::ofstream outputFile(path->getPath(), std::ofstream::binary);
     saveType(type, outputFile);
     outputFile.close();
 
-    std::ifstream inputFile(path->path, std::ifstream::binary);
+    std::ifstream inputFile(path->getPath(), std::ifstream::binary);
     auto copy = restoreType(inputFile);
     inputFile.close();
 
@@ -625,8 +625,8 @@ TEST_F(VectorSaverTest, LazyVector) {
 TEST_F(VectorSaverTest, stdVector) {
   std::vector<column_index_t> intVector = {1, 2, 3, 4, 5};
   auto path = exec::test::TempFilePath::create();
-  saveStdVectorToFile<column_index_t>(intVector, path->path.c_str());
-  auto copy = restoreStdVectorFromFile<column_index_t>(path->path.c_str());
+  saveStdVectorToFile<column_index_t>(intVector, path->getPath().c_str());
+  auto copy = restoreStdVectorFromFile<column_index_t>(path->getPath().c_str());
   ASSERT_EQ(intVector, copy);
 }
 
@@ -661,7 +661,8 @@ TEST_F(VectorSaverTest, exceptionContext) {
   };
 
   VectorPtr data = makeFlatVector<int64_t>({1, 2, 3, 4, 5});
-  VectorSaverInfo info{tempDirectory.get()->path.c_str(), data.get()};
+  const auto path = tempDirectory->getPath();
+  VectorSaverInfo info{path.c_str(), data.get()};
   {
     ExceptionContextSetter context({messageFunction, &info});
     try {

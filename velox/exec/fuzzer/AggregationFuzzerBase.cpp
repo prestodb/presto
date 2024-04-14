@@ -405,7 +405,7 @@ velox::test::ResultOrError AggregationFuzzerBase::execute(
     int32_t spillPct{0};
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
-      builder.spillDirectory(spillDirectory->path)
+      builder.spillDirectory(spillDirectory->getPath())
           .config(core::QueryConfig::kSpillEnabled, "true")
           .config(core::QueryConfig::kAggregationSpillEnabled, "true")
           .config(core::QueryConfig::kMaxSpillRunRows, randInt(32, 1L << 30));

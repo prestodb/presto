@@ -205,7 +205,7 @@ class OrderByTest : public OperatorTestBase {
       CursorParameters params;
       params.planNode = planNode;
       params.queryCtx = queryCtx;
-      params.spillDirectory = spillDirectory->path;
+      params.spillDirectory = spillDirectory->getPath();
       auto task = assertQueryOrdered(params, duckDbSql, sortingKeys);
       auto inputRows = toPlanStats(task->taskStats()).at(orderById).inputRows;
       const uint64_t peakSpillMemoryUsage =
@@ -509,7 +509,7 @@ TEST_F(OrderByTest, spill) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   TestScopedSpillInjection scopedSpillInjection(100);
   auto task = AssertQueryBuilder(plan)
-                  .spillDirectory(spillDirectory->path)
+                  .spillDirectory(spillDirectory->getPath())
                   .config(core::QueryConfig::kSpillEnabled, true)
                   .config(core::QueryConfig::kOrderBySpillEnabled, true)
                   .assertResults(expectedResult);
@@ -566,7 +566,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
         queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
@@ -626,7 +626,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringInputProcessing) {
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
@@ -705,7 +705,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
     batches.push_back(fuzzer.fuzzRow(rowType));
   }
 
-  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
       queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
@@ -765,7 +765,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringReserve) {
             .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
             .planNode())
         .queryCtx(queryCtx)
-        .spillDirectory(tempDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .config(core::QueryConfig::kSpillEnabled, true)
         .config(core::QueryConfig::kOrderBySpillEnabled, true)
         .maxDrivers(1)
@@ -818,7 +818,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
   const std::vector<bool> enableSpillings = {false, true};
   for (const auto enableSpilling : enableSpillings) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(
         memory::memoryManager()->addRootPool(queryCtx->queryId(), kMaxBytes));
@@ -883,7 +883,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringAllocation) {
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
@@ -948,7 +948,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
   const std::vector<bool> enableSpillings = {false, true};
   for (const auto enableSpilling : enableSpillings) {
     SCOPED_TRACE(fmt::format("enableSpilling {}", enableSpilling));
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->testingOverrideMemoryPool(memory::memoryManager()->addRootPool(
         queryCtx->queryId(), kMaxBytes, memory::MemoryReclaimer::create()));
@@ -1000,7 +1000,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimDuringOutputProcessing) {
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
             .queryCtx(queryCtx)
-            .spillDirectory(tempDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .maxDrivers(1)
@@ -1226,7 +1226,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, spillWithNoMoreOutput) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   auto task =
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kOrderBySpillEnabled, true)
           // Set output buffer size to extreme large to read all the
@@ -1272,7 +1272,7 @@ TEST_F(OrderByTest, maxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kOrderBySpillEnabled, true)
@@ -1341,7 +1341,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
     std::thread orderByThread([&]() {
       auto task =
           AssertQueryBuilder(duckDbQueryRunner_)
-              .spillDirectory(spillDirectory->path)
+              .spillDirectory(spillDirectory->getPath())
               .config(core::QueryConfig::kSpillEnabled, true)
               .config(core::QueryConfig::kOrderBySpillEnabled, true)
               .queryCtx(orderByQueryCtx)
@@ -1409,7 +1409,7 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
   std::thread orderByThread([&]() {
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kOrderBySpillEnabled, true)
             .queryCtx(orderByQueryCtx)

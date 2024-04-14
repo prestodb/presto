@@ -617,7 +617,7 @@ class HashJoinBuilder {
     int32_t spillPct{0};
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
-      builder.spillDirectory(spillDirectory->path);
+      builder.spillDirectory(spillDirectory->getPath());
       config(core::QueryConfig::kSpillEnabled, "true");
       config(core::QueryConfig::kMaxSpillLevel, std::to_string(maxSpillLevel));
       config(core::QueryConfig::kJoinSpillEnabled, "true");
@@ -802,7 +802,7 @@ class HashJoinTest : public HiveConnectorTestBase {
       std::vector<exec::Split> splits;
       splits.reserve(files[i].size());
       for (const auto& file : files[i]) {
-        splits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        splits.push_back(exec::Split(makeHiveConnectorSplit(file->getPath())));
       }
       splitInput.emplace(nodeIds[i], std::move(splits));
     }
@@ -1704,10 +1704,10 @@ TEST_P(MultiThreadedHashJoinTest, semiFilterOverLazyVectors) {
   });
 
   std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
-  writeToFile(probeFile->path, probeVectors);
+  writeToFile(probeFile->getPath(), probeVectors);
 
   std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
-  writeToFile(buildFile->path, buildVectors);
+  writeToFile(buildFile->getPath(), buildVectors);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
@@ -1731,8 +1731,10 @@ TEST_P(MultiThreadedHashJoinTest, semiFilterOverLazyVectors) {
                   .planNode();
 
   SplitInput splitInput = {
-      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
-      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+      {probeScanId,
+       {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
+      {buildScanId,
+       {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
   };
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
@@ -3197,10 +3199,10 @@ TEST_F(HashJoinTest, nullAwareRightSemiProjectOverScan) {
       });
 
   std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
-  writeToFile(probeFile->path, {probe});
+  writeToFile(probeFile->getPath(), {probe});
 
   std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
-  writeToFile(buildFile->path, {build});
+  writeToFile(buildFile->getPath(), {build});
 
   createDuckDbTable("t", {probe});
   createDuckDbTable("u", {build});
@@ -3225,8 +3227,10 @@ TEST_F(HashJoinTest, nullAwareRightSemiProjectOverScan) {
                   .planNode();
 
   SplitInput splitInput = {
-      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
-      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+      {probeScanId,
+       {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
+      {buildScanId,
+       {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
   };
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
@@ -3797,10 +3801,10 @@ TEST_F(HashJoinTest, semiProjectOverLazyVectors) {
   });
 
   std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
-  writeToFile(probeFile->path, probeVectors);
+  writeToFile(probeFile->getPath(), probeVectors);
 
   std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
-  writeToFile(buildFile->path, buildVectors);
+  writeToFile(buildFile->getPath(), buildVectors);
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
@@ -3824,8 +3828,10 @@ TEST_F(HashJoinTest, semiProjectOverLazyVectors) {
                   .planNode();
 
   SplitInput splitInput = {
-      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
-      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+      {probeScanId,
+       {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
+      {buildScanId,
+       {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
   };
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
@@ -3947,13 +3953,13 @@ TEST_F(HashJoinTest, lazyVectors) {
 
   for (const auto& probeVector : probeVectors) {
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, probeVector);
+    writeToFile(tempFiles.back()->getPath(), probeVector);
   }
   createDuckDbTable("t", probeVectors);
 
   for (const auto& buildVector : buildVectors) {
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, buildVector);
+    writeToFile(tempFiles.back()->getPath(), buildVector);
   }
   createDuckDbTable("u", buildVectors);
 
@@ -3963,12 +3969,12 @@ TEST_F(HashJoinTest, lazyVectors) {
       std::vector<exec::Split> probeSplits;
       for (int i = 0; i < probeVectors.size(); ++i) {
         probeSplits.push_back(
-            exec::Split(makeHiveConnectorSplit(tempFiles[i]->path)));
+            exec::Split(makeHiveConnectorSplit(tempFiles[i]->getPath())));
       }
       std::vector<exec::Split> buildSplits;
       for (int i = 0; i < buildVectors.size(); ++i) {
-        buildSplits.push_back(exec::Split(
-            makeHiveConnectorSplit(tempFiles[probeSplits.size() + i]->path)));
+        buildSplits.push_back(exec::Split(makeHiveConnectorSplit(
+            tempFiles[probeSplits.size() + i]->getPath())));
       }
       SplitInput splits;
       splits.emplace(probeScanId, probeSplits);
@@ -4052,13 +4058,14 @@ TEST_F(HashJoinTest, dynamicFilters) {
     });
     probeVectors.push_back(rowVector);
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, rowVector);
+    writeToFile(tempFiles.back()->getPath(), rowVector);
   }
   auto makeInputSplits = [&](const core::PlanNodeId& nodeId) {
     return [&] {
       std::vector<exec::Split> probeSplits;
       for (auto& file : tempFiles) {
-        probeSplits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        probeSplits.push_back(
+            exec::Split(makeHiveConnectorSplit(file->getPath())));
       }
       SplitInput splits;
       splits.emplace(nodeId, probeSplits);
@@ -4577,21 +4584,23 @@ TEST_F(HashJoinTest, dynamicFiltersWithSkippedSplits) {
     });
     probeVectors.push_back(rowVector);
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, rowVector);
+    writeToFile(tempFiles.back()->getPath(), rowVector);
   }
 
   auto makeInputSplits = [&](const core::PlanNodeId& nodeId) {
     return [&] {
       std::vector<exec::Split> probeSplits;
       for (auto& file : tempFiles) {
-        probeSplits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        probeSplits.push_back(
+            exec::Split(makeHiveConnectorSplit(file->getPath())));
       }
       // We add splits that have no rows.
       auto makeEmpty = [&]() {
-        return exec::Split(HiveConnectorSplitBuilder(tempFiles.back()->path)
-                               .start(10000000)
-                               .length(1)
-                               .build());
+        return exec::Split(
+            HiveConnectorSplitBuilder(tempFiles.back()->getPath())
+                .start(10000000)
+                .length(1)
+                .build());
       };
       std::vector<exec::Split> emptyFront = {makeEmpty(), makeEmpty()};
       std::vector<exec::Split> emptyMiddle = {makeEmpty(), makeEmpty()};
@@ -4791,8 +4800,8 @@ TEST_F(HashJoinTest, dynamicFiltersAppliedToPreloadedSplits) {
         });
     probeVectors.push_back(rowVector);
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, rowVector);
-    auto split = HiveConnectorSplitBuilder(tempFiles.back()->path)
+    writeToFile(tempFiles.back()->getPath(), rowVector);
+    auto split = HiveConnectorSplitBuilder(tempFiles.back()->getPath())
                      .partitionKey("p1", std::to_string(i))
                      .build();
     probeSplits.push_back(exec::Split(split));
@@ -5041,7 +5050,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, buildReservationReleaseCheck) {
   // only gets executed when spilling is enabled. We don't care about if
   // spilling is really triggered in test or not.
   auto spillDirectory = exec::test::TempDirectoryPath::create();
-  params.spillDirectory = spillDirectory->path;
+  params.spillDirectory = spillDirectory->getPath();
   params.queryCtx->testingOverrideConfigUnsafe(
       {{core::QueryConfig::kSpillEnabled, "true"},
        {core::QueryConfig::kMaxSpillLevel, "0"}});
@@ -5070,14 +5079,14 @@ TEST_F(HashJoinTest, dynamicFilterOnPartitionKey) {
   auto rowVector = makeRowVector(
       {makeFlatVector<int64_t>(size, [&](auto row) { return row; })});
   createDuckDbTable("u", {rowVector});
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   std::vector<RowVectorPtr> buildVectors{
       makeRowVector({"c0"}, {makeFlatVector<int64_t>({0, 1, 2})})};
   createDuckDbTable("t", buildVectors);
-  auto split =
-      facebook::velox::exec::test::HiveConnectorSplitBuilder(filePaths[0]->path)
-          .partitionKey("k", "0")
-          .build();
+  auto split = facebook::velox::exec::test::HiveConnectorSplitBuilder(
+                   filePaths[0]->getPath())
+                   .partitionKey("k", "0")
+                   .build();
   auto outputType = ROW({"n1_0", "n1_1"}, {BIGINT(), BIGINT()});
   ColumnHandleMap assignments = {
       {"n1_0", regularColumn("c0", BIGINT())},
@@ -5209,7 +5218,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringInputProcessing) {
           .planNode(plan)
           .queryPool(std::move(queryPool))
           .injectSpill(false)
-          .spillDirectory(testData.spillEnabled ? tempDirectory->path : "")
+          .spillDirectory(testData.spillEnabled ? tempDirectory->getPath() : "")
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .config(core::QueryConfig::kSpillStartPartitionBit, "29")
@@ -5361,7 +5370,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringReserve) {
         .planNode(plan)
         .queryPool(std::move(queryPool))
         .injectSpill(false)
-        .spillDirectory(tempDirectory->path)
+        .spillDirectory(tempDirectory->getPath())
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
         .config(core::QueryConfig::kSpillStartPartitionBit, "29")
@@ -5490,7 +5499,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringAllocation) {
           .planNode(plan)
           .queryPool(std::move(queryPool))
           .injectSpill(false)
-          .spillDirectory(enableSpilling ? tempDirectory->path : "")
+          .spillDirectory(enableSpilling ? tempDirectory->getPath() : "")
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
@@ -5608,7 +5617,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
           .planNode(plan)
           .queryPool(std::move(queryPool))
           .injectSpill(false)
-          .spillDirectory(enableSpilling ? tempDirectory->path : "")
+          .spillDirectory(enableSpilling ? tempDirectory->getPath() : "")
           .referenceQuery(
               "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
           .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
@@ -5753,7 +5762,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringWaitForProbe) {
         .planNode(plan)
         .queryPool(std::move(queryPool))
         .injectSpill(false)
-        .spillDirectory(tempDirectory->path)
+        .spillDirectory(tempDirectory->getPath())
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
         .config(core::QueryConfig::kSpillStartPartitionBit, "29")
@@ -6255,7 +6264,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, minSpillableMemoryReservation) {
         .numDrivers(numDrivers_)
         .planNode(plan)
         .injectSpill(false)
-        .spillDirectory(tempDirectory->path)
+        .spillDirectory(tempDirectory->getPath())
         .referenceQuery(
             "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
         .run();
@@ -6307,7 +6316,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceededMaxSpillLevel) {
       // Always trigger spilling.
       .injectSpill(false)
       .maxSpillLevel(0)
-      .spillDirectory(tempDirectory->path)
+      .spillDirectory(tempDirectory->getPath())
       .referenceQuery(
           "SELECT t_k1, t_k2, t_v1, u_k1, u_k2, u_v1 FROM t, u WHERE t.t_k1 = u.u_k1")
       .config(core::QueryConfig::kSpillStartPartitionBit, "29")
@@ -6378,7 +6387,7 @@ TEST_F(HashJoinTest, maxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kJoinSpillEnabled, true)
@@ -6434,7 +6443,7 @@ TEST_F(HashJoinTest, onlyHashBuildMaxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kJoinSpillEnabled, true)
@@ -6779,7 +6788,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kJoinSpillEnabled, true)
           .config(core::QueryConfig::kSpillNumPartitionBits, 2)
@@ -6850,7 +6859,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kJoinSpillEnabled, true)
             .config(core::QueryConfig::kSpillNumPartitionBits, 2)
@@ -6957,7 +6966,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
   VELOX_ASSERT_THROW(
       AssertQueryBuilder(plan)
           .queryCtx(joinQueryCtx)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .config(core::QueryConfig::kSpillEnabled, true)
           .copyResults(pool()),
       injectedErrorMsg);
@@ -7132,7 +7141,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpill) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(1)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .probeKeys({"t_k1"})
         .probeVectors(std::move(probeVectors))
         .buildKeys({"u_k1"})
@@ -7188,7 +7197,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillInMiddeOfLastOutputProcessing) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(1)
-      .spillDirectory(spillDirectory->path)
+      .spillDirectory(spillDirectory->getPath())
       .probeKeys({"t_k1"})
       .probeVectors(std::move(probeVectors))
       .buildKeys({"u_k1"})
@@ -7261,7 +7270,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillInMiddeOfOutputProcessing) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(1)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .probeKeys({"t_k1"})
         .probeVectors(std::move(probeVectors))
         .buildKeys({"u_k1"})
@@ -7319,7 +7328,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillWhenOneOfProbeFinish) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(numDrivers, true, true)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .keyTypes({BIGINT()})
         .probeVectors(32, 5)
         .buildVectors(32, 5)
@@ -7364,7 +7373,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillExceedLimit) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(1)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .probeKeys({"t_k1"})
         .probeVectors(std::move(probeVectors))
         .buildKeys({"u_k1"})
@@ -7431,7 +7440,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillUnderNonReclaimableSection) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(1)
-      .spillDirectory(spillDirectory->path)
+      .spillDirectory(spillDirectory->getPath())
       .keyTypes({BIGINT()})
       .probeVectors(32, 5)
       .buildVectors(32, 5)
@@ -7486,7 +7495,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillOutputWithRightSemiJoins) {
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(1)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .probeType(probeType_)
         .probeVectors(128, 3)
         .probeKeys({"t_k1"})
@@ -7523,13 +7532,14 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
     });
     probeVectors.push_back(rowVector);
     tempFiles.push_back(TempFilePath::create());
-    writeToFile(tempFiles.back()->path, rowVector);
+    writeToFile(tempFiles.back()->getPath(), rowVector);
   }
   auto makeInputSplits = [&](const core::PlanNodeId& nodeId) {
     return [&] {
       std::vector<exec::Split> probeSplits;
       for (auto& file : tempFiles) {
-        probeSplits.push_back(exec::Split(makeHiveConnectorSplit(file->path)));
+        probeSplits.push_back(
+            exec::Split(makeHiveConnectorSplit(file->getPath())));
       }
       SplitInput splits;
       splits.emplace(nodeId, probeSplits);
@@ -7608,7 +7618,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, spillCheckOnLeftSemiFilterWithDynamicFilters) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .planNode(std::move(op))
       .makeInputSplits(makeInputSplits(probeScanId))
-      .spillDirectory(spillDirectory->path)
+      .spillDirectory(spillDirectory->getPath())
       .injectSpill(false)
       .referenceQuery(
           "SELECT t.c0, t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u)")

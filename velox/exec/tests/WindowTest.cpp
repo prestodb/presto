@@ -66,7 +66,7 @@ TEST_F(WindowTest, spill) {
           .config(core::QueryConfig::kPreferredOutputBatchBytes, "1024")
           .config(core::QueryConfig::kSpillEnabled, "true")
           .config(core::QueryConfig::kWindowSpillEnabled, "true")
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .assertResults(
               "SELECT *, row_number() over (partition by p order by s) FROM tmp");
 

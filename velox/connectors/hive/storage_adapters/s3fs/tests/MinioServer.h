@@ -42,12 +42,12 @@ class MinioServer {
   void stop();
 
   void addBucket(const char* bucket) {
-    const std::string path = tempPath_->path + "/" + bucket;
+    const std::string path = tempPath_->getPath() + "/" + bucket;
     mkdir(path.c_str(), S_IRWXU | S_IRWXG);
   }
 
   std::string path() const {
-    return tempPath_->path;
+    return tempPath_->getPath();
   }
 
   std::shared_ptr<const Config> hiveConfig(
@@ -87,6 +87,7 @@ void MinioServer::start() {
     VELOX_FAIL("Failed to find minio executable {}'", kMinioExecutableName);
   }
 
+  const auto path = tempPath_->getPath();
   try {
     serverProcess_ = std::make_shared<boost::process::child>(
         env,
@@ -96,7 +97,7 @@ void MinioServer::start() {
         "--compat",
         "--address",
         connectionString_,
-        tempPath_->path.c_str());
+        path.c_str());
   } catch (const std::exception& e) {
     VELOX_FAIL("Failed to launch Minio server: {}", e.what());
   }

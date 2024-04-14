@@ -19,6 +19,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
@@ -26,6 +27,7 @@
 
 using namespace facebook::velox;
 using facebook::velox::common::Region;
+using namespace facebook::velox::tests::utils;
 
 constexpr int kOneMB = 1 << 20;
 
@@ -127,45 +129,58 @@ TEST(InMemoryFile, preadv) {
   EXPECT_EQ(expected, values);
 }
 
-TEST(LocalFile, writeAndRead) {
+class LocalFileTest : public ::testing::TestWithParam<bool> {
+ protected:
+  LocalFileTest() : useFaultyFs_(GetParam()) {}
+
+  static void SetUpTestCase() {
+    filesystems::registerLocalFileSystem();
+    tests::utils::registerFaultyFileSystem();
+  }
+
+  const bool useFaultyFs_;
+};
+
+TEST_P(LocalFileTest, writeAndRead) {
   for (bool useIOBuf : {true, false}) {
-    auto tempFile = ::exec::test::TempFilePath::create();
-    const auto& filename = tempFile->path.c_str();
-    remove(filename);
+    SCOPED_TRACE(fmt::format("useIOBuf: {}", useIOBuf));
+
+    auto tempFile = exec::test::TempFilePath::create(useFaultyFs_);
+    const auto& filename = tempFile->getPath();
+    auto fs = filesystems::getFileSystem(filename, {});
+    fs->remove(filename);
     {
-      LocalWriteFile writeFile(filename);
-      writeData(&writeFile, useIOBuf);
-      writeFile.close();
-      ASSERT_EQ(writeFile.size(), 15 + kOneMB);
+      auto writeFile = fs->openFileForWrite(filename);
+      writeData(writeFile.get(), useIOBuf);
+      writeFile->close();
+      ASSERT_EQ(writeFile->size(), 15 + kOneMB);
     }
-    LocalReadFile readFile(filename);
-    readData(&readFile);
+    auto readFile = fs->openFileForRead(filename);
+    readData(readFile.get());
   }
 }
 
-TEST(LocalFile, viaRegistry) {
-  filesystems::registerLocalFileSystem();
-  auto tempFile = ::exec::test::TempFilePath::create();
-  const auto& filename = tempFile->path.c_str();
-  remove(filename);
-  auto lfs = filesystems::getFileSystem(filename, nullptr);
+TEST_P(LocalFileTest, viaRegistry) {
+  auto tempFile = exec::test::TempFilePath::create(useFaultyFs_);
+  const auto& filename = tempFile->getPath();
+  auto fs = filesystems::getFileSystem(filename, {});
+  fs->remove(filename);
   {
-    auto writeFile = lfs->openFileForWrite(filename);
+    auto writeFile = fs->openFileForWrite(filename);
     writeFile->append("snarf");
   }
-  auto readFile = lfs->openFileForRead(filename);
+  auto readFile = fs->openFileForRead(filename);
   ASSERT_EQ(readFile->size(), 5);
   char buffer1[5];
   ASSERT_EQ(readFile->pread(0, 5, &buffer1), "snarf");
-  lfs->remove(filename);
+  fs->remove(filename);
 }
 
-TEST(LocalFile, rename) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
-  auto a = fmt::format("{}/a", tempFolder->path);
-  auto b = fmt::format("{}/b", tempFolder->path);
-  auto newA = fmt::format("{}/newA", tempFolder->path);
+TEST_P(LocalFileTest, rename) {
+  const auto tempFolder = ::exec::test::TempDirectoryPath::create(useFaultyFs_);
+  const auto a = fmt::format("{}/a", tempFolder->getPath());
+  const auto b = fmt::format("{}/b", tempFolder->getPath());
+  const auto newA = fmt::format("{}/newA", tempFolder->getPath());
   const std::string data("aaaaa");
   auto localFs = filesystems::getFileSystem(a, nullptr);
   {
@@ -177,7 +192,7 @@ TEST(LocalFile, rename) {
   ASSERT_TRUE(localFs->exists(a));
   ASSERT_TRUE(localFs->exists(b));
   ASSERT_FALSE(localFs->exists(newA));
-  EXPECT_THROW(localFs->rename(a, b), VeloxUserError);
+  VELOX_ASSERT_USER_THROW(localFs->rename(a, b), "");
   localFs->rename(a, newA);
   ASSERT_FALSE(localFs->exists(a));
   ASSERT_TRUE(localFs->exists(b));
@@ -188,11 +203,10 @@ TEST(LocalFile, rename) {
   ASSERT_EQ(readFile->pread(0, 5, &buffer), data);
 }
 
-TEST(LocalFile, exists) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
-  auto a = fmt::format("{}/a", tempFolder->path);
-  auto b = fmt::format("{}/b", tempFolder->path);
+TEST_P(LocalFileTest, exists) {
+  auto tempFolder = ::exec::test::TempDirectoryPath::create(useFaultyFs_);
+  auto a = fmt::format("{}/a", tempFolder->getPath());
+  auto b = fmt::format("{}/b", tempFolder->getPath());
   auto localFs = filesystems::getFileSystem(a, nullptr);
   {
     auto writeFile = localFs->openFileForWrite(a);
@@ -208,47 +222,51 @@ TEST(LocalFile, exists) {
   ASSERT_FALSE(localFs->exists(b));
 }
 
-TEST(LocalFile, list) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
-  auto a = fmt::format("{}/1", tempFolder->path);
-  auto b = fmt::format("{}/2", tempFolder->path);
+TEST_P(LocalFileTest, list) {
+  const auto tempFolder = ::exec::test::TempDirectoryPath::create(useFaultyFs_);
+  const auto a = fmt::format("{}/1", tempFolder->getPath());
+  const auto b = fmt::format("{}/2", tempFolder->getPath());
   auto localFs = filesystems::getFileSystem(a, nullptr);
   {
     auto writeFile = localFs->openFileForWrite(a);
     writeFile = localFs->openFileForWrite(b);
   }
-  auto files = localFs->list(std::string_view(tempFolder->path));
+  auto files = localFs->list(std::string_view(tempFolder->getPath()));
   std::sort(files.begin(), files.end());
   ASSERT_EQ(files, std::vector<std::string>({a, b}));
   localFs->remove(a);
   ASSERT_EQ(
-      localFs->list(std::string_view(tempFolder->path)),
+      localFs->list(std::string_view(tempFolder->getPath())),
       std::vector<std::string>({b}));
   localFs->remove(b);
-  ASSERT_TRUE(localFs->list(std::string_view(tempFolder->path)).empty());
+  ASSERT_TRUE(localFs->list(std::string_view(tempFolder->getPath())).empty());
 }
 
-TEST(LocalFile, readFileDestructor) {
-  auto tempFile = ::exec::test::TempFilePath::create();
-  const auto& filename = tempFile->path.c_str();
-  remove(filename);
+TEST_P(LocalFileTest, readFileDestructor) {
+  if (useFaultyFs_) {
+    return;
+  }
+  auto tempFile = exec::test::TempFilePath::create(useFaultyFs_);
+  const auto& filename = tempFile->getPath();
+  auto fs = filesystems::getFileSystem(filename, {});
+  fs->remove(filename);
   {
-    LocalWriteFile writeFile(filename);
-    writeData(&writeFile);
+    auto writeFile = fs->openFileForWrite(filename);
+    writeData(writeFile.get());
   }
 
   {
-    LocalReadFile readFile(filename);
-    readData(&readFile);
+    auto readFile = fs->openFileForRead(filename);
+    readData(readFile.get());
   }
 
   int32_t readFd;
   {
-    std::unique_ptr<char[]> buf(new char[tempFile->path.size() + 1]);
-    buf[tempFile->path.size()] = 0;
-    memcpy(buf.get(), tempFile->path.data(), tempFile->path.size());
-    readFd = open(buf.get(), O_RDONLY);
+    std::unique_ptr<char[]> buf(new char[tempFile->getPath().size() + 1]);
+    buf[tempFile->getPath().size()] = 0;
+    ::memcpy(
+        buf.get(), tempFile->getPath().c_str(), tempFile->getPath().size());
+    readFd = ::open(buf.get(), O_RDONLY);
   }
   {
     LocalReadFile readFile(readFd);
@@ -261,11 +279,10 @@ TEST(LocalFile, readFileDestructor) {
   }
 }
 
-TEST(LocalFile, mkdir) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+TEST_P(LocalFileTest, mkdir) {
+  auto tempFolder = exec::test::TempDirectoryPath::create(useFaultyFs_);
 
-  std::string path = tempFolder->path;
+  std::string path = tempFolder->getPath();
   auto localFs = filesystems::getFileSystem(path, nullptr);
 
   // Create 3 levels of directories and ensure they exist.
@@ -287,11 +304,10 @@ TEST(LocalFile, mkdir) {
   EXPECT_TRUE(localFs->exists(path));
 }
 
-TEST(LocalFile, rmdir) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+TEST_P(LocalFileTest, rmdir) {
+  auto tempFolder = exec::test::TempDirectoryPath::create(useFaultyFs_);
 
-  std::string path = tempFolder->path;
+  std::string path = tempFolder->getPath();
   auto localFs = filesystems::getFileSystem(path, nullptr);
 
   // Create 3 levels of directories and ensure they exist.
@@ -310,24 +326,282 @@ TEST(LocalFile, rmdir) {
   EXPECT_TRUE(localFs->exists(path));
 
   // Now delete the whole temp folder and ensure it is gone.
-  EXPECT_NO_THROW(localFs->rmdir(tempFolder->path));
-  EXPECT_FALSE(localFs->exists(tempFolder->path));
+  EXPECT_NO_THROW(localFs->rmdir(tempFolder->getPath()));
+  EXPECT_FALSE(localFs->exists(tempFolder->getPath()));
 
   // Delete a non-existing directory.
   path += "/does_not_exist/subdir";
   EXPECT_FALSE(localFs->exists(path));
   // The function does not throw, but will return zero files and folders
   // deleted, which is not an error.
-  EXPECT_NO_THROW(localFs->rmdir(tempFolder->path));
+  EXPECT_NO_THROW(localFs->rmdir(tempFolder->getPath()));
 }
 
-TEST(LocalFile, fileNotFound) {
-  filesystems::registerLocalFileSystem();
-  auto tempFolder = ::exec::test::TempDirectoryPath::create();
-  auto path = fmt::format("{}/file", tempFolder->path);
+TEST_P(LocalFileTest, fileNotFound) {
+  auto tempFolder = exec::test::TempDirectoryPath::create(useFaultyFs_);
+  auto path = fmt::format("{}/file", tempFolder->getPath());
   auto localFs = filesystems::getFileSystem(path, nullptr);
   VELOX_ASSERT_RUNTIME_THROW_CODE(
       localFs->openFileForRead(path),
       error_code::kFileNotFound,
       "No such file or directory");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    LocalFileTestSuite,
+    LocalFileTest,
+    ::testing::Values(false, true));
+
+class FaultyFsTest : public ::testing::Test {
+ protected:
+  FaultyFsTest() {}
+
+  static void SetUpTestCase() {
+    filesystems::registerLocalFileSystem();
+    tests::utils::registerFaultyFileSystem();
+  }
+
+  void SetUp() {
+    dir_ = exec::test::TempDirectoryPath::create(true);
+    fs_ = std::dynamic_pointer_cast<tests::utils::FaultyFileSystem>(
+        filesystems::getFileSystem(dir_->getPath(), {}));
+    VELOX_CHECK_NOT_NULL(fs_);
+    filePath_ = fmt::format("{}/faultyTestFile", dir_->getPath());
+    const int bufSize = 1024;
+    buffer_.resize(bufSize);
+    for (int i = 0; i < bufSize; ++i) {
+      buffer_[i] = i % 256;
+    }
+    {
+      auto writeFile = fs_->openFileForWrite(filePath_, {});
+      writeData(writeFile.get());
+    }
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    readData(readFile.get(), true);
+    try {
+      VELOX_FAIL("InjectedFaultFileError");
+    } catch (VeloxRuntimeError&) {
+      fileError_ = std::current_exception();
+    }
+  }
+
+  void TearDown() {
+    fs_->clearFileFaultInjections();
+  }
+
+  void writeData(WriteFile* file) {
+    file->append(std::string_view(buffer_));
+    file->flush();
+  }
+
+  void readData(ReadFile* file, bool useReadv = false) {
+    char readBuf[buffer_.size()];
+    if (!useReadv) {
+      file->pread(0, buffer_.size(), readBuf);
+    } else {
+      std::vector<folly::Range<char*>> buffers;
+      buffers.push_back(folly::Range<char*>(readBuf, buffer_.size()));
+      file->preadv(0, buffers);
+    }
+    for (int i = 0; i < buffer_.size(); ++i) {
+      if (buffer_[i] != readBuf[i]) {
+        VELOX_FAIL("Data Mismatch");
+      }
+    }
+  }
+
+  std::shared_ptr<exec::test::TempDirectoryPath> dir_;
+  std::string filePath_;
+  std::shared_ptr<tests::utils::FaultyFileSystem> fs_;
+  std::string buffer_;
+  std::exception_ptr fileError_;
+};
+
+TEST_F(FaultyFsTest, fileReadErrorInjection) {
+  // Set read error.
+  fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kRead});
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    VELOX_ASSERT_THROW(
+        readData(readFile.get(), false), "InjectedFaultFileError");
+  }
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    readData(readFile.get(), true);
+  }
+
+  // Set readv error
+  fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kReadv});
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    VELOX_ASSERT_THROW(
+        readData(readFile.get(), true), "InjectedFaultFileError");
+  }
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    readData(readFile.get(), false);
+  }
+
+  // Set error for all kinds of operations.
+  fs_->setFileInjectionError(fileError_);
+  auto readFile = fs_->openFileForRead(filePath_, {});
+  VELOX_ASSERT_THROW(readData(readFile.get(), true), "InjectedFaultFileError");
+  VELOX_ASSERT_THROW(readData(readFile.get(), false), "InjectedFaultFileError");
+  fs_->remove(filePath_);
+  // Check there is no interference on write as we don't support it for now.
+  auto writeFile = fs_->openFileForWrite(filePath_, {});
+  writeData(writeFile.get());
+}
+
+TEST_F(FaultyFsTest, fileReadDelayInjection) {
+  // Set 3 seconds delay.
+  const uint64_t injectDelay{2'000'000};
+  fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kRead});
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), false);
+    }
+    ASSERT_GE(readDurationUs, injectDelay);
+  }
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), true);
+    }
+    ASSERT_LT(readDurationUs, injectDelay);
+  }
+
+  // Set readv error
+  fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kReadv});
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), true);
+    }
+    ASSERT_GE(readDurationUs, injectDelay);
+  }
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), false);
+    }
+    ASSERT_LT(readDurationUs, injectDelay);
+  }
+
+  // Set error for all kinds of operations.
+  fs_->setFileInjectionDelay(injectDelay);
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), false);
+    }
+    ASSERT_GE(readDurationUs, injectDelay);
+  }
+  {
+    auto readFile = fs_->openFileForRead(filePath_, {});
+    // We only inject error for pread API so preadv should be fine.
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      readData(readFile.get(), false);
+    }
+    ASSERT_GE(readDurationUs, injectDelay);
+  }
+
+  fs_->remove(filePath_);
+  // Check there is no interference on write as we don't support it for now.
+  auto writeFile = fs_->openFileForWrite(filePath_, {});
+  uint64_t writeDurationUs{0};
+  {
+    MicrosecondTimer writeTimer(&writeDurationUs);
+    writeData(writeFile.get());
+  }
+  ASSERT_LT(writeDurationUs, injectDelay);
+}
+
+TEST_F(FaultyFsTest, fileReadFaultHookInjection) {
+  const std::string path1 = fmt::format("{}/hookFile1", dir_->getPath());
+  {
+    auto writeFile = fs_->openFileForWrite(path1, {});
+    writeData(writeFile.get());
+    auto readFile = fs_->openFileForRead(path1, {});
+    readData(readFile.get());
+  }
+  const std::string path2 = fmt::format("{}/hookFile2", dir_->getPath());
+  {
+    auto writeFile = fs_->openFileForWrite(path2, {});
+    writeData(writeFile.get());
+    auto readFile = fs_->openFileForRead(path2, {});
+    readData(readFile.get());
+  }
+  // Set read error.
+  fs_->setFileInjectionHook([&](FaultFileOperation* op) {
+    // Only inject error for readv.
+    if (op->type != FaultFileOperation::Type::kReadv) {
+      return;
+    }
+    // Only inject error for path2.
+    if (op->path != path2) {
+      return;
+    }
+    VELOX_FAIL("inject hook read failure");
+  });
+  {
+    auto readFile = fs_->openFileForRead(path1, {});
+    readData(readFile.get(), false);
+    readData(readFile.get(), true);
+  }
+  {
+    auto readFile = fs_->openFileForRead(path2, {});
+    // Verify only throw for readv.
+    readData(readFile.get(), false);
+    VELOX_ASSERT_THROW(
+        readData(readFile.get(), true), "inject hook read failure");
+  }
+
+  // Set to return fake data.
+  fs_->setFileInjectionHook([&](FaultFileOperation* op) {
+    // Only inject error for path1.
+    if (op->path != path1) {
+      return;
+    }
+    // Only inject error for read.
+    if (op->type != FaultFileOperation::Type::kRead) {
+      return;
+    }
+    auto* readOp = static_cast<FaultFileReadOperation*>(op);
+    char* readBuf = static_cast<char*>(readOp->buf);
+    for (int i = 0; i < readOp->length; ++i) {
+      readBuf[i] = 0;
+    }
+    readOp->delegate = false;
+  });
+
+  {
+    auto readFile = fs_->openFileForRead(path2, {});
+    readData(readFile.get(), false);
+    readData(readFile.get(), true);
+  }
+  {
+    auto readFile = fs_->openFileForRead(path1, {});
+    // Verify only throw for read.
+    readData(readFile.get(), true);
+    VELOX_ASSERT_THROW(readData(readFile.get(), false), "Data Mismatch");
+  }
 }

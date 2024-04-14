@@ -67,7 +67,7 @@ class SsdFileTest : public testing::Test {
 
     tempDirectory_ = exec::test::TempDirectoryPath::create();
     ssdFile_ = std::make_unique<SsdFile>(
-        fmt::format("{}/ssdtest", tempDirectory_->path),
+        fmt::format("{}/ssdtest", tempDirectory_->getPath()),
         0, // shardId
         bits::roundUp(ssdBytes, SsdFile::kRegionSize) / SsdFile::kRegionSize,
         0, // checkpointInternalBytes

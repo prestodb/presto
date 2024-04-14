@@ -235,7 +235,7 @@ class TableScanTest : public virtual HiveConnectorTestBase {
 TEST_F(TableScanTest, allColumns) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   auto plan = tableScanNode();
@@ -261,7 +261,7 @@ TEST_F(TableScanTest, connectorStats) {
   for (size_t i = 0; i < 99; i++) {
     auto vectors = makeVectors(10, 10);
     auto filePath = TempFilePath::create();
-    writeToFile(filePath->path, vectors);
+    writeToFile(filePath->getPath(), vectors);
     createDuckDbTable(vectors);
     auto plan = tableScanNode();
     assertQuery(plan, {filePath}, "SELECT * FROM tmp");
@@ -274,7 +274,7 @@ TEST_F(TableScanTest, connectorStats) {
 TEST_F(TableScanTest, columnAliases) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   std::string tableName = "t";
@@ -315,14 +315,14 @@ TEST_F(TableScanTest, columnAliases) {
 TEST_F(TableScanTest, partitionKeyAlias) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   ColumnHandleMap assignments = {
       {"a", regularColumn("c0", BIGINT())},
       {"ds_alias", partitionKey("ds", VARCHAR())}};
 
-  auto split = HiveConnectorSplitBuilder(filePath->path)
+  auto split = HiveConnectorSplitBuilder(filePath->getPath())
                    .partitionKey("ds", "2021-12-02")
                    .build();
 
@@ -340,7 +340,7 @@ TEST_F(TableScanTest, partitionKeyAlias) {
 TEST_F(TableScanTest, columnPruning) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   auto op = tableScanNode(ROW({"c0"}, {BIGINT()}));
@@ -377,7 +377,7 @@ TEST_F(TableScanTest, timestamp) {
            })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
   createDuckDbTable({rowVector});
 
   auto dataColumns = ROW({"c0", "c1"}, {BIGINT(), TIMESTAMP()});
@@ -460,7 +460,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, timeLimitInGetOutput) {
   for (auto i = 0; i < numFiles; ++i) {
     filePaths.emplace_back(TempFilePath::create());
     const auto& vec = (i % 3 == 0) ? rowVector : rowVectorNoNulls;
-    writeToFile(filePaths.back()->path, vec);
+    writeToFile(filePaths.back()->getPath(), vec);
     vectorsForDuckDb.emplace_back(vec);
   }
   createDuckDbTable(vectorsForDuckDb);
@@ -515,7 +515,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
   auto rowType = ROW({"e"}, {columnType});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   std::vector<common::Subfield> requiredSubfields;
   requiredSubfields.emplace_back("e.c");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
@@ -532,7 +532,7 @@ TEST_F(TableScanTest, subfieldPruningRowType) {
                 .assignments(assignments)
                 .endTableScan()
                 .planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
   ASSERT_EQ(result->size(), 10'000);
   auto rows = result->as<RowVector>();
@@ -570,7 +570,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterSubfieldsMissing) {
   auto rowType = ROW({"e"}, {columnType});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   std::vector<common::Subfield> requiredSubfields;
   requiredSubfields.emplace_back("e.c");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
@@ -589,7 +589,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterSubfieldsMissing) {
                 .assignments(assignments)
                 .endTableScan()
                 .planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
 
   auto rows = result->as<RowVector>();
@@ -609,7 +609,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
   auto rowType = ROW({"d", "e"}, {BIGINT(), columnType});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   assignments["d"] = std::make_shared<HiveColumnHandle>(
@@ -622,7 +622,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterRootFieldMissing) {
                 .assignments(assignments)
                 .endTableScan()
                 .planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
   auto rows = result->as<RowVector>();
   ASSERT_TRUE(rows);
@@ -646,7 +646,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterStruct) {
   auto rowType = ROW({"c", "d"}, {structType, BIGINT()});
   auto vectors = makeVectors(3, 10, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   enum { kNoOutput = 0, kWholeColumn = 1, kSubfieldOnly = 2 };
   for (int outputColumn = kNoOutput; outputColumn <= kSubfieldOnly;
        ++outputColumn) {
@@ -686,7 +686,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterStruct) {
               .assignments(assignments)
               .endTableScan()
               .planNode();
-      auto split = makeHiveConnectorSplit(filePath->path);
+      auto split = makeHiveConnectorSplit(filePath->getPath());
       auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
       int expectedSize = 0;
       std::vector<std::vector<BaseVector::CopyRange>> ranges;
@@ -732,7 +732,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterMap) {
       {"a", "b"}, {makeFlatVector<int64_t>(10, folly::identity), mapVector});
   auto rowType = asRowType(vector->type());
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {vector});
+  writeToFile(filePath->getPath(), {vector});
   enum { kNoOutput = 0, kWholeColumn = 1, kSubfieldOnly = 2 };
   for (int outputColumn = kNoOutput; outputColumn <= kSubfieldOnly;
        ++outputColumn) {
@@ -772,7 +772,7 @@ TEST_F(TableScanTest, subfieldPruningRemainingFilterMap) {
               .assignments(assignments)
               .endTableScan()
               .planNode();
-      auto split = makeHiveConnectorSplit(filePath->path);
+      auto split = makeHiveConnectorSplit(filePath->getPath());
       auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
       auto expected = vector;
       auto a = vector->as<RowVector>()->childAt(0);
@@ -834,7 +834,7 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
   }
   auto rowType = asRowType(vectors[0]->type());
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   std::vector<common::Subfield> requiredSubfields;
   requiredSubfields.emplace_back("c[0]");
   requiredSubfields.emplace_back("c[2]");
@@ -853,7 +853,7 @@ TEST_F(TableScanTest, subfieldPruningMapType) {
                 .assignments(assignments)
                 .endTableScan()
                 .planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
   ASSERT_EQ(result->size(), vectors.size() * kSize);
   auto rows = result->as<RowVector>();
@@ -909,7 +909,7 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
   }
   auto rowType = asRowType(vectors[0]->type());
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   std::vector<common::Subfield> requiredSubfields;
   requiredSubfields.emplace_back("c[3]");
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
@@ -926,7 +926,7 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
                 .assignments(assignments)
                 .endTableScan()
                 .planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
   ASSERT_EQ(result->size(), vectors.size() * kSize);
   auto rows = result->as<RowVector>();
@@ -974,7 +974,7 @@ TEST_F(TableScanTest, missingColumns) {
               size, [&](auto row) { return row * 0.1 + i * size; }),
       }));
     }
-    writeToFile(filePaths[i]->path, {rows.back()});
+    writeToFile(filePaths[i]->getPath(), {rows.back()});
   }
 
   // For duckdb ensure we have nulls for the missing column.
@@ -1104,7 +1104,7 @@ TEST_F(TableScanTest, constDictLazy) {
            [](auto row) { return row * 0.1; })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
 
   createDuckDbTable({rowVector});
 
@@ -1147,14 +1147,14 @@ TEST_F(TableScanTest, constDictLazy) {
 TEST_F(TableScanTest, count) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
 
   auto cursor = TaskCursor::create(params);
 
-  cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
+  cursor->task()->addSplit("0", makeHiveSplit(filePath->getPath()));
   cursor->task()->noMoreSplits("0");
 
   int32_t numRead = 0;
@@ -1186,7 +1186,7 @@ TEST_F(TableScanTest, batchSize) {
   auto vector = makeVectors(1, numRows, rowType);
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vector);
+  writeToFile(filePath->getPath(), vector);
 
   createDuckDbTable(vector);
 
@@ -1246,7 +1246,7 @@ TEST_F(TableScanTest, batchSize) {
 TEST_F(TableScanTest, sequentialSplitNoDoubleRead) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -1255,10 +1255,10 @@ TEST_F(TableScanTest, sequentialSplitNoDoubleRead) {
   // Add the same split with the same sequence id twice. The second should be
   // ignored.
   EXPECT_TRUE(cursor->task()->addSplitWithSequence(
-      "0", makeHiveSplit(filePath->path), 0));
+      "0", makeHiveSplit(filePath->getPath()), 0));
   cursor->task()->setMaxSplitSequenceId("0", 0);
   EXPECT_FALSE(cursor->task()->addSplitWithSequence(
-      "0", makeHiveSplit(filePath->path), 0));
+      "0", makeHiveSplit(filePath->getPath()), 0));
   cursor->task()->noMoreSplits("0");
 
   int32_t numRead = 0;
@@ -1276,7 +1276,7 @@ TEST_F(TableScanTest, sequentialSplitNoDoubleRead) {
 TEST_F(TableScanTest, outOfOrderSplits) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -1285,9 +1285,9 @@ TEST_F(TableScanTest, outOfOrderSplits) {
 
   // Add splits out of order (1, 0). Both of them should be processed.
   EXPECT_TRUE(cursor->task()->addSplitWithSequence(
-      "0", makeHiveSplit(filePath->path), 1));
+      "0", makeHiveSplit(filePath->getPath()), 1));
   EXPECT_TRUE(cursor->task()->addSplitWithSequence(
-      "0", makeHiveSplit(filePath->path), 0));
+      "0", makeHiveSplit(filePath->getPath()), 0));
   cursor->task()->setMaxSplitSequenceId("0", 1);
   cursor->task()->noMoreSplits("0");
 
@@ -1306,7 +1306,7 @@ TEST_F(TableScanTest, outOfOrderSplits) {
 TEST_F(TableScanTest, splitDoubleRead) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
 
   CursorParameters params;
   params.planNode = tableScanNode(ROW({}, {}));
@@ -1315,8 +1315,8 @@ TEST_F(TableScanTest, splitDoubleRead) {
     auto cursor = TaskCursor::create(params);
 
     // Add the same split twice - we should read twice the size.
-    cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
-    cursor->task()->addSplit("0", makeHiveSplit(filePath->path));
+    cursor->task()->addSplit("0", makeHiveSplit(filePath->getPath()));
+    cursor->task()->addSplit("0", makeHiveSplit(filePath->getPath()));
     cursor->task()->noMoreSplits("0");
 
     int32_t numRead = 0;
@@ -1337,7 +1337,7 @@ TEST_F(TableScanTest, multipleSplits) {
     auto filePaths = makeFilePaths(100);
     auto vectors = makeVectors(100, 100);
     for (int32_t i = 0; i < vectors.size(); i++) {
-      writeToFile(filePaths[i]->path, vectors[i]);
+      writeToFile(filePaths[i]->getPath(), vectors[i]);
     }
     createDuckDbTable(vectors);
 
@@ -1356,7 +1356,7 @@ TEST_F(TableScanTest, waitForSplit) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -1365,7 +1365,7 @@ TEST_F(TableScanTest, waitForSplit) {
       tableScanNode(),
       [&](Task* task) {
         if (fileIndex < filePaths.size()) {
-          task->addSplit("0", makeHiveSplit(filePaths[fileIndex++]->path));
+          task->addSplit("0", makeHiveSplit(filePaths[fileIndex++]->getPath()));
         }
         if (fileIndex == filePaths.size()) {
           task->noMoreSplits("0");
@@ -1381,7 +1381,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   const auto filePaths = makeFilePaths(numSplits);
   auto vectors = makeVectors(numSplits, 100);
   for (auto i = 0; i < numSplits; i++) {
-    writeToFile(filePaths.at(i)->path, vectors.at(i));
+    writeToFile(filePaths.at(i)->getPath(), vectors.at(i));
   }
 
   // Set the table scan operators wait twice:
@@ -1462,7 +1462,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
   for (auto fileIndex = 0; fileIndex < numSplits; ++fileIndex) {
     const int64_t splitWeight = fileIndex * 10 + 1;
     totalSplitWeights += splitWeight;
-    auto split = makeHiveSplit(filePaths.at(fileIndex)->path, splitWeight);
+    auto split = makeHiveSplit(filePaths.at(fileIndex)->getPath(), splitWeight);
     task->addSplit(scanNodeId, std::move(split));
   }
   task->noMoreSplits(scanNodeId);
@@ -1524,18 +1524,19 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
 TEST_F(TableScanTest, splitOffsetAndLength) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   assertQuery(
       tableScanNode(),
       makeHiveConnectorSplit(
-          filePath->path, 0, fs::file_size(filePath->path) / 2),
+          filePath->getPath(), 0, fs::file_size(filePath->getPath()) / 2),
       "SELECT * FROM tmp");
 
   assertQuery(
       tableScanNode(),
-      makeHiveConnectorSplit(filePath->path, fs::file_size(filePath->path) / 2),
+      makeHiveConnectorSplit(
+          filePath->getPath(), fs::file_size(filePath->getPath()) / 2),
       "SELECT * FROM tmp LIMIT 0");
 }
 
@@ -1579,7 +1580,7 @@ TEST_F(TableScanTest, emptyFile) {
   try {
     assertQuery(
         tableScanNode(),
-        makeHiveConnectorSplit(filePath->path),
+        makeHiveConnectorSplit(filePath->getPath()),
         "SELECT * FROM tmp");
     ASSERT_FALSE(true) << "Function should throw.";
   } catch (const VeloxException& e) {
@@ -1592,8 +1593,8 @@ TEST_F(TableScanTest, preloadEmptySplit) {
   auto emptyVector = makeVectors(1, 0, rowType);
   auto vector = makeVectors(1, 1'000, rowType);
   auto filePaths = makeFilePaths(2);
-  writeToFile(filePaths[0]->path, vector[0]);
-  writeToFile(filePaths[1]->path, emptyVector[0]);
+  writeToFile(filePaths[0]->getPath(), vector[0]);
+  writeToFile(filePaths[1]->getPath(), emptyVector[0]);
   createDuckDbTable(vector);
   auto op = tableScanNode(rowType);
   assertQuery(op, filePaths, "SELECT * FROM tmp", 1);
@@ -1603,82 +1604,82 @@ TEST_F(TableScanTest, partitionedTableVarcharKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
-  testPartitionedTable(filePath->path, VARCHAR(), "2020-11-01");
+  testPartitionedTable(filePath->getPath(), VARCHAR(), "2020-11-01");
 }
 
 TEST_F(TableScanTest, partitionedTableBigIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, BIGINT(), "123456789123456789");
+  testPartitionedTable(filePath->getPath(), BIGINT(), "123456789123456789");
 }
 
 TEST_F(TableScanTest, partitionedTableIntegerKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, INTEGER(), "123456789");
+  testPartitionedTable(filePath->getPath(), INTEGER(), "123456789");
 }
 
 TEST_F(TableScanTest, partitionedTableSmallIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, SMALLINT(), "1");
+  testPartitionedTable(filePath->getPath(), SMALLINT(), "1");
 }
 
 TEST_F(TableScanTest, partitionedTableTinyIntKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, TINYINT(), "1");
+  testPartitionedTable(filePath->getPath(), TINYINT(), "1");
 }
 
 TEST_F(TableScanTest, partitionedTableBooleanKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, BOOLEAN(), "0");
+  testPartitionedTable(filePath->getPath(), BOOLEAN(), "0");
 }
 
 TEST_F(TableScanTest, partitionedTableRealKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, REAL(), "3.5");
+  testPartitionedTable(filePath->getPath(), REAL(), "3.5");
 }
 
 TEST_F(TableScanTest, partitionedTableDoubleKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, DOUBLE(), "3.5");
+  testPartitionedTable(filePath->getPath(), DOUBLE(), "3.5");
 }
 
 TEST_F(TableScanTest, partitionedTableDateKey) {
   auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
   auto vectors = makeVectors(10, 1'000, rowType);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
-  testPartitionedTable(filePath->path, DATE(), "2023-10-27");
+  testPartitionedTable(filePath->getPath(), DATE(), "2023-10-27");
 }
 
 std::vector<StringView> toStringViews(const std::vector<std::string>& values) {
@@ -1699,7 +1700,7 @@ TEST_F(TableScanTest, statsBasedSkippingBool) {
        makeFlatVector<bool>(
            size, [](auto row) { return (row / 10'000) % 2 == 0; })});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   auto assertQuery = [&](const std::string& filter) {
@@ -1725,7 +1726,7 @@ TEST_F(TableScanTest, statsBasedSkippingDouble) {
   auto rowVector = makeRowVector({makeFlatVector<double>(
       size, [](auto row) { return (double)(row + 0.0001); })});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1.05 -> whole file should be skipped based on stats
@@ -1765,7 +1766,7 @@ TEST_F(TableScanTest, statsBasedSkippingFloat) {
   auto rowVector = makeRowVector({makeFlatVector<float>(
       size, [](auto row) { return (float)(row + 0.0001); })});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1.05 -> whole file should be skipped based on stats
@@ -1828,7 +1829,7 @@ TEST_F(TableScanTest, statsBasedSkipping) {
              }
            })});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // c0 <= -1 -> whole file should be skipped based on stats
@@ -1954,7 +1955,7 @@ TEST_F(TableScanTest, statsBasedSkippingConstants) {
          return fruitViews[row / 10'000];
        })});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   auto assertQuery = [&](const std::string& filter) {
@@ -2003,7 +2004,7 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
       [](auto row) { return row >= 11'111; });
   auto rowVector = makeRowVector({noNulls, someNulls});
 
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // c0 IS NULL - whole file should be skipped based on stats
@@ -2067,7 +2068,7 @@ TEST_F(TableScanTest, statsBasedSkippingWithoutDecompression) {
   auto rowVector = makeRowVector({makeFlatVector(strings)});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // Skip 1st row group.
@@ -2112,7 +2113,7 @@ TEST_F(TableScanTest, filterBasedSkippingWithoutDecompression) {
   auto rowType = asRowType(rowVector->type());
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   auto assertQuery = [&](const std::string& remainingFilter) {
@@ -2161,7 +2162,7 @@ TEST_F(TableScanTest, statsBasedSkippingNumerics) {
            size, [](auto row) { return row % 11 == 0; }, nullEvery(23))});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   // Skip whole file.
@@ -2224,7 +2225,7 @@ TEST_F(TableScanTest, statsBasedSkippingComplexTypes) {
            nullEvery(11))});
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
   // TODO Figure out how to create DuckDB tables with columns of complex types
   // For now, using 1st element of the array and map element for key zero.
   createDuckDbTable({makeRowVector(
@@ -2296,7 +2297,7 @@ TEST_F(TableScanTest, statsBasedAndRegularSkippingComplexTypes) {
   });
 
   auto filePaths = makeFilePaths(1);
-  writeToFile(filePaths[0]->path, rowVector);
+  writeToFile(filePaths[0]->getPath(), rowVector);
 
   createDuckDbTable({makeRowVector({
       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
@@ -2332,7 +2333,7 @@ TEST_F(TableScanTest, filterPushdown) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000, rowType);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -2412,7 +2413,7 @@ TEST_F(TableScanTest, path) {
   auto rowType = ROW({"a"}, {BIGINT()});
   auto filePath = makeFilePaths(1)[0];
   auto vector = makeVectors(1, 1'000, rowType)[0];
-  writeToFile(filePath->path, vector);
+  writeToFile(filePath->getPath(), vector);
   createDuckDbTable({vector});
 
   static const char* kPath = "$path";
@@ -2420,7 +2421,7 @@ TEST_F(TableScanTest, path) {
   auto assignments = allRegularColumns(rowType);
   assignments[kPath] = synthesizedColumn(kPath, VARCHAR());
 
-  auto pathValue = fmt::format("file:{}", filePath->path);
+  auto pathValue = fmt::format("file:{}", filePath->getPath());
   auto typeWithPath = ROW({kPath, "a"}, {VARCHAR(), BIGINT()});
   auto op = PlanBuilder()
                 .startTableScan()
@@ -2459,7 +2460,7 @@ TEST_F(TableScanTest, fileSizeAndModifiedTime) {
   auto rowType = ROW({"a"}, {BIGINT()});
   auto filePath = makeFilePaths(1)[0];
   auto vector = makeVectors(1, 10, rowType)[0];
-  writeToFile(filePath->path, vector);
+  writeToFile(filePath->getPath(), vector);
   createDuckDbTable({vector});
 
   static const char* kSize = "$file_size";
@@ -2545,10 +2546,10 @@ TEST_F(TableScanTest, bucket) {
         {makeFlatVector<int32_t>(size, [&](auto /*row*/) { return bucket; }),
          makeFlatVector<int64_t>(
              size, [&](auto row) { return bucket + row; })});
-    writeToFile(filePaths[i]->path, rowVector);
+    writeToFile(filePaths[i]->getPath(), rowVector);
     rowVectors.emplace_back(rowVector);
 
-    splits.emplace_back(HiveConnectorSplitBuilder(filePaths[i]->path)
+    splits.emplace_back(HiveConnectorSplitBuilder(filePaths[i]->getPath())
                             .tableBucketNumber(bucket)
                             .build());
   }
@@ -2574,7 +2575,7 @@ TEST_F(TableScanTest, bucket) {
 
   for (int i = 0; i < buckets.size(); ++i) {
     int bucketValue = buckets[i];
-    auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
+    auto hsplit = HiveConnectorSplitBuilder(filePaths[i]->getPath())
                       .tableBucketNumber(bucketValue)
                       .build();
 
@@ -2594,7 +2595,7 @@ TEST_F(TableScanTest, bucket) {
 
     // Filter on bucket column, but don't project it out
     auto rowTypes = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
-    hsplit = HiveConnectorSplitBuilder(filePaths[i]->path)
+    hsplit = HiveConnectorSplitBuilder(filePaths[i]->getPath())
                  .tableBucketNumber(bucketValue)
                  .build();
     op = PlanBuilder()
@@ -2628,7 +2629,7 @@ TEST_F(TableScanTest, integerNotEqualFilter) {
            size, [](auto row) { return row % 210; }, nullEvery(11))});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, rowVector);
+  writeToFile(filePath->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   assertQuery(
@@ -2663,7 +2664,7 @@ TEST_F(TableScanTest, integerNotEqualFilter) {
 TEST_F(TableScanTest, floatingPointNotEqualFilter) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   auto outputType = ROW({"c4"}, {DOUBLE()});
@@ -2701,7 +2702,7 @@ TEST_F(TableScanTest, stringNotEqualFilter) {
        })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, rowVector);
+  writeToFile(filePath->getPath(), rowVector);
   createDuckDbTable({rowVector});
 
   assertQuery(
@@ -2732,7 +2733,7 @@ TEST_F(TableScanTest, arrayIsNullFilter) {
         [](vector_size_t, vector_size_t j) { return j; },
         isNullAt);
     vectors[i] = makeRowVector({"c0"}, {c0});
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   createDuckDbTable(vectors);
   auto rowType = asRowType(vectors[0]->type());
@@ -2765,7 +2766,7 @@ TEST_F(TableScanTest, mapIsNullFilter) {
         [](vector_size_t j) { return 2 * j; },
         isNullAt);
     vectors[i] = makeRowVector({"c0"}, {c0});
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   createDuckDbTable(vectors);
   auto rowType = asRowType(vectors[0]->type());
@@ -2788,7 +2789,7 @@ TEST_F(TableScanTest, remainingFilter) {
   auto filePaths = makeFilePaths(10);
   auto vectors = makeVectors(10, 1'000, rowType);
   for (int32_t i = 0; i < vectors.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   createDuckDbTable(vectors);
 
@@ -2885,7 +2886,7 @@ TEST_F(TableScanTest, remainingFilterSkippedStrides) {
         nullptr,
         c->size(),
         std::vector<VectorPtr>({c, c}));
-    writeToFile(filePaths[j]->path, vectors[j]);
+    writeToFile(filePaths[j]->getPath(), vectors[j]);
   }
   createDuckDbTable(vectors);
   core::PlanNodeId tableScanNodeId;
@@ -2907,11 +2908,11 @@ TEST_F(TableScanTest, skipStridesForParentNulls) {
   auto a = makeRowVector({"b"}, {b}, [](auto i) { return i % 2 == 0; });
   auto vector = makeRowVector({"a"}, {a});
   auto file = TempFilePath::create();
-  writeToFile(file->path, {vector});
+  writeToFile(file->getPath(), {vector});
   auto plan = PlanBuilder()
                   .tableScan(asRowType(vector->type()), {"a.b IS NULL"})
                   .planNode();
-  auto split = makeHiveConnectorSplit(file->path);
+  auto split = makeHiveConnectorSplit(file->getPath());
   auto result = AssertQueryBuilder(plan).split(split).copyResults(pool());
   ASSERT_EQ(result->size(), 5000);
 }
@@ -2934,10 +2935,10 @@ TEST_F(TableScanTest, randomSample) {
       for (int j = 0; j < 100; ++j) {
         vectors.push_back(rows);
       }
-      writeToFile(file->path, vectors, writeConfig);
+      writeToFile(file->getPath(), vectors, writeConfig);
       numTotalRows += rows->size() * vectors.size();
     } else {
-      writeToFile(file->path, {rows}, writeConfig);
+      writeToFile(file->getPath(), {rows}, writeConfig);
       numTotalRows += rows->size();
     }
     files.push_back(file);
@@ -2947,7 +2948,7 @@ TEST_F(TableScanTest, randomSample) {
       PlanBuilder().tableScan(rowType, {}, "rand() < 0.01").planNode();
   auto cursor = TaskCursor::create(params);
   for (auto& file : files) {
-    cursor->task()->addSplit("0", makeHiveSplit(file->path));
+    cursor->task()->addSplit("0", makeHiveSplit(file->getPath()));
   }
   cursor->task()->noMoreSplits("0");
   int numRows = 0;
@@ -2997,7 +2998,7 @@ TEST_F(TableScanTest, remainingFilterConstantResult) {
   };
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, data);
+  writeToFile(filePath->getPath(), data);
   createDuckDbTable(data);
 
   auto rowType = asRowType(data[0]->type());
@@ -3016,7 +3017,7 @@ TEST_F(TableScanTest, remainingFilterConstantResult) {
 TEST_F(TableScanTest, aggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   // Get the number of values processed via aggregation pushdown into scan.
@@ -3135,7 +3136,7 @@ TEST_F(TableScanTest, aggregationPushdown) {
 TEST_F(TableScanTest, bitwiseAggregationPushdown) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   auto op = PlanBuilder()
@@ -3181,7 +3182,7 @@ TEST_F(TableScanTest, structLazy) {
            [](auto row) { return row * 0.1; })})});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
 
   // Exclude struct columns as DuckDB doesn't support complex types yet.
   createDuckDbTable(
@@ -3203,8 +3204,8 @@ TEST_F(TableScanTest, interleaveLazyEager) {
        makeRowVector({makeFlatVector<int64_t>(kSize, folly::identity)})});
   auto rows = makeRowVector({column});
   auto rowType = asRowType(rows->type());
-  auto lazyFile = TempFilePath::create();
-  writeToFile(lazyFile->path, {rows});
+  auto Lazyfile = TempFilePath::create();
+  writeToFile(Lazyfile->getPath(), {rows});
   auto rowsWithNulls = makeVectors(1, kSize, rowType);
   int numNonNull = 0;
   for (int i = 0; i < kSize; ++i) {
@@ -3216,7 +3217,7 @@ TEST_F(TableScanTest, interleaveLazyEager) {
     numNonNull += !c0c0->isNullAt(i);
   }
   auto eagerFile = TempFilePath::create();
-  writeToFile(eagerFile->path, rowsWithNulls);
+  writeToFile(eagerFile->getPath(), rowsWithNulls);
 
   ColumnHandleMap assignments = {{"c0", regularColumn("c0", column->type())}};
   CursorParameters params;
@@ -3228,9 +3229,9 @@ TEST_F(TableScanTest, interleaveLazyEager) {
                         .endTableScan()
                         .planNode();
   auto cursor = TaskCursor::create(params);
-  cursor->task()->addSplit("0", makeHiveSplit(lazyFile->path));
-  cursor->task()->addSplit("0", makeHiveSplit(eagerFile->path));
-  cursor->task()->addSplit("0", makeHiveSplit(lazyFile->path));
+  cursor->task()->addSplit("0", makeHiveSplit(Lazyfile->getPath()));
+  cursor->task()->addSplit("0", makeHiveSplit(eagerFile->getPath()));
+  cursor->task()->addSplit("0", makeHiveSplit(Lazyfile->getPath()));
   cursor->task()->noMoreSplits("0");
   for (int i = 0; i < 3; ++i) {
     ASSERT_TRUE(cursor->moveNext());
@@ -3247,7 +3248,7 @@ TEST_F(TableScanTest, lazyVectorAccessTwiceWithDifferentRows) {
   });
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data});
+  writeToFile(filePath->getPath(), {data});
   createDuckDbTable({data});
 
   auto plan =
@@ -3293,7 +3294,7 @@ TEST_F(TableScanTest, structInArrayOrMap) {
            innerRow)});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
 
   // Exclude struct columns as DuckDB doesn't support complex types yet.
   createDuckDbTable(
@@ -3313,7 +3314,7 @@ TEST_F(TableScanTest, addSplitsToFailedTask) {
       {makeFlatVector<int32_t>(12'000, [](auto row) { return row % 5; })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data});
+  writeToFile(filePath->getPath(), {data});
 
   core::PlanNodeId scanNodeId;
   exec::test::CursorParameters params;
@@ -3324,15 +3325,15 @@ TEST_F(TableScanTest, addSplitsToFailedTask) {
                         .planNode();
 
   auto cursor = exec::test::TaskCursor::create(params);
-  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->path));
+  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->getPath()));
 
   EXPECT_THROW(while (cursor->moveNext()){}, VeloxUserError);
 
   // Verify that splits can be added to the task ever after task has failed.
   // In this case these splits will be ignored.
-  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->path));
+  cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->getPath()));
   cursor->task()->addSplitWithSequence(
-      scanNodeId, makeHiveSplit(filePath->path), 20L);
+      scanNodeId, makeHiveSplit(filePath->getPath()), 20L);
   cursor->task()->setMaxSplitSequenceId(scanNodeId, 20L);
 }
 
@@ -3341,7 +3342,7 @@ TEST_F(TableScanTest, errorInLoadLazy) {
   VELOX_CHECK_NOT_NULL(cache);
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
 
   std::atomic<int32_t> counter = 0;
   cache->setVerifyHook([&](const cache::AsyncDataCacheEntry&) {
@@ -3368,7 +3369,7 @@ TEST_F(TableScanTest, errorInLoadLazy) {
     assertQuery(planNode, {filePath}, "");
     FAIL() << "Excepted exception";
   } catch (VeloxException& ex) {
-    EXPECT_TRUE(ex.context().find(filePath->path, 0) != std::string::npos)
+    EXPECT_TRUE(ex.context().find(filePath->getPath(), 0) != std::string::npos)
         << ex.context();
   }
 }
@@ -3381,7 +3382,7 @@ TEST_F(TableScanTest, parallelPrepare) {
       {makeFlatVector<int32_t>(10, [](auto row) { return row % 5; })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data});
+  writeToFile(filePath->getPath(), {data});
   auto plan =
       exec::test::PlanBuilder(pool_.get())
           .tableScan(ROW({"c0"}, {INTEGER()}), {}, kLargeRemainingFilter)
@@ -3390,7 +3391,7 @@ TEST_F(TableScanTest, parallelPrepare) {
 
   std::vector<exec::Split> splits;
   for (auto i = 0; i < kNumParallel; ++i) {
-    splits.push_back(makeHiveSplit(filePath->path));
+    splits.push_back(makeHiveSplit(filePath->getPath()));
   }
   AssertQueryBuilder(plan)
       .config(
@@ -3418,7 +3419,7 @@ TEST_F(TableScanTest, dictionaryMemo) {
   auto rows = makeRowVector({"a", "b"}, {dict, makeRowVector({"c"}, {dict})});
   auto rowType = asRowType(rows->type());
   auto file = TempFilePath::create();
-  writeToFile(file->path, {rows});
+  writeToFile(file->getPath(), {rows});
   auto plan = PlanBuilder()
                   .tableScan(rowType, {}, "a like '%m'")
                   .project({"length(b.c)"})
@@ -3436,7 +3437,7 @@ TEST_F(TableScanTest, dictionaryMemo) {
       }));
 #endif
   auto result = AssertQueryBuilder(plan)
-                    .splits({makeHiveSplit(file->path)})
+                    .splits({makeHiveSplit(file->getPath())})
                     .copyResults(pool_.get());
   ASSERT_EQ(result->size(), 50);
 #ifndef NDEBUG
@@ -3449,12 +3450,12 @@ TEST_F(TableScanTest, reuseRowVector) {
   auto data = makeRowVector({iota, makeRowVector({iota})});
   auto rowType = asRowType(data->type());
   auto file = TempFilePath::create();
-  writeToFile(file->path, {data});
+  writeToFile(file->getPath(), {data});
   auto plan = PlanBuilder()
                   .tableScan(rowType, {}, "c0 < 5")
                   .project({"c1.c0"})
                   .planNode();
-  auto split = HiveConnectorSplitBuilder(file->path).build();
+  auto split = HiveConnectorSplitBuilder(file->getPath()).build();
   auto expected = makeRowVector(
       {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
   AssertQueryBuilder(plan).splits({split, split}).assertResults(expected);
@@ -3466,12 +3467,12 @@ TEST_F(TableScanTest, readMissingFields) {
   auto iota = makeFlatVector<int64_t>(size, folly::identity);
   auto rowVector = makeRowVector({makeRowVector({iota, iota}), iota});
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
   // Create a row type with additional fields not present in the file.
   auto rowType = makeRowType(
       {makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}), BIGINT()});
   auto op = PlanBuilder().tableScan(rowType).planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto nulls = makeNullConstant(TypeKind::BIGINT, size);
   auto expected =
       makeRowVector({makeRowVector({iota, iota, nulls, nulls}), iota});
@@ -3483,10 +3484,10 @@ TEST_F(TableScanTest, readExtraFields) {
   auto iota = makeFlatVector<int64_t>(size, folly::identity);
   auto rowVector = makeRowVector({makeRowVector({iota, iota}), iota});
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
   auto rowType = makeRowType({makeRowType({BIGINT()}), BIGINT()});
   auto op = PlanBuilder().tableScan(rowType).planNode();
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto nulls = makeNullConstant(TypeKind::BIGINT, size);
   auto expected = makeRowVector({makeRowVector({iota}), iota});
   AssertQueryBuilder(op).split(split).assertResults(expected);
@@ -3502,7 +3503,7 @@ TEST_F(TableScanTest, readMissingFieldsFilesVary) {
   })});
 
   auto missingFieldsFilePath = TempFilePath::create();
-  writeToFile(missingFieldsFilePath->path, {rowVectorMissingFields});
+  writeToFile(missingFieldsFilePath->getPath(), {rowVectorMissingFields});
 
   auto rowVectorWithAllFields = makeRowVector({makeRowVector({
       makeFlatVector<int64_t>(size, [](auto row) { return row; }),
@@ -3512,19 +3513,20 @@ TEST_F(TableScanTest, readMissingFieldsFilesVary) {
   })});
 
   auto allFieldsFilePath = TempFilePath::create();
-  writeToFile(allFieldsFilePath->path, {rowVectorWithAllFields});
+  writeToFile(allFieldsFilePath->getPath(), {rowVectorWithAllFields});
 
   auto op = PlanBuilder()
                 .tableScan(asRowType(rowVectorWithAllFields->type()))
                 .project({"c0.c0", "c0.c1", "c0.c2", "c0.c3"})
                 .planNode();
 
-  auto result = AssertQueryBuilder(op)
-                    .split(makeHiveConnectorSplit(missingFieldsFilePath->path))
-                    .split(makeHiveConnectorSplit(allFieldsFilePath->path))
-                    .split(makeHiveConnectorSplit(missingFieldsFilePath->path))
-                    .split(makeHiveConnectorSplit(allFieldsFilePath->path))
-                    .copyResults(pool());
+  auto result =
+      AssertQueryBuilder(op)
+          .split(makeHiveConnectorSplit(missingFieldsFilePath->getPath()))
+          .split(makeHiveConnectorSplit(allFieldsFilePath->getPath()))
+          .split(makeHiveConnectorSplit(missingFieldsFilePath->getPath()))
+          .split(makeHiveConnectorSplit(allFieldsFilePath->getPath()))
+          .copyResults(pool());
 
   ASSERT_EQ(result->size(), size * 4);
   auto rows = result->as<RowVector>();
@@ -3583,7 +3585,7 @@ TEST_F(TableScanTest, readMissingFieldsInArray) {
   auto arrayVector = makeArrayVector(offsets, rowVector);
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {makeRowVector({arrayVector})});
+  writeToFile(filePath->getPath(), {makeRowVector({arrayVector})});
   // Create a row type with additional fields not present in the file.
   auto rowType = makeRowType(
       {ARRAY(makeRowType({BIGINT(), BIGINT(), BIGINT(), BIGINT()}))});
@@ -3594,7 +3596,7 @@ TEST_F(TableScanTest, readMissingFieldsInArray) {
                 .project({"c0[1].c0", "c0[2].c1", "c0[3].c2", "c0[4].c3"})
                 .planNode();
 
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
 
   ASSERT_EQ(result->size(), size);
@@ -3640,7 +3642,7 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
   auto arrayVector = makeArrayVector(offsets, valuesVector);
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {makeRowVector({mapVector, arrayVector})});
+  writeToFile(filePath->getPath(), {makeRowVector({mapVector, arrayVector})});
 
   // Create a row type with additional fields in the structure not present in
   // the file ('c' and 'd') and with all columns having different names than in
@@ -3666,7 +3668,7 @@ TEST_F(TableScanTest, readMissingFieldsInMap) {
                      "a2[4].d"})
                 .planNode();
 
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
 
   ASSERT_EQ(result->size(), size);
@@ -3785,7 +3787,7 @@ TEST_F(TableScanTest, tableScanProjections) {
   });
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
 
   auto testQueryRow = [&](const std::vector<int32_t>& projections) {
     std::vector<std::string> cols;
@@ -3796,7 +3798,7 @@ TEST_F(TableScanTest, tableScanProjections) {
         std::move(cols), std::vector<TypePtr>(projections.size(), BIGINT()));
     auto op = PlanBuilder().tableScan(scanRowType).planNode();
 
-    auto split = makeHiveConnectorSplit(filePath->path);
+    auto split = makeHiveConnectorSplit(filePath->getPath());
     auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
 
     ASSERT_EQ(result->size(), size);
@@ -3857,7 +3859,7 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
        })});
 
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {rowVector});
+  writeToFile(filePath->getPath(), {rowVector});
 
   // Create a row type with additional fields in the structure not present in
   // the file ('c' and 'd') and with all columns having different names than in
@@ -3877,7 +3879,7 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
           .project({"st1.a", "st1.b", "st1.c", "st1.d", "i2", "d3", "b4", "c4"})
           .planNode();
 
-  auto split = makeHiveConnectorSplit(filePath->path);
+  auto split = makeHiveConnectorSplit(filePath->getPath());
   auto result = AssertQueryBuilder(op).split(split).copyResults(pool());
 
   ASSERT_EQ(result->size(), size);
@@ -3992,14 +3994,14 @@ TEST_F(TableScanTest, readMissingFieldsWithMoreColumns) {
 TEST_F(TableScanTest, varbinaryPartitionKey) {
   auto vectors = makeVectors(1, 1'000);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
   ColumnHandleMap assignments = {
       {"a", regularColumn("c0", BIGINT())},
       {"ds_alias", partitionKey("ds", VARBINARY())}};
 
-  auto split = HiveConnectorSplitBuilder(filePath->path)
+  auto split = HiveConnectorSplitBuilder(filePath->getPath())
                    .partitionKey("ds", "2021-12-02")
                    .build();
 
@@ -4029,12 +4031,13 @@ TEST_F(TableScanTest, timestampPartitionKey) {
       });
   auto vectors = makeVectors(1, 1);
   auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, vectors);
+  writeToFile(filePath->getPath(), vectors);
   ColumnHandleMap assignments = {{"t", partitionKey("t", TIMESTAMP())}};
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (auto& t : inputs) {
-    splits.push_back(
-        HiveConnectorSplitBuilder(filePath->path).partitionKey("t", t).build());
+    splits.push_back(HiveConnectorSplitBuilder(filePath->getPath())
+                         .partitionKey("t", t)
+                         .build());
   }
   auto plan = PlanBuilder()
                   .startTableScan()

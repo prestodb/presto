@@ -78,7 +78,7 @@ class CacheTest : public testing::Test {
       FLAGS_ssd_odirect = false;
       tempDirectory_ = exec::test::TempDirectoryPath::create();
       ssd = std::make_unique<SsdCache>(
-          fmt::format("{}/cache", tempDirectory_->path),
+          fmt::format("{}/cache", tempDirectory_->getPath()),
           ssdBytes,
           1,
           executor_.get());

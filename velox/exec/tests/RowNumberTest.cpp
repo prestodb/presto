@@ -211,7 +211,7 @@ TEST_F(RowNumberTest, spill) {
     core::PlanNodeId rowNumberPlanNodeId;
     auto task =
         AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->path)
+            .spillDirectory(spillDirectory->getPath())
             .config(core::QueryConfig::kSpillEnabled, true)
             .config(core::QueryConfig::kRowNumberSpillEnabled, true)
             .config(
@@ -273,7 +273,7 @@ TEST_F(RowNumberTest, maxSpillBytes) {
     try {
       TestScopedSpillInjection scopedSpillInjection(100);
       AssertQueryBuilder(plan)
-          .spillDirectory(spillDirectory->path)
+          .spillDirectory(spillDirectory->getPath())
           .queryCtx(queryCtx)
           .config(core::QueryConfig::kSpillEnabled, true)
           .config(core::QueryConfig::kRowNumberSpillEnabled, true)
@@ -315,11 +315,11 @@ TEST_F(RowNumberTest, memoryUsage) {
     std::shared_ptr<Task> task;
     TestScopedSpillInjection scopedSpillInjection(100);
     AssertQueryBuilder(plan)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .queryCtx(queryCtx)
         .config(core::QueryConfig::kSpillEnabled, spillEnableConfig)
         .config(core::QueryConfig::kRowNumberSpillEnabled, spillEnableConfig)
-        .spillDirectory(spillDirectory->path)
+        .spillDirectory(spillDirectory->getPath())
         .copyResults(pool_.get(), task);
 
     if (spillEnable) {

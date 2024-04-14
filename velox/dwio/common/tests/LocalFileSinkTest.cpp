@@ -34,7 +34,7 @@ class LocalFileSinkTest : public testing::Test {
 
   void runTest() {
     auto root = TempDirectoryPath::create();
-    auto filePath = fs::path(root->path) / "xxx/yyy/zzz/test_file.ext";
+    auto filePath = fs::path(root->getPath()) / "xxx/yyy/zzz/test_file.ext";
 
     ASSERT_FALSE(fs::exists(filePath.string()));
 

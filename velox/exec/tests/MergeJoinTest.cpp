@@ -465,11 +465,11 @@ TEST_F(MergeJoinTest, lazyVectors) {
        makeFlatVector<int64_t>(10'000, [](auto row) { return row % 31; })});
 
   auto leftFile = TempFilePath::create();
-  writeToFile(leftFile->path, leftVectors);
+  writeToFile(leftFile->getPath(), leftVectors);
   createDuckDbTable("t", {leftVectors});
 
   auto rightFile = TempFilePath::create();
-  writeToFile(rightFile->path, rightVectors);
+  writeToFile(rightFile->getPath(), rightVectors);
   createDuckDbTable("u", {rightVectors});
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -492,8 +492,8 @@ TEST_F(MergeJoinTest, lazyVectors) {
                 .planNode();
 
   AssertQueryBuilder(op, duckDbQueryRunner_)
-      .split(rightScanId, makeHiveConnectorSplit(rightFile->path))
-      .split(leftScanId, makeHiveConnectorSplit(leftFile->path))
+      .split(rightScanId, makeHiveConnectorSplit(rightFile->getPath()))
+      .split(leftScanId, makeHiveConnectorSplit(leftFile->getPath()))
       .assertResults(
           "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
 }
