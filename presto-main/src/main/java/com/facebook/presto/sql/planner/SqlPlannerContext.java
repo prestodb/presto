@@ -15,17 +15,13 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.Table;
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeSet;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.SystemSessionProperties.isLeafNodeLimitEnabled;
@@ -73,64 +69,19 @@ public class SqlPlannerContext
         @VisibleForTesting
         public static final String delimiter = "_*%$_";
         // never decreases
-        private int currentQueryScopeId;
+        private int prefix;
 
-        // Maps a set of Query objects, including the parent query statement and all its referenced statements,
-        // to a unique scope identifier. Each set of related queries shares the same scope.
-        Map<TreeSet<Query>, String> queryNodeScopeIdMap = new HashMap<>();
+        // Map a cte Query to a unique ID, which will be used in CTE reference node to identify the same CTE
+        private final Map<NodeRef<Query>, String> cteQueryUniqueIdMap = new HashMap<>();
 
-        public String normalize(Analysis analysis, Query query, String cteName)
+        public String normalize(NodeRef<Query> queryNodeRef, String cteName)
         {
-            QueryReferenceCollectorContext context = new QueryReferenceCollectorContext();
-            context.getReferencedQuerySet().add(query);
-            query.accept(new QueryReferenceCollector(analysis), context);
-            TreeSet<Query> normalizedKey = context.getReferencedQuerySet();
-            if (!queryNodeScopeIdMap.containsKey(normalizedKey)) {
-                queryNodeScopeIdMap.put(normalizedKey, String.valueOf(currentQueryScopeId++));
+            if (cteQueryUniqueIdMap.containsKey(queryNodeRef)) {
+                return cteQueryUniqueIdMap.get(queryNodeRef) + delimiter + cteName;
             }
-            return queryNodeScopeIdMap.get(normalizedKey) + delimiter + cteName;
-        }
-
-        private class QueryReferenceCollector
-                extends DefaultTraversalVisitor<Void, QueryReferenceCollectorContext>
-        {
-            private final Analysis analysis;
-
-            public QueryReferenceCollector(Analysis analysis)
-            {
-                this.analysis = analysis;
-            }
-
-            @Override
-            protected Void visitTable(Table node, QueryReferenceCollectorContext context)
-            {
-                Analysis.NamedQuery namedQuery = analysis.getNamedQuery(node);
-                if (namedQuery != null) {
-                    context.addQuery(namedQuery.getQuery());
-                    process(namedQuery.getQuery(), context);
-                }
-                return null;
-            }
-        }
-
-        private class QueryReferenceCollectorContext
-        {
-            private final TreeSet<Query> referencedQuerySet;
-
-            public QueryReferenceCollectorContext()
-            {
-                this.referencedQuerySet = new TreeSet<>(Comparator.comparingInt(Query::hashCode));
-            }
-
-            public void addQuery(Query ref)
-            {
-                this.referencedQuerySet.add(ref);
-            }
-
-            public TreeSet<Query> getReferencedQuerySet()
-            {
-                return referencedQuerySet;
-            }
+            String identityString = String.valueOf(prefix++);
+            cteQueryUniqueIdMap.put(queryNodeRef, identityString);
+            return identityString + delimiter + cteName;
         }
     }
 }

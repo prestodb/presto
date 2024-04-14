@@ -624,13 +624,13 @@ public class TestLogicalCteOptimizer
                         "SELECT * FROM a\n",
                 anyTree(
                         sequence(
-                                cteProducer(addQueryScopeDelimiter("a", 1), anyTree(tableScan("orders"))),
+                                cteProducer(addQueryScopeDelimiter("a", 2), anyTree(tableScan("orders"))),
                                 anyTree(PlanMatchPattern.union(
                                         PlanMatchPattern.union(
                                                 PlanMatchPattern.union(
-                                                        anyTree(tableScan("orders")), anyTree(cteConsumer(addQueryScopeDelimiter("a", 1)))),
-                                                anyTree(cteConsumer(addQueryScopeDelimiter("a", 1)))),
-                                        anyTree(cteConsumer(addQueryScopeDelimiter("a", 1))))))));
+                                                        anyTree(tableScan("orders")), anyTree(cteConsumer(addQueryScopeDelimiter("a", 2)))),
+                                                anyTree(cteConsumer(addQueryScopeDelimiter("a", 2)))),
+                                        anyTree(cteConsumer(addQueryScopeDelimiter("a", 2))))))));
     }
 
     @Test
