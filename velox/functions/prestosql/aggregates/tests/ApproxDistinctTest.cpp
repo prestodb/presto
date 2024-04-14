@@ -301,8 +301,8 @@ TEST_F(ApproxDistinctTest, globalAggIntegersWithError) {
 
 TEST_F(ApproxDistinctTest, globalAggAllNulls) {
   vector_size_t size = 1'000;
-  auto values = makeFlatVector<int32_t>(
-      size, [](auto row) { return row; }, nullEvery(1));
+  auto values =
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }, nullEvery(1));
 
   auto op = PlanBuilder()
                 .values({makeRowVector({values})})

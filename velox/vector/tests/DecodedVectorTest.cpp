@@ -1195,8 +1195,8 @@ TEST_F(DecodedVectorTest, flatNulls) {
   }
 
   // Flat vector with nulls.
-  auto flatWithNulls = makeFlatVector<int64_t>(
-      100, [](auto row) { return row; }, nullEvery(7));
+  auto flatWithNulls =
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }, nullEvery(7));
 
   auto check = [&](auto& d) {
     ASSERT_TRUE(d.nulls(nullptr) != nullptr);
@@ -1223,8 +1223,8 @@ TEST_F(DecodedVectorTest, dictionaryOverFlatNulls) {
   DecodedVector d;
 
   auto flatNoNulls = makeFlatVector<int64_t>(100, [](auto row) { return row; });
-  auto flatWithNulls = makeFlatVector<int64_t>(
-      100, [](auto row) { return row; }, nullEvery(7));
+  auto flatWithNulls =
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }, nullEvery(7));
 
   auto decodeAndCheckNulls = [&](auto& vector) {
     {

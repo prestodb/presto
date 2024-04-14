@@ -125,16 +125,13 @@ void FunctionBaseTest::testEncodings(
   testDictionary(size, [&](auto row) { return size - 1 - row; });
 
   // Repeat each row twice: 0, 0, 1, 1,... Add some nulls.
-  testDictionary(
-      size * 2, [](auto row) { return row / 2; }, nullEvery(3));
+  testDictionary(size * 2, [](auto row) { return row / 2; }, nullEvery(3));
 
   // Select even rows: 0, 2, 4,... Add some nulls.
-  testDictionary(
-      size / 2, [](auto row) { return row * 2; }, nullEvery(3));
+  testDictionary(size / 2, [](auto row) { return row * 2; }, nullEvery(3));
 
   // Go over all rows in reverse: N, N-1, N-2,...0. Add some nulls.
-  testDictionary(
-      size, [&](auto row) { return size - 1 - row; }, nullEvery(3));
+  testDictionary(size, [&](auto row) { return size - 1 - row; }, nullEvery(3));
 
   // Generate constant vectors and verify the results.
   for (auto i = 0; i < size; ++i) {

@@ -49,10 +49,9 @@ class TablePrinter {
         columnSize_ * numScalarColumns_ + 2 * (numScalarColumns_ - 1);
 
     out_ << indent_ << std::left << std::setw(scalarFunctionsColumnWidth)
-         << "Scalar Functions"
-         << "      " << std::setw(columnSize_) << "Aggregate Functions"
-         << "      "
-         << "Window Functions" << std::endl;
+         << "Scalar Functions" << "      " << std::setw(columnSize_)
+         << "Aggregate Functions" << "      " << "Window Functions"
+         << std::endl;
     out_ << indent_ << std::string(scalarFunctionsColumnWidth, '=')
          << "  ==  " << line << "  ==  " << line << std::endl;
   }
@@ -166,16 +165,13 @@ void printTableCss(
   out << "    div.body {max-width: 1300px;}" << std::endl;
   out << "    table.coverage th {background-color: lightblue; text-align: center;}"
       << std::endl;
-  out << "    table.coverage "
-      << "td:nth-child(" << numScalarColumns + 1 << ") "
-      << "{background-color: lightblue;}" << std::endl;
-  out << "    table.coverage "
-      << "td:nth-child(" << numScalarColumns + 3 << ") "
-      << "{background-color: lightblue;}" << std::endl;
+  out << "    table.coverage " << "td:nth-child(" << numScalarColumns + 1
+      << ") " << "{background-color: lightblue;}" << std::endl;
+  out << "    table.coverage " << "td:nth-child(" << numScalarColumns + 3
+      << ") " << "{background-color: lightblue;}" << std::endl;
 
   for (const auto& entry : cellTracker.cells()) {
-    out << "    table.coverage "
-        << "tr:nth-child(" << entry.first + 1 << ") "
+    out << "    table.coverage " << "tr:nth-child(" << entry.first + 1 << ") "
         << "td:nth-child(" << entry.second + 1 << ") "
         << "{background-color: #6BA81E;}" << std::endl;
   }

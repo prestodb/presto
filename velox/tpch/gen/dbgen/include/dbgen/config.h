@@ -107,8 +107,8 @@
 #endif /* LINUX */
 
 #ifdef MAC
-//#define _POSIX_C_SOURCE 200112L
-//#define _POSIX_SOURCE
+// #define _POSIX_C_SOURCE 200112L
+// #define _POSIX_SOURCE
 #define STDLIB_HAS_GETOPT
 #define SUPPORT_64BITS
 #define DSS_HUGE long long

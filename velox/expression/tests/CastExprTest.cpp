@@ -2385,8 +2385,8 @@ class TestingDictionaryToFewerRowsFunction : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     const auto size = rows.size();
-    auto indices = makeIndices(
-        size, [](auto /*row*/) { return 0; }, context.pool());
+    auto indices =
+        makeIndices(size, [](auto /*row*/) { return 0; }, context.pool());
 
     result = BaseVector::wrapInDictionary(nullptr, indices, size, args[0]);
   }

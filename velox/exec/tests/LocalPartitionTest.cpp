@@ -559,8 +559,7 @@ TEST_F(LocalPartitionTest, producerError) {
   const auto& task = cursor->task();
 
   // Expect division by zero error.
-  ASSERT_THROW(
-      while (cursor->moveNext()) { ; }, VeloxException);
+  ASSERT_THROW(while (cursor->moveNext()) { ; }, VeloxException);
 
   // Wait for task to transition to failed state.
   waitForTaskCompletion(task, exec::kFailed);

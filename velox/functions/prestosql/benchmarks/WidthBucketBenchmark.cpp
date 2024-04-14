@@ -44,7 +44,8 @@ struct WidthBucketFunction {
       result = bucketCount + 1;
     } else {
       result =
-          (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) + 1);
+          (int64_t)((double)bucketCount * (operand - lower) / (upper - lower) +
+                    1);
     }
 
     if (bound1 > bound2) {

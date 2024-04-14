@@ -387,8 +387,7 @@ TEST_F(E2EFilterTest, flatMapAsStruct) {
       "long_vals:struct<v1:bigint,v2:bigint,v3:bigint>,"
       "struct_vals:struct<nested1:struct<v1:bigint, v2:float>,nested2:struct<v1:bigint, v2:float>>";
   flatMapColumns_ = {"long_vals", "struct_vals"};
-  testWithTypes(
-      kColumns, [] {}, false, {"long_val"}, 10, true);
+  testWithTypes(kColumns, [] {}, false, {"long_val"}, 10, true);
 }
 
 TEST_F(E2EFilterTest, flatMapScalar) {

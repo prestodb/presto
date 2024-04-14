@@ -25,7 +25,7 @@
 #define LEAP_ADJ(yr, mnth) ((LEAP(yr) && (mnth) >= 2) ? 1 : 0)
 #define JDAY_BASE 8035 /* start from 1/1/70 a la unix */
 #define JMNTH_BASE (-70 * 12) /* start from 1/1/70 a la unix */
-#define JDAY(date) ((date)-STARTDATE + JDAY_BASE + 1)
+#define JDAY(date) ((date) - STARTDATE + JDAY_BASE + 1)
 #define PART_SUPP_BRIDGE(tgt, p, s)                                           \
   {                                                                           \
     DSS_HUGE tot_scnt = ctx->tdefs[SUPP].base * ctx->scale_factor;            \

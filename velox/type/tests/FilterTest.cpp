@@ -1310,8 +1310,8 @@ void testMergeWithBytes(Filter* left, Filter* right) {
         merged->testBytes(test.data(), test.size()),
         left->testBytes(test.data(), test.size()) &&
             right->testBytes(test.data(), test.size()))
-        << test << " "
-        << "left: " << left->toString() << ", right: " << right->toString()
+        << test << " " << "left: " << left->toString()
+        << ", right: " << right->toString()
         << ", merged: " << merged->toString();
   }
 }

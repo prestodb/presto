@@ -176,8 +176,8 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     testRoundTrip(makeFlatVector<T>(10'000, [](auto row) { return row; }));
 
     // Long vector with nulls.
-    testRoundTrip(makeFlatVector<T>(
-        10'000, [](auto row) { return row; }, nullEvery(17)));
+    testRoundTrip(
+        makeFlatVector<T>(10'000, [](auto row) { return row; }, nullEvery(17)));
   }
 
   // Verifies that the lazy vectors have the right internal state and loaded

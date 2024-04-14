@@ -1402,8 +1402,8 @@ TEST_F(VectorTest, copyFromUnknown) {
 TEST_F(VectorTest, wrapInConstant) {
   // wrap flat vector
   const vector_size_t size = 1'000;
-  auto flatVector = makeFlatVector<int32_t>(
-      size, [](auto row) { return row; }, nullEvery(7));
+  auto flatVector =
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }, nullEvery(7));
 
   auto constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
       BaseVector::wrapInConstant(size, 5, flatVector));
@@ -1494,8 +1494,8 @@ TEST_F(VectorTest, wrapInConstant) {
 TEST_F(VectorTest, wrapInConstantWithCopy) {
   // Wrap flat vector.
   const vector_size_t size = 1'000;
-  auto flatVector = makeFlatVector<int32_t>(
-      size, [](auto row) { return row; }, nullEvery(7));
+  auto flatVector =
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }, nullEvery(7));
 
   auto constVector = std::dynamic_pointer_cast<ConstantVector<int32_t>>(
       BaseVector::wrapInConstant(size, 5, flatVector, true));

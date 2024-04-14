@@ -41,7 +41,7 @@
 #include <ctype.h>
 #include <math.h>
 #ifndef _POSIX_SOURCE
-//#include <malloc.h>
+// #include <malloc.h>
 #endif /* POSIX_SOURCE */
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -51,8 +51,8 @@
 #ifndef _POSIX_
 #include <io.h> // @manual
 #ifndef S_ISREG
-#define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
-#define S_ISFIFO(m) (((m)&_S_IFMT) == _S_IFIFO)
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
+#define S_ISFIFO(m) (((m) & _S_IFMT) == _S_IFIFO)
 #endif
 #endif
 #ifndef stat

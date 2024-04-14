@@ -198,7 +198,9 @@ __global__ void runGpu2Gpu(
     cuda::atomic<int64_t, cuda::thread_scope_device>& nextId,
     int capacity,
     int limit) {
-  __shared__ struct { int64_t message; } shared;
+  __shared__ struct {
+    int64_t message;
+  } shared;
   if (blockIdx.x == 0) {
     nextId = 0;
     for (int i = 0; i < capacity; ++i) {

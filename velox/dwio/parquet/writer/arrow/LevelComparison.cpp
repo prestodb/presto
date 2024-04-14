@@ -46,11 +46,10 @@ struct GreaterThanDynamicFunction {
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
     return {
-      { DispatchLevel::NONE, standard::GreaterThanBitmapImpl }
+        {DispatchLevel::NONE, standard::GreaterThanBitmapImpl}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-      , {
-        DispatchLevel::AVX2, GreaterThanBitmapAvx2
-      }
+        ,
+        {DispatchLevel::AVX2, GreaterThanBitmapAvx2}
 #endif
     };
   }
@@ -61,11 +60,10 @@ struct MinMaxDynamicFunction {
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
     return {
-      { DispatchLevel::NONE, standard::FindMinMaxImpl }
+        {DispatchLevel::NONE, standard::FindMinMaxImpl}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-      , {
-        DispatchLevel::AVX2, FindMinMaxAvx2
-      }
+        ,
+        {DispatchLevel::AVX2, FindMinMaxAvx2}
 #endif
     };
   }

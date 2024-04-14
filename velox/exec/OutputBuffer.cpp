@@ -302,9 +302,8 @@ DestinationBuffer::Stats DestinationBuffer::stats() const {
 
 std::string DestinationBuffer::toString() {
   std::stringstream out;
-  out << "[available: " << data_.size() << ", "
-      << "sequence: " << sequence_ << ", "
-      << (notify_ ? "notify registered, " : "") << this << "]";
+  out << "[available: " << data_.size() << ", " << "sequence: " << sequence_
+      << ", " << (notify_ ? "notify registered, " : "") << this << "]";
   return out.str();
 }
 

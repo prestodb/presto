@@ -187,8 +187,8 @@ TEST_F(ComparisonsTest, testdictionary) {
     return BaseVector::wrapInConstant(base->size(), 0, base);
   };
   // Lhs: 0, null, 2, null, 4.
-  auto lhs = makeFlatVector<int16_t>(
-      5, [](auto row) { return row; }, nullEvery(2, 1));
+  auto lhs =
+      makeFlatVector<int16_t>(5, [](auto row) { return row; }, nullEvery(2, 1));
   auto rhs = makeFlatVector<int16_t>({1, 0, 3, 0, 5});
   auto lhsVector = makeDictionary(lhs);
   auto rhsVector = makeDictionary(rhs);
@@ -199,8 +199,7 @@ TEST_F(ComparisonsTest, testdictionary) {
   // Result : false, null, false, null, false.
   facebook::velox::test::assertEqualVectors(
       result,
-      makeFlatVector<bool>(
-          5, [](auto row) { return false; }, nullEvery(2, 1)));
+      makeFlatVector<bool>(5, [](auto row) { return false; }, nullEvery(2, 1)));
   auto constVector = makeConstant(100, 5);
   auto testConstVector =
       makeRowVector({makeDictionary(lhs), makeConstantDic(constVector)});
@@ -211,8 +210,7 @@ TEST_F(ComparisonsTest, testdictionary) {
       fmt::format("{}(c0, c1)", "lessthanorequal"), testConstVector);
   facebook::velox::test::assertEqualVectors(
       constResult,
-      makeFlatVector<bool>(
-          5, [](auto row) { return true; }, nullEvery(2, 1)));
+      makeFlatVector<bool>(5, [](auto row) { return true; }, nullEvery(2, 1)));
   // Lhs: const 100.
   // Rhs: 0, null, 2, null, 4.
   // Greaterthanorequal result : true, null, true, null, true.
@@ -222,8 +220,7 @@ TEST_F(ComparisonsTest, testdictionary) {
       fmt::format("{}(c0, c1)", "greaterthanorequal"), testConstVector1);
   facebook::velox::test::assertEqualVectors(
       constResult1,
-      makeFlatVector<bool>(
-          5, [](auto row) { return true; }, nullEvery(2, 1)));
+      makeFlatVector<bool>(5, [](auto row) { return true; }, nullEvery(2, 1)));
 }
 
 TEST_F(ComparisonsTest, testflat) {
@@ -231,8 +228,8 @@ TEST_F(ComparisonsTest, testflat) {
   auto vector1 = makeFlatVector<int32_t>(
       4, [](auto row) { return row + 1; }, nullEvery(2));
 
-  auto expectedResult = makeFlatVector<bool>(
-      4, [](auto row) { return true; }, nullEvery(2));
+  auto expectedResult =
+      makeFlatVector<bool>(4, [](auto row) { return true; }, nullEvery(2));
   auto actualResult = evaluate<SimpleVector<bool>>(
       "lessthan(c0, c1)", makeRowVector({vector0, vector1}));
   facebook::velox::test::assertEqualVectors(expectedResult, actualResult);

@@ -78,7 +78,8 @@ void readData(ReadFile* readFile, bool checkFileSize = true) {
       folly::Range<char*>(middle, sizeof(middle)),
       folly::Range<char*>(
           nullptr,
-          (char*)(uint64_t)(15 + kOneMB - 500000 - sizeof(head) - sizeof(middle) - sizeof(tail))),
+          (char*)(uint64_t)(15 + kOneMB - 500000 - sizeof(head) -
+                            sizeof(middle) - sizeof(tail))),
       folly::Range<char*>(tail, sizeof(tail))};
   ASSERT_EQ(15 + kOneMB, readFile->preadv(0, buffers));
   ASSERT_EQ(std::string_view(head, sizeof(head)), "aaaaabbbbbcc");

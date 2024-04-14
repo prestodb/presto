@@ -124,10 +124,11 @@ template <typename C, class TResolver, typename TRet, typename... TArgs>
 struct has_method {
  private:
   template <typename T>
-  static constexpr auto check(T*) -> typename std::is_same<
-      decltype(std::declval<TResolver>().template resolve<T>(
-          std::declval<TArgs>()...)),
-      TRet>::type {
+  static constexpr auto check(T*) ->
+      typename std::is_same<
+          decltype(std::declval<TResolver>().template resolve<T>(
+              std::declval<TArgs>()...)),
+          TRet>::type {
     return {};
   }
 

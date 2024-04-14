@@ -148,9 +148,7 @@ TEST_F(HistogramTest, groupByTimestamp) {
       num, [](vector_size_t row) { return row % 3; }, nullEvery(4));
   auto vector2 = makeFlatVector<Timestamp>(
       num,
-      [](vector_size_t row) {
-        return Timestamp{row % 2, 17'123'456};
-      },
+      [](vector_size_t row) { return Timestamp{row % 2, 17'123'456}; },
       nullEvery(5));
 
   auto expected = makeRowVector(
@@ -237,9 +235,7 @@ TEST_F(HistogramTest, globalTimestamp) {
   vector_size_t num = 10;
   auto vector = makeFlatVector<Timestamp>(
       num,
-      [](vector_size_t row) {
-        return Timestamp{row % 4, 100};
-      },
+      [](vector_size_t row) { return Timestamp{row % 4, 100}; },
       nullEvery(7));
 
   auto expected = makeRowVector({makeMapVector<Timestamp, int64_t>(

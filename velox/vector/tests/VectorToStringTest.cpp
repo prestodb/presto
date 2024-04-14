@@ -33,8 +33,8 @@ TEST_F(VectorToStringTest, flatIntegers) {
   ASSERT_EQ(flat->toString(3, 8, ", ", false), "4, 5, 6, 7, 8");
 
   // With nulls.
-  flat = makeFlatVector<int32_t>(
-      100, [](auto row) { return row; }, nullEvery(3));
+  flat =
+      makeFlatVector<int32_t>(100, [](auto row) { return row; }, nullEvery(3));
   ASSERT_EQ(flat->toString(), "[FLAT INTEGER: 100 elements, 34 nulls]");
   ASSERT_EQ(flat->toString(true), "[FLAT INTEGER: 100 elements, 34 nulls]");
   ASSERT_EQ(flat->toString(1), "1");

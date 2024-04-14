@@ -389,8 +389,8 @@ std::string ConjunctExpr::toSql(
   std::stringstream out;
   out << "(" << inputs_[0]->toSql(complexConstants) << ")";
   for (auto i = 1; i < inputs_.size(); ++i) {
-    out << " " << name_ << " "
-        << "(" << inputs_[i]->toSql(complexConstants) << ")";
+    out << " " << name_ << " " << "(" << inputs_[i]->toSql(complexConstants)
+        << ")";
   }
   return out.str();
 }
