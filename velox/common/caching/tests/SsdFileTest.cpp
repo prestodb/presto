@@ -118,12 +118,12 @@ class SsdFileTest : public testing::Test {
     }
   }
 
-  // Gets consecutive entries from file 'fileId' starting at 'startOffset'  with
+  // Gets consecutive entries from file 'fileId' starting at 'startOffset' with
   // sizes between 'minSize' and 'maxSize'. Sizes start at 'minSize' and double
   // each time and go back to 'minSize' after exceeding 'maxSize'. This stops
   // after the total size has exceeded 'totalSize'. The entries are returned as
   // pins. The pins are exclusive for newly created entries and shared for
-  // existing ones. New entries are deterministically  initialized from 'fileId'
+  // existing ones. New entries are deterministically initialized from 'fileId'
   // and the entry's offset.
   std::vector<CachePin> makePins(
       uint64_t fileId,
@@ -280,7 +280,7 @@ TEST_F(SsdFileTest, writeAndRead) {
     }
   }
 
-  // We check howmany entries are found. The earliest writes will have been
+  // We check how many entries are found. The earliest writes will have been
   // evicted. We read back the found entries and check their contents.
   int32_t numFound = 0;
   for (auto& entry : allEntries) {
@@ -301,6 +301,16 @@ TEST_F(SsdFileTest, writeAndRead) {
         checkContents(pins[0].entry()->data(), pins[0].entry()->size());
       }
     }
+  }
+
+  // Test cache writes with different iobufs sizes.
+  for (int numPins : {0, 1, IOV_MAX - 1, IOV_MAX, IOV_MAX + 1}) {
+    SCOPED_TRACE(fmt::format("numPins: {}", numPins));
+    auto pins = makePins(fileName_.id(), 0, 4096, 4096, 4096 * numPins);
+    EXPECT_EQ(pins.size(), numPins);
+    ssdFile_->write(pins);
+    readAndCheckPins(pins);
+    pins.clear();
   }
 }
 
