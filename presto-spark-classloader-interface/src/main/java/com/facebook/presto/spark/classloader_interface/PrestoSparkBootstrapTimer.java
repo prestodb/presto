@@ -53,16 +53,12 @@ public class PrestoSparkBootstrapTimer
     public Map<String, Long> exportBootstrapDurations()
     {
         Map<String, Long> output = new HashMap<>();
-        output.put("RunnerServiceCreationDurationMS",
-                (endRunnerServiceCreation.get() != null) ? endRunnerServiceCreation.get().toMillis() : 0);
         output.put("PrestoSparkServiceCreationDurationMS",
                 (endPrestoSparkServiceCreation.get() != null) ? endPrestoSparkServiceCreation.get().toMillis() : 0);
         output.put("RunnerServiceCreationDurationMS",
                 (endRunnerServiceCreation.get() != null) ? endRunnerServiceCreation.get().toMillis() : 0);
         output.put("InjectorCreationDurationMS",
                 (endInjectorCreation.get() != null) ? endInjectorCreation.get().toMillis() : 0);
-        output.put("InjectorInitializationDurationMS",
-                (endInjectorInitialization.get() != null) ? endInjectorCreation.get().toMillis() : 0);
         output.put("InjectorInitializationDurationMS",
                 (endInjectorInitialization.get() != null) ? endInjectorCreation.get().toMillis() : 0);
         output.put("SharedModulesLoadingDurationMS",
