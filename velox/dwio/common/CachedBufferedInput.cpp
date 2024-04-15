@@ -271,7 +271,6 @@ void CachedBufferedInput::makeLoads(
     for (auto i = 0; i < allCoalescedLoads_.size(); ++i) {
       auto& load = allCoalescedLoads_[i];
       if (load->state() == CoalescedLoad::State::kPlanned) {
-        prefetchSize_ += load->size();
         executor_->add([pendingLoad = load]() {
           process::TraceContext trace("Read Ahead");
           pendingLoad->loadOrFuture(nullptr);

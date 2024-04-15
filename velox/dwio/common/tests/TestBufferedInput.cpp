@@ -122,6 +122,7 @@ TEST_F(TestBufferedInput, ZeroLengthStream) {
       std::make_shared<facebook::velox::InMemoryReadFile>(std::string());
   BufferedInput input(readFile, *pool_);
   auto ret = input.enqueue({0, 0});
+  EXPECT_EQ(input.nextFetchSize(), 0);
   EXPECT_NE(ret, nullptr);
   const void* buf = nullptr;
   int32_t size = 1;
@@ -144,6 +145,7 @@ TEST_F(TestBufferedInput, UseRead) {
   auto ret = input.enqueue({0, 5});
   ASSERT_NE(ret, nullptr);
 
+  EXPECT_EQ(input.nextFetchSize(), 5);
   input.load(LogType::TEST);
 
   auto next = getNext(*ret);
@@ -166,6 +168,7 @@ TEST_F(TestBufferedInput, UseVRead) {
   auto ret = input.enqueue({0, 5});
   ASSERT_NE(ret, nullptr);
 
+  EXPECT_EQ(input.nextFetchSize(), 5);
   input.load(LogType::TEST);
 
   auto next = getNext(*ret);
@@ -194,6 +197,7 @@ TEST_F(TestBufferedInput, WillMerge) {
   ASSERT_NE(ret1, nullptr);
   ASSERT_NE(ret2, nullptr);
 
+  EXPECT_EQ(input.nextFetchSize(), 10);
   input.load(LogType::TEST);
 
   auto next1 = getNext(*ret1);
@@ -226,6 +230,7 @@ TEST_F(TestBufferedInput, WontMerge) {
   ASSERT_NE(ret1, nullptr);
   ASSERT_NE(ret2, nullptr);
 
+  EXPECT_EQ(input.nextFetchSize(), 10);
   input.load(LogType::TEST);
 
   auto next1 = getNext(*ret1);
@@ -254,13 +259,16 @@ TEST_F(TestBufferedInput, ReadSorting) {
   std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
       result;
   result.reserve(regions.size());
+  int64_t bytesToRead = 0;
   for (auto& region : regions) {
+    bytesToRead += region.length;
     auto ret = input.enqueue(region);
     ASSERT_NE(ret, nullptr);
     result.push_back(
         {std::move(ret), content.substr(region.offset, region.length)});
   }
 
+  EXPECT_EQ(input.nextFetchSize(), bytesToRead);
   input.load(LogType::TEST);
 
   for (auto& r : result) {
@@ -288,13 +296,16 @@ TEST_F(TestBufferedInput, VReadSorting) {
   std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
       result;
   result.reserve(regions.size());
+  int64_t bytesToRead = 0;
   for (auto& region : regions) {
+    bytesToRead += region.length;
     auto ret = input.enqueue(region);
     ASSERT_NE(ret, nullptr);
     result.push_back(
         {std::move(ret), content.substr(region.offset, region.length)});
   }
 
+  EXPECT_EQ(input.nextFetchSize(), bytesToRead);
   input.load(LogType::TEST);
 
   for (auto& r : result) {
@@ -326,13 +337,16 @@ TEST_F(TestBufferedInput, VReadSortingWithLabels) {
   std::vector<std::pair<std::unique_ptr<SeekableInputStream>, std::string>>
       result;
   result.reserve(regions.size());
+  int64_t bytesToRead = 0;
   for (auto& region : regions) {
+    bytesToRead += region.length;
     auto ret = input.enqueue(region);
     ASSERT_NE(ret, nullptr);
     result.push_back(
         {std::move(ret), content.substr(region.offset, region.length)});
   }
 
+  EXPECT_EQ(input.nextFetchSize(), bytesToRead);
   input.load(LogType::TEST);
 
   for (auto& r : result) {

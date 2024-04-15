@@ -159,8 +159,8 @@ class CachedBufferedInput : public BufferedInput {
     return executor_;
   }
 
-  int64_t prefetchSize() const override {
-    return prefetchSize_;
+  uint64_t nextFetchSize() const override {
+    VELOX_NYI();
   }
 
  private:
@@ -195,7 +195,6 @@ class CachedBufferedInput : public BufferedInput {
   std::vector<std::shared_ptr<cache::CoalescedLoad>> allCoalescedLoads_;
 
   const uint64_t fileSize_;
-  int64_t prefetchSize_{0};
   io::ReaderOptions options_;
 };
 

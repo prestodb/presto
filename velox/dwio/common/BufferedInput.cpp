@@ -15,6 +15,7 @@
  */
 
 #include <fmt/format.h>
+#include <numeric>
 #include <utility>
 
 #include "folly/io/Cursor.h"
@@ -35,6 +36,13 @@ void copyIOBufToMemory(folly::IOBuf&& iobuf, folly::Range<char*> allocated) {
   cursor.pull(allocated.data(), allocated.size());
 }
 } // namespace
+
+uint64_t BufferedInput::nextFetchSize() const {
+  return std::accumulate(
+      regions_.cbegin(), regions_.cend(), 0L, [](uint64_t a, const Region& b) {
+        return a + b.length;
+      });
+}
 
 void BufferedInput::load(const LogType logType) {
   // no regions to load

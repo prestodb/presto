@@ -172,6 +172,10 @@ class DirectBufferedInput : public BufferedInput {
     return executor_;
   }
 
+  uint64_t nextFetchSize() const override {
+    VELOX_NYI();
+  }
+
  private:
   /// Constructor used by clone().
   DirectBufferedInput(

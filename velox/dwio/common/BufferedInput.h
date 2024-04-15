@@ -141,9 +141,7 @@ class BufferedInput {
     return nullptr;
   }
 
-  virtual int64_t prefetchSize() const {
-    return 0;
-  }
+  virtual uint64_t nextFetchSize() const;
 
  protected:
   std::shared_ptr<ReadFileInputStream> input_;
