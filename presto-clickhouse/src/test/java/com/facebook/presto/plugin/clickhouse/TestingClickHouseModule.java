@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static java.lang.String.format;
 
 public class TestingClickHouseModule
         implements Module
@@ -49,7 +48,7 @@ public class TestingClickHouseModule
     public static Map<String, String> createProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("clickhouse.connection-url", format("jdbc:clickhouse://localhost:8123/", System.nanoTime()))
+                .put("clickhouse.connection-url", "jdbc:clickhouse://localhost:8123/")
                 .build();
     }
 }

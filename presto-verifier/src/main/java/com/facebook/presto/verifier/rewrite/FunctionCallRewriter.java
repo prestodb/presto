@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
-import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -30,7 +29,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -144,20 +142,10 @@ public class FunctionCallRewriter
         return rewritten;
     }
 
-    public String getProcessedFunctionCallSubstitutes()
-    {
-        return processedFunctionCallSubstitutes.stream().map(functionCallSubstitute -> {
-                    String formattedOriginal = ExpressionFormatter.formatExpression(functionCallSubstitute.get(0), Optional.empty());
-                    String formattedSubstitute = ExpressionFormatter.formatExpression(functionCallSubstitute.get(1), Optional.empty());
-                    return String.format("% is substituted with %s", formattedOriginal, formattedSubstitute);
-                }
-        ).collect(Collectors.joining(", "));
-    }
-
     @Override
     protected Node visitExpression(Expression node, FunctionCallRewriter.Context context)
     {
-        FunctionCallRewriter nodeRewritter = this;
+        FunctionCallRewriter nodeRewriter = this;
 
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
@@ -187,7 +175,7 @@ public class FunctionCallRewriter
 
             public Expression rewriteSubqueryExpression(SubqueryExpression expression, Void voidContext, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                Node query = nodeRewritter.process(expression.getQuery(), context);
+                Node query = nodeRewriter.process(expression.getQuery(), context);
                 if (expression.getQuery() == query) {
                     return expression;
                 }
