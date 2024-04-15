@@ -41,11 +41,11 @@ public class TestPage
     @Test
     public void testAppendColumn()
     {
-        Page page = new Page(10);
-        Page region = page.getRegion(0, 10);
-        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
-        assertEquals(region.getPositionCount(), 10);
-        assertSame(page, region);
+        Block block = createBlock();
+        Page page = new Page(block);
+        Page page2 = new Page(2);
+        Page appendColumn = page2.appendColumn(block);
+        assertEquals(page.getBlock(0),appendColumn.getBlock(0));
     }
 
     @Test
@@ -81,11 +81,11 @@ public class TestPage
     @Test
     public void testPrependColumn()
     {
-        Page page = new Page(10);
-        Page region = page.getRegion(0, 10);
-        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
-        assertEquals(region.getPositionCount(), 10);
-        assertSame(page, region);
+        Block block = createBlock();
+        Page page = new Page(block);
+        Page page2 = new Page(2);
+        Page prependColumn = page2.prependColumn(block);
+        assertEquals(page.getBlock(0),prependColumn.getBlock(0));
     }
 
     @Test
@@ -217,5 +217,15 @@ public class TestPage
             VARBINARY.writeSlice(builder, value);
         }
         return builder.build();
+    }
+
+    private static Block createBlock()
+    {
+        int entries = 2;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        return blockBuilder.build();
     }
 }
