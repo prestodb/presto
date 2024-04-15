@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -33,24 +34,40 @@ std::string toJsonString(const T& value) {
 }
 
 std::string mapScalarFunction(const std::string& name) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kFunctionNames = {
       // Operator overrides: com.facebook.presto.common.function.OperatorType
-      {"presto.default.$operator$add", "presto.default.plus"},
-      {"presto.default.$operator$between", "presto.default.between"},
-      {"presto.default.$operator$divide", "presto.default.divide"},
-      {"presto.default.$operator$equal", "presto.default.eq"},
-      {"presto.default.$operator$greater_than", "presto.default.gt"},
-      {"presto.default.$operator$greater_than_or_equal", "presto.default.gte"},
+      {"presto.default.$operator$add",
+       fmt::format("{}plus", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$between",
+       fmt::format("{}between", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$divide",
+       fmt::format("{}divide", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$equal",
+       fmt::format("{}eq", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$greater_than",
+       fmt::format("{}gt", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$greater_than_or_equal",
+       fmt::format("{}gte", prestoDefaultNamespacePrefix)},
       {"presto.default.$operator$is_distinct_from",
-       "presto.default.distinct_from"},
-      {"presto.default.$operator$less_than", "presto.default.lt"},
-      {"presto.default.$operator$less_than_or_equal", "presto.default.lte"},
-      {"presto.default.$operator$modulus", "presto.default.mod"},
-      {"presto.default.$operator$multiply", "presto.default.multiply"},
-      {"presto.default.$operator$negation", "presto.default.negate"},
-      {"presto.default.$operator$not_equal", "presto.default.neq"},
-      {"presto.default.$operator$subtract", "presto.default.minus"},
-      {"presto.default.$operator$subscript", "presto.default.subscript"},
+       fmt::format("{}distinct_from", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$less_than",
+       fmt::format("{}lt", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$less_than_or_equal",
+       fmt::format("{}lte", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$modulus",
+       fmt::format("{}mod", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$multiply",
+       fmt::format("{}multiply", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$negation",
+       fmt::format("{}negate", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$not_equal",
+       fmt::format("{}neq", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$subtract",
+       fmt::format("{}minus", prestoDefaultNamespacePrefix)},
+      {"presto.default.$operator$subscript",
+       fmt::format("{}subscript", prestoDefaultNamespacePrefix)},
       // Special form function overrides.
       {"presto.default.in", "in"},
   };

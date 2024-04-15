@@ -440,9 +440,9 @@ public class FunctionAndTypeManager
 
     public void configureDefaultNamespace(String defaultNamespacePrefixString)
     {
-        String pattern = "[a-z]+\\.[a-z]+\\.";
+        String pattern = "[a-z]+\\.[a-z]+";
         if (!defaultNamespacePrefixString.matches(pattern)) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema.', found: %s", defaultNamespacePrefixString));
+            throw new PrestoException(GENERIC_USER_ERROR, format("Default namespace prefix string should be in the form of 'catalog.schema', found: %s", defaultNamespacePrefixString));
         }
         String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
         this.currentDefaultNamespace = new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
