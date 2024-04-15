@@ -133,14 +133,14 @@ TEST_F(RemoteFunctionRegistererTest, directory) {
   // $ tmpDir/subdir/remote3.json
   //
   // to ensure files can be read recursively.
-  writeToFile(tempDir->path + "/remote1.json", getJson("mock1"));
-  writeToFile(tempDir->path + "/remote2.json", getJson("mock2"));
+  writeToFile(tempDir->getPath() + "/remote1.json", getJson("mock1"));
+  writeToFile(tempDir->getPath() + "/remote2.json", getJson("mock2"));
 
-  const std::string tempSubdir = tempDir->path + "/subdir";
+  const std::string tempSubdir = tempDir->getPath() + "/subdir";
   fs::create_directory(tempSubdir);
   writeToFile(tempSubdir + "/remote3.json", getJson("mock3"));
 
-  EXPECT_EQ(registerRemoteFunctions(tempDir->path, {}), 3);
+  EXPECT_EQ(registerRemoteFunctions(tempDir->getPath(), {}), 3);
 }
 
 } // namespace
