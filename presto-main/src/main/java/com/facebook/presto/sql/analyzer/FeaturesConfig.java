@@ -277,6 +277,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean fieldNamesInJsonCastEnabled;
+    private boolean legacyJsonCast = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
@@ -651,6 +652,18 @@ public class FeaturesConfig
     public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
     {
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        return this;
+    }
+
+    public boolean isLegacyJsonCast()
+    {
+        return legacyJsonCast;
+    }
+
+    @Config("legacy-json-cast")
+    public FeaturesConfig setLegacyJsonCast(boolean legacyJsonCast)
+    {
+        this.legacyJsonCast = legacyJsonCast;
         return this;
     }
 
