@@ -126,6 +126,19 @@ public class SfmSketch
         flipBitOn(index, zeros);
     }
 
+    public void addIndexAndZeros(long index, long zeros)
+    {
+        long buckets = numberOfBuckets(indexBitLength);
+        checkArgument(index >= 0 && index < buckets,
+                "index %s must be between zero (inclusive) and the number of buckets-1 %s", index, buckets - 1);
+        checkArgument(zeros >= 0 && zeros <= 64,
+                "zeros %s must be between 0 and 64", zeros);
+        // cap zeros at precision - 1
+        // essentially, we're looking at a (precision - 1)-bit hash
+        zeros = Math.min(precision - 1, zeros);
+        flipBitOn((int) index, (int) zeros);
+    }
+
     /**
      * Estimates cardinality via maximum psuedolikelihood (Newton's method)
      */

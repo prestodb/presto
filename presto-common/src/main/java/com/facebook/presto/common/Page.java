@@ -456,6 +456,24 @@ public final class Page
         return retainedSizeInBytes.longValue();
     }
 
+    /**
+     * Returns a new page with the same columns as the original page except for the one column replaced.
+     *
+     * @param channelIndex the column to replace
+     * @param column the replacement column
+     * @return a new page with the replacement column substituted for the old column
+     */
+    public Page replaceColumn(int channelIndex, Block column)
+    {
+        if (column.getPositionCount() != positionCount) {
+            throw new IllegalArgumentException("New column does not have same number of rows as old column");
+        }
+
+        Block[] newBlocks = Arrays.copyOf(blocks, blocks.length);
+        newBlocks[channelIndex] = column;
+        return Page.wrapBlocksWithoutCopy(newBlocks.length, newBlocks);
+    }
+
     private static class DictionaryBlockIndexes
     {
         private final List<DictionaryBlock> blocks = new ArrayList<>();

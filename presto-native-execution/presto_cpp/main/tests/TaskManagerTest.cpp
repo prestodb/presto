@@ -545,7 +545,7 @@ class TaskManagerTest : public testing::Test {
                   finalAggTaskId, false, std::nullopt, std::nullopt, cbState)
               .get();
       const int64_t spilledBytes = sumOpSpillBytes("Aggregation", *taskInfo);
-      if (expectSpill) {
+      if (expectSpill && injectedSpillCount() > 0) {
         EXPECT_GT(spilledBytes, 0);
       } else {
         EXPECT_EQ(spilledBytes, 0);
@@ -1278,15 +1278,55 @@ TEST_F(TaskManagerTest, getResultsFromFailedTask) {
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
 
   // We expect to get empty results, rather than an exception.
+  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
   auto results = taskManager_
                      ->getResults(
                          taskId,
                          0,
                          0,
                          protocol::DataSize("32MB"),
-                         protocol::Duration("300s"),
+                         protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
+  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+
+  {
+    // ensure response is returned with a delay
+    using namespace std::chrono;
+    ASSERT_GE(
+        finishTimeUs - startTimeUs,
+        duration_cast<microseconds>(milliseconds{500}).count());
+  }
+
+  ASSERT_FALSE(results->complete);
+  ASSERT_EQ(results->data->capacity(), 0);
+}
+
+TEST_F(TaskManagerTest, getResultsFromAbortedTask) {
+  const protocol::TaskId taskId = "aborted-task.0.0.0.0";
+  // deleting a non existing task creates an aborted task
+  taskManager_->deleteTask(taskId, true);
+
+  // We expect to get empty results, rather than an exception.
+  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
+  auto results = taskManager_
+                     ->getResults(
+                         taskId,
+                         0,
+                         0,
+                         protocol::DataSize("32MB"),
+                         protocol::Duration("1s"),
+                         http::CallbackRequestHandlerState::create())
+                     .get();
+  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+
+  {
+    // ensure response is returned with a delay
+    using namespace std::chrono;
+    ASSERT_GE(
+        finishTimeUs - startTimeUs,
+        duration_cast<microseconds>(milliseconds{500}).count());
+  }
 
   ASSERT_FALSE(results->complete);
   ASSERT_EQ(results->data->capacity(), 0);

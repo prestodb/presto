@@ -34,10 +34,12 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -55,7 +57,6 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -548,6 +549,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
         return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern filterWithDecimal(String expectedPredicate, PlanMatchPattern source)
+    {
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate, new ParsingOptions(DecimalLiteralTreatment.AS_DECIMAL))), source);
     }
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)

@@ -381,7 +381,7 @@ public class IcebergPageSink
         throw new UnsupportedOperationException("Type not supported as partition column: " + type.getDisplayName());
     }
 
-    private static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
+    public static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
     {
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;

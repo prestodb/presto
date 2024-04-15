@@ -74,6 +74,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.SqlTimestamp.MICROSECONDS_PER_MILLISECOND;
@@ -204,10 +205,15 @@ public class ShowStatsRewrite
                         .filter(entry -> columns.contains(entry.getKey()))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             }
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), constraint);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            List<ColumnHandle> nonHiddenColumns = ImmutableList.copyOf(tableMetadata.getColumns().stream().filter(column -> !column.isHidden())
+                    .map(ColumnMetadata::getName)
+                    .map(columnHandles::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList()));
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, nonHiddenColumns, constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),
