@@ -516,8 +516,11 @@ uint64_t SharedArbitrator::reclaimUsedMemoryFromCandidatesByAbort(
     }
     try {
       VELOX_MEM_POOL_ABORTED(fmt::format(
-          "Memory pool aborted to reclaim used memory, current usage {}",
-          succinctBytes(candidate.currentBytes)));
+          "Memory pool aborted to reclaim used memory, current usage {}, "
+          "memory pool details:\n{}\n{}",
+          succinctBytes(candidate.currentBytes),
+          candidate.pool->toString(),
+          candidate.pool->treeMemoryUsage()));
     } catch (VeloxRuntimeError&) {
       abort(candidate.pool, std::current_exception());
     }
