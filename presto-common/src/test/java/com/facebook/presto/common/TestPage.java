@@ -39,6 +39,16 @@ import static org.testng.Assert.assertTrue;
 public class TestPage
 {
     @Test
+    public void testAppendColumn()
+    {
+        Page page = new Page(10);
+        Page region = page.getRegion(0, 10);
+        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
+        assertEquals(region.getPositionCount(), 10);
+        assertSame(page, region);
+    }
+
+    @Test
     public void testGetRegion()
     {
         Page page = new Page(10);
@@ -66,6 +76,16 @@ public class TestPage
     public void testGetRegionFromNoColumnPage()
     {
         assertEquals(new Page(100).getRegion(0, 10).getPositionCount(), 10);
+    }
+
+    @Test
+    public void testPrependColumn()
+    {
+        Page page = new Page(10);
+        Page region = page.getRegion(0, 10);
+        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
+        assertEquals(region.getPositionCount(), 10);
+        assertSame(page, region);
     }
 
     @Test
