@@ -31,6 +31,7 @@
 #include "velox/dwio/common/FlushPolicy.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ScanSpec.h"
+#include "velox/dwio/common/UnitLoader.h"
 #include "velox/dwio/common/encryption/Encryption.h"
 
 namespace facebook::velox::dwio::common {
@@ -145,6 +146,7 @@ class RowReaderOptions {
   std::function<void(uint16_t)> stripeCountCallback_;
   bool eagerFirstStripeLoad = true;
   uint64_t skipRows_ = 0;
+  std::shared_ptr<UnitLoaderFactory> unitLoaderFactory_;
 
  public:
   RowReaderOptions() noexcept
@@ -383,6 +385,15 @@ class RowReaderOptions {
 
   uint64_t getSkipRows() const {
     return skipRows_;
+  }
+
+  void setUnitLoaderFactory(
+      std::shared_ptr<UnitLoaderFactory> unitLoaderFactory) {
+    unitLoaderFactory_ = std::move(unitLoaderFactory);
+  }
+
+  const std::shared_ptr<UnitLoaderFactory>& getUnitLoaderFactory() const {
+    return unitLoaderFactory_;
   }
 
   const std::shared_ptr<folly::Executor>& getDecodingExecutor() const {
