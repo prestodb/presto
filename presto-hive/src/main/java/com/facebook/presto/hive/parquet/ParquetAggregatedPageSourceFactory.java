@@ -42,9 +42,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
-import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.mapToPrestoException;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactoryUtils.mapToPrestoException;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetAggregatedPageSourceFactory
@@ -137,6 +137,9 @@ public class ParquetAggregatedPageSourceFactory
             return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
         }
         catch (Exception e) {
+            throw mapToPrestoException(e, path, fileSplit);
+        }
+        finally {
             try {
                 if (dataSource != null) {
                     dataSource.close();
@@ -144,7 +147,6 @@ public class ParquetAggregatedPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            throw mapToPrestoException(e, path, fileSplit);
         }
     }
 }

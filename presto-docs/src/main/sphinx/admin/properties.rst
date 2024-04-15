@@ -157,7 +157,7 @@ Spilling Properties
     This config property can be overridden by the ``spill_enabled`` session property.
 
 ``experimental.join-spill-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -201,7 +201,7 @@ Spilling Properties
     This config property can be overridden by the ``order_by_aggregation_spill_enabled`` session property.
 
 ``experimental.window-spill-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -212,7 +212,7 @@ Spilling Properties
     This config property can be overridden by the ``window_spill_enabled`` session property.
 
 ``experimental.order-by-spill-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -245,7 +245,7 @@ Spilling Properties
         risky if Presto is running without a reserved memory pool.
 
 ``experimental.memory-revoking-threshold``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     * **Type:** ``double``
     * **Minimum value:** ``0``
     * **Maximum value:** ``1``
@@ -284,7 +284,7 @@ Spilling Properties
     is ignored for any other spilling strategy.
 
 ``experimental.max-revocable-memory-per-node``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     * **Type:** ``data size``
     * **Default value:** ``16GB``
 
@@ -305,7 +305,7 @@ Spilling Properties
     cause JVM to pause for lengthy periods, causing queries to fail.
 
 ``experimental.spiller-max-used-space-threshold``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``double``
     * **Default value:** ``0.9``
@@ -365,7 +365,7 @@ Spilling Properties
     data spilled to disk
 
 ``experimental.spiller.single-stream-spiller-choice``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``String``
     * **Default value:** ``LOCAL_FILE``
@@ -374,7 +374,7 @@ Spilling Properties
     LOCAL_FILE (default) and TEMP_STORAGE.
 
 ``experimental.spiller.spiller-temp-storage``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``String``
     * **Default value:** ``local``
@@ -573,7 +573,7 @@ Task Properties
     a per-query basis using the ``task_writer_count`` session property.
 
 ``task.interrupt-runaway-splits-timeout``
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``duration``
     * **Default value:** ``10m``
@@ -758,7 +758,7 @@ Optimizer Properties
     also be specified on a per-query basis using the ``join_reordering_strategy`` session property.
 
 ``optimizer.max-reordered-joins``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
     * **Default value:** ``9``
@@ -770,7 +770,7 @@ Optimizer Properties
                  so increasing this value can cause serious performance issues.
 
 ``optimizer.use-defaults-for-correlated-aggregation-pushdown-through-outer-joins``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -787,7 +787,7 @@ Optimizer Properties
     join and thereby produces more optimal plans.
 
 ``optimizer.rewrite-expression-with-constant-variable``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
@@ -796,28 +796,43 @@ Optimizer Properties
     constant value.
 
 ``optimizer.history-based-optimizer-plan-canonicalization-strategies``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
     * **Default value:** ``IGNORE_SAFE_CONSTANTS``
 
     Plan canonicalization strategies used to canonicalize a query plan for history based optimization.
 
-``optimizer.exploit-constraints``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``optimizer.track-history-stats-from-failed-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``boolean``
     * **Default value:** ``true``
 
-    Enable analysis and propagation of logical properties (distinct keys, cardinality, etc.) among the nodes of
+    Track history based plan statistics from complete plan fragments in failed queries.
+
+``optimizer.log-plans-used-in-history-based-optimizer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Log the stats equivalent plan and canonicalized plans used in history based optimization.
+
+``optimizer.exploit-constraints``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Enable analysis and propagation of logical properties like distinct keys or cardinality among the nodes of
     a query plan. The optimizer may then use these properties to perform various optimizations.
 
-
 Planner Properties
---------------------------------------
+------------------
 
 ``planner.query-analyzer-timeout``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``duration``
     * **Default value:** ``3m``
@@ -873,10 +888,10 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     The more rows you are processing, the larger this value should be.
 
 CTE Materialization Properties
---------------------------------------
+------------------------------
 
 ``cte-materialization-strategy``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
     * **Allowed values:** ``ALL``, ``NONE``
@@ -888,7 +903,7 @@ CTE Materialization Properties
     This can also be specified on a per-query basis using the ``cte_materialization_strategy`` session property.
 
 ``query.cte-hash-partition-count``
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
     * **Default value:** ``100``
@@ -900,7 +915,7 @@ CTE Materialization Properties
     This can also be specified on a per-query basis using the ``cte_hash_partition_count`` session property.
 
 ``query.cte-partitioning-provider-catalog``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
     * **Default value:** ``system``

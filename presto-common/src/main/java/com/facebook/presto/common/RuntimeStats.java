@@ -137,4 +137,11 @@ public class RuntimeStats
         addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
         return result;
     }
+
+    public void profileNanosVoid(String tag, Runnable runnable)
+    {
+        long startTime = System.nanoTime();
+        runnable.run();
+        addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
+    }
 }

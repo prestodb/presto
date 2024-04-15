@@ -192,16 +192,129 @@ only unsupported data types, Presto returns an error similar to the following ex
 
 ``Query 20231120_102910_00004_35dqb failed: Table 'public.unsupported_type_table' has no supported columns (all 1 columns are not supported).``
 
+
+SQL Support
+-----------
+
+The PostgreSQL connector allows querying and creating tables. Here are some examples of the SQL operations supported:
+
+ALTER TABLE
+^^^^^^^^^^^
+
+.. code-block:: sql
+
+    ALTER TABLE postgresql.public.sample_table ADD COLUMN new_col INT;
+    ALTER TABLE postgresql.public.sample_table DROP COLUMN new_col;
+    ALTER TABLE postgresql.public.sample_table RENAME COLUMN is_active TO is_enabled;
+    ALTER TABLE postgresql.public.sample_table RENAME TO renamed_table;
+
+.. note:: Presto does not support altering the data type of a column directly with the ALTER TABLE command.
+
+ .. code-block:: sql
+
+   ALTER TABLE postgresql.public.users ALTER COLUMN age TYPE BIGINT;
+
+ returns an error similar to the following:
+
+ ``Query 20240322_091317_00007_syzb3 failed: line 1:19: mismatched input 'ALTER'. Expecting: 'FUNCTION', 'SCHEMA', 'TABLE'``
+
+CREATE TABLE
+^^^^^^^^^^^^
+
+Create a new table named ``test_integer`` in the ``public`` schema:
+
+.. code-block:: sql
+
+    CREATE TABLE postgresql.public.test_integer ( id INTEGER );
+
+.. note:: Presto does not enforce primary key constraints. For example, the following statement
+
+ .. code-block:: sql
+
+  CREATE TABLE users (
+          id INT PRIMARY KEY,
+          name VARCHAR,
+          email VARCHAR
+      );
+
+ returns an error similar to the following:
+
+ ``Query 20240322_095447_00010_syzb3 failed: line 2:19: mismatched input 'PRIMARY'. Expecting: ')', ','``
+
+CREATE TABLE AS SELECT
+^^^^^^^^^^^^^^^^^^^^^^
+
+Create a new table ``new_table`` from an existing table ``renamed_table``:
+
+.. code-block:: sql
+
+    CREATE TABLE postgresql.public.new_table AS SELECT * FROM postgresql.public.renamed_table;
+
+DESCRIBE
+^^^^^^^^
+
+To see a list of the columns in the ``clicks`` table in the ``web`` database,
+use either of the following:
+
+.. code-block:: sql
+
+    DESCRIBE postgresql.web.clicks;
+    SHOW COLUMNS FROM postgresql.web.clicks;
+
+INSERT INTO
+^^^^^^^^^^^
+
+Insert data into the ``renamed_table`` table:
+
+.. code-block:: sql
+
+    INSERT INTO postgresql.public.renamed_table (id, name) VALUES (1, 'Test');
+
+SELECT
+^^^^^^
+
+.. code-block:: sql
+
+    SELECT * FROM postgresql.public.test_integer;
+
+SHOW SCHEMAS
+^^^^^^^^^^^^
+
+To see the available PostgreSQL schemas:
+
+.. code-block:: sql
+
+    SHOW SCHEMAS FROM postgresql;
+
+SHOW TABLES
+^^^^^^^^^^^
+
+To view the tables in a PostgreSQL schema named ``web``:
+
+.. code-block:: sql
+
+    SHOW TABLES FROM postgresql.web;
+
+TRUNCATE
+^^^^^^^^
+
+Delete all of the data from the table ``renamed_table`` without dropping the table:
+
+.. code-block:: sql
+
+    TRUNCATE TABLE postgresql.public.renamed_table;
+
 PostgreSQL Connector Limitations
 --------------------------------
 
-The following SQL statements are not yet supported:
+The following SQL statements are not supported:
 
+* :doc:`/sql/create-schema`
+* :doc:`/sql/create-view`
 * :doc:`/sql/delete`
-* :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
 * :doc:`/sql/show-role-grants`
+* :doc:`/sql/show-roles`
+* :doc:`/sql/update`

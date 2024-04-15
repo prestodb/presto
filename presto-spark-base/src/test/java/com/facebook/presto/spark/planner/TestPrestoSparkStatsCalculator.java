@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
 import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
@@ -129,7 +130,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1)), statsEquivalentRemoteSource))
                 .check(check -> check.totalSize(1000)
@@ -178,7 +179,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
                 .check(check -> check.totalSize(1000)
@@ -205,7 +206,7 @@ public class TestPrestoSparkStatsCalculator
                         ImmutableList.of(
                                 new HistoricalPlanStatisticsEntry(
                                         new PlanStatistics(Estimate.of(10), Estimate.of(100), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
-                                        ImmutableList.of())))));
+                                        ImmutableList.of(), new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))))));
 
         tester.assertStatsFor(pb -> pb.remoteSource(ImmutableList.of(new PlanFragmentId(1))))
                 .check(check -> check.totalSize(1000)

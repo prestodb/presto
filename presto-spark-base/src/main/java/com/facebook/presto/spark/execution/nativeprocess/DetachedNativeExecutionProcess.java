@@ -39,6 +39,8 @@ public class DetachedNativeExecutionProcess
     private static final Logger log = Logger.get(DetachedNativeExecutionProcess.class);
 
     public DetachedNativeExecutionProcess(
+            String executablePath,
+            String programArguments,
             Session session,
             HttpClient httpClient,
             ExecutorService executorService,
@@ -48,7 +50,9 @@ public class DetachedNativeExecutionProcess
             WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
-        super(session,
+        super(executablePath,
+                programArguments,
+                session,
                 httpClient,
                 executorService,
                 errorRetryScheduledExecutor,

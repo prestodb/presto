@@ -87,6 +87,33 @@ public class ChecksumValidator
                 Optional.empty());
     }
 
+    public Query generateBucketChecksumQuery(QualifiedName tableName, List<Column> partitionColumns, List<Column> dataColumns)
+    {
+        ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
+        selectItems.add(new SingleColumn(new FunctionCall(QualifiedName.of("count"), ImmutableList.of())));
+        for (Column column : dataColumns) {
+            selectItems.addAll(columnValidators.get(column.getCategory()).get().generateChecksumColumns(column));
+        }
+
+        ImmutableList.Builder<GroupingElement> groupByList = ImmutableList.builder();
+        ImmutableList.Builder<SortItem> orderByList = ImmutableList.builder();
+        for (Column partitionColumn : partitionColumns) {
+            orderByList.add(new SortItem(new Identifier(partitionColumn.getName()), ASCENDING, UNDEFINED));
+            groupByList.add(new SimpleGroupBy(ImmutableList.of(new Identifier(partitionColumn.getName()))));
+        }
+        orderByList.add(new SortItem(new Identifier("$bucket"), ASCENDING, UNDEFINED));
+        groupByList.add(new SimpleGroupBy(ImmutableList.of(new Identifier("$bucket"))));
+        return simpleQuery(
+                new Select(false, selectItems.build()),
+                new Table(tableName),
+                Optional.empty(),
+                Optional.of(new GroupBy(false, groupByList.build())),
+                Optional.empty(),
+                Optional.of(new OrderBy(orderByList.build())),
+                Optional.empty(),
+                Optional.empty());
+    }
+
     public List<ColumnMatchResult<?>> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
     {
         return columns.stream()

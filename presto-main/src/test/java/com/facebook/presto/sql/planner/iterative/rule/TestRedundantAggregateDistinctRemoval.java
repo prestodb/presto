@@ -131,6 +131,17 @@ public class TestRedundantAggregateDistinctRemoval
                         node(ProjectNode.class,
                                 aggregation(aggregations,
                                         tableScan("lineitem")))));
+
+        aggregations = ImmutableMap.of(
+                "count", functionCall("count", true, ImmutableList.of(anySymbol())),
+                "avg", functionCall("avg", true, ImmutableList.of(anySymbol())));
+
+        // Multiple grouping sets, so distinct's cannot be removed, even for unique groups
+        tester().assertThat(ImmutableSet.of(new RemoveRedundantAggregateDistinct()), logicalPropertiesProvider)
+                .on("SELECT count(distinct linenumber), avg(distinct tax) FROM lineitem GROUP BY GROUPING SETS ((orderkey), (partkey))")
+                .matches(anyTree(
+                        aggregation(aggregations,
+                                anyTree(tableScan("lineitem")))));
     }
 
     @Test

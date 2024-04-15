@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -45,7 +46,8 @@ public class RemoveRedundantAggregateDistinct
     private static boolean hasAggregations(AggregationNode node)
     {
         return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                !node.getAggregations().isEmpty();
+                !node.getAggregations().isEmpty() &&
+                node.getGroupingSetCount() == 1;
     }
 
     @Override
@@ -60,18 +62,10 @@ public class RemoveRedundantAggregateDistinct
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsBuilder = ImmutableMap.builder();
 
         for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> agg : node.getAggregations().entrySet()) {
-            if (node.getGroupingKeys().stream().allMatch(key -> key instanceof VariableReferenceExpression) &&
-                    (agg.getValue()).getArguments().stream().allMatch(arg -> arg instanceof VariableReferenceExpression)) {
-                Set<VariableReferenceExpression> varAndGroupingKeySet =
-                        Stream.concat(node.getGroupingKeys().stream().map(VariableReferenceExpression.class::cast),
-                                        (agg.getValue()).getArguments().stream().map(VariableReferenceExpression.class::cast))
-                                .collect(toImmutableSet());
-                if (agg.getValue().isDistinct() && ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(varAndGroupingKeySet)) {
-                    aggregationsBuilder.put(agg.getKey(), removeDistinct(agg.getValue()));
-                    continue;
-                }
-            }
-            aggregationsBuilder.put(agg);
+            aggregationsBuilder.put(
+                    canRemoveDistinct(node, agg.getValue()) ?
+                            new SimpleEntry<>(agg.getKey(), removeDistinct(agg.getValue())) :
+                            agg);
         }
 
         Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = aggregationsBuilder.build();
@@ -92,5 +86,29 @@ public class RemoveRedundantAggregateDistinct
                 node.getHashVariable(),
                 node.getGroupIdVariable(),
                 node.getAggregationId()));
+    }
+
+    private boolean canRemoveDistinct(AggregationNode node, AggregationNode.Aggregation aggregation)
+    {
+        if (!aggregation.isDistinct()) {
+            // nothing to do
+            return false;
+        }
+
+        if (!node.getGroupingKeys().stream().allMatch(key -> key instanceof VariableReferenceExpression)
+                || !aggregation.getArguments().stream().allMatch(arg -> arg instanceof VariableReferenceExpression)) {
+            return false;
+        }
+
+        Set<VariableReferenceExpression> varAndGroupingKeySet = Stream.concat(
+                        node.getGroupingKeys()
+                                .stream()
+                                .map(VariableReferenceExpression.class::cast),
+                        aggregation.getArguments()
+                                .stream()
+                                .map(VariableReferenceExpression.class::cast))
+                .collect(toImmutableSet());
+
+        return ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(varAndGroupingKeySet);
     }
 }

@@ -182,7 +182,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime)
     {
-        return Math.round(unixTime * 1000);
+        // This implementation fixes previous issue of precision loss when it comes for some edge cases.
+        // For example, 1.7041507095805E9 would correctly yield "2024-01-01 15:11:49.580"
+        // Machine-representable double for the 1.7041507095805E9 is 1704150709.58049988746643066406.
+        // 1704150709 goes to seconds and 0.580499887466 should be rounded to 580 milliseconds.
+        // Previous implementation would wrongly result in 581 milliseconds.
+        // Reference: https://github.com/prestodb/presto/issues/21891#issue-2126580070
+        return Math.round(Math.floor(unixTime) * 1000 + Math.round((unixTime - Math.floor(unixTime)) * 1000));
     }
 
     @ScalarFunction("from_unixtime")

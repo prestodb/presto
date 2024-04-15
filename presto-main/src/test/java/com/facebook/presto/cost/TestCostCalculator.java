@@ -41,7 +41,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -58,6 +57,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.tpch.TpchColumnHandle;
@@ -70,6 +70,8 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.graph.GraphBuilder;
+import com.google.common.graph.MutableGraph;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -527,11 +529,16 @@ public class TestCostCalculator
                 cteConsumerNode2,
                 JoinDistributionType.PARTITIONED,
                 "orderkey", "custkey");
+        MutableGraph<Integer> sequenceGraph = GraphBuilder.directed().build();
+        // Add indexes to the graph
+        sequenceGraph.addNode(0);
+        sequenceGraph.addNode(1);
         SequenceNode sequenceNode = new SequenceNode(
                 Optional.empty(),
                 new PlanNodeId("sequence"),
                 ImmutableList.of(cteProducerNode1, cteProducerNode2),
-                joinNode);
+                joinNode,
+                sequenceGraph);
 
         // Define cost of sequence children
         Map<String, PlanCostEstimate> costs = ImmutableMap.of(

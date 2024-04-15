@@ -90,6 +90,7 @@ final class StatsUtil
             result.setLowValue(range.getMin());
             result.setHighValue(range.getMax());
         });
+        columnStatistics.getHistogram().ifPresent(result::setHistogram);
         return result.build();
     }
 }

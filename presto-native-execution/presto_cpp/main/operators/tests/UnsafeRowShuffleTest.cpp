@@ -317,6 +317,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<ShuffleWriteTranslator>());
   }
 
+  void TearDown() override {
+    exec::test::waitForAllTasksToBeDeleted();
+    exec::test::OperatorTestBase::TearDown();
+  }
+
   static std::string makeTaskId(
       const std::string& prefix,
       int num,
@@ -744,7 +749,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   TestShuffleWriter::reset();
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
+DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -774,9 +779,10 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
       "ShuffleWriter::collect failed");
 
   TestShuffleWriter::reset();
+  exec::test::waitForAllTasksToBeDeleted();
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
+DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
       makeFlatVector<int64_t>({10, 20, 30, 40}),
@@ -819,6 +825,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   }
 
   TestShuffleWriter::reset();
+  exec::test::waitForAllTasksToBeDeleted();
 }
 
 TEST_F(UnsafeRowShuffleTest, endToEnd) {

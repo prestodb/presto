@@ -134,7 +134,7 @@ class PeriodicTaskManager {
 
   void addWatchdogTask();
 
-  void detachWorker();
+  void detachWorker(const char* reason);
   void maybeAttachWorker();
 
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
@@ -172,6 +172,7 @@ class PeriodicTaskManager {
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;
   folly::ThreadedRepeatingFunctionRunner repeatedRunner_;
+  size_t numDriverThreads_{0};
 };
 
 } // namespace facebook::presto

@@ -17,8 +17,6 @@
 #include <velox/common/process/TraceContext.h>
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
-#include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/http/HttpServer.h"
 #include "velox/connectors/hive/HiveConnector.h"
 
 namespace facebook::presto {

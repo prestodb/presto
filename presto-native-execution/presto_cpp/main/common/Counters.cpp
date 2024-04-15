@@ -63,8 +63,32 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTaskManagerLockTimeOut, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterNumRunningDrivers, facebook::velox::StatType::AVG);
-  DEFINE_METRIC(kCounterNumBlockedDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumQueuedDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumOnThreadDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumSuspendedDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForConsumerDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForSplitDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForProducerDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForJoinBuildDrivers,
+      facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForJoinProbeDrivers,
+      facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForMergeJoinRightSideDrivers,
+      facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForMemoryDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForConnectorDrivers,
+      facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterMappedMemoryBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);

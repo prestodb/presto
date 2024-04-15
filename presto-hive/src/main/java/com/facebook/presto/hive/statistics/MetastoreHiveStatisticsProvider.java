@@ -131,13 +131,13 @@ public class MetastoreHiveStatisticsProvider
             PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
             if (isQuickStatsEnabled(session) &&
                     (tableStatistics.equals(empty()) || tableStatistics.getColumnStatistics().isEmpty())) {
-                tableStatistics = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, UNPARTITIONED_ID);
+                tableStatistics = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
             }
-            return ImmutableMap.of(UNPARTITIONED_ID, tableStatistics);
+            return ImmutableMap.of(UNPARTITIONED_ID.getPartitionName(), tableStatistics);
         }
 
         Set<String> partitionIds = hivePartitions.stream()
-                .map(HivePartition::getPartitionId)
+                .map(hivePartition -> hivePartition.getPartitionId().getPartitionName())
                 .collect(toImmutableSet());
         Map<String, PartitionStatistics> partitionStatistics = metastore.getPartitionStatistics(metastoreContext, table.getSchemaName(), table.getTableName(), partitionIds);
 
@@ -237,10 +237,10 @@ public class MetastoreHiveStatisticsProvider
             HashFunction hashFunction = murmur3_128();
             Comparator<Map.Entry<HivePartition, Long>> hashComparator = Comparator
                     .<Map.Entry<HivePartition, Long>, Long>comparing(Map.Entry::getValue)
-                    .thenComparing(entry -> entry.getKey().getPartitionId());
+                    .thenComparing(entry -> entry.getKey().getPartitionId().getPartitionName());
             partitions.stream()
                     .filter(partition -> !result.contains(partition))
-                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId()).asLong()))
+                    .map(partition -> immutableEntry(partition, hashFunction.hashUnencodedChars(partition.getPartitionId().getPartitionName()).asLong()))
                     .sorted(hashComparator)
                     .limit(samplesLeft)
                     .forEachOrdered(entry -> result.add(entry.getKey()));
@@ -492,7 +492,7 @@ public class MetastoreHiveStatisticsProvider
             double rowCount)
     {
         List<HivePartition> nonEmptyPartitions = partitions.stream()
-                .filter(partition -> getPartitionRowCount(partition.getPartitionId(), statistics).orElse(averageRowsPerPartition) != 0)
+                .filter(partition -> getPartitionRowCount(partition.getPartitionId().getPartitionName(), statistics).orElse(averageRowsPerPartition) != 0)
                 .collect(toImmutableList());
 
         return ColumnStatistics.builder()
@@ -529,7 +529,7 @@ public class MetastoreHiveStatisticsProvider
         double estimatedNullsCount = partitions.stream()
                 .filter(partition -> partition.getKeys().get(column).isNull())
                 .map(HivePartition::getPartitionId)
-                .mapToDouble(partitionName -> getPartitionRowCount(partitionName, statistics).orElse(averageRowsPerPartition))
+                .mapToDouble(partitionName -> getPartitionRowCount(partitionName.getPartitionName(), statistics).orElse(averageRowsPerPartition))
                 .sum();
         return normalizeFraction(estimatedNullsCount / rowCount);
     }
@@ -561,7 +561,7 @@ public class MetastoreHiveStatisticsProvider
         double dataSize = 0;
         for (HivePartition partition : partitions) {
             int length = getSize(partition.getKeys().get(column));
-            double rowCount = getPartitionRowCount(partition.getPartitionId(), statistics).orElse(averageRowsPerPartition);
+            double rowCount = getPartitionRowCount(partition.getPartitionId().getPartitionName(), statistics).orElse(averageRowsPerPartition);
             dataSize += length * rowCount;
         }
         return Estimate.of(dataSize);

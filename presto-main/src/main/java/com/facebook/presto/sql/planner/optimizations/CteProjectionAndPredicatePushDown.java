@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SequenceNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -32,6 +31,7 @@ import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.isCteMaterializationAp
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.planner.PlannerUtils.isConstant;
+import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -304,27 +305,31 @@ public class CteProjectionAndPredicatePushDown
             List<VariableReferenceExpression> usedColumns = context.get().getCteRequiredColumns(cteName);
             List<RowExpression> predicates = context.get().getPredicates(cteName);
 
+            // recursively process child node
+            PlanNode newChild = node.getSource().accept(this, context);
+
             if (usedColumns == null || predicates == null) {
-                return node;
+                PlanNode result = replaceChildren(node, ImmutableList.of(newChild));
+                isPlanRewritten = isPlanRewritten || !node.equals(result);
+                return result;
             }
 
             Set<VariableReferenceExpression> usedColumnsSet = new HashSet<VariableReferenceExpression>(usedColumns);
-            PlanNode childNode = node.getSource();
-            PlanNode newChildNode = addFilter(childNode, predicates);
+            PlanNode newChildWithFilterAndProject = addFilter(newChild, predicates);
 
             List<VariableReferenceExpression> producerColumns = node.getOutputVariables();
             List<VariableReferenceExpression> newProducerColumns = producerColumns.stream().filter(var -> usedColumnsSet.contains(var)).collect(Collectors.toList());
-            if (!newProducerColumns.equals(newChildNode.getOutputVariables())) {
-                newChildNode = PlannerUtils.restrictOutput(newChildNode, idAllocator, newProducerColumns);
+            if (!newProducerColumns.equals(newChildWithFilterAndProject.getOutputVariables())) {
+                newChildWithFilterAndProject = PlannerUtils.restrictOutput(newChildWithFilterAndProject, idAllocator, newProducerColumns);
             }
 
-            if (newChildNode != childNode) {
+            if (newChildWithFilterAndProject != node.getSource()) {
                 isPlanRewritten = true;
                 return new CteProducerNode(
                         node.getSourceLocation(),
                         node.getId(),
                         node.getStatsEquivalentPlanNode(),
-                        newChildNode,
+                        newChildWithFilterAndProject,
                         cteName,
                         node.getRowCountVariable(),
                         newProducerColumns);
@@ -340,7 +345,6 @@ public class CteProjectionAndPredicatePushDown
             List<VariableReferenceExpression> allProducerColumns = context.get().getCteProducerColumns(node.getCteId());
             List<VariableReferenceExpression> requiredProducerColumns = context.get().getCteRequiredColumns(node.getCteId());
             checkState(requiredProducerColumns != null, "Required columns for producer " + node.getCteId() + " not found");
-            Map<VariableReferenceExpression, VariableReferenceExpression> varMap = constructVarMap(allProducerColumns, node.getOutputVariables());
 
             Set<VariableReferenceExpression> requiredProducerColumnsSet = new HashSet<>(requiredProducerColumns);
             List<VariableReferenceExpression> newConsumerColumns = new ArrayList<>();

@@ -107,9 +107,6 @@ public final class SqlFunctionUtils
                         Optional.empty(),
                         sqlFunctionProperties,
                         sessionFunctions,
-                        // TODO: use session to determine if this is a native query
-                        // https://github.com/prestodb/presto/issues/20008
-                        false,
                         new SqlToRowExpressionTranslator.Context()),
                 functionMetadata.getArgumentNames().get(),
                 arguments,

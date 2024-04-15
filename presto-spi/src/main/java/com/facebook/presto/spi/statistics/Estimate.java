@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -84,6 +86,75 @@ public final class Estimate
     public double getValue()
     {
         return value;
+    }
+
+    /**
+     * If the estimate is not an unknown value, maps the current estimate using
+     * the given function.
+     *
+     * @param mapper mapping function
+     * @return a new estimate with the mapped value
+     */
+    public Estimate map(Function<Double, Double> mapper)
+    {
+        if (!isUnknown()) {
+            return Estimate.of(mapper.apply(value));
+        }
+        return this;
+    }
+
+    /**
+     * If the estimate is not unknown, maps the existing value where the mapping
+     * function should return a new estimate.
+     *
+     * @param mapper the mapping function
+     * @return a new estimate with the mapped value
+     */
+    public Estimate flatMap(Function<Double, Estimate> mapper)
+    {
+        if (!isUnknown()) {
+            return mapper.apply(value);
+        }
+        return this;
+    }
+
+    /**
+     * If the estimate is unknown, run another function to generate an estimate
+     *
+     * @param supplier function to supply a new estimate
+     * @return a new estimate
+     */
+    public Estimate or(Supplier<Estimate> supplier)
+    {
+        if (isUnknown()) {
+            return supplier.get();
+        }
+        return this;
+    }
+
+    /**
+     * If the estimate is unknown, run another function to generate an estimate
+     *
+     * @param supplier function to supply a new estimate
+     * @return a new estimate
+     */
+    public double orElse(Supplier<Double> supplier)
+    {
+        if (isUnknown()) {
+            return supplier.get();
+        }
+        return this.getValue();
+    }
+
+    public boolean fuzzyEquals(Estimate other, double tolerance)
+    {
+        if (equals(other)) {
+            return true;
+        }
+        if (isUnknown() || other.isUnknown()) {
+            return false;
+        }
+        return Math.copySign(value - other.value, 1.0) <= tolerance;
     }
 
     @Override

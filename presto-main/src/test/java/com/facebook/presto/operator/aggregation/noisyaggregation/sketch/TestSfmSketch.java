@@ -28,7 +28,7 @@ public class TestSfmSketch
     @Test
     public void testComputeIndex()
     {
-        for (int indexBitLength : new int[]{6, 12, 18}) {
+        for (int indexBitLength : new int[] {6, 12, 18}) {
             long index = 5L;
             long hash = index << (Long.SIZE - indexBitLength);
             assertEquals(SfmSketch.computeIndex(hash, indexBitLength), index);
@@ -46,7 +46,7 @@ public class TestSfmSketch
     @Test
     public void testNumberOfTrailingZeros()
     {
-        for (int indexBitLength : new int[]{6, 12, 18}) {
+        for (int indexBitLength : new int[] {6, 12, 18}) {
             for (int i = 0; i < Long.SIZE - 1; i++) {
                 long hash = 1L << i;
                 assertEquals(SfmSketch.numberOfTrailingZeros(hash, indexBitLength), Math.min(i, Long.SIZE - indexBitLength));

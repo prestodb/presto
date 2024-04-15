@@ -43,7 +43,7 @@ public class HistoricalStatisticsSerde
             return StandardCharsets.UTF_8.decode(bytes).toString();
         }
         else {
-            throw new RuntimeException("HistoricalStatisticsSerde: Error decoding key planHash which was of type String");
+            throw new RedisProviderSerdeException("Error decoding key planHash which was of type String");
         }
     }
 
@@ -63,7 +63,7 @@ public class HistoricalStatisticsSerde
             return ByteBuffer.wrap(dynamicSliceOutput.slice().getBytes());
         }
         catch (ThriftProtocolException e) {
-            throw new RuntimeException(e);
+            throw new RedisProviderSerdeException("Error encoding historicalPlanStatistics value", e);
         }
     }
 
@@ -75,7 +75,7 @@ public class HistoricalStatisticsSerde
             return ThriftProtocolUtils.read(readCodec, Protocol.BINARY, Slices.wrappedBuffer(byteBuffer).getInput());
         }
         catch (ThriftProtocolException e) {
-            throw new RuntimeException(e);
+            throw new RedisProviderSerdeException("Error decoding historicalPlanStatistics value", e);
         }
     }
 }

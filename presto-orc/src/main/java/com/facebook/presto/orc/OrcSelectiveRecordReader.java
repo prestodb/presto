@@ -120,7 +120,6 @@ public class OrcSelectiveRecordReader
 
     private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
     private boolean reorderFilters;
-    private int[] reorderableColumns;                                 // values are hiveColumnIndices
 
     // non-deterministic filter functions with only constant inputs; evaluated before any column is read
     private List<FilterFunctionWithStats> filterFunctionsWithConstantInputs;
@@ -314,7 +313,7 @@ public class OrcSelectiveRecordReader
                 .collect(toImmutableList());
         filterFunctionsOrder = orderFilterFunctionsWithInputs(streamReaderOrder, filterFunctionsWithStats, this.filterFunctionInputMapping);
         filterFunctionInputs = collectFilterFunctionInputs(filterFunctionsOrder, this.filterFunctionInputMapping);
-        reorderableColumns = Arrays.stream(streamReaderOrder)
+        int[] reorderableColumns = Arrays.stream(streamReaderOrder)
                 .filter(columnIndex -> !columnsWithFilterScores.containsKey(columnIndex))
                 .filter(this.filterFunctionInputMapping::containsKey)
                 .toArray();

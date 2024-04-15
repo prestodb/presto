@@ -800,36 +800,42 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       std::max(1.0, maxWait.getValue(protocol::TimeUnit::MICROSECONDS));
   VLOG(1) << "TaskManager::getResults task:" << taskId
           << ", destination:" << destination << ", token:" << token;
-  auto [promise, future] =
-      folly::makePromiseContract<std::unique_ptr<Result>>();
-
-  auto promiseHolder = std::make_shared<PromiseHolder<std::unique_ptr<Result>>>(
-      std::move(promise));
-
-  // Error in fetching results or creating a task may prevent the promise from
-  // being fulfilled leading to a BrokenPromise exception on promise
-  // destruction. To avoid the BrokenPromise exception, fulfill the promise
-  // with incomplete empty pages.
-  promiseHolder->atDestruction(
-      [token](folly::Promise<std::unique_ptr<Result>> promise) {
-        promise.setValue(createEmptyResult(token));
-      });
-
-  auto timeoutFn = [this, token]() { return createEmptyResult(token); };
 
   try {
     auto prestoTask = findOrCreateTask(taskId);
 
     // If the task is aborted or failed, then return an error.
     if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
-      promiseHolder->promise.setValue(createEmptyResult(token));
-      return std::move(future).via(httpSrvCpuExecutor_);
+      // respond with a delay to prevent request "bursts"
+      return folly::futures::sleep(std::chrono::microseconds(maxWaitMicros))
+          .via(httpSrvCpuExecutor_)
+          .thenValue([token](auto&&) { return createEmptyResult(token); });
     }
     if (prestoTask->error != nullptr) {
       LOG(WARNING) << "Calling getResult() on a failed PrestoTask: " << taskId;
-      promiseHolder->promise.setValue(createEmptyResult(token));
-      return std::move(future).via(httpSrvCpuExecutor_);
+      // respond with a delay to prevent request "bursts"
+      return folly::futures::sleep(std::chrono::microseconds(maxWaitMicros))
+          .via(httpSrvCpuExecutor_)
+          .thenValue([token](auto&&) { return createEmptyResult(token); });
     }
+
+    auto [promise, future] =
+        folly::makePromiseContract<std::unique_ptr<Result>>();
+
+    auto promiseHolder =
+        std::make_shared<PromiseHolder<std::unique_ptr<Result>>>(
+            std::move(promise));
+
+    // Error in fetching results or creating a task may prevent the promise from
+    // being fulfilled leading to a BrokenPromise exception on promise
+    // destruction. To avoid the BrokenPromise exception, fulfill the promise
+    // with incomplete empty pages.
+    promiseHolder->atDestruction(
+        [token](folly::Promise<std::unique_ptr<Result>> p) {
+          p.setValue(createEmptyResult(token));
+        });
+
+    auto timeoutFn = [token]() { return createEmptyResult(token); };
 
     for (;;) {
       if (prestoTask->taskStarted) {
@@ -878,11 +884,11 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
           .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
   } catch (const velox::VeloxException& e) {
-    promiseHolder->promise.setException(e);
-    return std::move(future).via(httpSrvCpuExecutor_);
+    return folly::makeSemiFuture<std::unique_ptr<Result>>(e).via(
+        httpSrvCpuExecutor_);
   } catch (const std::exception& e) {
-    promiseHolder->promise.setException(e);
-    return std::move(future).via(httpSrvCpuExecutor_);
+    return folly::makeSemiFuture<std::unique_ptr<Result>>(e).via(
+        httpSrvCpuExecutor_);
   }
 }
 
@@ -1030,18 +1036,22 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-DriverCountStats TaskManager::getDriverCountStats() const {
-  auto taskMap = taskMap_.rlock();
-  DriverCountStats driverCountStats;
-  for (const auto& pair : *taskMap) {
+velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+  const auto taskMap = *taskMap_.rlock();
+  velox::exec::Task::DriverCounts ret;
+  for (const auto& pair : taskMap) {
     if (pair.second->task != nullptr) {
-      driverCountStats.numRunningDrivers +=
-          pair.second->task->numRunningDrivers();
+      auto counts = pair.second->task->driverCounts();
+      // TODO (spershin): Move add logic to velox::exec::Task::DriverCounts.
+      ret.numQueuedDrivers += counts.numQueuedDrivers;
+      ret.numOnThreadDrivers += counts.numOnThreadDrivers;
+      ret.numSuspendedDrivers += counts.numSuspendedDrivers;
+      for (const auto& it : counts.numBlockedDrivers) {
+        ret.numBlockedDrivers[it.first] += it.second;
+      }
     }
   }
-  driverCountStats.numBlockedDrivers =
-      velox::exec::BlockingState::numBlockedDrivers();
-  return driverCountStats;
+  return ret;
 }
 
 bool TaskManager::getStuckOpCalls(

@@ -268,7 +268,8 @@ public class TestHivePageSink
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableSet.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                Optional.empty());
 
         HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
                 .setSchemaTableName(new SchemaTableName(SCHEMA_NAME, TABLE_NAME))

@@ -127,6 +127,7 @@ public class FunctionAndTypeManager
     private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
+    private final boolean nativeExecution;
 
     @Inject
     public FunctionAndTypeManager(
@@ -152,6 +153,7 @@ public class FunctionAndTypeManager
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionSignatureMatcher = new FunctionSignatureMatcher(this);
         this.typeCoercer = new TypeCoercer(featuresConfig, this);
+        this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -572,6 +574,11 @@ public class FunctionAndTypeManager
                 throw e;
             }
         }
+    }
+
+    public boolean nullIfSpecialFormEnabled()
+    {
+        return !nativeExecution;
     }
 
     /**

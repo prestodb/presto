@@ -289,6 +289,7 @@ Name                                        Description
 ``extended-verification``                   Set to ``true`` to run extended table layout verification for written tables.
                                             It only applies to ``Insert`` and ``CreateTableAsSelect`` queries.
                                             It would verify each partition's data checksum if the inserted table is partitioned.
+                                            It would verify each bucket's data checksum if the inserted table is bucketed.
 =========================================== ===============================================================================
 
 

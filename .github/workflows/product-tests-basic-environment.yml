@@ -8,7 +8,7 @@ env:
   CONTINUOUS_INTEGRATION: true
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
   RETRY: .github/bin/retry
 
 jobs:
@@ -43,9 +43,12 @@ jobs:
           sudo apt-get clean
           rm -rf /opt/hostedtoolcache
           df -h
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v1
+      - uses: actions/checkout@v4
         with:
+          show-progress: false
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
           java-version: 8
       - name: Cache local Maven repository
         id: cache-maven

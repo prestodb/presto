@@ -25,7 +25,7 @@ type StageStatisticsProps = {
     stage: any,
 }
 type StageStatisticsState = {}
-type StageNodeInfo = {
+export type StageNodeInfo = {
     stageId: string,
     id: string,
     root: string,
@@ -46,7 +46,7 @@ type QueryInfo = {
     outputStage: OutputStage
 }
 
-class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
+export class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
     static getStages(queryInfo: QueryInfo): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
@@ -125,7 +125,7 @@ type PlanNodeProps = {
 }
 type PlanNodeState = {}
 
-class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
+export class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     constructor(props: PlanNodeProps) {
         super(props);
     }

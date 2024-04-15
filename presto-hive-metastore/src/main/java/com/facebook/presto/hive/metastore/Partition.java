@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,6 +46,7 @@ public class Partition
     private final boolean sealedPartition;
     private final int createTime;
     private final long lastDataCommitTime;
+    private final Optional<byte[]> rowIdPartitionComponent;
 
     @JsonCreator
     public Partition(
@@ -58,7 +60,8 @@ public class Partition
             @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
             @JsonProperty("sealedPartition") boolean sealedPartition,
             @JsonProperty("createTime") int createTime,
-            @JsonProperty("lastDataCommitTime") long lastDataCommitTime)
+            @JsonProperty("lastDataCommitTime") long lastDataCommitTime,
+            @JsonProperty("rowIdPartitionComponent") Optional<byte[]> rowIdPartitionComponent)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -71,6 +74,7 @@ public class Partition
         this.sealedPartition = sealedPartition;
         this.createTime = createTime;
         this.lastDataCommitTime = lastDataCommitTime;
+        this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent);
     }
 
     @JsonProperty
@@ -145,6 +149,20 @@ public class Partition
         return lastDataCommitTime;
     }
 
+    /**
+     * A unique identifier for a specific version of a
+     * specific partition in a specific table.
+     */
+    @JsonProperty
+    public Optional<byte[]> getRowIdPartitionComponent()
+    {
+        if (rowIdPartitionComponent.isPresent()) {
+            byte[] copy = Arrays.copyOf(rowIdPartitionComponent.get(), rowIdPartitionComponent.get().length);
+            return Optional.of(copy);
+        }
+        return Optional.empty();
+    }
+
     @Override
     public String toString()
     {
@@ -208,6 +226,7 @@ public class Partition
         private boolean isSealedPartition = true;
         private int createTime;
         private long lastDataCommitTime;
+        private Optional<byte[]> rowIdPartitionComponent = Optional.empty();
 
         private Builder()
         {
@@ -226,6 +245,7 @@ public class Partition
             this.isEligibleToIgnore = partition.isEligibleToIgnore();
             this.createTime = partition.getCreateTime();
             this.lastDataCommitTime = partition.getLastDataCommitTime();
+            this.rowIdPartitionComponent = partition.getRowIdPartitionComponent();
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -299,9 +319,20 @@ public class Partition
             return this;
         }
 
+        /**
+         * Sets a unique identifier for a specific version of a
+         * specific partition in a specific table. This value will normally be
+         * supplied by Metastore, along with other metadata.
+         */
+        public Builder setRowIdPartitionComponent(Optional<byte[]> rowIdPartitionComponent)
+        {
+            this.rowIdPartitionComponent = rowIdPartitionComponent;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime, lastDataCommitTime);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition, createTime, lastDataCommitTime, rowIdPartitionComponent);
         }
     }
 }

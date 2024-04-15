@@ -487,6 +487,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     null,
                     false,
                     ROW_EXPRESSION_SERVICE,
+                    Optional.empty(),
                     Optional.empty())
                     .get();
         }

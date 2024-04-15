@@ -41,6 +41,37 @@ namespace {
 
 namespace facebook::presto {
 
+namespace {
+folly::StringPiece getCounterForBlockingReason(
+    velox::exec::BlockingReason reason) {
+  switch (reason) {
+    case velox::exec::BlockingReason::kWaitForConsumer:
+      return kCounterNumBlockedWaitForConsumerDrivers;
+    case velox::exec::BlockingReason::kWaitForSplit:
+      return kCounterNumBlockedWaitForSplitDrivers;
+    case velox::exec::BlockingReason::kWaitForProducer:
+      return kCounterNumBlockedWaitForProducerDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinBuild:
+      return kCounterNumBlockedWaitForJoinBuildDrivers;
+    case velox::exec::BlockingReason::kWaitForJoinProbe:
+      return kCounterNumBlockedWaitForJoinProbeDrivers;
+    case velox::exec::BlockingReason::kWaitForMergeJoinRightSide:
+      return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
+    case velox::exec::BlockingReason::kWaitForMemory:
+      return kCounterNumBlockedWaitForMemoryDrivers;
+    case velox::exec::BlockingReason::kWaitForConnector:
+      return kCounterNumBlockedWaitForConnectorDrivers;
+    case velox::exec::BlockingReason::kWaitForSpill:
+      return kCounterNumBlockedWaitForSpillDrivers;
+    case velox::exec::BlockingReason::kYield:
+      return kCounterNumBlockedYieldDrivers;
+    case velox::exec::BlockingReason::kNotBlocked:
+      return {};
+  }
+  return {};
+}
+} // namespace
+
 // Every two seconds we export server counters.
 static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every two seconds we export memory counters.
@@ -121,6 +152,7 @@ void PeriodicTaskManager::start() {
   }
 
   if (server_ && server_->hasCoordinatorDiscoverer()) {
+    numDriverThreads_ = server_->numDriverThreads();
     addWatchdogTask();
   }
 
@@ -182,11 +214,18 @@ void PeriodicTaskManager::updateTaskStats() {
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed, taskNumbers[velox::exec::TaskState::kFailed]);
 
-  auto driverCountStats = taskManager_->getDriverCountStats();
+  const auto driverCounts = taskManager_->getDriverCounts();
+  RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumRunningDrivers, driverCountStats.numRunningDrivers);
+      kCounterNumOnThreadDrivers, driverCounts.numOnThreadDrivers);
   RECORD_METRIC_VALUE(
-      kCounterNumBlockedDrivers, driverCountStats.numBlockedDrivers);
+      kCounterNumSuspendedDrivers, driverCounts.numSuspendedDrivers);
+  for (const auto& it : driverCounts.numBlockedDrivers) {
+    const auto counterName = getCounterForBlockingReason(it.first);
+    if (counterName.data() != nullptr) {
+      RECORD_METRIC_VALUE(counterName, it.second);
+    }
+  }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
       velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
@@ -670,7 +709,7 @@ void PeriodicTaskManager::addWatchdogTask() {
           LOG(ERROR)
               << "Cannot take lock on task manager, likely starving or deadlocked";
           RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 1);
-          detachWorker();
+          detachWorker("starving or deadlocked task manager");
           return;
         }
         RECORD_METRIC_VALUE(kCounterNumTaskManagerLockTimeOut, 0);
@@ -684,8 +723,14 @@ void PeriodicTaskManager::addWatchdogTask() {
                      << " duration= " << velox::succinctMillis(call.durationMs);
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
-        if (!deadlockTasks.empty() || !stuckOpCalls.empty()) {
-          detachWorker();
+
+        // Detach worker from the cluster if more than half of driver threads
+        // are blocked by stuck operators (one unique operator can only get
+        // stuck on one unique thread).
+        if (stuckOpCalls.size() > numDriverThreads_ / 2) {
+          detachWorker("detected stuck operators");
+        } else if (!deadlockTasks.empty()) {
+          detachWorker("starving or deadlocked task");
         } else {
           maybeAttachWorker();
         }
@@ -694,11 +739,11 @@ void PeriodicTaskManager::addWatchdogTask() {
       "Watchdog");
 }
 
-void PeriodicTaskManager::detachWorker() {
+void PeriodicTaskManager::detachWorker(const char* reason) {
   LOG(WARNING) << "TraceContext::status:\n"
                << velox::process::TraceContext::statusLine();
   if (server_ && server_->nodeState() == NodeState::kActive) {
-    LOG(WARNING) << "Will detach worker due to detected stuck operators";
+    LOG(WARNING) << "Will detach worker due to " << reason;
     server_->detachWorker();
   }
 }

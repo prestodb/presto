@@ -37,6 +37,7 @@ public class DataMatchResult
     {
         DATA,
         PARTITION_DATA,
+        BUCKET_DATA,
     }
     public enum MatchType
     {
@@ -45,6 +46,7 @@ public class DataMatchResult
         ROW_COUNT_MISMATCH,
         COLUMN_MISMATCH,
         PARTITION_COUNT_MISMATCH,
+        BUCKET_COUNT_MISMATCH,
         SNAPSHOT_DOES_NOT_EXIST,
     }
 

@@ -48,7 +48,7 @@ public class TestMapColumnStatisticsBuilder
     }
 
     @Test
-    public void testAddMapStatisticsNoValues()
+    public void testAddEmptyMapStatistics()
     {
         MapColumnStatisticsBuilder builder = new MapColumnStatisticsBuilder(true);
         ColumnStatistics columnStatistics = builder.buildColumnStatistics();

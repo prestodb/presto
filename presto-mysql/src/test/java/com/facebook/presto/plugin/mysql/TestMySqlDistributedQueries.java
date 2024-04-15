@@ -33,7 +33,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@Test
+@Test(singleThreaded = true)
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {

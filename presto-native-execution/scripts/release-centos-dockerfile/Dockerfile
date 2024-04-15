@@ -70,8 +70,7 @@ RUN --mount=type=ssh \
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
     set -exu && \
-    sed -i 's/\(.*folly.*\)/# \1/g' "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
-    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
+    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-centos8.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
     set +exu && \
@@ -106,7 +105,7 @@ RUN set -exu && \
     ) && \
     ( \
       mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/main/* ${PRESTODB_HOME}/ && \
-      mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/presto_protocol/tests/presto_protocol_test $${PRESTODB_HOME}/ || true \
+      mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/presto_protocol/tests/presto_protocol_test ${PRESTODB_HOME}/ || true \
     ) && \
     [ ${CLEANUP_BUILD_ARTIFACTS} -eq 0 ] || \
     rm -rf ${PRESTODB_HOME}/_repo/presto-native-execution/_repo /opt/dependency/aws-sdk-cpp /tmp/* && \

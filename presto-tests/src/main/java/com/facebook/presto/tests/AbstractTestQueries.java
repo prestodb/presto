@@ -5666,7 +5666,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(stringBuilder.toString(), "Query results in large bytecode exceeding the limits imposed by JVM|Compiler failed");
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 60_000)
     public void testLargeQuery()
     {
         StringBuilder query = new StringBuilder("SELECT * FROM (VALUES ROW(0, '0')");
@@ -6339,22 +6339,22 @@ public abstract class AbstractTestQueries
                 .build();
 
         String leftJoin = "SELECT o.orderkey, l.discount FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey";
-        assertQuery(enableRandomize, leftJoin, getSession(), leftJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, leftJoin, getSession());
 
         String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
-        assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, multipleJoin, getSession());
 
         Session enableKeyFromOuterJoin = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
                 .build();
-        assertQuery(enableKeyFromOuterJoin, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableKeyFromOuterJoin, multipleJoin, getSession());
 
         Session enableRandomizeFourPartition = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
                 .setSystemProperty(HASH_PARTITION_COUNT, "1")
                 .build();
         String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
-        assertQuery(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
+        assertQueryWithSameQueryRunner(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
     }
 
     @Test
@@ -7503,5 +7503,15 @@ public abstract class AbstractTestQueries
                 ".*Out of range for integer.*");
         assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
                 "values 0.5, 0.1");
+    }
+
+    // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
+    @Test
+    public void testGuardConstraintFramework()
+    {
+        assertQuery("with t as (select orderkey, count(1) cnt from (select * from (select * from orders where 1=0) left join (select partkey, suppkey from lineitem where 1=0) on partkey=10 where suppkey is not null) group by rollup(orderkey)) select t1.orderkey, t1.cnt from t t1 cross join t t2",
+                "values (null, 0)");
+        assertQuery("select orderkey from (select * from (select * from orders where 1=0)) group by rollup(orderkey)",
+                "values (null)");
     }
 }

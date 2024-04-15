@@ -29,7 +29,7 @@ public class TestDoubleRegrAvgxAggregation
     public Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
-            return 0.0;
+            return null;
         }
 
         double expected = 0.0;

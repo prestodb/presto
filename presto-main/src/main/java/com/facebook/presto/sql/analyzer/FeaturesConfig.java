@@ -94,15 +94,17 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
-    private boolean cteFilterAndProjectionPushdownEnabled;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
     private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean trackHistoryStatsFromFailedQuery = true;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
+    private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -305,6 +307,7 @@ public class FeaturesConfig
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
+    private boolean useHistograms;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -365,6 +368,8 @@ public class FeaturesConfig
     {
         ALL, // Materialize all CTES
         NONE, // Materialize no CTES
+
+        // HEURISTIC algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization
         HEURISTIC, // Materialize CTES occuring  >= CTE_HEURISTIC_REPLICATION_THRESHOLD
         HEURISTIC_COMPLEX_QUERIES_ONLY // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate
     }
@@ -919,6 +924,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isTrackHistoryStatsFromFailedQuery()
+    {
+        return trackHistoryStatsFromFailedQuery;
+    }
+
+    @Config("optimizer.track-history-stats-from-failed-queries")
+    public FeaturesConfig setTrackHistoryStatsFromFailedQuery(boolean trackHistoryStatsFromFailedQuery)
+    {
+        this.trackHistoryStatsFromFailedQuery = trackHistoryStatsFromFailedQuery;
+        return this;
+    }
+
     public boolean isUsePerfectlyConsistentHistories()
     {
         return usePerfectlyConsistentHistories;
@@ -968,6 +985,18 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
     {
         this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
+        return this;
+    }
+
+    public boolean isLogPlansUsedInHistoryBasedOptimizer()
+    {
+        return logPlansUsedInHistoryBasedOptimizer;
+    }
+
+    @Config("optimizer.log-plans-used-in-history-based-optimizer")
+    public FeaturesConfig setLogPlansUsedInHistoryBasedOptimizer(boolean logPlansUsedInHistoryBasedOptimizer)
+    {
+        this.logPlansUsedInHistoryBasedOptimizer = logPlansUsedInHistoryBasedOptimizer;
         return this;
     }
 
@@ -3058,6 +3087,19 @@ public class FeaturesConfig
     public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
+        return this;
+    }
+
+    public boolean isUseHistograms()
+    {
+        return useHistograms;
+    }
+
+    @Config("optimizer.use-histograms")
+    @ConfigDescription("Use histogram statistics in cost-based calculations in the optimizer")
+    public FeaturesConfig setUseHistograms(boolean useHistograms)
+    {
+        this.useHistograms = useHistograms;
         return this;
     }
 }

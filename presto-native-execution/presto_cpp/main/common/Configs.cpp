@@ -172,6 +172,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kSystemMemLimitGb, 55),
           NUM_PROP(kSystemMemShrinkGb, 8),
           BOOL_PROP(kMallocMemHeapDumpEnabled, false),
+          BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
           NUM_PROP(kMallocHeapDumpThresholdGb, 20),
           NUM_PROP(kMallocMemMinHeapDumpInterval, 10),
           NUM_PROP(kMallocMemMaxHeapDumpFiles, 5),
@@ -387,6 +388,10 @@ uint32_t SystemConfig::systemMemShrinkGb() const {
 
 bool SystemConfig::systemMemPushbackEnabled() const {
   return optionalProperty<bool>(kSystemMemPushbackEnabled).value();
+}
+
+bool SystemConfig::systemMemPushBackAbortEnabled() const {
+  return optionalProperty<bool>(kSystemMemPushbackAbortEnabled).value();
 }
 
 bool SystemConfig::mallocMemHeapDumpEnabled() const {
@@ -665,11 +670,6 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
-          BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
-          STR_PROP(
-              QueryConfig::kCodegenConfigurationFilePath,
-              c.codegenConfigurationFilePath()),
-          BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
           STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
           BOOL_PROP(
               QueryConfig::kAdjustTimestampToTimezone,
@@ -716,18 +716,8 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
               c.aggregationSpillEnabled()),
           BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
           BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
-          NUM_PROP(
-              QueryConfig::kAggregationSpillMemoryThreshold,
-              c.aggregationSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kJoinSpillMemoryThreshold,
-              c.joinSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kOrderBySpillMemoryThreshold,
-              c.orderBySpillMemoryThreshold()),
           NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
           NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
-          NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
           NUM_PROP(
               QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
           NUM_PROP(

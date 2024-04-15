@@ -46,6 +46,7 @@ public class HiveSplitPartitionInfo
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
     private final Set<ColumnHandle> redundantColumnDomains;
+    private final Optional<byte[]> rowIdPartitionComponent;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
@@ -58,7 +59,8 @@ public class HiveSplitPartitionInfo
             int partitionDataColumnCount,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<HiveSplit.BucketConversion> bucketConversion,
-            Set<ColumnHandle> redundantColumnDomains)
+            Set<ColumnHandle> redundantColumnDomains,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(storage, "storage is null");
         requireNonNull(path, "path is null");
@@ -67,6 +69,7 @@ public class HiveSplitPartitionInfo
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
+        requireNonNull(rowIdPartitionComponent, "rowIdPartitionComponent is null");
 
         this.storage = storage;
         this.path = ensurePathHasTrailingSlash(path);
@@ -76,6 +79,7 @@ public class HiveSplitPartitionInfo
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.redundantColumnDomains = redundantColumnDomains;
+        this.rowIdPartitionComponent = rowIdPartitionComponent;
     }
 
     // Hadoop path strips trailing slashes from the path string,
@@ -110,6 +114,11 @@ public class HiveSplitPartitionInfo
     public String getPartitionName()
     {
         return partitionName;
+    }
+
+    public Optional<byte[]> getRowIdPartitionComponent()
+    {
+        return rowIdPartitionComponent;
     }
 
     public int getPartitionDataColumnCount()

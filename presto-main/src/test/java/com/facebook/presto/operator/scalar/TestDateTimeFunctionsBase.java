@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimeWithTimeZone;
+import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimeZoneKey;
@@ -78,6 +79,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
 import static org.joda.time.Months.monthsBetween;
@@ -193,6 +195,10 @@ public abstract class TestDateTimeFunctionsBase
         dateTime = new DateTime(2001, 1, 22, 3, 4, 5, 888, DATE_TIME_ZONE);
         seconds = dateTime.getMillis() / 1000.0;
         assertFunction("from_unixtime(" + seconds + ")", TimestampType.TIMESTAMP, sqlTimestampOf(dateTime, session));
+
+        // The particular double, 1.7041507095805E9, was causing loss of precision in the function before the fix #21899
+        SqlTimestamp expected = sqlTimestampOf(2024, 1, 1, 23, 11, 49, 580, UTC, session.getTimeZoneKey(), session.toConnectorSession());
+        assertFunction("from_unixtime(1.7041507095805E9)", TimestampType.TIMESTAMP, expected);
     }
 
     @Test

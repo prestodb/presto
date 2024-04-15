@@ -197,15 +197,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
-  // List of comma separated ciphers the client can use.
+  /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
-  // to communicate.
+  /// to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
-  // Path to a .PEM file with certificate and key concatenated together.
+  /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
@@ -267,6 +267,11 @@ class SystemConfig : public ConfigBase {
   /// get the server out of low memory condition. This only applies if
   /// 'system-mem-pushback-enabled' is true.
   static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+  /// If true, memory pushback will quickly abort queries with the most memory
+  /// usage under low memory condition. This only applies if
+  /// 'system-mem-pushback-enabled' is set.
+  static constexpr std::string_view kSystemMemPushbackAbortEnabled{
+      "system-mem-pushback-abort-enabled"};
 
   /// If true, memory allocated via malloc is periodically checked and a heap
   /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
@@ -578,6 +583,8 @@ class SystemConfig : public ConfigBase {
   uint32_t systemMemLimitGb() const;
 
   uint32_t systemMemShrinkGb() const;
+
+  bool systemMemPushBackAbortEnabled() const;
 
   bool mallocMemHeapDumpEnabled() const;
 

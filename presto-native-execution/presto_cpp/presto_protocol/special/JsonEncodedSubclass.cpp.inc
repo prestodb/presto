@@ -16,8 +16,13 @@
 
 namespace facebook::presto::protocol {
 
-std::string JsonEncodedSubclass::getSubclassKey(nlohmann::json j) {
-  return j["@type"];
+std::string JsonEncodedSubclass::getSubclassKey(const nlohmann::json& j) {
+  if (j.is_array()) {
+    // enum is serialized as an array: ["type","instance"]
+    return j[0];
+  } else {
+    return j["@type"];
+  }
 }
 
 } // namespace facebook::presto::protocol

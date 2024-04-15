@@ -315,7 +315,7 @@ public class QuickStatsProvider
         Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
         Optional<Partition> partition;
         Path path;
-        if (UNPARTITIONED_ID.equals(partitionId)) {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
             partition = Optional.empty();
             path = new Path(resolvedTable.getStorage().getLocation());
         }
