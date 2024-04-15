@@ -61,7 +61,7 @@ executors:
   build:
     docker:
       # These images are managed by the Presto Release team.
-      - image: public.ecr.aws/oss-presto/prestocpp:root-20240129
+      - image: public.ecr.aws/oss-presto/prestocpp:root-20240416
     resource_class: 2xlarge
     environment:
       MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError -XX:CompressedClassSpaceSize=3g"
