@@ -243,7 +243,7 @@ public class ScalarStatsCalculator
                         .setHighValue(-stats.getLowValue())
                         .build();
             }
-            throw new IllegalStateException(format("Unexpected sign: %s(%s)" + call.getDisplayName(), call.getFunctionHandle()));
+            throw new IllegalStateException(format("Unexpected sign: %s(%s)", call.getDisplayName(), call.getFunctionHandle()));
         }
 
         private VariableStatsEstimate computeArithmeticBinaryStatistics(CallExpression call, Void context)

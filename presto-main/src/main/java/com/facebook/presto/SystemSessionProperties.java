@@ -1689,7 +1689,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY,
-                        format("When to apply randomization to join keys in outer joins to mitigate null skew",
+                        format("When to apply randomization to join keys in outer joins to mitigate null skew. Value must be one of: %s",
                                 Stream.of(RandomizeOuterJoinNullKeyStrategy.values())
                                         .map(RandomizeOuterJoinNullKeyStrategy::name)
                                         .collect(joining(","))),
@@ -1701,12 +1701,12 @@ public final class SystemSessionProperties
                         RandomizeOuterJoinNullKeyStrategy::name),
                 doubleProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY_NULL_RATIO_THRESHOLD,
-                        "Enable randomizing null join key for outer join when ratio of null join keys exceed the threshold",
+                        "Enable randomizing null join key for outer join when ratio of null join keys exceeds the threshold",
                         0.02,
                         false),
                 new PropertyMetadata<>(
                         SHARDED_JOINS_STRATEGY,
-                        format("When to shard joins to mitigate skew",
+                        format("When to shard joins to mitigate skew. Value must be one of: %s",
                                 Stream.of(ShardedJoinStrategy.values())
                                         .map(ShardedJoinStrategy::name)
                                         .collect(joining(","))),
@@ -1787,7 +1787,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN,
-                        format("Push down expression evaluation in filter through cross join",
+                        format("Push down expression evaluation in filter through cross join %s",
                                 Stream.of(PushDownFilterThroughCrossJoinStrategy.values())
                                         .map(PushDownFilterThroughCrossJoinStrategy::name)
                                         .collect(joining(","))),
