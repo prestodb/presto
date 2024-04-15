@@ -463,7 +463,7 @@ public class TestEncryption
                 if (type.equals(BIGINT)) {
                     assertEquals(inputFile.getFileContent()[rowIndex++].getLong(name, 0), block.getLong(i));
                 }
-                else if (type.equals(INT32)) {
+                else if (type.equals(INTEGER)) {
                     assertEquals(inputFile.getFileContent()[rowIndex++].getInteger(name, 0), block.getInt(i));
                 }
                 else if (type.equals(VARCHAR)) {
