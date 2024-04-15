@@ -48,6 +48,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
@@ -1067,7 +1068,7 @@ public final class IcebergUtil
                 }
                 while (currentDeletes.hasNext()) {
                     DeleteFile deleteFile = currentDeletes.next();
-                    if (shouldIncludeFile(deleteFile)) {
+                    if (shouldIncludeFile(deleteFile, partitionSpecsById.get(deleteFile.specId()))) {
                         // If there is a requested schema only include files that match it
                         if (seenFiles.add(deleteFile.path().toString())) {
                             currentFile = deleteFile;
@@ -1087,12 +1088,25 @@ public final class IcebergUtil
             return result;
         }
 
-        private boolean shouldIncludeFile(DeleteFile file)
+        private boolean shouldIncludeFile(DeleteFile file, PartitionSpec partitionSpec)
         {
             boolean matchesPartition = !requestedPartitionSpec.isPresent() ||
-                    requestedPartitionSpec.get().equals(partitionSpecsById.get(file.specId()).fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
-            return matchesPartition && (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
-                    !requestedSchema.isPresent() || requestedSchema.get().equals(ImmutableSet.copyOf(file.equalityFieldIds())));
+                    requestedPartitionSpec.get().equals(partitionSpec.fields().stream().map(PartitionField::fieldId).collect(Collectors.toSet()));
+            return matchesPartition &&
+                    (fromIcebergFileContent(file.content()) == POSITION_DELETES ||
+                            equalityFieldIdsFulfillRequestSchema(file, partitionSpec));
+        }
+
+        private boolean equalityFieldIdsFulfillRequestSchema(DeleteFile file, PartitionSpec partitionSpec)
+        {
+            Set<Integer> identityPartitionSourceIds = partitionSpec.fields().stream()
+                    .filter(partitionField -> partitionField.transform().isIdentity())
+                    .map(PartitionField::sourceId).collect(Collectors.toSet());
+
+            // Column ids in `requestedSchema` do not include identity partition columns for the sake of `delete-schema-merging` within the same partition spec.
+            // So we need to filter out the identity partition columns from delete files' `equalityFiledIds` when determine if they fulfill the `requestedSchema`.
+            return !requestedSchema.isPresent() ||
+                    requestedSchema.get().equals(Sets.difference(ImmutableSet.copyOf(file.equalityFieldIds()), identityPartitionSourceIds));
         }
 
         @Override
