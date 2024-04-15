@@ -1489,9 +1489,9 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
     if (buildSpillDirectoryFailure) {
       // Set bad formatted spill path.
       taskManager_->setBaseSpillDirectory(
-          fmt::format("/etc/{}", spillDir->path));
+          fmt::format("/etc/{}", spillDir->getPath()));
     } else {
-      taskManager_->setBaseSpillDirectory(spillDir->path);
+      taskManager_->setBaseSpillDirectory(spillDir->getPath());
     }
 
     std::map<std::string, std::string> queryConfigs;
