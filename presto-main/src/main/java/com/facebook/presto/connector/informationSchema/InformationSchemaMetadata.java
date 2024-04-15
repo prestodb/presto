@@ -253,7 +253,7 @@ public class InformationSchemaMetadata
 
     private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
     {
-        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
+        return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
