@@ -903,6 +903,7 @@ public class OrcSelectiveRecordReader
     {
         super.close();
     }
+
     private final class OrcBlockLoader
             implements LazyBlockLoader<LazyBlock>
     {
