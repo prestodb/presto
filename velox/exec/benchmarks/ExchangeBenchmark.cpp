@@ -343,54 +343,20 @@ int32_t ExchangeBenchmark::iteration_;
 
 std::unique_ptr<ExchangeBenchmark> bm;
 
-std::vector<RowVectorPtr> flat10k;
-std::vector<RowVectorPtr> deep10k;
-std::vector<RowVectorPtr> flat50;
-std::vector<RowVectorPtr> deep50;
-std::vector<RowVectorPtr> struct1k;
+void runBenchmarks() {
+  std::vector<RowVectorPtr> flat10k;
+  std::vector<RowVectorPtr> deep10k;
+  std::vector<RowVectorPtr> flat50;
+  std::vector<RowVectorPtr> deep50;
+  std::vector<RowVectorPtr> struct1k;
 
-Counters flat10kCounters;
-Counters deep10kCounters;
-Counters flat50Counters;
-Counters deep50Counters;
-Counters localFlat10kCounters;
-Counters struct1kCounters;
+  Counters flat10kCounters;
+  Counters deep10kCounters;
+  Counters flat50Counters;
+  Counters deep50Counters;
+  Counters localFlat10kCounters;
+  Counters struct1kCounters;
 
-BENCHMARK(exchangeFlat10k) {
-  bm->run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
-}
-
-BENCHMARK_RELATIVE(exchangeFlat50) {
-  bm->run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
-}
-
-BENCHMARK(exchangeDeep10k) {
-  bm->run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
-}
-
-BENCHMARK_RELATIVE(exchangeDeep50) {
-  bm->run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
-}
-
-BENCHMARK(exchangeStruct1K) {
-  bm->run(struct1k, FLAGS_width, FLAGS_task_width, struct1kCounters);
-}
-
-BENCHMARK(localFlat10k) {
-  bm->runLocal(
-      flat10k, FLAGS_width, FLAGS_num_local_tasks, localFlat10kCounters);
-}
-
-} // namespace
-
-int main(int argc, char** argv) {
-  folly::Init init{&argc, &argv};
-  memory::MemoryManager::initialize({});
-  functions::prestosql::registerAllScalarFunctions();
-  aggregate::prestosql::registerAllAggregateFunctions();
-  parse::registerTypeResolver();
-  serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  exec::ExchangeSource::registerFactory(exec::test::createLocalExchangeSource);
   std::vector<std::string> flatNames = {"c0"};
   std::vector<TypePtr> flatTypes = {BIGINT()};
   std::vector<TypePtr> typeSelection = {
@@ -444,12 +410,42 @@ int main(int argc, char** argv) {
             MAP(BIGINT(),
                 ROW({{"s2_int", INTEGER()}, {"s2_string", VARCHAR()}})))}});
 
-  bm = std::make_unique<ExchangeBenchmark>();
   flat10k = bm->makeRows(flatType, 10, 10000, FLAGS_dict_pct);
   deep10k = bm->makeRows(deepType, 10, 10000, FLAGS_dict_pct);
   flat50 = bm->makeRows(flatType, 2000, 50, FLAGS_dict_pct);
   deep50 = bm->makeRows(deepType, 2000, 50, FLAGS_dict_pct);
   struct1k = bm->makeRows(structType, 100, 1000, FLAGS_dict_pct);
+
+  folly::addBenchmark(__FILE__, "exchangeFlat10k", [&]() {
+    bm->run(flat10k, FLAGS_width, FLAGS_task_width, flat10kCounters);
+    return 1;
+  });
+
+  folly::addBenchmark(__FILE__, "exchangeFlat50", [&]() {
+    bm->run(flat50, FLAGS_width, FLAGS_task_width, flat50Counters);
+    return 1;
+  });
+
+  folly::addBenchmark(__FILE__, "exchangeDeep10k", [&]() {
+    bm->run(deep10k, FLAGS_width, FLAGS_task_width, deep10kCounters);
+    return 1;
+  });
+
+  folly::addBenchmark(__FILE__, "exchangeDeep50", [&]() {
+    bm->run(deep50, FLAGS_width, FLAGS_task_width, deep50Counters);
+    return 1;
+  });
+
+  folly::addBenchmark(__FILE__, "exchangeStruct1K", [&]() {
+    bm->run(struct1k, FLAGS_width, FLAGS_task_width, struct1kCounters);
+    return 1;
+  });
+
+  folly::addBenchmark(__FILE__, "localFlat10k", [&]() {
+    bm->runLocal(
+        flat10k, FLAGS_width, FLAGS_num_local_tasks, localFlat10kCounters);
+    return 1;
+  });
 
   folly::runBenchmarks();
   std::cout << "flat10k: " << flat10kCounters.toString() << std::endl
@@ -457,6 +453,22 @@ int main(int argc, char** argv) {
             << "deep10k: " << deep10kCounters.toString() << std::endl
             << "deep50: " << deep50Counters.toString() << std::endl
             << "struct1k: " << struct1kCounters.toString() << std::endl;
-  return 0;
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+  folly::Init init{&argc, &argv};
+  memory::MemoryManager::initialize({});
+  functions::prestosql::registerAllScalarFunctions();
+  aggregate::prestosql::registerAllAggregateFunctions();
+  parse::registerTypeResolver();
+  serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  exec::ExchangeSource::registerFactory(exec::test::createLocalExchangeSource);
+
+  bm = std::make_unique<ExchangeBenchmark>();
+  runBenchmarks();
+  bm.reset();
+
   return 0;
 }
