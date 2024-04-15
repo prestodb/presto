@@ -24,6 +24,8 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -53,6 +55,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -828,6 +831,25 @@ public class CanonicalPlanGenerator
 
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitSequence(SequenceNode node, Context context)
+    {
+        node.getCteProducers().forEach(x -> x.accept(this, context));
+        return node.getPrimarySource().accept(this, context);
+    }
+
+    @Override
+    public Optional<PlanNode> visitCteProducer(CteProducerNode node, Context context)
+    {
+        return node.getSource().accept(this, context);
+    }
+
+    @Override
+    public Optional<PlanNode> visitCteConsumer(CteConsumerNode node, Context context)
+    {
+        return node.getOriginalSource().accept(this, context);
     }
 
     private Aggregation getCanonicalAggregation(Aggregation aggregation, Map<VariableReferenceExpression, VariableReferenceExpression> context)
