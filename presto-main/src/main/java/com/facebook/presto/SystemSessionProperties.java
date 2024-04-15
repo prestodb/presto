@@ -74,7 +74,6 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.ALWAYS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy.NEVER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -2029,7 +2028,7 @@ public final class SystemSessionProperties
 
     public static boolean isCteMaterializationApplicable(Session session)
     {
-        boolean isStrategyNone = getCteMaterializationStrategy(session).equals(NONE);
+        boolean isStrategyNone = getCteMaterializationStrategy(session) == CteMaterializationStrategy.NONE;
         boolean hasMaterializedCTE = session.getCteInformationCollector().getCTEInformationList()
                 .stream()
                 .anyMatch(CTEInformation::isMaterialized);
@@ -2195,7 +2194,7 @@ public final class SystemSessionProperties
         Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
         if (reorderJoins != null) {
             if (!reorderJoins) {
-                return NONE;
+                return JoinReorderingStrategy.NONE;
             }
             return ELIMINATE_CROSS_JOINS;
         }
