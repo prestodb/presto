@@ -376,7 +376,7 @@ public class AggregationImplementation
                     builder.add(BLOCK_INDEX);
                 }
                 else {
-                    throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
+                    throw new IllegalArgumentException("Unsupported annotation: " + baseTypeAnnotation);
                 }
             }
             return builder.build();

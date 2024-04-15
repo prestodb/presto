@@ -1116,9 +1116,9 @@ public interface TupleDomainFilter
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{lower='").append(lower);
+            sb.append("{lower='").append(Arrays.toString(lower));
             sb.append(", lowerExclusive=").append(lowerExclusive);
-            sb.append(", upper='").append(upper);
+            sb.append(", upper='").append(Arrays.toString(upper));
             sb.append(", upperExclusive=").append(upperExclusive);
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
@@ -1248,7 +1248,7 @@ public interface TupleDomainFilter
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{values='").append(values);
+            sb.append("{values='").append(Arrays.toString(values));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
 
@@ -1390,7 +1390,7 @@ public interface TupleDomainFilter
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{ranges='").append(ranges);
+            sb.append("{ranges='").append(Arrays.toString(ranges));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append("}");
 
@@ -1509,7 +1509,7 @@ public interface TupleDomainFilter
         public String toString()
         {
             StringBuilder sb = new StringBuilder(this.getClass().getName());
-            sb.append("{filters='").append(filters);
+            sb.append("{filters='").append(Arrays.toString(filters));
             sb.append(", nullAllowed=").append(nullAllowed);
             sb.append(", nanAllowed=").append(nanAllowed);
             sb.append("}");
