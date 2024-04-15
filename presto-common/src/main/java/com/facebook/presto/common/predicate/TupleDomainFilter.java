@@ -604,7 +604,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(min, max, size, containsEmptyMarker, hashTable, nullAllowed);
+            return Objects.hash(min, max, size, containsEmptyMarker, Arrays.hashCode(hashTable), nullAllowed);
         }
 
         @Override
@@ -1080,7 +1080,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(lower, lowerExclusive, upper, upperExclusive, nullAllowed);
+            return Objects.hash(Arrays.hashCode(lower), lowerExclusive, Arrays.hashCode(upper), upperExclusive, nullAllowed);
         }
 
         public boolean isSingleValue()
@@ -1241,7 +1241,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(values, nullAllowed);
+            return Objects.hash(Arrays.hashCode(values), nullAllowed);
         }
 
         @Override
@@ -1383,7 +1383,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(ranges, nullAllowed);
+            return Objects.hash(Arrays.hashCode(ranges), nullAllowed);
         }
 
         @Override
@@ -1502,7 +1502,7 @@ public interface TupleDomainFilter
         @Override
         public int hashCode()
         {
-            return Objects.hash(filters, nullAllowed, nanAllowed);
+            return Objects.hash(Arrays.hashCode(filters), nullAllowed, nanAllowed);
         }
 
         @Override
