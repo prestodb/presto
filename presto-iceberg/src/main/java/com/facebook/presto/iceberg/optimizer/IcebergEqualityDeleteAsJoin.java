@@ -51,6 +51,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.PartitionField;
@@ -271,15 +272,27 @@ public class IcebergEqualityDeleteAsJoin
                 files.forEachRemaining(delete -> {
                     if (fromIcebergFileContent(delete.content()) == EQUALITY_DELETES) {
                         ImmutableMap.Builder<Integer, PartitionFieldInfo> partitionFieldsBuilder = new ImmutableMap.Builder<>();
+                        ImmutableSet.Builder<Integer> identityPartitionFieldSourceIdsBuilder = new Builder<>();
                         PartitionSpec partitionSpec = icebergTable.specs().get(delete.specId());
                         Types.StructType partitionType = partitionSpec.partitionType();
                         // PartitionField ids are unique across the entire table in v2. We can assume we are in v2 since v1 doesn't have equality deletes
-                        partitionSpec.fields().forEach(f -> partitionFieldsBuilder.put(f.fieldId(), new PartitionFieldInfo(partitionType.field(f.fieldId()), f)));
+                        partitionSpec.fields().forEach(field -> {
+                            if (field.transform().isIdentity()) {
+                                identityPartitionFieldSourceIdsBuilder.add(field.sourceId());
+                            }
+                            partitionFieldsBuilder.put(field.fieldId(), new PartitionFieldInfo(partitionType.field(field.fieldId()), field));
+                        });
                         ImmutableMap<Integer, PartitionFieldInfo> partitionFields = partitionFieldsBuilder.build();
+                        ImmutableSet<Integer> identityPartitionFieldSourceIds = identityPartitionFieldSourceIdsBuilder.build();
                         HashSet<Integer> result = new HashSet<>();
-                        result.addAll(delete.equalityFieldIds());
                         result.addAll(partitionFields.keySet());
-                        deleteInformations.put(ImmutableSet.copyOf(result), new DeleteSetInfo(partitionFields, delete.equalityFieldIds()));
+
+                        // Filter out identity partition columns from delete file's `equalityFieldIds` to support `delete-schema-merging` within the same partition spec.
+                        List<Integer> equalityFieldIdsExcludeIdentityPartitionField = delete.equalityFieldIds().stream()
+                                .filter(fieldId -> !identityPartitionFieldSourceIds.contains(fieldId))
+                                .collect(Collectors.toList());
+                        result.addAll(equalityFieldIdsExcludeIdentityPartitionField);
+                        deleteInformations.put(ImmutableSet.copyOf(result), new DeleteSetInfo(partitionFields, equalityFieldIdsExcludeIdentityPartitionField));
                     }
                 });
             }
@@ -308,7 +321,7 @@ public class IcebergEqualityDeleteAsJoin
                     icebergTableHandle.getStorageProperties(),
                     Optional.of(SchemaParser.toJson(new Schema(deleteFields))),
                     Optional.of(deleteInfo.partitionFields.keySet()),                // Enforce reading only delete files that match this schema
-                    Optional.of(deleteInfo.equalityFieldIds));
+                    Optional.ofNullable(deleteInfo.equalityFieldIds.isEmpty() ? null : deleteInfo.equalityFieldIds));
 
             return new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
@@ -470,7 +483,6 @@ public class IcebergEqualityDeleteAsJoin
                                     }
                                     return partitionFieldInfo.nestedField;
                                 }))
-                        .distinct()
                         .collect(Collectors.toList());
             }
         }
