@@ -281,6 +281,8 @@ public class HiveSplit
                 .put("partitionName", partitionName)
                 .put("s3SelectPushdownEnabled", Boolean.toString(s3SelectPushdownEnabled))
                 .put("cacheQuotaRequirement", cacheQuotaRequirement.toString())
+                .put("readBucketNumber", readBucketNumber.toString())
+                .put("tableBucketNumber", tableBucketNumber.toString())
                 .build();
     }
 
