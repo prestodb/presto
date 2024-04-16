@@ -4332,6 +4332,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testGroupedJoinWithUngroupedSemiJoin()
+    {
+        Session groupedExecutionSession = Session.builder(getSession())
+                .setSystemProperty(COLOCATED_JOIN, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "true")
+                .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE big_bucketed_table \n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key1']) AS\n" +
+                            "SELECT orderkey key1 FROM orders",
+                    15000);
+            assertUpdate("CREATE TABLE small_unbucketed_table AS\n" +
+                            "SELECT nationkey key2 FROM nation",
+                    25);
+            assertQuery(groupedExecutionSession,
+                    "SELECT count(*) from big_bucketed_table t1 JOIN (SELECT key1 FROM big_bucketed_table where key1 IN (SELECT key2 from small_unbucketed_table)) t2 on t1.key1 = t2.key1 group by t1.key1",
+                    "SELECT count(*) from orders where orderkey < 25 group by orderkey");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS big_bucketed_table");
+            assertUpdate("DROP TABLE IF EXISTS small_unbucketed_table");
+        }
+    }
+
+    @Test
     public void testRcTextCharDecoding()
     {
         testRcTextCharDecoding(false);

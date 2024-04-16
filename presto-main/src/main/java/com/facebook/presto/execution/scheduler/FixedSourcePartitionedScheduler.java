@@ -142,11 +142,9 @@ public class FixedSourcePartitionedScheduler
                 else {
                     LifespanScheduler lifespanScheduler;
                     if (bucketNodeMap.isDynamic()) {
-                        // Callee of the constructor guarantees dynamic bucket node map will only be
-                        // used when the stage has no remote source.
-                        //
-                        // When the stage has no remote source, any scan is grouped execution guarantees
-                        // all scan is grouped execution.
+                        // Caller of the constructor guarantees dynamic bucket node map will only be
+                        // used when the stage has no non-replicated remote sources and all scans use grouped
+                        // execution.
                         lifespanScheduler = new DynamicLifespanScheduler(bucketNodeMap, nodes, partitionHandles, concurrentLifespansPerTask);
                     }
                     else {
