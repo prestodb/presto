@@ -1,6 +1,50 @@
-===================================
-Decimal functions and special forms
-===================================
+=================
+Decimal Operators
+=================
+
+When calculating the result precision and scale of arithmetic operators,
+the formulas follow Hive which is based on the SQL standard and MS SQL:
+
+https://cwiki.apache.org/confluence/download/attachments/27362075/Hive_Decimal_Precision_Scale_Support.pdf
+
+https://msdn.microsoft.com/en-us/library/ms190476.aspx
+
+Addition and Subtraction
+------------------------
+
+::
+
+	p = max(p1 - s1, p2 - s2) + max(s1, s2) + 1
+	s = max(s1, s2)
+
+Multiplication
+--------------
+
+::
+
+	p = p1 + p2 + 1
+	s = s1 + s2
+
+Division
+--------
+
+::
+
+    p = p1 - s1 + s2 + max(6, s1 + p2 + 1)
+    s = max(6, s1 + p2 + 1)
+
+For above arithmetic operators, when the precision of result exceeds 38,
+caps p at 38 and reduces the scale, in order to prevent the truncation of
+the integer part of the decimals. Below formula illustrates how the result
+precision and scale are adjusted.
+
+::
+
+    precision = 38
+    scale = max(38 - (p - s), min(s, 6))
+
+Users experience runtime errors when the actual result cannot be represented
+with the calculated decimal type.
 
 Decimal Functions
 -----------------
