@@ -257,11 +257,6 @@ public class AsyncPageTransportServlet
                 responseExecutor);
     }
 
-    @Override
-    public void destroy()
-    {
-    }
-
     @Managed
     @Nested
     public TimeStat getReadFromOutputBufferTime()

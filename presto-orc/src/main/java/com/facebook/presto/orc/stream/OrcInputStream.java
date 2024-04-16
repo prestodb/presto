@@ -128,12 +128,6 @@ public final class OrcInputStream
     }
 
     @Override
-    public boolean markSupported()
-    {
-        return false;
-    }
-
-    @Override
     public int read()
             throws IOException
     {

@@ -252,12 +252,6 @@ public enum FileFormat
             }
             return new PrestoPageFormatWriter(targetFile, compressionCodec);
         }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return true;
-        }
     },
 
     PRESTO_PARQUET {

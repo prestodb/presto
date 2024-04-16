@@ -123,12 +123,6 @@ public class TestShortArrayBlock
     }
 
     @Override
-    protected boolean isShortAccessSupported()
-    {
-        return true;
-    }
-
-    @Override
     protected boolean isIntAccessSupported()
     {
         return false;
