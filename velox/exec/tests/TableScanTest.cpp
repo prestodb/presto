@@ -4047,3 +4047,23 @@ TEST_F(TableScanTest, timestampPartitionKey) {
                   .planNode();
   AssertQueryBuilder(plan).splits(std::move(splits)).assertResults(expected);
 }
+
+TEST_F(TableScanTest, partitionKeyNotMatchPartitionKeysHandle) {
+  auto vectors = makeVectors(1, 1'000);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->path, vectors);
+  createDuckDbTable(vectors);
+
+  auto split = HiveConnectorSplitBuilder(filePath->path)
+                   .partitionKey("ds", "2021-12-02")
+                   .build();
+
+  auto outputType = ROW({"c0"}, {BIGINT()});
+  auto op = PlanBuilder()
+                .startTableScan()
+                .outputType(outputType)
+                .endTableScan()
+                .planNode();
+
+  assertQuery(op, split, "SELECT c0 FROM tmp");
+}

@@ -576,8 +576,6 @@ bool testFilters(
         partitionKey,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         partitionKeysHandle) {
-  VELOX_CHECK_EQ(partitionKey.size(), partitionKeysHandle.size());
-
   auto totalRows = reader->numberOfRows();
   const auto& fileTypeWithId = reader->typeWithId();
   const auto& rowType = reader->rowType();
