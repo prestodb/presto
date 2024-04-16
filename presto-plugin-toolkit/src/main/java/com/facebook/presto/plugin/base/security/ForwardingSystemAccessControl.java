@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -231,6 +232,11 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return delegate().getRowFilter(identity, context, tableName);
+    }
+    
     public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropConstraint(identity, context, table);

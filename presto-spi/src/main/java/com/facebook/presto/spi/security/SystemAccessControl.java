@@ -340,6 +340,18 @@ public interface SystemAccessControl
     }
 
     /**
+     * Get a row filter associated with the given table and identity.
+     *
+     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the filter, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+     
+    /**
      * Check if identity is allowed to drop constraints from the specified table in a catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

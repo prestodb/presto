@@ -21,14 +21,20 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -84,6 +90,7 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+    private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -107,9 +114,16 @@ public class TestingAccessControlManager
         Collections.addAll(this.denyPrivileges, deniedPrivileges);
     }
 
+    public void rowFilter(QualifiedObjectName table, String identity, ViewExpression filter)
+    {
+        rowFilters.computeIfAbsent(new RowFilterKey(identity, table), key -> new ArrayList<>())
+                .add(filter);
+    }
+
     public void reset()
     {
         denyPrivileges.clear();
+        rowFilters.clear();
     }
 
     @Override
@@ -333,6 +347,11 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        return rowFilters.getOrDefault(new RowFilterKey(identity.getUser(), tableName), ImmutableList.of());
+    }
+    
     public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_CONSTRAINT)) {
@@ -420,6 +439,38 @@ public class TestingAccessControlManager
                     .add("entityName", entityName)
                     .add("type", type)
                     .toString();
+        }
+    }
+
+    private static class RowFilterKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+
+        public RowFilterKey(String identity, QualifiedObjectName table)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterKey that = (RowFilterKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table);
         }
     }
 }
