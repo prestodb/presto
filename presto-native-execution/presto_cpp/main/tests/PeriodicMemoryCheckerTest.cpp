@@ -46,7 +46,7 @@ class PeriodicMemoryCheckerTest : public testing::Test {
     }
 
    protected:
-    int64_t systemUsedMemoryBytes() const override {
+    int64_t systemUsedMemoryBytes() override {
       return systemUsedMemoryBytes_;
     }
 
