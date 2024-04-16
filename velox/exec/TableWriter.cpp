@@ -316,7 +316,7 @@ uint64_t TableWriter::ConnectorReclaimer::reclaim(
     return 0;
   }
   VELOX_CHECK(
-      !driver->state().isOnThread() || driver->state().isSuspended ||
+      !driver->state().isOnThread() || driver->state().suspended() ||
       driver->state().isTerminated);
   VELOX_CHECK(driver->task()->pauseRequested());
 

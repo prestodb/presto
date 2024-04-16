@@ -64,19 +64,20 @@ TEST_F(MemoryReclaimerTest, enterArbitrationTest) {
     auto reclaimer = exec::MemoryReclaimer::create();
     auto driver = Driver::testingCreate(
         std::make_unique<DriverCtx>(fakeTask_, 0, 0, 0, 0));
+    fakeTask_->testingIncrementThreads();
     if (underDriverContext) {
       driver->state().setThread();
       ScopedDriverThreadContext scopedDriverThreadCtx{*driver->driverCtx()};
       reclaimer->enterArbitration();
       ASSERT_TRUE(driver->state().isOnThread());
-      ASSERT_TRUE(driver->state().isSuspended);
+      ASSERT_TRUE(driver->state().suspended());
       reclaimer->leaveArbitration();
       ASSERT_TRUE(driver->state().isOnThread());
-      ASSERT_FALSE(driver->state().isSuspended);
+      ASSERT_FALSE(driver->state().suspended());
     } else {
       reclaimer->enterArbitration();
       ASSERT_FALSE(driver->state().isOnThread());
-      ASSERT_FALSE(driver->state().isSuspended);
+      ASSERT_FALSE(driver->state().suspended());
       reclaimer->leaveArbitration();
     }
   }

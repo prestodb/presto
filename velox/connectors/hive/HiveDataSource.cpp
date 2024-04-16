@@ -49,8 +49,8 @@ HiveDataSource::HiveDataSource(
   // Column handled keyed on the column alias, the name used in the query.
   for (const auto& [canonicalizedName, columnHandle] : columnHandles) {
     auto handle = std::dynamic_pointer_cast<HiveColumnHandle>(columnHandle);
-    VELOX_CHECK(
-        handle != nullptr,
+    VELOX_CHECK_NOT_NULL(
+        handle,
         "ColumnHandle must be an instance of HiveColumnHandle for {}",
         canonicalizedName);
 
@@ -67,7 +67,7 @@ HiveDataSource::HiveDataSource(
   auto readerRowTypes = outputType_->children();
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       subfields;
-  for (auto& outputName : outputType_->names()) {
+  for (const auto& outputName : outputType_->names()) {
     auto it = columnHandles.find(outputName);
     VELOX_CHECK(
         it != columnHandles.end(),
@@ -86,9 +86,8 @@ HiveDataSource::HiveDataSource(
   }
 
   hiveTableHandle_ = std::dynamic_pointer_cast<HiveTableHandle>(tableHandle);
-  VELOX_CHECK(
-      hiveTableHandle_ != nullptr,
-      "TableHandle must be an instance of HiveTableHandle");
+  VELOX_CHECK_NOT_NULL(
+      hiveTableHandle_, "TableHandle must be an instance of HiveTableHandle");
   if (hiveConfig_->isFileColumnNamesReadAsLowerCase(
           connectorQueryCtx->sessionProperties())) {
     checkColumnNameLowerCase(outputType_);
@@ -97,7 +96,7 @@ HiveDataSource::HiveDataSource(
   }
 
   SubfieldFilters filters;
-  for (auto& [k, v] : hiveTableHandle_->subfieldFilters()) {
+  for (const auto& [k, v] : hiveTableHandle_->subfieldFilters()) {
     filters.emplace(k.clone(), v->clone());
   }
   double sampleRate = 1;

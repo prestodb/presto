@@ -73,8 +73,8 @@ std::string HiveColumnHandle::toString() const {
       columnTypeName(columnType_),
       dataType_->toString());
   out << " requiredSubfields: [";
-  for (const auto& s : requiredSubfields_) {
-    out << " " << s.toString();
+  for (const auto& subfield : requiredSubfields_) {
+    out << " " << subfield.toString();
   }
   out << " ]]";
   return out.str();

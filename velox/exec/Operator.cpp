@@ -624,11 +624,11 @@ uint64_t Operator::MemoryReclaimer::reclaim(
   }
   VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
   VELOX_CHECK(
-      !driver->state().isOnThread() || driver->state().isSuspended ||
+      !driver->state().isOnThread() || driver->state().suspended() ||
           driver->state().isTerminated,
       "driverOnThread {}, driverSuspended {} driverTerminated {} {}",
       driver->state().isOnThread(),
-      driver->state().isSuspended,
+      driver->state().suspended(),
       driver->state().isTerminated,
       pool->name());
   VELOX_CHECK(driver->task()->pauseRequested());
@@ -670,10 +670,10 @@ void Operator::MemoryReclaimer::abort(
   }
   VELOX_CHECK_EQ(pool->name(), op_->pool()->name());
   VELOX_CHECK(
-      !driver->state().isOnThread() || driver->state().isSuspended ||
+      !driver->state().isOnThread() || driver->state().suspended() ||
       driver->state().isTerminated);
   VELOX_CHECK(driver->task()->isCancelled());
-  if (driver->state().isOnThread() && driver->state().isSuspended) {
+  if (driver->state().isOnThread() && driver->state().suspended()) {
     // We can't abort an operator if it is running on a driver thread and
     // suspended for memory arbitration. Otherwise, it might cause random crash
     // when the driver thread throws after detects the aborted query.

@@ -197,7 +197,7 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
           state->operator_->recordBlockingTime(
               state->sinceMicros_, state->reason_);
         }
-        VELOX_CHECK(!driver->state().isSuspended);
+        VELOX_CHECK(!driver->state().suspended());
         VELOX_CHECK(driver->state().hasBlockingFuture);
         driver->state().hasBlockingFuture = false;
         if (task->pauseRequested()) {
@@ -1007,7 +1007,10 @@ SuspendedSection::SuspendedSection(Driver* driver) : driver_(driver) {
 
 SuspendedSection::~SuspendedSection() {
   if (driver_->task()->leaveSuspended(driver_->state()) != StopReason::kNone) {
-    VELOX_FAIL("Terminate detected when leaving suspended section");
+    LOG(WARNING)
+        << "Terminate detected when leaving suspended section for driver "
+        << driver_->driverCtx()->driverId << " from task "
+        << driver_->task()->taskId();
   }
 }
 

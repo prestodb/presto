@@ -632,6 +632,11 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDriversInPartitionedOutput_ > 0;
   }
 
+  void testingIncrementThreads() {
+    std::lock_guard l(mutex_);
+    ++numThreads_;
+  }
+
   /// Invoked to run provided 'callback' on each alive driver of the task.
   void testingVisitDrivers(const std::function<void(Driver*)>& callback);
 

@@ -143,7 +143,7 @@ class FakeMemoryOperator : public Operator {
       override {
     VELOX_CHECK(canReclaim());
     auto* driver = operatorCtx_->driver();
-    VELOX_CHECK(!driver->state().isOnThread() || driver->state().isSuspended);
+    VELOX_CHECK(!driver->state().isOnThread() || driver->state().suspended());
     VELOX_CHECK(driver->task()->pauseRequested());
     VELOX_CHECK_GT(targetBytes, 0);
 

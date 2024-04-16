@@ -69,20 +69,20 @@ class HiveColumnHandle : public ColumnHandle {
     return hiveType_;
   }
 
-  // Applies to columns of complex types: arrays, maps and structs.  When a
-  // query uses only some of the subfields, the engine provides the complete
-  // list of required subfields and the connector is free to prune the rest.
-  //
-  // Examples:
-  //  - SELECT a[1], b['x'], x.y FROM t
-  //  - SELECT a FROM t WHERE b['y'] > 10
-  //
-  // Pruning a struct means populating some of the members with null values.
-  //
-  // Pruning a map means dropping keys not listed in the required subfields.
-  //
-  // Pruning arrays means dropping values with indices larger than maximum
-  // required index.
+  /// Applies to columns of complex types: arrays, maps and structs.  When a
+  /// query uses only some of the subfields, the engine provides the complete
+  /// list of required subfields and the connector is free to prune the rest.
+  ///
+  /// Examples:
+  ///  - SELECT a[1], b['x'], x.y FROM t
+  ///  - SELECT a FROM t WHERE b['y'] > 10
+  ///
+  /// Pruning a struct means populating some of the members with null values.
+  ///
+  /// Pruning a map means dropping keys not listed in the required subfields.
+  ///
+  /// Pruning arrays means dropping values with indices larger than maximum
+  /// required index.
   const std::vector<common::Subfield>& requiredSubfields() const {
     return requiredSubfields_;
   }

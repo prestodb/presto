@@ -258,7 +258,7 @@ const std::string& getColumnName(const common::Subfield& subfield) {
   VELOX_CHECK_GT(subfield.path().size(), 0);
   auto* field = dynamic_cast<const common::Subfield::NestedField*>(
       subfield.path()[0].get());
-  VELOX_CHECK(field);
+  VELOX_CHECK_NOT_NULL(field);
   return field->name();
 }
 
@@ -273,7 +273,7 @@ void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type) {
 
     } break;
     case TypeKind::ROW: {
-      for (auto& outputName : type->asRow().names()) {
+      for (const auto& outputName : type->asRow().names()) {
         VELOX_CHECK(
             !std::any_of(outputName.begin(), outputName.end(), isupper));
       }
@@ -290,15 +290,15 @@ void checkColumnNameLowerCase(
     const SubfieldFilters& filters,
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns) {
-  for (auto& pair : filters) {
-    if (auto name = pair.first.toString();
-        isSynthesizedColumn(name, infoColumns)) {
+  for (const auto& filterIt : filters) {
+    const auto name = filterIt.first.toString();
+    if (isSynthesizedColumn(name, infoColumns)) {
       continue;
     }
-    auto& path = pair.first.path();
+    const auto& path = filterIt.first.path();
 
     for (int i = 0; i < path.size(); ++i) {
-      auto nestedField =
+      auto* nestedField =
           dynamic_cast<const common::Subfield::NestedField*>(path[i].get());
       if (nestedField == nullptr) {
         continue;
@@ -727,7 +727,7 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
     SubfieldFilters& filters,
     double& sampleRate) {
   auto* call = dynamic_cast<const core::CallTypedExpr*>(expr.get());
-  if (!call) {
+  if (call == nullptr) {
     return expr;
   }
   common::Filter* oldFilter = nullptr;
@@ -749,11 +749,13 @@ core::TypedExprPtr extractFiltersFromRemainingFilter(
       LOG(WARNING) << "Merging with " << oldFilter->toString();
     }
   }
+
   if (isNotExpr(expr, call, evaluator)) {
     auto inner = extractFiltersFromRemainingFilter(
         call->inputs()[0], evaluator, !negated, filters, sampleRate);
     return inner ? replaceInputs(call, {inner}) : nullptr;
   }
+
   if ((call->name() == "and" && !negated) ||
       (call->name() == "or" && negated)) {
     auto lhs = extractFiltersFromRemainingFilter(

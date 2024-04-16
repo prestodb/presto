@@ -861,7 +861,7 @@ void Task::resume(std::shared_ptr<Task> self) {
     if (self->isRunningLocked()) {
       for (auto& driver : self->drivers_) {
         if (driver != nullptr) {
-          if (driver->state().isSuspended) {
+          if (driver->state().suspended()) {
             // The Driver will come on thread in its own time as long as
             // the cancel flag is reset. This check needs to be inside 'mutex_'.
             continue;
@@ -2121,7 +2121,7 @@ Task::DriverCounts Task::driverCounts() const {
     if (driver) {
       if (driver->state().isEnqueued) {
         ++ret.numQueuedDrivers;
-      } else if (driver->state().isSuspended) {
+      } else if (driver->state().suspended()) {
         ++ret.numSuspendedDrivers;
       } else if (driver->isOnThread()) {
         ++ret.numOnThreadDrivers;
@@ -2513,6 +2513,7 @@ StopReason Task::enterSuspended(ThreadState& state) {
       promise.setValue();
     }
   });
+
   std::lock_guard<std::timed_mutex> l(mutex_);
   if (state.isTerminated) {
     return StopReason::kAlreadyTerminated;
@@ -2529,10 +2530,15 @@ StopReason Task::enterSuspended(ThreadState& state) {
           reason == StopReason::kYield,
       "Unexpected stop reason on suspension: {}",
       reason);
-  state.isSuspended = true;
+  if (++state.numSuspensions > 1) {
+    // Only the first suspension request needs to update the running driver
+    // thread counter in the task.
+    return StopReason::kNone;
+  }
   if (--numThreads_ == 0) {
     threadFinishPromises = allThreadsFinishedLocked();
   }
+  VELOX_CHECK_GE(numThreads_, 0);
   return StopReason::kNone;
 }
 
@@ -2543,8 +2549,15 @@ StopReason Task::leaveSuspended(ThreadState& state) {
   for (;;) {
     {
       std::lock_guard<std::timed_mutex> l(mutex_);
-      ++numThreads_;
-      state.isSuspended = false;
+      VELOX_CHECK_GT(state.numSuspensions, 0);
+      auto leaveGuard = folly::makeGuard([&]() {
+        VELOX_CHECK_GE(numThreads_, 0);
+        if (--state.numSuspensions == 0) {
+          // Only the last suspension leave needs to update the running driver
+          // thread counter in the task
+          ++numThreads_;
+        }
+      });
       if (state.isTerminated) {
         return StopReason::kAlreadyTerminated;
       }
@@ -2552,12 +2565,14 @@ StopReason Task::leaveSuspended(ThreadState& state) {
         state.isTerminated = true;
         return StopReason::kTerminate;
       }
-      if (!pauseRequested_) {
-        // For yield or anything but pause we return here.
+      if (state.numSuspensions > 1 || !pauseRequested_) {
+        // If we have more than one suspension requests on this driver thread or
+        // the task has been resumed, then we return here.
         return StopReason::kNone;
       }
-      --numThreads_;
-      state.isSuspended = true;
+      VELOX_CHECK_GT(state.numSuspensions, 0);
+      VELOX_CHECK_GE(numThreads_, 0);
+      leaveGuard.dismiss();
     }
     // If the pause flag is on when trying to reenter, sleep a while outside of
     // the mutex and recheck. This is rare and not time critical. Can happen if

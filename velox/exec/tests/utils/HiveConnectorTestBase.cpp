@@ -17,6 +17,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/file/tests/FaultyFileSystem.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
@@ -26,6 +27,7 @@ namespace facebook::velox::exec::test {
 
 HiveConnectorTestBase::HiveConnectorTestBase() {
   filesystems::registerLocalFileSystem();
+  tests::utils::registerFaultyFileSystem();
 }
 
 void HiveConnectorTestBase::SetUp() {

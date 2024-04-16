@@ -57,6 +57,14 @@ class TableScan : public SourceOperator {
   }
 
  private:
+  // Checks if this table scan operator needs to yield before processing the
+  // next split.
+  bool shouldYield(StopReason taskStopReason, size_t startTimeMs) const;
+
+  // Checks if this table scan operator needs to stop because the task has been
+  // terminated.
+  bool shouldStop(StopReason taskStopReason) const;
+
   // Sets 'maxPreloadSplits' and 'splitPreloader' if prefetching splits is
   // appropriate. The preloader will be applied to the 'first 'maxPreloadSplits'
   // of the Task's split queue for 'this' when getting splits.

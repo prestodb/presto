@@ -70,7 +70,7 @@ void memoryArbitrationStateCheck(memory::MemoryPool& pool) {
   const auto* driverThreadCtx = driverThreadContext();
   if (driverThreadCtx != nullptr) {
     Driver* driver = driverThreadCtx->driverCtx.driver;
-    if (!driver->state().isSuspended) {
+    if (!driver->state().suspended()) {
       VELOX_FAIL(
           "Driver thread is not suspended under memory arbitration processing: {}, request memory pool: {}",
           driver->toString(),

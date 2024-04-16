@@ -67,11 +67,11 @@ bool toSubfield(const core::ITypedExpr* field, common::Subfield& subfield) {
       const auto& name = dereference->name();
       // When the field name is empty string, it typically means that the field
       // name was not set in the parent type.
-      if (name == "") {
+      if (name.empty()) {
         return false;
       }
       path.push_back(std::make_unique<common::Subfield::NestedField>(name));
-    } else if (!dynamic_cast<const core::InputTypedExpr*>(current)) {
+    } else if (dynamic_cast<const core::InputTypedExpr*>(current) == nullptr) {
       return false;
     } else {
       break;
@@ -84,7 +84,7 @@ bool toSubfield(const core::ITypedExpr* field, common::Subfield& subfield) {
       return false;
     }
     current = current->inputs()[0].get();
-    if (!current) {
+    if (current == nullptr) {
       return false;
     }
   }

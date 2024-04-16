@@ -29,6 +29,7 @@ struct FaultFileOperation {
     /// TODO: add to support fault injections for the other file operation
     /// types.
   };
+  static std::string typeString(Type type);
 
   const Type type;
 
@@ -44,6 +45,12 @@ struct FaultFileOperation {
   FaultFileOperation(Type _type, const std::string& _path)
       : type(_type), path(_path) {}
 };
+
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& o,
+    const FaultFileOperation::Type& type) {
+  return o << FaultFileOperation::typeString(type);
+}
 
 /// Fault injection parameters for file read API.
 struct FaultFileReadOperation : FaultFileOperation {

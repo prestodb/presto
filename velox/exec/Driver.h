@@ -110,10 +110,11 @@ struct ThreadState {
   /// True if there is a future outstanding that will schedule this on an
   /// executor thread when some promise is realized.
   bool hasBlockingFuture{false};
-  /// True if on thread but in a section waiting for RPC or memory strategy
-  /// decision. The thread is not supposed to access its memory, which a third
-  /// party can revoke while the thread is in this state.
-  bool isSuspended{false};
+  /// The number of suspension requests on a on-thread driver. If > 0, this
+  /// driver thread is in a (recursive) section waiting for RPC or memory
+  /// strategy decision. The thread is not supposed to access its memory, which
+  /// a third party can revoke while the thread is in this state.
+  uint32_t numSuspensions{0};
   /// The start execution time on thread in milliseconds. It is reset when the
   /// driver goes off thread. This is used to track the time that a driver has
   /// continuously run on a thread for per-driver cpu time slice enforcement.
@@ -161,6 +162,10 @@ struct ThreadState {
     return getCurrentTimeMs() - startExecTimeMs;
   }
 
+  bool suspended() const {
+    return numSuspensions > 0;
+  }
+
   folly::dynamic toJson() const {
     folly::dynamic obj = folly::dynamic::object;
     obj["onThread"] = std::to_string(isOnThread());
@@ -168,7 +173,7 @@ struct ThreadState {
     obj["isTerminated"] = isTerminated.load();
     obj["isEnqueued"] = isEnqueued.load();
     obj["hasBlockingFuture"] = hasBlockingFuture;
-    obj["isSuspended"] = isSuspended;
+    obj["isSuspended"] = suspended();
     obj["startExecTime"] = startExecTimeMs;
     return obj;
   }
