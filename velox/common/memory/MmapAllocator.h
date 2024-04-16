@@ -24,6 +24,8 @@
 #include <mutex>
 #include <unordered_set>
 
+#include <folly/ThreadCachedInt.h>
+
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryPool.h"
@@ -130,7 +132,7 @@ class MmapAllocator : public MemoryAllocator {
   }
 
   size_t totalUsedBytes() const override {
-    return numMallocBytes_ + AllocationTraits::pageBytes(numAllocated_);
+    return numMallocBytes() + AllocationTraits::pageBytes(numAllocated_);
   }
 
   MachinePageCount numAllocated() const override {
@@ -146,7 +148,7 @@ class MmapAllocator : public MemoryAllocator {
   }
 
   uint64_t numMallocBytes() const {
-    return numMallocBytes_;
+    return numMallocBytes_.readFull();
   }
 
   Stats stats() const override {
@@ -410,7 +412,7 @@ class MmapAllocator : public MemoryAllocator {
   std::atomic<uint64_t> numAllocations_ = 0;
   std::atomic<uint64_t> numAllocatedPages_ = 0;
   std::atomic<uint64_t> numAdvisedPages_ = 0;
-  std::atomic<uint64_t> numMallocBytes_ = 0;
+  folly::ThreadCachedInt<int64_t, MmapAllocator> numMallocBytes_;
 
   // Allocations that are larger than largest size classes will be delegated to
   // ManagedMmapArenas, to avoid calling mmap on every allocation.

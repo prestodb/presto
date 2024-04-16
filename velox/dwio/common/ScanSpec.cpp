@@ -402,18 +402,6 @@ std::string ScanSpec::toString() const {
   return out.str();
 }
 
-std::shared_ptr<ScanSpec> ScanSpec::removeChild(const ScanSpec* child) {
-  for (auto it = children_.begin(); it != children_.end(); ++it) {
-    if (it->get() == child) {
-      auto removed = std::move(*it);
-      children_.erase(it);
-      childByFieldName_.erase(removed->fieldName());
-      return removed;
-    }
-  }
-  return nullptr;
-}
-
 void ScanSpec::addFilter(const Filter& filter) {
   filter_ = filter_ ? filter_->mergeWith(&filter) : filter.clone();
 }

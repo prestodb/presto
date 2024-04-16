@@ -66,7 +66,6 @@ const std::vector<SelectiveColumnReader*>& SelectiveColumnReader::children()
 }
 
 void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
-  VELOX_TRACE_HISTORY_PUSH("seekTo %d %d", offset, readsNullsOnly);
   if (offset == readOffset_) {
     return;
   }
@@ -391,17 +390,6 @@ void SelectiveColumnReader::addStringValue(folly::StringPiece value) {
   auto copy = copyStringValue(value);
   reinterpret_cast<StringView*>(rawValues_)[numValues_++] =
       StringView(copy, value.size());
-}
-
-bool SelectiveColumnReader::readsNullsOnly() const {
-  auto filter = scanSpec_->filter();
-  if (filter) {
-    auto kind = filter->kind();
-    return kind == velox::common::FilterKind::kIsNull ||
-        (!scanSpec_->keepValues() &&
-         kind == velox::common::FilterKind::kIsNotNull);
-  }
-  return false;
 }
 
 void SelectiveColumnReader::setNulls(BufferPtr resultNulls) {

@@ -495,6 +495,15 @@ class FlatVector final : public SimpleVector<T> {
     }
   }
 
+  void unsafeSetSize(vector_size_t newSize) {
+    this->length_ = newSize;
+  }
+
+  void unsafeSetValues(BufferPtr values) {
+    values_ = std::move(values);
+    rawValues_ = values_ ? const_cast<T*>(values_->as<T>()) : nullptr;
+  }
+
  private:
   void ensureValues() {
     if (rawValues_ == nullptr) {

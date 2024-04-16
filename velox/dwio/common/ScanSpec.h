@@ -216,10 +216,6 @@ class ScanSpec {
     return it->second;
   }
 
-  // Remove a child from this scan spec, returning the removed child.  This is
-  // used for example to transform a flatmap scan spec into a struct scan spec.
-  std::shared_ptr<ScanSpec> removeChild(const ScanSpec* child);
-
   SelectivityInfo& selectivity() {
     return selectivity_;
   }

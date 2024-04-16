@@ -430,11 +430,6 @@ class SelectiveColumnReader {
   static constexpr int8_t kNoValueSize = -1;
   static constexpr uint32_t kRowGroupNotSet = ~0;
 
-  // True if we have an is null filter and optionally return column
-  // values or we have an is not null filter and do not return column
-  // values. This means that only null flags need be accessed.
-  bool readsNullsOnly() const;
-
   template <typename T>
   void ensureValuesCapacity(vector_size_t numRows);
 
@@ -442,9 +437,13 @@ class SelectiveColumnReader {
   // 'extraSpace' bits worth of space in the nulls buffer.
   void prepareNulls(RowSet rows, bool hasNulls, int32_t extraRows = 0);
 
+  void setIsFlatMapValue(bool value) {
+    isFlatMapValue_ = value;
+  }
+
  protected:
   // Filters 'rows' according to 'is_null'. Only applies to cases where
-  // readsNullsOnly() is true.
+  // scanSpec_->readsNullsOnly() is true.
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
 
@@ -638,6 +637,19 @@ class SelectiveColumnReader {
 
   // Encoding-related state to keep between reads, e.g. dictionaries.
   ScanState scanState_;
+
+  // Whether this column reader is for a flatmap value column and the result is
+  // an ordinary map.  If this is true, the nullsInReadRange_ and value_ will
+  // never be shared outside file reader and we can reuse them regardless of
+  // refcounts.
+  bool isFlatMapValue_ = false;
+
+  // When isFlatMapValue_ is true, these fields are used to hold
+  // nullsInReadRange_ and value_ memory that can be reused when they switch
+  // between null and non-null values.
+  BufferPtr flatMapValueNullsInReadRange_;
+  VectorPtr flatMapValueFlatValues_;
+  VectorPtr flatMapValueConstantNullValues_;
 };
 
 template <>

@@ -437,7 +437,7 @@ void* MmapAllocator::allocateBytesWithoutRetry(
       VELOX_MEM_LOG(ERROR) << "Failed to allocateBytes " << bytes
                            << " bytes with " << alignment << " alignment";
     } else {
-      numMallocBytes_.fetch_add(bytes);
+      numMallocBytes_ += bytes;
     }
     return result;
   }
@@ -472,7 +472,7 @@ void* MmapAllocator::allocateBytesWithoutRetry(
 void MmapAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
   if (useMalloc(bytes)) {
     ::free(p); // NOLINT
-    numMallocBytes_.fetch_sub(bytes);
+    numMallocBytes_ -= bytes;
     return;
   }
 
