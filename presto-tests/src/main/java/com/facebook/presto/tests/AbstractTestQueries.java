@@ -7514,4 +7514,14 @@ public abstract class AbstractTestQueries
         assertQuery("select orderkey from (select * from (select * from orders where 1=0)) group by rollup(orderkey)",
                 "values (null)");
     }
+
+    @Test
+    public void testLambdaInAggregation()
+    {
+        assertQuery("SELECT id, reduce_agg(value, 0, (a, b) -> a + b+0, (a, b) -> a + b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id", "values (1, 9), (2, 90)");
+        assertQuery("SELECT id, reduce_agg(value, 's', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
+                "values (1, 's2s3s4s'), (2, 's20s30s40s')");
+        assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
+                ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
+    }
 }

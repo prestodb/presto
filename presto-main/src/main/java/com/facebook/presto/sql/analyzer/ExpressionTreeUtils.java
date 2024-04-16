@@ -199,8 +199,12 @@ public final class ExpressionTreeUtils
             tempExpression = ((Cast) tempExpression).getExpression();
         }
 
-        if (tempExpression instanceof Literal || tempExpression instanceof ArrayConstructor) {
+        if (tempExpression instanceof Literal) {
             return true;
+        }
+
+        if (tempExpression instanceof ArrayConstructor) {
+            return ((ArrayConstructor) tempExpression).getValues().stream().allMatch(ExpressionTreeUtils::isConstant);
         }
 
         // ROW an MAP are special so we explicitly do that here.
