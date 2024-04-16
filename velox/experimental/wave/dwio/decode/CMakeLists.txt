@@ -16,6 +16,4 @@ add_subdirectory(tests)
 
 add_library(velox_wave_decode GpuDecoder.cu)
 
-set_target_properties(velox_wave_decode PROPERTIES CUDA_ARCHITECTURES native)
-
 target_link_libraries(velox_wave_decode velox_wave_common)

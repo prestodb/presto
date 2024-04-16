@@ -59,7 +59,7 @@ TEST_F(BlockTest, boolToIndices) {
   std::vector<int32_t> referenceIndices(kNumFlags);
   std::vector<int32_t> referenceSizes(kNumBlocks);
   uint8_t* flags = flagsBuffer->as<uint8_t>();
-  for (auto i = 0; i < kNumFlags; ++i) {
+  for (auto i = 0ul; i < kNumFlags; ++i) {
     if ((i >> 8) % 17 == 0) {
       flags[i] = 0;
     } else if ((i >> 8) % 23 == 0) {

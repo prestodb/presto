@@ -170,8 +170,7 @@ __device__ int scatterIndices(
     int32_t end,
     int32_t* indices) {
   typedef cub::BlockScan<int32_t, kBlockSize> BlockScan;
-  extern __shared__ __align__(
-      alignof(typename BlockScan::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   auto* scanStorage = reinterpret_cast<typename BlockScan::TempStorage*>(smem);
   int numMatch;
   bool match;
@@ -198,8 +197,7 @@ __device__ int scatterIndices(
     int32_t end,
     int32_t* indices) {
   typedef cub::BlockScan<int32_t, kBlockSize> BlockScan;
-  extern __shared__ __align__(
-      alignof(typename BlockScan::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   auto* scanStorage = reinterpret_cast<typename BlockScan::TempStorage*>(smem);
   constexpr int kPerThread = 8;
   int numMatch[kPerThread];
@@ -411,8 +409,7 @@ __device__ void decodeMainlyConstant(GpuDecode& plan) {
 template <int kBlockSize, typename T, typename U>
 __device__ T sum(const U* values, int size) {
   using Reduce = cub::BlockReduce<T, kBlockSize>;
-  extern __shared__ __align__(
-      alignof(typename Reduce::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   auto* reduceStorage = reinterpret_cast<typename Reduce::TempStorage*>(smem);
   T total = 0;
   for (int i = 0; i < size; i += kBlockSize) {
@@ -452,8 +449,7 @@ __device__ int upperBound(const T* data, int size, T target) {
 template <int kBlockSize, typename T>
 __device__ void decodeRle(GpuDecode::Rle& op) {
   using BlockScan = cub::BlockScan<int32_t, kBlockSize>;
-  extern __shared__ __align__(
-      alignof(typename BlockScan::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   auto* scanStorage = reinterpret_cast<typename BlockScan::TempStorage*>(smem);
 
   static_assert(sizeof(*scanStorage) >= sizeof(int32_t) * kBlockSize);

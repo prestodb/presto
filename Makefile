@@ -50,6 +50,18 @@ ifdef AZURESDK_ROOT_DIR
 CMAKE_FLAGS += -DAZURESDK_ROOT_DIR=$(AZURESDK_ROOT_DIR)
 endif
 
+ifdef CUDA_ARCHITECTURES
+CMAKE_FLAGS += -DCMAKE_CUDA_ARCHITECTURES="$(CUDA_ARCHITECTURES)"
+endif
+
+ifdef CUDA_COMPILER
+CMAKE_FLAGS += -DCMAKE_CUDA_COMPILER="$(CUDA_COMPILER)"
+endif
+
+ifdef CUDA_FLAGS
+CMAKE_FLAGS += -DCMAKE_CUDA_FLAGS="$(CUDA_FLAGS)"
+endif
+
 # Use Ninja if available. If Ninja is used, pass through parallelism control flags.
 USE_NINJA ?= 1
 ifeq ($(USE_NINJA), 1)
@@ -107,6 +119,14 @@ min_debug: minimal_debug
 minimal:				 #: Minimal build
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_BUILD_MINIMAL=ON"
 	$(MAKE) build BUILD_DIR=release
+
+gpu:						 #: Build with GPU support
+	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_GPU=ON"
+	$(MAKE) build BUILD_DIR=release
+
+gpu_debug:			 #: Build with debugging symbols and GPU support
+	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=debug EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DVELOX_ENABLE_GPU=ON"
+	$(MAKE) build BUILD_DIR=debug
 
 dwio:						#: Minimal build with dwio enabled.
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} \

@@ -359,6 +359,10 @@ if(${VELOX_ENABLE_GPU})
   enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    # it will fail later in the build otherwise
+    message(FATAL_ERROR "-DCMAKE_CUDA_ARCHITECTURES= must be set")
+  endif()
   if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:-G>")
   endif()

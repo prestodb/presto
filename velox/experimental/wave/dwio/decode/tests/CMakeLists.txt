@@ -14,10 +14,7 @@
 
 add_executable(velox_wave_decode_test GpuDecoderTest.cu)
 
-set_target_properties(velox_wave_decode_test PROPERTIES CUDA_ARCHITECTURES
-                                                        native)
-
-add_test(velox_wave_common_test velox_wave_common_test)
+add_test(velox_wave_decode_test velox_wave_decode_test)
 
 target_link_libraries(
   velox_wave_decode_test

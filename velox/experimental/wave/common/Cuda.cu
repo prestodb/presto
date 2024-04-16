@@ -170,8 +170,8 @@ struct EventImpl {
 
 Event::Event(bool withTime) : hasTiming_(withTime) {
   event_ = std::make_unique<EventImpl>();
-  CUDA_CHECK(
-      cudaEventCreate(&event_->event, withTime ? 0 : cudaEventDisableTiming));
+  CUDA_CHECK(cudaEventCreateWithFlags(
+      &event_->event, withTime ? 0 : cudaEventDisableTiming));
 }
 
 Event::~Event() {}

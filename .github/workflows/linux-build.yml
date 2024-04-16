@@ -61,6 +61,7 @@ jobs:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
+      CUDA_VERSION: "11.8"
     steps:
       - uses: actions/checkout@v4
 
@@ -68,6 +69,15 @@ jobs:
         # Usually actions/checkout does this but as we run in a container
         # it doesn't work
         run: git config --global --add safe.directory /__w/velox/velox
+
+      - name: Install Dependencies
+        run: |
+          # Allows to install arbitrary cuda-version whithout needing to update
+          # docker container before. It simplifies testing new/different versions
+          if ! yum list installed cuda-nvcc-$(echo ${CUDA_VERSION} | tr '.' '-') 1>/dev/null; then
+            source scripts/setup-centos8.sh
+            install_cuda ${CUDA_VERSION}
+          fi
 
       - uses: assignUser/stash/restore@v1
         with:
@@ -81,6 +91,10 @@ jobs:
       - name: Make Release Build
         env:
           MAKEFLAGS: 'NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4'
+          CUDA_ARCHITECTURES: 60
+          CUDA_COMPILER: /usr/local/cuda-${CUDA_VERSION}/bin/nvcc
+          # Without that, nvcc picks /usr/bin/c++ which is GCC 8
+          CUDA_FLAGS: "-ccbin /opt/rh/gcc-toolset-9/root/usr/bin"
         run: |
           EXTRA_CMAKE_FLAGS=(
             "-DVELOX_ENABLE_BENCHMARKS=ON"
@@ -92,6 +106,7 @@ jobs:
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_SUBSTRAIT=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+            "-DVELOX_ENABLE_GPU=ON"
           )
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
     

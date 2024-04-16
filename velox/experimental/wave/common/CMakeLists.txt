@@ -15,8 +15,6 @@
 add_library(velox_wave_common GpuArena.cpp Buffer.cpp Cuda.cu Exception.cpp
                               Type.cpp)
 
-set_target_properties(velox_wave_common PROPERTIES CUDA_ARCHITECTURES native)
-
 target_link_libraries(velox_wave_common velox_exception velox_common_base
                       velox_type)
 

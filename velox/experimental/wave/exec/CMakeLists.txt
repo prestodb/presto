@@ -14,6 +14,8 @@
 
 add_library(velox_wave_stream OperandSet.cpp Wave.cpp)
 
+target_link_libraries(velox_wave_stream Folly::folly fmt::fmt xsimd)
+
 add_library(
   velox_wave_exec
   Aggregation.cpp
@@ -28,8 +30,6 @@ add_library(
   TableScan.cpp
   WaveHiveDataSource.cpp
   WaveSplitReader.cpp)
-
-set_target_properties(velox_wave_exec PROPERTIES CUDA_ARCHITECTURES native)
 
 target_link_libraries(
   velox_wave_exec

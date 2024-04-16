@@ -131,6 +131,10 @@ void makeBitpackDict(
 class GpuDecoderTest : public ::testing::Test {
  protected:
   void SetUp() override {
+    if (int device; cudaGetDevice(&device) != cudaSuccess) {
+      GTEST_SKIP() << "No CUDA detected, skipping all tests";
+    }
+
     CUDA_CHECK_FATAL(cudaEventCreate(&startEvent_));
     CUDA_CHECK_FATAL(cudaEventCreate(&stopEvent_));
   }
@@ -613,6 +617,11 @@ using namespace facebook::velox::wave;
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
+
+  if (int device; cudaGetDevice(&device) != cudaSuccess) {
+    std::cerr << "No CUDA detected, skipping all tests" << std::endl;
+    return 0;
+  }
 
   cudaDeviceProp prop;
   CUDA_CHECK_FATAL(cudaGetDeviceProperties(&prop, FLAGS_device_id));

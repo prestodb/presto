@@ -14,5 +14,3 @@
 
 add_executable(velox_gpu_hash_table_test HashTableTest.cu)
 target_link_libraries(velox_gpu_hash_table_test Folly::folly gflags::gflags)
-set_target_properties(velox_gpu_hash_table_test PROPERTIES CUDA_ARCHITECTURES
-                                                           native)

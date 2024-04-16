@@ -450,3 +450,15 @@ void testingRunArbitration(
     uint64_t targetBytes = 0,
     bool allowSpill = true);
 } // namespace facebook::velox::memory
+
+#if FMT_VERSION < 100100
+template <>
+struct fmt::formatter<facebook::velox::memory::MemoryArbitrator::Stats>
+    : formatter<std::string> {
+  auto format(
+      facebook::velox::memory::MemoryArbitrator::Stats s,
+      format_context& ctx) {
+    return formatter<std::string>::format(s.toString(), ctx);
+  }
+};
+#endif

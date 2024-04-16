@@ -17,8 +17,6 @@ add_subdirectory(utils)
 add_executable(velox_wave_exec_test FilterProjectTest.cpp TableScanTest.cpp
                                     Main.cpp)
 
-set_target_properties(velox_wave_exec_test PROPERTIES CUDA_ARCHITECTURES native)
-
 add_test(velox_wave_exec_test velox_wave_exec_test)
 
 target_link_libraries(

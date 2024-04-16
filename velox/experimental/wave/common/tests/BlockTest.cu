@@ -11,7 +11,7 @@ __global__ void boolToIndices(
     int32_t** indices,
     int32_t* sizes,
     int64_t* times) {
-  extern __shared__ __align__(alignof(ScanAlgorithm::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   int32_t idx = blockIdx.x;
   // Start cycle timer
   clock_t start = clock();
@@ -42,8 +42,7 @@ void BlockTestStream::testBoolToIndices(
 }
 
 __global__ void sum64(int64_t* numbers, int64_t* results) {
-  extern __shared__ __align__(
-      alignof(cub::BlockReduce<int64_t, 256>::TempStorage)) char smem[];
+  extern __shared__ char smem[];
   int32_t idx = blockIdx.x;
   blockSum<256>(
       [&]() { return numbers[idx * 256 + threadIdx.x]; }, smem, results);

@@ -141,6 +141,16 @@ function install_conda {
   bash Miniconda3-latest-Linux-$ARCH.sh -b -p $MINICONDA_PATH
 }
 
+function install_cuda {
+  # See https://developer.nvidia.com/cuda-downloads
+  if ! dpkg -l cuda-keyring 1>/dev/null; then
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+    $SUDO dpkg -i cuda-keyring_1.1-1_all.deb
+    rm cuda-keyring_1.1-1_all.deb
+    $SUDO apt update
+  fi
+  $SUDO apt install -y cuda-nvcc-$(echo $1 | tr '.' '-') cuda-cudart-dev-$(echo $1 | tr '.' '-')
+}
 
 function install_velox_deps {
   run_and_time install_velox_deps_from_apt

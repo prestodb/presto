@@ -14,9 +14,6 @@
 
 add_executable(velox_wave_vector_test VectorTest.cpp)
 
-set_target_properties(velox_wave_vector_test PROPERTIES CUDA_ARCHITECTURES
-                                                        native)
-
 add_test(veloxwave__vector_test velox_wave_vector_test)
 
 target_link_libraries(
