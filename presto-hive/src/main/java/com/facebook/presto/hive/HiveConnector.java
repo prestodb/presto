@@ -209,12 +209,6 @@ public class HiveConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);

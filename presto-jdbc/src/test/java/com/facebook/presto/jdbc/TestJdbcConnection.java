@@ -339,10 +339,6 @@ public class TestJdbcConnection
     public static class TestNoopQueryInterceptor
             implements QueryInterceptor
     {
-        @Override
-        public void init(Map<String, String> properties)
-        {
-        }
     }
 
     private Connection createConnection()

@@ -131,40 +131,6 @@ public class TestPredicatePushdownWithDynamicFilter
     }
 
     @Override
-    @Test
-    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinIfNotIn()
-    {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
-                anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
-                                // There should be no Filter above table scan, because we don't know whether SemiJoin's filtering source is empty.
-                                // And filter would filter out NULLs from source side which is not what we need then.
-                                project(
-                                        tableScan(
-                                                "lineitem",
-                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity"))),
-                                anyTree(
-                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
-                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
-    }
-
-    @Override
-    @Test
-    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinUsedInProjection()
-    {
-        assertPlan("SELECT orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2) FROM lineitem",
-                anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
-                                // NO filter here
-                                project(tableScan(
-                                        "lineitem",
-                                        ImmutableMap.of("LINE_ORDER_KEY", "orderkey"))),
-                                anyTree(
-                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
-                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
-    }
-
-    @Override
     public void testDomainFiltersAppliedOnSemiJoinOutputFilterHaveNoImpact()
     {
         // No impact on SemiJoin
