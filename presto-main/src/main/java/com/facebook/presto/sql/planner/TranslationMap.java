@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocation;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -119,19 +120,27 @@ class TranslationMap
         Expression mapped = translateNamesToSymbols(expression);
 
         // then rewrite subexpressions in terms of the current mappings
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Boolean>()
         {
             @Override
-            public Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteExpression(Expression node, Boolean context, ExpressionTreeRewriter<Boolean> treeRewriter)
             {
-                if (expressionToVariables.containsKey(node)) {
+                // Do not rewrite if node is constant and within a lambda expression
+                if (expressionToVariables.containsKey(node) && !((context.equals(Boolean.TRUE) && isConstant(node)))) {
                     return new SymbolReference(expression.getLocation(), expressionToVariables.get(node).getName());
                 }
 
                 Expression translated = expressionToExpressions.getOrDefault(node, node);
                 return treeRewriter.defaultRewrite(translated, context);
             }
-        }, mapped);
+
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Boolean context, ExpressionTreeRewriter<Boolean> treeRewriter)
+            {
+                Expression result = super.rewriteLambdaExpression(node, true, treeRewriter);
+                return result;
+            }
+        }, mapped, false);
     }
 
     public void put(Expression expression, VariableReferenceExpression variable)
