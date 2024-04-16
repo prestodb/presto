@@ -38,6 +38,7 @@ public class IcebergHiveMetadataFactory
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
     final FilterStatsCalculatorService filterStatsCalculatorService;
+    final IcebergResourceFactory resourceFactory;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -48,7 +49,8 @@ public class IcebergHiveMetadataFactory
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            IcebergResourceFactory resourceFactory)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -58,10 +60,11 @@ public class IcebergHiveMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
     }
 
     public ConnectorMetadata create()
     {
-        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService);
+        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, resourceFactory);
     }
 }

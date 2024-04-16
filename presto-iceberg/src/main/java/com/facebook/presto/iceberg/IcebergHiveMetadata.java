@@ -151,6 +151,7 @@ public class IcebergHiveMetadata
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
+    private final IcebergResourceFactory resourceFactory;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -160,12 +161,14 @@ public class IcebergHiveMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            IcebergResourceFactory resourceFactory)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.resourceFactory = requireNonNull(resourceFactory, "resourceFactory is null");
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -176,7 +179,7 @@ public class IcebergHiveMetadata
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, session, schemaTableName);
+        return getHiveIcebergTable(metastore, session, schemaTableName, resourceFactory);
     }
 
     @Override
@@ -290,12 +293,11 @@ public class IcebergHiveMetadata
         TableOperations operations = new HiveTableOperations(
                 metastore,
                 getMetastoreContext(session),
-                hdfsEnvironment,
-                hdfsContext,
                 schemaName,
                 tableName,
                 session.getUser(),
-                targetPath);
+                targetPath,
+                resourceFactory.io());
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
@@ -555,18 +557,10 @@ public class IcebergHiveMetadata
     @Override
     public void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation)
     {
-        String tableLocation = metadataLocation.getName();
-        HdfsContext hdfsContext = new HdfsContext(
-                clientSession,
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName(),
-                tableLocation,
-                true);
-
-        InputFile inputFile = new HdfsInputFile(metadataLocation, hdfsEnvironment, hdfsContext);
+        InputFile inputFile = resourceFactory.io().newInputFile(metadataLocation.toString());
         TableMetadata tableMetadata;
         try {
-            tableMetadata = TableMetadataParser.read(new HdfsFileIO(hdfsEnvironment, hdfsContext), inputFile);
+            tableMetadata = TableMetadataParser.read(resourceFactory.io(), inputFile);
         }
         catch (Exception e) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Unable to read metadata file %s", metadataLocation), e);

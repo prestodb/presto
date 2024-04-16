@@ -14,8 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsContext;
-import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -112,12 +110,11 @@ public class HiveTableOperations
     public HiveTableOperations(
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext,
             String database,
-            String table)
+            String table,
+            FileIO fileIO)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(fileIO,
                 metastore,
                 metastoreContext,
                 database,
@@ -129,14 +126,13 @@ public class HiveTableOperations
     public HiveTableOperations(
             ExtendedHiveMetastore metastore,
             MetastoreContext metastoreContext,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext,
             String database,
             String table,
             String owner,
-            String location)
+            String location,
+            FileIO fileIO)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(fileIO,
                 metastore,
                 metastoreContext,
                 database,
@@ -368,7 +364,7 @@ public class HiveTableOperations
     private String writeNewMetadata(TableMetadata metadata, int newVersion)
     {
         String newTableMetadataFilePath = newTableMetadataFilePath(metadata, newVersion);
-        OutputFile newMetadataLocation = fileIO.newOutputFile(newTableMetadataFilePath);
+        OutputFile newMetadataLocation = io().newOutputFile(newTableMetadataFilePath);
 
         // write the new metadata
         TableMetadataParser.write(metadata, newMetadataLocation);
@@ -390,7 +386,7 @@ public class HiveTableOperations
                 .exponentialBackoff(100, 5000, 600000, 4.0)
                 .suppressFailureWhenFinished()
                 .run(metadataLocation -> newMetadata.set(
-                        TableMetadataParser.read(fileIO, io().newInputFile(metadataLocation))));
+                        TableMetadataParser.read(io(), io().newInputFile(metadataLocation))));
 
         if (newMetadata.get() == null) {
             throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing.");
