@@ -119,7 +119,8 @@ class BufferedInput {
   // Create a new (clean) instance of BufferedInput sharing the same
   // underlying file and memory pool.  The enqueued regions are NOT copied.
   virtual std::unique_ptr<BufferedInput> clone() const {
-    return std::make_unique<BufferedInput>(input_, pool_);
+    return std::make_unique<BufferedInput>(
+        input_, pool_, maxMergeDistance_, wsVRLoad_);
   }
 
   std::unique_ptr<SeekableInputStream> loadCompleteFile() {

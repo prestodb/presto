@@ -111,8 +111,8 @@ class E2EWriterTest : public testing::Test {
     bool preload = true;
     std::unordered_set<uint32_t> actualNodeIds;
     for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-      dwrfRowReader->loadStripe(i, preload);
-      auto& footer = dwrfRowReader->getStripeFooter();
+      auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+      auto& footer = *stripeMetadata->footer;
       for (int32_t j = 0; j < footer.encoding_size(); ++j) {
         auto encoding = footer.encoding(j);
         if (encoding.kind() ==
@@ -180,9 +180,11 @@ class E2EWriterTest : public testing::Test {
       auto mapTypeId = typeWithId->childAt(mapColumn)->id();
       auto valueTypeId = mapTypeId + 2;
       for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-        auto currentStripeInfo = dwrfRowReader->loadStripe(i, preload);
+        auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+        auto& currentStripeInfo = stripeMetadata->stripeInfo;
         dwrf::StripeStreamsImpl stripeStreams(
-            *dwrfRowReader,
+            std::make_shared<dwrf::StripeReadState>(
+                dwrfRowReader->readerBaseShared(), std::move(stripeMetadata)),
             dwrfRowReader->getColumnSelector(),
             rowReaderOpts,
             currentStripeInfo.offset(),
@@ -480,8 +482,8 @@ TEST_F(E2EWriterTest, PresentStreamIsSuppressedOnFlatMap) {
   bool preload = true;
   std::unordered_set<uint32_t> actualNodeIds;
   for (int i = 0; i < reader->getNumberOfStripes(); ++i) {
-    dwrfRowReader->loadStripe(i, preload);
-    auto& footer = dwrfRowReader->getStripeFooter();
+    auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+    auto& footer = *stripeMetadata->footer;
     for (int j = 0; j < footer.streams_size(); ++j) {
       auto stream = footer.streams(j);
       ASSERT_NE(stream.kind(), dwrf::proto::Stream_Kind::Stream_Kind_PRESENT);
@@ -1131,8 +1133,8 @@ TEST_F(E2EEncryptionTest, EncryptRoot) {
       dynamic_cast<::facebook::velox::dwrf::DwrfRowReader*>(rowReader.get());
   bool preload = true;
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-    dwrfRowReader->loadStripe(0, preload);
-    auto& sf = dwrfRowReader->getStripeFooter();
+    auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+    auto& sf = *stripeMetadata->footer;
     ASSERT_EQ(sf.encoding_size(), 0);
     ASSERT_EQ(sf.streams_size(), 0);
     ASSERT_EQ(sf.encryptiongroups_size(), 1);
@@ -1212,8 +1214,8 @@ TEST_F(E2EEncryptionTest, EncryptSelectedFields) {
   auto dwrfRowReader = dynamic_cast<dwrf::DwrfRowReader*>(rowReader.get());
   bool preload = true;
   for (int32_t i = 0; i < reader->getNumberOfStripes(); ++i) {
-    dwrfRowReader->loadStripe(0, preload);
-    auto& sf = dwrfRowReader->getStripeFooter();
+    auto stripeMetadata = dwrfRowReader->fetchStripe(i, preload);
+    auto& sf = *stripeMetadata->footer;
     for (auto& enc : sf.encoding()) {
       ASSERT_TRUE(encryptedNodes.find(enc.node()) == encryptedNodes.end());
     }

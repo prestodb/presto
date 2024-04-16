@@ -146,7 +146,7 @@ StripeStreamsBase::getIntDictionaryInitializerForNode(
 }
 
 void StripeStreamsImpl::loadStreams() {
-  auto& stripeFooter = *readState_->stripeFooter;
+  auto& stripeFooter = *readState_->stripeMetadata->footer;
 
   // HACK!!!
   // Column selector filters based on requested schema (ie, table schema), while
@@ -186,7 +186,7 @@ void StripeStreamsImpl::loadStreams() {
   }
 
   // handle encrypted columns
-  auto& handler = readState_->handler;
+  auto& handler = *readState_->stripeMetadata->handler;
   if (handler.isEncrypted()) {
     DWIO_ENSURE_EQ(
         handler.getEncryptionGroupCount(),
@@ -236,7 +236,7 @@ StripeStreamsImpl::getCompressedStream(
   }
 
   if (!streamRead) {
-    streamRead = readState_->stripeInput->enqueue(
+    streamRead = readState_->stripeMetadata->stripeInput->enqueue(
         {info.getOffset() + stripeStart_, info.getLength(), label}, &si);
   }
 
@@ -288,15 +288,8 @@ std::unique_ptr<dwio::common::SeekableInputStream> StripeStreamsImpl::getStream(
   }
 
   if (!streamRead) {
-    streamRead =
-        // If stripeInput is null, it means the stripe was preloaded during
-        // initial postscript and footer io, and we can get from ReaderBase
-        // input.
-        (readState_->stripeInput ? readState_->stripeInput
-                                 : &readState_->readerBase->getBufferedInput())
-            ->enqueue(
-                {info.getOffset() + stripeStart_, info.getLength(), label},
-                &si);
+    streamRead = readState_->stripeMetadata->stripeInput->enqueue(
+        {info.getOffset() + stripeStart_, info.getLength(), label}, &si);
   }
 
   if (!streamRead) {
@@ -366,7 +359,7 @@ void StripeStreamsImpl::loadReadPlan() {
     readPlanLoaded_ = true;
   };
 
-  auto& input = *readState_->stripeInput;
+  auto& input = *readState_->stripeMetadata->stripeInput;
   input.load(LogType::STREAM_BUNDLE);
 }
 

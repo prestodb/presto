@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/dwio/common/encryption/TestProvider.h"
@@ -40,33 +41,29 @@ class StripeLoadKeysTest : public Test {
   void SetUp() override {
     HiveTypeParser parser;
     auto type = parser.parse("struct<a:int>");
-    auto footer =
-        google::protobuf::Arena::CreateMessage<proto::Footer>(&arena_);
-    ProtoUtils::writeType(*type, *footer);
-    auto enc = footer->mutable_encryption();
+    footer_ = std::make_unique<proto::Footer>();
+    ProtoUtils::writeType(*type, *footer_);
+    auto enc = footer_->mutable_encryption();
     enc->set_keyprovider(proto::Encryption_KeyProvider_UNKNOWN);
     auto group = enc->add_encryptiongroups();
     group->add_nodes(1);
     group->add_statistics();
     group->set_keymetadata("footer");
 
-    auto stripe = footer->add_stripes();
+    auto stripe = footer_->add_stripes();
     *stripe->add_keymetadata() = "stripe0";
 
-    stripe = footer->add_stripes();
-    stripe = footer->add_stripes();
+    stripe = footer_->add_stripes();
+    stripe = footer_->add_stripes();
     *stripe->add_keymetadata() = "stripe2";
 
-    stripe = footer->add_stripes();
+    stripe = footer_->add_stripes();
     *stripe->add_keymetadata() = "stripe3.1";
     *stripe->add_keymetadata() = "stripe3.2";
 
-    auto stripeFooter =
-        google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena_);
-    stripeFooter->add_encryptiongroups();
-
     TestDecrypterFactory factory;
-    auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
+    auto handler =
+        DecryptionHandler::create(FooterWrapper(footer_.get()), &factory);
     pool_ = memoryManager()->addLeafPool();
 
     reader_ = std::make_unique<ReaderBase>(
@@ -74,67 +71,67 @@ class StripeLoadKeysTest : public Test {
         std::make_unique<BufferedInput>(
             std::make_shared<InMemoryReadFile>(std::string()), *pool_),
         nullptr,
-        footer,
+        footer_.get(),
         nullptr,
         std::move(handler));
-    stripeReader_ =
-        std::make_unique<StripeReaderBase>(reader_, std::move(stripeFooter));
+
+    stripeReader_ = std::make_unique<StripeReaderBase>(reader_);
+  }
+
+  void runTest(uint32_t index) {
+    auto stripeFooter = std::make_unique<proto::StripeFooter>();
+    stripeFooter->add_encryptiongroups();
+    stripeFooter_ = std::move(stripeFooter);
+
+    stripeInfo_ = std::make_unique<const StripeInformationWrapper>(
+        FooterWrapper(footer_.get()).stripes(index));
+
+    auto handler = std::make_unique<encryption::DecryptionHandler>(
+        reader_->getDecryptionHandler());
+
+    stripeReader_->loadEncryptionKeys(
+        index, *stripeFooter_, *handler, *stripeInfo_);
+
+    handler_ = std::move(handler);
+
     enc_ = const_cast<TestEncryption*>(
         std::addressof(dynamic_cast<const TestEncryption&>(
-            stripeReader_->getDecryptionHandler().getEncryptionProviderByIndex(
-                0))));
+            handler_->getEncryptionProviderByIndex(0))));
   }
 
-  void runTest(std::optional<uint32_t> prevIndex, uint32_t newIndex) {
-    stripeReader_->lastStripeIndex_ = prevIndex;
-    stripeReader_->loadEncryptionKeys(newIndex);
-  }
-
-  google::protobuf::Arena arena_;
+  std::unique_ptr<proto::Footer> footer_;
   std::shared_ptr<ReaderBase> reader_;
   std::unique_ptr<StripeReaderBase> stripeReader_;
   TestEncryption* enc_;
   std::shared_ptr<MemoryPool> pool_;
+  std::unique_ptr<const proto::StripeFooter> stripeFooter_;
+  std::unique_ptr<const encryption::DecryptionHandler> handler_;
+  std::unique_ptr<const StripeInformationWrapper> stripeInfo_;
 };
 
 } // namespace facebook::velox::dwrf
 
 TEST_F(StripeLoadKeysTest, FirstStripeHasKey) {
-  ASSERT_EQ(enc_->getKey(), "footer");
-
-  runTest(std::optional<uint32_t>(), 0);
+  runTest(0);
   ASSERT_EQ(enc_->getKey(), "stripe0");
 }
 
-TEST_F(StripeLoadKeysTest, FirstStripeNoKey) {
-  ASSERT_EQ(enc_->getKey(), "footer");
-
-  runTest(std::optional<uint32_t>(), 1);
+TEST_F(StripeLoadKeysTest, SecondStripeNoKey) {
+  runTest(1);
   ASSERT_EQ(enc_->getKey(), "stripe0");
 }
 
-TEST_F(StripeLoadKeysTest, SeekToStripeNoKey) {
-  ASSERT_EQ(enc_->getKey(), "footer");
-
-  runTest(2, 1);
-  ASSERT_EQ(enc_->getKey(), "stripe0");
-}
-
-TEST_F(StripeLoadKeysTest, ContinueSameKey) {
-  ASSERT_EQ(enc_->getKey(), "footer");
-
-  runTest(0, 1);
-  ASSERT_EQ(enc_->getKey(), "footer");
-}
-
-TEST_F(StripeLoadKeysTest, ContinueDifferentKey) {
-  ASSERT_EQ(enc_->getKey(), "footer");
-
-  runTest(1, 2);
+TEST_F(StripeLoadKeysTest, ThirdStripeHasKey) {
+  runTest(2);
   ASSERT_EQ(enc_->getKey(), "stripe2");
 }
 
 TEST_F(StripeLoadKeysTest, KeyMismatch) {
-  ASSERT_THROW(
-      runTest(std::optional<uint32_t>(), 3), exception::LoggedException);
+  EXPECT_THAT(
+      [&]() { runTest(3); },
+      Throws<facebook::velox::dwio::common::exception::LoggedException>(
+          Property(
+              &facebook::velox::dwio::common::exception::LoggedException::
+                  failingExpression,
+              HasSubstr("keys.size() == providers_.size()"))));
 }

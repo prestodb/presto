@@ -204,19 +204,13 @@ class StripeStreamsBase : public StripeStreams {
 
 struct StripeReadState {
   std::shared_ptr<ReaderBase> readerBase;
-  dwio::common::BufferedInput* stripeInput;
-  const proto::StripeFooter* stripeFooter;
-  const encryption::DecryptionHandler& handler;
+  std::unique_ptr<const StripeMetadata> stripeMetadata;
 
   StripeReadState(
       std::shared_ptr<ReaderBase> readerBase,
-      dwio::common::BufferedInput* stripeInput,
-      const proto::StripeFooter* stripeFooter,
-      const encryption::DecryptionHandler& handler)
+      std::unique_ptr<const StripeMetadata> stripeMetadata)
       : readerBase{std::move(readerBase)},
-        stripeInput{stripeInput},
-        stripeFooter{stripeFooter},
-        handler{handler} {}
+        stripeMetadata{std::move(stripeMetadata)} {}
 };
 
 /**
@@ -268,31 +262,6 @@ class StripeStreamsImpl : public StripeStreamsBase {
     loadStreams();
   }
 
-  StripeStreamsImpl(
-      const StripeReaderBase& reader,
-      const dwio::common::ColumnSelector& selector,
-      const dwio::common::RowReaderOptions& opts,
-      uint64_t stripeStart,
-      int64_t stripeNumberOfRows,
-      const StrideIndexProvider& provider,
-      uint32_t stripeIndex)
-      : StripeStreamsBase{&reader.getReader().getMemoryPool()},
-        selector_{selector},
-        opts_{opts},
-        stripeStart_{stripeStart},
-        stripeNumberOfRows_{stripeNumberOfRows},
-        provider_(provider),
-        stripeIndex_{stripeIndex},
-        readPlanLoaded_{false} {
-    std::shared_ptr<StripeReadState> state = std::make_shared<StripeReadState>(
-        reader.readerBaseShared(),
-        &reader.getStripeInput(),
-        &reader.getStripeFooter(),
-        reader.getDecryptionHandler());
-    readState_ = std::move(state);
-    loadStreams();
-  }
-
   ~StripeStreamsImpl() override = default;
 
   DwrfFormat format() const override {
@@ -311,7 +280,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
       const EncodingKey& ek) const override {
     auto index = encodings_.find(ek);
     if (index != encodings_.end()) {
-      return readState_->stripeFooter->encoding(index->second);
+      return readState_->stripeMetadata->footer->encoding(index->second);
     }
     auto enc = decryptedEncodings_.find(ek);
     DWIO_ENSURE(
@@ -379,7 +348,7 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   const dwio::common::encryption::Decrypter* getDecrypter(
       uint32_t nodeId) const {
-    auto& handler = readState_->handler;
+    auto& handler = *readState_->stripeMetadata->handler;
     return handler.isEncrypted(nodeId)
         ? std::addressof(handler.getEncryptionProvider(nodeId))
         : nullptr;

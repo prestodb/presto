@@ -52,12 +52,12 @@ class BinaryStripeStreams {
   }
 
   const StripeInformationWrapper& getStripeInfo() const {
-    return stripeInfo_;
+    return stripeReadState_->stripeMetadata->stripeInfo;
   }
 
  private:
   bool preload_;
-  StripeInformationWrapper stripeInfo_;
+  std::shared_ptr<StripeReadState> stripeReadState_;
   dwio::common::RowReaderOptions options_;
   StripeStreamsImpl stripeStreams_;
   folly::F14FastMap<uint32_t, std::vector<uint32_t>> encodingKeys_;

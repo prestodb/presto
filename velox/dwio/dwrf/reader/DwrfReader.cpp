@@ -176,7 +176,6 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   // ever be 1 stripe fetched at this point.
   VLOG(1) << "Erasing " << currentStripe_ << " from prefetched_";
   prefetchedStripeStates_.wlock()->erase(currentStripe_);
-  freeStripeAt(currentStripe_);
   newStripeReadyForRead_ = false;
   startNextStripe();
 
@@ -502,21 +501,13 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
           std::to_string(stripeIndex) + ", LIKELY RACE CONDITION");
 
   auto startTime = std::chrono::high_resolution_clock::now();
+  PrefetchedStripeState stripeState;
+
   bool preload = options_.getPreloadStripe();
-
-  // Currently we only call prefetchStripe through here. If stripeLoadStatuses_
-  // says we haven't started a load here yet, then this should always succeed
-  DWIO_ENSURE(fetchStripe(stripeIndex, preload));
-
-  VLOG(1) << "fetchStripe success";
-
-  auto prefetchedStripeBase = getStripeBase(stripeIndex);
-
   auto state = std::make_shared<StripeReadState>(
-      readerBaseShared(),
-      prefetchedStripeBase->stripeInput.get(),
-      prefetchedStripeBase->footer,
-      getDecryptionHandler());
+      readerBaseShared(), fetchStripe(stripeIndex, preload));
+
+  stripeState.stripeReadState = state;
 
   auto stripe = getReader().getFooter().stripes(stripeIndex);
   StripeStreamsImpl stripeStreams(
@@ -536,7 +527,6 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
   memory::AllocationPool pool(&getReader().getMemoryPool());
   StreamLabels streamLabels(pool);
 
-  PrefetchedStripeState stripeState;
   if (scanSpec) {
     stripeState.selectiveColumnReader = SelectiveDwrfReader::build(
         requestedType,
@@ -647,26 +637,12 @@ void DwrfRowReader::startNextStripe() {
     auto& state = prefetchedStripeStates[currentStripe_];
     columnReader_ = std::move(state.columnReader);
     selectiveColumnReader_ = std::move(state.selectiveColumnReader);
-    stripeDictionaryCache_ = state.stripeDictionaryCache;
-
-    VLOG(1) << "Erasing " << currentStripe_ << " from prefetched_";
-    // This callsite knows we have already fetched the stripe, and preload arg
-    // will not be used.
-    bool preloadThrowaway = false;
-    loadStripe(currentStripe_, preloadThrowaway);
+    stripeDictionaryCache_ = std::move(state.stripeDictionaryCache);
+    stripeMetadata_ = std::move(state.stripeReadState->stripeMetadata);
 
     prefetchedStripeStates.erase(currentStripe_);
   });
-  auto startTime = std::chrono::high_resolution_clock::now();
-
-  DWIO_ENSURE(freeStripeAt(currentStripe_));
-
   newStripeReadyForRead_ = true;
-  auto endTime = std::chrono::high_resolution_clock::now();
-  VLOG(1) << " time to complete startNextStripe: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 endTime - startTime)
-                 .count();
 }
 
 size_t DwrfRowReader::estimatedReaderMemory() const {

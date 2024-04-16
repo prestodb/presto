@@ -72,7 +72,8 @@ void verifyStats(
   }
 
   bool preload = true;
-  auto stripeInfo = rowReader.loadStripe(0, preload);
+  auto stripeMetadata = rowReader.fetchStripe(0, preload);
+  auto& stripeInfo = stripeMetadata->stripeInfo;
 
   // Verify Stripe content length + index length equals size of the column 0.
   auto totalStreamSize = stripeInfo.dataLength() + stripeInfo.indexLength();
@@ -81,7 +82,7 @@ void verifyStats(
   ASSERT_EQ(node_0_Size, totalStreamSize) << "Total size does not match";
 
   // Compute Node Size and verify the File Footer Node Size matches.
-  auto& stripeFooter = rowReader.getStripeFooter();
+  auto& stripeFooter = *stripeMetadata->footer;
   std::unordered_map<uint32_t, uint64_t> nodeSizes;
   for (auto&& ss : stripeFooter.streams()) {
     nodeSizes[ss.node()] += ss.length();
@@ -101,7 +102,8 @@ void verifyStats(
 
   // Verify Stride Stats.
   StripeStreamsImpl streams{
-      rowReader,
+      std::make_shared<StripeReadState>(
+          rowReader.readerBaseShared(), std::move(stripeMetadata)),
       rowReader.getColumnSelector(),
       rowReader.getRowReaderOptions(),
       stripeInfo.offset(),

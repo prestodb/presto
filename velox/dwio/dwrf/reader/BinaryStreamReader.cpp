@@ -32,13 +32,16 @@ BinaryStripeStreams::BinaryStripeStreams(
     const dwio::common::ColumnSelector& selector,
     const uint32_t stripeIndex)
     : preload_(true), // TODO: is preload required ?
-      stripeInfo_{stripeReader.loadStripe(stripeIndex, preload_)},
+      stripeReadState_{std::make_shared<StripeReadState>(
+          stripeReader.readerBaseShared(),
+          stripeReader.fetchStripe(stripeIndex, preload_))},
       stripeStreams_{
-          stripeReader,
+          stripeReadState_,
           selector,
           options_,
-          stripeInfo_.offset(),
-          static_cast<int64_t>(stripeInfo_.numberOfRows()),
+          stripeReadState_->stripeMetadata->stripeInfo.offset(),
+          static_cast<int64_t>(
+              stripeReadState_->stripeMetadata->stripeInfo.numberOfRows()),
           UnsupportedStrideIndexProvider(),
           stripeIndex} {
   if (!preload_) {

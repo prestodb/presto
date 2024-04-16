@@ -124,6 +124,10 @@ class DwrfRowReader : public StrideIndexProvider,
 
   int64_t nextReadSize(uint64_t size) override;
 
+  std::unique_ptr<const StripeMetadata>& getCurrentStripeMetadata() {
+    return stripeMetadata_;
+  }
+
  private:
   // Represents the status of a stripe being fetched.
   enum class FetchStatus { NOT_STARTED, IN_PROGRESS, FINISHED, ERROR };
@@ -157,6 +161,7 @@ class DwrfRowReader : public StrideIndexProvider,
     std::unique_ptr<ColumnReader> columnReader;
     std::unique_ptr<dwio::common::SelectiveColumnReader> selectiveColumnReader;
     std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache;
+    std::shared_ptr<StripeReadState> stripeReadState;
   };
 
   // stripeLoadStatuses_ and prefetchedStripeStates_ will never be acquired
@@ -184,6 +189,7 @@ class DwrfRowReader : public StrideIndexProvider,
 
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<dwio::common::SelectiveColumnReader> selectiveColumnReader_;
+  std::unique_ptr<const StripeMetadata> stripeMetadata_;
   const uint64_t* stridesToSkip_;
   int stridesToSkipSize_;
   // Record of strides to skip in each visited stripe. Used for diagnostics.

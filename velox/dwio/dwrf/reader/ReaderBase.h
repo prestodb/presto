@@ -97,7 +97,6 @@ class ReaderBase {
             std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         fileLength_{0},
         psLength_{0} {
-    DWIO_ENSURE(footer_->getDwrfPtr()->GetArena());
     DWIO_ENSURE_NOT_NULL(schema_, "invalid schema");
     if (!handler_) {
       handler_ = encryption::DecryptionHandler::create(*footer);
