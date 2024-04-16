@@ -17,35 +17,9 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/IsNull.h"
 #include "velox/functions/prestosql/Cardinality.h"
-#include "velox/functions/prestosql/GreatestLeast.h"
 #include "velox/functions/prestosql/InPredicate.h"
 
 namespace facebook::velox::functions {
-
-template <typename T>
-inline void registerGreatestLeastFunction(const std::string& prefix) {
-  registerFunction<ParameterBinder<GreatestFunction, T>, T, T, Variadic<T>>(
-      {prefix + "greatest"});
-
-  registerFunction<ParameterBinder<LeastFunction, T>, T, T, Variadic<T>>(
-      {prefix + "least"});
-}
-
-inline void registerAllGreatestLeastFunctions(const std::string& prefix) {
-  registerGreatestLeastFunction<bool>(prefix);
-  registerGreatestLeastFunction<int8_t>(prefix);
-  registerGreatestLeastFunction<int16_t>(prefix);
-  registerGreatestLeastFunction<int32_t>(prefix);
-  registerGreatestLeastFunction<int64_t>(prefix);
-  registerGreatestLeastFunction<float>(prefix);
-  registerGreatestLeastFunction<double>(prefix);
-  registerGreatestLeastFunction<Varchar>(prefix);
-  registerGreatestLeastFunction<LongDecimal<P1, S1>>(prefix);
-  registerGreatestLeastFunction<ShortDecimal<P1, S1>>(prefix);
-  registerGreatestLeastFunction<Date>(prefix);
-  registerGreatestLeastFunction<Timestamp>(prefix);
-}
-
 extern void registerSubscriptFunction(
     const std::string& name,
     bool enableCaching);
@@ -73,9 +47,11 @@ void registerGeneralFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_transform, prefix + "transform");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_reduce, prefix + "reduce");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_filter, prefix + "filter");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_typeof, prefix + "typeof");
 
-  registerAllGreatestLeastFunctions(prefix);
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_least, prefix + "least");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_greatest, prefix + "greatest");
+
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_typeof, prefix + "typeof");
 
   registerFunction<CardinalityFunction, int64_t, Array<Any>>(
       {prefix + "cardinality"});

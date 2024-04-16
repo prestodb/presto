@@ -34,6 +34,7 @@ add_library(
   FindFirst.cpp
   FromUnixTime.cpp
   FromUtf8.cpp
+  GreatestLeast.cpp
   InPredicate.cpp
   JsonFunctions.cpp
   Map.cpp
