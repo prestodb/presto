@@ -133,29 +133,29 @@ class WindowPartition {
   // Searches for 'currentRow[frameColumn]' in 'orderByColumn' of rows between
   // 'start' and 'end' in the partition. 'firstMatch' specifies if first or last
   // row is matched.
-  template <bool isAscending>
   vector_size_t searchFrameValue(
       bool firstMatch,
       vector_size_t start,
       vector_size_t end,
       vector_size_t currentRow,
       column_index_t orderByColumn,
-      column_index_t frameColumn) const;
+      column_index_t frameColumn,
+      const CompareFlags& flags) const;
 
-  template <bool isAscending>
   vector_size_t linearSearchFrameValue(
       bool firstMatch,
       vector_size_t start,
       vector_size_t end,
       vector_size_t currentRow,
       column_index_t orderByColumn,
-      column_index_t frameColumn) const;
+      column_index_t frameColumn,
+      const CompareFlags& flags) const;
 
   // Iterates over 'numBlockRows' and searches frame value for each row.
-  template <bool isAscending>
   void updateKRangeFrameBounds(
       bool firstMatch,
       bool isPreceding,
+      const CompareFlags& flags,
       vector_size_t startRow,
       vector_size_t numRows,
       column_index_t frameColumn,

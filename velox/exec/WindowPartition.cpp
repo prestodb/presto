@@ -184,53 +184,47 @@ std::pair<vector_size_t, vector_size_t> WindowPartition::computePeerBuffers(
 // largest value < frame bound or (smallest value > frame bound for
 // descending). After finding that point it does a sequential search for the
 // required value.
-template <bool isAscending>
 vector_size_t WindowPartition::searchFrameValue(
     bool firstMatch,
     vector_size_t start,
     vector_size_t end,
     vector_size_t currentRow,
     column_index_t orderByColumn,
-    column_index_t frameColumn) const {
+    column_index_t frameColumn,
+    const CompareFlags& flags) const {
   auto current = partition_[currentRow];
-  bool crossedBound = false;
   vector_size_t begin = start;
   vector_size_t finish = end;
-  int compareResult;
   while (finish - begin >= 2) {
     auto mid = (begin + finish) / 2;
-    compareResult =
-        data_->compare(partition_[mid], current, orderByColumn, frameColumn);
-    if constexpr (isAscending) {
-      crossedBound = compareResult >= 0;
-    } else {
-      crossedBound = compareResult <= 0;
-    }
+    auto compareResult = data_->compare(
+        partition_[mid], current, orderByColumn, frameColumn, flags);
 
-    if (crossedBound) {
+    if (compareResult >= 0) {
+      // Search in the first half of the column.
       finish = mid;
     } else {
+      // Search in the second half of the column.
       begin = mid;
     }
   }
 
-  return linearSearchFrameValue<isAscending>(
-      firstMatch, begin, end, currentRow, orderByColumn, frameColumn);
+  return linearSearchFrameValue(
+      firstMatch, begin, end, currentRow, orderByColumn, frameColumn, flags);
 }
 
-template <bool isAscending>
 vector_size_t WindowPartition::linearSearchFrameValue(
     bool firstMatch,
     vector_size_t start,
     vector_size_t end,
     vector_size_t currentRow,
     column_index_t orderByColumn,
-    column_index_t frameColumn) const {
+    column_index_t frameColumn,
+    const CompareFlags& flags) const {
   auto current = partition_[currentRow];
-  bool crossedBound = false;
   for (vector_size_t i = start; i < end; ++i) {
-    auto compareResult =
-        data_->compare(partition_[i], current, orderByColumn, frameColumn);
+    auto compareResult = data_->compare(
+        partition_[i], current, orderByColumn, frameColumn, flags);
 
     // The bound value was found. Return if firstMatch required.
     // If the last match is required, then we need to find the first row that
@@ -241,16 +235,11 @@ vector_size_t WindowPartition::linearSearchFrameValue(
       }
     }
 
-    if constexpr (isAscending) {
-      crossedBound = compareResult > 0;
-    } else {
-      crossedBound = compareResult < 0;
-    }
     // Bound is crossed. Last match needs the previous row.
     // But for first row matches, this is the first
     // row that has crossed, but not equals boundary (The equal boundary case
     // is covered by the condition above). So the bound matches this row itself.
-    if (crossedBound) {
+    if (compareResult > 0) {
       if (firstMatch) {
         return i;
       } else {
@@ -264,10 +253,10 @@ vector_size_t WindowPartition::linearSearchFrameValue(
   return end == numRows() ? numRows() + 1 : -1;
 }
 
-template <bool isAscending>
 void WindowPartition::updateKRangeFrameBounds(
     bool firstMatch,
     bool isPreceding,
+    const CompareFlags& flags,
     vector_size_t startRow,
     vector_size_t numRows,
     column_index_t frameColumn,
@@ -300,13 +289,14 @@ void WindowPartition::updateKRangeFrameBounds(
         start = currentRow;
         end = partition_.size();
       }
-      rawFrameBounds[i] = searchFrameValue<isAscending>(
+      rawFrameBounds[i] = searchFrameValue(
           firstMatch,
           start,
           end,
           currentRow,
           orderByColumn,
-          inputMapping_[frameColumn]);
+          inputMapping_[frameColumn],
+          flags);
     }
   }
 }
@@ -319,26 +309,19 @@ void WindowPartition::computeKRangeFrameBounds(
     vector_size_t numRows,
     const vector_size_t* rawPeerBuffer,
     vector_size_t* rawFrameBounds) const {
+  CompareFlags flags;
+  flags.ascending = sortKeyInfo_[0].second.isAscending();
+  flags.nullsFirst = sortKeyInfo_[0].second.isNullsFirst();
   // Start bounds require first match. End bounds require last match.
-  if (sortKeyInfo_[0].second.isAscending()) {
-    updateKRangeFrameBounds<true>(
-        isStartBound,
-        isPreceding,
-        startRow,
-        numRows,
-        frameColumn,
-        rawPeerBuffer,
-        rawFrameBounds);
-  } else {
-    updateKRangeFrameBounds<false>(
-        isStartBound,
-        isPreceding,
-        startRow,
-        numRows,
-        frameColumn,
-        rawPeerBuffer,
-        rawFrameBounds);
-  }
+  updateKRangeFrameBounds(
+      isStartBound,
+      isPreceding,
+      flags,
+      startRow,
+      numRows,
+      frameColumn,
+      rawPeerBuffer,
+      rawFrameBounds);
 }
 
 } // namespace facebook::velox::exec
