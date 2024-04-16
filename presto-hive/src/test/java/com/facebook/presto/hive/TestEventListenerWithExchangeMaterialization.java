@@ -22,7 +22,6 @@ import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
-import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -218,11 +217,6 @@ public class TestEventListenerWithExchangeMaterialization
         public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
         {
             eventsBuilder.addQueryCompleted(queryCompletedEvent);
-        }
-
-        @Override
-        public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-        {
         }
     }
 

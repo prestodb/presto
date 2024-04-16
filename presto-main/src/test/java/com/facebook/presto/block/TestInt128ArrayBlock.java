@@ -166,12 +166,6 @@ public class TestInt128ArrayBlock
     }
 
     @Override
-    protected boolean isSliceAccessSupported()
-    {
-        return true;
-    }
-
-    @Override
     protected void assertSlicePosition(Block block, int position, Slice expectedSliceValue)
     {
         int num128Integers = Math.min(getNum128Integers(expectedSliceValue.length()), block.getPositionCount() - position);
