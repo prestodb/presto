@@ -31,7 +31,6 @@ import java.util.List;
 
 import static com.facebook.presto.parquet.writer.ParquetDataOutput.createDataOutput;
 import static com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables.getIterator;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.bytes.BytesInput.copy;
 
@@ -68,14 +67,6 @@ public class PrimitiveColumnWriterV1
             int next = repIterator.next();
             repetitionLevelWriter.writeInteger(next);
         }
-    }
-
-    @Override
-    public List<BufferData> getBuffer()
-            throws IOException
-    {
-        checkState(closed);
-        return ImmutableList.of(new BufferData(getDataStreams(), getColumnMetaData()));
     }
 
     // page header
