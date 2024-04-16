@@ -21,6 +21,7 @@ add_library(
   FirstLastAggregate.cpp
   MinMaxByAggregate.cpp
   Register.cpp
+  RegrReplacementAggregate.cpp
   SumAggregate.cpp)
 
 target_link_libraries(velox_functions_spark_aggregates fmt::fmt velox_exec

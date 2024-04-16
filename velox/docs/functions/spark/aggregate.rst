@@ -114,6 +114,10 @@ General Aggregate Functions
 
     Returns b
 
+.. spark:function:: regr_replacement(x) -> double
+
+    Returns the `m2` (the sum of the second central moment) of input values.
+
 .. spark:function:: skewness(x) -> double
 
     Returns the skewness of all input values. When the count of `x` is greater than or equal to 1,

@@ -23,6 +23,7 @@ add_executable(
   LastAggregateTest.cpp
   Main.cpp
   MinMaxByAggregationTest.cpp
+  RegrReplacementAggregationTest.cpp
   SumAggregationTest.cpp)
 
 add_test(velox_functions_spark_aggregates_test
