@@ -205,7 +205,9 @@ class IntegerColumnWriter : public BaseColumnWriter {
                 context.shareFlatMapDictionaries() ? 0 : sequence},
             getMemoryPool(MemoryUsageCategory::DICTIONARY),
             getMemoryPool(MemoryUsageCategory::GENERAL))},
-        rows_{getMemoryPool(MemoryUsageCategory::GENERAL)},
+        rows_{
+            getMemoryPool(MemoryUsageCategory::GENERAL),
+            /*initialCapacity=*/16},
         dictionaryKeySizeThreshold_{
             getConfig(Config::DICTIONARY_NUMERIC_KEY_SIZE_THRESHOLD)},
         sort_{getConfig(Config::DICTIONARY_SORT_KEYS)},
@@ -795,7 +797,9 @@ class StringColumnWriter : public BaseColumnWriter {
         dictEncoder_{
             getMemoryPool(MemoryUsageCategory::DICTIONARY),
             getMemoryPool(MemoryUsageCategory::GENERAL)},
-        rows_{getMemoryPool(MemoryUsageCategory::GENERAL)},
+        rows_{
+            getMemoryPool(MemoryUsageCategory::GENERAL),
+            /*initialCapacity=*/16},
         encodingSelector_{
             getMemoryPool(MemoryUsageCategory::GENERAL),
             getConfig(Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD),
