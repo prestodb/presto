@@ -124,10 +124,6 @@ class DwrfRowReader : public StrideIndexProvider,
 
   int64_t nextReadSize(uint64_t size) override;
 
-  std::unique_ptr<const StripeMetadata>& getCurrentStripeMetadata() {
-    return stripeMetadata_;
-  }
-
  private:
   // Represents the status of a stripe being fetched.
   enum class FetchStatus { NOT_STARTED, IN_PROGRESS, FINISHED, ERROR };
