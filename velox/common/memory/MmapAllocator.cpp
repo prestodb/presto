@@ -340,10 +340,11 @@ bool MmapAllocator::allocateContiguousImpl(
   }
   if (data == nullptr || data == MAP_FAILED) {
     const std::string errorMsg = fmt::format(
-        "Mmap failed with {} pages use MmapArena {}, errno {}",
+        "Mmap failed with {} pages use MmapArena {}, errno {}, Mmap Allocator: {}",
         numPages,
         (useMmapArena_ ? "true" : "false"),
-        folly::errnoStr(errno));
+        folly::errnoStr(errno),
+        toString());
     VELOX_MEM_LOG(ERROR) << errorMsg;
     setAllocatorFailureMessage(errorMsg);
     // If the mmap failed, we have unmapped former 'allocation' and the extra to
