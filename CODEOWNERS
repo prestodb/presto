@@ -18,6 +18,10 @@ CODEOWNERS @prestodb/team-tsc
 # Presto cost based optimizer framework
 /presto-main/src/*/java/com/facebook/presto/cost @jaystarshot @prestodb/committers
 
+# Testing module
+# Note: all code owners in Presto core should be included here as well
+/presto-tests @jaystarshot @prestodb/committers
+
 #####################################################################
 # Prestissimo module
 /presto-native-execution @prestodb/team-velox
