@@ -129,7 +129,7 @@ class EncodingKey {
   }
 
   bool valid() const {
-    return node_ != dwio::common::MAX_UINT32 && sequence_ >= 0;
+    return node_ != dwio::common::MAX_UINT32;
   }
 
   std::string toString() const {

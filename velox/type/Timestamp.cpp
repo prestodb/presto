@@ -239,7 +239,6 @@ StringView Timestamp::tmToStringView(
     uint64_t nanos,
     const TimestampToStringOptions& options,
     char* const startPosition) {
-  VELOX_DCHECK_GE(nanos, 0);
   VELOX_DCHECK_LT(nanos, 1'000'000'000);
 
   const auto appendDigits = [](const int value,

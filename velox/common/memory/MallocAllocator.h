@@ -192,7 +192,6 @@ class MallocAllocator : public MemoryAllocator {
       decrementUsageWithoutReservation(reservationByteLimit_);
       counter -= reservationByteLimit_;
     }
-    VELOX_CHECK_GE(counter, 0);
     VELOX_CHECK_LT(counter, 2 * reservationByteLimit_);
   }
 

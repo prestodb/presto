@@ -588,18 +588,10 @@ bool matchRelaxedFixedBackwardUnicode(
   const auto& subPatterns = patternMetadata.subPatterns();
   auto cursor = start;
   for (int32_t i = subPatterns.size() - 1; i >= 0; i--) {
-    if (cursor < 0) {
-      return false;
-    }
-
     const auto subPattern = subPatterns[i];
     if (subPattern.kind == SubPatternKind::kSingleCharWildcard) {
       int32_t charsToSkip = subPattern.length;
       while (charsToSkip > 0) {
-        if (cursor < 0) {
-          return false;
-        }
-
         // We need to skip the number of 'first byte' -- skip one 'first byte'
         // means skip one character.
         if (utf8proc_char_first_byte(input.data() + cursor)) {
@@ -610,8 +602,7 @@ bool matchRelaxedFixedBackwardUnicode(
     } else {
       const auto currentLength = subPattern.length;
       const auto startIdx = cursor - (currentLength - 1);
-      if (startIdx < 0 ||
-          std::memcmp(
+      if (std::memcmp(
               input.data() + startIdx,
               patternMetadata.fixedPattern().data() + subPattern.start,
               currentLength) != 0) {
@@ -1498,7 +1489,7 @@ class PatternStringIterator {
 
   // Char at current cursor.
   char charAt(size_t index) const {
-    VELOX_DCHECK(index >= 0 && index < pattern_.size())
+    VELOX_DCHECK(index < pattern_.size())
     return pattern_.data()[index];
   }
 

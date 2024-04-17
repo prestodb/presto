@@ -580,7 +580,7 @@ DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
 }
 
 DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
-  DWIO_ENSURE(stripeToFetch < stripeCeiling_ && stripeToFetch >= 0);
+  DWIO_ENSURE(stripeToFetch < stripeCeiling_);
   prefetchHasOccurred_ = true;
 
   VLOG(1) << "Unlocked lock and calling fetch for " << stripeToFetch

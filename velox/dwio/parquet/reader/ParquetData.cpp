@@ -96,7 +96,6 @@ void ParquetData::enqueueRowGroup(
     // this assumes the data pages follow the dict pages directly.
     chunkReadOffset = chunk.dictionaryPageOffset();
   }
-  VELOX_CHECK_GE(chunkReadOffset, 0);
 
   uint64_t readSize =
       (chunk.compression() == common::CompressionKind::CompressionKind_NONE)

@@ -470,7 +470,6 @@ class HashProbe : public Operator {
           // passed the filter, it never will, process it as a miss.
           // We're guaranteed to have space, at least the last row was never
           // written out since it was a miss.
-          VELOX_CHECK_GE(freeOutputRows, 0);
           onMiss(currentRow);
           freeOutputRows--;
         }

@@ -263,12 +263,6 @@ uint32_t Operator::outputBatchRows(
   }
 
   const uint64_t rowSize = averageRowSize.value();
-  VELOX_CHECK_GE(
-      rowSize,
-      0,
-      "The given average row size of {}.{} is negative.",
-      operatorType(),
-      operatorId());
 
   if (rowSize * queryConfig.maxOutputBatchRows() <
       queryConfig.preferredOutputBatchBytes()) {

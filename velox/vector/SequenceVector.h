@@ -75,7 +75,6 @@ class SequenceVector : public SimpleVector<T> {
       }
 
       size_t offset = offsetOfIndex(idx);
-      VELOX_DCHECK_GE(offset, 0);
       return sequenceValues_->containsNullAt(offset);
     } else {
       return isNullAt(idx);

@@ -133,7 +133,6 @@ void StripeReaderBase::loadEncryptionKeys(
         handler.setKeys(prev.keyMetadata());
         break;
       }
-      DWIO_ENSURE_GE(prevIndex, 0, "key not found");
       --prevIndex;
     }
   }

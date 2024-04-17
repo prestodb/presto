@@ -47,7 +47,6 @@ SequenceVector<T>::SequenceVector(
           storageByteCount),
       sequenceValues_(std::move(sequenceValues)),
       sequenceLengths_(std::move(sequenceLengths)) {
-  VELOX_CHECK_GE(length, 0, "Must provide length >= 0");
   VELOX_CHECK(sequenceLengths_ != nullptr, "Sequence Lengths must be not null");
   VELOX_CHECK_EQ(
       sequenceLengths_->size(),
@@ -71,14 +70,12 @@ void SequenceVector<T>::setInternalState() {
 template <typename T>
 bool SequenceVector<T>::isNullAtFast(vector_size_t idx) const {
   size_t offset = offsetOfIndex(idx);
-  DCHECK(offset >= 0) << "Invalid index";
   return sequenceValues_->isNullAt(offset);
 }
 
 template <typename T>
 const T SequenceVector<T>::valueAtFast(vector_size_t idx) const {
   size_t offset = offsetOfIndex(idx);
-  VELOX_DCHECK_GE(offset, 0, "Invalid index");
   return scalarSequenceValues_->valueAt(offset);
 }
 
