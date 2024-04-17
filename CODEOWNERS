@@ -49,6 +49,7 @@ CODEOWNERS @prestodb/team-tsc
 
 # ORC reader module
 /presto-orc @sdruzkin @prestodb/committers
+/presto-hive/src/*/java/com/facebook/presto/hive/orc @sdruzkin @prestodb/committers
 
 #####################################################################
 # Presto Console UI
