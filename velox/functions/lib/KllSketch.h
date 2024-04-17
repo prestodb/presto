@@ -105,11 +105,14 @@ struct KllSketch {
   /// Calculate the size needed for serialization.
   size_t serializedByteSize() const;
 
-  /// Serialize the sketch into bytes.
+  /// Serialize the sketch into bytes.  The serialzation is versioned, and newer
+  /// version of code should be able to read all previous versions.
+  ///
   /// @param out Pre-allocated memory at least serializedByteSize() in size
   void serialize(char* out) const;
 
-  /// Deserialize a sketch from bytes.
+  /// Deserialize a sketch from bytes.  Newer version of code should be able to
+  /// read all previous versions.
   static KllSketch<T, Allocator, Compare> deserialize(
       const char* data,
       const Allocator& = Allocator(),
