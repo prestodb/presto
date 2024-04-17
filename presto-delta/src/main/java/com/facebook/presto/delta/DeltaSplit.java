@@ -128,9 +128,8 @@ public class DeltaSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // SOFT_AFFINITY node selection strategy scheduler would choose 2 workers (preferred, secondary preferred)
-            // for scheduling
-            return nodeProvider.get(filePath, 2);
+            // SOFT_AFFINITY node selection strategy scheduler would choose preferred nodes for scheduling
+            return nodeProvider.get(filePath);
         }
         return ImmutableList.of(); // empty list indicates no preference.
     }

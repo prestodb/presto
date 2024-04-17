@@ -101,6 +101,7 @@ public class NodeScheduler
     private final SimpleTtlNodeSelectorConfig simpleTtlNodeSelectorConfig;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
     private final int minVirtualNodeCount;
+    private final int maxPreferredNodes;
 
     @Inject
     public NodeScheduler(
@@ -167,6 +168,7 @@ public class NodeScheduler
         this.simpleTtlNodeSelectorConfig = requireNonNull(simpleTtlNodeSelectorConfig, "simpleTtlNodeSelectorConfig is null");
         this.nodeSelectionHashStrategy = config.getNodeSelectionHashStrategy();
         this.minVirtualNodeCount = config.getMinVirtualNodeCount();
+        this.maxPreferredNodes = config.getMaxPreferredNodes();
     }
 
     @PreDestroy
@@ -222,7 +224,7 @@ public class NodeScheduler
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache,
-                    nodeSelectionHashStrategy);
+                    maxPreferredNodes);
         }
 
         SimpleNodeSelector simpleNodeSelector = new SimpleNodeSelector(
@@ -236,7 +238,7 @@ public class NodeScheduler
                 maxPendingSplitsWeightPerTask,
                 maxUnacknowledgedSplitsPerTask,
                 maxTasksPerStage,
-                nodeSelectionHashStrategy);
+                maxPreferredNodes);
 
         if (resourceAwareSchedulingStrategy == TTL) {
             return new SimpleTtlNodeSelector(
