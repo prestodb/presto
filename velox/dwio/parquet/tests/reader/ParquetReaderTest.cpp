@@ -97,6 +97,91 @@ TEST_F(ParquetReaderTest, parseSample) {
       sampleSchema(), *rowReader, expected, *leafPool_);
 }
 
+TEST_F(ParquetReaderTest, parseUnannotatedList) {
+  // unannotated_list.parquet has the following the schema
+  // the list is defined without the middle layer
+  // message ParquetSchema {
+  //   optional group self (LIST) {
+  //     repeated group self_tuple {
+  //       optional int64 a;
+  //       optional boolean b;
+  //       required binary c (STRING);
+  //     }
+  //   }
+  // }
+  const std::string sample(getExampleFilePath("unannotated_list.parquet"));
+
+  facebook::velox::dwio::common::ReaderOptions readerOpts{leafPool_.get()};
+  auto reader = createReader(sample, readerOpts);
+
+  EXPECT_EQ(reader->numberOfRows(), 22ULL);
+
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::ARRAY);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0)->name_, "self");
+
+  EXPECT_EQ(col0->size(), 3ULL);
+  EXPECT_EQ(col0->childAt(0)->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(0))
+          ->name_,
+      "a");
+
+  EXPECT_EQ(col0->childAt(1)->type()->kind(), TypeKind::BOOLEAN);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(1))
+          ->name_,
+      "b");
+
+  EXPECT_EQ(col0->childAt(2)->type()->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(2))
+          ->name_,
+      "c");
+}
+
+TEST_F(ParquetReaderTest, parseUnannotatedMap) {
+  // unannotated_map.parquet has the following the schema
+  // the map is defined with a MAP_KEY_VALUE node
+  // message hive_schema {
+  // optional group test (MAP) {
+  //   repeated group key_value (MAP_KEY_VALUE) {
+  //       required binary key (STRING);
+  //       optional int64 value;
+  //   }
+  //  }
+  //}
+  const std::string filename("unnotated_map.parquet");
+  const std::string sample(getExampleFilePath(filename));
+
+  facebook::velox::dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+  auto reader = createReader(sample, readerOptions);
+  auto numRows = reader->numberOfRows();
+
+  auto type = reader->typeWithId();
+  EXPECT_EQ(type->size(), 1ULL);
+  auto col0 = type->childAt(0);
+  EXPECT_EQ(col0->type()->kind(), TypeKind::MAP);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0)->name_, "test");
+
+  EXPECT_EQ(col0->size(), 2ULL);
+  EXPECT_EQ(col0->childAt(0)->type()->kind(), TypeKind::VARCHAR);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(0))
+          ->name_,
+      "key");
+
+  EXPECT_EQ(col0->childAt(1)->type()->kind(), TypeKind::BIGINT);
+  EXPECT_EQ(
+      std::static_pointer_cast<const ParquetTypeWithId>(col0->childAt(1))
+          ->name_,
+      "value");
+}
+
 TEST_F(ParquetReaderTest, parseSampleRange1) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
