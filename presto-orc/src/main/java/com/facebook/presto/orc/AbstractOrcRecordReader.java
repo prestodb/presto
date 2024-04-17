@@ -102,6 +102,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private Optional<DwrfEncryptionInfo> dwrfEncryptionInfo = Optional.empty();
 
     private final long fileRowCount;
+    private final Optional<Long> startRowPosition;
+    private final Optional<Long> endRowPosition;
     private final List<Long> stripeFilePositions;
     private long filePosition;
 
@@ -211,6 +213,8 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         long totalRowCount = 0;
         long fileRowCount = 0;
+        Optional<Long> startRowPosition = Optional.empty();
+        Optional<Long> endRowPosition = Optional.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
@@ -221,11 +225,17 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                     stripes.add(stripe);
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
+                    if (!startRowPosition.isPresent()) {
+                        startRowPosition = Optional.of(fileRowCount);
+                    }
+                    endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
         }
         this.totalRowCount = totalRowCount;
+        this.startRowPosition = startRowPosition;
+        this.endRowPosition = endRowPosition;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
@@ -468,6 +478,16 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     public long getFileRowCount()
     {
         return fileRowCount;
+    }
+
+    public Optional<Long> getStartRowPosition()
+    {
+        return startRowPosition;
+    }
+
+    public Optional<Long> getEndRowPosition()
+    {
+        return endRowPosition;
     }
 
     /**
