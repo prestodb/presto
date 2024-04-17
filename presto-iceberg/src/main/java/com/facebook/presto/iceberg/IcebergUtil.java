@@ -246,7 +246,7 @@ public final class IcebergUtil
 
         for (int i = 0; i < table.spec().fields().size(); i++) {
             PartitionField field = table.spec().fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 Optional<IcebergColumnHandle> columnHandle = allColumns.stream().filter(icebergColumnHandle -> Objects.equals(icebergColumnHandle.getName(), field.name())).findAny();
                 columnHandle.ifPresent(partitionColumns::add);
             }
@@ -285,7 +285,7 @@ public final class IcebergUtil
         List<String> partitionFieldNames = new ArrayList<>();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 partitionFieldNames.add(field.name());
             }
         }
@@ -301,7 +301,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<PartitionField, Integer> columns = ImmutableMap.builder();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 columns.put(field, i);
             }
         }
