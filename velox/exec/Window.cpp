@@ -282,7 +282,9 @@ void updateKRowsOffsetsColumn(
   for (auto i = 0; i < numRows; i++) {
     auto startValue = (int64_t)(startRow + i) + precedingFactor * offsets[i];
     if (startValue < INT32_MIN) {
-      rawFrameBounds[i] = 0;
+      // Same as the handling of startValue < INT32_MIN in
+      // updateKRowsFrameBounds.
+      rawFrameBounds[i] = -1;
     } else if (startValue > INT32_MAX) {
       // computeValidFrames will replace INT32_MAX set here
       // with partition's final row index.
@@ -308,10 +310,15 @@ void Window::updateKRowsFrameBounds(
 
     if (isKPreceding) {
       if (startValue < INT32_MIN) {
-        // For overflow in kPreceding frames, k < INT32_MIN. Since the max
-        // number of rows in a partition is INT32_MAX, the frameBound will
-        // always be bound to the first row of the partition
-        std::fill_n(rawFrameBounds, numRows, 0);
+        // For overflow in kPreceding frames, i.e., k < INT32_MIN, we set the
+        // frame bound to -1. For frames whose original frame start is below
+        // INT32_MIN, the new frame start becomes -1 and will be corrected to 0
+        // by the subsequent computeValidFrames call. For frames whose original
+        // frame end is below INT32_MIN, the new frame end becomes -1 and will
+        // be marked invalid by the subsequent computeValidFrames call. This is
+        // expected because the max number of rows in a partition is INT32_MAX,
+        // so a frame end below INT32_MIN always results in an empty frame.
+        std::fill_n(rawFrameBounds, numRows, -1);
         return;
       }
       std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);

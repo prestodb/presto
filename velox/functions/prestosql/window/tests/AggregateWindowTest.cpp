@@ -349,6 +349,43 @@ TEST_F(AggregateWindowTest, integerOverflowRowsFrame) {
        makeFlatVector<int64_t>({6, 6, 6, 6, 6, 6, 4, 4, 4, 4})});
   WindowTestBase::testWindowFunction(
       {input}, "count(c1)", overClause, frameClause, expected);
+
+  // Empty frame with overflowed frame end.
+  input = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeConstant<int64_t>(30000000000, 4),
+  });
+  expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeConstant<int64_t>(30000000000, 4),
+      makeNullConstant(TypeKind::BIGINT, 4),
+  });
+  WindowTestBase::testWindowFunction(
+      {input},
+      "sum(c0)",
+      "",
+      "rows between unbounded preceding and 30000000000 preceding",
+      expected);
+  WindowTestBase::testWindowFunction(
+      {input},
+      "sum(c0)",
+      "",
+      "rows between unbounded preceding and c1 preceding",
+      expected);
+
+  // Empty frame with overflowed frame start.
+  WindowTestBase::testWindowFunction(
+      {input},
+      "sum(c0)",
+      "",
+      "rows between 30000000000 following and unbounded following",
+      expected);
+  WindowTestBase::testWindowFunction(
+      {input},
+      "sum(c0)",
+      "",
+      "rows between c1 following and unbounded following",
+      expected);
 }
 
 }; // namespace
