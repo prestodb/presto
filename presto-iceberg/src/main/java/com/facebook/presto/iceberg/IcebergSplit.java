@@ -143,7 +143,7 @@ public class IcebergSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return nodeProvider.get(path, 2);
+            return nodeProvider.get(path);
         }
         return addresses;
     }
