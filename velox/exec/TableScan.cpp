@@ -200,7 +200,13 @@ RowVectorPtr TableScan::getOutput() {
         dataSource_->setFromDataSource(std::move(preparedDataSource));
       } else {
         curStatus_ = "getOutput: adding split";
+        const auto addSplitStartMicros = getCurrentTimeMicro();
         dataSource_->addSplit(connectorSplit);
+        stats_.wlock()->addRuntimeStat(
+            "dataSourceAddSplitWallNanos",
+            RuntimeCounter(
+                (getCurrentTimeMicro() - addSplitStartMicros) * 1'000,
+                RuntimeCounter::Unit::kNanos));
       }
       curStatus_ = "getOutput: updating stats_.numSplits";
       ++stats_.wlock()->numSplits;
@@ -239,10 +245,10 @@ RowVectorPtr TableScan::getOutput() {
     checkPreload();
 
     {
-      curStatus_ = "getOutput: updating stats_.dataSourceWallNanos";
+      curStatus_ = "getOutput: updating stats_.dataSourceReadWallNanos";
       auto lockedStats = stats_.wlock();
       lockedStats->addRuntimeStat(
-          "dataSourceWallNanos",
+          "dataSourceReadWallNanos",
           RuntimeCounter(
               (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
               RuntimeCounter::Unit::kNanos));
