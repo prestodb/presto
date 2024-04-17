@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -347,5 +348,9 @@ public final class FunctionResolution
     public boolean isElementAtFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at"));
+    }
+
+    public FunctionHandle nullIfFunction(Type leftType, Type rightType) {
+        return functionAndTypeResolver.lookupFunction("NULLIF", fromTypes(leftType, rightType));
     }
 }
