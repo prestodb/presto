@@ -131,8 +131,6 @@ public class TempStorageManager
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
-        log.info("-- Loading temp storage %s --", name);
-
         String tempStorageFactoryName = null;
         ImmutableMap.Builder<String, String> tempStorageProperties = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : properties.entrySet()) {

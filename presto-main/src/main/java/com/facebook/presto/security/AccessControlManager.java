@@ -148,8 +148,6 @@ public class AccessControlManager
 
         checkState(systemAccessControlLoading.compareAndSet(false, true), "System access control already initialized");
 
-        log.info("-- Loading system access control --");
-
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
         checkState(systemAccessControlFactory != null, "Access control %s is not registered", name);
 
