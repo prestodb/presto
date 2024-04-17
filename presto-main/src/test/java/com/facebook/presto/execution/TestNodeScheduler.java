@@ -246,7 +246,8 @@ public class TestNodeScheduler
         Set<Split> splits = ImmutableSet.of(split);
 
         Map.Entry<InternalNode, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
-        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(new ModularHashingNodeProvider(nodeSelector.getAllNodes())).get(0));
+        ModularHashingNodeProvider modularHashingNodeProvider = new ModularHashingNodeProvider(nodeSelector.getAllNodes());
+        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes((key) -> modularHashingNodeProvider.get(key, 3)).get(0));
         assertEquals(assignment.getValue(), split);
     }
 
@@ -361,10 +362,11 @@ public class TestNodeScheduler
         }
         unassigned = Sets.difference(unassigned, new HashSet<>(assignments.values()));
         assertEquals(unassigned.size(), 3);
+        ModularHashingNodeProvider modularHashingNodeProvider = new ModularHashingNodeProvider(nodeSelector.getAllNodes());
         int rack1 = 0;
         int rack2 = 0;
         for (Split split : unassigned) {
-            String rack = topology.locate(split.getPreferredNodes(new ModularHashingNodeProvider(nodeSelector.getAllNodes())).get(0)).getSegments().get(0);
+            String rack = topology.locate(split.getPreferredNodes((key) -> modularHashingNodeProvider.get(key, 2)).get(0)).getSegments().get(0);
             switch (rack) {
                 case "rack1":
                     rack1++;
@@ -1353,7 +1355,7 @@ public class TestNodeScheduler
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return nodeProvider.get(format("split%d", scheduleIdentifierId), 1);
+            return nodeProvider.get(format("split%d", scheduleIdentifierId));
         }
 
         @Override
@@ -1393,7 +1395,7 @@ public class TestNodeScheduler
         @Override
         public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
         {
-            return nodeProvider.get(String.valueOf(new Random().nextInt()), 1);
+            return nodeProvider.get(String.valueOf(new Random().nextInt()));
         }
     }
 
