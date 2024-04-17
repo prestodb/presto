@@ -10,12 +10,11 @@ export default function VeloxConBanner() {
     <section className={styles.banner}>
       <div className="container">
         <div className="row">
-          <div className="col col--6">
-            <h2>Join us at VeloxCon</h2>
-            <p>April 3–4, 2024 | San Jose, CA</p>
+          <div className="col col--9">
+            <h2>See the VeloxCon 2024 Recordings</h2>
           </div>
-          <div className="col col--6">
-            <a className="button button--info button--lg" href="https://veloxcon.io/" target="_blank">Register Now</a>
+          <div className="col col--3">
+            <a className="button button--info button--lg" href="https://www.youtube.com/playlist?list=PLJvBe8nQAEsEBSoUY0lRFVZr2_YeHYkUR" target="_blank">Watch</a>
           </div>
         </div>
       </div>
