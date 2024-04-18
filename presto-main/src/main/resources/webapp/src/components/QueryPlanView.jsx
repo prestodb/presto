@@ -13,64 +13,19 @@
  */
 
 import React from 'react';
-import type {StageNodeInfo} from './LivePlan';
+import { clsx } from 'clsx';
+
+import type { StageNodeInfo } from './LivePlan';
 import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 import { formatRows, getStageStateColor, initializeGraph } from "../utils";
 
-// A form to select a JSON file and read
-const FileForm = ({ onChange }) => (
-    <div className="row">
-        <div className="col-xs-4 col-xs-offset-1 input-group">
-            <div id="title">Select a JSON file of SQL query to process</div>
-            <form id='form' class="form-inline">
-                <div class="form-group">
-                    <input id='file' type="file" name="file" accept='.json, application/json' onChange={onChange}/>
-                </div>
-            </form>
-        </div>
-    </div>
-);
-
-export function PlanViewer() {
-    const [state, setState] = React.useState({
-        initialized: false,
-        ended: false
-    });
-
-    const data = React.useRef({
-        query: null,
+export default function PlanView({show, data}) {
+    const widgets = React.useRef({
         svg: null,
     });
-
-    const readJSON = (e) => {
-        if (!e.target.files[0]) {
-            return;
-        }
-        const fr = new FileReader();
-        fr.onload = function () {
-            if (!fr.result) {
-                return;
-            }
-            try {
-                const queryJSON = JSON.parse(fr.result);
-                data.current.query = queryJSON;
-                setState({
-                    initialized: true,
-                    ended: queryJSON.finalQueryInfo,
-                });
-                updateD3Graph();
-                //$FlowFixMe
-                $('[data-toggle="tooltip"]').tooltip()
-            } catch (err) {
-                console.err(err);
-            }
-        }
-        fr.readAsText(e.target.files[0]);
-    };
-
 
     const updateD3Stage = (stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) => {
         const clusterId = stage.stageId;
@@ -119,19 +74,16 @@ export function PlanViewer() {
     }
 
     const updateD3Graph = () => {
-        if (!data.current.query) {
-            return;
-        }
-        if (!data.current.svg) {
+        if (!data || !widgets.current.svg || !show) {
             return;
         }
 
         const graph = initializeGraph();
-        const stages = StageStatistics.getStages(data.current.query);
+        const stages = StageStatistics.getStages(data);
         stages.forEach(stage => {
             updateD3Stage(stage, graph, stages);
         });
-        const svg = data.current.svg;
+        const svg = widgets.current.svg;
         // reset SVG to compose a new graph
         svg.selectAll("*").remove();
         svg.append('g');
@@ -157,23 +109,24 @@ export function PlanViewer() {
     }
 
     React.useEffect(() => {
-        if (!data.current.svg) {
-            data.current.svg = d3.select("#plan-canvas");
+        if (!widgets.current.svg) {
+            widgets.current.svg = d3.select("#plan-canvas");
         }
-    }, []);
+        updateD3Graph();
+        $('[data-toggle="tooltip"]').tooltip()
+    }, [data, show]);
 
     return (
-        <div>
-            <FileForm onChange={readJSON} />
+        <div className={clsx(!show && 'hide')}>
             <div className="row">
-                <div className="col-xs-12">
-                    <div id="plan-viewer" className="graph-container">
-                        <div className="pull-right">
-                            {state.ended ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to view additional statistics
-                        </div>
-                        <svg id="plan-canvas" />
-                    </div>
+            <div className="col-xs-12">
+                <div id="plan-viewer" className="graph-container">
+                    {data && <div className="pull-right">
+                        {data.finalQueryInfo ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to view additional statistics
+                    </div>}
+                    <svg id="plan-canvas" />
                 </div>
+            </div>
             </div>
         </div>
     );
