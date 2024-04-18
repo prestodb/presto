@@ -56,12 +56,6 @@ class ScanSpec {
 
   explicit ScanSpec(const std::string& name) : fieldName_(name) {}
 
-  ScanSpec(const ScanSpec& other) {
-    *this = other;
-  }
-
-  ScanSpec& operator=(const ScanSpec&);
-
   // Filter to apply. If 'this' corresponds to a struct/list/map, this
   // can only be isNull or isNotNull, other filtering is given by
   // 'children'.
@@ -358,7 +352,7 @@ class ScanSpec {
   // True if a string dictionary or flat map in this field should be
   // returned as flat.
   bool makeFlat_ = false;
-  std::shared_ptr<common::Filter> filter_;
+  std::unique_ptr<common::Filter> filter_;
 
   // Filters that will be only used for row group filtering based on metadata.
   // The conjunctions among these filters are tracked in MetadataFilter, with

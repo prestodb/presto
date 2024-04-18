@@ -19,30 +19,6 @@
 
 namespace facebook::velox::common {
 
-ScanSpec& ScanSpec::operator=(const ScanSpec& other) {
-  if (this != &other) {
-    numReads_ = other.numReads_;
-    subscript_ = other.subscript_;
-    fieldName_ = other.fieldName_;
-    channel_ = other.channel_;
-    constantValue_ = other.constantValue_;
-    projectOut_ = other.projectOut_;
-    extractValues_ = other.extractValues_;
-    makeFlat_ = other.makeFlat_;
-    filter_ = other.filter_;
-    metadataFilters_ = other.metadataFilters_;
-    selectivity_ = other.selectivity_;
-    enableFilterReorder_ = other.enableFilterReorder_;
-    children_ = other.children_;
-    stableChildren_ = other.stableChildren_;
-    childByFieldName_ = other.childByFieldName_;
-    valueHook_ = other.valueHook_;
-    isArrayElementOrMapEntry_ = other.isArrayElementOrMapEntry_;
-    maxArrayElementsCount_ = other.maxArrayElementsCount_;
-  }
-  return *this;
-}
-
 ScanSpec* ScanSpec::getOrCreateChild(const Subfield& subfield) {
   auto container = this;
   auto& path = subfield.path();
