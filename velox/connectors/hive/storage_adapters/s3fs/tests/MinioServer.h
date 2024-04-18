@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/core/Config.h"
+#include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include "boost/process.hpp"
@@ -33,9 +34,12 @@ constexpr char const* kMinioSecretKey{"miniopass"};
 // Adapted from the Apache Arrow library.
 class MinioServer {
  public:
-  MinioServer(const std::string_view& connectionString)
-      : tempPath_(::exec::test::TempDirectoryPath::create()),
-        connectionString_(connectionString) {}
+  MinioServer() : tempPath_(::exec::test::TempDirectoryPath::create()) {
+    constexpr auto kHostAddressTemplate = "127.0.0.1:{}";
+    auto ports = facebook::velox::exec::test::getFreePorts(2);
+    connectionString_ = fmt::format(kHostAddressTemplate, ports[0]);
+    consoleAddress_ = fmt::format(kHostAddressTemplate, ports[1]);
+  }
 
   void start();
 
@@ -71,7 +75,8 @@ class MinioServer {
 
  private:
   const std::shared_ptr<exec::test::TempDirectoryPath> tempPath_;
-  const std::string connectionString_;
+  std::string connectionString_;
+  std::string consoleAddress_;
   const std::string accessKey_ = kMinioAccessKey;
   const std::string secretKey_ = kMinioSecretKey;
   std::shared_ptr<::boost::process::child> serverProcess_;
@@ -97,6 +102,8 @@ void MinioServer::start() {
         "--compat",
         "--address",
         connectionString_,
+        "--console-address",
+        consoleAddress_,
         path.c_str());
   } catch (const std::exception& e) {
     VELOX_FAIL("Failed to launch Minio server: {}", e.what());
