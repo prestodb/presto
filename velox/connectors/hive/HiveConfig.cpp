@@ -105,6 +105,21 @@ std::string HiveConfig::s3IAMRoleSessionName() const {
   return config_->get(kS3IamRoleSessionName, std::string("velox-session"));
 }
 
+std::optional<std::string> HiveConfig::s3ConnectTimeout() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3ConnectTimeout));
+}
+
+std::optional<std::string> HiveConfig::s3SocketTimeout() const {
+  return static_cast<std::optional<std::string>>(
+      config_->get<std::string>(kS3SocketTimeout));
+}
+
+std::optional<uint32_t> HiveConfig::s3MaxConnections() const {
+  return static_cast<std::optional<std::uint32_t>>(
+      config_->get<uint32_t>(kS3MaxConnections));
+}
+
 std::string HiveConfig::gcsEndpoint() const {
   return config_->get<std::string>(kGCSEndpoint, std::string(""));
 }

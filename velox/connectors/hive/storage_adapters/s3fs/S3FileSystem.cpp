@@ -20,6 +20,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3WriteFile.h"
 #include "velox/core/Config.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/DataBuffer.h"
 
 #include <fmt/format.h>
@@ -539,6 +540,26 @@ class S3FileSystem::Impl {
       clientConfig.scheme = Aws::Http::Scheme::HTTPS;
     } else {
       clientConfig.scheme = Aws::Http::Scheme::HTTP;
+    }
+
+    if (hiveConfig_->s3ConnectTimeout().has_value()) {
+      clientConfig.connectTimeoutMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              facebook::velox::core::toDuration(
+                  hiveConfig_->s3ConnectTimeout().value()))
+              .count();
+    }
+
+    if (hiveConfig_->s3SocketTimeout().has_value()) {
+      clientConfig.requestTimeoutMs =
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              facebook::velox::core::toDuration(
+                  hiveConfig_->s3SocketTimeout().value()))
+              .count();
+    }
+
+    if (hiveConfig_->s3MaxConnections().has_value()) {
+      clientConfig.maxConnections = hiveConfig_->s3MaxConnections().value();
     }
 
     auto credentialsProvider = getCredentialsProvider();

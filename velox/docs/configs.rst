@@ -524,6 +524,18 @@ Each query can override the config by setting corresponding query session proper
      - bool
      - false
      - Utilize the configuration of the environment variables http_proxy, https_proxy, and no_proxy for use with the S3 API.
+   * - hive.s3.connect-timeout
+     - string
+     -
+     - Socket connect timeout.
+   * - hive.s3.socket-timeout
+     - string
+     -
+     - Socket read timeout.
+   * - hive.s3.max-connections
+     - integer
+     -
+     - Maximum concurrent TCP connections for a single http client.
 
 ``Google Cloud Storage Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
