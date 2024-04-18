@@ -68,8 +68,10 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
@@ -249,8 +251,10 @@ final class PrestoDriverUri
                         builder,
                         SSL_KEY_STORE_PATH.getValue(properties),
                         SSL_KEY_STORE_PASSWORD.getValue(properties),
+                        SSL_KEY_STORE_TYPE.getValue(properties),
                         SSL_TRUST_STORE_PATH.getValue(properties),
-                        SSL_TRUST_STORE_PASSWORD.getValue(properties));
+                        SSL_TRUST_STORE_PASSWORD.getValue(properties),
+                        SSL_TRUST_STORE_TYPE.getValue(properties));
             }
 
             if (KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent()) {

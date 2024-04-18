@@ -142,8 +142,10 @@ public final class OkHttpUtil
             OkHttpClient.Builder clientBuilder,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
+            Optional<String> keystoreType,
             Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
+            Optional<String> trustStorePassword,
+            Optional<String> trustStoreType)
     {
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return;
@@ -154,6 +156,7 @@ public final class OkHttpUtil
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
             if (keyStorePath.isPresent()) {
+                checkArgument(keystoreType.isPresent(), "keystore type is not present");
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
@@ -164,7 +167,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    keyStore = KeyStore.getInstance(keystoreType.get());
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -178,7 +181,8 @@ public final class OkHttpUtil
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword);
+                checkArgument(trustStoreType.isPresent(), "truststore type is not present");
+                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType.get());
             }
 
             // create TrustManagerFactory
@@ -227,10 +231,10 @@ public final class OkHttpUtil
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, String trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType);
         try {
             // attempt to read the trust store as a PEM file
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
