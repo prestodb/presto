@@ -75,6 +75,9 @@ class Scratch {
     for (auto i = newCapacity; i < fill_; ++i) {
       std::destroy_at(&items_[i]);
     }
+    // Add hint to prevent the compiler from generating the
+    // stringop-overflow warning when 'newCapacity' is 0.
+    folly::assume(capacity_ >= 0);
     if (newCapacity > capacity_) {
       Item* newItems =
           reinterpret_cast<Item*>(::malloc(sizeof(Item) * newCapacity));
