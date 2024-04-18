@@ -427,7 +427,7 @@ public class TestUnscaledDecimal128Arithmetic
     public void testHash()
     {
         assertEquals(hash(unscaledDecimal(0)), hash(negate(unscaledDecimal(0))));
-        assertNotEquals(hash(unscaledDecimal(0)), unscaledDecimal(1));
+        assertNotEquals(hash(unscaledDecimal(0)), hash(unscaledDecimal(1)));
     }
 
     @Test
