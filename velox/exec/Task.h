@@ -1114,6 +1114,10 @@ class Task : public std::enable_shared_from_this<Task> {
 
   // Indicates whether the spill directory has been created.
   std::atomic<bool> spillDirectoryCreated_{false};
+
+  // Stores unconsumed preloading splits to ensure they are closed promptly.
+  folly::F14FastSet<std::shared_ptr<connector::ConnectorSplit>>
+      preloadingSplits_;
 };
 
 /// Listener invoked on task completion.

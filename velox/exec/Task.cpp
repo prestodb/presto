@@ -1449,9 +1449,11 @@ exec::Split Task::getSplitLocked(
       if (!connectorSplit->dataSource) {
         // Initializes split->dataSource.
         preload(connectorSplit);
+        preloadingSplits_.emplace(connectorSplit);
       } else if (
           (readySplitIndex == -1) && (connectorSplit->dataSource->hasValue())) {
         readySplitIndex = i;
+        preloadingSplits_.erase(connectorSplit);
       }
     }
   }
@@ -1952,6 +1954,11 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   for (auto& bridge : oldBridges) {
     bridge->cancel();
   }
+
+  for (auto split : preloadingSplits_) {
+    split->dataSource->close();
+  }
+  preloadingSplits_.clear();
 
   return makeFinishFuture("Task::terminate");
 }

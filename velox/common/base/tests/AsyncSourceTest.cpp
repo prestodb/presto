@@ -18,11 +18,14 @@
 #include <fmt/format.h>
 #include <folly/Random.h>
 #include <folly/Synchronized.h>
+#include <folly/synchronization/Baton.h>
 #include <gtest/gtest.h>
+#include <chrono>
 #include <thread>
 #include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
+using namespace std::chrono_literals;
 
 // A sample class to be constructed via AsyncSource.
 struct Gizmo {
@@ -150,4 +153,94 @@ TEST(AsyncSourceTest, errorsWithThreads) {
   // There will always be errors since the first to wait for any given
   // gizmo is sure to get an error.
   EXPECT_LT(0, numErrors);
+  for (auto& source : gizmos) {
+    source->close();
+  }
+}
+
+class DataCounter {
+ public:
+  DataCounter() {
+    objectNumber_ = ++numCreatedDataCounters_;
+  }
+
+  ~DataCounter() {
+    ++numDeletedDataCounters_;
+  }
+
+  static uint64_t numCreatedDataCounters() {
+    return numCreatedDataCounters_;
+  }
+
+  static uint64_t numDeletedDataCounters() {
+    return numDeletedDataCounters_;
+  }
+
+  static void reset() {
+    numCreatedDataCounters_ = 0;
+    numDeletedDataCounters_ = 0;
+  }
+
+  uint64_t objectNumber() const {
+    return objectNumber_;
+  }
+
+ private:
+  static std::atomic<uint64_t> numCreatedDataCounters_;
+  static std::atomic<uint64_t> numDeletedDataCounters_;
+
+  uint64_t objectNumber_{0};
+};
+
+std::atomic<uint64_t> DataCounter::numCreatedDataCounters_ = 0;
+
+std::atomic<uint64_t> DataCounter::numDeletedDataCounters_ = 0;
+
+TEST(AsyncSourceTest, close) {
+  // If 'prepare()' is not executed within the thread pool, invoking 'close()'
+  // will set 'make_' to nullptr. The deletion of 'dateCounter' is used as a
+  // verification for this behavior.
+  auto dateCounter = std::make_shared<DataCounter>();
+  AsyncSource<uint64_t> countAsyncSource([dateCounter]() {
+    return std::make_unique<uint64_t>(dateCounter->objectNumber());
+  });
+  dateCounter.reset();
+  EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
+  EXPECT_EQ(DataCounter::numDeletedDataCounters(), 0);
+
+  countAsyncSource.close();
+  EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
+  EXPECT_EQ(DataCounter::numDeletedDataCounters(), 1);
+  DataCounter::reset();
+
+  // If 'prepare()' is executed within the thread pool but 'move()' is not
+  // invoked, invoking 'close()' will set 'item_' to nullptr. The deletion of
+  // 'dateCounter' is used as a verification for this behavior.
+  auto asyncSource = std::make_shared<AsyncSource<DataCounter>>(
+      []() { return std::make_unique<DataCounter>(); });
+  asyncSource->prepare();
+  EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
+  EXPECT_EQ(DataCounter::numDeletedDataCounters(), 0);
+
+  asyncSource->close();
+  EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
+  EXPECT_EQ(DataCounter::numDeletedDataCounters(), 1);
+  DataCounter::reset();
+
+  // If 'prepare()' is currently being executed within the thread pool,
+  // 'close()' should wait for the completion of 'prepare()' and set 'item_' to
+  // nullptr.
+  folly::Baton<> baton;
+  auto sleepAsyncSource =
+      std::make_shared<AsyncSource<DataCounter>>([&baton]() {
+        baton.post();
+        return std::make_unique<DataCounter>();
+      });
+  auto thread1 =
+      std::thread([&sleepAsyncSource] { sleepAsyncSource->prepare(); });
+  EXPECT_TRUE(baton.try_wait_for(1s));
+  sleepAsyncSource->close();
+  EXPECT_EQ(DataCounter::numCreatedDataCounters(), 1);
+  EXPECT_EQ(DataCounter::numDeletedDataCounters(), 1);
+  thread1.join();
 }
