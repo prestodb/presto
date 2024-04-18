@@ -133,7 +133,8 @@ public class TestDynamicPruning
                 outputFile.length(),
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         HiveSplit split = new HiveSplit(
                 fileSplit,
