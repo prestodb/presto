@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -74,12 +75,17 @@ public class ClientOptions
     @Option(name = "--keystore-password", title = "keystore password", description = "Keystore password")
     public String keystorePassword;
 
+    @Option(name = "--keystore-type", title = "keystore type", description = "Keystore type")
+    public String keyStoreType = KeyStore.getDefaultType();
+
     @Option(name = "--truststore-path", title = "truststore path", description = "Truststore path")
     public String truststorePath;
 
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
 
+    @Option(name = "--truststore-type", title = "truststore type", description = "Truststore type")
+    public String trustStoreType = KeyStore.getDefaultType();
     @Option(name = "--access-token", title = "access token", description = "Access token")
     public String accessToken;
 
