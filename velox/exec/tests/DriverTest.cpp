@@ -984,6 +984,74 @@ class ThrowNodeFactory : public Operator::PlanNodeTranslator {
   uint32_t driversCreated{0};
 };
 
+class BlockedNoFutureNode : public core::PlanNode {
+ public:
+  BlockedNoFutureNode(
+      const core::PlanNodeId& id,
+      const core::PlanNodePtr& input)
+      : PlanNode(id), sources_{input} {}
+
+  const RowTypePtr& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<std::shared_ptr<const PlanNode>>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "BlockedNoFuture";
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+  std::vector<core::PlanNodePtr> sources_;
+};
+
+class BlockedNoFutureOperator : public Operator {
+ public:
+  BlockedNoFutureOperator(
+      DriverCtx* ctx,
+      int32_t id,
+      const std::shared_ptr<const BlockedNoFutureNode>& node)
+      : Operator(ctx, node->outputType(), id, node->id(), "BlockedNoFuture") {}
+
+  bool needsInput() const override {
+    return !noMoreInput_ && !input_;
+  }
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  RowVectorPtr getOutput() override {
+    return std::move(input_);
+  }
+
+  bool isFinished() override {
+    return noMoreInput_ && input_ == nullptr;
+  }
+
+  BlockingReason isBlocked(ContinueFuture* /*future*/) override {
+    // Report being blocked, but do not set the future to trigger the error.
+    return BlockingReason::kYield;
+  }
+};
+
+class BlockedNoFutureNodeFactory : public Operator::PlanNodeTranslator {
+ public:
+  std::unique_ptr<Operator> toOperator(
+      DriverCtx* ctx,
+      int32_t id,
+      const core::PlanNodePtr& node) override {
+    return std::make_unique<BlockedNoFutureOperator>(
+        ctx, id, std::dynamic_pointer_cast<const BlockedNoFutureNode>(node));
+  }
+
+  std::optional<uint32_t> maxDrivers(const core::PlanNodePtr& node) override {
+    return 1;
+  }
+};
 } // namespace
 
 // Use a node for which driver factory would throw on any driver beyond id 0.
@@ -996,7 +1064,8 @@ TEST_F(DriverTest, driverCreationThrow) {
 
   auto plan = PlanBuilder()
                   .values({rows}, true)
-                  .addNode([](std::string id, core::PlanNodePtr input) {
+                  .addNode([](const core::PlanNodeId& id,
+                              const core::PlanNodePtr& input) {
                     return std::make_shared<ThrowNode>(
                         id, ThrowNode::OperatorMethod::kAddInput, input);
                   })
@@ -1009,6 +1078,25 @@ TEST_F(DriverTest, driverCreationThrow) {
   // Ensure execution threw correct error.
   VELOX_ASSERT_THROW(cursor->moveNext(), "Too many drivers");
   EXPECT_EQ(TaskState::kFailed, task->state());
+}
+
+TEST_F(DriverTest, blockedNoFuture) {
+  Operator::registerOperator(std::make_unique<BlockedNoFutureNodeFactory>());
+
+  auto rows = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  auto plan = PlanBuilder()
+                  .values({rows}, true)
+                  .addNode([](const core::PlanNodeId& id,
+                              const core::PlanNodePtr& input) {
+                    return std::make_shared<BlockedNoFutureNode>(id, input);
+                  })
+                  .planNode();
+  // Ensure execution threw correct error.
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(plan).copyResults(pool()),
+      "The operator BlockedNoFuture is blocked but blocking future is not set "
+      "by isBlocked method.");
 }
 
 TEST_F(DriverTest, nonVeloxOperatorException) {

@@ -99,6 +99,17 @@ void recordSilentThrows(Operator& op) {
   }
 }
 
+// Check whether the future is set by isBlocked method.
+inline void checkIsBlockFutureValid(
+    const Operator* op,
+    const ContinueFuture& future) {
+  VELOX_CHECK(
+      future.valid(),
+      "The operator {} is blocked but blocking future is not "
+      "set by isBlocked method.",
+      op->operatorType());
+}
+
 } // namespace
 
 DriverCtx::DriverCtx(
@@ -511,7 +522,7 @@ StopReason Driver::runInternal(
     TestValue::adjust("facebook::velox::exec::Driver::runInternal", this);
 
     const int32_t numOperators = operators_.size();
-    ContinueFuture future;
+    ContinueFuture future = ContinueFuture::makeEmpty();
 
     for (;;) {
       for (int32_t i = numOperators - 1; i >= 0; --i) {
@@ -539,6 +550,7 @@ StopReason Driver::runInternal(
             curOperatorId_,
             kOpMethodIsBlocked);
         if (blockingReason_ != BlockingReason::kNotBlocked) {
+          checkIsBlockFutureValid(op, future);
           blockingState = std::make_shared<BlockingState>(
               self, std::move(future), op, blockingReason_);
           guard.notThrown();
@@ -554,6 +566,7 @@ StopReason Driver::runInternal(
               curOperatorId_ + 1,
               kOpMethodIsBlocked);
           if (blockingReason_ != BlockingReason::kNotBlocked) {
+            checkIsBlockFutureValid(nextOp, future);
             blockingState = std::make_shared<BlockingState>(
                 self, std::move(future), nextOp, blockingReason_);
             guard.notThrown();
@@ -643,6 +656,7 @@ StopReason Driver::runInternal(
                   curOperatorId_,
                   kOpMethodIsBlocked);
               if (blockingReason_ != BlockingReason::kNotBlocked) {
+                checkIsBlockFutureValid(op, future);
                 blockingState = std::make_shared<BlockingState>(
                     self, std::move(future), op, blockingReason_);
                 guard.notThrown();
