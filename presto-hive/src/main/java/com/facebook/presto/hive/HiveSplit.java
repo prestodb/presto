@@ -167,7 +167,7 @@ public class HiveSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return nodeProvider.get(fileSplit.getPath(), 2);
+            return nodeProvider.get(fileSplit.getPath() + "#" + fileSplit.getAffinitySchedulingFileSectionIndex(), 2);
         }
         return addresses;
     }
