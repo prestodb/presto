@@ -54,6 +54,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
@@ -101,6 +102,7 @@ class HiveSplitSource
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
     private final HiveSplitWeightProvider splitWeightProvider;
     private final double splitScanRatio;
+    private final long affinitySchedulingFileSectionSizeInBytes;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -140,6 +142,7 @@ class HiveSplitSource
             splitScanRatio = 1.0;
         }
         this.splitScanRatio = max(min(splitScanRatio, 1.0), 0.1);
+        affinitySchedulingFileSectionSizeInBytes = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     public static HiveSplitSource allAtOnce(
@@ -517,7 +520,8 @@ class HiveSplitSource
                         internalSplit.getFileSize(),
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getExtraFileInfo(),
-                        internalSplit.getCustomSplitInfo());
+                        internalSplit.getCustomSplitInfo(),
+                        internalSplit.getStart() / affinitySchedulingFileSectionSizeInBytes);
 
                 resultBuilder.add(new HiveSplit(
                         fileSplit,
