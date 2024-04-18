@@ -336,15 +336,15 @@ TEST_P(HttpTestSuite, httpConnectTimeout) {
     std::this_thread::sleep_for(std::chrono::milliseconds(3'000));
   };
 
-  auto promisePair1 = folly::makePromiseContract<bool>();
-  requestState1->requestPromise = std::move(promisePair1.first);
-  auto promisePair2 = folly::makePromiseContract<bool>();
-  requestState2->requestPromise = std::move(promisePair2.first);
+  auto [promise1, future1] = folly::makePromiseContract<bool>();
+  requestState1->requestPromise = std::move(promise1);
+  auto [promise2, future2] = folly::makePromiseContract<bool>();
+  requestState2->requestPromise = std::move(promise2);
 
-  std::thread thread1([&]() {
+  std::thread thread1([&, &future = future1]() {
     auto responseFuture = sendGet(client1.get(), "/async/msg1");
     try {
-      std::move(promisePair1.second).wait();
+      std::move(future).wait();
       requestState1->msgPromise.lock()->promise.setValue("Success");
       auto response = std::move(responseFuture).get();
       ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
@@ -404,12 +404,12 @@ TEST_P(HttpTestSuite, httpRequestTimeout) {
 
   requestState->maxWaitMillis = 1500;
 
-  auto promisePair = folly::makePromiseContract<bool>();
-  requestState->requestPromise = std::move(promisePair.first);
+  auto [promise, future] = folly::makePromiseContract<bool>();
+  requestState->requestPromise = std::move(promise);
 
   auto responseFuture = sendGet(client.get(), "/async/msg");
   try {
-    std::move(promisePair.second).wait();
+    std::move(future).wait();
     auto response = std::move(responseFuture).get();
   } catch (std::exception& ex) {
     // Request TIMEOUT happens here.
