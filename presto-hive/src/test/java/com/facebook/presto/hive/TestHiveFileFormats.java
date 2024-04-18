@@ -933,7 +933,8 @@ public class TestHiveFileFormats
                 split.getLength(),
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         Configuration configuration = new Configuration();
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
@@ -1005,7 +1006,8 @@ public class TestHiveFileFormats
                 split.getLength(),
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(),

@@ -241,7 +241,8 @@ public class TestHivePageSink
                 outputFile.length(),
                 outputFile.lastModified(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         HiveSplit split = new HiveSplit(
                 fileSplit,

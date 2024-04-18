@@ -138,7 +138,8 @@ public class TestGenericHiveRecordCursorProvider
                                 CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeFileSplit.class.getName(),
                                 HUDI_DELTA_FILEPATHS_KEY, "",
                                 HUDI_BASEPATH_KEY, getTableBasePath(TABLE_NAME),
-                                HUDI_MAX_COMMIT_TIME_KEY, "20210524095413"));
+                                HUDI_MAX_COMMIT_TIME_KEY, "20210524095413"),
+                        0);
             case "org.apache.hudi.hadoop.realtime.HoodieRealtimeBootstrapBaseFileSplit":
                 ImmutableMap.Builder<String, String> customSplitInfo = new ImmutableMap.Builder<>();
                 customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeBootstrapBaseFileSplit.class.getName());
@@ -149,13 +150,14 @@ public class TestGenericHiveRecordCursorProvider
                 customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_START, "0");
                 customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_LEN, "435165");
                 return new HiveFileSplit(
-                    getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME,
-                    0,
-                    435165,
-                    435165,
-                    1621850079,
-                    Optional.empty(),
-                    customSplitInfo.build());
+                        getTableBasePath(TABLE_NAME) + "/testPartition/" + FILE_NAME,
+                        0,
+                        435165,
+                        435165,
+                        1621850079,
+                        Optional.empty(),
+                        customSplitInfo.build(),
+                        0);
             default:
                 throw new IllegalArgumentException("Unknown file split class " + fileSplitClass.getName());
         }
