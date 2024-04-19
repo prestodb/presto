@@ -18,6 +18,7 @@
 
 #include <chrono>
 
+#include "velox/dwio/common/OnDemandUnitLoader.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
@@ -28,29 +29,196 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::ColumnSelector;
 using dwio::common::FileFormat;
+using dwio::common::LoadUnit;
 using dwio::common::ReaderOptions;
 using dwio::common::RowReaderOptions;
+using dwio::common::UnitLoader;
+using dwio::common::UnitLoaderFactory;
+
+class DwrfUnit : public LoadUnit {
+ public:
+  DwrfUnit(
+      const StripeReaderBase& stripeReaderBase,
+      const StrideIndexProvider& strideIndexProvider,
+      dwio::common::ColumnReaderStatistics& columnReaderStatistics,
+      uint32_t stripeIndex,
+      std::shared_ptr<dwio::common::ColumnSelector> columnSelector,
+      RowReaderOptions options)
+      : stripeReaderBase_{stripeReaderBase},
+        strideIndexProvider_{strideIndexProvider},
+        columnReaderStatistics_{columnReaderStatistics},
+        stripeIndex_{stripeIndex},
+        columnSelector_{std::move(columnSelector)},
+        options_{std::move(options)},
+        stripeInfo_{
+            stripeReaderBase.getReader().getFooter().stripes(stripeIndex_)} {}
+
+  ~DwrfUnit() override = default;
+
+  // Perform the IO (read)
+  void load() override;
+
+  // Unload the unit to free memory
+  void unload() override;
+
+  // Number of rows in the unit
+  uint64_t getNumRows() override;
+
+  // Number of bytes that the IO will read
+  uint64_t getIoSize() override;
+
+  std::unique_ptr<ColumnReader>& getColumnReader() {
+    return columnReader_;
+  }
+
+  std::unique_ptr<dwio::common::SelectiveColumnReader>&
+  getSelectiveColumnReader() {
+    return selectiveColumnReader_;
+  }
+
+ private:
+  void ensureDecoders();
+  void loadDecoders();
+
+  // Immutables
+  const StripeReaderBase& stripeReaderBase_;
+  const StrideIndexProvider& strideIndexProvider_;
+  dwio::common::ColumnReaderStatistics& columnReaderStatistics_;
+  const uint32_t stripeIndex_;
+  const std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;
+  const RowReaderOptions options_;
+  const StripeInformationWrapper stripeInfo_;
+
+  // Mutables
+  bool preloaded_;
+  std::optional<uint64_t> cachedIoSize_;
+  std::shared_ptr<StripeReadState> stripeReadState_;
+  std::unique_ptr<StripeStreamsImpl> stripeStreams_;
+  std::unique_ptr<ColumnReader> columnReader_;
+  std::unique_ptr<dwio::common::SelectiveColumnReader> selectiveColumnReader_;
+  std::shared_ptr<StripeDictionaryCache> stripeDictionaryCache_;
+};
+
+void DwrfUnit::load() {
+  ensureDecoders();
+  loadDecoders();
+}
+
+void DwrfUnit::unload() {
+  cachedIoSize_.reset();
+  stripeStreams_.reset();
+  columnReader_.reset();
+  selectiveColumnReader_.reset();
+  stripeDictionaryCache_.reset();
+  stripeReadState_.reset();
+}
+
+uint64_t DwrfUnit::getNumRows() {
+  return stripeInfo_.numberOfRows();
+}
+
+uint64_t DwrfUnit::getIoSize() {
+  if (cachedIoSize_) {
+    return *cachedIoSize_;
+  }
+  ensureDecoders();
+  cachedIoSize_ =
+      stripeReadState_->stripeMetadata->stripeInput->nextFetchSize();
+  return *cachedIoSize_;
+}
+
+void DwrfUnit::ensureDecoders() {
+  if (columnReader_ || selectiveColumnReader_) {
+    return;
+  }
+
+  preloaded_ = options_.getPreloadStripe();
+
+  stripeReadState_ = std::make_shared<StripeReadState>(
+      stripeReaderBase_.readerBaseShared(),
+      stripeReaderBase_.fetchStripe(stripeIndex_, preloaded_));
+
+  stripeStreams_ = std::make_unique<StripeStreamsImpl>(
+      stripeReadState_,
+      *columnSelector_,
+      options_,
+      stripeInfo_.offset(),
+      stripeInfo_.numberOfRows(),
+      strideIndexProvider_,
+      stripeIndex_);
+
+  auto scanSpec = options_.getScanSpec().get();
+  auto requestedType = columnSelector_->getSchemaWithId();
+  auto fileType = stripeReaderBase_.getReader().getSchemaWithId();
+  FlatMapContext flatMapContext;
+  flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
+  memory::AllocationPool pool(&stripeReaderBase_.getReader().getMemoryPool());
+  StreamLabels streamLabels(pool);
+
+  if (scanSpec) {
+    selectiveColumnReader_ = SelectiveDwrfReader::build(
+        requestedType,
+        fileType,
+        *stripeStreams_,
+        streamLabels,
+        columnReaderStatistics_,
+        scanSpec,
+        flatMapContext,
+        true); // isRoot
+    selectiveColumnReader_->setIsTopLevel();
+  } else {
+    columnReader_ = ColumnReader::build( // enqueue streams
+        requestedType,
+        fileType,
+        *stripeStreams_,
+        streamLabels,
+        options_.getDecodingExecutor().get(),
+        options_.getDecodingParallelismFactor(),
+        flatMapContext);
+  }
+  DWIO_ENSURE(
+      (columnReader_ != nullptr) != (selectiveColumnReader_ != nullptr),
+      "ColumnReader was not created");
+}
+
+void DwrfUnit::loadDecoders() {
+  // load data plan according to its updated selector
+  // during column reader construction
+  // if planReads is off which means stripe data loaded as whole
+  if (!preloaded_) {
+    VLOG(1) << "[DWRF] Load read plan for stripe " << stripeIndex_;
+    stripeStreams_->loadReadPlan();
+  }
+
+  stripeDictionaryCache_ = stripeStreams_->getStripeDictionaryCache();
+}
+
+namespace {
+
+DwrfUnit* castDwrfUnit(LoadUnit* unit) {
+  VELOX_CHECK(unit != nullptr);
+  auto* dwrfUnit = dynamic_cast<DwrfUnit*>(unit);
+  VELOX_CHECK(dwrfUnit != nullptr);
+  return dwrfUnit;
+}
+
+} // namespace
 
 DwrfRowReader::DwrfRowReader(
     const std::shared_ptr<ReaderBase>& reader,
     const RowReaderOptions& opts)
     : StripeReaderBase(reader),
+      strideIndex_{0},
       options_(opts),
-      executor_{options_.getDecodingExecutor()},
       decodingTimeUsCallback_{options_.getDecodingTimeUsCallback()},
-      stripeCountCallback_{options_.getStripeCountCallback()},
       columnSelector_{std::make_shared<ColumnSelector>(
-          ColumnSelector::apply(opts.getSelector(), reader->getSchema()))} {
-  if (executor_) {
-    LOG(INFO) << "Using parallel decoding with a parallelism factor of "
-              << options_.getDecodingParallelismFactor();
-  }
+          ColumnSelector::apply(opts.getSelector(), reader->getSchema()))},
+      currentUnit_{nullptr} {
   auto& fileFooter = getReader().getFooter();
   uint32_t numberOfStripes = fileFooter.stripesSize();
   currentStripe_ = numberOfStripes;
   stripeCeiling_ = 0;
   currentRowInStripe_ = 0;
-  newStripeReadyForRead_ = false;
   rowsInCurrentStripe_ = 0;
   uint64_t rowTotal = 0;
 
@@ -77,8 +245,10 @@ DwrfRowReader::DwrfRowReader(
   if (stripeCeiling_ == 0) {
     stripeCeiling_ = firstStripe_;
   }
-  if (stripeCountCallback_) {
-    stripeCountCallback_(stripeCeiling_ - firstStripe_);
+
+  auto stripeCountCallback = options_.getStripeCountCallback();
+  if (stripeCountCallback) {
+    stripeCountCallback(stripeCeiling_ - firstStripe_);
   }
 
   if (currentStripe_ == 0) {
@@ -105,12 +275,40 @@ DwrfRowReader::DwrfRowReader(
   dwio::common::typeutils::checkTypeCompatibility(
       *getReader().getSchema(), *columnSelector_, createExceptionContext);
 
-  stripeLoadBatons_.reserve(numberOfStripes);
-  for (int i = 0; i < numberOfStripes; i++) {
-    stripeLoadBatons_.emplace_back(std::make_unique<folly::Baton<>>());
+  unitLoader_ = getUnitLoader();
+}
+
+std::unique_ptr<ColumnReader>& DwrfRowReader::getColumnReader() {
+  VELOX_DCHECK(currentUnit_ != nullptr);
+  return currentUnit_->getColumnReader();
+}
+
+std::unique_ptr<dwio::common::SelectiveColumnReader>&
+DwrfRowReader::getSelectiveColumnReader() {
+  VELOX_DCHECK(currentUnit_ != nullptr);
+  return currentUnit_->getSelectiveColumnReader();
+}
+
+std::unique_ptr<dwio::common::UnitLoader> DwrfRowReader::getUnitLoader() {
+  std::vector<std::unique_ptr<LoadUnit>> loadUnits;
+  loadUnits.reserve(stripeCeiling_ - firstStripe_);
+  for (auto stripe = firstStripe_; stripe < stripeCeiling_; stripe++) {
+    loadUnits.emplace_back(std::make_unique<DwrfUnit>(
+        /* stripeReaderBase */ *this,
+        /* strideIndexProvider */ *this,
+        columnReaderStatistics_,
+        stripe,
+        columnSelector_,
+        options_));
   }
-  stripeLoadStatuses_ = folly::Synchronized(
-      std::vector<FetchStatus>(numberOfStripes, FetchStatus::NOT_STARTED));
+  std::shared_ptr<UnitLoaderFactory> unitLoaderFactory =
+      options_.getUnitLoaderFactory();
+  if (!unitLoaderFactory) {
+    unitLoaderFactory =
+        std::make_shared<dwio::common::OnDemandUnitLoaderFactory>(
+            options_.getBlockedOnIoCallback());
+  }
+  return unitLoaderFactory->create(std::move(loadUnits));
 }
 
 uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
@@ -118,10 +316,6 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   if (isEmptyFile()) {
     return 0;
   }
-
-  DWIO_ENSURE(
-      !prefetchHasOccurred_,
-      "Prefetch already called. Currently, seek after prefetch is disallowed in DwrfRowReader");
 
   // If we are reading only a portion of the file
   // (bounded by firstStripe_ and stripeCeiling_),
@@ -157,33 +351,43 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
     return previousRow_;
   }
 
+  const auto previousStripe = currentStripe_;
+  const auto previousRowInStripe = currentRowInStripe_;
   currentStripe_ = seekToStripe;
   currentRowInStripe_ = rowNumber - firstRowOfStripe_[currentStripe_];
   previousRow_ = rowNumber;
 
-  // Reset baton, since seek flow can load a stripe more than once and is
-  // synchronous for now.
-  VLOG(1) << "Resetting baton at " << currentStripe_;
-  stripeLoadBatons_[currentStripe_] = std::make_unique<folly::Baton<>>();
-  stripeLoadStatuses_.wlock()->operator[](currentStripe_) =
-      FetchStatus::NOT_STARTED;
-
-  VLOG(1) << "rowNumber: " << rowNumber << " currentStripe_: " << currentStripe_
-          << " firstStripe_: " << firstStripe_
-          << " stripeCeiling_: " << stripeCeiling_;
-
-  // Because prefetch and seek are currently incompatible, there should only
-  // ever be 1 stripe fetched at this point.
-  VLOG(1) << "Erasing " << currentStripe_ << " from prefetched_";
-  prefetchedStripeStates_.wlock()->erase(currentStripe_);
-  newStripeReadyForRead_ = false;
-  startNextStripe();
-
-  if (selectiveColumnReader_) {
-    selectiveColumnReader_->skip(currentRowInStripe_);
-  } else {
-    columnReader_->skip(currentRowInStripe_);
-  }
+  if (currentStripe_ != previousStripe) {
+    // Different stripe. Let's load the new stripe.
+    currentUnit_ = nullptr;
+    loadCurrentStripe();
+    if (currentRowInStripe_ > 0) {
+      skip(currentRowInStripe_);
+    }
+  } else if (currentRowInStripe_ < previousRowInStripe) {
+    // Same stripe but we have to seek backwards.
+    if (currentUnit_) {
+      // We had a loaded stripe, we have to reload.
+      LOG(WARNING) << "Reloading stripe " << currentStripe_
+                   << " because we have to seek backwards on it from row "
+                   << previousRowInStripe << " to row " << currentRowInStripe_;
+      currentUnit_->unload();
+      currentUnit_->load();
+    } else {
+      // We had no stripe loaded. Let's load the current one.
+      loadCurrentStripe();
+    }
+    if (currentRowInStripe_ > 0) {
+      skip(currentRowInStripe_);
+    }
+  } else if (currentRowInStripe_ > previousRowInStripe) {
+    // We have to seek forward on the same stripe. We can just skip.
+    if (!currentUnit_) {
+      // Load the current stripe if no stripe was loaded.
+      loadCurrentStripe();
+    }
+    skip(currentRowInStripe_ - previousRowInStripe);
+  } // otherwise the seek ended on the same stripe, same row
 
   return previousRow_;
 }
@@ -236,7 +440,7 @@ uint64_t DwrfRowReader::skipRows(uint64_t numberOfRowsToSkip) {
 }
 
 void DwrfRowReader::checkSkipStrides(uint64_t strideSize) {
-  if (!selectiveColumnReader_ || strideSize == 0 ||
+  if (!getSelectiveColumnReader() || strideSize == 0 ||
       currentRowInStripe_ % strideSize != 0) {
     return;
   }
@@ -245,7 +449,7 @@ void DwrfRowReader::checkSkipStrides(uint64_t strideSize) {
     StatsContext context(
         getReader().getWriterName(), getReader().getWriterVersion());
     DwrfData::FilterRowGroupsResult res;
-    selectiveColumnReader_->filterRowGroups(strideSize, context, res);
+    getSelectiveColumnReader()->filterRowGroups(strideSize, context, res);
     if (auto& metadataFilter = options_.getMetadataFilter()) {
       metadataFilter->eval(res.metadataFilterResults, res.filterResult);
     }
@@ -266,7 +470,7 @@ void DwrfRowReader::checkSkipStrides(uint64_t strideSize) {
     skippedStrides_++;
   }
   if (foundStridesToSkip && currentRowInStripe_ < rowsInCurrentStripe_) {
-    selectiveColumnReader_->seekToRowGroup(currentStride);
+    getSelectiveColumnReader()->seekToRowGroup(currentStride);
   }
 }
 
@@ -274,7 +478,7 @@ void DwrfRowReader::readNext(
     uint64_t rowsToRead,
     const dwio::common::Mutation* mutation,
     VectorPtr& result) {
-  if (!selectiveColumnReader_) {
+  if (!getSelectiveColumnReader()) {
     std::optional<std::chrono::steady_clock::time_point> startTime;
     if (decodingTimeUsCallback_) {
       // We'll use wall time since we have parallel decoding.
@@ -286,7 +490,7 @@ void DwrfRowReader::readNext(
     VELOX_CHECK(
         mutation == nullptr,
         "Mutation pushdown is only supported in selective reader");
-    columnReader_->next(rowsToRead, result);
+    getColumnReader()->next(rowsToRead, result);
     if (startTime.has_value()) {
       decodingTimeUsCallback_(
           std::chrono::duration_cast<std::chrono::microseconds>(
@@ -296,10 +500,18 @@ void DwrfRowReader::readNext(
     return;
   }
   if (!options_.getAppendRowNumberColumn()) {
-    selectiveColumnReader_->next(rowsToRead, result, mutation);
+    getSelectiveColumnReader()->next(rowsToRead, result, mutation);
     return;
   }
   readWithRowNumber(rowsToRead, mutation, result);
+}
+
+uint64_t DwrfRowReader::skip(uint64_t numValues) {
+  if (getSelectiveColumnReader()) {
+    return getSelectiveColumnReader()->skip(numValues);
+  } else {
+    return getColumnReader()->skip(numValues);
+  }
 }
 
 void DwrfRowReader::readWithRowNumber(
@@ -332,7 +544,7 @@ void DwrfRowReader::readWithRowNumber(
         rowVector->size(),
         std::move(children));
   }
-  selectiveColumnReader_->next(rowsToRead, result, mutation);
+  getSelectiveColumnReader()->next(rowsToRead, result, mutation);
   FlatVector<int64_t>* flatRowNum = nullptr;
   if (rowNumVector && BaseVector::isVectorWritable(rowNumVector)) {
     flatRowNum = rowNumVector->asFlatVector<int64_t>();
@@ -350,7 +562,7 @@ void DwrfRowReader::readWithRowNumber(
         std::vector<BufferPtr>());
     flatRowNum = rowNumVector->asUnchecked<FlatVector<int64_t>>();
   }
-  auto rowOffsets = selectiveColumnReader_->outputRows();
+  auto rowOffsets = getSelectiveColumnReader()->outputRows();
   VELOX_DCHECK_EQ(rowOffsets.size(), result->size());
   auto* rawRowNum = flatRowNum->mutableRawValues();
   for (int i = 0; i < rowOffsets.size(); ++i) {
@@ -387,7 +599,7 @@ int64_t DwrfRowReader::nextRowNumber() {
           goto advanceToNextStripe;
         }
       }
-      startNextStripe();
+      loadCurrentStripe();
     }
     checkSkipStrides(strideSize);
     if (currentRowInStripe_ < rowsInCurrentStripe_) {
@@ -396,7 +608,7 @@ int64_t DwrfRowReader::nextRowNumber() {
   advanceToNextStripe:
     ++currentStripe_;
     currentRowInStripe_ = 0;
-    newStripeReadyForRead_ = false;
+    currentUnit_ = nullptr;
   }
   atEnd_ = true;
   return kAtEnd;
@@ -438,211 +650,30 @@ uint64_t DwrfRowReader::next(
   // reading of the data.
   auto strideSize = getReader().getFooter().rowIndexStride();
   strideIndex_ = strideSize > 0 ? currentRowInStripe_ / strideSize : 0;
+  unitLoader_->onRead(currentStripe_, currentRowInStripe_, rowsToRead);
   readNext(rowsToRead, mutation, result);
   currentRowInStripe_ += rowsToRead;
   return rowsToRead;
 }
 
 void DwrfRowReader::resetFilterCaches() {
-  if (selectiveColumnReader_) {
-    selectiveColumnReader_->resetFilterCaches();
+  if (getSelectiveColumnReader()) {
+    getSelectiveColumnReader()->resetFilterCaches();
     recomputeStridesToSkip_ = true;
   }
 
   // For columnReader_, this is no-op.
 }
 
-std::optional<std::vector<velox::dwio::common::RowReader::PrefetchUnit>>
-DwrfRowReader::prefetchUnits() {
-  auto rowsInStripe = getReader().getRowsPerStripe();
-  DWIO_ENSURE(firstStripe_ <= rowsInStripe.size());
-  DWIO_ENSURE(stripeCeiling_ <= rowsInStripe.size());
-  DWIO_ENSURE(firstStripe_ <= stripeCeiling_);
-
-  std::vector<PrefetchUnit> res;
-  res.reserve(stripeCeiling_ - firstStripe_);
-
-  for (auto stripe = firstStripe_; stripe < stripeCeiling_; ++stripe) {
-    res.push_back(
-        {.rowCount = rowsInStripe[stripe],
-         .prefetch = std::bind(&DwrfRowReader::prefetch, this, stripe)});
-  }
-  return res;
-}
-
-DwrfRowReader::FetchResult DwrfRowReader::fetch(uint32_t stripeIndex) {
-  FetchStatus prevStatus;
-  stripeLoadStatuses_.withWLock([&](auto& stripeLoadStatus) {
-    if (stripeIndex < 0 || stripeIndex >= stripeLoadStatus.size()) {
-      prevStatus = FetchStatus::ERROR;
-    }
-
-    prevStatus = stripeLoadStatus[stripeIndex];
-    if (prevStatus == FetchStatus::NOT_STARTED) {
-      stripeLoadStatus[stripeIndex] = FetchStatus::IN_PROGRESS;
-    }
-  });
-
-  DWIO_ENSURE(
-      prevStatus != FetchStatus::ERROR, "Fetch request was out of bounds");
-
-  if (prevStatus != FetchStatus::NOT_STARTED) {
-    bool finishedLoading = prevStatus == FetchStatus::FINISHED;
-
-    VLOG(1) << "Stripe " << stripeIndex << " was not loaded, as it was already "
-            << (finishedLoading ? "finished loading" : "in progress");
-    return finishedLoading ? FetchResult::kAlreadyFetched
-                           : FetchResult::kInProgress;
-  }
-
-  DWIO_ENSURE(
-      !prefetchedStripeStates_.rlock()->contains(stripeIndex),
-      "prefetched stripe state already exists for stripeIndex " +
-          std::to_string(stripeIndex) + ", LIKELY RACE CONDITION");
-
-  auto startTime = std::chrono::high_resolution_clock::now();
-  PrefetchedStripeState stripeState;
-
-  bool preload = options_.getPreloadStripe();
-  auto state = std::make_shared<StripeReadState>(
-      readerBaseShared(), fetchStripe(stripeIndex, preload));
-
-  stripeState.stripeReadState = state;
-
-  auto stripe = getReader().getFooter().stripes(stripeIndex);
-  StripeStreamsImpl stripeStreams(
-      state,
-      getColumnSelector(),
-      options_,
-      stripe.offset(),
-      stripe.numberOfRows(),
-      *this,
-      stripeIndex);
-
-  auto scanSpec = options_.getScanSpec().get();
-  auto requestedType = getColumnSelector().getSchemaWithId();
-  auto fileType = getReader().getSchemaWithId();
-  FlatMapContext flatMapContext;
-  flatMapContext.keySelectionCallback = options_.getKeySelectionCallback();
-  memory::AllocationPool pool(&getReader().getMemoryPool());
-  StreamLabels streamLabels(pool);
-
-  if (scanSpec) {
-    stripeState.selectiveColumnReader = SelectiveDwrfReader::build(
-        requestedType,
-        fileType,
-        stripeStreams,
-        streamLabels,
-        columnReaderStatistics_,
-        scanSpec,
-        flatMapContext,
-        true); // isRoot
-    stripeState.selectiveColumnReader->setIsTopLevel();
-  } else {
-    stripeState.columnReader = ColumnReader::build( // enqueue streams
-        requestedType,
-        fileType,
-        stripeStreams,
-        streamLabels,
-        executor_.get(),
-        options_.getDecodingParallelismFactor(),
-        flatMapContext);
-  }
-  DWIO_ENSURE(
-      (stripeState.columnReader != nullptr) !=
-          (stripeState.selectiveColumnReader != nullptr),
-      "ColumnReader was not created");
-
-  // load data plan according to its updated selector
-  // during column reader construction
-  // if planReads is off which means stripe data loaded as whole
-  if (!preload) {
-    VLOG(1) << "[DWRF] Load read plan for stripe " << currentStripe_;
-    stripeStreams.loadReadPlan();
-  }
-
-  stripeState.stripeDictionaryCache = stripeStreams.getStripeDictionaryCache();
-  stripeState.preloaded = preload;
-  prefetchedStripeStates_.wlock()->operator[](stripeIndex) =
-      std::move(stripeState);
-
-  auto endTime = std::chrono::high_resolution_clock::now();
-  VLOG(1) << " time to complete prefetch: "
-          << std::chrono::duration_cast<std::chrono::microseconds>(
-                 endTime - startTime)
-                 .count();
-  stripeLoadBatons_[stripeIndex]->post();
-  VLOG(1) << "done in fetch and baton posted for " << stripeIndex << ", thread "
-          << std::this_thread::get_id();
-
-  stripeLoadStatuses_.wlock()->operator[](stripeIndex) = FetchStatus::FINISHED;
-  return FetchResult::kFetched;
-}
-
-DwrfRowReader::FetchResult DwrfRowReader::prefetch(uint32_t stripeToFetch) {
-  DWIO_ENSURE(stripeToFetch < stripeCeiling_);
-  prefetchHasOccurred_ = true;
-
-  VLOG(1) << "Unlocked lock and calling fetch for " << stripeToFetch
-          << ", thread " << std::this_thread::get_id();
-  return fetch(stripeToFetch);
-}
-
-// Guarantee stripe we are currently on is available and loaded
-void DwrfRowReader::safeFetchNextStripe() {
-  auto startTime = std::chrono::high_resolution_clock::now();
-  auto fetchResult = fetch(currentStripe_);
-  // If result is fetched by this thread or in progress in another thread,
-  // record time spent in this function as time blocked on IO.
-  bool shouldRecordTimeBlocked = fetchResult != FetchResult::kAlreadyFetched;
-
-  // Check result of fetch to avoid synchronization if we fetched on this
-  // thread.
-  if (fetchResult != FetchResult::kFetched) {
-    // Now we know the stripe was or is being loaded on another thread,
-    // Await the baton for this stripe before we return to ensure load is done.
-    VLOG(1) << "Waiting on baton for stripe: " << currentStripe_;
-    stripeLoadBatons_[currentStripe_]->wait();
-    VLOG(1) << "Acquired baton for stripe " << currentStripe_;
-  }
-  auto reportBlockedOnIoMetric = options_.getBlockedOnIoCallback();
-  if (reportBlockedOnIoMetric) {
-    if (shouldRecordTimeBlocked) {
-      auto timeBlockedOnIo =
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::high_resolution_clock::now() - startTime);
-      reportBlockedOnIoMetric(timeBlockedOnIo.count());
-    } else {
-      // We still want to populate stat if we are not blocking on IO.
-      reportBlockedOnIoMetric(0);
-    };
-  }
-
-  DWIO_ENSURE(prefetchedStripeStates_.rlock()->contains(currentStripe_));
-}
-
-void DwrfRowReader::startNextStripe() {
-  if (newStripeReadyForRead_ || currentStripe_ >= stripeCeiling_) {
+void DwrfRowReader::loadCurrentStripe() {
+  if (currentUnit_ || currentStripe_ >= stripeCeiling_) {
     return;
   }
-  columnReader_.reset();
-  selectiveColumnReader_.reset();
-  safeFetchNextStripe();
-  prefetchedStripeStates_.withWLock([&](auto& prefetchedStripeStates) {
-    DWIO_ENSURE(prefetchedStripeStates.contains(currentStripe_));
-
-    auto stripe = getReader().getFooter().stripes(currentStripe_);
-    rowsInCurrentStripe_ = stripe.numberOfRows();
-
-    auto& state = prefetchedStripeStates[currentStripe_];
-    columnReader_ = std::move(state.columnReader);
-    selectiveColumnReader_ = std::move(state.selectiveColumnReader);
-    stripeDictionaryCache_ = std::move(state.stripeDictionaryCache);
-    stripeMetadata_ = std::move(state.stripeReadState->stripeMetadata);
-
-    prefetchedStripeStates.erase(currentStripe_);
-  });
-  newStripeReadyForRead_ = true;
+  VELOX_CHECK_GE(currentStripe_, firstStripe_);
+  strideIndex_ = 0;
+  const auto loadUnitIdx = currentStripe_ - firstStripe_;
+  currentUnit_ = castDwrfUnit(&unitLoader_->getLoadedUnit(loadUnitIdx));
+  rowsInCurrentStripe_ = currentUnit_->getNumRows();
 }
 
 size_t DwrfRowReader::estimatedReaderMemory() const {
@@ -777,12 +808,12 @@ DwrfReader::DwrfReader(
           options.isFileColumnNamesReadAsLowerCase(),
           options.randomSkip())),
       options_(options) {
-  // If we are not using column names to map table columns to file columns, then
-  // we use indices. In that case we need to ensure the names completely match,
-  // because we are still mapping columns by names further down the code.
-  // So we rename column names in the file schema to match table schema.
-  // We test the options to have 'fileSchema' (actually table schema) as most of
-  // the unit tests fail to provide it.
+  // If we are not using column names to map table columns to file columns,
+  // then we use indices. In that case we need to ensure the names completely
+  // match, because we are still mapping columns by names further down the
+  // code. So we rename column names in the file schema to match table schema.
+  // We test the options to have 'fileSchema' (actually table schema) as most
+  // of the unit tests fail to provide it.
   if ((not options_.isUseColumnNamesForColumnMapping()) and
       (options_.getFileSchema() != nullptr)) {
     updateColumnNamesFromTableSchema();
@@ -841,7 +872,8 @@ TypePtr updateColumnNames(
     const TypePtr& tableType,
     const std::string& fileFieldName,
     const std::string& tableFieldName) {
-  // Check type kind equality. If not equal, no point to continue down the tree.
+  // Check type kind equality. If not equal, no point to continue down the
+  // tree.
   if (fileType->kind() != tableType->kind()) {
     logTypeInequality(*fileType, *tableType, fileFieldName, tableFieldName);
     return fileType;
@@ -1096,7 +1128,7 @@ std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
     // background have a reader tree and can preload the first
     // stripe. Also the reader tree needs to exist in order to receive
     // adaptation from a previous reader.
-    rowReader->startNextStripe();
+    rowReader->loadCurrentStripe();
   }
   return rowReader;
 }

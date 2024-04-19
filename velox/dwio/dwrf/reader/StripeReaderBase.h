@@ -71,7 +71,7 @@ class StripeReaderBase {
 
   std::unique_ptr<const StripeMetadata> fetchStripe(
       uint32_t index,
-      bool& preload);
+      bool& preload) const;
 
  private:
   const std::shared_ptr<ReaderBase> reader_;
@@ -81,7 +81,7 @@ class StripeReaderBase {
       uint32_t index,
       const proto::StripeFooter& stripeFooter,
       encryption::DecryptionHandler& handler,
-      const StripeInformationWrapper& stripeInfo);
+      const StripeInformationWrapper& stripeInfo) const;
 
   friend class StripeLoadKeysTest;
 };

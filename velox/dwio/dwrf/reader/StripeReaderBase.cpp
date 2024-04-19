@@ -25,7 +25,7 @@ using dwio::common::LogType;
 // true) will reuse the result without considering the new preload directive
 std::unique_ptr<const StripeMetadata> StripeReaderBase::fetchStripe(
     uint32_t index,
-    bool& preload) {
+    bool& preload) const {
   auto& fileFooter = reader_->getFooter();
   DWIO_ENSURE_LT(index, fileFooter.stripesSize(), "invalid stripe index");
   auto stripe = fileFooter.stripes(index);
@@ -101,7 +101,7 @@ void StripeReaderBase::loadEncryptionKeys(
     uint32_t index,
     const proto::StripeFooter& stripeFooter,
     encryption::DecryptionHandler& handler,
-    const StripeInformationWrapper& stripeInfo) {
+    const StripeInformationWrapper& stripeInfo) const {
   if (!handler.isEncrypted()) {
     return;
   }
