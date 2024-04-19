@@ -70,7 +70,6 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     context.moveOrCopyResult(localResult, rows, result);
   }
 
- private:
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
@@ -93,8 +92,8 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     // Pointers and cursors to the raw data.
     vector_size_t indicesCursor = 0;
     auto* rawNewIndices = newIndices->asMutable<vector_size_t>();
-    auto* rawSizes = newLengths->asMutable<vector_size_t>();
-    auto* rawOffsets = newOffsets->asMutable<vector_size_t>();
+    auto* rawNewSizes = newLengths->asMutable<vector_size_t>();
+    auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
 
     // Process the rows: store unique values in the hash table.
     folly::F14FastSet<T> uniqueSet;
@@ -103,7 +102,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
       auto size = arrayVector->sizeAt(row);
       auto offset = arrayVector->offsetAt(row);
 
-      rawOffsets[row] = indicesCursor;
+      rawNewOffsets[row] = indicesCursor;
       bool hasNulls = false;
       for (vector_size_t i = offset; i < offset + size; ++i) {
         if (elements->isNullAt(i)) {
@@ -121,7 +120,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
       }
 
       uniqueSet.clear();
-      rawSizes[row] = indicesCursor - rawOffsets[row];
+      rawNewSizes[row] = indicesCursor - rawNewOffsets[row];
     });
 
     newIndices->setSize(indicesCursor * sizeof(vector_size_t));
@@ -139,6 +138,58 @@ class ArrayDistinctFunction : public exec::VectorFunction {
         0);
   }
 };
+
+template <>
+VectorPtr ArrayDistinctFunction<UnknownType>::applyFlat(
+    const SelectivityVector& rows,
+    const VectorPtr& arg,
+    exec::EvalCtx& context) const {
+  auto arrayVector = arg->as<ArrayVector>();
+  auto elementsVector = arrayVector->elements();
+  vector_size_t rowCount = rows.end();
+
+  // Allocate new vectors for indices, length and offsets.
+  memory::MemoryPool* pool = context.pool();
+  BufferPtr newIndices = allocateIndices(rowCount, pool);
+  BufferPtr newLengths = allocateSizes(rowCount, pool);
+  BufferPtr newOffsets = allocateOffsets(rowCount, pool);
+
+  // Pointers and cursors to the raw data.
+  vector_size_t indicesCursor = 0;
+  auto* rawNewIndices = newIndices->asMutable<vector_size_t>();
+  auto* rawNewSizes = newLengths->asMutable<vector_size_t>();
+  auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
+
+  rows.applyToSelected([&](vector_size_t row) {
+    auto size = arrayVector->sizeAt(row);
+    auto offset = arrayVector->offsetAt(row);
+
+    rawNewOffsets[row] = indicesCursor;
+    if (size > 0) {
+      if (FOLLY_UNLIKELY(indicesCursor == 0)) {
+        rawNewIndices[0] = offset;
+      }
+      rawNewSizes[row] = 1;
+      rawNewIndices[indicesCursor++] = rawNewIndices[0];
+    } else {
+      rawNewSizes[row] = 0;
+    }
+  });
+
+  newIndices->setSize(indicesCursor * sizeof(vector_size_t));
+  auto newElements =
+      BaseVector::transpose(newIndices, std::move(elementsVector));
+
+  return std::make_shared<ArrayVector>(
+      pool,
+      arrayVector->type(),
+      nullptr,
+      rowCount,
+      std::move(newOffsets),
+      std::move(newLengths),
+      std::move(newElements),
+      0);
+}
 
 // Validate number of parameters and types.
 void validateType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
@@ -169,6 +220,9 @@ std::shared_ptr<exec::VectorFunction> create(
     const core::QueryConfig& /*config*/) {
   validateType(inputArgs);
   auto elementType = inputArgs.front().type->childAt(0);
+  if (elementType->isUnKnown()) {
+    return std::make_shared<ArrayDistinctFunction<UnknownType>>();
+  }
 
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       createTyped, elementType->kind(), inputArgs);
@@ -184,6 +238,10 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
                              .argumentType(fmt::format("array({})", type))
                              .build());
   }
+  signatures.push_back(exec::FunctionSignatureBuilder()
+                           .returnType("array(unknown)")
+                           .argumentType("array(unknown)")
+                           .build());
   return signatures;
 }
 

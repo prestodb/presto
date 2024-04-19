@@ -329,3 +329,24 @@ TEST_F(ArrayDistinctTest, constant) {
   expected = makeConstantArray<int64_t>(size, {6});
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ArrayDistinctTest, unknownType) {
+  // array_distinct(ARRAY[]) -> []
+  auto emptyArrayVector = makeArrayVector<UnknownValue>({{}});
+  auto result =
+      evaluate("array_distinct(c0)", makeRowVector({emptyArrayVector}));
+  assertEqualVectors(emptyArrayVector, result);
+
+  // array_distinct(ARRAY[null, null, null]) -> [null]
+  // array_distinct(ARRAY[]) -> []
+  // array_distinct(ARRAY[null]) -> [null]
+  auto nullArrayVector = makeArrayVector(
+      {0, 3, 3},
+      makeNullableFlatVector<UnknownValue>(
+          {std::nullopt, std::nullopt, std::nullopt, std::nullopt}));
+  auto expected = makeArrayVector(
+      {0, 1, 1},
+      makeNullableFlatVector<UnknownValue>({std::nullopt, std::nullopt}));
+  result = evaluate("array_distinct(c0)", makeRowVector({nullArrayVector}));
+  assertEqualVectors(expected, result);
+}
