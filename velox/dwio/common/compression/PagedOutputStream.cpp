@@ -93,7 +93,9 @@ uint64_t PagedOutputStream::flush() {
     auto buffers = createPage();
     const auto cleanup = folly::makeGuard([this]() {
       resetBuffers();
-      // Reset input buffers.
+      // Reset input buffers. clear() forces the buffer to shrink.
+      // Not doing so lead to very high flush memory overhead.
+      buffer_.clear();
       buffer_.resize(pageHeaderSize_);
     });
     bufferHolder_.take(std::move(buffers));
