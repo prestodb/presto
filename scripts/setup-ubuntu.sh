@@ -96,7 +96,7 @@ function install_fmt {
 function install_boost {
   github_checkout boostorg/boost "${BOOST_VERSION}" --recursive
   ./bootstrap.sh --prefix=/usr/local
-  ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi
+  ${SUDO} ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
 }
 
 function install_folly {

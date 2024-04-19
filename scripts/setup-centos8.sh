@@ -101,7 +101,7 @@ function install_boost {
   (
    cd boost
    ./bootstrap.sh --prefix=/usr/local
-   ./b2 "-j$(nproc)" -d0 install threading=multi
+   ./b2 "-j$(nproc)" -d0 install threading=multi --without-python
   )
 }
 
