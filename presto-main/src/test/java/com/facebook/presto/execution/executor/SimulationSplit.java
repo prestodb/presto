@@ -153,7 +153,7 @@ abstract class SimulationSplit
                 task.splitComplete(this);
             }
 
-            return Futures.immediateCheckedFuture(null);
+            return Futures.immediateFuture(null);
         }
 
         ListenableFuture<?> processResult = getProcessResult();
