@@ -520,8 +520,10 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   std::shared_lock<std::shared_mutex> l(mutex_);
   stats.entriesWritten += stats_.entriesWritten;
   stats.bytesWritten += stats_.bytesWritten;
+  stats.checkpointsWritten += stats_.checkpointsWritten;
   stats.entriesRead += stats_.entriesRead;
   stats.bytesRead += stats_.bytesRead;
+  stats.checkpointsRead += stats_.checkpointsRead;
   stats.entriesCached += entries_.size();
   stats.regionsCached += numRegions_;
   for (auto i = 0; i < numRegions_; i++) {
@@ -778,6 +780,8 @@ void SsdFile::checkpoint(bool force) {
     if (state.bad()) {
       ++stats_.writeCheckpointErrors;
       checkRc(-1, "Write of checkpoint file");
+    } else {
+      ++stats_.checkpointsWritten;
     }
     state.close();
 
@@ -920,6 +924,7 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
       entries_[std::move(key)] = run;
     }
   }
+  ++stats_.checkpointsRead;
   // The state is successfully read. Install the access frequency scores and
   // evicted regions.
   VELOX_CHECK_EQ(scores.size(), tracker_.regionScores().size());

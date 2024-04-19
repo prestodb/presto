@@ -129,8 +129,10 @@ struct SsdCacheStats {
   void operator=(const SsdCacheStats& other) {
     entriesWritten = tsanAtomicValue(other.entriesWritten);
     bytesWritten = tsanAtomicValue(other.bytesWritten);
+    checkpointsWritten = tsanAtomicValue(other.checkpointsWritten);
     entriesRead = tsanAtomicValue(other.entriesRead);
     bytesRead = tsanAtomicValue(other.bytesRead);
+    checkpointsRead = tsanAtomicValue(other.checkpointsRead);
     entriesCached = tsanAtomicValue(other.entriesCached);
     regionsCached = tsanAtomicValue(other.regionsCached);
     bytesCached = tsanAtomicValue(other.bytesCached);
@@ -151,8 +153,10 @@ struct SsdCacheStats {
 
   tsan_atomic<uint64_t> entriesWritten{0};
   tsan_atomic<uint64_t> bytesWritten{0};
+  tsan_atomic<uint64_t> checkpointsWritten{0};
   tsan_atomic<uint64_t> entriesRead{0};
   tsan_atomic<uint64_t> bytesRead{0};
+  tsan_atomic<uint64_t> checkpointsRead{0};
   tsan_atomic<uint64_t> entriesCached{0};
   tsan_atomic<uint64_t> regionsCached{0};
   tsan_atomic<uint64_t> bytesCached{0};
