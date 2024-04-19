@@ -1221,16 +1221,16 @@ void JoinFuzzer::go() {
   size_t iteration = 0;
 
   while (!isDone(iteration, startTime)) {
-    LOG(INFO) << "==============================> Started iteration "
-              << iteration << " (seed: " << currentSeed_ << ")";
+    LOG(WARNING) << "==============================> Started iteration "
+                 << iteration << " (seed: " << currentSeed_ << ")";
 
     // Pick join type.
     const auto joinType = pickJoinType();
 
     verify(joinType);
 
-    LOG(INFO) << "==============================> Done with iteration "
-              << iteration;
+    LOG(WARNING) << "==============================> Done with iteration "
+                 << iteration;
 
     reSeed();
     ++iteration;
