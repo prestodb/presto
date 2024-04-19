@@ -131,6 +131,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
+    public static final String MERGE_SPLITS = "merge_splits";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -606,6 +607,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
                         false),
                 booleanProperty(
+                        MERGE_SPLITS,
+                        "If files are small, merge multiple files into a single split",
+                        false,
+                        false),
+                booleanProperty(
                         QUICK_STATS_ENABLED,
                         "Use quick stats to resolve stats",
                         hiveClientConfig.isQuickStatsEnabled(),
@@ -641,6 +647,11 @@ public final class HiveSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isMergeSplitsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MERGE_SPLITS, Boolean.class);
     }
 
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
