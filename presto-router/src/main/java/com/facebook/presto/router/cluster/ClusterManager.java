@@ -26,11 +26,16 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.io.File;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
@@ -41,24 +46,19 @@ import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private final Map<String, GroupSpec> groups;
-    private final List<SelectorRuleSpec> groupSelectors;
-    private final SchedulerType schedulerType;
-    private final Scheduler scheduler;
-    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final RouterConfig routerConfig;
+    private Map<String, GroupSpec> groups;
+    private List<SelectorRuleSpec> groupSelectors;
+    private SchedulerType schedulerType;
+    private Scheduler scheduler;
+    private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final AtomicLong lastConfigUpdate = new AtomicLong();
 
     @Inject
     public ClusterManager(RouterConfig config)
     {
-        RouterSpec routerSpec = parseRouterConfig(config)
-                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
-
-        this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
-        this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
-        this.schedulerType = routerSpec.getSchedulerType();
-        this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-
-        this.initializeServerWeights();
+        this.routerConfig = config;
+        scheduleConfigUpdate();
     }
 
     public List<URI> getAllClusters()
@@ -104,5 +104,24 @@ public class ClusterManager
                 serverWeights.get(name).put(members.get(i), weights.get(i));
             }
         });
+    }
+
+    private void scheduleConfigUpdate()
+    {
+        File routerConfigFile = new File(routerConfig.getConfigFile());
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.scheduleAtFixedRate(() -> {
+            long newConfigUpdateTime = routerConfigFile.lastModified();
+            if (lastConfigUpdate.get() != newConfigUpdateTime) {
+                RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                        .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+                this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
+                this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
+                this.schedulerType = routerSpec.getSchedulerType();
+                this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
+                this.initializeServerWeights();
+                lastConfigUpdate.set(newConfigUpdateTime);
+            }
+        }, 0L, (long) 30, TimeUnit.SECONDS);
     }
 }
