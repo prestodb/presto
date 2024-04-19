@@ -87,6 +87,13 @@ public class ClusterStatusTracker
             remoteQueryInfos.putIfAbsent(uri, remoteInfoFactory.createRemoteQueryInfo(uri));
         });
 
+        for (URI remoteClusterInfo : remoteClusterInfos.keySet()) {
+            if (!allClusters.contains(remoteClusterInfo)) {
+                remoteClusterInfos.remove(remoteClusterInfo);
+                remoteQueryInfos.remove(remoteClusterInfo);
+            }
+        }
+
         remoteClusterInfos.values().forEach(RemoteClusterInfo::asyncRefresh);
         remoteQueryInfos.values().forEach(RemoteQueryInfo::asyncRefresh);
     }
