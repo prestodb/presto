@@ -18,7 +18,9 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -222,5 +224,13 @@ public class TestSingleStoreDistributedQueries
     public void testUpdate()
     {
         // Updates are not supported by the connector
+    }
+
+    @Override
+    @Ignore
+    public void testStdDev()
+    {
+        throw new SkipException("exercises a bug in SingleStore");
+        // https://github.com/prestodb/presto/issues/22564
     }
 }
