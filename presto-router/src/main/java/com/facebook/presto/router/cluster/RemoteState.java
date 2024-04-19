@@ -18,15 +18,20 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.router.RouterConfig;
+import com.facebook.presto.router.spec.RouterSpec;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +40,8 @@ import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFul
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -48,14 +55,19 @@ public abstract class RemoteState
 
     private final HttpClient httpClient;
     private final URI remoteUri;
+    private final Optional<String> routerUserCredentials;
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
 
-    public RemoteState(HttpClient httpClient, URI remoteUri)
+    @Inject
+    public RemoteState(HttpClient httpClient, URI remoteUri, RouterConfig routerConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
+        RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+        this.routerUserCredentials = routerSpec.getUserCredentials();
     }
 
     public void handleResponse(JsonNode response) {}
@@ -72,9 +84,9 @@ public abstract class RemoteState
         }
 
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
-            Request request = prepareGet()
-                    .setUri(remoteUri)
-                    .build();
+            Request.Builder requestBuilder = prepareGet().setUri(remoteUri);
+            routerUserCredentials.ifPresent(s -> requestBuilder.addHeader("Authorization", "Basic " + s));
+            Request request = requestBuilder.build();
 
             HttpClient.HttpResponseFuture<FullJsonResponseHandler.JsonResponse<JsonNode>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(JSON_CODEC));
             future.compareAndSet(null, responseFuture);
@@ -92,7 +104,6 @@ public abstract class RemoteState
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status %d", remoteUri, result.getStatusCode());
-                            return;
                         }
                     }
                 }
