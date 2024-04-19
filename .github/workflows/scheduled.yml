@@ -302,6 +302,13 @@ jobs:
           path: velox/_build/debug//velox/exec/tests/velox_exchange_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload window fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: window
+          path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_window_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
   presto-fuzzer-run:
     name: Presto Fuzzer
     if: ${{ needs.compile.outputs.presto_bias  != 'true' }}
@@ -711,7 +718,7 @@ jobs:
           path: |
             /tmp/aggregate_fuzzer_repro
             /tmp/server.log
-            
+
 
   presto-bias-java-aggregation-fuzzer-run:
     name: Biased Aggregation Fuzzer with Presto as source of truth
@@ -810,3 +817,66 @@ jobs:
         run: |
           cat /tmp/signatures/presto_aggregate_errors
           exit 1
+
+  presto-java-window-fuzzer-run:
+    name: Window Fuzzer with Presto as source of truth
+    needs: compile
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
+    timeout-minutes: 120
+    if: ${{ github.event_name != 'pull_request' }}
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      LINUX_DISTRO: "centos"
+    steps:
+
+      - name: Download window fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: window
+
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+          # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox/velox
+
+
+      - name: "Run Window Fuzzer"
+        run: |
+          cd  velox
+          cp ./scripts/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
+          mkdir -p /tmp/window_fuzzer_repro/
+          rm -rfv /tmp/window_fuzzer_repro/*
+          chmod -R 777 /tmp/window_fuzzer_repro
+          chmod +x velox_window_fuzzer_test
+          ./velox_window_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/window_fuzzer_repro \
+                --enable_window_reference_verification \
+                --presto_url=http://127.0.0.1:8080 \
+          && echo -e "\n\nWindow fuzzer run finished successfully."
+
+      - name: Archive window production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-sot-window-fuzzer-failure-artifacts
+          path: |
+            /tmp/window_fuzzer_repro
+            /tmp/server.log
