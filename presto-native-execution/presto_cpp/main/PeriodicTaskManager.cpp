@@ -422,6 +422,18 @@ void PeriodicTaskManager::updateCacheStats() {
         memoryCacheStats.ssdStats->regionsCached);
     RECORD_METRIC_VALUE(
         kCounterSsdCacheCachedBytes, memoryCacheStats.ssdStats->bytesCached);
+    REPORT_IF_NOT_ZERO(
+        kCounterSsdCacheCheckpointsRead,
+        memoryCacheStats.ssdStats->checkpointsWritten -
+            lastSsdCacheCheckpointsWritten_);
+    REPORT_IF_NOT_ZERO(
+        kCounterSsdCacheCheckpointsWritten,
+        memoryCacheStats.ssdStats->checkpointsRead -
+            lastSsdCacheCheckpointsRead_);
+
+    lastSsdCacheCheckpointsWritten_ =
+        memoryCacheStats.ssdStats->checkpointsWritten;
+    lastSsdCacheCheckpointsRead_ = memoryCacheStats.ssdStats->checkpointsRead;
   }
 
   if (auto* cacheTTLController =
