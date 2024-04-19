@@ -22,7 +22,7 @@ using namespace ::testing;
 using namespace ::facebook::velox::dwio::common;
 using namespace ::facebook::velox::dwio::common::unit_loader_tools;
 
-TEST(UnitLoaderTestToolsTests, NoCallbacksCreated) {
+TEST(UnitLoaderToolsTests, NoCallbacksCreated) {
   std::atomic_size_t callCount = 0;
   {
     CallbackOnLastSignal callback([&callCount]() { ++callCount; });
@@ -31,7 +31,7 @@ TEST(UnitLoaderTestToolsTests, NoCallbacksCreated) {
   EXPECT_EQ(callCount, 1);
 }
 
-TEST(UnitLoaderTestToolsTests, NoExplicitCalls) {
+TEST(UnitLoaderToolsTests, NoExplicitCalls) {
   std::atomic_size_t callCount = 0;
   {
     CallbackOnLastSignal callback([&callCount]() { ++callCount; });
@@ -54,7 +54,7 @@ TEST(UnitLoaderTestToolsTests, NoExplicitCalls) {
   EXPECT_EQ(callCount, 1);
 }
 
-TEST(UnitLoaderTestToolsTests, NoExplicitCallsFactoryDeletedFirst) {
+TEST(UnitLoaderToolsTests, NoExplicitCallsFactoryDeletedFirst) {
   std::atomic_size_t callCount = 0;
   {
     std::function<void()> c1, c2;
@@ -71,7 +71,7 @@ TEST(UnitLoaderTestToolsTests, NoExplicitCallsFactoryDeletedFirst) {
   EXPECT_EQ(callCount, 1);
 }
 
-TEST(UnitLoaderTestToolsTests, ExplicitCalls) {
+TEST(UnitLoaderToolsTests, ExplicitCalls) {
   std::atomic_size_t callCount = 0;
   {
     CallbackOnLastSignal callback([&callCount]() { ++callCount; });
@@ -101,7 +101,7 @@ TEST(UnitLoaderTestToolsTests, ExplicitCalls) {
   EXPECT_EQ(callCount, 1);
 }
 
-TEST(UnitLoaderTestToolsTests, WillOnlyCallbackOnce) {
+TEST(UnitLoaderToolsTests, WillOnlyCallbackOnce) {
   std::atomic_size_t callCount = 0;
   {
     CallbackOnLastSignal callback([&callCount]() { ++callCount; });
