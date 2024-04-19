@@ -39,14 +39,17 @@ dwio::common::StripeProgress getStripeProgress(const WriterContext& context) {
       .stripeIndex = context.stripeIndex(),
       .stripeRowCount = context.stripeRowCount(),
       .totalMemoryUsage = context.getTotalMemoryUsage(),
-      .stripeSizeEstimate = std::max(
-          context.getEstimatedStripeSize(context.stripeRawSize()),
-          // The stripe size estimate is only more accurate from the second
-          // stripe onward because it uses past stripe states in heuristics.
-          // We need to additionally bound it with output stream size based
-          // estimate for the first stripe.
-          context.stripeIndex() == 0 ? context.getEstimatedOutputStreamSize()
-                                     : 0)};
+      .stripeSizeEstimate = context.linearStripeSizeHeuristics()
+          ? std::max(
+                context.getEstimatedStripeSize(context.stripeRawSize()),
+                // The stripe size estimate is only more accurate from the
+                // second stripe onward because it uses past stripe states in
+                // heuristics. We need to additionally bound it with output
+                // stream size based estimate for the first stripe.
+                context.stripeIndex() == 0
+                    ? context.getEstimatedOutputStreamSize()
+                    : 0)
+          : context.getEstimatedOutputStreamSize()};
 }
 
 #define NON_RECLAIMABLE_SECTION_CHECK() \

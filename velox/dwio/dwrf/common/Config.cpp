@@ -192,6 +192,10 @@ Config::Entry<uint64_t> Config::STRIPE_SIZE(
     "hive.exec.orc.stripe.size",
     256L * 1024L * 1024L);
 
+Config::Entry<bool> Config::LINEAR_STRIPE_SIZE_HEURISTICS(
+    "hive.exec.orc.linear.stripe.size.heuristics",
+    true);
+
 Config::Entry<bool> Config::FORCE_LOW_MEMORY_MODE(
     "hive.exec.orc.low.memory",
     false);

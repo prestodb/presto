@@ -43,6 +43,8 @@ WriterContext::WriterContext(
       shareFlatMapDictionaries_{getConfig(Config::MAP_FLAT_DICT_SHARE)},
       stripeSizeFlushThreshold_{getConfig(Config::STRIPE_SIZE)},
       dictionarySizeFlushThreshold_{getConfig(Config::MAX_DICTIONARY_SIZE)},
+      linearStripeSizeHeuristics_{
+          getConfig(Config::LINEAR_STRIPE_SIZE_HEURISTICS)},
       streamSizeAboveThresholdCheckEnabled_{
           getConfig(Config::STREAM_SIZE_ABOVE_THRESHOLD_CHECK_ENABLED)},
       rawDataSizePerBatch_{getConfig(Config::RAW_DATA_SIZE_PER_BATCH)},

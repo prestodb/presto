@@ -186,8 +186,7 @@ MemorySink::MemorySink(size_t capacity, const Options& options)
 void MemorySink::write(std::vector<DataBuffer<char>>& buffers) {
   writeImpl(buffers, [&](auto& buffer) {
     const auto size = buffer.size();
-    DWIO_ENSURE_LE(size_ + size, data_.capacity());
-    ::memcpy(data_.data() + size_, buffer.data(), size);
+    data_.extendAppend(size_, buffer.data(), size);
     return size;
   });
 }
