@@ -31,6 +31,12 @@ TEST(UnitLoaderToolsTests, NoCallbacksCreated) {
   EXPECT_EQ(callCount, 1);
 }
 
+TEST(UnitLoaderToolsTests, SupportsNullCallbacks) {
+  CallbackOnLastSignal callback(nullptr);
+  auto cb = callback.getCallback();
+  EXPECT_TRUE(cb == nullptr);
+}
+
 TEST(UnitLoaderToolsTests, NoExplicitCalls) {
   std::atomic_size_t callCount = 0;
   {
