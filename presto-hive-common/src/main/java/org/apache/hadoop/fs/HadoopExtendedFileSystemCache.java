@@ -13,6 +13,8 @@
  */
 package org.apache.hadoop.fs;
 
+import sun.misc.Unsafe;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -20,6 +22,7 @@ import java.lang.reflect.Modifier;
 public class HadoopExtendedFileSystemCache
 {
     private static PrestoExtendedFileSystemCache cache;
+    private static Unsafe unsafe;
 
     private HadoopExtendedFileSystemCache() {}
 
@@ -43,6 +46,9 @@ public class HadoopExtendedFileSystemCache
             field.set(null, value);
 
             return value;
+        }
+        catch (RuntimeException inaccessible) {
+            return setFinalStaticByUnsafe(clazz, name, value);
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -69,6 +75,24 @@ public class HadoopExtendedFileSystemCache
                 e.addSuppressed(ex);
             }
             throw e;
+        }
+    }
+
+    private static <T> T setFinalStaticByUnsafe(Class<?> clazz, String name, T value)
+    {
+        try {
+            if (unsafe == null) {
+                Field field = Unsafe.class.getDeclaredField("theUnsafe");
+                field.setAccessible(true);
+                unsafe = (Unsafe) field.get(null);
+            }
+            Field field = clazz.getDeclaredField(name);
+            long offset = unsafe.staticFieldOffset(field);
+            unsafe.putObject(clazz, offset, value);
+            return value;
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
     }
 }
