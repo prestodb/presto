@@ -156,6 +156,10 @@ Memory Management
      - Average
      - The average of total free memory capacity which is managed by the
        memory arbitrator.
+   * - arbitrator_free_reserved_capacity_bytes
+     - Average
+     - The average of free memory capacity reserved to ensure each query has
+       the minimal reuired capacity to run.
    * - memory_pool_initial_capacity_bytes
      - Histogram
      - The distribution of a root memory pool's initial capacity in range of [0 256MB]

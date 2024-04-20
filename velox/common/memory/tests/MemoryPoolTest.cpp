@@ -97,7 +97,10 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
   }
 
   void setupMemory(
-      MemoryManagerOptions options = {.allocatorCapacity = kDefaultCapacity}) {
+      MemoryManagerOptions options = {
+          .allocatorCapacity = kDefaultCapacity,
+          .arbitratorCapacity = kDefaultCapacity,
+          .arbitratorReservedCapacity = 1LL << 30}) {
     options.useMmapAllocator = useMmap_;
     manager_ = std::make_shared<MemoryManager>(options);
     if (useCache_) {
@@ -540,9 +543,12 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
   }
 }
 
-TEST_P(MemoryPoolTest, MemoryCapExceptions) {
+TEST_P(MemoryPoolTest, memoryCapExceptions) {
   const uint64_t kMaxCap = 128L * MB;
-  setupMemory({.allocatorCapacity = kMaxCap});
+  setupMemory(
+      {.allocatorCapacity = kMaxCap,
+       .arbitratorCapacity = kMaxCap,
+       .arbitratorReservedCapacity = kMaxCap / 2});
   auto manager = getMemoryManager();
   // Capping memory pool.
   {
@@ -670,7 +676,10 @@ TEST(MemoryPoolTest, GetAlignment) {
 }
 
 TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
-  setupMemory({.allocatorCapacity = 32L * MB});
+  setupMemory(
+      {.allocatorCapacity = 32L * MB,
+       .arbitratorCapacity = 32L * MB,
+       .arbitratorReservedCapacity = 16L * MB});
   auto manager = getMemoryManager();
   const auto kAllocCap = manager->capacity();
   auto root = manager->addRootPool();
@@ -882,8 +891,11 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
 }
 
 TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
+  const auto memCapacity = (int64_t)(AllocationTraits::pageBytes(1 << 10));
   setupMemory(
-      {.allocatorCapacity = (int64_t)(AllocationTraits::pageBytes(1 << 10))});
+      {.allocatorCapacity = memCapacity,
+       .arbitratorCapacity = memCapacity,
+       .arbitratorReservedCapacity = memCapacity / 2});
   auto manager = getMemoryManager();
   const auto kMemoryCapBytes = manager->capacity();
   const auto kMaxNumPages = AllocationTraits::numPages(kMemoryCapBytes);
@@ -998,7 +1010,10 @@ TEST_P(MemoryPoolTest, nonContiguousAllocate) {
 TEST_P(MemoryPoolTest, allocationFailStats) {
   setupMemory(
       {.allocatorCapacity = 16 * KB,
-       .allocationSizeThresholdWithReservation = false});
+       .allocationSizeThresholdWithReservation = false,
+       .arbitratorCapacity = 16 * KB,
+       .arbitratorReservedCapacity = 16 * KB,
+       .memoryPoolReservedCapacity = 16 * KB});
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("allocationFailStats");
   auto allocatorCapacity = manager->capacity();
@@ -1636,7 +1651,10 @@ TEST_P(MemoryPoolTest, transientContiguousAllocateFailure) {
 TEST_P(MemoryPoolTest, contiguousAllocateExceedMemoryPoolLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
-  setupMemory({.allocatorCapacity = 1 << 30});
+  setupMemory(
+      {.allocatorCapacity = 1 << 30,
+       .arbitratorCapacity = 1 << 30,
+       .arbitratorReservedCapacity = 128 * MB});
   auto manager = getMemoryManager();
   auto root =
       manager->addRootPool("contiguousAllocateExceedLimit", kMemoryCapBytes);
@@ -1800,7 +1818,10 @@ TEST_P(MemoryPoolTest, transientContiguousGrowAllocateFailure) {
 TEST_P(MemoryPoolTest, contiguousAllocateGrowExceedMemoryPoolLimit) {
   const MachinePageCount kMaxNumPages = 1 << 10;
   const auto kMemoryCapBytes = kMaxNumPages * AllocationTraits::kPageSize;
-  setupMemory({.allocatorCapacity = 1 << 30});
+  setupMemory(
+      {.allocatorCapacity = 1 << 30,
+       .arbitratorCapacity = 1 << 30,
+       .arbitratorReservedCapacity = 128 * MB});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool(
       "contiguousAllocateGrowExceedMemoryPoolLimit", kMemoryCapBytes);
@@ -1843,7 +1864,10 @@ TEST_P(MemoryPoolTest, nonContiguousAllocationBounds) {
 TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
   const int64_t kMemoryCapBytes = AllocationTraits::pageBytes(1 << 10);
   setupMemory(
-      {.allocatorCapacity = kMemoryCapBytes, .useMmapAllocator = useMmap_});
+      {.allocatorCapacity = kMemoryCapBytes,
+       .useMmapAllocator = useMmap_,
+       .arbitratorCapacity = kMemoryCapBytes,
+       .arbitratorReservedCapacity = kMemoryCapBytes / 2});
   auto manager = getMemoryManager();
   const MachinePageCount kMaxNumPages =
       AllocationTraits::numPages(kMemoryCapBytes);
@@ -2998,7 +3022,13 @@ struct Buffer {
 
 TEST_P(MemoryPoolTest, memoryUsageUpdateCheck) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  setupMemory({.allocatorCapacity = kMaxSize});
+  //  setupMemory({.allocatorCapacity = kMaxSize});
+  setupMemory(
+      {.allocatorCapacity = kMaxSize,
+       .allocationSizeThresholdWithReservation = false,
+       .arbitratorCapacity = kMaxSize,
+       .arbitratorReservedCapacity = 128 << 20});
+
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("memoryUsageUpdate", kMaxSize);
 
@@ -3131,7 +3161,10 @@ TEST_P(MemoryPoolTest, memoryUsageUpdateCheck) {
 
 TEST_P(MemoryPoolTest, maybeReserve) {
   constexpr int64_t kMaxSize = 1 << 30; // 1GB
-  setupMemory({.allocatorCapacity = kMaxSize});
+  setupMemory(
+      {.allocatorCapacity = kMaxSize,
+       .arbitratorCapacity = kMaxSize,
+       .arbitratorReservedCapacity = kMaxSize / 8});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("reserve", kMaxSize);
 
@@ -3235,7 +3268,11 @@ TEST_P(MemoryPoolTest, maybeReserve) {
 
 TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
   constexpr int64_t kMaxSize = 1 * GB; // 1GB
-  setupMemory({.allocatorCapacity = kMaxSize, .arbitratorKind = "SHARED"});
+  setupMemory(
+      {.allocatorCapacity = kMaxSize,
+       .arbitratorCapacity = kMaxSize,
+       .arbitratorReservedCapacity = kMaxSize / 8,
+       .arbitratorKind = "SHARED"});
   MemoryManager& manager = *getMemoryManager();
   auto root = manager.addRootPool(
       "maybeReserveFailWithAbort", kMaxSize, MemoryReclaimer::create());
@@ -3279,7 +3316,10 @@ DEBUG_ONLY_TEST_P(MemoryPoolTest, raceBetweenFreeAndFailedAllocation) {
   if (!isLeafThreadSafe_) {
     return;
   }
-  setupMemory({.allocatorCapacity = 1 * GB});
+  setupMemory(
+      {.allocatorCapacity = 1 * GB,
+       .arbitratorCapacity = 1 * GB,
+       .arbitratorReservedCapacity = 128 * MB});
   auto manager = getMemoryManager();
   auto root = manager->addRootPool("grow", 64 * MB);
   auto child = root->addLeafChild("grow", isLeafThreadSafe_);
@@ -3658,7 +3698,11 @@ TEST_P(MemoryPoolTest, abort) {
 
 TEST_P(MemoryPoolTest, overuseUnderArbitration) {
   constexpr int64_t kMaxSize = 128 * MB; // 1GB
-  setupMemory({.allocatorCapacity = kMaxSize, .arbitratorKind = "SHARED"});
+  setupMemory(
+      {.allocatorCapacity = kMaxSize,
+       .arbitratorCapacity = kMaxSize,
+       .arbitratorReservedCapacity = 4 * MB,
+       .arbitratorKind = "SHARED"});
   MemoryManager& manager = *getMemoryManager();
   auto root = manager.addRootPool(
       "overuseUnderArbitration", kMaxSize, MemoryReclaimer::create());

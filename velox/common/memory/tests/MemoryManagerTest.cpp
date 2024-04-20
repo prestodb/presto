@@ -49,7 +49,7 @@ class MemoryManagerTest : public testing::Test {
   inline static const std::string arbitratorKind_{"SHARED"};
 };
 
-TEST_F(MemoryManagerTest, Ctor) {
+TEST_F(MemoryManagerTest, ctor) {
   const auto kSharedPoolCount = FLAGS_velox_memory_num_shared_leaf_pools;
   {
     MemoryManager manager{};
@@ -64,14 +64,21 @@ TEST_F(MemoryManagerTest, Ctor) {
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    MemoryManager manager{{.allocatorCapacity = kCapacity}};
+    MemoryManager manager{
+        {.allocatorCapacity = kCapacity,
+         .arbitratorCapacity = kCapacity,
+         .arbitratorReservedCapacity = 0}};
     ASSERT_EQ(kCapacity, manager.capacity());
     ASSERT_EQ(manager.numPools(), 1);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
   }
   {
     const auto kCapacity = 8L * 1024 * 1024;
-    MemoryManager manager{{.alignment = 0, .allocatorCapacity = kCapacity}};
+    MemoryManager manager{
+        {.alignment = 0,
+         .allocatorCapacity = kCapacity,
+         .arbitratorCapacity = kCapacity,
+         .arbitratorReservedCapacity = 0}};
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
     ASSERT_EQ(manager.testingDefaultRoot().alignment(), manager.alignment());
@@ -85,6 +92,8 @@ TEST_F(MemoryManagerTest, Ctor) {
     MemoryManagerOptions options;
     const auto kCapacity = 4L << 30;
     options.allocatorCapacity = kCapacity;
+    options.arbitratorCapacity = kCapacity;
+    options.arbitratorReservedCapacity = 0;
     std::string arbitratorKind = "SHARED";
     options.arbitratorKind = arbitratorKind;
     MemoryManager manager{options};
@@ -101,7 +110,7 @@ TEST_F(MemoryManagerTest, Ctor) {
         "STATS[numRequests 0 numSucceeded 0 numAborted 0 numFailures 0 "
         "numNonReclaimableAttempts 0 numReserves 0 numReleases 0 queueTime 0us "
         "arbitrationTime 0us reclaimTime 0us shrunkMemory 0B "
-        "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB]]]");
+        "reclaimedMemory 0B maxCapacity 4.00GB freeCapacity 4.00GB freeReservedCapacity 0B]]]");
   }
 }
 
@@ -126,16 +135,16 @@ class FakeTestArbitrator : public MemoryArbitrator {
     VELOX_NYI();
   }
 
-  uint64_t shrinkCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/)
-      override {
-    VELOX_NYI();
-  }
-
   uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& /*unused*/,
       uint64_t /*unused*/,
       bool /*unused*/,
       bool /*unused*/) override {
+    VELOX_NYI();
+  }
+
+  uint64_t shrinkCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/)
+      override {
     VELOX_NYI();
   }
 
@@ -578,6 +587,8 @@ TEST_F(MemoryManagerTest, quotaEnforcement) {
       MemoryManagerOptions options;
       options.alignment = alignment;
       options.allocatorCapacity = testData.memoryQuotaBytes;
+      options.arbitratorCapacity = testData.memoryQuotaBytes;
+      options.arbitratorReservedCapacity = 0;
       MemoryManager manager{options};
       auto pool = manager.addLeafPool("quotaEnforcement");
       void* smallBuffer{nullptr};

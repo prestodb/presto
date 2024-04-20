@@ -3397,7 +3397,8 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromTableWriter) {
       SCOPED_TRACE(fmt::format("writerSpillEnabled: {}", writerSpillEnabled));
       auto memoryManager = createMemoryManager();
       auto arbitrator = memoryManager->arbitrator();
-      auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+      auto queryCtx =
+          newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
       ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
       std::atomic<int> numInputs{0};
@@ -3508,7 +3509,8 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, reclaimFromSortTableWriter) {
       SCOPED_TRACE(fmt::format("writerSpillEnabled: {}", writerSpillEnabled));
       auto memoryManager = createMemoryManager();
       auto arbitrator = memoryManager->arbitrator();
-      auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+      auto queryCtx =
+          newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
       ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
       const auto spillStats = common::globalSpillStats();
@@ -3605,7 +3607,8 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, writerFlushThreshold) {
       auto arbitrator = memoryManager->arbitrator();
       auto numAddedPools = 0;
       {
-        auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+        auto queryCtx =
+            newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
         ++numAddedPools;
         ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
@@ -3694,7 +3697,8 @@ DEBUG_ONLY_TEST_F(
 
   auto memoryManager = createMemoryManager();
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
   ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
   std::atomic<bool> injectFakeAllocationOnce{true};
@@ -3772,7 +3776,8 @@ DEBUG_ONLY_TEST_F(
   createDuckDbTable(vectors);
   auto memoryManager = createMemoryManager();
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
   ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
   std::atomic<bool> writerNoMoreInput{false};
@@ -3868,7 +3873,8 @@ DEBUG_ONLY_TEST_F(
 
   auto memoryManager = createMemoryManager();
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
   ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
 
   std::atomic<bool> injectFakeAllocationOnce{true};
@@ -3956,7 +3962,8 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableFileWriteError) {
   auto memoryManager =
       createMemoryManager(memoryCapacity, kMemoryPoolInitCapacity);
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, memoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), memoryCapacity);
   ASSERT_EQ(queryCtx->pool()->capacity(), kMemoryPoolInitCapacity);
   std::atomic<bool> injectWriterErrorOnce{true};
   SCOPED_TESTVALUE_SET(
@@ -4026,9 +4033,9 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteSpillUseMoreMemory) {
   auto arbitrator = memoryManager->arbitrator();
 
   std::shared_ptr<core::QueryCtx> queryCtx =
-      newQueryCtx(memoryManager, executor_, memoryCapacity / 8);
+      newQueryCtx(memoryManager.get(), executor_.get(), memoryCapacity / 8);
   std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-      newQueryCtx(memoryManager, executor_, memoryCapacity);
+      newQueryCtx(memoryManager.get(), executor_.get(), memoryCapacity);
   auto fakePool = fakeQueryCtx->pool()->addLeafChild(
       "fakePool", true, FakeMemoryReclaimer::create());
   TestAllocation injectedFakeAllocation{
@@ -4111,8 +4118,10 @@ DEBUG_ONLY_TEST_F(TableWriterArbitrationTest, tableWriteReclaimOnClose) {
 
   auto memoryManager = createMemoryManager();
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
-  auto fakeQueryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
+  auto fakeQueryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
   auto fakePool = fakeQueryCtx->pool()->addLeafChild(
       "fakePool", true, FakeMemoryReclaimer::create());
 
@@ -4199,7 +4208,8 @@ DEBUG_ONLY_TEST_F(
 
   auto memoryManager = createMemoryManager(memoryCapacity);
   auto arbitrator = memoryManager->arbitrator();
-  auto queryCtx = newQueryCtx(memoryManager, executor_, kMemoryCapacity);
+  auto queryCtx =
+      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
 
   std::atomic_bool writerCloseWaitFlag{true};
   folly::EventCount writerCloseWait;

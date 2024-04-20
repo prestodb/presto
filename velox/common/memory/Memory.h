@@ -145,18 +145,28 @@ struct MemoryManagerOptions {
   /// reservation capacity for system usage.
   int64_t arbitratorCapacity{kMaxMemory};
 
+  /// Memory capacity reserved to ensure that a query has minimal memory
+  /// capacity to run. This capacity should be less than 'arbitratorCapacity'.
+  /// A query's minimal memory capacity is defined by
+  /// 'memoryPoolReservedCapacity'.
+  int64_t arbitratorReservedCapacity{0};
+
   /// The string kind of memory arbitrator used in the memory manager.
   ///
   /// NOTE: the arbitrator will only be created if its kind is set explicitly.
   /// Otherwise MemoryArbitrator::create returns a nullptr.
   std::string arbitratorKind{};
 
-  /// The initial memory capacity to reserve for a newly created memory pool.
+  /// The initial memory capacity to reserve for a newly created query memory
+  /// pool.
   uint64_t memoryPoolInitCapacity{256 << 20};
+
+  /// The minimal memory capacity reserved for a query memory pool to run.
+  uint64_t memoryPoolReservedCapacity{0};
 
   /// The minimal memory capacity to transfer out of or into a memory pool
   /// during the memory arbitration.
-  uint64_t memoryPoolTransferCapacity{32 << 20};
+  uint64_t memoryPoolTransferCapacity{128 << 20};
 
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is

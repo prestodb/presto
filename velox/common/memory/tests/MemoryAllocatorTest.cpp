@@ -48,7 +48,7 @@ struct ProcessSize {
 };
 } // namespace
 
-static constexpr uint64_t kCapacityBytes = 1024UL * 1024 * 1024;
+static constexpr uint64_t kCapacityBytes = 1ULL << 30;
 static constexpr MachinePageCount kCapacityPages =
     (kCapacityBytes / AllocationTraits::kPageSize);
 
@@ -72,6 +72,9 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
       MemoryManagerOptions options;
       options.useMmapAllocator = true;
       options.allocatorCapacity = kCapacityBytes;
+      options.arbitratorCapacity = kCapacityBytes;
+      options.arbitratorReservedCapacity = 128 << 20;
+      options.memoryPoolReservedCapacity = 1 << 20;
       options.smallAllocationReservePct = 4;
       options.maxMallocBytes = maxMallocBytes_;
       memoryManager_ = std::make_unique<MemoryManager>(options);
@@ -84,6 +87,9 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
     } else {
       MemoryManagerOptions options;
       options.allocatorCapacity = kCapacityBytes;
+      options.arbitratorCapacity = kCapacityBytes;
+      options.arbitratorReservedCapacity = 128 << 20;
+      options.memoryPoolReservedCapacity = 1 << 20;
       if (!enableReservation_) {
         options.allocationSizeThresholdWithReservation = 0;
       }

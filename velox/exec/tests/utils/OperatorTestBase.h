@@ -40,8 +40,17 @@ class OperatorTestBase : public testing::Test,
   static void SetUpTestCase();
   static void TearDownTestCase();
 
-  /// Sets up the velox memory system. A second call to this will clear the
-  /// previous memory system instances and create a new set.
+  /// Sets up the velox memory system.
+  ///
+  /// NOTE: a second call to this will clear the previous memory system
+  /// instances and create a new set.
+  static void setupMemory(
+      int64_t allocatorCapacity,
+      int64_t arbitratorCapacity,
+      int64_t arbitratorReservedCapacity,
+      int64_t memoryPoolInitCapacity,
+      int64_t memoryPoolReservedCapacity);
+
   static void resetMemory();
 
  protected:

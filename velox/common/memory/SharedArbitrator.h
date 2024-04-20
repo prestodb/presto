@@ -48,7 +48,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       const std::vector<std::shared_ptr<MemoryPool>>& candidatePools,
       uint64_t targetBytes) final;
 
-  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t freedBytes) final;
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) final;
 
   uint64_t shrinkCapacity(
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
@@ -62,11 +62,10 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   std::string toString() const final;
 
-  // The candidate memory pool stats used by arbitration.
+  /// The candidate memory pool stats used by arbitration.
   struct Candidate {
-    bool reclaimable{false};
-    uint64_t reclaimableBytes{0};
-    uint64_t freeBytes{0};
+    int64_t reclaimableBytes{0};
+    int64_t freeBytes{0};
     int64_t currentBytes{0};
     MemoryPool* pool;
 
@@ -136,6 +135,13 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   // arbitration request execution if there are any ones waiting.
   void finishArbitration();
 
+  // Invoked to get the memory stats of the candidate memory pools for
+  // arbitration. If 'freeCapacityOnly' is true, then we only get free capacity
+  // stats for each candidate memory pool.
+  std::vector<SharedArbitrator::Candidate> getCandidateStats(
+      const std::vector<std::shared_ptr<MemoryPool>>& pools,
+      bool freeCapacityOnly = false);
+
   // Invoked to reclaim free memory capacity from 'candidates' without actually
   // freeing used memory.
   //
@@ -182,15 +188,21 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       uint64_t targetBytes,
       std::vector<Candidate>& candidates);
 
-  // Decrement free capacity from the arbitrator with up to 'bytes'. The
+  // Decrements free capacity from the arbitrator with up to 'maxBytes'. The
   // arbitrator might have less free available capacity. The function returns
-  // the actual decremented free capacity bytes.
-  uint64_t decrementFreeCapacity(uint64_t bytes);
-  uint64_t decrementFreeCapacityLocked(uint64_t bytes);
+  // the actual decremented free capacity bytes. If 'minBytes' is not zero and
+  // there is less than 'minBytes' available in non-reserved capacity, then
+  // the arbitrator tries to decrement up to 'minBytes' from the reserved
+  // capacity.
+  uint64_t decrementFreeCapacity(uint64_t maxBytes, uint64_t minBytes);
+  uint64_t decrementFreeCapacityLocked(uint64_t maxBytes, uint64_t minBytes);
 
   // Increment free capacity by 'bytes'.
   void incrementFreeCapacity(uint64_t bytes);
   void incrementFreeCapacityLocked(uint64_t bytes);
+  // Increments the free reserved capacity up to 'bytes' until reaches to the
+  // reserved capacity limit. 'bytes' is updated accordingly.
+  void incrementFreeReservedCapacityLocked(uint64_t& bytes);
 
   std::string toStringLocked() const;
 
@@ -199,8 +211,30 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   void incrementGlobalArbitrationCount();
   void incrementLocalArbitrationCount();
 
+  // Returns the max reclaimable capacity from 'pool' which includes both used
+  // and free capacities.
+  int64_t reclaimableCapacity(const MemoryPool& pool) const;
+
+  // Returns the free memory capacity that can be reclaimed from 'pool' by
+  // shrink.
+  int64_t reclaimableFreeCapacity(const MemoryPool& pool) const;
+
+  // Returns the used memory capacity that can be reclaimed from 'pool' by disk
+  // spill.
+  int64_t reclaimableUsedCapacity(const MemoryPool& pool) const;
+
+  // Returns the minimal amount of memory capacity to grow for 'pool' to have
+  // the reserved capacity as specified by 'memoryPoolReservedCapacity_'.
+  int64_t minGrowCapacity(const MemoryPool& pool) const;
+
+  // Updates the free capacity metrics on capacity changes.
+  //
+  // TODO: move this update to velox runtime monitoring service once available.
+  void updateFreeCapacityMetrics() const;
+
   mutable std::mutex mutex_;
-  uint64_t freeCapacity_{0};
+  tsan_atomic<uint64_t> freeReservedCapacity_{0};
+  tsan_atomic<uint64_t> freeNonReservedCapacity_{0};
   // Indicates if there is a running arbitration request or not.
   bool running_{false};
 

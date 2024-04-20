@@ -57,9 +57,16 @@ class MemoryArbitrator {
     /// manager.
     int64_t capacity;
 
+    /// The memory capacity reserved to ensure each running query has minimal
+    /// capacity of 'memoryPoolReservedCapacity' to run.
+    int64_t reservedCapacity{0};
+
+    /// The minimal amount of memory capacity reserved for each query to run.
+    uint64_t memoryPoolReservedCapacity{0};
+
     /// The minimal memory capacity to transfer out of or into a memory pool
     /// during the memory arbitration.
-    uint64_t memoryPoolTransferCapacity{32 << 20};
+    uint64_t memoryPoolTransferCapacity{128 << 20};
 
     /// Specifies the max time to wait for memory reclaim by arbitration. The
     /// memory reclaim might fail if the max time has exceeded. This prevents
@@ -186,6 +193,8 @@ class MemoryArbitrator {
     uint64_t maxCapacityBytes{0};
     /// The free memory capacity in bytes.
     uint64_t freeCapacityBytes{0};
+    /// The free reserved memory capacity in bytes.
+    uint64_t freeReservedCapacityBytes{0};
     /// The sum of all reclaim operation durations during arbitration in
     /// microseconds.
     uint64_t reclaimTimeUs{0};
@@ -208,6 +217,7 @@ class MemoryArbitrator {
         uint64_t _numReclaimedBytes,
         uint64_t _maxCapacityBytes,
         uint64_t _freeCapacityBytes,
+        uint64_t _freeReservedCapacityBytes,
         uint64_t _reclaimTimeUs,
         uint64_t _numNonReclaimableAttempts,
         uint64_t _numReserves,
@@ -239,12 +249,18 @@ class MemoryArbitrator {
  protected:
   explicit MemoryArbitrator(const Config& config)
       : capacity_(config.capacity),
+        reservedCapacity_(config.reservedCapacity),
+        memoryPoolReservedCapacity_(config.memoryPoolReservedCapacity),
         memoryPoolTransferCapacity_(config.memoryPoolTransferCapacity),
         memoryReclaimWaitMs_(config.memoryReclaimWaitMs),
         arbitrationStateCheckCb_(config.arbitrationStateCheckCb),
-        checkUsageLeak_(config.checkUsageLeak) {}
+        checkUsageLeak_(config.checkUsageLeak) {
+    VELOX_CHECK_LE(reservedCapacity_, capacity_);
+  }
 
   const uint64_t capacity_;
+  const uint64_t reservedCapacity_;
+  const uint64_t memoryPoolReservedCapacity_;
   const uint64_t memoryPoolTransferCapacity_;
   const uint64_t memoryReclaimWaitMs_;
   const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;

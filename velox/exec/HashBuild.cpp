@@ -772,7 +772,8 @@ bool HashBuild::finishHashBuild() {
 void HashBuild::ensureTableFits(uint64_t numRows) {
   // NOTE: we don't need memory reservation if all the partitions have been
   // spilled as nothing need to be built.
-  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled()) {
+  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled() ||
+      numRows == 0) {
     return;
   }
 
@@ -783,13 +784,13 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
     return;
   }
 
-  TestValue::adjust("facebook::velox::exec::HashBuild::ensureTableFits", this);
-
   // NOTE: reserve a bit more memory to consider the extra memory used for
   // parallel table build operation.
   const uint64_t bytesToReserve = table_->estimateHashTableSize(numRows) * 1.1;
   {
     Operator::ReclaimableSectionGuard guard(this);
+    TestValue::adjust(
+        "facebook::velox::exec::HashBuild::ensureTableFits", this);
     if (pool()->maybeReserve(bytesToReserve)) {
       return;
     }

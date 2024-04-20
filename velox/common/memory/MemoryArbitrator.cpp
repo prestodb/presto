@@ -109,7 +109,7 @@ class NoopArbitrator : public MemoryArbitrator {
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity release.
-  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t targetBytes) override {
+  uint64_t shrinkCapacity(MemoryPool* pool, uint64_t /*unused*/) override {
     // No-op
     return 0;
   }
@@ -307,6 +307,7 @@ MemoryArbitrator::Stats::Stats(
     uint64_t _numReclaimedBytes,
     uint64_t _maxCapacityBytes,
     uint64_t _freeCapacityBytes,
+    uint64_t _freeReservedCapacityBytes,
     uint64_t _reclaimTimeUs,
     uint64_t _numNonReclaimableAttempts,
     uint64_t _numReserves,
@@ -321,6 +322,7 @@ MemoryArbitrator::Stats::Stats(
       numReclaimedBytes(_numReclaimedBytes),
       maxCapacityBytes(_maxCapacityBytes),
       freeCapacityBytes(_freeCapacityBytes),
+      freeReservedCapacityBytes(_freeReservedCapacityBytes),
       reclaimTimeUs(_reclaimTimeUs),
       numNonReclaimableAttempts(_numNonReclaimableAttempts),
       numReserves(_numReserves),
@@ -331,7 +333,7 @@ std::string MemoryArbitrator::Stats::toString() const {
       "STATS[numRequests {} numSucceeded {} numAborted {} numFailures {} "
       "numNonReclaimableAttempts {} numReserves {} numReleases {} "
       "queueTime {} arbitrationTime {} reclaimTime {} shrunkMemory {} "
-      "reclaimedMemory {} maxCapacity {} freeCapacity {}]",
+      "reclaimedMemory {} maxCapacity {} freeCapacity {} freeReservedCapacity {}]",
       numRequests,
       numSucceeded,
       numAborted,
@@ -345,7 +347,8 @@ std::string MemoryArbitrator::Stats::toString() const {
       succinctBytes(numShrunkBytes),
       succinctBytes(numReclaimedBytes),
       succinctBytes(maxCapacityBytes),
-      succinctBytes(freeCapacityBytes));
+      succinctBytes(freeCapacityBytes),
+      succinctBytes(freeReservedCapacityBytes));
 }
 
 MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
@@ -361,6 +364,7 @@ MemoryArbitrator::Stats MemoryArbitrator::Stats::operator-(
   result.numReclaimedBytes = numReclaimedBytes - other.numReclaimedBytes;
   result.maxCapacityBytes = maxCapacityBytes;
   result.freeCapacityBytes = freeCapacityBytes;
+  result.freeReservedCapacityBytes = freeReservedCapacityBytes;
   result.reclaimTimeUs = reclaimTimeUs - other.reclaimTimeUs;
   result.numNonReclaimableAttempts =
       numNonReclaimableAttempts - other.numNonReclaimableAttempts;
@@ -381,6 +385,7 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              numReclaimedBytes,
              maxCapacityBytes,
              freeCapacityBytes,
+             freeReservedCapacityBytes,
              reclaimTimeUs,
              numNonReclaimableAttempts,
              numReserves,
@@ -396,6 +401,7 @@ bool MemoryArbitrator::Stats::operator==(const Stats& other) const {
              other.numReclaimedBytes,
              other.maxCapacityBytes,
              other.freeCapacityBytes,
+             other.freeReservedCapacityBytes,
              other.reclaimTimeUs,
              other.numNonReclaimableAttempts,
              other.numReserves,

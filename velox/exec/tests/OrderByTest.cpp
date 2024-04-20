@@ -1300,13 +1300,13 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
     std::shared_ptr<core::QueryCtx> orderByQueryCtx;
     if (sameQuery) {
       orderByQueryCtx = fakeQueryCtx;
     } else {
-      orderByQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      orderByQueryCtx = newQueryCtx(
+          memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
     }
 
     folly::EventCount arbitrationWait;
@@ -1369,18 +1369,11 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
 }
 
 DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
-  std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
+  const std::vector<RowVectorPtr> vectors =
+      createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  auto memoryManager = createMemoryManager();
-  const auto spillDirectory = exec::test::TempDirectoryPath::create();
-  std::shared_ptr<core::QueryCtx> orderByQueryCtx =
-      newQueryCtx(memoryManager, executor_, kMemoryCapacity);
-  folly::EventCount arbitrationWait;
-  std::atomic_bool arbitrationWaitFlag{true};
-  folly::EventCount taskPauseWait;
-  std::atomic_bool taskPauseWaitFlag{true};
 
-  std::atomic<bool> injectDriverBlockOnce{true};
+  std::atomic<bool> injectOnce{true};
   SCOPED_TESTVALUE_SET(
       "facebook::velox::exec::Driver::runInternal::addInput",
       std::function<void(Operator*)>(([&](Operator* op) {
@@ -1388,53 +1381,27 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
           return;
         }
 
-        if (!injectDriverBlockOnce.exchange(false)) {
+        if (!injectOnce.exchange(false)) {
           return;
         }
-
-        arbitrationWaitFlag = false;
-        arbitrationWait.notifyAll();
-
-        // Wait for task pause to be triggered.
-        taskPauseWait.await([&] { return !taskPauseWaitFlag.load(); });
+        testingRunArbitration(op->pool());
       })));
 
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Task::requestPauseLocked",
-      std::function<void(Task*)>(([&](Task* /*unused*/) {
-        taskPauseWaitFlag = false;
-        taskPauseWait.notifyAll();
-      })));
-
-  std::thread orderByThread([&]() {
-    auto task =
-        AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->getPath())
-            .config(core::QueryConfig::kSpillEnabled, true)
-            .config(core::QueryConfig::kOrderBySpillEnabled, true)
-            .queryCtx(orderByQueryCtx)
-            .plan(PlanBuilder()
-                      .values(vectors)
-                      .orderBy({"c0 ASC NULLS LAST"}, false)
-                      .planNode())
-            .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
-    // Verify no spill has been triggered.
-    const auto stats = task->taskStats().pipelineStats;
-    ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
-    ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
-  });
-
-  arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
-
-  auto fakePool = orderByQueryCtx->pool()->addLeafChild(
-      "fakePool", true, FakeMemoryReclaimer::create());
-
-  memoryManager->testingGrowPool(
-      fakePool.get(), memoryManager->arbitrator()->capacity());
-
-  orderByThread.join();
-
-  waitForAllTasksToBeDeleted();
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->getPath())
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kOrderBySpillEnabled, true)
+          .plan(PlanBuilder()
+                    .values(vectors)
+                    .orderBy({"c0 ASC NULLS LAST"}, false)
+                    .planNode())
+          .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
+  // Verify no spill has been triggered.
+  const auto stats = task->taskStats().pipelineStats;
+  ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
+  ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
 }
 
 TEST_F(OrderByTest, reclaimFromCompletedOrderBy) {
@@ -1446,13 +1413,13 @@ TEST_F(OrderByTest, reclaimFromCompletedOrderBy) {
     SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
     std::shared_ptr<core::QueryCtx> orderByQueryCtx;
     if (sameQuery) {
       orderByQueryCtx = fakeQueryCtx;
     } else {
-      orderByQueryCtx =
-          newQueryCtx(memoryManager, executor_, kMemoryCapacity * 2);
+      orderByQueryCtx = newQueryCtx(
+          memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
     }
 
     folly::EventCount arbitrationWait;

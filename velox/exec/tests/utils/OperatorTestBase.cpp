@@ -76,15 +76,22 @@ void OperatorTestBase::TearDownTestCase() {
   memory::SharedArbitrator::unregisterFactory();
 }
 
-void OperatorTestBase::resetMemory() {
+void OperatorTestBase::setupMemory(
+    int64_t allocatorCapacity,
+    int64_t arbitratorCapacity,
+    int64_t arbitratorReservedCapacity,
+    int64_t memoryPoolInitCapacity,
+    int64_t memoryPoolReservedCapacity) {
   if (asyncDataCache_ != nullptr) {
     asyncDataCache_->clear();
     asyncDataCache_.reset();
   }
   MemoryManagerOptions options;
-  options.allocatorCapacity = 8L << 30;
-  options.arbitratorCapacity = 6L << 30;
-  options.memoryPoolInitCapacity = 512 << 20;
+  options.allocatorCapacity = allocatorCapacity;
+  options.arbitratorCapacity = arbitratorCapacity;
+  options.arbitratorReservedCapacity = arbitratorReservedCapacity;
+  options.memoryPoolInitCapacity = memoryPoolInitCapacity;
+  options.memoryPoolReservedCapacity = memoryPoolReservedCapacity;
   options.arbitratorKind = "SHARED";
   options.checkUsageLeak = true;
   options.arbitrationStateCheckCb = memoryArbitrationStateCheck;
@@ -92,6 +99,10 @@ void OperatorTestBase::resetMemory() {
   asyncDataCache_ =
       cache::AsyncDataCache::create(memory::memoryManager()->allocator());
   cache::AsyncDataCache::setInstance(asyncDataCache_.get());
+}
+
+void OperatorTestBase::resetMemory() {
+  OperatorTestBase::setupMemory(8L << 30, 6L << 30, 0, 512 << 20, 0);
 }
 
 void OperatorTestBase::SetUp() {

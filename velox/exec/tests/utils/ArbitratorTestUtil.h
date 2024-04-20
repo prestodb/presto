@@ -87,9 +87,8 @@ struct TestAllocation {
 };
 
 std::shared_ptr<core::QueryCtx> newQueryCtx(
-    const std::unique_ptr<facebook::velox::memory::MemoryManager>&
-        memoryManager,
-    const std::shared_ptr<folly::Executor>& executor,
+    facebook::velox::memory::MemoryManager* memoryManager,
+    folly::Executor* executor,
     int64_t memoryCapacity = facebook::velox::memory::kMaxMemory,
     std::unique_ptr<MemoryReclaimer>&& reclaimer = nullptr);
 
