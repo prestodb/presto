@@ -1914,14 +1914,11 @@ class FormatValue<
 } // namespace folly
 
 template <>
-struct fmt::formatter<facebook::velox::TypeKind> {
-  constexpr auto parse(format_parse_context& ctx) {
-    return ctx.begin();
-  }
-
+struct fmt::formatter<facebook::velox::TypeKind> : fmt::formatter<string_view> {
   template <typename FormatContext>
-  auto format(const facebook::velox::TypeKind& k, FormatContext& ctx) const {
-    return format_to(ctx.out(), "{}", facebook::velox::mapTypeKindToName(k));
+  auto format(facebook::velox::TypeKind k, FormatContext& ctx) const {
+    return formatter<string_view>::format(
+        facebook::velox::mapTypeKindToName(k), ctx);
   }
 };
 
@@ -1929,13 +1926,10 @@ template <typename T>
 struct fmt::formatter<
     std::shared_ptr<T>,
     typename std::
-        enable_if_t<std::is_base_of_v<facebook::velox::Type, T>, char>> {
-  constexpr auto parse(format_parse_context& ctx) {
-    return ctx.begin();
-  }
-
+        enable_if_t<std::is_base_of_v<facebook::velox::Type, T>, char>>
+    : fmt::formatter<string_view> {
   template <typename FormatContext>
   auto format(const std::shared_ptr<T>& k, FormatContext& ctx) const {
-    return format_to(ctx.out(), "{}", k->toString());
+    return formatter<string_view>::format(k->toString(), ctx);
   }
 };

@@ -32,9 +32,11 @@
 #define VELOX_INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
 #endif
 
+// The void static cast supresses the "unused expression result" warning in
+// clang.
 #define VELOX_ASSERT_THROW_IMPL(_type, _expression, _errorMessage)    \
   try {                                                               \
-    (_expression);                                                    \
+    static_cast<void>(_expression);                                   \
     FAIL() << "Expected an exception";                                \
   } catch (const _type& e) {                                          \
     ASSERT_TRUE(e.message().find(_errorMessage) != std::string::npos) \

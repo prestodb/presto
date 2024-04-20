@@ -18,51 +18,36 @@
 
 #include <pthread.h>
 #include <sys/types.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 
-namespace facebook {
-namespace velox {
-namespace process {
+namespace facebook::velox::process {
 
-/**
- * Current executable's name.
- */
+/// Current executable's name.
 std::string getAppName();
 
-/**
- * This machine'a name.
- */
+/// This machine'a name.
 std::string getHostName();
 
-/**
- * Process identifier.
- */
+/// Process identifier.
 pid_t getProcessId();
 
-/**
- * Current thread's identifier.
- */
+/// Current thread's identifier.
 pthread_t getThreadId();
 
-/**
- * Get current working directory.
- */
+/// Get current working directory.
 std::string getCurrentDirectory();
 
-/**
- * Returns elapsed CPU nanoseconds on the calling thread
- */
+/// Returns elapsed CPU nanoseconds on the calling thread
 uint64_t threadCpuNanos();
 
-// True if the machine has Intel AVX2 instructions and these are not disabled by
-// flag.
+/// True if the machine has Intel AVX2 instructions and these are not disabled
+/// by flag.
 bool hasAvx2();
 
-// True if the machine has Intel BMI2 instructions and these are not disabled by
-// flag.
+/// True if the machine has Intel BMI2 instructions and these are not disabled
+/// by flag.
 bool hasBmi2();
 
-} // namespace process
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::process
