@@ -271,12 +271,13 @@ uint64_t SharedArbitrator::decrementFreeCapacity(
 uint64_t SharedArbitrator::decrementFreeCapacityLocked(
     uint64_t maxBytes,
     uint64_t minBytes) {
-  uint64_t allocatedBytes = std::min(freeNonReservedCapacity_, maxBytes);
+  uint64_t allocatedBytes =
+      std::min<uint64_t>(freeNonReservedCapacity_, maxBytes);
   VELOX_CHECK_LE(allocatedBytes, freeNonReservedCapacity_);
   freeNonReservedCapacity_ -= allocatedBytes;
   if (allocatedBytes < minBytes) {
     const uint64_t reservedBytes =
-        std::min(minBytes - allocatedBytes, freeReservedCapacity_);
+        std::min<uint64_t>(minBytes - allocatedBytes, freeReservedCapacity_);
     VELOX_CHECK_LE(reservedBytes, freeReservedCapacity_);
     freeReservedCapacity_ -= reservedBytes;
     allocatedBytes += reservedBytes;
