@@ -120,7 +120,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create(
+      "0",
+      planFragment,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   VELOX_ASSERT_THROW(
       task->start(3, 1),
       "groupedExecutionLeafNodeIds must be empty in ungrouped execution mode");
@@ -129,7 +134,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.groupedExecutionLeafNodeIds.clear();
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create(
+      "0",
+      planFragment,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   VELOX_ASSERT_THROW(
       task->start(3, 1),
       "groupedExecutionLeafNodeIds must not be empty in "
@@ -140,7 +150,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create(
+      "0",
+      planFragment,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   VELOX_ASSERT_THROW(
       task->start(3, 1),
       fmt::format(
@@ -153,7 +168,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.groupedExecutionLeafNodeIds.emplace(projectNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create(
+      "0",
+      planFragment,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   VELOX_ASSERT_THROW(
       task->start(3, 1),
       fmt::format(
@@ -166,7 +186,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionErrors) {
   planFragment.groupedExecutionLeafNodeIds.clear();
   planFragment.groupedExecutionLeafNodeIds.emplace(localPartitionNodeId);
   queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  task = exec::Task::create("0", planFragment, 0, std::move(queryCtx));
+  task = exec::Task::create(
+      "0",
+      planFragment,
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   VELOX_ASSERT_THROW(
       task->start(3, 1),
       fmt::format(
@@ -202,8 +227,12 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
   planFragment.groupedExecutionLeafNodeIds.emplace(tableScanNodeId);
   planFragment.numSplitGroups = 10;
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  auto task =
-      exec::Task::create("0", std::move(planFragment), 0, std::move(queryCtx));
+  auto task = exec::Task::create(
+      "0",
+      std::move(planFragment),
+      0,
+      std::move(queryCtx),
+      Task::ExecutionMode::kParallel);
   // 3 drivers max and 1 concurrent split group.
   task->start(3, 1);
 
@@ -397,7 +426,11 @@ DEBUG_ONLY_TEST_F(
         }));
 
     auto task = exec::Task::create(
-        "0", std::move(planFragment), 0, std::move(queryCtx));
+        "0",
+        std::move(planFragment),
+        0,
+        std::move(queryCtx),
+        Task::ExecutionMode::kParallel);
     const auto spillDirectory = exec::test::TempDirectoryPath::create();
     if (testData.enableSpill) {
       task->setSpillDirectory(spillDirectory->getPath());
@@ -513,7 +546,11 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
     planFragment.numSplitGroups = 10;
     auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     auto task = exec::Task::create(
-        "0", std::move(planFragment), 0, std::move(queryCtx));
+        "0",
+        std::move(planFragment),
+        0,
+        std::move(queryCtx),
+        Task::ExecutionMode::kParallel);
     // 3 drivers max and 1 concurrent split group.
     task->start(3, 1);
 

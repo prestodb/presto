@@ -99,7 +99,11 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
       nullptr,
       "TaskCursorQuery_0");
   auto task = exec::Task::create(
-      "single.execution.task.0", std::move(plan), 0, queryCtx);
+      "single.execution.task.0",
+      std::move(plan),
+      0,
+      queryCtx,
+      exec::Task::ExecutionMode::kSerial);
 
 #if IS_BUILDING_WITH_ASAN() == 0
   ASSERT_DEATH(

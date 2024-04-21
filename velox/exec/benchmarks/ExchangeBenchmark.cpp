@@ -299,6 +299,7 @@ class ExchangeBenchmark : public VectorTestBase {
         std::move(planFragment),
         destination,
         std::move(queryCtx),
+        Task::ExecutionMode::kParallel,
         std::move(consumer));
   }
 

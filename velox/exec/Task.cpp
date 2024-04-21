@@ -175,8 +175,22 @@ void movePromisesOut(
   }
   from.clear();
 }
-
 } // namespace
+
+std::string executionModeString(Task::ExecutionMode mode) {
+  switch (mode) {
+    case Task::ExecutionMode::kSerial:
+      return "Serial";
+    case Task::ExecutionMode::kParallel:
+      return "Parallel";
+    default:
+      return fmt::format("Unknown {}", static_cast<int>(mode));
+  }
+}
+
+std::ostream& operator<<(std::ostream& out, Task::ExecutionMode mode) {
+  return out << executionModeString(mode);
+}
 
 std::string taskStateString(TaskState state) {
   switch (state) {
@@ -231,6 +245,45 @@ std::shared_ptr<Task> Task::create(
     core::PlanFragment planFragment,
     int destination,
     std::shared_ptr<core::QueryCtx> queryCtx,
+    ExecutionMode mode,
+    Consumer consumer,
+    std::function<void(std::exception_ptr)> onError) {
+  return Task::create(
+      taskId,
+      std::move(planFragment),
+      destination,
+      std::move(queryCtx),
+      mode,
+      (consumer ? [c = std::move(consumer)]() { return c; }
+                : ConsumerSupplier{}),
+      std::move(onError));
+}
+
+std::shared_ptr<Task> Task::create(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    ExecutionMode mode,
+    ConsumerSupplier consumerSupplier,
+    std::function<void(std::exception_ptr)> onError) {
+  auto task = std::shared_ptr<Task>(new Task(
+      taskId,
+      std::move(planFragment),
+      destination,
+      std::move(queryCtx),
+      mode,
+      std::move(consumerSupplier),
+      std::move(onError)));
+  task->initTaskPool();
+  return task;
+}
+
+std::shared_ptr<Task> Task::create(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
     Consumer consumer,
     std::function<void(std::exception_ptr)> onError) {
   return Task::create(
@@ -255,6 +308,7 @@ std::shared_ptr<Task> Task::create(
       std::move(planFragment),
       destination,
       std::move(queryCtx),
+      Task::ExecutionMode::kParallel,
       std::move(consumerSupplier),
       std::move(onError)));
   task->initTaskPool();
@@ -266,6 +320,7 @@ Task::Task(
     core::PlanFragment planFragment,
     int destination,
     std::shared_ptr<core::QueryCtx> queryCtx,
+    ExecutionMode mode,
     ConsumerSupplier consumerSupplier,
     std::function<void(std::exception_ptr)> onError)
     : uuid_{makeUuid()},
@@ -273,10 +328,18 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
+      mode_(mode),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
-      bufferManager_(OutputBufferManager::getInstance()) {}
+      bufferManager_(OutputBufferManager::getInstance()) {
+  // NOTE: the executor must not be folly::InlineLikeExecutor for parallel
+  // execution.
+  if (mode_ == Task::ExecutionMode::kParallel) {
+    VELOX_CHECK_NULL(
+        dynamic_cast<const folly::InlineLikeExecutor*>(queryCtx_->executor()));
+  }
+}
 
 Task::~Task() {
   // TODO(spershin): Temporary code designed to reveal what causes SIGABRT in
@@ -525,6 +588,7 @@ bool Task::supportsSingleThreadedExecution() const {
 }
 
 RowVectorPtr Task::next(ContinueFuture* future) {
+  checkExecutionMode(ExecutionMode::kSerial);
   // NOTE: Task::next() is single-threaded execution so locking is not required
   // to access Task object.
   VELOX_CHECK_EQ(
@@ -645,6 +709,7 @@ void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
   facebook::velox::process::ThreadDebugInfo threadDebugInfo{
       queryCtx()->queryId(), taskId_, nullptr};
   facebook::velox::process::ScopedThreadDebugInfo scopedInfo(threadDebugInfo);
+  checkExecutionMode(ExecutionMode::kParallel);
 
   try {
     VELOX_CHECK_GE(
@@ -688,6 +753,10 @@ void Task::start(uint32_t maxDrivers, uint32_t concurrentSplitGroups) {
   }
 }
 
+void Task::checkExecutionMode(ExecutionMode mode) {
+  VELOX_CHECK_EQ(mode, mode_, "Inconsistent task execution mode.")
+}
+
 void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
   VELOX_CHECK(isRunningLocked());
   VELOX_CHECK(driverFactories_.empty());
@@ -716,6 +785,7 @@ void Task::createDriverFactoriesLocked(uint32_t maxDrivers) {
 }
 
 void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
+  checkExecutionMode(Task::ExecutionMode::kParallel);
   std::unique_lock<std::timed_mutex> l(mutex_);
   VELOX_CHECK(
       isRunningLocked(),
@@ -766,10 +836,6 @@ void Task::createAndStartDrivers(uint32_t concurrentSplitGroups) {
     // cancellations and pauses have the well-defined timing. For example, do
     // not pause and restart a task while it is still adding Drivers.
     //
-    // NOTE: the executor must not be folly::InlineLikeExecutor for parallel
-    // execution. Task::next() is used for the single-threaded execution.
-    VELOX_CHECK_NULL(
-        dynamic_cast<const folly::InlineLikeExecutor*>(queryCtx()->executor()));
     // We might have first slots taken for grouped execution drivers, so need
     // only to enqueue the ungrouped execution drivers.
     for (auto it = drivers_.end() - numDriversUngrouped_; it != drivers_.end();

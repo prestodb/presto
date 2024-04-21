@@ -74,8 +74,12 @@ class OutputBufferManagerTest : public testing::Test {
     auto queryCtx = std::make_shared<core::QueryCtx>(
         executor_.get(), core::QueryConfig(std::move(configSettings)));
 
-    auto task =
-        Task::create(taskId, std::move(planFragment), 0, std::move(queryCtx));
+    auto task = Task::create(
+        taskId,
+        std::move(planFragment),
+        0,
+        std::move(queryCtx),
+        Task::ExecutionMode::kParallel);
 
     bufferManager_->initializeTask(task, kind, numDestinations, numDrivers);
     return task;

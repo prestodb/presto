@@ -226,6 +226,7 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         std::move(planFragment_),
         params.destination,
         std::move(queryCtx_),
+        Task::ExecutionMode::kParallel,
         // consumer
         [queue, copyResult = params.copyResult](
             const RowVectorPtr& vector, velox::ContinueFuture* future) {
@@ -329,7 +330,8 @@ class SingleThreadedTaskCursor : public TaskCursorBase {
         taskId_,
         std::move(planFragment_),
         params.destination,
-        std::move(queryCtx_));
+        std::move(queryCtx_),
+        Task::ExecutionMode::kSerial);
 
     if (!taskSpillDirectory_.empty()) {
       task_->setSpillDirectory(taskSpillDirectory_);

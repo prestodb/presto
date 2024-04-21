@@ -64,7 +64,11 @@ class ExchangeClientTest : public testing::Test,
     queryCtx->testingOverrideMemoryPool(
         memory::memoryManager()->addRootPool(queryCtx->queryId()));
     return Task::create(
-        taskId, core::PlanFragment{planNode}, 0, std::move(queryCtx));
+        taskId,
+        core::PlanFragment{planNode},
+        0,
+        std::move(queryCtx),
+        Task::ExecutionMode::kParallel);
   }
 
   int32_t enqueue(

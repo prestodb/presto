@@ -116,7 +116,8 @@ TEST_F(PartitionedOutputTest, flush) {
       0,
       createQueryContext(
           {{core::QueryConfig::kMaxPartitionedOutputBufferSize,
-            std::to_string(PartitionedOutput::kMinDestinationSize * 2)}}));
+            std::to_string(PartitionedOutput::kMinDestinationSize * 2)}}),
+      Task::ExecutionMode::kParallel);
   task->start(1);
 
   const auto partition0 = getAllData(taskId, 0);

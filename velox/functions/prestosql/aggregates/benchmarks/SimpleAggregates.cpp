@@ -165,7 +165,8 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
         "t",
         std::move(plan),
         0,
-        std::make_shared<core::QueryCtx>(executor_.get()));
+        std::make_shared<core::QueryCtx>(executor_.get()),
+        exec::Task::ExecutionMode::kParallel);
   }
 
  private:

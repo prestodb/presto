@@ -44,13 +44,16 @@ class MemoryReclaimerTest : public OperatorTestBase {
         "MemoryReclaimerTest",
         std::move(fakePlanFragment),
         0,
-        std::make_shared<core::QueryCtx>());
+        std::make_shared<core::QueryCtx>(executor_.get()),
+        Task::ExecutionMode::kParallel);
   }
 
   void SetUp() override {}
 
   void TearDown() override {}
 
+  std::shared_ptr<folly::CPUThreadPoolExecutor> executor_{
+      std::make_shared<folly::CPUThreadPoolExecutor>(4)};
   const std::shared_ptr<memory::MemoryPool> pool_;
   RowTypePtr rowType_;
   std::shared_ptr<Task> fakeTask_;

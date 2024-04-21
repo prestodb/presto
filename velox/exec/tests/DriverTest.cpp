@@ -266,6 +266,7 @@ class DriverTest : public OperatorTestBase {
         plan,
         0,
         std::make_shared<core::QueryCtx>(driverExecutor_.get()),
+        Task::ExecutionMode::kParallel,
         [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
           return exec::BlockingReason::kNotBlocked;
         });
@@ -1503,6 +1504,7 @@ DEBUG_ONLY_TEST_F(DriverTest, driverCpuTimeSlicingCheck) {
         0,
         std::make_shared<core::QueryCtx>(
             driverExecutor_.get(), std::move(queryConfig)),
+        Task::ExecutionMode::kParallel,
         [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
           return exec::BlockingReason::kNotBlocked;
         });
@@ -1537,6 +1539,7 @@ TEST_F(OpCallStatusTest, basic) {
       0,
       std::make_shared<core::QueryCtx>(
           driverExecutor_.get(), std::move(queryConfig)),
+      Task::ExecutionMode::kParallel,
       [](RowVectorPtr /*unused*/, ContinueFuture* /*unused*/) {
         return exec::BlockingReason::kNotBlocked;
       });

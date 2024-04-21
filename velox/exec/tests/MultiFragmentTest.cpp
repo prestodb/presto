@@ -86,6 +86,7 @@ class MultiFragmentTest : public HiveConnectorTestBase {
         std::move(planFragment),
         destination,
         std::move(queryCtx),
+        Task::ExecutionMode::kParallel,
         std::move(consumer));
   }
 

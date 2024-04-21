@@ -1483,6 +1483,7 @@ DEBUG_ONLY_TEST_F(TableScanTest, tableScanSplitsAndWeights) {
       core::PlanFragment{leafPlan},
       0,
       std::move(queryCtx),
+      Task::ExecutionMode::kParallel,
       std::move(consumer));
   leafTask->start(4);
 

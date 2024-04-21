@@ -41,12 +41,14 @@ class OperatorUtilsTest : public OperatorTestBase {
     core::PlanFragment planFragment;
     const core::PlanNodeId id{"0"};
     planFragment.planNode = std::make_shared<core::ValuesNode>(id, values);
+    executor_ = std::make_shared<folly::CPUThreadPoolExecutor>(4);
 
     task_ = Task::create(
         "SpillOperatorGroupTest_task",
         std::move(planFragment),
         0,
-        std::make_shared<core::QueryCtx>());
+        std::make_shared<core::QueryCtx>(executor_.get()),
+        Task::ExecutionMode::kParallel);
     driver_ = Driver::testingCreate();
     driverCtx_ = std::make_unique<DriverCtx>(task_, 0, 0, 0, 0);
     driverCtx_->driver = driver_.get();
@@ -131,6 +133,7 @@ class OperatorUtilsTest : public OperatorTestBase {
     }
   }
 
+  std::shared_ptr<folly::CPUThreadPoolExecutor> executor_;
   std::shared_ptr<Task> task_;
   std::shared_ptr<Driver> driver_;
   std::unique_ptr<DriverCtx> driverCtx_;
