@@ -185,7 +185,7 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
           "  \"rootPath\": \"{}\",\n"
           "  \"numPartitions\": {}\n"
           "}}",
-          exec::test::TempDirectoryPath::create()->path,
+          exec::test::TempDirectoryPath::create()->getPath(),
           10)),
       std::make_shared<std::string>("/tmp"));
 

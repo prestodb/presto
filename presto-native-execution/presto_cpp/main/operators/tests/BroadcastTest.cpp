@@ -164,13 +164,13 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
     auto [serdeRowType, broadcastFilePaths] =
-        executeBroadcastWrite(data, tempDirectoryPath->path, serdeLayout);
+        executeBroadcastWrite(data, tempDirectoryPath->getPath(), serdeLayout);
 
     // Expect one file for each request.
     ASSERT_EQ(broadcastFilePaths.size(), 1);
 
     // Validate file path prefix is consistent.
-    ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->path), 0);
+    ASSERT_EQ(broadcastFilePaths.back().find(tempDirectoryPath->getPath()), 0);
 
     // Read back broadcast data from broadcast file.
     auto result = readFromFile(broadcastFilePaths.back(), serdeRowType);
@@ -184,7 +184,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     // Read back result.
     auto [broadcastReadCursor, broadcastReadResults] = executeBroadcastRead(
-        serdeRowType, tempDirectoryPath->path, broadcastFilePaths);
+        serdeRowType, tempDirectoryPath->getPath(), broadcastFilePaths);
 
     // Assert its same as data.
     velox::exec::test::assertEqualResults(expected, broadcastReadResults);
@@ -268,14 +268,14 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
-  auto results = executeBroadcastWrite({data}, tempDirectoryPath->path);
+  auto results = executeBroadcastWrite({data}, tempDirectoryPath->getPath());
 
   // Assert no file path returned.
   ASSERT_EQ(broadcastFilePaths.size(), 0);
 
   auto fileSystem =
-      velox::filesystems::getFileSystem(tempDirectoryPath->path, nullptr);
-  auto files = fileSystem->list(tempDirectoryPath->path);
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  auto files = fileSystem->list(tempDirectoryPath->getPath());
 
   // Assert no file was generated in broadcast directory path.
   ASSERT_EQ(files.size(), 0);
@@ -297,14 +297,14 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
   // Execute write.
   for (auto data : dataVector) {
     auto [serdeRowType, results] =
-        executeBroadcastWrite({data}, tempDirectoryPath->path);
+        executeBroadcastWrite({data}, tempDirectoryPath->getPath());
     broadcastFilePaths.emplace_back(results[0]);
   }
 
   // Read back result.
   auto [taskCursorReadNode, broadcastReadResults] = executeBroadcastRead(
       asRowType(dataVector[0]->type()),
-      tempDirectoryPath->path,
+      tempDirectoryPath->getPath(),
       broadcastFilePaths);
 
   // Validate BroadcastExchange reads back output of both writes.
