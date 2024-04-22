@@ -36,7 +36,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
-import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer.getBuiltInAnalyzerContext;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
@@ -59,10 +60,14 @@ public class AnalyzerUtil
 
     public static ParsingOptions createParsingOptions(Session session, WarningCollector warningCollector)
     {
-        return ParsingOptions.builder()
-                .setDecimalLiteralTreatment(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL)
-                .setWarningConsumer(warning -> warningCollector.add(new PrestoWarning(PARSER_WARNING, warning.getMessage())))
-                .build();
+        ParsingOptions.Builder builder = ParsingOptions.builder();
+        // Set the decimal literal treatment only if native execution is not enabled
+        if (!isNativeExecutionEnabled(session)) {
+            ParsingOptions.DecimalLiteralTreatment treatment = isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL;
+            builder.setDecimalLiteralTreatment(treatment);
+        }
+        builder.setWarningConsumer(warning -> warningCollector.add(new PrestoWarning(PARSER_WARNING, warning.getMessage())));
+        return builder.build();
     }
 
     public static AnalyzerOptions createAnalyzerOptions(Session session)
@@ -72,9 +77,12 @@ public class AnalyzerUtil
 
     public static AnalyzerOptions createAnalyzerOptions(Session session, WarningCollector warningCollector)
     {
-        return AnalyzerOptions.builder()
-                .setParseDecimalLiteralsAsDouble(isParseDecimalLiteralsAsDouble(session))
-                .setLogFormattedQueryEnabled(isLogFormattedQueryEnabled(session))
+        AnalyzerOptions.Builder builder = AnalyzerOptions.builder();
+        // Apply the decimal literal parsing setting conditionally based on native execution
+        if (!isNativeExecutionEnabled(session)) {
+            builder.setParseDecimalLiteralsAsDouble(isParseDecimalLiteralsAsDouble(session));
+        }
+        return builder.setLogFormattedQueryEnabled(isLogFormattedQueryEnabled(session))
                 .setWarningHandlingLevel(getWarningHandlingLevel(session))
                 .setWarningCollector(warningCollector)
                 .build();

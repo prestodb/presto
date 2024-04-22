@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.offset;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;

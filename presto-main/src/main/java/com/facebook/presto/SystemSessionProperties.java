@@ -86,7 +86,6 @@ import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
-    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String SIZE_BASED_JOIN_DISTRIBUTION_TYPE = "size_based_join_distribution_type";
@@ -161,7 +160,6 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
-    public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
@@ -194,7 +192,6 @@ public final class SystemSessionProperties
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String PUSHDOWN_SUBFIELDS_FROM_LAMBDA_ENABLED = "pushdown_subfields_from_lambda_enabled";
-    public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
@@ -213,7 +210,6 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
-    public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
@@ -231,7 +227,6 @@ public final class SystemSessionProperties
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
-    public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
@@ -378,11 +373,6 @@ public final class SystemSessionProperties
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_HASH_GENERATION,
-                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
-                        featuresConfig.isOptimizeHashGeneration(),
                         false),
                 booleanProperty(
                         DISTRIBUTED_JOIN,
@@ -855,11 +845,6 @@ public final class SystemSessionProperties
                         false,
                         false),
                 booleanProperty(
-                        PARSE_DECIMAL_LITERALS_AS_DOUBLE,
-                        "Parse decimal literals as DOUBLE instead of DECIMAL",
-                        featuresConfig.isParseDecimalLiteralsAsDouble(),
-                        false),
-                booleanProperty(
                         FORCE_SINGLE_NODE_OUTPUT,
                         "Force single node output",
                         featuresConfig.isForceSingleNodeOutput(),
@@ -1055,11 +1040,6 @@ public final class SystemSessionProperties
                         "Experimental: enable dereference pushdown",
                         featuresConfig.isPushdownDereferenceEnabled(),
                         false),
-                booleanProperty(
-                        TABLE_WRITER_MERGE_OPERATOR_ENABLED,
-                        "Experimental: enable table writer merge operator",
-                        featuresConfig.isTableWriterMergeOperatorEnabled(),
-                        false),
                 new PropertyMetadata<>(
                         INDEX_LOADER_TIMEOUT,
                         "Timeout for loading indexes for index joins",
@@ -1184,11 +1164,6 @@ public final class SystemSessionProperties
                         featuresConfig.isSkipRedundantSort(),
                         false),
                 booleanProperty(
-                        INLINE_SQL_FUNCTIONS,
-                        "Inline SQL function definition at plan time",
-                        featuresConfig.isInlineSqlFunctions(),
-                        false),
-                booleanProperty(
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
                         false,
@@ -1275,11 +1250,6 @@ public final class SystemSessionProperties
                         "Minimum query completion ratio threshold for partial results",
                         featuresConfig.getPartialResultsCompletionRatioThreshold(),
                         false),
-                booleanProperty(
-                        OFFSET_CLAUSE_ENABLED,
-                        "Enable support for OFFSET clause",
-                        featuresConfig.isOffsetClauseEnabled(),
-                        true),
                 doubleProperty(
                         PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER,
                         "This value is multiplied by the time taken to reach the completion ratio threshold and is set as max task end time",
@@ -1918,11 +1888,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(EXECUTION_POLICY, String.class);
     }
 
-    public static boolean isOptimizeHashGenerationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
-    }
-
     public static JoinDistributionType getJoinDistributionType(Session session)
     {
         // distributed_join takes precedence until we remove it
@@ -2374,11 +2339,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
     }
 
-    public static boolean isParseDecimalLiteralsAsDouble(Session session)
-    {
-        return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
-    }
-
     public static boolean isFieldNameInJsonCastEnabled(Session session)
     {
         return session.getSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, Boolean.class);
@@ -2607,11 +2567,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, Boolean.class);
     }
 
-    public static boolean isTableWriterMergeOperatorEnabled(Session session)
-    {
-        return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
-    }
-
     public static Duration getIndexLoaderTimeout(Session session)
     {
         return session.getSystemProperty(INDEX_LOADER_TIMEOUT, Duration.class);
@@ -2701,11 +2656,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, Boolean.class);
     }
 
-    public static boolean isInlineSqlFunctions(Session session)
-    {
-        return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
-    }
-
     public static boolean isRemoteFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(REMOTE_FUNCTIONS_ENABLED, Boolean.class);
@@ -2769,11 +2719,6 @@ public final class SystemSessionProperties
     public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)
     {
         return session.getSystemProperty(PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER, Double.class);
-    }
-
-    public static boolean isOffsetClauseEnabled(Session session)
-    {
-        return session.getSystemProperty(OFFSET_CLAUSE_ENABLED, Boolean.class);
     }
 
     public static boolean isVerboseExceededMemoryLimitErrorsEnabled(Session session)

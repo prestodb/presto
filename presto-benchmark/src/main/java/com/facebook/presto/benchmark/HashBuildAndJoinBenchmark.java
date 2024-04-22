@@ -14,7 +14,6 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
@@ -25,6 +24,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -64,7 +65,11 @@ public class HashBuildAndJoinBenchmark
 
     private static boolean isHashEnabled(Session session)
     {
-        return SystemSessionProperties.isOptimizeHashGenerationEnabled(session);
+        // Check if native execution is not enabled before checking if optimize hash generation is enabled
+        if (!isNativeExecutionEnabled(session)) {
+            return JavaWorkerSystemSessionPropertyProvider.isOptimizeHashGenerationEnabled(session);
+        }
+        return false;
     }
 
     /*

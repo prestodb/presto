@@ -14,9 +14,9 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -63,8 +63,11 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PER
 import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREGATIONS;
+<<<<<<< HEAD
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+=======
+>>>>>>> 8a121cc3c7 (Moved JavaWorkerProperties to JavaProvider plugin)
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
@@ -98,6 +101,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
@@ -5642,7 +5646,7 @@ public abstract class AbstractTestQueries
     public void testDefaultDecimalLiteralSwitch()
     {
         Session decimalLiteral = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")
+                .setSystemProperty(JavaWorkerSystemSessionPropertyProvider.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "false")
                 .build();
         MaterializedResult decimalColumnResult = computeActual(decimalLiteral, "SELECT 1.0");
 
@@ -5651,7 +5655,7 @@ public abstract class AbstractTestQueries
         assertEquals(decimalColumnResult.getMaterializedRows().get(0).getField(0), new BigDecimal("1.0"));
 
         Session doubleLiteral = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
+                .setSystemProperty(JavaWorkerSystemSessionPropertyProvider.PARSE_DECIMAL_LITERALS_AS_DOUBLE, "true")
                 .build();
         MaterializedResult doubleColumnResult = computeActual(doubleLiteral, "SELECT 1.0");
 

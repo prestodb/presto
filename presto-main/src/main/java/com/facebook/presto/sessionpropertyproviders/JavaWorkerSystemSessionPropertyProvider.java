@@ -45,6 +45,11 @@ public class JavaWorkerSystemSessionPropertyProvider
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT = "topn_operator_unspill_memory_limit";
     public static final String TEMP_STORAGE_SPILLER_BUFFER_SIZE = "temp_storage_spiller_buffer_size";
+    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
+    public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
+    public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
+    public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -126,7 +131,32 @@ public class JavaWorkerSystemSessionPropertyProvider
                         nodeSpillConfig.getTempStorageBufferSize(),
                         false,
                         value -> DataSize.valueOf((String) value),
-                        DataSize::toString));
+                        DataSize::toString),
+                booleanProperty(
+                        OPTIMIZE_HASH_GENERATION,
+                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
+                        featuresConfig.isOptimizeHashGeneration(),
+                        false),
+                booleanProperty(
+                        PARSE_DECIMAL_LITERALS_AS_DOUBLE,
+                        "Parse decimal literals as DOUBLE instead of DECIMAL",
+                        featuresConfig.isParseDecimalLiteralsAsDouble(),
+                        false),
+                booleanProperty(
+                        OFFSET_CLAUSE_ENABLED,
+                        "Enable support for OFFSET clause",
+                        featuresConfig.isOffsetClauseEnabled(),
+                        true),
+                booleanProperty(
+                        INLINE_SQL_FUNCTIONS,
+                        "Inline SQL function definition at plan time",
+                        featuresConfig.isInlineSqlFunctions(),
+                        false),
+                booleanProperty(
+                        TABLE_WRITER_MERGE_OPERATOR_ENABLED,
+                        "Experimental: enable table writer merge operator",
+                        featuresConfig.isTableWriterMergeOperatorEnabled(),
+                        false));
     }
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -198,5 +228,30 @@ public class JavaWorkerSystemSessionPropertyProvider
         DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
         checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be positive", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
         return tempStorageSpillerBufferSize;
+    }
+
+    public static boolean isOptimizeHashGenerationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
+    }
+
+    public static boolean isParseDecimalLiteralsAsDouble(Session session)
+    {
+        return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
+    }
+
+    public static boolean isOffsetClauseEnabled(Session session)
+    {
+        return session.getSystemProperty(OFFSET_CLAUSE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInlineSqlFunctions(Session session)
+    {
+        return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isTableWriterMergeOperatorEnabled(Session session)
+    {
+        return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
     }
 }
