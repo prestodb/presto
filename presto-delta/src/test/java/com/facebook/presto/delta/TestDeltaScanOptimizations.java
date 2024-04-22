@@ -54,11 +54,12 @@ import static java.lang.String.format;
 public class TestDeltaScanOptimizations
         extends AbstractDeltaDistributedQueryTestBase
 {
-    @Test
-    public void filterOnRegularColumn()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void filterOnRegularColumn(String version)
     {
         String tableName = "data-reader-primitives";
-        String testQuery = format("SELECT as_int, as_string FROM \"%s\" WHERE as_int = 1", tableName);
+        String testQuery = format("SELECT as_int, as_string FROM \"%s\" WHERE as_int = 1",
+                getVersionPrefix(version) + tableName);
         String expResultsQuery = "SELECT 1, cast('1' as varchar)";
 
         assertDeltaQueryOptimized(
@@ -69,11 +70,12 @@ public class TestDeltaScanOptimizations
                 Collections.emptyMap());
     }
 
-    @Test
-    public void filterOnPartitionColumn()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void filterOnPartitionColumn(String version)
     {
         String tableName = "deltatbl-partition-prune";
-        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz')", tableName);
+        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz')",
+                getVersionPrefix(version) + tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20180512', 'Jay', 'sh', 4),('20181212', 'Linda', 'sz', 8)";
 
         assertDeltaQueryOptimized(
@@ -84,12 +86,13 @@ public class TestDeltaScanOptimizations
                 ImmutableMap.of("city", multipleValues(VARCHAR, ImmutableList.of(utf8Slice("sh"), utf8Slice("sz")))));
     }
 
-    @Test
-    public void filterOnMultiplePartitionColumns()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void filterOnMultiplePartitionColumns(String version)
     {
         String tableName = "deltatbl-partition-prune";
         String testQuery =
-                format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND \"date\" = '20180512'", tableName);
+                format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND \"date\" = '20180512'",
+                        getVersionPrefix(version) + tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20180512', 'Jay', 'sh', 4)";
 
         assertDeltaQueryOptimized(
@@ -104,11 +107,12 @@ public class TestDeltaScanOptimizations
                         "date", singleValue(VARCHAR, utf8Slice("20180512"))));
     }
 
-    @Test
-    public void filterOnPartitionColumnAndRegularColumns()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void filterOnPartitionColumnAndRegularColumns(String version)
     {
         String tableName = "deltatbl-partition-prune";
-        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND name = 'Linda'", tableName);
+        String testQuery = format("SELECT date, name, city, cnt FROM \"%s\" WHERE city in ('sh', 'sz') AND name = 'Linda'",
+                getVersionPrefix(version) + tableName);
         String expResultsQuery = "SELECT * FROM VALUES('20181212', 'Linda', 'sz', 8)";
 
         assertDeltaQueryOptimized(
@@ -121,12 +125,13 @@ public class TestDeltaScanOptimizations
                 ImmutableMap.of("city", multipleValues(VARCHAR, ImmutableList.of(utf8Slice("sh"), utf8Slice("sz")))));
     }
 
-    @Test
-    public void nullPartitionFilter()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void nullPartitionFilter(String version)
     {
-        String tableName = "data-reader-partition-values";
+        String tableName = getVersionPrefix(version) + "data-reader-partition-values";
         String testQuery =
-                format("SELECT value, as_boolean FROM \"%s\" WHERE as_int is null and value is not null", tableName);
+                format("SELECT value, as_boolean FROM \"%s\" WHERE as_int is null and value is not null",
+                        tableName);
         String expResultsQuery = "SELECT * FROM VALUES('2', null)";
 
         assertDeltaQueryOptimized(
@@ -139,11 +144,12 @@ public class TestDeltaScanOptimizations
                 ImmutableMap.of("as_int", onlyNull(INTEGER)));
     }
 
-    @Test
-    public void notNullPartitionFilter()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void notNullPartitionFilter(String version)
     {
-        String tableName = "data-reader-partition-values";
-        String testQuery = format("SELECT value, as_boolean FROM \"%s\" WHERE as_int is not null and value = '1'", tableName);
+        String tableName = getVersionPrefix(version) + "data-reader-partition-values";
+        String testQuery = format("SELECT value, as_boolean FROM \"%s\" WHERE as_int is not null and value = '1'",
+                tableName);
         String expResultsQuery = "SELECT * FROM VALUES('1', false)";
 
         assertDeltaQueryOptimized(
@@ -156,11 +162,12 @@ public class TestDeltaScanOptimizations
                 ImmutableMap.of("as_int", notNull(INTEGER)));
     }
 
-    @Test
-    public void nestedColumnFilter()
+    @Test(dataProvider = "deltaReaderVersions")
+    public void nestedColumnFilter(String version)
     {
-        String tableName = "data-reader-nested-struct";
-        String testQuery = format("SELECT a.aa, a.ac.aca FROM \"%s\" WHERE a.aa in ('8', '9') AND a.ac.aca > 6", tableName);
+        String tableName = getVersionPrefix(version) + "data-reader-nested-struct";
+        String testQuery = format("SELECT a.aa, a.ac.aca FROM \"%s\" WHERE a.aa in ('8', '9') AND a.ac.aca > 6",
+                tableName);
         String expResultsQuery = "SELECT * FROM VALUES('8', 8),('9', 9)";
 
         assertDeltaQueryOptimized(
@@ -184,6 +191,7 @@ public class TestDeltaScanOptimizations
             Map<String, Domain> expectedConstraint,
             Map<String, Domain> expectedEnforcedConstraint)
     {
+        System.out.println(tableScanWithConstraints(tableName, expectedConstraint, expectedEnforcedConstraint).toString());
         // verify the plan contains filter pushed down into scan appropriately
         assertPlan(withDereferencePushdownEnabled(),
                 testQuery,

@@ -24,12 +24,15 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.delta.standalone.actions.AddFile;
-import io.delta.standalone.data.CloseableIterator;
+import io.delta.kernel.data.FilteredColumnarBatch;
+import io.delta.kernel.data.Row;
+import io.delta.kernel.internal.InternalScanFileUtils;
+import io.delta.kernel.utils.CloseableIterator;
 
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -64,18 +67,15 @@ public final class DeltaExpressionUtils
         ImmutableMap.Builder<ColumnHandle, Domain> regularColumnPredicates = ImmutableMap.builder();
 
         Optional<Map<ColumnHandle, Domain>> domains = predicate.getDomains();
-        if (domains.isPresent()) {
-            domains.get().entrySet().stream()
-                    .forEach(domainPair -> {
-                        DeltaColumnHandle columnHandle = (DeltaColumnHandle) domainPair.getKey();
-                        if (columnHandle.getColumnType() == PARTITION) {
-                            partitionColumnPredicates.put(domainPair.getKey(), domainPair.getValue());
-                        }
-                        else {
-                            regularColumnPredicates.put(domainPair.getKey(), domainPair.getValue());
-                        }
-                    });
-        }
+        domains.ifPresent(columnHandleDomainMap -> columnHandleDomainMap.forEach((key, value) -> {
+            DeltaColumnHandle columnHandle = (DeltaColumnHandle) key;
+            if (columnHandle.getColumnType() == PARTITION) {
+                partitionColumnPredicates.put(key, value);
+            }
+            else {
+                regularColumnPredicates.put(key, value);
+            }
+        }));
 
         return ImmutableList.of(
                 TupleDomain.withColumnDomains(partitionColumnPredicates.build()),
@@ -83,11 +83,11 @@ public final class DeltaExpressionUtils
     }
 
     /**
-     * Utility method that takes an iterator of {@link AddFile}s and a predicate and returns an iterator of {@link AddFile}s
-     * that satisfy the predicate (predicate evaluates to a deterministic NO)
+     * Utility method that takes an iterator of {@link FilteredColumnarBatch}s and a predicate and returns an iterator
+     * of {@link FilteredColumnarBatch}s that satisfy the predicate (predicate evaluates to a deterministic NO)
      */
-    public static CloseableIterator<AddFile> iterateWithPartitionPruning(
-            CloseableIterator<AddFile> inputIterator,
+    public static CloseableIterator<FilteredColumnarBatch> iterateWithPartitionPruning(
+            CloseableIterator<FilteredColumnarBatch> inputIterator,
             TupleDomain<DeltaColumnHandle> predicate,
             TypeManager typeManager)
     {
@@ -98,7 +98,7 @@ public final class DeltaExpressionUtils
 
         if (partitionPredicate.isNone()) {
             // nothing passes the partition predicate, return empty iterator
-            return new CloseableIterator<AddFile>()
+            return new CloseableIterator<FilteredColumnarBatch>()
             {
                 @Override
                 public boolean hasNext()
@@ -107,7 +107,7 @@ public final class DeltaExpressionUtils
                 }
 
                 @Override
-                public AddFile next()
+                public FilteredColumnarBatch next()
                 {
                     throw new NoSuchElementException();
                 }
@@ -121,15 +121,15 @@ public final class DeltaExpressionUtils
             };
         }
 
-        List<DeltaColumnHandle> partitionColumns =
-                predicate.getColumnDomains().get().stream()
-                        .filter(entry -> entry.getColumn().getColumnType() == PARTITION)
-                        .map(entry -> entry.getColumn())
-                        .collect(Collectors.toList());
+        Optional<List<TupleDomain.ColumnDomain<DeltaColumnHandle>>> columnDomains = predicate.getColumnDomains();
+        List<DeltaColumnHandle> partitionColumns = columnDomains.map(domains -> domains.stream()
+                .filter(entry -> entry.getColumn().getColumnType() == PARTITION)
+                .map(TupleDomain.ColumnDomain::getColumn)
+                .collect(Collectors.toList())).orElse(Collections.emptyList());
 
-        return new CloseableIterator<AddFile>()
+        return new CloseableIterator<FilteredColumnarBatch>()
         {
-            private AddFile nextItem;
+            private FilteredColumnarBatch nextItem;
 
             @Override
             public boolean hasNext()
@@ -139,7 +139,7 @@ public final class DeltaExpressionUtils
                 }
 
                 while (inputIterator.hasNext()) {
-                    AddFile nextFile = inputIterator.next();
+                    FilteredColumnarBatch nextFile = inputIterator.next();
                     if (evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, nextFile)) {
                         nextItem = nextFile;
                         break;
@@ -150,12 +150,12 @@ public final class DeltaExpressionUtils
             }
 
             @Override
-            public AddFile next()
+            public FilteredColumnarBatch next()
             {
                 if (!hasNext()) {
                     throw new NoSuchElementException("there are no more files");
                 }
-                AddFile toReturn = nextItem;
+                FilteredColumnarBatch toReturn = nextItem;
                 nextItem = null;
                 return toReturn;
             }
@@ -184,14 +184,21 @@ public final class DeltaExpressionUtils
             TupleDomain<String> partitionPredicate,
             List<DeltaColumnHandle> partitionColumns,
             TypeManager typeManager,
-            AddFile addFile)
+            FilteredColumnarBatch addFile)
     {
         checkArgument(!partitionPredicate.isNone(), "Expecting a predicate with at least one expression");
         for (DeltaColumnHandle partitionColumn : partitionColumns) {
             String columnName = partitionColumn.getName();
-            String partitionValue = addFile.getPartitionValues().get(columnName);
-            Domain domain = getDomain(partitionColumn, partitionValue, typeManager, addFile.getPath());
-            Domain columnPredicate = partitionPredicate.getDomains().get().get(columnName);
+            FilteredColumnarBatch file = new FilteredColumnarBatch(addFile.getData(), addFile.getSelectionVector());
+            Row row = file.getRows().next();
+            String partitionValue = InternalScanFileUtils.getPartitionValues(row).toString();
+            Domain domain = getDomain(partitionColumn, partitionValue, typeManager,
+                    InternalScanFileUtils.getAddFileStatus(row).getPath());
+            if (!partitionPredicate.getDomains().isPresent()) {
+                return false;
+            }
+            Optional<Map<String, Domain>> domains = partitionPredicate.getDomains();
+            Domain columnPredicate = domains.map(stringDomainMap -> stringDomainMap.get(columnName)).orElse(null);
 
             if (columnPredicate == null) {
                 continue; // there is no predicate on this column

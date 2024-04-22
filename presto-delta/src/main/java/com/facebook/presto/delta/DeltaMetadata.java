@@ -219,6 +219,7 @@ public class DeltaMetadata
         }
 
         Optional<DeltaTable> table = deltaClient.getTable(
+                config,
                 session,
                 schemaTableName,
                 tableLocation,

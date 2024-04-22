@@ -22,15 +22,16 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import io.delta.standalone.actions.AddFile;
-import io.delta.standalone.data.CloseableIterator;
-import org.apache.hadoop.fs.Path;
+import io.delta.kernel.data.FilteredColumnarBatch;
+import io.delta.kernel.data.Row;
+import io.delta.kernel.internal.InternalScanFileUtils;
+import io.delta.kernel.utils.CloseableIterator;
+import io.delta.kernel.utils.FileStatus;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -71,7 +72,7 @@ public class DeltaSplitManager
             implements ConnectorSplitSource
     {
         private final DeltaTable deltaTable;
-        private final CloseableIterator<AddFile> fileIterator;
+        private final CloseableIterator<FilteredColumnarBatch> fileIterator;
         private final int maxBatchSize;
         private final ConnectorSession session;
 
@@ -92,19 +93,23 @@ public class DeltaSplitManager
             ImmutableList.Builder<ConnectorSplit> splitBuilder = ImmutableList.builder();
             long currentSplitCount = 0;
             while (fileIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
-                AddFile file = fileIterator.next();
-                Path filePath = new Path(deltaTable.getTableLocation(), URI.create(file.getPath()).getPath());
-                splitBuilder.add(new DeltaSplit(
-                        connectorId,
-                        deltaTable.getSchemaName(),
-                        deltaTable.getTableName(),
-                        filePath.toString(),
-                        0, /* start */
-                        file.getSize() /* split length - default is read the entire file in one split */,
-                        file.getSize(),
-                        removeNullPartitionValues(file.getPartitionValues()),
-                        getNodeSelectionStrategy(session)));
-                currentSplitCount++;
+                FilteredColumnarBatch addFile = fileIterator.next();
+                CloseableIterator<Row> rows = addFile.getRows();
+                while (rows.hasNext()) {
+                    Row row = rows.next();
+                    FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
+                    splitBuilder.add(new DeltaSplit(
+                            connectorId,
+                            deltaTable.getSchemaName(),
+                            deltaTable.getTableName(),
+                            addFileStatus.getPath(),
+                            0, /* start */
+                            addFileStatus.getSize() /* split length - default is read the entire file in one split */,
+                            addFileStatus.getSize(),
+                            removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
+                            getNodeSelectionStrategy(session)));
+                    currentSplitCount++;
+                }
             }
 
             return completedFuture(new ConnectorSplitBatch(splitBuilder.build(), !fileIterator.hasNext()));
