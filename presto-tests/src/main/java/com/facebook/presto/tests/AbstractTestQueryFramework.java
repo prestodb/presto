@@ -619,4 +619,9 @@ public abstract class AbstractTestQueryFramework
         ExpectedQueryRunner get()
                 throws Exception;
     }
+
+    public static void dropTableIfExists(QueryRunner queryRunner, String catalogName, String schemaName, String tableName)
+    {
+        queryRunner.execute(format("DROP TABLE IF EXISTS %s.%s.%s", catalogName, schemaName, tableName));
+    }
 }
