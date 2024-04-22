@@ -103,6 +103,7 @@ public final class StatisticsUtil
                     .setRange(icebergColumnStats.getRange())
                     .setNullsFraction(icebergColumnStats.getNullsFraction())
                     .setDistinctValuesCount(icebergColumnStats.getDistinctValuesCount())
+                    .setHistogram(icebergColumnStats.getHistogram())
                     .setRange(icebergColumnStats.getRange());
             if (hiveColumnStats != null) {
                 // NDVs
