@@ -28,11 +28,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.metastore.Statistics.fromComputedStatistics;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public final class HiveStatisticsUtil
 {
@@ -61,9 +63,14 @@ public final class HiveStatisticsUtil
             ConnectorSession session,
             Map<String, Type> columnTypes,
             ComputedStatistics computedStatistics,
+            Set<ColumnStatisticMetadata> supportedColumnStatistics,
             DateTimeZone timeZone)
     {
-        Map<ColumnStatisticMetadata, Block> computedColumnStatistics = computedStatistics.getColumnStatistics();
+        Map<ColumnStatisticMetadata, Block> computedColumnStatistics = computedStatistics.getColumnStatistics()
+                .entrySet()
+                .stream()
+                .filter((entry) -> supportedColumnStatistics.contains(entry.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         Block rowCountBlock = Optional.ofNullable(computedStatistics.getTableStatistics().get(ROW_COUNT))
                 .orElseThrow(() -> new VerifyException("rowCount not present"));
@@ -71,6 +78,15 @@ public final class HiveStatisticsUtil
         long rowCount = BIGINT.getLong(rowCountBlock, 0);
         HiveBasicStatistics rowCountOnlyBasicStatistics = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(rowCount), OptionalLong.empty(), OptionalLong.empty());
         return createPartitionStatistics(session, rowCountOnlyBasicStatistics, columnTypes, computedColumnStatistics, timeZone);
+    }
+
+    public static PartitionStatistics createPartitionStatistics(
+            ConnectorSession session,
+            Map<String, Type> columnTypes,
+            ComputedStatistics computedStatistics,
+            DateTimeZone timeZone)
+    {
+        return createPartitionStatistics(session, columnTypes, computedStatistics, computedStatistics.getColumnStatistics().keySet(), timeZone);
     }
 
     public static Map<ColumnStatisticMetadata, Block> getColumnStatistics(Map<List<String>, ComputedStatistics> statistics, List<String> partitionValues)
@@ -81,10 +97,11 @@ public final class HiveStatisticsUtil
     }
 
     // TODO: Collect file count, on-disk size and in-memory size during ANALYZE
+
     /**
-     *  This method updates old {@link PartitionStatistics} with new statistics, only if the new
-     *  partition stats are not empty. This method always overwrites each of the
-     *  {@link HiveColumnStatistics} contained in the new partition statistics.
+     * This method updates old {@link PartitionStatistics} with new statistics, only if the new
+     * partition stats are not empty. This method always overwrites each of the
+     * {@link HiveColumnStatistics} contained in the new partition statistics.
      *
      * @param oldPartitionStats old version of partition statistics
      * @param newPartitionStats new version of partition statistics
