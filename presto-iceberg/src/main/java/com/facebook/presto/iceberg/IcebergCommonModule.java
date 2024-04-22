@@ -37,6 +37,7 @@ import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.gcs.GcsConfigurationInitializer;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
+import com.facebook.presto.iceberg.jdbc.JdbcConfig;
 import com.facebook.presto.iceberg.nessie.NessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
@@ -123,6 +124,7 @@ public class IcebergCommonModule
 
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(NessieConfig.class);
+        configBinder(binder).bindConfig(JdbcConfig.class);
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);

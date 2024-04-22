@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hive.HiveCatalog;
+import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.nessie.NessieCatalog;
 
 public enum CatalogType
@@ -22,6 +23,7 @@ public enum CatalogType
     HADOOP(HadoopCatalog.class.getName()),
     HIVE(HiveCatalog.class.getName()),
     NESSIE(NessieCatalog.class.getName()),
+    JDBC(JdbcCatalog.class.getName())
 
     /**/;
 

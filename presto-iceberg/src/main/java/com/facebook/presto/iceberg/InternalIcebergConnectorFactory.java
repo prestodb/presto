@@ -118,7 +118,6 @@ public final class InternalIcebergConnectorFactory
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
             ConnectorPlanOptimizerProvider planOptimizerProvider = injector.getInstance(ConnectorPlanOptimizerProvider.class);
-
             List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(icebergSessionProperties.getSessionProperties());
             allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
 

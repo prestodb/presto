@@ -111,6 +111,7 @@ public abstract class BaseTestContainer
                         event.getAttemptCount(),
                         event.getLastFailure().getMessage())))
                 .get(() -> TestContainers.startOrReuse(this.container));
+        System.out.println("Logs from container:" + this.container.getLogs());
     }
 
     protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
