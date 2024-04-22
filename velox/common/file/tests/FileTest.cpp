@@ -366,17 +366,18 @@ class FaultyFsTest : public ::testing::Test {
     fs_ = std::dynamic_pointer_cast<tests::utils::FaultyFileSystem>(
         filesystems::getFileSystem(dir_->getPath(), {}));
     VELOX_CHECK_NOT_NULL(fs_);
-    filePath_ = fmt::format("{}/faultyTestFile", dir_->getPath());
+    readFilePath_ = fmt::format("{}/faultyTestReadFile", dir_->getPath());
+    writeFilePath_ = fmt::format("{}/faultyTestWriteFile", dir_->getPath());
     const int bufSize = 1024;
     buffer_.resize(bufSize);
     for (int i = 0; i < bufSize; ++i) {
       buffer_[i] = i % 256;
     }
     {
-      auto writeFile = fs_->openFileForWrite(filePath_, {});
+      auto writeFile = fs_->openFileForWrite(readFilePath_, {});
       writeData(writeFile.get());
     }
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     readData(readFile.get(), true);
     try {
       VELOX_FAIL("InjectedFaultFileError");
@@ -411,7 +412,8 @@ class FaultyFsTest : public ::testing::Test {
   }
 
   std::shared_ptr<exec::test::TempDirectoryPath> dir_;
-  std::string filePath_;
+  std::string readFilePath_;
+  std::string writeFilePath_;
   std::shared_ptr<tests::utils::FaultyFileSystem> fs_;
   std::string buffer_;
   std::exception_ptr fileError_;
@@ -421,12 +423,12 @@ TEST_F(FaultyFsTest, fileReadErrorInjection) {
   // Set read error.
   fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kRead});
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     VELOX_ASSERT_THROW(
         readData(readFile.get(), false), "InjectedFaultFileError");
   }
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     // We only inject error for pread API so preadv should be fine.
     readData(readFile.get(), true);
   }
@@ -434,33 +436,30 @@ TEST_F(FaultyFsTest, fileReadErrorInjection) {
   // Set readv error
   fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kReadv});
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     VELOX_ASSERT_THROW(
         readData(readFile.get(), true), "InjectedFaultFileError");
   }
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
-    // We only inject error for pread API so preadv should be fine.
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
+    // We only inject error for preadv API so pread should be fine.
     readData(readFile.get(), false);
   }
 
   // Set error for all kinds of operations.
   fs_->setFileInjectionError(fileError_);
-  auto readFile = fs_->openFileForRead(filePath_, {});
+  auto readFile = fs_->openFileForRead(readFilePath_, {});
   VELOX_ASSERT_THROW(readData(readFile.get(), true), "InjectedFaultFileError");
   VELOX_ASSERT_THROW(readData(readFile.get(), false), "InjectedFaultFileError");
-  fs_->remove(filePath_);
-  // Check there is no interference on write as we don't support it for now.
-  auto writeFile = fs_->openFileForWrite(filePath_, {});
-  writeData(writeFile.get());
+  fs_->remove(readFilePath_);
 }
 
 TEST_F(FaultyFsTest, fileReadDelayInjection) {
-  // Set 3 seconds delay.
+  // Set 2 seconds delay.
   const uint64_t injectDelay{2'000'000};
   fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kRead});
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     uint64_t readDurationUs{0};
     {
       MicrosecondTimer readTimer(&readDurationUs);
@@ -469,7 +468,7 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
     ASSERT_GE(readDurationUs, injectDelay);
   }
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     // We only inject error for pread API so preadv should be fine.
     uint64_t readDurationUs{0};
     {
@@ -482,7 +481,7 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
   // Set readv error
   fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kReadv});
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     uint64_t readDurationUs{0};
     {
       MicrosecondTimer readTimer(&readDurationUs);
@@ -491,7 +490,7 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
     ASSERT_GE(readDurationUs, injectDelay);
   }
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     // We only inject error for pread API so preadv should be fine.
     uint64_t readDurationUs{0};
     {
@@ -504,7 +503,7 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
   // Set error for all kinds of operations.
   fs_->setFileInjectionDelay(injectDelay);
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     // We only inject error for pread API so preadv should be fine.
     uint64_t readDurationUs{0};
     {
@@ -514,7 +513,7 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
     ASSERT_GE(readDurationUs, injectDelay);
   }
   {
-    auto readFile = fs_->openFileForRead(filePath_, {});
+    auto readFile = fs_->openFileForRead(readFilePath_, {});
     // We only inject error for pread API so preadv should be fine.
     uint64_t readDurationUs{0};
     {
@@ -523,16 +522,6 @@ TEST_F(FaultyFsTest, fileReadDelayInjection) {
     }
     ASSERT_GE(readDurationUs, injectDelay);
   }
-
-  fs_->remove(filePath_);
-  // Check there is no interference on write as we don't support it for now.
-  auto writeFile = fs_->openFileForWrite(filePath_, {});
-  uint64_t writeDurationUs{0};
-  {
-    MicrosecondTimer writeTimer(&writeDurationUs);
-    writeData(writeFile.get());
-  }
-  ASSERT_LT(writeDurationUs, injectDelay);
 }
 
 TEST_F(FaultyFsTest, fileReadFaultHookInjection) {
@@ -603,5 +592,108 @@ TEST_F(FaultyFsTest, fileReadFaultHookInjection) {
     // Verify only throw for read.
     readData(readFile.get(), true);
     VELOX_ASSERT_THROW(readData(readFile.get(), false), "Data Mismatch");
+  }
+}
+
+TEST_F(FaultyFsTest, fileWriteErrorInjection) {
+  // Set write error.
+  fs_->setFileInjectionError(fileError_, {FaultFileOperation::Type::kWrite});
+  {
+    auto writeFile = fs_->openFileForWrite(writeFilePath_, {});
+    VELOX_ASSERT_THROW(writeFile->append("hello"), "InjectedFaultFileError");
+    fs_->remove(writeFilePath_);
+  }
+  // Set error for all kinds of operations.
+  fs_->setFileInjectionError(fileError_);
+  {
+    auto writeFile = fs_->openFileForWrite(writeFilePath_, {});
+    VELOX_ASSERT_THROW(writeFile->append("hello"), "InjectedFaultFileError");
+    fs_->remove(writeFilePath_);
+  }
+}
+
+TEST_F(FaultyFsTest, fileWriteDelayInjection) {
+  // Set 2 seconds delay.
+  const uint64_t injectDelay{2'000'000};
+  fs_->setFileInjectionDelay(injectDelay, {FaultFileOperation::Type::kWrite});
+  {
+    auto writeFile = fs_->openFileForWrite(writeFilePath_, {});
+    uint64_t readDurationUs{0};
+    {
+      MicrosecondTimer readTimer(&readDurationUs);
+      writeFile->append("hello");
+    }
+    ASSERT_GE(readDurationUs, injectDelay);
+    fs_->remove(writeFilePath_);
+  }
+}
+
+TEST_F(FaultyFsTest, fileWriteFaultHookInjection) {
+  const std::string path1 = fmt::format("{}/hookFile1", dir_->getPath());
+  const std::string path2 = fmt::format("{}/hookFile2", dir_->getPath());
+  // Set to write fake data.
+  fs_->setFileInjectionHook([&](FaultFileOperation* op) {
+    // Only inject for write.
+    if (op->type != FaultFileOperation::Type::kWrite) {
+      return;
+    }
+    // Only inject for path2.
+    if (op->path != path2) {
+      return;
+    }
+    auto* writeOp = static_cast<FaultFileWriteOperation*>(op);
+    writeOp->data = "Error data";
+  });
+  {
+    auto writeFile = fs_->openFileForWrite(path1, {});
+    writeFile->append("hello");
+    writeFile->close();
+    auto readFile = fs_->openFileForRead(path1, {});
+    char buffer[5];
+    ASSERT_EQ(readFile->size(), 5);
+    ASSERT_EQ(readFile->pread(0, 5, &buffer), "hello");
+    fs_->remove(path1);
+  }
+  {
+    auto writeFile = fs_->openFileForWrite(path2, {});
+    writeFile->append("hello");
+    writeFile->close();
+    auto readFile = fs_->openFileForRead(path2, {});
+    char buffer[10];
+    ASSERT_EQ(readFile->size(), 10);
+    ASSERT_EQ(readFile->pread(0, 10, &buffer), "Error data");
+    fs_->remove(path2);
+  }
+
+  // Set to not delegate.
+  fs_->setFileInjectionHook([&](FaultFileOperation* op) {
+    // Only inject for write.
+    if (op->type != FaultFileOperation::Type::kWrite) {
+      return;
+    }
+    // Only inject for path2.
+    if (op->path != path2) {
+      return;
+    }
+    auto* writeOp = static_cast<FaultFileWriteOperation*>(op);
+    writeOp->delegate = false;
+  });
+  {
+    auto writeFile = fs_->openFileForWrite(path1, {});
+    writeFile->append("hello");
+    writeFile->close();
+    auto readFile = fs_->openFileForRead(path1, {});
+    char buffer[5];
+    ASSERT_EQ(readFile->size(), 5);
+    ASSERT_EQ(readFile->pread(0, 5, &buffer), "hello");
+    fs_->remove(path1);
+  }
+  {
+    auto writeFile = fs_->openFileForWrite(path2, {});
+    writeFile->append("hello");
+    writeFile->close();
+    auto readFile = fs_->openFileForRead(path2, {});
+    ASSERT_EQ(readFile->size(), 0);
+    fs_->remove(path2);
   }
 }

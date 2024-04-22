@@ -67,14 +67,24 @@ uint64_t FaultyReadFile::preadv(
 }
 
 FaultyWriteFile::FaultyWriteFile(
+    const std::string& path,
     std::shared_ptr<WriteFile> delegatedFile,
     FileFaultInjectionHook injectionHook)
-    : delegatedFile_(std::move(delegatedFile)),
+    : path_(path),
+      delegatedFile_(std::move(delegatedFile)),
       injectionHook_(std::move(injectionHook)) {
   VELOX_CHECK_NOT_NULL(delegatedFile_);
 }
 
 void FaultyWriteFile::append(std::string_view data) {
+  if (injectionHook_ != nullptr) {
+    FaultFileWriteOperation op(path_, data);
+    injectionHook_(&op);
+    if (op.delegate) {
+      delegatedFile_->append(op.data);
+    }
+    return;
+  }
   delegatedFile_->append(data);
 }
 

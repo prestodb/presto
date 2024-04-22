@@ -79,8 +79,9 @@ std::unique_ptr<WriteFile> FaultyFileSystem::openFileForWrite(
   auto delegatedFile = getFileSystem(delegatedPath, config_)
                            ->openFileForWrite(delegatedPath, options);
   return std::make_unique<FaultyWriteFile>(
-      std::move(delegatedFile),
-      [&](FaultFileOperation* op) { maybeInjectFileFault(op); });
+      std::string(path), std::move(delegatedFile), [&](FaultFileOperation* op) {
+        maybeInjectFileFault(op);
+      });
 }
 
 void FaultyFileSystem::remove(std::string_view path) {
