@@ -86,6 +86,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
@@ -134,7 +135,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager(), session);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(this.variableAllocator, metadata.getFunctionAndTypeManager(), session, shouldOptimizerUseHistograms(session));
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -589,13 +590,13 @@ public class LogicalPlanner
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
     {
         return toRowExpression(
-            expression,
-            metadata,
-            session,
-            sqlParser,
-            variableAllocator,
-            analysis,
-            context.getTranslatorContext());
+                expression,
+                metadata,
+                session,
+                sqlParser,
+                variableAllocator,
+                analysis,
+                context.getTranslatorContext());
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
