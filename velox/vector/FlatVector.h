@@ -274,6 +274,22 @@ class FlatVector final : public SimpleVector<T> {
       const BaseVector* source,
       const folly::Range<const BaseVector::CopyRange*>& ranges) override;
 
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<FlatVector<T>>(
+        BaseVector::pool_,
+        BaseVector::type_,
+        AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
+        BaseVector::length_,
+        AlignedBuffer::copy(BaseVector::pool_, values_),
+        std::vector<BufferPtr>(stringBuffers_),
+        SimpleVector<T>::stats_,
+        BaseVector::distinctValueCount_,
+        BaseVector::nullCount_,
+        SimpleVector<T>::isSorted_,
+        BaseVector::representedByteCount_,
+        BaseVector::storageByteCount_);
+  }
+
   void resize(vector_size_t newSize, bool setNotNull = true) override;
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;

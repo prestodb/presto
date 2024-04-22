@@ -36,7 +36,15 @@ Values::Values(
   values_.reserve(values->values().size());
   for (auto& vector : values->values()) {
     if (vector->size() > 0) {
-      values_.emplace_back(vector);
+      if (values->isParallelizable()) {
+        // If this is parallelizable, copy the values to prevent Vectors from
+        // being shared across threads.  Note that the contract in ValuesNode is
+        // that this should only be enabled for testing.
+        values_.emplace_back(std::static_pointer_cast<RowVector>(
+            vector->copyPreserveEncodings()));
+      } else {
+        values_.emplace_back(vector);
+      }
     }
   }
 }

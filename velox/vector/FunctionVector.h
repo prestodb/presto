@@ -193,6 +193,10 @@ class FunctionVector : public BaseVector {
     VELOX_NYI();
   }
 
+  VectorPtr copyPreserveEncodings() const override {
+    VELOX_UNSUPPORTED("copyPreserveEncodings not defined for FunctionVector");
+  }
+
  private:
   std::vector<std::shared_ptr<Callable>> functions_;
   std::vector<SelectivityVector> rowSets_;

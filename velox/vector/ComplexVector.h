@@ -168,6 +168,22 @@ class RowVector : public BaseVector {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
+  VectorPtr copyPreserveEncodings() const override {
+    std::vector<VectorPtr> copiedChildren(children_.size());
+
+    for (auto i = 0; i < children_.size(); ++i) {
+      copiedChildren[i] = children_[i]->copyPreserveEncodings();
+    }
+
+    return std::make_shared<RowVector>(
+        pool_,
+        type_,
+        AlignedBuffer::copy(pool_, nulls_),
+        length_,
+        copiedChildren,
+        nullCount_);
+  }
+
   uint64_t retainedSize() const override {
     auto size = BaseVector::retainedSize();
     for (auto& child : children_) {
@@ -450,6 +466,18 @@ class ArrayVector : public ArrayVectorBase {
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
 
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<ArrayVector>(
+        pool_,
+        type_,
+        AlignedBuffer::copy(pool_, nulls_),
+        length_,
+        AlignedBuffer::copy(pool_, offsets_),
+        AlignedBuffer::copy(pool_, sizes_),
+        elements_->copyPreserveEncodings(),
+        nullCount_);
+  }
+
   uint64_t retainedSize() const override {
     return BaseVector::retainedSize() + offsets_->capacity() +
         sizes_->capacity() + elements_->retainedSize();
@@ -578,6 +606,20 @@ class MapVector : public ArrayVectorBase {
   void copyRanges(
       const BaseVector* source,
       const folly::Range<const CopyRange*>& ranges) override;
+
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<MapVector>(
+        pool_,
+        type_,
+        AlignedBuffer::copy(pool_, nulls_),
+        length_,
+        AlignedBuffer::copy(pool_, offsets_),
+        AlignedBuffer::copy(pool_, sizes_),
+        keys_->copyPreserveEncodings(),
+        values_->copyPreserveEncodings(),
+        nullCount_,
+        sortedKeys_);
+  }
 
   uint64_t retainedSize() const override {
     return BaseVector::retainedSize() + offsets_->capacity() +

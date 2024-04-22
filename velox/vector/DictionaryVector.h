@@ -224,6 +224,21 @@ class DictionaryVector : public SimpleVector<T> {
 
   void validate(const VectorValidateOptions& options) const override;
 
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<DictionaryVector<T>>(
+        BaseVector::pool_,
+        AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
+        BaseVector::length_,
+        dictionaryValues_->copyPreserveEncodings(),
+        AlignedBuffer::copy(BaseVector::pool_, indices_),
+        SimpleVector<T>::stats_,
+        BaseVector::distinctValueCount_,
+        BaseVector::nullCount_,
+        SimpleVector<T>::isSorted_,
+        BaseVector::representedByteCount_,
+        BaseVector::storageByteCount_);
+  }
+
  private:
   // return the dictionary index for the specified vector index.
   inline vector_size_t getDictionaryIndex(vector_size_t idx) const {

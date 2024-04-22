@@ -163,6 +163,22 @@ class BiasVector : public SimpleVector<T> {
     VELOX_NYI();
   }
 
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<BiasVector<T>>(
+        BaseVector::pool_,
+        AlignedBuffer::copy(BaseVector::pool_, BaseVector::nulls_),
+        BaseVector::length_,
+        valueType_,
+        AlignedBuffer::copy(BaseVector::pool_, values_),
+        bias_,
+        SimpleVector<T>::stats_,
+        BaseVector::distinctValueCount_,
+        BaseVector::nullCount_,
+        SimpleVector<T>::isSorted_,
+        BaseVector::representedByteCount_,
+        BaseVector::storageByteCount_);
+  }
+
  private:
   template <typename U>
   inline xsimd::batch<T> loadSIMDInternal(size_t byteOffset) const {

@@ -198,6 +198,20 @@ class SequenceVector : public SimpleVector<T> {
     return false;
   }
 
+  VectorPtr copyPreserveEncodings() const override {
+    return std::make_shared<SequenceVector<T>>(
+        BaseVector::pool_,
+        BaseVector::length_,
+        sequenceValues_->copyPreserveEncodings(),
+        AlignedBuffer::copy(BaseVector::pool_, sequenceLengths_),
+        SimpleVector<T>::stats_,
+        BaseVector::distinctValueCount_,
+        BaseVector::nullCount_,
+        SimpleVector<T>::isSorted_,
+        BaseVector::representedByteCount_,
+        BaseVector::storageByteCount_);
+  }
+
  private:
   // Prepares for use after construction.
   void setInternalState();

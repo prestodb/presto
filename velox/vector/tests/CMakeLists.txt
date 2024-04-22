@@ -15,6 +15,7 @@ add_subdirectory(utils)
 
 add_executable(
   velox_vector_test
+  CopyPreserveEncodingsTest.cpp
   DecodedVectorTest.cpp
   EncodingTest.cpp
   EnsureWritableVectorTest.cpp

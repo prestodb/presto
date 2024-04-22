@@ -496,7 +496,11 @@ class BaseVector {
     VELOX_UNSUPPORTED("Can only copy into flat or complex vectors");
   }
 
-  /// Construct a zero-copy slice of the vector with the indicated offset and
+  /// This makes a deep copy of the Vector allocating new child Vectors and
+  // Buffers recursively.  Unlike copy, this preserves encodings recursively.
+  virtual VectorPtr copyPreserveEncodings() const = 0;
+
+  // Construct a zero-copy slice of the vector with the indicated offset and
   /// length.
   virtual VectorPtr slice(vector_size_t offset, vector_size_t length) const = 0;
 

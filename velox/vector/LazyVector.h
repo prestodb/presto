@@ -264,6 +264,10 @@ class LazyVector : public BaseVector {
 
   void validate(const VectorValidateOptions& options) const override;
 
+  VectorPtr copyPreserveEncodings() const override {
+    VELOX_UNSUPPORTED("copyPreserveEncodings not defined for LazyVector");
+  }
+
  private:
   static void ensureLoadedRowsImpl(
       const VectorPtr& vector,

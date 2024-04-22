@@ -356,6 +356,27 @@ class ConstantVector final : public SimpleVector<T> {
     }
   }
 
+  VectorPtr copyPreserveEncodings() const override {
+    if (valueVector_) {
+      return std::make_shared<ConstantVector<T>>(
+          BaseVector::pool_,
+          BaseVector::length_,
+          index_,
+          valueVector_->copyPreserveEncodings(),
+          SimpleVector<T>::stats_);
+    }
+
+    return std::make_shared<ConstantVector<T>>(
+        BaseVector::pool_,
+        BaseVector::length_,
+        isNull_,
+        BaseVector::type_,
+        T(value_),
+        SimpleVector<T>::stats_,
+        BaseVector::representedByteCount_,
+        BaseVector::storageByteCount_);
+  }
+
  protected:
   std::string toSummaryString() const override {
     std::stringstream out;
