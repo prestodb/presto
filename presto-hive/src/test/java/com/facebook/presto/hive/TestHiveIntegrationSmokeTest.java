@@ -88,6 +88,7 @@ import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.LOG_INVOKED_FUNCTION_NAMES_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MAP_LOOKUPS_WITHOUT_HASHTABLE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -1139,6 +1140,26 @@ public class TestHiveIntegrationSmokeTest
                 .row("aaa", "bbb", "ccc")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testMapLookupOptimization()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(MAP_LOOKUPS_WITHOUT_HASHTABLE, "1")
+                .build();
+        assertUpdate(session, "drop table if exists test_maps");
+        assertUpdate(session, "CREATE TABLE test_maps (" +
+                "  col1 bigint," +
+                "  col2 map(bigint, bigint)," +
+                "  ds varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'ds' ] " +
+                ")");
+        assertUpdate(session, "INSERT INTO test_maps SELECT 1 as col1, map(array[1,2,3,4],array[2,4,6,8]) as col2, 't' as ds", 1);
+        assertQuery(session, "SELECT col2[2] from test_maps where ds = 't'", "SELECT 4");
+        assertQuery(session, "SELECT col2[2], col2[3] from test_maps where ds = 't'", "SELECT 4, 6");
     }
 
     @Test

@@ -324,6 +324,7 @@ public final class SystemSessionProperties
     public static final String SKIP_HASH_GENERATION_FOR_JOIN_WITH_TABLE_SCAN_INPUT = "skip_hash_generation_for_join_with_table_scan_input";
     public static final String GENERATE_DOMAIN_FILTERS = "generate_domain_filters";
     public static final String REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION = "rewrite_expression_with_constant_expression";
+    public static final String MAP_LOOKUPS_WITHOUT_HASHTABLE = "map_lookups_without_hashtable";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
@@ -1915,6 +1916,11 @@ public final class SystemSessionProperties
                         "Rewrite left join with is null check to semi join",
                         featuresConfig.isRewriteExpressionWithConstantVariable(),
                         false),
+                integerProperty(
+                        MAP_LOOKUPS_WITHOUT_HASHTABLE,
+                        "Threshold for lookups inside map, after which a hashtable is created for the map.",
+                        0,
+                        false),
                 new PropertyMetadata<>(
                         DEFAULT_VIEW_SECURITY_MODE,
                         format("Set default view security mode. Options are: %s",
@@ -3206,6 +3212,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteExpressionWithConstantEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, Boolean.class);
+    }
+
+    public static int getMapLookupsWithoutHashTable(Session session)
+    {
+        return session.getSystemProperty(MAP_LOOKUPS_WITHOUT_HASHTABLE, Integer.class);
     }
 
     public static CreateView.Security getDefaultViewSecurityMode(Session session)

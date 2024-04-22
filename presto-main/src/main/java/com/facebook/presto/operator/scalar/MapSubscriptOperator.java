@@ -116,7 +116,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, properties.getMapLookupsWithoutHashTable());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -137,7 +137,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, properties.getMapLookupsWithoutHashTable());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -158,7 +158,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, properties.getMapLookupsWithoutHashTable());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -179,7 +179,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
+            valuePosition = mapBlock.seekKeyExact(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, properties.getMapLookupsWithoutHashTable());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -200,7 +200,7 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition;
         try {
-            valuePosition = mapBlock.seekKeyExact((Block) key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
+            valuePosition = mapBlock.seekKeyExact((Block) key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode, properties.getMapLookupsWithoutHashTable());
         }
         catch (NotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
