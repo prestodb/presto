@@ -125,10 +125,10 @@ public class TestPinotClusterInfoFetcher
         final PinotClusterInfoFetcher.Instance instance = pinotClusterInfoFetcher.getInstance("Server_192.168.1.19_8098");
         Assert.assertEquals(instance.getInstanceName(), "Server_192.168.1.19_8098");
         Assert.assertEquals(instance.getHostName(), "192.168.1.19");
-        Assert.assertEquals(instance.isEnabled(), true);
+        Assert.assertTrue(instance.isEnabled());
         Assert.assertEquals(instance.getPort(), 8098);
         Assert.assertEquals(instance.getGrpcPort(), 8090);
-        Assert.assertEquals(instance.getPools(), null);
+        Assert.assertNull(instance.getPools());
         Assert.assertEquals(instance.getTags().size(), 2);
         Assert.assertEquals(instance.getTags().get(0), "DefaultTenant_OFFLINE");
         Assert.assertEquals(instance.getTags().get(1), "DefaultTenant_REALTIME");

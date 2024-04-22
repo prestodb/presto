@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestFilterFunction
@@ -89,7 +90,7 @@ public class TestFilterFunction
                     assertTrue(errors[hitCounter] instanceof RuntimeException);
                 }
                 else {
-                    assertEquals(errors[hitCounter], null);
+                    assertNull(errors[hitCounter]);
                 }
                 hitCounter++;
             }
