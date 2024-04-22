@@ -143,6 +143,7 @@ std::shared_ptr<WriterProperties> getArrowParquetWriterOptions(
   properties = properties->max_row_group_length(
       static_cast<int64_t>(flushPolicy->rowsInRowGroup()));
   properties = properties->codec_options(options.codecOptions);
+  properties = properties->enable_store_decimal_as_integer();
   return properties->build();
 }
 

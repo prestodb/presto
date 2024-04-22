@@ -16,6 +16,7 @@
 
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
 #include "velox/dwio/parquet/reader/ParquetReader.h"
+#include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -630,6 +631,28 @@ TEST_F(E2EFilterTest, combineRowGroup) {
   auto parquetReader = dynamic_cast<ParquetReader&>(*reader.get());
   EXPECT_EQ(parquetReader.fileMetaData().numRowGroups(), 1);
   EXPECT_EQ(parquetReader.numberOfRows(), 5);
+}
+
+TEST_F(E2EFilterTest, writeDecimalAsInteger) {
+  auto rowVector = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2}, DECIMAL(8, 2)),
+       makeFlatVector<int64_t>({1, 2}, DECIMAL(10, 2)),
+       makeFlatVector<int64_t>({1, 2}, DECIMAL(19, 2))});
+  writeToMemory(rowVector->type(), {rowVector}, false);
+  std::string_view data(sinkPtr_->data(), sinkPtr_->size());
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
+  auto reader = makeReader(readerOpts, std::move(input));
+  auto parquetReader = dynamic_cast<ParquetReader&>(*reader.get());
+
+  auto types = parquetReader.typeWithId()->getChildren();
+  auto c0 = std::dynamic_pointer_cast<const ParquetTypeWithId>(types[0]);
+  EXPECT_EQ(c0->parquetType_.value(), thrift::Type::type::INT32);
+  auto c1 = std::dynamic_pointer_cast<const ParquetTypeWithId>(types[1]);
+  EXPECT_EQ(c1->parquetType_.value(), thrift::Type::type::INT64);
+  auto c2 = std::dynamic_pointer_cast<const ParquetTypeWithId>(types[2]);
+  EXPECT_EQ(c2->parquetType_.value(), thrift::Type::type::FIXED_LEN_BYTE_ARRAY);
 }
 
 TEST_F(E2EFilterTest, configurableWriteSchema) {
