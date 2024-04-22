@@ -46,7 +46,7 @@ class HdfsFileSystemTest : public testing::Test {
       miniCluster = std::make_shared<filesystems::test::HdfsMiniCluster>();
       miniCluster->start();
       auto tempFile = createFile();
-      miniCluster->addFile(tempFile->path, destinationPath);
+      miniCluster->addFile(tempFile->getPath(), destinationPath);
     }
   }
 
