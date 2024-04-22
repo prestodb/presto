@@ -20,8 +20,11 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import org.testng.ITest;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -31,17 +34,21 @@ import static java.lang.String.format;
 import static java.util.Locale.US;
 
 public abstract class AbstractDeltaDistributedQueryTestBase
-        extends AbstractTestQueryFramework
+        extends AbstractTestQueryFramework implements ITest
 {
     public static final String DELTA_CATALOG = "delta";
     public static final String HIVE_CATALOG = "hive";
     public static final String PATH_SCHEMA = "$path$";
     public static final String DELTA_SCHEMA = "deltaTables"; // Schema in Hive which has test Delta tables
+    protected static final String DELTA_V1 = "delta_v1";
+    protected static final String DELTA_V3 = "delta_v3";
+
+    protected static final String[] DELTA_VERSIONS = {DELTA_V1, DELTA_V3};
 
     /**
      * List of tables present in the test resources directory.
      */
-    private static final String[] DELTA_TEST_TABLE_LIST = {
+    private static final String[] DELTA_TEST_TABLE_NAMES_LIST = {
             "data-reader-primitives",
             "data-reader-array-primitives",
             "data-reader-map",
@@ -50,8 +57,43 @@ public abstract class AbstractDeltaDistributedQueryTestBase
             "time-travel-partition-changes-b",
             "deltatbl-partition-prune",
             "data-reader-partition-values",
-            "data-reader-nested-struct"
+            "data-reader-nested-struct",
+            "test-partitions-lowercase",
+            "test-partitions-uppercase"
     };
+
+    /**
+     * List of tables present in the test resources directory. Each table is replicated in reader version 1 and 3
+     */
+    private static final String[] DELTA_TEST_TABLE_LIST =
+            new String[DELTA_VERSIONS.length * DELTA_TEST_TABLE_NAMES_LIST.length];
+    static {
+        for (int i = 0; i < DELTA_VERSIONS.length; i++) {
+            for (int j = 0; j < DELTA_TEST_TABLE_NAMES_LIST.length; j++) {
+                DELTA_TEST_TABLE_LIST[i * DELTA_TEST_TABLE_NAMES_LIST.length + j] = DELTA_VERSIONS[i] +
+                        FileSystems.getDefault().getSeparator() + DELTA_TEST_TABLE_NAMES_LIST[j];
+            }
+        }
+    }
+
+    private final ThreadLocal<String> testName = new ThreadLocal<>();
+
+    @DataProvider
+    protected static Object[][] deltaReaderVersions()
+    {
+        return new Object[][] {{DELTA_V1}, {DELTA_V3}};
+    }
+
+    @Override
+    public String getTestName()
+    {
+        return this.testName.get();
+    }
+
+    protected static String getVersionPrefix(String version)
+    {
+        return version + FileSystems.getDefault().getSeparator();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -84,6 +126,11 @@ public abstract class AbstractDeltaDistributedQueryTestBase
     protected static String goldenTablePath(String tableName)
     {
         return AbstractDeltaDistributedQueryTestBase.class.getClassLoader().getResource(tableName).toString();
+    }
+
+    protected static String goldenTablePathWithPrefix(String prefix, String tableName)
+    {
+        return goldenTablePath(prefix + FileSystems.getDefault().getSeparator() + tableName);
     }
 
     private static DistributedQueryRunner createDeltaQueryRunner(Map<String, String> extraProperties)
