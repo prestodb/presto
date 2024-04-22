@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/gtest_util.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 

@@ -27,7 +27,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/testing/gtest_compat.h"
+#include "arrow/testing/gtest_compat.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/ubsan.h"

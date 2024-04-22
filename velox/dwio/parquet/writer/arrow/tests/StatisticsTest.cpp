@@ -30,8 +30,8 @@
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
-#include "arrow/testing/builder.h"
-#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/builder.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include "arrow/testing/gtest_util.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
