@@ -147,6 +147,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharType
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(groups = "hive")
@@ -693,7 +694,7 @@ public abstract class AbstractTestHiveFileFormats
                 Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(FUNCTION_AND_TYPE_MANAGER);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
-                    assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
+                    assertNull(testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
                 }
                 else if (type instanceof DecimalType) {
                     DecimalType decimalType = (DecimalType) type;
