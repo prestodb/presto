@@ -26,9 +26,9 @@ std::shared_ptr<TempDirectoryPath> TempDirectoryPath::create(bool injectFault) {
 }
 
 TempDirectoryPath::~TempDirectoryPath() {
-  LOG(INFO) << "TempDirectoryPath:: removing all files from " << path;
+  LOG(INFO) << "TempDirectoryPath:: removing all files from " << tempPath_;
   try {
-    boost::filesystem::remove_all(path.c_str());
+    boost::filesystem::remove_all(tempPath_.c_str());
   } catch (...) {
     LOG(WARNING)
         << "TempDirectoryPath:: destructor failed while calling boost::filesystem::remove_all";

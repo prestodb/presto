@@ -40,7 +40,7 @@ class TempFilePath {
   TempFilePath& operator=(const TempFilePath&) = delete;
 
   void append(std::string data) {
-    std::ofstream file(path, std::ios_base::app);
+    std::ofstream file(tempPath_, std::ios_base::app);
     file << data;
     file.flush();
     file.close();
@@ -48,17 +48,15 @@ class TempFilePath {
 
   const int64_t fileSize() {
     struct stat st;
-    ::stat(path.data(), &st);
+    ::stat(tempPath_.data(), &st);
     return st.st_size;
   }
 
   int64_t fileModifiedTime() {
     struct stat st;
-    ::stat(path.data(), &st);
+    ::stat(tempPath_.data(), &st);
     return st.st_mtime;
   }
-
-  const std::string path;
 
   /// If fault injection is enabled, the returned the file path has the faulty
   /// file system prefix scheme. The velox fs then opens the file through the
@@ -68,17 +66,25 @@ class TempFilePath {
     return path_;
   }
 
+  // Returns the delegated file path if fault injection is enabled.
+  const std::string& tempFilePath() const {
+    return tempPath_;
+  }
+
  private:
   static std::string createTempFile(TempFilePath* tempFilePath);
 
   TempFilePath(bool enableFaultInjection)
-      : path(createTempFile(this)),
-        enableFaultInjection_(enableFaultInjection),
-        path_(enableFaultInjection_ ? fmt::format("faulty:{}", path) : path) {
+      : enableFaultInjection_(enableFaultInjection),
+        tempPath_(createTempFile(this)),
+        path_(
+            enableFaultInjection_ ? fmt::format("faulty:{}", tempPath_)
+                                  : tempPath_) {
     VELOX_CHECK_NE(fd_, -1);
   }
 
   const bool enableFaultInjection_;
+  const std::string tempPath_;
   const std::string path_;
 
   int fd_;

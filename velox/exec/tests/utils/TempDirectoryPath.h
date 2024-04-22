@@ -37,7 +37,6 @@ class TempDirectoryPath {
   TempDirectoryPath(const TempDirectoryPath&) = delete;
   TempDirectoryPath& operator=(const TempDirectoryPath&) = delete;
 
-  const std::string path;
   /// If fault injection is enabled, the returned the file path has the faulty
   /// file system prefix scheme. The velox fs then opens the directory through
   /// the faulty file system. The actual file operation might either fails or
@@ -50,11 +49,14 @@ class TempDirectoryPath {
   static std::string createTempDirectory();
 
   explicit TempDirectoryPath(bool enableFaultInjection)
-      : path(createTempDirectory()),
-        enableFaultInjection_(enableFaultInjection),
-        path_(enableFaultInjection_ ? fmt::format("faulty:{}", path) : path) {}
+      : enableFaultInjection_(enableFaultInjection),
+        tempPath_(createTempDirectory()),
+        path_(
+            enableFaultInjection_ ? fmt::format("faulty:{}", tempPath_)
+                                  : tempPath_) {}
 
   const bool enableFaultInjection_{false};
+  const std::string tempPath_;
   const std::string path_;
 };
 } // namespace facebook::velox::exec::test

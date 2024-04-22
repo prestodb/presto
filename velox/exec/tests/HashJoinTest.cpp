@@ -6750,7 +6750,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .numDrivers(1)
-      .spillDirectory(spillDirectory->path)
+      .spillDirectory(spillDirectory->getPath())
       .probeKeys({"t_k1"})
       .probeVectors(std::move(probeVectors))
       .buildKeys({"u_k1"})

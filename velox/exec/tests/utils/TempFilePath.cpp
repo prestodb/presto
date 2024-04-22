@@ -19,7 +19,7 @@
 namespace facebook::velox::exec::test {
 
 TempFilePath::~TempFilePath() {
-  ::unlink(path.c_str());
+  ::unlink(tempPath_.c_str());
   ::close(fd_);
 }
 
