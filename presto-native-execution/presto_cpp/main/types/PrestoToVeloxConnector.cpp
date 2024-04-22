@@ -77,6 +77,13 @@ dwio::common::FileFormat toVeloxFileFormat(
     } else if (format.serDe == "org.apache.hive.hcatalog.data.JsonSerDe") {
       return dwio::common::FileFormat::JSON;
     }
+  } else if (
+      format.inputFormat ==
+      "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat") {
+    if (format.serDe ==
+        "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe") {
+      return dwio::common::FileFormat::PARQUET;
+    }
   } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
     // ALPHA has been renamed in Velox to NIMBLE.
     return dwio::common::FileFormat::NIMBLE;

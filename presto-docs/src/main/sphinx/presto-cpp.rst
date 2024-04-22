@@ -46,6 +46,10 @@ Only specific connectors are supported in the Presto C++ evaluation engine.
 
 * Hive connector for reads and writes, including CTAS, are supported.
 
+* Hive Connector supports Delta Lake table access using Symlink table in Prestissimo.
+  For more information about Symlink tables, see `Presto, Trino, and Athena to Delta Lake integration using
+  manifests <https://docs.delta.io/latest/presto-integration.html>`_.
+
 * Iceberg tables are supported only for reads.
 
 * Iceberg connector supports both V1 and V2 tables, including tables with delete files.

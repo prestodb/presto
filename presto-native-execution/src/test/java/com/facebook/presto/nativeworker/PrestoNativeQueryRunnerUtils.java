@@ -14,33 +14,54 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveQueryRunner;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
+import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.FileFormat;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Resources;
+import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
+import static com.facebook.presto.hive.HiveQueryRunner.createDatabaseMetastoreObject;
+import static com.facebook.presto.hive.HiveQueryRunner.getFileHiveMetastore;
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.createSymlinkManifest;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertTrue;
 
@@ -50,11 +71,20 @@ public class PrestoNativeQueryRunnerUtils
     public static final String REMOTE_FUNCTION_UDS = "remote_function_server.socket";
     public static final String REMOTE_FUNCTION_JSON_SIGNATURES = "remote_function_server.json";
     public static final String REMOTE_FUNCTION_CATALOG_NAME = "remote";
+    public static final String HIVE_DATA = "hive_data";
 
     protected static final String ICEBERG_DEFAULT_STORAGE_FORMAT = "PARQUET";
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+    private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
+    private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+    private static final ErrorCode CREATE_ERROR_CODE = new ErrorCode(123, "CREATE_ERROR_CODE", INTERNAL_ERROR);
+
+    private static final StorageFormat STORAGE_FORMAT_SYMLINK_TABLE = StorageFormat.create(
+            ParquetHiveSerDe.class.getName(),
+            SymlinkTextInputFormat.class.getName(),
+            HiveIgnoreKeyTextOutputFormat.class.getName());
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath)
@@ -145,6 +175,28 @@ public class PrestoNativeQueryRunnerUtils
                         hivePropertiesBuilder.build(),
                         dataDirectory);
         return queryRunner;
+    }
+
+    public static void createExternalTable(QueryRunner queryRunner, String schemaName, String tableName, List<Column> columns)
+    {
+        ExtendedHiveMetastore metastore = getFileHiveMetastore((DistributedQueryRunner) queryRunner);
+        File dataDirectory = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory().resolve(HIVE_DATA).toFile();
+        Path hiveTableDataPath = dataDirectory.toPath().resolve(schemaName).resolve(tableName);
+        Path symlinkTableDataPath = dataDirectory.toPath().getParent().resolve(SYMLINK_FOLDER).resolve(tableName);
+
+        try {
+            createSymlinkManifest(hiveTableDataPath, symlinkTableDataPath);
+        }
+        catch (IOException e) {
+            throw new PrestoException(() -> CREATE_ERROR_CODE, "Failed to create symlink manifest file for table: " + tableName, e);
+        }
+
+        if (!metastore.getDatabase(METASTORE_CONTEXT, schemaName).isPresent()) {
+            metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject(schemaName));
+        }
+        if (!metastore.getTable(METASTORE_CONTEXT, schemaName, tableName).isPresent()) {
+            metastore.createTable(METASTORE_CONTEXT, createHiveSymlinkTable(schemaName, tableName, columns, symlinkTableDataPath.toString()), PRINCIPAL_PRIVILEGES, emptyList());
+        }
     }
 
     public static QueryRunner createJavaIcebergQueryRunner(boolean addStorageFormatToPath)
@@ -517,5 +569,25 @@ public class PrestoNativeQueryRunnerUtils
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
+    }
+
+    private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, String location)
+    {
+        return new Table(
+                databaseName,
+                tableName,
+                "hive",
+                EXTERNAL_TABLE,
+                new Storage(STORAGE_FORMAT_SYMLINK_TABLE,
+                        "file:" + location,
+                        Optional.empty(),
+                        false,
+                        ImmutableMap.of(),
+                        ImmutableMap.of()),
+                columns,
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
     }
 }
