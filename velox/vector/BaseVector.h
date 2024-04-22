@@ -52,22 +52,20 @@ class VectorPool;
 class BaseVector;
 using VectorPtr = std::shared_ptr<BaseVector>;
 
-// Set of options that validate() accepts.
+/// Set of options that validate() accepts.
 struct VectorValidateOptions {
-  // If set to true then an unloaded lazy vector is loaded and validate is
-  // called on the loaded vector. NOTE: loading a vector is non-trivial and
-  // can modify how it's handled by downstream code-paths.
+  /// If set to true then an unloaded lazy vector is loaded and validate is
+  /// called on the loaded vector. NOTE: loading a vector is non-trivial and
+  /// can modify how it's handled by downstream code-paths.
   bool loadLazy = false;
 
-  // Any optional checks you want to execute on the vector.
+  /// Any optional checks you want to execute on the vector.
   std::function<void(const BaseVector&)> callback;
 };
 
 class DecodedVector;
 
-/**
- * Base class for all columnar-based vectors of any type.
- */
+/// Base class for all columnar-based vectors of any type.
 class BaseVector {
  public:
   BaseVector(const BaseVector&) = delete;
@@ -96,13 +94,14 @@ class BaseVector {
     return encoding() == VectorEncoding::Simple::LAZY;
   }
 
-  // Returns false if vector has no nulls. Return true if vector may have nulls.
+  /// Returns false if vector has no nulls. Return true if vector may have
+  /// nulls.
   virtual bool mayHaveNulls() const {
     return rawNulls_;
   }
 
-  // Returns false if this vector and all of its children have no nulls. Returns
-  // true if this vector or any of its children may have nulls.
+  /// Returns false if this vector and all of its children have no nulls.
+  /// Returns true if this vector or any of its children may have nulls.
   virtual bool mayHaveNullsRecursive() const {
     return mayHaveNulls();
   }
@@ -124,7 +123,7 @@ class BaseVector {
     return dynamic_cast<const T*>(this);
   }
 
-  // Use when the type of 'this' is already known. dynamic_cast() is slow.
+  /// Use when the type of 'this' is already known. dynamic_cast() is slow.
   template <typename T>
   T* asUnchecked() {
     static_assert(std::is_base_of_v<BaseVector, T>);
@@ -197,30 +196,28 @@ class BaseVector {
     return typeKind_;
   }
 
-  /**
-   * Returns a smart pointer to the null bitmap data for this
-   * vector. May hold nullptr if there are no nulls. Not const because
-   * some vectors may generate this on first access. For ConstantVector, this
-   * method returns a BufferPtr of only size 1. For DictionaryVector, this
-   * method returns a BufferPtr for only nulls in the top-level layer.
-   */
+  /// Returns a smart pointer to the null bitmap data for this vector. May hold
+  /// nullptr if there are no nulls. Not const because some vectors may generate
+  /// this on first access. For ConstantVector, this method returns a BufferPtr
+  /// of only size 1. For DictionaryVector, this method returns a BufferPtr for
+  /// only nulls in the top-level layer.
   const BufferPtr& nulls() const {
     return nulls_;
   }
 
-  // Returns a pointer to the raw null bitmap buffer of this vector. Notice that
-  // users should not used this API to access nulls directly of a ConstantVector
-  // or DictionaryVector. If the vector is a ConstantVector, rawNulls_ is only
-  // of size 1. If the vector is a DictionaryVector, rawNulls_ points to a raw
-  // buffer of only nulls in the top-level layer. Nulls of a ConstantVector or
-  // DictionaryVector can be accessed through the isNullAt() API or
-  // DecodedVector.
+  /// Returns a pointer to the raw null bitmap buffer of this vector. Notice
+  /// that users should not used this API to access nulls directly of a
+  /// ConstantVector or DictionaryVector. If the vector is a ConstantVector,
+  /// rawNulls_ is only of size 1. If the vector is a DictionaryVector,
+  /// rawNulls_ points to a raw buffer of only nulls in the top-level layer.
+  /// Nulls of a ConstantVector or DictionaryVector can be accessed through the
+  /// isNullAt() API or DecodedVector.
   const uint64_t* rawNulls() const {
     return rawNulls_;
   }
 
-  // Ensures that nulls are writable (mutable and single referenced for
-  // BaseVector::length_).
+  /// Ensures that nulls are writable (mutable and single referenced for
+  /// BaseVector::length_).
   uint64_t* mutableRawNulls() {
     ensureNulls();
     return const_cast<uint64_t*>(rawNulls_);
@@ -235,9 +232,7 @@ class BaseVector {
     return distinctValueCount_;
   }
 
-  /**
-   * @return the number of rows of data in this vector
-   */
+  /// @return the number of rows of data in this vector
   vector_size_t size() const {
     return length_;
   }
@@ -249,36 +244,28 @@ class BaseVector {
     copy(other, previousSize, 0, other->size());
   }
 
-  /**
-   * @return the number of bytes this vector takes on disk when in a compressed
-   * and serialized format
-   */
+  /// @return the number of bytes this vector takes on disk when in a compressed
+  /// and serialized format
   std::optional<ByteCount> storageBytes() const {
     return storageByteCount_;
   }
 
-  /**
-   * @return the number of bytes required to naively represent all of the data
-   * in this vector - the raw data size if not in a compressed or otherwise
-   * optimized format
-   */
+  /// @return the number of bytes required to naively represent all of the data
+  /// in this vector - the raw data size if not in a compressed or otherwise
+  /// optimized format
   std::optional<ByteCount> representedBytes() const {
     return representedByteCount_;
   }
 
-  /**
-   * @return the number of bytes required to hold this vector in memory
-   */
+  /// @return the number of bytes required to hold this vector in memory
   ByteCount inMemoryBytes() const {
     return inMemoryBytes_;
   }
 
-  /**
-   * @return true if this vector has the same value at the given index as the
-   * other vector at the other vector's index (including if both are null),
-   * false otherwise
-   * @throws if the type_ of other doesn't match the type_ of this
-   */
+  /// @return true if this vector has the same value at the given index as the
+  /// other vector at the other vector's index (including if both are null),
+  /// false otherwise
+  /// @throws if the type_ of other doesn't match the type_ of this
   virtual bool equalValueAt(
       const BaseVector* other,
       vector_size_t index,
@@ -353,14 +340,10 @@ class BaseVector {
       vector_size_t size,
       CompareFlags flags);
 
-  /**
-   * @return the hash of the value at the given index in this vector
-   */
+  /// @return the hash of the value at the given index in this vector
   virtual uint64_t hashValueAt(vector_size_t index) const = 0;
 
-  /**
-   * @return a new vector that contains the hashes for all entries
-   */
+  /// @return a new vector that contains the hashes for all entries
   virtual std::unique_ptr<SimpleVector<uint64_t>> hashAll() const = 0;
 
   /// Returns true if this vector is encoded as flat (FlatVector).
@@ -373,24 +356,24 @@ class BaseVector {
     return encoding_ == VectorEncoding::Simple::CONSTANT;
   }
 
-  // Returns true if this vector has a scalar type. If so, values are
-  // accessed by valueAt after casting the vector to a type()
-  // dependent instantiation of SimpleVector<T>.
+  /// Returns true if this vector has a scalar type. If so, values are
+  /// accessed by valueAt after casting the vector to a type()
+  /// dependent instantiation of SimpleVector<T>.
   virtual bool isScalar() const {
     return false;
   }
 
-  // Returns the scalar or complex vector wrapped inside any nesting of
-  // dictionary, sequence or constant vectors.
+  /// Returns the scalar or complex vector wrapped inside any nesting of
+  /// dictionary, sequence or constant vectors.
   virtual const BaseVector* wrappedVector() const {
     return this;
   }
 
   static const VectorPtr& wrappedVectorShared(const VectorPtr& vector);
 
-  // Returns the index to apply for 'index' in the vector returned by
-  // wrappedVector(). Translates the index over any nesting of
-  // dictionaries, sequences and constants.
+  /// Returns the index to apply for 'index' in the vector returned by
+  /// wrappedVector(). Translates the index over any nesting of dictionaries,
+  /// sequences and constants.
   virtual vector_size_t wrappedIndex(vector_size_t index) const {
     return index;
   }
@@ -434,26 +417,26 @@ class BaseVector {
     return countNulls(nulls, 0, size);
   }
 
-  // Returns whether or not the nulls buffer can be modified.
-  // This does not guarantee the existence of the nulls buffer, if using this
-  // within BaseVector you still may need to call ensureNulls.
+  /// Returns whether or not the nulls buffer can be modified.
+  /// This does not guarantee the existence of the nulls buffer, if using this
+  /// within BaseVector you still may need to call ensureNulls.
   virtual bool isNullsWritable() const {
     return !nulls_ || (nulls_->isMutable());
   }
 
-  // Sets null when 'nulls' has a null value for active rows in 'rows'.
-  // Is a no-op 'nulls' is a nullptr or 'rows' has no selections. This API
-  // throws if the vector is a ConstantVector.
+  /// Sets null when 'nulls' has a null value for active rows in 'rows'.
+  /// Is a no-op 'nulls' is a nullptr or 'rows' has no selections. This API
+  /// throws if the vector is a ConstantVector.
   virtual void addNulls(const uint64_t* nulls, const SelectivityVector& rows);
 
-  // Sets nulls for all active row in 'nullRows'. Is a no-op if nullRows has no
-  // selections. This API throws if the vector is a ConstantVector.
+  /// Sets nulls for all active row in 'nullRows'. Is a no-op if nullRows has no
+  /// selections. This API throws if the vector is a ConstantVector.
   virtual void addNulls(const SelectivityVector& nullRows);
 
-  // Clears nulls for all active rows in 'nonNullRows'
+  /// Clears nulls for all active rows in 'nonNullRows'
   virtual void clearNulls(const SelectivityVector& nonNullRows);
 
-  // Clears nulls for all row indices in range [begin, end).
+  /// Clears nulls for all row indices in range [begin, end).
   virtual void clearNulls(vector_size_t begin, vector_size_t end);
 
   void clearAllNulls() {
@@ -462,25 +445,25 @@ class BaseVector {
 
   void reuseNulls();
 
-  // Sets the size to 'newSize' and ensures there is space for the
-  // indicated number of nulls and top level values (eg. values for Flat,
-  // indices for Dictionary, etc). Any immutable buffers that need to be resized
-  // are copied. 'setNotNull' indicates if nulls in range [oldSize, newSize]
-  // should be set to not null.
-  // Note: caller must ensure that the vector is writable; for instance have
-  // recursively single referenced buffers and vectors.
+  /// Sets the size to 'newSize' and ensures there is space for the
+  /// indicated number of nulls and top level values (eg. values for Flat,
+  /// indices for Dictionary, etc). Any immutable buffers that need to be
+  /// resized are copied. 'setNotNull' indicates if nulls in range [oldSize,
+  /// newSize] should be set to not null. Note: caller must ensure that the
+  /// vector is writable; for instance have recursively single referenced
+  /// buffers and vectors.
   virtual void resize(vector_size_t newSize, bool setNotNull = true);
 
-  // Sets the rows of 'this' given by 'rows' to
-  // 'source.valueAt(toSourceRow ? toSourceRow[row] : row)', where
-  // 'row' iterates over 'rows'. All active 'row' in 'rows' must map to a valid
-  // row in the 'source'.
+  /// Sets the rows of 'this' given by 'rows' to
+  /// 'source.valueAt(toSourceRow ? toSourceRow[row] : row)', where
+  /// 'row' iterates over 'rows'. All active 'row' in 'rows' must map to a valid
+  /// row in the 'source'.
   virtual void copy(
       const BaseVector* source,
       const SelectivityVector& rows,
       const vector_size_t* toSourceRow);
 
-  // Utility for making a deep copy of a whole vector.
+  /// Utility for making a deep copy of a whole vector.
   static VectorPtr copy(const BaseVector& vector) {
     auto result =
         BaseVector::create(vector.type(), vector.size(), vector.pool());
@@ -505,24 +488,24 @@ class BaseVector {
   /// selected, returns a single range.
   static std::vector<CopyRange> toCopyRanges(const SelectivityVector& rows);
 
-  // Copy multiple ranges at once.  This is more efficient than calling `copy`
-  // multiple times, especially for ARRAY, MAP, and VARCHAR.
+  /// Copy multiple ranges at once.  This is more efficient than calling `copy`
+  /// multiple times, especially for ARRAY, MAP, and VARCHAR.
   virtual void copyRanges(
       const BaseVector* /*source*/,
       const folly::Range<const CopyRange*>& /*ranges*/) {
     VELOX_UNSUPPORTED("Can only copy into flat or complex vectors");
   }
 
-  // Construct a zero-copy slice of the vector with the indicated offset and
-  // length.
+  /// Construct a zero-copy slice of the vector with the indicated offset and
+  /// length.
   virtual VectorPtr slice(vector_size_t offset, vector_size_t length) const = 0;
 
-  // Returns a vector of the type of 'source' where 'indices' contains
-  // an index into 'source' for each element of 'source'. The
-  // resulting vector has position i set to source[i]. This is
-  // equivalent to wrapping 'source' in a dictionary with 'indices'
-  // but this may reuse structure if said structure is uniquely owned
-  // or if a copy is more efficient than dictionary wrapping.
+  /// Returns a vector of the type of 'source' where 'indices' contains
+  /// an index into 'source' for each element of 'source'. The
+  /// resulting vector has position i set to source[i]. This is
+  /// equivalent to wrapping 'source' in a dictionary with 'indices'
+  /// but this may reuse structure if said structure is uniquely owned
+  /// or if a copy is more efficient than dictionary wrapping.
   static VectorPtr transpose(BufferPtr indices, VectorPtr&& source);
 
   static VectorPtr createConstant(
@@ -545,33 +528,33 @@ class BaseVector {
   static VectorPtr
   wrapInSequence(BufferPtr lengths, vector_size_t size, VectorPtr vector);
 
-  // Creates a ConstantVector of specified length and value coming from the
-  // 'index' element of the 'vector'. Peels off any encodings of the 'vector'
-  // before making a new ConstantVector. The result vector is either a
-  // ConstantVector holding a scalar value or a ConstantVector wrapping flat or
-  // lazy vector. The result cannot be a wrapping over another constant or
-  // dictionary vector. If copyBase is true and the result vector wraps a
-  // vector, the wrapped vector is newly constructed by copying the value from
-  // the original, guaranteeing no Vectors are shared with 'vector'.
+  /// Creates a ConstantVector of specified length and value coming from the
+  /// 'index' element of the 'vector'. Peels off any encodings of the 'vector'
+  /// before making a new ConstantVector. The result vector is either a
+  /// ConstantVector holding a scalar value or a ConstantVector wrapping flat or
+  /// lazy vector. The result cannot be a wrapping over another constant or
+  /// dictionary vector. If copyBase is true and the result vector wraps a
+  /// vector, the wrapped vector is newly constructed by copying the value from
+  /// the original, guaranteeing no Vectors are shared with 'vector'.
   static VectorPtr wrapInConstant(
       vector_size_t length,
       vector_size_t index,
       VectorPtr vector,
       bool copyBase = false);
 
-  // Makes 'result' writable for 'rows'. A wrapper (e.g. dictionary, constant,
-  // sequence) is flattened and a multiply referenced flat vector is copied.
-  // The content of 'rows' is not copied, as these values are intended to be
-  // overwritten.
-  //
-  // After invoking this function, the 'result' is guaranteed to be a flat
-  // uniquely-referenced vector with all data-dependent flags reset.
-  //
-  // Use SelectivityVector::empty() to make the 'result' writable and preserve
-  // all current values.
-  //
-  // If 'result' is a lazy vector, then caller needs to ensure it is unique in
-  // order to re-use the loaded vector. Otherwise, a copy would be created.
+  /// Makes 'result' writable for 'rows'. A wrapper (e.g. dictionary, constant,
+  /// sequence) is flattened and a multiply referenced flat vector is copied.
+  /// The content of 'rows' is not copied, as these values are intended to be
+  /// overwritten.
+  ///
+  /// After invoking this function, the 'result' is guaranteed to be a flat
+  /// uniquely-referenced vector with all data-dependent flags reset.
+  ///
+  /// Use SelectivityVector::empty() to make the 'result' writable and preserve
+  /// all current values.
+  ///
+  /// If 'result' is a lazy vector, then caller needs to ensure it is unique in
+  /// order to re-use the loaded vector. Otherwise, a copy would be created.
   static void ensureWritable(
       const SelectivityVector& rows,
       const TypePtr& type,
@@ -581,14 +564,15 @@ class BaseVector {
 
   virtual void ensureWritable(const SelectivityVector& rows);
 
-  // Returns true if the following conditions hold:
-  //  * The vector is singly referenced.
-  //  * The vector has a Flat-like encoding (Flat, Array, Map, Row).
-  //  * Any child Buffers are mutable  and singly referenced.
-  //  * All of these conditions hold for child Vectors recursively.
-  // This function is templated rather than taking a std::shared_ptr<BaseVector>
-  // because if we were to do that the compiler would allocate a new shared_ptr
-  // when this function is called making it not unique.
+  /// Returns true if the following conditions hold:
+  ///  * The vector is singly referenced.
+  ///  * The vector has a Flat-like encoding (Flat, Array, Map, Row).
+  ///  * Any child Buffers are mutable  and singly referenced.
+  ///  * All of these conditions hold for child Vectors recursively.
+  /// This function is templated rather than taking a
+  /// std::shared_ptr<BaseVector> because if we were to do that the compiler
+  /// would allocate a new shared_ptr when this function is called making it not
+  /// unique.
   template <typename T>
   static bool isVectorWritable(const std::shared_ptr<T>& vector) {
     if (!vector.unique()) {
@@ -608,7 +592,7 @@ class BaseVector {
       const std::shared_ptr<BaseVector>& vector,
       DecodedVector* decoded = nullptr);
 
-  // Flattens the input vector and all of its children.
+  /// Flattens the input vector and all of its children.
   static void flattenVector(VectorPtr& vector);
 
   template <typename T>
@@ -616,9 +600,9 @@ class BaseVector {
     return sizeof(T) * count;
   }
 
-  // If 'vector' is a wrapper, returns the underlying values vector. This is
-  // virtual and defined here because we must be able to access this in type
-  // agnostic code without a switch on all data types.
+  /// If 'vector' is a wrapper, returns the underlying values vector. This is
+  /// virtual and defined here because we must be able to access this in type
+  /// agnostic code without a switch on all data types.
   virtual const VectorPtr& valueVector() const {
     VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
@@ -645,8 +629,8 @@ class BaseVector {
     VELOX_UNSUPPORTED("Only flat vectors have a values buffer");
   }
 
-  // If 'this' is a wrapper, returns the wrap info, interpretation depends on
-  // encoding.
+  /// If 'this' is a wrapper, returns the wrap info, interpretation depends on
+  /// encoding.
   virtual BufferPtr wrapInfo() const {
     throw std::runtime_error("Vector is not a wrapper");
   }
@@ -666,12 +650,12 @@ class BaseVector {
     return vector ? vector : create(type, 0, pool);
   }
 
-  // Set 'nulls' to be the nulls buffer of this vector. This API should not be
-  // used on ConstantVector.
+  /// Set 'nulls' to be the nulls buffer of this vector. This API should not be
+  /// used on ConstantVector.
   void setNulls(const BufferPtr& nulls);
 
-  // Reset the nulls buffer of this vector to be empty. This API should not be
-  // used on ConstantVector.
+  /// Reset the nulls buffer of this vector to be empty. This API should not be
+  /// used on ConstantVector.
   void resetNulls() {
     setNulls(nullptr);
   }
@@ -690,8 +674,8 @@ class BaseVector {
       BufferPtr& indices,
       const vector_size_t** rawIndices);
 
-  // Makes sure '*buffer' has space for 'size' items of T and is writable. Sets
-  // 'raw' to point to the writable contents of '*buffer'.
+  /// Makes sure '*buffer' has space for 'size' items of T and is writable. Sets
+  /// 'raw' to point to the writable contents of '*buffer'.
   template <typename T, typename RawT>
   static void ensureBuffer(
       vector_size_t size,
@@ -717,7 +701,7 @@ class BaseVector {
     (*buffer)->setSize(minBytes);
   }
 
-  // Returns the byte size of memory that is kept live through 'this'.
+  /// Returns the byte size of memory that is kept live through 'this'.
   virtual uint64_t retainedSize() const {
     return nulls_ ? nulls_->capacity() : 0;
   }
@@ -848,15 +832,15 @@ class BaseVector {
         "The function should be called only if one of the inputs is null");
   }
 
-  // Reset data-dependent flags to the "unknown" status. This is needed whenever
-  // a vector is mutated because the modification may invalidate these flags.
-  // Currently, we call this function in BaseVector::ensureWritable() and
-  // BaseVector::prepareForReuse() that are expected to be called before any
-  // vector mutation.
-  //
-  // Per-vector flags are reset to default values. Per-row flags are reset only
-  // at the selected rows. If rows is a nullptr, per-row flags are reset at all
-  // rows.
+  /// Reset data-dependent flags to the "unknown" status. This is needed
+  /// whenever a vector is mutated because the modification may invalidate these
+  /// flags. Currently, we call this function in BaseVector::ensureWritable()
+  /// and BaseVector::prepareForReuse() that are expected to be called before
+  /// any vector mutation.
+  ///
+  /// Per-vector flags are reset to default values. Per-row flags are reset only
+  /// at the selected rows. If rows is a nullptr, per-row flags are reset at all
+  /// rows.
   virtual void resetDataDependentFlags(const SelectivityVector* /*rows*/) {
     nullCount_ = std::nullopt;
     distinctValueCount_ = std::nullopt;
@@ -865,20 +849,18 @@ class BaseVector {
   }
 
  protected:
-  /// Returns a brief summary of the vector. The default implementation includes
-  /// encoding, type, number of rows and number of nulls.
-  ///
-  /// For example,
-  ///     [FLAT INTEGER: 3 elements, no nulls]
-  ///     [DICTIONARY INTEGER: 5 elements, 1 nulls]
+  // Returns a brief summary of the vector. The default implementation includes
+  // encoding, type, number of rows and number of nulls.
+  //
+  // For example,
+  //     [FLAT INTEGER: 3 elements, no nulls]
+  //     [DICTIONARY INTEGER: 5 elements, 1 nulls]
   virtual std::string toSummaryString() const;
 
-  /*
-   * Allocates or reallocates nulls_ with at least the given size if nulls_
-   * hasn't been allocated yet or has been allocated with a smaller capacity.
-   * Ensures that nulls are writable (mutable and single referenced for
-   * minimumSize).
-   */
+  // Allocates or reallocates nulls_ with at least the given size if nulls_
+  // hasn't been allocated yet or has been allocated with a smaller capacity.
+  // Ensures that nulls are writable (mutable and single referenced for
+  // minimumSize).
   void ensureNullsCapacity(vector_size_t minimumSize, bool setNotNull = false);
 
   void ensureNulls() {
@@ -910,12 +892,10 @@ class BaseVector {
   velox::memory::MemoryPool* pool_;
   tsan_atomic<vector_size_t> length_{0};
 
-  /**
-   * Holds the number of nulls in the vector. If the number of nulls
-   * is not available, it is set to std::nullopt. Setting the value to
-   * zero does have implications (SIMD operations need null count to be
-   * zero) and is not the same as std::nullopt.
-   */
+  // Holds the number of nulls in the vector. If the number of nulls is not
+  // available, it is set to std::nullopt. Setting the value to zero does have
+  // implications (SIMD operations need null count to be zero) and is not the
+  // same as std::nullopt.
   std::optional<vector_size_t> nullCount_;
   std::optional<vector_size_t> distinctValueCount_;
   std::optional<ByteCount> representedByteCount_;
@@ -930,11 +910,11 @@ class BaseVector {
 
   friend class LazyVector;
 
-  /// Is true if this vector is a lazy vector or contains one and is being
-  /// wrapped. Keeping track of this helps to enforce the invariant that an
-  /// unloaded lazy vector should not be wrapped by two separate top level
-  /// vectors. This would ensure we avoid it being loaded for two separate set
-  /// of rows.
+  // Is true if this vector is a lazy vector or contains one and is being
+  // wrapped. Keeping track of this helps to enforce the invariant that an
+  // unloaded lazy vector should not be wrapped by two separate top level
+  // vectors. This would ensure we avoid it being loaded for two separate set
+  // of rows.
   bool containsLazyAndIsWrapped_{false};
 
   // Whether we should use Expr::evalWithMemo to cache the result of evaluation
@@ -978,18 +958,18 @@ inline uint64_t BaseVector::byteSize<UnknownValue>(vector_size_t) {
   return 0;
 }
 
-// Returns true if vector is a Lazy vector, possibly wrapped, that hasn't
-// been loaded yet.
+/// Returns true if vector is a Lazy vector, possibly wrapped, that hasn't
+/// been loaded yet.
 bool isLazyNotLoaded(const BaseVector& vector);
 
-// Allocates a buffer to fit at least 'size' indices and initializes them to
-// zero.
+/// Allocates a buffer to fit at least 'size' indices and initializes them to
+/// zero.
 inline BufferPtr allocateIndices(vector_size_t size, memory::MemoryPool* pool) {
   return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
 }
 
-// Allocates a buffer to fit at least 'size' null bits and initializes them to
-// the provided 'initValue' which has a default value of non-null.
+/// Allocates a buffer to fit at least 'size' null bits and initializes them to
+/// the provided 'initValue' which has a default value of non-null.
 inline BufferPtr allocateNulls(
     vector_size_t size,
     memory::MemoryPool* pool,
@@ -997,18 +977,18 @@ inline BufferPtr allocateNulls(
   return AlignedBuffer::allocate<bool>(size, pool, initValue);
 }
 
-// Returns a summary of the null bits in the specified buffer and prints out
-// first 'maxBitsToPrint' bits. Automatically adjusts if 'maxBitsToPrint' is
-// greater than total number of bits available.
-// For example: 3 out of 8 rows are null: .nn.n...
+/// Returns a summary of the null bits in the specified buffer and prints out
+/// first 'maxBitsToPrint' bits. Automatically adjusts if 'maxBitsToPrint' is
+/// greater than total number of bits available.
+/// For example: 3 out of 8 rows are null: .nn.n...
 std::string printNulls(
     const BufferPtr& nulls,
     vector_size_t maxBitsToPrint = 30);
 
-// Returns a summary of the indices buffer and prints out first
-// 'maxIndicesToPrint' indices. Automatically adjusts if 'maxIndicesToPrint' is
-// greater than total number of indices available.
-// For example: 5 unique indices out of 6: 34, 79, 11, 0, 0, 33.
+/// Returns a summary of the indices buffer and prints out first
+/// 'maxIndicesToPrint' indices. Automatically adjusts if 'maxIndicesToPrint' is
+/// greater than total number of indices available.
+/// For example: 5 unique indices out of 6: 34, 79, 11, 0, 0, 33.
 std::string printIndices(
     const BufferPtr& indices,
     vector_size_t maxIndicesToPrint = 10);
@@ -1018,8 +998,8 @@ std::string printIndices(
 
 namespace folly {
 
-// Allow VectorEncoding::Simple to be transparently used by folly::sformat.
-// e.g: folly::sformat("type: {}", encodingType);
+/// Allow VectorEncoding::Simple to be transparently used by folly::sformat.
+/// e.g: folly::sformat("type: {}", encodingType);
 template <>
 class FormatValue<facebook::velox::VectorEncoding::Simple> {
  public:

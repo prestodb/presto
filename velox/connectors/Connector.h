@@ -42,8 +42,8 @@ namespace facebook::velox::connector {
 
 class DataSource;
 
-// A split represents a chunk of data that a connector should load and return
-// as a RowVectorPtr, potentially after processing pushdowns.
+/// A split represents a chunk of data that a connector should load and return
+/// as a RowVectorPtr, potentially after processing pushdowns.
 struct ConnectorSplit {
   const std::string connectorId;
   const int64_t splitWeight{0};
@@ -100,15 +100,13 @@ class ConnectorTableHandle : public ISerializable {
 
 using ConnectorTableHandlePtr = std::shared_ptr<const ConnectorTableHandle>;
 
-/**
- * Represents a request for writing to connector
- */
+/// Represents a request for writing to connector
 class ConnectorInsertTableHandle : public ISerializable {
  public:
   virtual ~ConnectorInsertTableHandle() {}
 
-  // Whether multi-threaded write is supported by this connector. Planner uses
-  // this flag to determine number of drivers.
+  /// Whether multi-threaded write is supported by this connector. Planner uses
+  /// this flag to determine number of drivers.
   virtual bool supportsMultiThreading() const {
     return false;
   }
@@ -120,8 +118,10 @@ class ConnectorInsertTableHandle : public ISerializable {
 
 /// Represents the commit strategy for writing to connector.
 enum class CommitStrategy {
-  kNoCommit, // No more commit actions are needed.
-  kTaskCommit // Task level commit is needed.
+  /// No more commit actions are needed.
+  kNoCommit,
+  /// Task level commit is needed.
+  kTaskCommit
 };
 
 /// Return a string encoding of the given commit strategy.
@@ -176,33 +176,33 @@ class DataSource {
   static constexpr int64_t kUnknownRowSize = -1;
   virtual ~DataSource() = default;
 
-  // Add split to process, then call next multiple times to process the split.
-  // A split must be fully processed by next before another split can be
-  // added. Next returns nullptr to indicate that current split is fully
-  // processed.
+  /// Add split to process, then call next multiple times to process the split.
+  /// A split must be fully processed by next before another split can be
+  /// added. Next returns nullptr to indicate that current split is fully
+  /// processed.
   virtual void addSplit(std::shared_ptr<ConnectorSplit> split) = 0;
 
-  // Process a split added via addSplit. Returns nullptr if split has been fully
-  // processed. Returns std::nullopt and sets the 'future' if started
-  // asynchronous work and needs to wait for it to complete to continue
-  // processing. The caller will wait for the 'future' to complete before
-  // calling 'next' again.
+  /// Process a split added via addSplit. Returns nullptr if split has been
+  /// fully processed. Returns std::nullopt and sets the 'future' if started
+  /// asynchronous work and needs to wait for it to complete to continue
+  /// processing. The caller will wait for the 'future' to complete before
+  /// calling 'next' again.
   virtual std::optional<RowVectorPtr> next(
       uint64_t size,
       velox::ContinueFuture& future) = 0;
 
-  // Add dynamically generated filter.
-  // @param outputChannel index into outputType specified in
-  // Connector::createDataSource() that identifies the column this filter
-  // applies to.
+  /// Add dynamically generated filter.
+  /// @param outputChannel index into outputType specified in
+  /// Connector::createDataSource() that identifies the column this filter
+  /// applies to.
   virtual void addDynamicFilter(
       column_index_t outputChannel,
       const std::shared_ptr<common::Filter>& filter) = 0;
 
-  // Returns the number of input bytes processed so far.
+  /// Returns the number of input bytes processed so far.
   virtual uint64_t getCompletedBytes() = 0;
 
-  // Returns the number of input rows processed so far.
+  /// Returns the number of input rows processed so far.
   virtual uint64_t getCompletedRows() = 0;
 
   virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() = 0;
@@ -222,12 +222,12 @@ class DataSource {
     VELOX_UNSUPPORTED("setFromDataSource");
   }
 
-  // Returns a connector dependent row size if available. This can be
-  // called after addSplit().  This estimates uncompressed data
-  // sizes. This is better than getCompletedBytes()/getCompletedRows()
-  // since these track sizes before decompression and may include
-  // read-ahead and extra IO from coalescing reads and  will not
-  // fully account for size of sparsely accessed columns.
+  /// Returns a connector dependent row size if available. This can be
+  /// called after addSplit().  This estimates uncompressed data
+  /// sizes. This is better than getCompletedBytes()/getCompletedRows()
+  /// since these track sizes before decompression and may include
+  /// read-ahead and extra IO from coalescing reads and  will not
+  /// fully account for size of sparsely accessed columns.
   virtual int64_t estimatedRowSize() {
     return kUnknownRowSize;
   }
@@ -303,10 +303,10 @@ class ConnectorQueryCtx {
     return cache_;
   }
 
-  // This is a combination of task id and the scan's PlanNodeId. This is an id
-  // that allows sharing state between different threads of the same scan. This
-  // is used for locating a scanTracker, which tracks the read density of
-  // columns for prefetch and other memory hierarchy purposes.
+  /// This is a combination of task id and the scan's PlanNodeId. This is an id
+  /// that allows sharing state between different threads of the same scan. This
+  /// is used for locating a scanTracker, which tracks the read density of
+  /// columns for prefetch and other memory hierarchy purposes.
   const std::string& scanId() const {
     return scanId_;
   }
@@ -369,10 +369,10 @@ class Connector {
           std::shared_ptr<connector::ColumnHandle>>& columnHandles,
       ConnectorQueryCtx* connectorQueryCtx) = 0;
 
-  // Returns true if addSplit of DataSource can use 'dataSource' from
-  // ConnectorSplit in addSplit(). If so, TableScan can preload splits
-  // so that file opening and metadata operations are off the Driver'
-  // thread.
+  /// Returns true if addSplit of DataSource can use 'dataSource' from
+  /// ConnectorSplit in addSplit(). If so, TableScan can preload splits
+  /// so that file opening and metadata operations are off the Driver'
+  /// thread.
   virtual bool supportsSplitPreload() {
     return false;
   }
@@ -383,10 +383,10 @@ class Connector {
       ConnectorQueryCtx* connectorQueryCtx,
       CommitStrategy commitStrategy) = 0;
 
-  // Returns a ScanTracker for 'id'. 'id' uniquely identifies the
-  // tracker and different threads will share the same
-  // instance. 'loadQuantum' is the largest single IO for the query
-  // being tracked.
+  /// Returns a ScanTracker for 'id'. 'id' uniquely identifies the
+  /// tracker and different threads will share the same
+  /// instance. 'loadQuantum' is the largest single IO for the query
+  /// being tracked.
   static std::shared_ptr<cache::ScanTracker> getTracker(
       const std::string& scanId,
       int32_t loadQuantum);
@@ -411,7 +411,7 @@ class ConnectorFactory {
 
   virtual ~ConnectorFactory() = default;
 
-  // Initialize is called during the factory registration.
+  /// Initialize is called during the factory registration.
   virtual void initialize() {}
 
   const std::string& connectorName() const {
