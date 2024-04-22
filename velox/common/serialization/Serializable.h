@@ -21,6 +21,7 @@
 #include "folly/json.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/serialization/DeserializationRegistry.h"
+#include "velox/core/Metaprogramming.h"
 
 namespace facebook {
 namespace velox {
@@ -95,16 +96,24 @@ class ISerializable {
 
   template <
       typename T,
-      typename = std::enable_if_t<has_serialize_type<T>::value>>
-  static folly::dynamic serialize(T& obj) {
+      std::enable_if_t<
+          has_serialize_type<T>::value ||
+          std::is_base_of_v<ISerializable, T>>* = nullptr>
+  static folly::dynamic serialize(const T& obj) {
     return obj.serialize();
   }
 
   template <
       typename T,
-      typename = std::enable_if_t<
-          is_any_of<T, int64_t, double, std::string, bool>::value>>
+      std::enable_if_t<std::is_same_v<T, std::string>>* = nullptr>
   static folly::dynamic serialize(const T& val) {
+    return val;
+  }
+
+  template <
+      typename T,
+      typename = std::enable_if_t<is_any_of<T, int64_t, double, bool>::value>>
+  static folly::dynamic serialize(T val) {
     return val;
   }
 
@@ -132,7 +141,7 @@ class ISerializable {
   }
 
   template <
-      class T,
+      typename T,
       std::enable_if_t<
           std::is_same_v<T, folly::Optional<typename T::value_type>>>>
   static folly::dynamic serialize(const folly::Optional<T>& val) {
@@ -143,8 +152,8 @@ class ISerializable {
     return serialize(val.value());
   }
 
-  template <class K, class U>
-  static folly::dynamic serialize(const std::map<K, U>& map) {
+  template <typename T, std::enable_if_t<util::is_mappish<T>::value>* = nullptr>
+  static folly::dynamic serialize(const T& map) {
     folly::dynamic keys = folly::dynamic::array;
     folly::dynamic values = folly::dynamic::array;
     for (auto& pair : map) {
@@ -160,11 +169,11 @@ class ISerializable {
   }
 
   template <
-      class T,
+      typename T,
       typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
   static std::shared_ptr<const T> deserialize(
       const folly::dynamic& obj,
-      void* context) {
+      void* context = nullptr) {
     VELOX_USER_CHECK(obj.isObject());
     // use the key to lookup creator and call it.
     // creator generally be a static method in the class.
@@ -193,19 +202,12 @@ class ISerializable {
   }
 
   template <
-      class T,
-      typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
-  static std::shared_ptr<const T> deserialize(const folly::dynamic& obj) {
-    return deserialize<T>(obj, nullptr);
-  }
-
-  template <
       typename T,
       typename = std::enable_if_t<has_static_obj_create_type<T>::value>>
   using createReturnType = decltype(T::create(std::declval<folly::dynamic>()));
 
   template <
-      class T,
+      typename T,
       typename = std::enable_if_t<has_static_obj_create_type<T>::value>>
   static createReturnType<T> deserialize(
       const folly::dynamic& obj,
@@ -214,7 +216,7 @@ class ISerializable {
   }
 
   template <
-      class T,
+      typename T,
       typename =
           std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>>
   static T deserialize(const folly::dynamic& obj, void* context = nullptr) {
@@ -224,12 +226,12 @@ class ISerializable {
     return (T)raw;
   }
 
-  template <class T, typename = std::enable_if_t<std::is_same_v<T, bool>>>
+  template <typename T, typename = std::enable_if_t<std::is_same_v<T, bool>>>
   static bool deserialize(const folly::dynamic& obj, void* context = nullptr) {
     return obj.asBool();
   }
 
-  template <class T, typename = std::enable_if_t<std::is_same_v<T, double>>>
+  template <typename T, typename = std::enable_if_t<std::is_same_v<T, double>>>
   static double deserialize(
       const folly::dynamic& obj,
       void* context = nullptr) {
@@ -237,7 +239,7 @@ class ISerializable {
   }
 
   template <
-      class T,
+      typename T,
       typename = std::enable_if_t<std::is_same_v<T, std::string>>>
   static std::string deserialize(
       const folly::dynamic& obj,
@@ -246,7 +248,7 @@ class ISerializable {
   }
 
   template <
-      class T,
+      typename T,
       typename = std::enable_if_t<
           std::is_same_v<T, folly::Optional<typename T::value_type>>>>
   static folly::Optional<
@@ -268,13 +270,13 @@ class ISerializable {
   using deserializeType =
       decltype(ISerializable::deserialize<T>(std::declval<folly::dynamic>()));
 
-  template <class T, typename = std::enable_if_t<is_vector_type<T>::value>>
+  template <typename T, std::enable_if_t<is_vector_type<T>::value>* = nullptr>
   static auto deserialize(
       const folly::dynamic& array,
       void* context = nullptr) {
     using deserializeValType =
         decltype(ISerializable::deserialize<typename T::value_type>(
-            std::declval<folly::dynamic>(), context));
+            std::declval<folly::dynamic>()));
 
     VELOX_USER_CHECK(array.isArray());
     std::vector<deserializeValType> exprs;
@@ -286,34 +288,44 @@ class ISerializable {
   }
 
   template <
-      class T,
-      typename = std::enable_if_t<std::is_same_v<
+      typename T,
+      std::enable_if_t<std::is_same_v<
           T,
-          std::map<typename T::key_type, typename T::mapped_type>>>>
-  static std::map<
-      decltype(ISerializable::deserialize<typename T::key_type>(
-          std::declval<folly::dynamic>())),
-      decltype(ISerializable::deserialize<typename T::mapped_type>(
-          std::declval<folly::dynamic>()))>
-  deserialize(const folly::dynamic& obj, void* context = nullptr) {
-    using deserializeKeyType =
-        decltype(ISerializable::deserialize<typename T::key_type>(
-            std::declval<folly::dynamic>()));
+          std::map<typename T::key_type, typename T::mapped_type>>>* = nullptr>
+  static auto deserialize(const folly::dynamic& obj, void* context = nullptr) {
+    return deserialize<std::map, typename T::key_type, typename T::mapped_type>(
+        obj, context);
+  }
 
-    using deserializeMappedType =
-        decltype(ISerializable::deserialize<typename T::mapped_type>(
-            std::declval<folly::dynamic>()));
+  template <
+      template <typename, typename, typename...>
+      typename TMap,
+      typename TKey,
+      typename TMapped,
+      typename... TArgs,
+      typename = std::enable_if_t<
+          util::is_mappish<TMap<TKey, TMapped, TArgs...>>::value &&
+          std::is_same_v<
+              typename TMap<TKey, TMapped, TArgs...>::key_type,
+              TKey> &&
+          std::is_same_v<
+              typename TMap<TKey, TMapped, TArgs...>::mapped_type,
+              TMapped>>>
+  static auto deserialize(const folly::dynamic& obj, void* context = nullptr) {
+    using deserializeKeyType = decltype(ISerializable::deserialize<TKey>(
+        std::declval<folly::dynamic>()));
 
-    std::map<deserializeKeyType, deserializeMappedType> map;
+    using deserializeMappedType = decltype(ISerializable::deserialize<TMapped>(
+        std::declval<folly::dynamic>()));
+
+    TMap<deserializeKeyType, deserializeMappedType, TArgs...> map;
     const folly::dynamic& keys = obj["keys"];
     const folly::dynamic& values = obj["values"];
     VELOX_USER_CHECK(keys.isArray() && values.isArray());
     VELOX_USER_CHECK_EQ(keys.size(), values.size());
     for (size_t idx = 0; idx < keys.size(); ++idx) {
-      auto first =
-          ISerializable::deserialize<typename T::key_type>(keys[idx], context);
-      auto second = ISerializable::deserialize<typename T::mapped_type>(
-          values[idx], context);
+      auto first = ISerializable::deserialize<TKey>(keys[idx], context);
+      auto second = ISerializable::deserialize<TMapped>(values[idx], context);
       map.insert({first, second});
     }
     return map;
@@ -323,7 +335,7 @@ class ISerializable {
 
  private:
   template <
-      class T,
+      typename T,
       typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
   static auto deserializeAsUniquePtr(const folly::dynamic& obj) {
     auto name = obj["name"].asString();

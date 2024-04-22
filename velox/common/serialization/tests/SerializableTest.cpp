@@ -16,6 +16,7 @@
 
 #include "velox/common/serialization/Serializable.h"
 #include <gtest/gtest.h>
+#include "folly/container/F14Map.h"
 #include "folly/json.h"
 
 using namespace ::facebook::velox;
@@ -156,6 +157,28 @@ TEST(SerializableTest, context) {
       ASSERT_EQ(*copies.at(radius), dot * 10);
     }
   }
+}
+
+template <
+    template <typename, typename, typename...>
+    typename TMap,
+    typename TKey,
+    typename TMapped,
+    typename TIt,
+    typename... TArgs>
+void testMap(TIt first, TIt last) {
+  TMap<TKey, TMapped, TArgs...> map{first, last};
+  auto serialized = ISerializable::serialize(map);
+  auto copy = ISerializable::deserialize<TMap, TKey, TMapped>(serialized);
+  ASSERT_EQ(map, copy);
+}
+
+TEST(SerializableTest, map) {
+  std::vector<std::pair<int32_t, std::string>> vals{
+      {1, "a"}, {2, "b"}, {3, "c"}};
+  testMap<std::map, int32_t, std::string>(vals.begin(), vals.end());
+  testMap<std::unordered_map, int32_t, std::string>(vals.begin(), vals.end());
+  testMap<folly::F14FastMap, int32_t, std::string>(vals.begin(), vals.end());
 }
 
 } // namespace
