@@ -114,7 +114,7 @@ struct ThreadState {
   /// driver thread is in a (recursive) section waiting for RPC or memory
   /// strategy decision. The thread is not supposed to access its memory, which
   /// a third party can revoke while the thread is in this state.
-  uint32_t numSuspensions{0};
+  std::atomic<uint32_t> numSuspensions{0};
   /// The start execution time on thread in milliseconds. It is reset when the
   /// driver goes off thread. This is used to track the time that a driver has
   /// continuously run on a thread for per-driver cpu time slice enforcement.
