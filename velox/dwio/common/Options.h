@@ -141,8 +141,10 @@ class RowReaderOptions {
   // Function to track how much time we spend waiting on IO before reading rows
   // (in dwrf row reader). todo: encapsulate this and keySelectionCallBack_ in a
   // struct
-  std::function<void(uint64_t)> blockedOnIoCallback_;
-  std::function<void(uint64_t)> decodingTimeUsCallback_;
+  std::function<void(std::chrono::high_resolution_clock::duration)>
+      blockedOnIoCallback_;
+  std::function<void(std::chrono::high_resolution_clock::duration)>
+      decodingTimeCallback_;
   std::function<void(uint16_t)> stripeCountCallback_;
   bool eagerFirstStripeLoad = true;
   uint64_t skipRows_ = 0;
@@ -354,20 +356,25 @@ class RowReaderOptions {
   }
 
   void setBlockedOnIoCallback(
-      std::function<void(int64_t)> blockedOnIoCallback) {
+      std::function<void(std::chrono::high_resolution_clock::duration)>
+          blockedOnIoCallback) {
     blockedOnIoCallback_ = std::move(blockedOnIoCallback);
   }
 
-  const std::function<void(int64_t)> getBlockedOnIoCallback() const {
+  const std::function<void(std::chrono::high_resolution_clock::duration)>
+  getBlockedOnIoCallback() const {
     return blockedOnIoCallback_;
   }
 
-  void setDecodingTimeUsCallback(std::function<void(int64_t)> decodingTimeUs) {
-    decodingTimeUsCallback_ = std::move(decodingTimeUs);
+  void setDecodingTimeCallback(
+      std::function<void(std::chrono::high_resolution_clock::duration)>
+          decodingTime) {
+    decodingTimeCallback_ = std::move(decodingTime);
   }
 
-  std::function<void(int64_t)> getDecodingTimeUsCallback() const {
-    return decodingTimeUsCallback_;
+  std::function<void(std::chrono::high_resolution_clock::duration)>
+  getDecodingTimeCallback() const {
+    return decodingTimeCallback_;
   }
 
   void setStripeCountCallback(

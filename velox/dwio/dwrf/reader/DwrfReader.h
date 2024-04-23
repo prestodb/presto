@@ -140,7 +140,8 @@ class DwrfRowReader : public StrideIndexProvider,
   uint64_t rowsInCurrentStripe_;
   uint64_t strideIndex_;
   dwio::common::RowReaderOptions options_;
-  std::function<void(uint64_t)> decodingTimeUsCallback_;
+  std::function<void(std::chrono::high_resolution_clock::duration)>
+      decodingTimeCallback_;
 
   // column selector
   std::shared_ptr<dwio::common::ColumnSelector> columnSelector_;

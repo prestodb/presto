@@ -682,7 +682,11 @@ TEST_F(TestReader, testBlockedIoCallbackFiredBlocking) {
   std::optional<uint64_t> metricToIncrement;
 
   rowReaderOpts.setBlockedOnIoCallback(
-      [&metricToIncrement](uint64_t blockedTimeMs) {
+      [&metricToIncrement](
+          std::chrono::high_resolution_clock::duration blockedTime) {
+        const auto blockedTimeMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(blockedTime)
+                .count();
         if (metricToIncrement) {
           *metricToIncrement += blockedTimeMs;
         } else {
@@ -722,7 +726,11 @@ TEST_F(TestReader, DISABLED_testBlockedIoCallbackFiredNonBlocking) {
   std::optional<uint64_t> metricToIncrement;
 
   rowReaderOpts.setBlockedOnIoCallback(
-      [&metricToIncrement](uint64_t blockedTimeMs) {
+      [&metricToIncrement](
+          std::chrono::high_resolution_clock::duration blockedTime) {
+        const auto blockedTimeMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(blockedTime)
+                .count();
         if (metricToIncrement) {
           *metricToIncrement += blockedTimeMs;
         } else {
@@ -766,7 +774,11 @@ TEST_F(TestReader, DISABLED_testBlockedIoCallbackFiredWithFirstStripeLoad) {
   std::optional<uint64_t> metricToIncrement;
 
   rowReaderOpts.setBlockedOnIoCallback(
-      [&metricToIncrement](uint64_t blockedTimeMs) {
+      [&metricToIncrement](
+          std::chrono::high_resolution_clock::duration blockedTime) {
+        const auto blockedTimeMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(blockedTime)
+                .count();
         if (metricToIncrement) {
           *metricToIncrement += blockedTimeMs;
         } else {

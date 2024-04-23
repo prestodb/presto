@@ -32,7 +32,7 @@ using facebook::velox::dwio::common::test::ReaderMock;
 
 TEST(OnDemandUnitLoaderTests, LoadsCorrectlyWithReader) {
   size_t blockedOnIoCount = 0;
-  OnDemandUnitLoaderFactory factory([&](uint64_t) { ++blockedOnIoCount; });
+  OnDemandUnitLoaderFactory factory([&](auto) { ++blockedOnIoCount; });
   ReaderMock readerMock{{10, 20, 30}, {0, 0, 0}, factory};
   EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, false, false}));
   EXPECT_EQ(blockedOnIoCount, 0);

@@ -30,8 +30,10 @@ namespace facebook::velox::dwio::common::unit_loader_tools {
 
 class Measure {
  public:
-  explicit Measure(const std::function<void(uint64_t)>& blockedOnIoMsCallback)
-      : blockedOnIoMsCallback_{blockedOnIoMsCallback},
+  explicit Measure(
+      const std::function<void(std::chrono::high_resolution_clock::duration)>&
+          callback)
+      : callback_{callback},
         startTime_{std::chrono::high_resolution_clock::now()} {}
 
   Measure(const Measure&) = delete;
@@ -40,21 +42,20 @@ class Measure {
   Measure& operator=(Measure&& other) = delete;
 
   ~Measure() {
-    auto timeBlockedOnIo =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() - startTime_);
-    blockedOnIoMsCallback_(timeBlockedOnIo.count());
+    callback_(std::chrono::high_resolution_clock::now() - startTime_);
   }
 
  private:
-  const std::function<void(uint64_t)>& blockedOnIoMsCallback_;
+  const std::function<void(std::chrono::high_resolution_clock::duration)>&
+      callback_;
   const std::chrono::time_point<std::chrono::high_resolution_clock> startTime_;
 };
 
-inline std::optional<Measure> measureBlockedOnIo(
-    const std::function<void(uint64_t)>& blockedOnIoMsCallback) {
-  if (blockedOnIoMsCallback) {
-    return std::make_optional<Measure>(blockedOnIoMsCallback);
+inline std::optional<Measure> measureWithCallback(
+    const std::function<void(std::chrono::high_resolution_clock::duration)>&
+        callback) {
+  if (callback) {
+    return std::make_optional<Measure>(callback);
   }
   return std::nullopt;
 }

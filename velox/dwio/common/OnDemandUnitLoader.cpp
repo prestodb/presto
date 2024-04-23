@@ -19,7 +19,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/UnitLoaderTools.h"
 
-using facebook::velox::dwio::common::unit_loader_tools::measureBlockedOnIo;
+using facebook::velox::dwio::common::unit_loader_tools::measureWithCallback;
 
 namespace facebook::velox::dwio::common {
 
@@ -29,9 +29,10 @@ class OnDemandUnitLoader : public UnitLoader {
  public:
   OnDemandUnitLoader(
       std::vector<std::unique_ptr<LoadUnit>> loadUnits,
-      std::function<void(uint64_t)> blockedOnIoMsCallback)
+      std::function<void(std::chrono::high_resolution_clock::duration)>
+          blockedOnIoCallback)
       : loadUnits_{std::move(loadUnits)},
-        blockedOnIoMsCallback_{std::move(blockedOnIoMsCallback)} {}
+        blockedOnIoCallback_{std::move(blockedOnIoCallback)} {}
 
   ~OnDemandUnitLoader() override = default;
 
@@ -48,7 +49,7 @@ class OnDemandUnitLoader : public UnitLoader {
     }
 
     {
-      auto measure = measureBlockedOnIo(blockedOnIoMsCallback_);
+      auto measure = measureWithCallback(blockedOnIoCallback_);
       loadUnits_[unit]->load();
     }
     loadedUnit_ = unit;
@@ -63,7 +64,8 @@ class OnDemandUnitLoader : public UnitLoader {
 
  private:
   std::vector<std::unique_ptr<LoadUnit>> loadUnits_;
-  std::function<void(uint64_t)> blockedOnIoMsCallback_;
+  std::function<void(std::chrono::high_resolution_clock::duration)>
+      blockedOnIoCallback_;
   std::optional<uint32_t> loadedUnit_;
 };
 
@@ -72,7 +74,7 @@ class OnDemandUnitLoader : public UnitLoader {
 std::unique_ptr<UnitLoader> OnDemandUnitLoaderFactory::create(
     std::vector<std::unique_ptr<LoadUnit>> loadUnits) {
   return std::make_unique<OnDemandUnitLoader>(
-      std::move(loadUnits), blockedOnIoMsCallback_);
+      std::move(loadUnits), blockedOnIoCallback_);
 }
 
 } // namespace facebook::velox::dwio::common
