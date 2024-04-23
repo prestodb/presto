@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
+#include <sys/resource.h>
 
 namespace facebook::presto::util {
 
@@ -41,6 +42,37 @@ std::shared_ptr<folly::SSLContext> createSSLContext(
         clientCertAndKeyPath,
         ex.what());
   }
+}
+
+long getProcessCpuTime() {
+  struct rusage rusageEnd;
+  getrusage(RUSAGE_SELF, &rusageEnd);
+
+  auto tvNanos = [](struct timeval tv) {
+    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
+  };
+
+  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
+}
+
+std::string taskNumbersToString(const std::array<size_t, 5>& taskNumbers) {
+  // Names of five TaskState (enum defined in exec/Task.h).
+  static constexpr std::array<folly::StringPiece, 5> taskStateNames{
+      "Running",
+      "Finished",
+      "Canceled",
+      "Aborted",
+      "Failed",
+  };
+
+  std::string str;
+  for (size_t i = 0; i < taskNumbers.size(); ++i) {
+    if (taskNumbers[i] != 0) {
+      folly::toAppend(
+          fmt::format("{}={} ", taskStateNames[i], taskNumbers[i]), &str);
+    }
+  }
+  return str;
 }
 
 } // namespace facebook::presto::util

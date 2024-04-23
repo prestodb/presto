@@ -272,7 +272,7 @@ PrestoTask::PrestoTask(
     : id(taskId),
       startProcessCpuTime{
           _startProcessCpuTime > 0 ? _startProcessCpuTime
-                                   : getProcessCpuTime()} {
+                                   : util::getProcessCpuTime()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
 }
@@ -290,24 +290,12 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   return getCurrentTimeMs() - lastHeartbeatMs;
 }
 
-// static
-long PrestoTask::getProcessCpuTime() {
-  struct rusage rusageEnd;
-  getrusage(RUSAGE_SELF, &rusageEnd);
-
-  auto tvNanos = [](struct timeval tv) {
-    return tv.tv_sec * 1000000000 + tv.tv_usec * 1000;
-  };
-
-  return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
-}
-
 void PrestoTask::recordProcessCpuTime() {
   if (processCpuTime_ > 0) {
     return;
   }
 
-  processCpuTime_ = getProcessCpuTime() - startProcessCpuTime;
+  processCpuTime_ = util::getProcessCpuTime() - startProcessCpuTime;
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
@@ -773,27 +761,6 @@ void PrestoTask::updateExecutionInfoLocked(
       taskRuntimeStats,
       /*tryToSkipIfRunning=*/true,
       prestoTaskStats);
-}
-
-/*static*/ std::string PrestoTask::taskNumbersToString(
-    const std::array<size_t, 5>& taskNumbers) {
-  // Names of five TaskState (enum defined in exec/Task.h).
-  static constexpr std::array<folly::StringPiece, 5> taskStateNames{
-      "Running",
-      "Finished",
-      "Canceled",
-      "Aborted",
-      "Failed",
-  };
-
-  std::string str;
-  for (size_t i = 0; i < taskNumbers.size(); ++i) {
-    if (taskNumbers[i] != 0) {
-      folly::toAppend(
-          fmt::format("{}={} ", taskStateNames[i], taskNumbers[i]), &str);
-    }
-  }
-  return str;
 }
 
 folly::dynamic PrestoTask::toJson() const {

@@ -31,4 +31,9 @@ std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,
     const std::string& ciphers);
 
+/// Returns process-wide CPU time in nanoseconds.
+long getProcessCpuTime();
+
+std::string taskNumbersToString(const std::array<size_t, 5>& taskNumbers);
+
 } // namespace facebook::presto::util

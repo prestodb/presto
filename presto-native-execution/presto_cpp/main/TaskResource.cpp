@@ -14,6 +14,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
@@ -220,7 +221,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
         folly::via(
             httpSrvCpuExecutor_,
             [this, &body, taskId, createOrUpdateFunc]() {
-              const auto startProcessCpuTime = PrestoTask::getProcessCpuTime();
+              const auto startProcessCpuTime = util::getProcessCpuTime();
 
               // TODO Avoid copy
               std::ostringstream oss;
