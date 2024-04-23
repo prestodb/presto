@@ -123,7 +123,7 @@ option(
 option(VELOX_FORCE_COLORED_OUTPUT
        "Always produce ANSI-colored output (GNU/Clang only)." OFF)
 
-if(${VELOX_BUILD_MINIMAL})
+if(${VELOX_BUILD_MINIMAL} OR ${VELOX_BUILD_MINIMAL_WITH_DWIO})
   # Enable and disable components for velox base build
   set(VELOX_BUILD_TESTING OFF)
   set(VELOX_ENABLE_PRESTO_FUNCTIONS ON)
