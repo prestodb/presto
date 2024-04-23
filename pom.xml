@@ -2271,7 +2271,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.1.1</version>
+                    <version>3.2.1</version>
                 </plugin>
 
                 <plugin>
@@ -2302,11 +2302,15 @@
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
+                        <javaVersion>11</javaVersion>
                         <violationsFiles>
                             <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
                         </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/collect/.*</exclusionPattern>
+                            <exclusionPattern>com/google/common/io/.*</exclusionPattern>
+                            <exclusionPattern>java/net/.*</exclusionPattern>
                         </exclusionPatterns>
                     </configuration>
                 </plugin>
@@ -2504,6 +2508,18 @@
                     </dependency>
                 </dependencies>
             </dependencyManagement>
+        </profile>
+        <profile>
+            <id>build-with-jdk-11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <properties>
+                <project.build.targetJdk>11</project.build.targetJdk>
+                <maven.compiler.source>11</maven.compiler.source>
+                <maven.compiler.target>11</maven.compiler.target>
+                <maven.compiler.release>11</maven.compiler.release>
+            </properties>
         </profile>
         <profile>
             <id>tests-with-dependencies</id>
