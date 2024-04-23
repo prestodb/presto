@@ -38,9 +38,17 @@ namespace facebook::velox::functions {
 /// equivalent. This is not part of JSONPath syntax, but this is the behavior of
 /// Jayway implementation used by Presto.
 ///
+/// It is allowed to use dot-notation redundantly, e.g. non-standard path
+/// '$.[0].foo' is allowed and is equivalent to '$[0].foo'. Similarly, paths
+/// '$.[0].[1].[2]' and '$[0].[1][2]' are allowed and equivalent to
+/// '$[0][1][2]'.
+///
 /// Examples:
+///   "$"
 ///   "$.store.book[0].author"
 ///   "store.book[0].author"
+///   "store.book.[0].author"
+///   "$[0].foo.bar"
 class JsonPathTokenizer {
  public:
   /// Resets the tokenizer to a new path. This method must be called and return

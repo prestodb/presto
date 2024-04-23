@@ -108,6 +108,13 @@ TEST_F(JsonExtractScalarTest, simple) {
   // Paths without leading '$'.
   EXPECT_EQ(jsonExtractScalar(R"({"k1":"v1"})", "k1"), "v1");
   EXPECT_EQ(jsonExtractScalar(R"({"k1":{"k2": 999}})", "k1.k2"), "999");
+
+  // Paths with redundant '.'s.
+  auto json = "[1, 2, [10, 20, [100, 200, 300]]]";
+  EXPECT_EQ(jsonExtractScalar(json, "$[2][2][2]"), "300");
+  EXPECT_EQ(jsonExtractScalar(json, "$.[2].[2].[2]"), "300");
+  EXPECT_EQ(jsonExtractScalar(json, "$[2].[2].[2]"), "300");
+  EXPECT_EQ(jsonExtractScalar(json, "$[2][2].[2]"), "300");
 }
 
 TEST_F(JsonExtractScalarTest, jsonType) {

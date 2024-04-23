@@ -95,6 +95,14 @@ TEST(JsonPathTokenizerTest, validPaths) {
   assertValidPath("foo[12].bar", TokenList({"foo", "12", "bar"}));
   assertValidPath("foo.bar.baz", TokenList({"foo", "bar", "baz"}));
 
+  // Paths with redundant '.'s.
+  assertValidPath("$.[0].[1].[2]", TokenList({"0", "1", "2"}));
+  assertValidPath("$[0].[1].[2]", TokenList({"0", "1", "2"}));
+  assertValidPath("$[0].[1][2]", TokenList({"0", "1", "2"}));
+  assertValidPath("$.[0].[1].foo.[2]", TokenList({"0", "1", "foo", "2"}));
+  assertValidPath("$[0].[1].foo.[2]", TokenList({"0", "1", "foo", "2"}));
+  assertValidPath("$[0][1].foo.[2]", TokenList({"0", "1", "foo", "2"}));
+
   assertQuotedToken("!@#$%^&*()[]{}/?'"s, TokenList{"!@#$%^&*()[]{}/?'"s});
   assertQuotedToken("ab\u0001c"s, TokenList{"ab\u0001c"s});
   assertQuotedToken("ab\0c"s, TokenList{"ab\0c"s});

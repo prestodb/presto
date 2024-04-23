@@ -85,7 +85,11 @@ std::optional<std::string> JsonPathTokenizer::getNext() {
   }
 
   if (match(DOT)) {
-    return matchDotKey();
+    if (hasNext() && path_[index_] != OPEN_BRACKET) {
+      return matchDotKey();
+    }
+    // Simply ignore the '.' followed by '['. This allows non-standard paths
+    // like '$.[0].[1].[2]' supported by Jayway / Presto.
   }
 
   if (match(OPEN_BRACKET)) {

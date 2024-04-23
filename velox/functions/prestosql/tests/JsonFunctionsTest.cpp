@@ -610,6 +610,14 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(std::nullopt, jsonExtract(json, "x.c"));
   EXPECT_EQ(std::nullopt, jsonExtract(json, "x.b[20]"));
 
+  // Paths with redundant '.'s.
+  json = R"([[[{"a": 1, "b": [1, 2, 3]}]]])";
+  EXPECT_EQ("1", jsonExtract(json, "$.[0][0][0].a"));
+  EXPECT_EQ("[1, 2, 3]", jsonExtract(json, "$.[0].[0].[0].b"));
+  EXPECT_EQ("[1, 2, 3]", jsonExtract(json, "$[0][0].[0].b"));
+  EXPECT_EQ("3", jsonExtract(json, "$[0][0][0].b.[2]"));
+  EXPECT_EQ("3", jsonExtract(json, "$.[0].[0][0].b.[2]"));
+
   // TODO The following paths are supported by Presto via Jayway, but do not
   // work in Velox yet. Figure out how to add support for these.
   VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");
