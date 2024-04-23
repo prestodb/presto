@@ -17,41 +17,15 @@
 #include "velox/functions/prestosql/json/JsonPathTokenizer.h"
 
 #include <vector>
-
 #include "gtest/gtest.h"
 
 using namespace std::string_literals;
-using facebook::velox::functions::JsonPathTokenizer;
 using TokenList = std::vector<std::string>;
 
-#define EXPECT_TOKEN_EQ(path, expected)  \
-  {                                      \
-    auto jsonPath = path;                \
-    auto tokens = getTokens(jsonPath);   \
-    EXPECT_TRUE(bool(tokens));           \
-    EXPECT_EQ(expected, tokens.value()); \
-  }
+namespace facebook::velox::functions {
+namespace {
 
-#define EXPECT_TOKEN_INVALID(path) \
-  {                                \
-    auto tokens = getTokens(path); \
-    EXPECT_FALSE(bool(tokens));    \
-  }
-
-#define EXPECT_QUOTED_TOKEN_EQ(path, expected) \
-  {                                            \
-    auto quotedPath = "$[\"" + path + "\"]";   \
-    EXPECT_TOKEN_EQ(quotedPath, expected);     \
-  }
-
-#define EXPECT_UNQUOTED_TOKEN_INVALID(path) \
-  {                                         \
-    auto invalidPath = "$." + path;         \
-    EXPECT_TOKEN_INVALID(invalidPath);      \
-  }
-
-// The test is ported from Presto for compatibility
-std::optional<TokenList> getTokens(const std::string& path) {
+std::optional<TokenList> getTokens(std::string_view path) {
   JsonPathTokenizer tokenizer;
   if (!tokenizer.reset(path)) {
     return std::nullopt;
@@ -69,58 +43,100 @@ std::optional<TokenList> getTokens(const std::string& path) {
   return tokens;
 }
 
-TEST(JsonPathTokenizerTest, tokenizeTest) {
-  EXPECT_TOKEN_EQ("$"s, TokenList());
-  EXPECT_TOKEN_EQ("$.foo"s, TokenList{"foo"s});
-  EXPECT_TOKEN_EQ("$[\"foo\"]"s, TokenList{"foo"s});
-  EXPECT_TOKEN_EQ("$[\"foo.bar\"]"s, TokenList{"foo.bar"s});
-  EXPECT_TOKEN_EQ("$[42]"s, TokenList{"42"s});
-  EXPECT_TOKEN_EQ("$.42"s, TokenList{"42"s});
-  EXPECT_TOKEN_EQ("$.42.63"s, (TokenList{"42"s, "63"s}));
-  EXPECT_TOKEN_EQ(
-      "$.foo.42.bar.63"s, (TokenList{"foo"s, "42"s, "bar"s, "63"s}));
-  EXPECT_TOKEN_EQ("$.x.foo"s, (TokenList{"x"s, "foo"s}));
-  EXPECT_TOKEN_EQ("$.x[\"foo\"]"s, (TokenList{"x"s, "foo"s}));
-  EXPECT_TOKEN_EQ("$.x[42]"s, (TokenList{"x"s, "42"s}));
-  EXPECT_TOKEN_EQ("$.foo_42._bar63"s, (TokenList{"foo_42"s, "_bar63"s}));
-  EXPECT_TOKEN_EQ("$[foo_42][_bar63]"s, (TokenList{"foo_42"s, "_bar63"s}));
-  EXPECT_TOKEN_EQ("$.foo:42.:bar63"s, (TokenList{"foo:42"s, ":bar63"s}));
-  EXPECT_TOKEN_EQ(
-      "$[\"foo:42\"][\":bar63\"]"s, (TokenList{"foo:42"s, ":bar63"s}));
-  EXPECT_TOKEN_EQ(
+// 'path' should start with '$'.
+void assertValidPath(std::string_view path, const TokenList& expectedTokens) {
+  auto tokens = getTokens(path);
+
+  EXPECT_TRUE(tokens.has_value()) << "Invalid JSON path: " << path;
+  if (!tokens.has_value()) {
+    return;
+  }
+
+  EXPECT_EQ(expectedTokens, tokens.value());
+}
+
+void assertQuotedToken(
+    const std::string& token,
+    const TokenList& expectedTokens) {
+  auto quotedPath = "$[\"" + token + "\"]";
+  assertValidPath(quotedPath, expectedTokens);
+
+  auto invalidPath = "$." + token;
+  EXPECT_FALSE(getTokens(invalidPath));
+}
+
+// The test is ported from Presto for compatibility.
+TEST(JsonPathTokenizerTest, validPaths) {
+  assertValidPath("$"s, TokenList());
+  assertValidPath("$.foo"s, TokenList{"foo"s});
+  assertValidPath("$[\"foo\"]"s, TokenList{"foo"s});
+  assertValidPath("$[\"foo.bar\"]"s, TokenList{"foo.bar"s});
+  assertValidPath("$[42]"s, TokenList{"42"s});
+  assertValidPath("$.42"s, TokenList{"42"s});
+  assertValidPath("$.42.63"s, TokenList{"42"s, "63"s});
+  assertValidPath("$.foo.42.bar.63"s, TokenList{"foo"s, "42"s, "bar"s, "63"s});
+  assertValidPath("$.x.foo"s, TokenList{"x"s, "foo"s});
+  assertValidPath("$.x[\"foo\"]"s, TokenList{"x"s, "foo"s});
+  assertValidPath("$.x[42]"s, TokenList{"x"s, "42"s});
+  assertValidPath("$.foo_42._bar63"s, TokenList{"foo_42"s, "_bar63"s});
+  assertValidPath("$[foo_42][_bar63]"s, TokenList{"foo_42"s, "_bar63"s});
+  assertValidPath("$.foo:42.:bar63"s, TokenList{"foo:42"s, ":bar63"s});
+  assertValidPath(
+      "$[\"foo:42\"][\":bar63\"]"s, TokenList{"foo:42"s, ":bar63"s});
+  assertValidPath(
       "$.store.fruit[*].weight",
-      (TokenList{"store"s, "fruit"s, "*"s, "weight"s}));
-  EXPECT_QUOTED_TOKEN_EQ("!@#$%^&*()[]{}/?'"s, TokenList{"!@#$%^&*()[]{}/?'"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("!@#$%^&*()[]{}/?'"s);
-  EXPECT_QUOTED_TOKEN_EQ("ab\u0001c"s, TokenList{"ab\u0001c"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("ab\u0001c"s);
-  EXPECT_QUOTED_TOKEN_EQ("ab\0c"s, TokenList{"ab\0c"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("ab\0c"s);
-  EXPECT_QUOTED_TOKEN_EQ("ab\t\n\rc"s, TokenList{"ab\t\n\rc"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("ab\t\n\rc"s);
-  EXPECT_QUOTED_TOKEN_EQ("."s, TokenList{"."s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("."s);
-  EXPECT_QUOTED_TOKEN_EQ("$"s, TokenList{"$"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("$"s);
-  EXPECT_QUOTED_TOKEN_EQ("]"s, TokenList{"]"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("]"s);
-  EXPECT_QUOTED_TOKEN_EQ("["s, TokenList{"["s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("["s);
-  EXPECT_QUOTED_TOKEN_EQ("'"s, TokenList{"'"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("'"s);
-  EXPECT_QUOTED_TOKEN_EQ(
+      TokenList{"store"s, "fruit"s, "*"s, "weight"s});
+  assertValidPath(
+      "$.store.book[*].author", TokenList{"store", "book", "*", "author"});
+  assertValidPath("$.store.*", TokenList({"store", "*"}));
+
+  // Paths without leading '$'.
+  assertValidPath("foo", TokenList({"foo"}));
+  assertValidPath("foo[12].bar", TokenList({"foo", "12", "bar"}));
+  assertValidPath("foo.bar.baz", TokenList({"foo", "bar", "baz"}));
+
+  assertQuotedToken("!@#$%^&*()[]{}/?'"s, TokenList{"!@#$%^&*()[]{}/?'"s});
+  assertQuotedToken("ab\u0001c"s, TokenList{"ab\u0001c"s});
+  assertQuotedToken("ab\0c"s, TokenList{"ab\0c"s});
+  assertQuotedToken("ab\t\n\rc"s, TokenList{"ab\t\n\rc"s});
+  assertQuotedToken("."s, TokenList{"."s});
+  assertQuotedToken("$"s, TokenList{"$"s});
+  assertQuotedToken("]"s, TokenList{"]"s});
+  assertQuotedToken("["s, TokenList{"["s});
+  assertQuotedToken("'"s, TokenList{"'"s});
+  assertQuotedToken(
       "!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0"s,
       TokenList{"!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0"s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("!@#$%^&*(){}[]<>?/|.,`~\r\n\t \0"s);
-  EXPECT_QUOTED_TOKEN_EQ("a\\\\b\\\""s, TokenList{"a\\b\""s});
-  EXPECT_UNQUOTED_TOKEN_INVALID("a\\\\b\\\""s);
-  EXPECT_QUOTED_TOKEN_EQ("ab\\\"cd\\\"ef"s, TokenList{"ab\"cd\"ef"s});
-
-  // backslash not followed by valid escape
-  EXPECT_TOKEN_INVALID("$[\"a\\ \"]"s);
-
-  // colon in subscript must be quoted
-  EXPECT_TOKEN_INVALID("$[foo:bar]"s);
-
-  EXPECT_TOKEN_INVALID("$.store.book[");
+  assertQuotedToken("a\\\\b\\\""s, TokenList{"a\\b\""s});
+  assertQuotedToken("ab\\\"cd\\\"ef"s, TokenList{"ab\"cd\"ef"s});
 }
+
+TEST(JsonPathTokenizerTest, invalidPaths) {
+  JsonPathTokenizer tokenizer;
+
+  // Empty path.
+  EXPECT_FALSE(getTokens(""));
+
+  // Backslash not followed by valid escape.
+  EXPECT_FALSE(getTokens("$[\"a\\ \"]"s));
+
+  // Colon in subscript must be quoted.
+  EXPECT_FALSE(getTokens("$[foo:bar]"s));
+
+  // Open bracket without close bracket.
+  EXPECT_FALSE(getTokens("$.store.book["));
+
+  // Unsupported deep scan operator.
+  EXPECT_FALSE(getTokens("$..store"));
+  EXPECT_FALSE(getTokens("..store"));
+  EXPECT_FALSE(getTokens("$..[3].foo"));
+  EXPECT_FALSE(getTokens("..[3].foo"));
+
+  // Paths without leading '$'.
+  EXPECT_FALSE(getTokens("[1].foo"));
+  EXPECT_FALSE(getTokens(".[1].foo"));
+  EXPECT_FALSE(getTokens(".foo.bar.baz"));
+}
+
+} // namespace
+} // namespace facebook::velox::functions

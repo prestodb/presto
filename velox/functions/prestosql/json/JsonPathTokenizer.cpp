@@ -41,11 +41,35 @@ bool isDotKeyFormat(char c) {
 } // namespace
 
 bool JsonPathTokenizer::reset(std::string_view path) {
-  if (path.empty() || path[0] != ROOT) {
+  if (path.empty()) {
+    index_ = 0;
+    path_ = {};
     return false;
   }
-  index_ = 1;
+
+  if (path[0] == ROOT) {
+    index_ = 1;
+    path_ = path;
+    return true;
+  }
+
+  // Presto supplements basic JsonPath implementation with Jayway engine,
+  // which allows paths that do not start with '$'. Jayway simply prepends
+  // such paths with '$.'. This logic supports paths like 'foo' by converting
+  // them to '$.foo'. However, this logic converts paths like '.foo' into
+  // '$..foo' which uses deep scan operator (..). This changes the meaning of
+  // the path in unexpected way.
+  //
+  // Here, we allow paths like 'foo', 'foo.bar' and similar. We do not allow
+  // paths like '.foo' or '[0]'.
+
+  index_ = 0;
+  if (path[0] == DOT || path[0] == OPEN_BRACKET) {
+    path_ = {};
+    return false;
+  }
   path_ = path;
+
   return true;
 }
 
@@ -54,9 +78,16 @@ bool JsonPathTokenizer::hasNext() const {
 }
 
 std::optional<std::string> JsonPathTokenizer::getNext() {
+  if (index_ == 0) {
+    // We are parsing first token in a path that doesn't start with '$'. In
+    // this case, we assume the path starts with '$.'.
+    return matchDotKey();
+  }
+
   if (match(DOT)) {
     return matchDotKey();
   }
+
   if (match(OPEN_BRACKET)) {
     auto token =
         match(QUOTE) ? matchQuotedSubscriptKey() : matchUnquotedSubscriptKey();
@@ -65,6 +96,7 @@ std::optional<std::string> JsonPathTokenizer::getNext() {
     }
     return token;
   }
+
   return std::nullopt;
 }
 
