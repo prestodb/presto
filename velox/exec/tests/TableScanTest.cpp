@@ -270,7 +270,7 @@ TEST_F(TableScanTest, allColumns) {
   auto it = planStats.find(scanNodeId);
   ASSERT_TRUE(it != planStats.end());
   ASSERT_TRUE(it->second.peakMemoryBytes > 0);
-  EXPECT_LT(0, exec::TableScan::ioWaitNanos());
+  ASSERT_LT(0, it->second.customStats.at("ioWaitNanos").sum);
 }
 
 TEST_F(TableScanTest, connectorStats) {

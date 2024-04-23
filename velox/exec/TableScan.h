@@ -49,13 +49,6 @@ class TableScan : public SourceOperator {
       column_index_t outputChannel,
       const std::shared_ptr<common::Filter>& filter) override;
 
-  /// Returns process-wide cumulative IO wait time for all table
-  /// scan. This is the blocked time. If running entirely from memory
-  /// this would be 0.
-  static uint64_t ioWaitNanos() {
-    return ioWaitNanos_;
-  }
-
  private:
   // Checks if this table scan operator needs to yield before processing the
   // next split.
@@ -75,9 +68,6 @@ class TableScan : public SourceOperator {
   // executor of the connector. If the DataSource is needed before prepare is
   // done, it will be made when needed.
   void preload(std::shared_ptr<connector::ConnectorSplit> split);
-
-  // Process-wide IO wait time.
-  inline static std::atomic<uint64_t> ioWaitNanos_;
 
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
@@ -129,9 +119,5 @@ class TableScan : public SourceOperator {
   // Holds the current status of the operator. Used when debugging to understand
   // what operator is doing.
   std::atomic<const char*> curStatus_{""};
-
-  // The last value of the IO wait time of 'this' that has been added to the
-  // global static 'ioWaitNanos_'.
-  uint64_t lastIoWaitNanos_{0};
 };
 } // namespace facebook::velox::exec

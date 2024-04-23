@@ -122,10 +122,6 @@ RowVectorPtr TableScan::getOutput() {
           const auto connectorStats = dataSource_->runtimeStats();
           auto lockedStats = stats_.wlock();
           for (const auto& [name, counter] : connectorStats) {
-            if (name == "ioWaitNanos") {
-              ioWaitNanos_ += counter.value - lastIoWaitNanos_;
-              lastIoWaitNanos_ = counter.value;
-            }
             if (FOLLY_UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
               lockedStats->runtimeStats.emplace(
                   name, RuntimeMetric(counter.unit));
