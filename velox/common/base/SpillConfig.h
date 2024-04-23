@@ -35,7 +35,7 @@ namespace facebook::velox::common {
 
 /// Defining type for a callback function that returns the spill directory path.
 /// Implementations can use it to ensure the path exists before returning.
-using GetSpillDirectoryPathCB = std::function<const std::string&()>;
+using GetSpillDirectoryPathCB = std::function<std::string_view()>;
 
 /// The callback used to update the aggregated spill bytes of a query. If the
 /// query spill limit is set, the callback throws if the aggregated spilled

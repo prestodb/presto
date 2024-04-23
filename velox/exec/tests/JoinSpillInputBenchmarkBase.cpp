@@ -32,7 +32,7 @@ const int numSampleVectors = 100;
 void JoinSpillInputBenchmarkBase::setUp() {
   SpillerBenchmarkBase::setUp();
   common::SpillConfig spillConfig;
-  spillConfig.getSpillDirPathCb = [&]() -> const std::string& {
+  spillConfig.getSpillDirPathCb = [&]() -> std::string_view {
     return spillDir_;
   };
   spillConfig.updateAndCheckSpillLimitCb = [&](uint64_t) {};

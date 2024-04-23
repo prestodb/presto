@@ -520,10 +520,12 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       bool makeError,
       uint64_t maxSpillRunRows = 0) {
     static const std::string kBadSpillDirPath = "/bad/path";
-    common::GetSpillDirectoryPathCB badSpillDirCb =
-        [&]() -> const std::string& { return kBadSpillDirPath; };
-    common::GetSpillDirectoryPathCB tempSpillDirCb =
-        [&]() -> const std::string& { return tempDirPath_->getPath(); };
+    common::GetSpillDirectoryPathCB badSpillDirCb = [&]() -> std::string_view {
+      return kBadSpillDirPath;
+    };
+    common::GetSpillDirectoryPathCB tempSpillDirCb = [&]() -> std::string_view {
+      return tempDirPath_->getPath();
+    };
     stats_.clear();
     spillStats_ = folly::Synchronized<common::SpillStats>();
 

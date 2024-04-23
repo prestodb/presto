@@ -117,7 +117,7 @@ uint64_t SpillState::appendToPartition(
 
   VELOX_CHECK_NOT_NULL(
       getSpillDirPathCb_, "Spill directory callback not specified.");
-  const std::string& spillDir = getSpillDirPathCb_();
+  auto spillDir = getSpillDirPathCb_();
   VELOX_CHECK(!spillDir.empty(), "Spill directory does not exist");
   // Ensure that partition exist before writing.
   if (partitionWriters_.at(partition) == nullptr) {

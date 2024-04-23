@@ -126,7 +126,7 @@ void AggregateSpillBenchmarkBase::writeSpillData() {
 
 std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
   common::SpillConfig spillConfig;
-  spillConfig.getSpillDirPathCb = [&]() -> const std::string& {
+  spillConfig.getSpillDirPathCb = [&]() -> std::string_view {
     return spillDir_;
   };
   spillConfig.updateAndCheckSpillLimitCb = [&](uint64_t) {};

@@ -146,7 +146,7 @@ std::optional<common::SpillConfig> DriverCtx::makeSpillConfig(
     return std::nullopt;
   }
   common::GetSpillDirectoryPathCB getSpillDirPathCb =
-      [this]() -> const std::string& {
+      [this]() -> std::string_view {
     return task->getOrCreateSpillDirectory();
   };
   const auto& spillFilePrefix =
