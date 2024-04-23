@@ -341,7 +341,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         executor_.get(), core::QueryConfig({}));
     core::PlanFragment planFragment{planNode};
     return exec::Task::create(
-        taskId, std::move(planFragment), destination, std::move(queryCtx));
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        exec::Task::ExecutionMode::kParallel);
   }
 
   RowVectorPtr deserialize(

@@ -482,7 +482,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
       // task which hasn't been destroyed yet, such as the task pool in query's
       // root memory pool.
       auto newExecTask = exec::Task::create(
-          taskId, planFragment, prestoTask->id.id(), std::move(queryCtx));
+          taskId,
+          planFragment,
+          prestoTask->id.id(),
+          std::move(queryCtx),
+          exec::Task::ExecutionMode::kParallel);
       // TODO: move spill directory creation inside velox task execution
       // whenever spilling is triggered. It will reduce the unnecessary file
       // operations on remote storage.
