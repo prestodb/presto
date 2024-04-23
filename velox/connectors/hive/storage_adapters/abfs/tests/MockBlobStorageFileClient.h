@@ -27,7 +27,7 @@ class MockBlobStorageFileClient : public IBlobStorageFileClient {
  public:
   MockBlobStorageFileClient() {
     auto tempFile = ::exec::test::TempFilePath::create();
-    filePath_ = tempFile->path;
+    filePath_ = tempFile->getPath();
   }
 
   void create() override;

@@ -66,7 +66,7 @@ class AbfsFileSystemTest : public testing::Test {
     azuriteServer = std::make_shared<filesystems::test::AzuriteServer>(port);
     azuriteServer->start();
     auto tempFile = createFile();
-    azuriteServer->addFile(tempFile->path, filePath);
+    azuriteServer->addFile(tempFile->getPath(), filePath);
   }
 
   void TearDown() override {
