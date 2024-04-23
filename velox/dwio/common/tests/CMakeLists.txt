@@ -27,6 +27,7 @@ add_executable(
   LocalFileSinkTest.cpp
   MemorySinkTest.cpp
   LoggedExceptionTest.cpp
+  MeasureTimeTests.cpp
   ParallelForTest.cpp
   RangeTests.cpp
   ReadFileInputStreamTests.cpp

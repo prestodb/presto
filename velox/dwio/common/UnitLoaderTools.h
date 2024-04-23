@@ -28,38 +28,6 @@
 
 namespace facebook::velox::dwio::common::unit_loader_tools {
 
-class Measure {
- public:
-  explicit Measure(
-      const std::function<void(std::chrono::high_resolution_clock::duration)>&
-          callback)
-      : callback_{callback},
-        startTime_{std::chrono::high_resolution_clock::now()} {}
-
-  Measure(const Measure&) = delete;
-  Measure(Measure&&) = delete;
-  Measure& operator=(const Measure&) = delete;
-  Measure& operator=(Measure&& other) = delete;
-
-  ~Measure() {
-    callback_(std::chrono::high_resolution_clock::now() - startTime_);
-  }
-
- private:
-  const std::function<void(std::chrono::high_resolution_clock::duration)>&
-      callback_;
-  const std::chrono::time_point<std::chrono::high_resolution_clock> startTime_;
-};
-
-inline std::optional<Measure> measureWithCallback(
-    const std::function<void(std::chrono::high_resolution_clock::duration)>&
-        callback) {
-  if (callback) {
-    return std::make_optional<Measure>(callback);
-  }
-  return std::nullopt;
-}
-
 // This class can create many callbacks that can be distributed to unit loader
 // factories. Only when the last created callback is activated, this class will
 // emit the original callback.

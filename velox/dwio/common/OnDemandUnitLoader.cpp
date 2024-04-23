@@ -17,9 +17,10 @@
 #include "velox/dwio/common/OnDemandUnitLoader.h"
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/dwio/common/MeasureTime.h"
 #include "velox/dwio/common/UnitLoaderTools.h"
 
-using facebook::velox::dwio::common::unit_loader_tools::measureWithCallback;
+using facebook::velox::dwio::common::measureTimeIfCallback;
 
 namespace facebook::velox::dwio::common {
 
@@ -49,7 +50,7 @@ class OnDemandUnitLoader : public UnitLoader {
     }
 
     {
-      auto measure = measureWithCallback(blockedOnIoCallback_);
+      auto measure = measureTimeIfCallback(blockedOnIoCallback_);
       loadUnits_[unit]->load();
     }
     loadedUnit_ = unit;
