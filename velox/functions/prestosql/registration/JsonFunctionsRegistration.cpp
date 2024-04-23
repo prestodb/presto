@@ -15,7 +15,6 @@
  */
 
 #include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/prestosql/SIMDJsonFunctions.h"
 
 namespace facebook::velox::functions {
