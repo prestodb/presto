@@ -4127,7 +4127,9 @@ TEST_F(TableScanTest, partitionKeyNotMatchPartitionKeysHandle) {
   assertQuery(op, split, "SELECT c0 FROM tmp");
 }
 
-TEST_F(TableScanTest, memoryArbitrationWithSlowTableScan) {
+// TODO: re-enable this test once we add back driver suspension support for
+// table scan.
+TEST_F(TableScanTest, DISABLED_memoryArbitrationWithSlowTableScan) {
   const size_t numFiles{2};
   std::vector<std::shared_ptr<TempFilePath>> filePaths;
   std::vector<RowVectorPtr> vectorsForDuckDb;
@@ -4205,7 +4207,11 @@ TEST_F(TableScanTest, memoryArbitrationWithSlowTableScan) {
   queryThread.join();
 }
 
-DEBUG_ONLY_TEST_F(TableScanTest, memoryArbitrationByTableScanAllocation) {
+// TODO: re-enable this test once we add back driver suspension support for
+// table scan.
+DEBUG_ONLY_TEST_F(
+    TableScanTest,
+    DISABLED_memoryArbitrationByTableScanAllocation) {
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
   writeToFile(filePath->getPath(), vectors);
