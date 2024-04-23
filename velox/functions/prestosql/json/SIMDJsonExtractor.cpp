@@ -55,7 +55,7 @@ bool SIMDJsonExtractor::tokenize(const std::string& path) {
 
   while (tokenizer.hasNext()) {
     if (auto token = tokenizer.getNext()) {
-      tokens_.push_back(token.value());
+      tokens_.emplace_back(token.value());
     } else {
       tokens_.clear();
       return false;

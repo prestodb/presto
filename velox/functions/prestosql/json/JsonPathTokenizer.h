@@ -16,36 +16,31 @@
 
 #pragma once
 
-#include <folly/Expected.h>
-#include <folly/Range.h>
+#include <optional>
+#include <string>
 
 namespace facebook::velox::functions {
 
-using ParseResult = folly::Expected<std::string, bool>;
-
 class JsonPathTokenizer {
  public:
-  bool reset(folly::StringPiece path);
+  bool reset(std::string_view path);
 
   bool hasNext() const;
 
-  ParseResult getNext();
+  std::optional<std::string> getNext();
 
  private:
   bool match(char expected);
-  ParseResult matchDotKey();
 
-  ParseResult matchUnquotedSubscriptKey();
+  std::optional<std::string> matchDotKey();
 
-  ParseResult matchQuotedSubscriptKey();
+  std::optional<std::string> matchUnquotedSubscriptKey();
 
-  bool isDotKeyFormat(char c);
-
-  bool isUnquotedBracketKeyFormat(char c);
+  std::optional<std::string> matchQuotedSubscriptKey();
 
  private:
   size_t index_;
-  folly::StringPiece path_;
+  std::string_view path_;
 };
 
 } // namespace facebook::velox::functions

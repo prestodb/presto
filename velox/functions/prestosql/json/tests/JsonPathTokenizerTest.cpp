@@ -51,16 +51,19 @@ using TokenList = std::vector<std::string>;
   }
 
 // The test is ported from Presto for compatibility
-folly::Expected<TokenList, bool> getTokens(const std::string& path) {
+std::optional<TokenList> getTokens(const std::string& path) {
   JsonPathTokenizer tokenizer;
-  tokenizer.reset(path);
+  if (!tokenizer.reset(path)) {
+    return std::nullopt;
+  }
+
   TokenList tokens;
   while (tokenizer.hasNext()) {
     if (auto token = tokenizer.getNext()) {
-      tokens.push_back(token.value());
+      tokens.emplace_back(token.value());
     } else {
       tokens.clear();
-      return folly::makeUnexpected(false);
+      return std::nullopt;
     }
   }
   return tokens;

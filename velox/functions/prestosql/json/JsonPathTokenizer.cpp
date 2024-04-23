@@ -18,6 +18,7 @@
 
 namespace facebook::velox::functions {
 
+namespace {
 const char ROOT = '$';
 const char DOT = '.';
 const char COLON = ':';
@@ -29,7 +30,17 @@ const char UNDER_SCORE = '_';
 const char OPEN_BRACKET = '[';
 const char CLOSE_BRACKET = ']';
 
-bool JsonPathTokenizer::reset(folly::StringPiece path) {
+bool isUnquotedBracketKeyFormat(char c) {
+  return c == UNDER_SCORE || c == STAR || std::isalnum(c);
+}
+
+bool isDotKeyFormat(char c) {
+  return c == COLON || c == DASH || isUnquotedBracketKeyFormat(c);
+}
+
+} // namespace
+
+bool JsonPathTokenizer::reset(std::string_view path) {
   if (path.empty() || path[0] != ROOT) {
     return false;
   }
@@ -42,7 +53,7 @@ bool JsonPathTokenizer::hasNext() const {
   return index_ < path_.size();
 }
 
-ParseResult JsonPathTokenizer::getNext() {
+std::optional<std::string> JsonPathTokenizer::getNext() {
   if (match(DOT)) {
     return matchDotKey();
   }
@@ -50,53 +61,53 @@ ParseResult JsonPathTokenizer::getNext() {
     auto token =
         match(QUOTE) ? matchQuotedSubscriptKey() : matchUnquotedSubscriptKey();
     if (!token || !match(CLOSE_BRACKET)) {
-      return folly::makeUnexpected(false);
+      return std::nullopt;
     }
     return token;
   }
-  return folly::makeUnexpected(false);
+  return std::nullopt;
 }
 
 bool JsonPathTokenizer::match(char expected) {
-  if (index_ < path_.size() && path_[index_] == expected) {
+  if (hasNext() && path_[index_] == expected) {
     index_++;
     return true;
   }
   return false;
 }
 
-ParseResult JsonPathTokenizer::matchDotKey() {
+std::optional<std::string> JsonPathTokenizer::matchDotKey() {
   auto start = index_;
-  while ((index_ < path_.size()) && isDotKeyFormat(path_[index_])) {
+  while (hasNext() && isDotKeyFormat(path_[index_])) {
     index_++;
   }
-  if (index_ <= start) {
-    return folly::makeUnexpected(false);
+  if (index_ == start) {
+    return std::nullopt;
   }
-  return path_.subpiece(start, index_ - start).str();
+  return std::string(path_.substr(start, index_ - start));
 }
 
-ParseResult JsonPathTokenizer::matchUnquotedSubscriptKey() {
+std::optional<std::string> JsonPathTokenizer::matchUnquotedSubscriptKey() {
   auto start = index_;
-  while (index_ < path_.size() && isUnquotedBracketKeyFormat(path_[index_])) {
+  while (hasNext() && isUnquotedBracketKeyFormat(path_[index_])) {
     index_++;
   }
-  if (index_ <= start) {
-    return folly::makeUnexpected(false);
+  if (index_ == start) {
+    return std::nullopt;
   }
-  return path_.subpiece(start, index_ - start).str();
+  return std::string(path_.substr(start, index_ - start));
 }
 
 // Reference Presto logic in
 // src/test/java/io/prestosql/operator/scalar/TestJsonExtract.java and
 // src/main/java/io/prestosql/operator/scalar/JsonExtract.java
-ParseResult JsonPathTokenizer::matchQuotedSubscriptKey() {
+std::optional<std::string> JsonPathTokenizer::matchQuotedSubscriptKey() {
   bool escaped = false;
   std::string token;
-  while ((index_ < path_.size()) && (escaped || path_[index_] != QUOTE)) {
+  while (hasNext() && (escaped || path_[index_] != QUOTE)) {
     if (escaped) {
       if (path_[index_] != QUOTE && path_[index_] != BACK_SLASH) {
-        return folly::makeUnexpected(false);
+        return std::nullopt;
       }
       escaped = false;
       token.append(1, path_[index_]);
@@ -104,7 +115,7 @@ ParseResult JsonPathTokenizer::matchQuotedSubscriptKey() {
       if (path_[index_] == BACK_SLASH) {
         escaped = true;
       } else if (path_[index_] == QUOTE) {
-        return folly::makeUnexpected(false);
+        return std::nullopt;
       } else {
         token.append(1, path_[index_]);
       }
@@ -112,17 +123,9 @@ ParseResult JsonPathTokenizer::matchQuotedSubscriptKey() {
     index_++;
   }
   if (escaped || token.empty() || !match(QUOTE)) {
-    return folly::makeUnexpected(false);
+    return std::nullopt;
   }
   return token;
-}
-
-bool JsonPathTokenizer::isDotKeyFormat(char c) {
-  return c == COLON || c == DASH || isUnquotedBracketKeyFormat(c);
-}
-
-bool JsonPathTokenizer::isUnquotedBracketKeyFormat(char c) {
-  return c == UNDER_SCORE || c == STAR || std::isalnum(c);
 }
 
 } // namespace facebook::velox::functions

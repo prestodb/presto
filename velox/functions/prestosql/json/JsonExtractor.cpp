@@ -73,7 +73,7 @@ class JsonExtractor {
 
     while (kTokenizer.hasNext()) {
       if (auto token = kTokenizer.getNext()) {
-        tokens_.push_back(token.value());
+        tokens_.emplace_back(token.value());
       } else {
         tokens_.clear();
         return false;
