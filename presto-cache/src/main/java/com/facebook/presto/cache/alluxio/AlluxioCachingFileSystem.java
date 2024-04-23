@@ -95,6 +95,9 @@ public class AlluxioCachingFileSystem
                 return new CacheValidatingInputStream(
                         cachingInputStream, dataTier.openFile(path, hiveFileContext));
             }
+            if (hiveFileContext.getPercentile() > 0) {
+                return new DelayInputStream(cachingInputStream, hiveFileContext);
+            }
             return cachingInputStream;
         }
         return dataTier.openFile(path, hiveFileContext);
