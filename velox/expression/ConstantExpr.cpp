@@ -231,7 +231,9 @@ void appendSqlLiteral(
 }
 
 bool canBeExpressedInSQL(const TypePtr& type) {
-  return type->isPrimitiveType() && type != VARBINARY();
+  // Logical types cannot be expressed in SQL.
+  const bool isLogicalType = type->name() != type->kindName();
+  return type->isPrimitiveType() && type != VARBINARY() && !isLogicalType;
 }
 
 } // namespace
@@ -239,6 +241,15 @@ bool canBeExpressedInSQL(const TypePtr& type) {
 std::string ConstantExpr::toSql(
     std::vector<VectorPtr>* complexConstants) const {
   VELOX_CHECK_NOT_NULL(sharedConstantValue_);
+
+  // TODO canBeExpressedInSQL is misleading. ARRAY(INTEGER()) can be expressed
+  // in SQL, but canBeExpressedInSQL returns false for that type. we need to
+  // distinguish between types that cannot be expressed in SQL at all
+  // (VARBINARY, logic types like JSON) and types that can be expressed in
+  // SQL, but they can be large and therefore we want to provider an option to
+  // represent then using 'complex constants'. If a type cannot be expressed
+  // in SQL, we should assert that complexConstants is not null.
+
   std::ostringstream out;
   if (complexConstants && !canBeExpressedInSQL(sharedConstantValue_->type())) {
     int idx = complexConstants->size();

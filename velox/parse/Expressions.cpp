@@ -199,8 +199,15 @@ TypedExprPtr Expressions::inferTypes(
   // try rebuilding complex constant type from vector
   if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
     if (fun->getFunctionName() == "__complex_constant") {
-      VELOX_CHECK(complexConstants);
+      VELOX_CHECK_NOT_NULL(
+          complexConstants,
+          "Expression contains __complex_constant function call, but complexConstants is missing")
+
       auto ccInputRow = complexConstants->as<RowVector>();
+      VELOX_CHECK_NOT_NULL(
+          ccInputRow,
+          "Expected RowVector for complexConstants: {}",
+          complexConstants->toString());
       auto name =
           std::dynamic_pointer_cast<const FieldAccessExpr>(fun->getInputs()[0])
               ->getFieldName();
