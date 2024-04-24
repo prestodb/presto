@@ -194,9 +194,9 @@ public abstract class IcebergAbstractMetadata
 
     protected abstract boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName);
 
-    protected abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
+    public abstract void registerTable(ConnectorSession clientSession, SchemaTableName schemaTableName, Path metadataLocation);
 
-    protected abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
+    public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
     /**
      * This class implements the default implementation for getTableLayoutForConstraint which will be used in the case of a Java Worker
