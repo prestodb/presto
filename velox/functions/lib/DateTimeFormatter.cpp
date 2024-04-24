@@ -582,6 +582,10 @@ std::string getSpecifierName(DateTimeFormatSpecifier specifier) {
       return "TIMEZONE_OFFSET_ID";
     case DateTimeFormatSpecifier::LITERAL_PERCENT:
       return "LITERAL_PERCENT";
+    default: {
+      VELOX_UNREACHABLE("[Unexpected date format specifier]");
+      return ""; // Make compiler happy.
+    }
   }
 }
 
