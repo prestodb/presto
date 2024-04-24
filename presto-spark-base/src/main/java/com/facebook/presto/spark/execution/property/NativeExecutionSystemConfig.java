@@ -132,14 +132,13 @@ public class NativeExecutionSystemConfig
     // Reserve 2GB from system memory for system operations such as disk
     // spilling and cache prefetch.
     private DataSize queryMemoryGb = new DataSize(8, DataSize.Unit.GIGABYTE);
-
-    private DataSize queryReservedMemoryGb = new DataSize(0, DataSize.Unit.GIGABYTE);
+    private static final String MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB = "query-reserved-memory-gb";
     private boolean useMmapAllocator = true;
     private String memoryArbitratorKind = "SHARED";
     private int memoryArbitratorCapacityGb = 8;
     private int memoryArbitratorReservedCapacityGb;
     private long memoryPoolInitCapacity = 8L << 30;
-    private long memoryPoolReservedCapacity;
+    private static final String MEMORY_POOL_RESERVED_CAPACITY = "memory-pool-reserved-capacity";
     private long memoryPoolTransferCapacity = 2L << 30;
     private long memoryReclaimWaitMs = 300_000;
     private String spillerSpillPath = "";
@@ -180,9 +179,11 @@ public class NativeExecutionSystemConfig
                 .put(USE_MMAP_ALLOCATOR, String.valueOf(getUseMmapAllocator()))
                 .put(MEMORY_ARBITRATOR_KIND, String.valueOf(getMemoryArbitratorKind()))
                 .put(MEMORY_ARBITRATOR_CAPACITY_GB, String.valueOf(getMemoryArbitratorCapacityGb()))
-                .put(MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB, String.valueOf(getMemoryArbitratorReservedCapacityGb()))
+                // NOTE: there is only one query running at a time so set the query reserved capacity to zero.
+                .put(MEMORY_ARBITRATOR_RESERVED_CAPACITY_GB, "0")
                 .put(MEMORY_POOL_INIT_CAPACITY, String.valueOf(getMemoryPoolInitCapacity()))
-                .put(MEMORY_POOL_RESERVED_CAPACITY, String.valueOf(getMemoryPoolReservedCapacity()))
+                // NOTE: there is only one query running at a time so set the pool reserved capacity to zero.
+                .put(MEMORY_POOL_RESERVED_CAPACITY, "0")
                 .put(MEMORY_POOL_TRANSFER_CAPACITY, String.valueOf(getMemoryPoolTransferCapacity()))
                 .put(MEMORY_RECLAIM_WAIT_MS, String.valueOf(getMemoryReclaimWaitMs()))
                 .put(SPILLER_SPILL_PATH, String.valueOf(getSpillerSpillPath()))
