@@ -1026,7 +1026,8 @@ public class TestSelectiveOrcReader
         List<Integer> column0 = ImmutableList.of(11111);
         List<Integer> column1 = ImmutableList.of(33333);
         List<Integer> column2 = ImmutableList.of(437856);
-        List<List<?>> values = ImmutableList.of(column0, column1, column2);
+        List<Integer> column3 = ImmutableList.of(8788);
+        List<List<?>> values = ImmutableList.of(column0, column1, column2, column3);
 
         writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, NOOP_WRITER_STATS);
 
