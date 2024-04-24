@@ -16,7 +16,6 @@ package com.facebook.presto.util;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.common.InvalidTypeDefinitionException;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCause;
@@ -41,7 +40,6 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TYPE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.SLICE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
@@ -171,10 +169,6 @@ public final class Failures
 
         if (throwable instanceof SliceTooLargeException) {
             return SLICE_TOO_LARGE.toErrorCode();
-        }
-
-        if (throwable instanceof InvalidTypeDefinitionException) {
-            return INVALID_TYPE_DEFINITION.toErrorCode();
         }
 
         if (throwable instanceof PrestoException) {

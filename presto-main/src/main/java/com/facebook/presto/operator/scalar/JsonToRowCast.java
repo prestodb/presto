@@ -35,6 +35,8 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
@@ -46,6 +48,7 @@ import static com.facebook.presto.util.JsonUtil.BlockBuilderAppender.createBlock
 import static com.facebook.presto.util.JsonUtil.JSON_FACTORY;
 import static com.facebook.presto.util.JsonUtil.canCastFromJson;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.facebook.presto.util.JsonUtil.getFieldNameToIndex;
 import static com.facebook.presto.util.JsonUtil.parseJsonToSingleRowBlock;
 import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -58,7 +61,7 @@ public class JsonToRowCast
         extends SqlOperator
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender[].class, SqlFunctionProperties.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender[].class, Optional.class, SqlFunctionProperties.class, Slice.class);
 
     private JsonToRowCast()
     {
@@ -80,7 +83,7 @@ public class JsonToRowCast
         BlockBuilderAppender[] fieldAppenders = rowFields.stream()
                 .map(rowField -> createBlockBuilderAppender(rowField.getType()))
                 .toArray(BlockBuilderAppender[]::new);
-        MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppenders);
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppenders).bindTo(getFieldNameToIndex(rowFields));
         return new BuiltInScalarFunctionImplementation(
                 true,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
@@ -91,6 +94,7 @@ public class JsonToRowCast
     public static Block toRow(
             RowType rowType,
             BlockBuilderAppender[] fieldAppenders,
+            Optional<Map<String, Integer>> fieldNameToIndex,
             SqlFunctionProperties properties,
             Slice json)
     {
@@ -109,8 +113,7 @@ public class JsonToRowCast
                     jsonParser,
                     (SingleRowBlockWriter) rowBlockBuilder.beginBlockEntry(),
                     fieldAppenders,
-                    rowType,
-                    properties);
+                    fieldNameToIndex);
             rowBlockBuilder.closeEntry();
 
             if (jsonParser.nextToken() != null) {
