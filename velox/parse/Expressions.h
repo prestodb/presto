@@ -60,12 +60,14 @@ class Expressions {
       const std::shared_ptr<const core::LambdaExpr>& lambdaExpr,
       const TypePtr& inputRow,
       const std::vector<TypePtr>& lambdaInputTypes,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
 
   static TypedExprPtr tryResolveCallWithLambdas(
       const std::shared_ptr<const CallExpr>& expr,
       const TypePtr& input,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
 
   static TypeResolverHook resolverHook_;
 };

@@ -2754,6 +2754,21 @@ TEST_P(ParameterizedExprTest, constantJsonToSql) {
       << sql;
 }
 
+TEST_P(ParameterizedExprTest, lambdaToSql) {
+  auto exprSet = compileNoConstantFolding(
+      "transform(array[1, 2, 3], x -> (x + cardinality(array[10, 20, 30])))",
+      ROW({}));
+
+  std::vector<VectorPtr> complexConstants;
+  auto sql = exprSet->expr(0)->toSql(&complexConstants);
+
+  auto copy =
+      compileNoConstantFolding(sql, ROW({}), makeRowVector(complexConstants));
+  ASSERT_EQ(
+      exprSet->toString(false /*compact*/), copy->toString(false /*compact*/))
+      << sql;
+}
+
 TEST_P(ParameterizedExprTest, toSql) {
   auto rowType =
       ROW({"a", "b", "c.d", "e", "f"},
