@@ -55,6 +55,11 @@ public class ParametricScalar
         return details.getVisibility();
     }
 
+    public ScalarHeader getDetails()
+    {
+        return details;
+    }
+
     @Override
     public boolean isDeterministic()
     {
@@ -66,6 +71,12 @@ public class ParametricScalar
     {
         return details.isCalledOnNullInput();
     }
+//
+//    @Override
+//    public String toString()
+//    {
+//        return String.format("ParametricScalar: Signature:%s ScalarHeader:%s implementations:%s", getSignature(), details, implementations);
+//    }
 
     @Override
     public String getDescription()

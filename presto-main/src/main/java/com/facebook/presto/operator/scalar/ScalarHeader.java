@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 
 import java.util.Optional;
@@ -24,12 +25,37 @@ public class ScalarHeader
     private final boolean deterministic;
     private final boolean calledOnNullInput;
 
+    public Optional<ScalarStatsHeader> getScalarStatsHeader()
+    {
+        return scalarStatsHeader;
+    }
+
+    private final Optional<ScalarStatsHeader> scalarStatsHeader;
+
     public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
     {
         this.description = description;
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.scalarStatsHeader = Optional.empty();
+    }
+
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput,
+            Optional<ScalarStatsHeader> scalarStatsHeader)
+    {
+        this.description = description;
+        this.visibility = visibility;
+        this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
+        this.scalarStatsHeader = scalarStatsHeader;
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("ScalarHeader: description: %s visibility:%s deterministic: %b calledOnNullInput %b scalarStatsHeader %s",
+                description, visibility, deterministic, calledOnNullInput, scalarStatsHeader);
     }
 
     public Optional<String> getDescription()

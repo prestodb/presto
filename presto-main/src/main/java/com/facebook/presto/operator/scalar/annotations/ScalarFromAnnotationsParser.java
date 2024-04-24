@@ -51,7 +51,11 @@ public final class ScalarFromAnnotationsParser
         for (ScalarHeaderAndMethods scalar : findScalarsInFunctionDefinitionClass(clazz)) {
             builder.add(parseParametricScalar(scalar, FunctionsParserHelper.findConstructor(clazz)));
         }
-        return builder.build();
+
+        ImmutableList<SqlScalarFunction> build = builder.build();
+       // System.out.println("ScalarFromAnnotationsParser1: "+ build);
+
+        return build;
     }
 
     public static List<SqlScalarFunction> parseFunctionDefinitions(Class<?> clazz)
@@ -61,7 +65,9 @@ public final class ScalarFromAnnotationsParser
             // Non-static function only makes sense in classes annotated @ScalarFunction.
             builder.add(parseParametricScalar(methods, Optional.empty()));
         }
-        return builder.build();
+        ImmutableList<SqlScalarFunction> build = builder.build();
+        // System.out.println("ScalarFromAnnotationsParser2: "+ build);
+        return build;
     }
 
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)

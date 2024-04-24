@@ -21,7 +21,10 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
@@ -33,9 +36,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -163,7 +169,15 @@ public final class SqlInvokedScalarFromAnnotationsParser
         List<TypeVariableConstraint> typeVariableConstraints = stream(method.getAnnotationsByType(TypeParameter.class))
                 .map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy()))
                 .collect(toImmutableList());
-
+        ScalarFunctionConstantStats statsCalculator = method.getAnnotation(ScalarFunctionConstantStats.class);
+        java.lang.reflect.Parameter[] params = method.getParameters();
+        Map<Integer, ScalarPropagateSourceStats> paramsStats = new HashMap<>();
+        IntStream.range(0, params.length).filter(x -> params[x].getAnnotation(ScalarPropagateSourceStats.class) != null).forEachOrdered(x -> paramsStats.put(x, params[x].getAnnotation(ScalarPropagateSourceStats.class)));
+        Optional<ScalarStatsHeader> scalarStatsHeader = Optional.ofNullable(statsCalculator).map(x -> new ScalarStatsHeader(x, paramsStats));
+        if (!paramsStats.isEmpty() && !scalarStatsHeader.isPresent()) {
+            scalarStatsHeader = Optional.of(new ScalarStatsHeader(paramsStats));
+        }
+        final Optional<ScalarStatsHeader> scalarStatsHeaderFinal = scalarStatsHeader;
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
                         QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
@@ -175,7 +189,8 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         body,
                         notVersioned(),
                         SCALAR,
-                        Optional.empty()))
+                        Optional.empty(),
+                        scalarStatsHeaderFinal))
                 .collect(toImmutableList());
     }
 

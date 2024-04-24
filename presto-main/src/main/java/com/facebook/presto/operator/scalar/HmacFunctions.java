@@ -16,12 +16,15 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.ScalarFunctionConstantStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 
+import static com.facebook.presto.spi.function.PropagateSourceStats.SOURCE_STATS;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
 public final class HmacFunctions
@@ -39,7 +42,9 @@ public final class HmacFunctions
     @Description("Compute HMAC with SHA1")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice hmacSha1(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.VARBINARY) Slice key)
+    @ScalarFunctionConstantStats(avgRowSize = 32)
+    public static Slice hmacSha1(@ScalarPropagateSourceStats(distinctValueCount = SOURCE_STATS) @SqlType(StandardTypes.VARBINARY) Slice slice,
+            @SqlType(StandardTypes.VARBINARY) Slice key)
     {
         return computeHash(Hashing.hmacSha1(key.getBytes()), slice);
     }

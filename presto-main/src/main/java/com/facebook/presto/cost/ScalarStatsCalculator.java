@@ -15,12 +15,17 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.PropagateSourceStats;
+import com.facebook.presto.spi.function.ScalarPropagateSourceStats;
+import com.facebook.presto.spi.function.ScalarStatsHeader;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -122,12 +127,13 @@ public class ScalarStatsCalculator
             }
 
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
+            System.out.println("functionMetadata arg types = " + functionMetadata.getArgumentTypes() + " functionMetadata getReturnType= " + functionMetadata.getReturnType());
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
 
             RowExpression value = new RowExpressionOptimizer(metadata).optimize(call, OPTIMIZED, session);
-
+            System.out.println("RowExpression = " + value);
             if (isNull(value)) {
                 return nullStatsEstimate();
             }
@@ -140,9 +146,33 @@ public class ScalarStatsCalculator
             if (resolution.isCastFunction(call.getFunctionHandle())) {
                 return computeCastStatistics(call, context);
             }
+
+            if (functionMetadata.getStatsHeader().isPresent()) {
+                return computeCallStatistics(call, context, functionMetadata.getStatsHeader().get());
+            }
+            else {
+                System.out.println("Stats not found for func: " + functionMetadata.getName() + " " + call);
+            }
+            // by default propagate source stats of first col.
             return VariableStatsEstimate.unknown();
         }
 
+        private VariableStatsEstimate propagateCallSourceStatistics(CallExpression call, Void context)
+        {
+            requireNonNull(call, "call is null");
+            VariableStatsEstimate sourceStatsFinal = VariableStatsEstimate.unknown();
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
+                if (!sourceStats.isUnknown()) {
+                    if (sourceStatsFinal.isUnknown()) {
+                        sourceStatsFinal = sourceStats;
+                        break;
+                    }
+                }
+            }
+
+            return sourceStatsFinal;
+        }
         @Override
         public VariableStatsEstimate visitInputReference(InputReferenceExpression reference, Void context)
         {
@@ -197,6 +227,188 @@ public class ScalarStatsCalculator
                 return requireNonNull(result, "result is null");
             }
             return VariableStatsEstimate.unknown();
+        }
+
+        private StatisticRange processDistinctValueCountAndRange(CallExpression call, Void context, PropagateSourceStats op)
+        {
+            StatisticRange s = StatisticRange.empty();
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
+                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getDistinctValuesCount())) {
+                    switch (op) {
+                        case MAX:
+                            s = s.addAndMaxDistinctValues(sourceStats.statisticRange());
+                            break;
+                        case SUM:
+                            s = s.addAndSumDistinctValues(sourceStats.statisticRange());
+                            break;
+                    }
+                }
+            }
+            return s;
+        }
+
+        private double processNullFraction(CallExpression call, Void context, PropagateSourceStats op)
+        {
+            double s = NaN;
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
+                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getNullsFraction())) {
+                    switch (op) {
+                        case MAX:
+                            s = max(s, sourceStats.getNullsFraction());
+                            break;
+                        case SUM:
+                            s = s + sourceStats.getNullsFraction();
+                            break;
+                    }
+                }
+            }
+            return s;
+        }
+
+        private double processAvgRowSize(CallExpression call, Void context, PropagateSourceStats op)
+        {
+            double s = NaN;
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                VariableStatsEstimate sourceStats = call.getArguments().get(i).accept(this, context);
+                if (!sourceStats.isUnknown() && !Double.isNaN(sourceStats.getAverageRowSize())) {
+                    switch (op) {
+                        case MAX:
+                            s = max(s, sourceStats.getAverageRowSize());
+                            break;
+                        case SUM:
+                            s = s + sourceStats.getAverageRowSize();
+                            break;
+                    }
+                }
+            }
+            return s;
+        }
+
+        private VariableStatsEstimate computeCallStatistics(CallExpression call, Void context, ScalarStatsHeader statsHeader)
+        {
+            requireNonNull(call, "call is null");
+            VariableStatsEstimate sourceStatsSum = VariableStatsEstimate.unknown();
+            StatisticRange statisticRange = sourceStatsSum.statisticRange();
+            double min = sourceStatsSum.getLowValue();
+            double max = sourceStatsSum.getHighValue();
+            double nullFraction = sourceStatsSum.getNullsFraction();
+            double avgRowSize = sourceStatsSum.getAverageRowSize();
+            double distinctValuesCount = sourceStatsSum.getDistinctValuesCount();
+            // TODO: handle histograms.
+            for (Map.Entry<Integer, ScalarPropagateSourceStats> entry : statsHeader.getStatsResolver().entrySet()) {
+                ScalarPropagateSourceStats scalarPropagateSourceStats = entry.getValue();
+                if (scalarPropagateSourceStats.propagateAllStats()) {
+                    VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                    distinctValuesCount = sourceStats.getDistinctValuesCount();
+                    min = sourceStats.getLowValue();
+                    max = sourceStats.getHighValue();
+                    avgRowSize = sourceStats.getAverageRowSize();
+                    nullFraction = sourceStats.getNullsFraction();
+                }
+                // distinct value count
+                switch (scalarPropagateSourceStats.distinctValueCount()) {
+                    case SOURCE_STATS:
+                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                        distinctValuesCount = sourceStats.getDistinctValuesCount();
+                        break;
+                    case ROW_COUNT:
+                        distinctValuesCount = input.getOutputRowCount();
+                        break;
+                    case MAX_TYPE_WIDTH:
+                        TypeSignature typeSignature = call.getArguments().get(entry.getKey()).getType().getTypeSignature();
+                        if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
+                            double varcharTypeWidth = 0.0;
+                            for (TypeSignatureParameter t : typeSignature.getParameters()) {
+                                Long longLiteral = t.getLongLiteral();
+                                varcharTypeWidth = Math.max(longLiteral, varcharTypeWidth);
+                            }
+                            if (varcharTypeWidth != 0) {
+                                distinctValuesCount = varcharTypeWidth;
+                            }
+                        }
+                        if (!isFinite(distinctValuesCount) || distinctValuesCount == 0) {
+                            distinctValuesCount = input.getOutputRowCount();
+                        }
+                        break;
+                    case MAX:
+                    case SUM:
+                        statisticRange = processDistinctValueCountAndRange(call, context, scalarPropagateSourceStats.distinctValueCount());
+                }
+                // min, max can be estimated by distinct value count as well, but user provided hints/values override those.
+                switch (scalarPropagateSourceStats.minValue()) {
+                    case SOURCE_STATS:
+                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                        min = sourceStats.getLowValue();
+                        break;
+                    case MAX:
+                    case SUM:
+                        throw new UnsupportedOperationException();
+                }
+                switch (scalarPropagateSourceStats.maxValue()) {
+                    case SOURCE_STATS:
+                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                        max = sourceStats.getHighValue();
+                        break;
+                    case MAX_TYPE_WIDTH:
+                        TypeSignature typeSignature = call.getArguments().get(entry.getKey()).getType().getTypeSignature();
+                        if (typeSignature.getTypeSignatureBase().hasStandardType() && typeSignature.getTypeSignatureBase().getStandardTypeBase().equals(StandardTypes.VARCHAR)) {
+                            double varcharTypeWidth = 0.0;
+                            for (TypeSignatureParameter t : typeSignature.getParameters()) {
+                                Long longLiteral = t.getLongLiteral();
+                                varcharTypeWidth = Math.max(longLiteral, varcharTypeWidth);
+                            }
+                            if (varcharTypeWidth != 0) {
+                                max = varcharTypeWidth;
+                            }
+                        }
+                        break;
+                    case MAX:
+                    case SUM:
+                        throw new UnsupportedOperationException();
+                }
+                // Average row size
+                switch (scalarPropagateSourceStats.avgRowSize()) {
+                    case SOURCE_STATS:
+                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                        avgRowSize = sourceStats.getAverageRowSize();
+                        break;
+                    case MAX:
+                    case SUM:
+                        avgRowSize = processAvgRowSize(call, context, scalarPropagateSourceStats.avgRowSize());
+                }
+                // Null fraction
+                switch (scalarPropagateSourceStats.nullFraction()) {
+                    case SOURCE_STATS:
+                        VariableStatsEstimate sourceStats = call.getArguments().get(entry.getKey()).accept(this, context);
+                        nullFraction = sourceStats.getNullsFraction();
+                        break;
+                    case MAX:
+                    case SUM:
+                        nullFraction = processNullFraction(call, context, scalarPropagateSourceStats.nullFraction());
+                }
+            }
+
+            if (isFinite(statsHeader.getNullFraction())) {
+                nullFraction = statsHeader.getNullFraction();
+            }
+            if (isFinite(statsHeader.getAvgRowSize())) {
+                avgRowSize = statsHeader.getAvgRowSize();
+            }
+            if (isFinite(statsHeader.getDistinctValuesCount())) {
+                distinctValuesCount = statsHeader.getDistinctValuesCount();
+            }
+            if (isFinite(min) && isFinite(max)) {
+                statisticRange = new StatisticRange(min, max, distinctValuesCount);
+            }
+            sourceStatsSum = VariableStatsEstimate.builder().setStatisticsRange(statisticRange)
+                    .setAverageRowSize(avgRowSize)
+                    .setNullsFraction(nullFraction)
+                    .setDistinctValuesCount(distinctValuesCount)
+                    .build();
+            System.out.println("call=" + call + " StatsEstimate=" + sourceStatsSum);
+            return sourceStatsSum;
         }
 
         private VariableStatsEstimate computeCastStatistics(CallExpression call, Void context)

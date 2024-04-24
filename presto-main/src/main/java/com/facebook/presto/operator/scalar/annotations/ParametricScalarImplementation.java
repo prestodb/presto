@@ -169,7 +169,9 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature, functionAndTypeManager)),
                     boundConstructor));
         }
-        return Optional.of(new BuiltInScalarFunctionImplementation(implementationChoices));
+        BuiltInScalarFunctionImplementation value = new BuiltInScalarFunctionImplementation(implementationChoices);
+        System.out.println("post parsing:" + value.getArgumentProperty(0).getArgumentType() + " " + value.getMethodHandle().toString());
+        return Optional.of(value);
     }
 
     @Override
