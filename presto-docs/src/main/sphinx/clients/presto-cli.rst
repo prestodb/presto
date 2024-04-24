@@ -176,6 +176,9 @@ OPTIONS
             Resource estimate (property can be used multiple times; format is
             key=value)
 
+        --runtime-stats
+            Enable runtime stats information. Flag must be used in conjunction with the --debug flag
+
         --schema <schema>
             Default schema
 
