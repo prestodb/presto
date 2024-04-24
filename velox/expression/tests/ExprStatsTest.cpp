@@ -437,23 +437,29 @@ TEST_F(ExprStatsTest, errorLog) {
   ASSERT_TRUE(exec::unregisterExprSetListener(listener));
 }
 
-TEST_F(ExprStatsTest, exceptionPreparingStatsForListener) {
-  // Currently a ConstantExpr of VARBINARY type does not support generating
-  // its sql form. Therefore, it throws an exception when ExprSet tries to
-  // generate its sql while preparing data for listeners in its destructor.
-  // This test replicates this scenario and ensures that the exception is
-  // handled and the process is not terminated.
+TEST_F(ExprStatsTest, complexConstants) {
+  // Expressions with constants of types not expressible in SQL should use
+  // '__complex_constant(c#)' pseudo functions.
+
   std::vector<Event> events;
   std::vector<std::string> exceptions;
   auto listener = std::make_shared<TestListener>(events, exceptions);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
-  auto varbinaryData =
-      vectorMaker_.flatVector<StringView>({"12"_sv}, VARBINARY());
+
   std::vector<core::TypedExprPtr> expressions = {
       std::make_shared<const core::ConstantTypedExpr>(
-          BaseVector::wrapInConstant(1, 0, varbinaryData))};
-  auto exprSet =
-      std::make_unique<exec::ExprSet>(std::move(expressions), &execCtx_);
-  evaluate(*exprSet, makeRowVector({varbinaryData}));
+          makeConstant("12"_sv, 1, VARBINARY()))};
+  {
+    auto exprSet =
+        std::make_unique<exec::ExprSet>(std::move(expressions), &execCtx_);
+    evaluate(*exprSet, makeRowVector(ROW({}), 10));
+  }
+
+  ASSERT_EQ(1, events.size());
+  ASSERT_EQ(0, exceptions.size());
+
+  ASSERT_EQ(1, events[0].sqls.size());
+  ASSERT_EQ("__complex_constant(c0)", events[0].sqls[0]);
+
   ASSERT_TRUE(exec::unregisterExprSetListener(listener));
 }

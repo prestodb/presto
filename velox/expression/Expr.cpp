@@ -1805,14 +1805,18 @@ ExprSet::~ExprSet() {
       auto exprStats = stats();
 
       std::vector<std::string> sqls;
+      std::vector<VectorPtr> complexConstants;
       for (const auto& expr : exprs()) {
         try {
-          sqls.emplace_back(expr->toSql());
+          sqls.emplace_back(expr->toSql(&complexConstants));
         } catch (const std::exception& e) {
           LOG_EVERY_N(WARNING, 100) << "Failed to generate SQL: " << e.what();
           sqls.emplace_back("<failed to generate>");
         }
       }
+
+      // TODO Enhance listener API to allow passing 'complexConstants' in
+      // addition to SQL.
 
       auto uuid = makeUuid();
       for (const auto& listener : listeners) {
