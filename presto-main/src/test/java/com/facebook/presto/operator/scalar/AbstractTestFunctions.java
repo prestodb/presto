@@ -139,6 +139,13 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
+    // this is not safe as it catches all RuntimeExceptions
+    @Deprecated
+    protected void assertInvalidFunction(String projection)
+    {
+        functionAssertions.assertInvalidFunction(projection);
+    }
+
     protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
         functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
@@ -172,11 +179,6 @@ public abstract class AbstractTestFunctions
     protected void assertNumericOverflow(String projection, String message)
     {
         functionAssertions.assertNumericOverflow(projection, message);
-    }
-
-    protected void assertInvalidTypeDefinition(String projection, String message)
-    {
-        functionAssertions.assertInvalidTypeDefinition(projection, message);
     }
 
     protected void assertInvalidCast(String projection)

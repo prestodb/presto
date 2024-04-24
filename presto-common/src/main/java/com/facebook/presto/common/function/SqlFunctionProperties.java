@@ -34,7 +34,6 @@ public class SqlFunctionProperties
     private final Locale sessionLocale;
     private final String sessionUser;
     private final boolean fieldNamesInJsonCastEnabled;
-    private final boolean legacyJsonCast;
     private final Map<String, String> extraCredentials;
 
     private SqlFunctionProperties(
@@ -47,7 +46,6 @@ public class SqlFunctionProperties
             Locale sessionLocale,
             String sessionUser,
             boolean fieldNamesInJsonCastEnabled,
-            boolean legacyJsonCast,
             Map<String, String> extraCredentials)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
@@ -59,7 +57,6 @@ public class SqlFunctionProperties
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
-        this.legacyJsonCast = legacyJsonCast;
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
     }
 
@@ -114,11 +111,6 @@ public class SqlFunctionProperties
         return fieldNamesInJsonCastEnabled;
     }
 
-    public boolean isLegacyJsonCast()
-    {
-        return legacyJsonCast;
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -137,16 +129,13 @@ public class SqlFunctionProperties
                 Objects.equals(sessionStartTime, that.sessionStartTime) &&
                 Objects.equals(sessionLocale, that.sessionLocale) &&
                 Objects.equals(sessionUser, that.sessionUser) &&
-                Objects.equals(extraCredentials, that.extraCredentials) &&
-                Objects.equals(legacyJsonCast, that.legacyJsonCast);
+                Objects.equals(extraCredentials, that.extraCredentials);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey,
-                legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
-                extraCredentials, legacyJsonCast);
+        return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, extraCredentials);
     }
 
     public static Builder builder()
@@ -165,7 +154,6 @@ public class SqlFunctionProperties
         private Locale sessionLocale;
         private String sessionUser;
         private boolean fieldNamesInJsonCastEnabled;
-        private boolean legacyJsonCast;
         private Map<String, String> extraCredentials = emptyMap();
 
         private Builder() {}
@@ -230,26 +218,9 @@ public class SqlFunctionProperties
             return this;
         }
 
-        public Builder setLegacyJsonCast(boolean legacyJsonCast)
-        {
-            this.legacyJsonCast = legacyJsonCast;
-            return this;
-        }
-
         public SqlFunctionProperties build()
         {
-            return new SqlFunctionProperties(
-                    parseDecimalLiteralAsDouble,
-                    legacyRowFieldOrdinalAccessEnabled,
-                    timeZoneKey,
-                    legacyTimestamp,
-                    legacyMapSubscript,
-                    sessionStartTime,
-                    sessionLocale,
-                    sessionUser,
-                    fieldNamesInJsonCastEnabled,
-                    legacyJsonCast,
-                    extraCredentials);
+            return new SqlFunctionProperties(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey, legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser, fieldNamesInJsonCastEnabled, extraCredentials);
         }
     }
 }

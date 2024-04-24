@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.InvalidTypeDefinitionException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.Utils;
@@ -134,7 +133,6 @@ import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_TYPE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -145,7 +143,6 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
-import static com.facebook.presto.util.Failures.toFailure;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -224,22 +221,12 @@ public final class FunctionAssertions
 
     public FunctionAssertions(Session session, FeaturesConfig featuresConfig)
     {
-        this(session, featuresConfig, false);
-    }
-
-    public FunctionAssertions(Session session, FeaturesConfig featuresConfig, boolean refreshSession)
-    {
-        requireNonNull(session, "session is null");
+        this.session = requireNonNull(session, "session is null");
         runner = new LocalQueryRunner(session, featuresConfig);
-        if (refreshSession) {
-            this.session = runner.getDefaultSession();
-        }
-        else {
-            this.session = session;
-        }
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
     }
+
     public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         return runner.getFunctionAndTypeManager();
@@ -354,6 +341,19 @@ public final class FunctionAssertions
         return Iterables.getOnlyElement(resultSet);
     }
 
+    // this is not safe as it catches all RuntimeExceptions
+    @Deprecated
+    public void assertInvalidFunction(String projection)
+    {
+        try {
+            Object value = evaluateInvalid(projection);
+            fail(format("Expected to throw but got %s", value));
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
     public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
         try {
@@ -403,24 +403,6 @@ public final class FunctionAssertions
         catch (SemanticException e) {
             try {
                 assertEquals(e.getCode(), expectedErrorCode);
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
-    }
-
-    public void assertInvalidTypeDefinition(String projection, String message)
-    {
-        try {
-            Object value = evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception, but got " + value);
-        }
-        catch (InvalidTypeDefinitionException e) {
-            try {
-                assertEquals(toFailure(e).getErrorCode(), INVALID_TYPE_DEFINITION.toErrorCode());
                 assertEquals(e.getMessage(), message);
             }
             catch (Throwable failure) {
