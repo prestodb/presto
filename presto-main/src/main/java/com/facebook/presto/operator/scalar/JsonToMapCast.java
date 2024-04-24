@@ -103,9 +103,9 @@ public class JsonToMapCast
             HashTable hashTable = new HashTable(mapType.getKeyType(), singleMapBlockBuilder);
             int position = 0;
             while (jsonParser.nextToken() != JsonToken.END_OBJECT) {
-                keyAppender.append(jsonParser, singleMapBlockBuilder, properties);
+                keyAppender.append(jsonParser, singleMapBlockBuilder);
                 jsonParser.nextToken();
-                valueAppender.append(jsonParser, singleMapBlockBuilder, properties);
+                valueAppender.append(jsonParser, singleMapBlockBuilder);
 
                 // Duplicate key detection is required even if the JSON is valid.
                 // For example: CAST(JSON '{"1": 1, "01": 2}' AS MAP<INTEGER, INTEGER>).
