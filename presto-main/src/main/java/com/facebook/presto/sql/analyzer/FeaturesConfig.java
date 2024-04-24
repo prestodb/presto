@@ -312,7 +312,7 @@ public class FeaturesConfig
     private boolean printEstimatedStatsFromCache;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
-
+    private boolean isScalarFunctionStatsPropagationEnabled;
     private boolean useNewNanDefinition = true;
     private boolean warnOnPossibleNans;
 
@@ -3132,6 +3132,19 @@ public class FeaturesConfig
     public FeaturesConfig setPrintEstimatedStatsFromCache(boolean printEstimatedStatsFromCache)
     {
         this.printEstimatedStatsFromCache = printEstimatedStatsFromCache;
+        return this;
+    }
+
+    public boolean isScalarFunctionStatsPropagationEnabled()
+    {
+        return isScalarFunctionStatsPropagationEnabled;
+    }
+
+    @Config("optimizer.scalar-function-stats-propagation-enabled")
+    @ConfigDescription("Respect scalar function statistics annotation for cost-based calculations in the optimizer")
+    public FeaturesConfig setScalarFunctionStatsPropagationEnabled(boolean scalarFunctionStatsPropagation)
+    {
+        this.isScalarFunctionStatsPropagationEnabled = scalarFunctionStatsPropagation;
         return this;
     }
 
