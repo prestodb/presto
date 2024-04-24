@@ -989,16 +989,3 @@ Logging Properties
     * **Default value:** ``100MB``
 
     The maximum file size for the log file of the HTTP server.
-
-
-Legacy Compatible Properties
-------------------------------
-
-``legacy_json_cast``
-^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
-
-    When casting from ``JSON`` to ``ROW``, ignore the case of field names in ``RowType`` for legacy support so that the matching is case-insensitive.
-    Set ``legacy_json_cast`` to ``false`` to strictly enforce the case-sensitivity of double quoted field names in ``RowType`` when matching. Matching for unquoted field names remains case-insensitive.

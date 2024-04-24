@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -75,8 +74,6 @@ public class TestRowOperators
 {
     private static FunctionAssertions legacyRowFieldOrdinalAccess;
     private static FunctionAssertions fieldNameInJsonCastEnabled;
-    private static FunctionAssertions legacyJsonCastEnabled;
-    private static FunctionAssertions legacyJsonCastDisabled;
 
     @BeforeClass
     public void setUp()
@@ -92,13 +89,6 @@ public class TestRowOperators
                         .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
                         .build(),
                 new FeaturesConfig());
-
-        FeaturesConfig featuresConfigWithLegacyJsonCastEnabled = new FeaturesConfig()
-                .setLegacyJsonCast(true);
-        legacyJsonCastEnabled = new FunctionAssertions(session, featuresConfigWithLegacyJsonCastEnabled, true);
-        FeaturesConfig featuresConfigWithLegacyJsonCastDisabled = new FeaturesConfig()
-                .setLegacyJsonCast(false);
-        legacyJsonCastDisabled = new FunctionAssertions(session, featuresConfigWithLegacyJsonCastDisabled, true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -108,10 +98,6 @@ public class TestRowOperators
         legacyRowFieldOrdinalAccess = null;
         fieldNameInJsonCastEnabled.close();
         fieldNameInJsonCastEnabled = null;
-        legacyJsonCastEnabled.close();
-        legacyJsonCastEnabled = null;
-        legacyJsonCastDisabled.close();
-        legacyJsonCastDisabled = null;
     }
 
     @ScalarFunction
@@ -418,8 +404,7 @@ public class TestRowOperators
                         asList(1L, 2L, null, 3L), null,
                         asList(1L, 2L, 3L, null), null));
 
-        // legacy json cast would not reserve the case of field name in json when casting to row type
-        legacyJsonCastEnabled.assertFunction("CAST(JSON '{" +
+        assertFunction("CAST(JSON '{" +
                         "\"array2\": [1, 2, null, 3], " +
                         "\"array1\": [], " +
                         "\"array3\": null, " +
@@ -455,89 +440,7 @@ public class TestRowOperators
                         asList(1L, 2L, null, 3L), null,
                         null, asList(1L, 2L, 3L, null)));
 
-        // without legacy json cast, we would reserve the case of field name in json when casting to row type
-        legacyJsonCastDisabled.assertFunction("CAST(JSON '{" +
-                        "\"array2\": [1, 2, null, 3], " +
-                        "\"array1\": [], " +
-                        "\"array3\": null, " +
-                        "\"map3\": {\"a\": 1, \"b\": 2, \"none\": null, \"Three\": 3}, " +
-                        "\"map1\": {}, " +
-                        "\"map2\": null, " +
-                        "\"rowAsJsonArray1\": [1, 2, null, 3], " +
-                        "\"rowAsJsonArray2\": null, " +
-                        "\"rowAsJsonObject2\": {\"a\": 1, \"b\": 2, \"none\": null, \"Three\": 3}, " +
-                        "\"rowAsJsonObject1\": null}' " +
-                        "AS ROW(array1 array<BIGINT>, array2 ARRAY<bigint>, array3 ARRAY<BIGINT>, " +
-                        "map1 MAP<VARCHAR, BIGINT>, map2 map<varchar, BIGINT>, map3 MAP<VARCHAR, BIGINT>, " +
-                        "\"rowAsJsonArray1\" row(BIGINT, bigint, BIGINT, BIGINT), \"rowAsJsonArray2\" ROW(BIGINT)," +
-                        "\"rowAsJsonObject1\" ROW(nothing BIGINT), \"rowAsJsonObject2\" ROW(a BIGINT, b BIGINT, \"Three\" BIGINT, none BIGINT)))",
-                RowType.from(ImmutableList.of(
-                        RowType.field("array1", new ArrayType(BIGINT)),
-                        RowType.field("array2", new ArrayType(BIGINT)),
-                        RowType.field("array3", new ArrayType(BIGINT)),
-                        RowType.field("map1", mapType(VARCHAR, BIGINT)),
-                        RowType.field("map2", mapType(VARCHAR, BIGINT)),
-                        RowType.field("map3", mapType(VARCHAR, BIGINT)),
-                        RowType.field("rowAsJsonArray1", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT)), true),
-                        RowType.field("rowAsJsonArray2", RowType.anonymous(ImmutableList.of(BIGINT)), true),
-                        RowType.field("rowAsJsonObject1", RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT))), true),
-                        RowType.field("rowAsJsonObject2", RowType.from(ImmutableList.of(
-                                RowType.field("a", BIGINT),
-                                RowType.field("b", BIGINT),
-                                RowType.field("Three", BIGINT, true),
-                                RowType.field("none", BIGINT))), true))),
-                asList(
-                        emptyList(), asList(1L, 2L, null, 3L), null,
-                        ImmutableMap.of(), null, asMap(ImmutableList.of("a", "b", "none", "Three"), asList(1L, 2L, null, 3L)),
-                        asList(1L, 2L, null, 3L), null,
-                        null, asList(1L, 2L, 3L, null)));
-
-        // legacy json cast would not reserve the case of field name in json when casting to row type
-        legacyJsonCastEnabled.assertFunction("CAST(json_extract('{\"1\":[{\"name\": \"John\", \"AGE\": 30}]}', '$') AS MAP<bigint, ARRAY<ROW(name VARCHAR, age VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("name", VARCHAR),
-                        RowType.field("age", VARCHAR))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", "30")))));
-
-        // without legacy json cast, we would reserve the case of field name in json when casting to row type
-        legacyJsonCastDisabled.assertFunction("CAST(json_extract('{\"1\":[{\"name\": \"John\", \"AGE\": 30}]}', '$') AS MAP<bigint, ARRAY<ROW(name VARCHAR, \"AGE\" VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("name", VARCHAR),
-                        RowType.field("AGE", VARCHAR, true))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", "30")))));
-
-        legacyJsonCastDisabled.assertFunction("CAST(json_extract('{\"1\":[{\"name\": \"John\", \"AGE\": 30}]}', '$') AS MAP<bigint, ARRAY<ROW(name VARCHAR, \"age\" VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("name", VARCHAR),
-                        RowType.field("age", VARCHAR, true))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", null)))));
-
-        legacyJsonCastDisabled.assertFunction("CAST(json_extract('{\"1\":[{\"name\": \"John\", \"AGE\": 30}]}', '$') AS MAP<bigint, ARRAY<ROW(name VARCHAR, age VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("name", VARCHAR),
-                        RowType.field("age", VARCHAR))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", "30")))));
-
-        legacyJsonCastDisabled.assertFunction("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\": \"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(\"key1\" VARCHAR, \"KEY1\" VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("key1", VARCHAR, true),
-                        RowType.field("KEY1", VARCHAR, true))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", "Johnny")))));
-
-        legacyJsonCastDisabled.assertFunction("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\": \"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR, \"KEY1\" VARCHAR)>>)",
-                mapType(BIGINT, new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("key1", VARCHAR),
-                        RowType.field("KEY1", VARCHAR, true))))),
-                asMap(ImmutableList.of(1L), asList(asList(asList("John", "Johnny")))));
-
-        // invalid type definition
-        assertInvalidTypeDefinition("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\": \"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(KEY1 VARCHAR, \"key1\" VARCHAR)>>)",
-                "Duplicate field: key1");
-
         // invalid cast
-        assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
-                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
-                        "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
         assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
         assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
     }
@@ -600,11 +503,7 @@ public class TestRowOperators
         assertFunction("cast(row(1,null,3) as row(aa bigint, bb boolean, cc boolean)).aa", BIGINT, 1L);
         assertFunction("cast(row(null,null,null) as row(aa bigint, bb boolean, cc boolean)).aa", BIGINT, null);
 
-        // invalid type definition
-        assertInvalidTypeDefinition("CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "Duplicate field: a");
-        assertInvalidTypeDefinition("CAST(ROW(1, 2) AS ROW(KEY1 VARCHAR, \"key1\" VARCHAR))", "Duplicate field: key1");
-        assertInvalidTypeDefinition("TYPEOF(CAST(row(1, 2) AS ROW(KEY1 VARCHAR, \"key1\" VARCHAR)))", "Duplicate field: key1");
-        assertInvalidTypeDefinition("CAST(ROW(1, 2) AS ROW(KEY1 VARCHAR, \"key1\" VARCHAR)).key1", "Duplicate field: key1");
+        assertInvalidFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a");
 
         // there are totally 7 field names
         String longFieldNameCast = "CAST(row(1.2E0, ARRAY[row(233, 6.9E0)], row(1000, 6.3E0)) AS ROW(%s VARCHAR, %s ARRAY(ROW(%s VARCHAR, %s VARCHAR)), %s ROW(%s VARCHAR, %s VARCHAR))).%s[1].%s";
@@ -626,14 +525,6 @@ public class TestRowOperators
                         RowType.field("d", VARCHAR),
                         RowType.field("e", new ArrayType(BIGINT)))),
                 asList(2L, 1.5, true, "abc", ImmutableList.of(1L, 2L)));
-
-        assertFunction(
-                "MAP(ARRAY['myFirstRow', 'mySecondRow'], ARRAY[cast(row('row1FieldValue1', 'row1FieldValue2') as row(\"firstField\" varchar, \"secondField\" varchar)), cast(row('row2FieldValue1', 'row2FieldValue2') as row(\"firstField\" varchar, \"secondField\" varchar))])",
-                mapType(VarcharType.createVarcharType(11), RowType.from(ImmutableList.of(
-                        RowType.field("firstField", VARCHAR, true),
-                        RowType.field("secondField", VARCHAR, true)))),
-                ImmutableMap.of("myFirstRow", asList("row1FieldValue1", "row1FieldValue2"),
-                        "mySecondRow", asList("row2FieldValue1", "row2FieldValue2")));
     }
 
     @Test

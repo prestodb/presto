@@ -311,7 +311,6 @@ public final class SystemSessionProperties
     public static final String ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT = "add_partial_node_for_row_number_with_limit";
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
-    public static final String LEGACY_JSON_CAST = "legacy_json_cast";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
@@ -1753,11 +1752,6 @@ public final class SystemSessionProperties
                         FIELD_NAMES_IN_JSON_CAST_ENABLED,
                         "Include field names in json output when casting rows",
                         featuresConfig.isFieldNamesInJsonCastEnabled(),
-                        false),
-                booleanProperty(
-                        LEGACY_JSON_CAST,
-                        "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
-                        featuresConfig.isLegacyJsonCast(),
                         false),
                 booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,

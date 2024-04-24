@@ -71,30 +71,6 @@ Cast from JSON
         SELECT CAST(JSON '{"k1": [1, 23], "k2": 456}' AS MAP(VARCHAR, JSON)); -- {k1 = JSON '[1,23]', k2 = JSON '456'}
         SELECT CAST(JSON '[null]' AS ARRAY(JSON)); -- [JSON 'null']
 
-.. note::
-
-    When casting from ``JSON`` to ``ROW``, for legacy support the case of double quoted field names
-    in ``RowType`` is ignored when matching. For example::
-
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v3":true}' AS ROW(v1 BIGINT, "V2" VARCHAR, "V3" BOOLEAN)); -- {v1=123, V2=abc, V3=true}
-
-    The following statement returns an error due to duplicate field::
-
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v2":"abc2","v3":true}' AS ROW(v1 BIGINT, "V2" VARCHAR, v2 VARCHAR, "V3" BOOLEAN));
-
-    To enforce the case of field names in ``RowType`` when casting from ``JSON`` to ``ROW``, set the configuration property ``legacy_json_cast`` to ``false``
-    in the coordinator and the worker's `configuration properties <../admin/properties.html#legacy-compatible-properties>`_.
-    After setting the property, the matching is case-sensitive for double quoted field names and
-    remains case-insensitive for unquoted field names. For example::
-
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v3":true}' AS ROW(v1 BIGINT, "V2" VARCHAR, v3 BOOLEAN)); -- {v1=123, V2=abc, v3=true}
-        SELECT CAST(JSON '{"v1":123,"V2":"abc","v3":true}' AS ROW(v1 BIGINT, "v2" VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=null, v3=true}
-        SELECT CAST(JSON '{"v1":123,"V2":"abc", "v2":"abc2","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, "V2" VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc2, V2=abc, v3=true}
-
-    If the name of a field does not match (including case sensitivity), the value is ``null``.
-
 .. note:: When casting from ``JSON`` to ``ROW``, both JSON array and JSON object are supported.
 
 JSON Functions
