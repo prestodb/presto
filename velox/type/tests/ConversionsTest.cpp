@@ -1012,14 +1012,14 @@ TEST_F(ConversionsTest, toTimestamp) {
             "2000-01-01",
             "1970-01-01 00:00:00",
             "2000-01-01 12:21:56",
-            "1970-01-01 00:00:00-02:00",
+            "1970-01-01 00:01",
         },
         {
             Timestamp(0, 0),
             Timestamp(946684800, 0),
             Timestamp(0, 0),
             Timestamp(946729316, 0),
-            Timestamp(7200, 0),
+            Timestamp(60, 0),
         });
 
     // Invalid case.

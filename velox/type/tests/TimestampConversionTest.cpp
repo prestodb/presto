@@ -279,6 +279,7 @@ TEST(DateTimeUtilTest, fromTimestampString) {
 
   EXPECT_EQ(Timestamp(0, 0), fromTimestampString("1970-01-01 00:00"));
   EXPECT_EQ(Timestamp(0, 0), fromTimestampString("1970-01-01 00:00:00"));
+  EXPECT_EQ(Timestamp(0, 0), fromTimestampString("1970-01-01 00:00:00    "));
 
   EXPECT_EQ(
       Timestamp(946729316, 0), fromTimestampString("2000-01-01 12:21:56"));
@@ -286,33 +287,77 @@ TEST(DateTimeUtilTest, fromTimestampString) {
       Timestamp(946729316, 0), fromTimestampString("2000-01-01T12:21:56"));
   EXPECT_EQ(
       Timestamp(946729316, 0), fromTimestampString("2000-01-01T 12:21:56"));
-
-  // Test UTC offsets.
-  EXPECT_EQ(
-      Timestamp(7200, 0), fromTimestampString("1970-01-01 00:00:00-02:00"));
-  EXPECT_EQ(
-      Timestamp(946697400, 0),
-      fromTimestampString("2000-01-01 00:00:00Z-03:30"));
-  EXPECT_EQ(
-      Timestamp(1587583417, 0),
-      fromTimestampString("2020-04-23 04:23:37+09:00"));
 }
 
-TEST(DateTimeUtilTest, fromTimestampStrInvalid) {
-  // Needs at least a date.
-  EXPECT_THROW(fromTimestampString(""), VeloxUserError);
-  EXPECT_THROW(fromTimestampString("00:00:00"), VeloxUserError);
+TEST(DateTimeUtilTest, fromTimestampStringInvalid) {
+  const std::string_view parserError = "Unable to parse timestamp value: ";
+  const std::string_view overflowError = "integer overflow: ";
+  const std::string_view timezoneError = "Unknown timezone value: ";
 
-  // Broken UTC offsets.
-  EXPECT_THROW(fromTimestampString("1970-01-01 00:00:00-asd"), VeloxUserError);
-  EXPECT_THROW(
-      fromTimestampString("1970-01-01 00:00:00+00:00:00"), VeloxUserError);
+  // Needs at least a date.
+  VELOX_ASSERT_THROW(fromTimestampString(""), parserError);
+  VELOX_ASSERT_THROW(fromTimestampString("00:00:00"), parserError);
 
   // Integer overflow during timestamp parsing.
-  EXPECT_THROW(
-      fromTimestampString("2773581570-01-01 00:00:00-asd"), VeloxUserError);
-  EXPECT_THROW(
-      fromTimestampString("-2147483648-01-01 00:00:00-asd"), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      fromTimestampString("2773581570-01-01 00:00:00-asd"), overflowError);
+  VELOX_ASSERT_THROW(
+      fromTimestampString("-2147483648-01-01 00:00:00-asd"), overflowError);
+
+  // Unexpected timezone definition.
+  VELOX_ASSERT_THROW(
+      fromTimestampString("1970-01-01 00:00:00     a"), parserError);
+  VELOX_ASSERT_THROW(fromTimestampString("1970-01-01 00:00:00Z"), parserError);
+  VELOX_ASSERT_THROW(fromTimestampString("1970-01-01 00:00:00Z"), parserError);
+  VELOX_ASSERT_THROW(
+      fromTimestampString("1970-01-01 00:00:00 UTC"), parserError);
+  VELOX_ASSERT_THROW(
+      fromTimestampString("1970-01-01 00:00:00 America/Los_Angeles"),
+      parserError);
+
+  // Parse timestamp with (broken) timezones.
+  VELOX_ASSERT_THROW(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00-asd"),
+      timezoneError);
+  VELOX_ASSERT_THROW(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00Z UTC"), parserError);
+  VELOX_ASSERT_THROW(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00+00:00:00"),
+      timezoneError);
+
+  // Can't have multiple spaces.
+  VELOX_ASSERT_THROW(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00  UTC"),
+      timezoneError);
+}
+
+TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
+  // -1 means no timezone information.
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00"),
+      std::make_pair(Timestamp(0, 0), -1L));
+
+  // Test timezone offsets.
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00 -02:00"),
+      std::make_pair(Timestamp(0, 0), util::getTimeZoneID("-02:00")));
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00+13:36"),
+      std::make_pair(Timestamp(0, 0), util::getTimeZoneID("+13:36")));
+
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString("1970-01-01 00:00:00Z"),
+      std::make_pair(Timestamp(0, 0), util::getTimeZoneID("UTC")));
+
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString("1970-01-01 00:01:00 UTC"),
+      std::make_pair(Timestamp(60, 0), util::getTimeZoneID("UTC")));
+
+  EXPECT_EQ(
+      fromTimestampWithTimezoneString(
+          "1970-01-01 00:00:01 America/Los_Angeles"),
+      std::make_pair(
+          Timestamp(1, 0), util::getTimeZoneID("America/Los_Angeles")));
 }
 
 TEST(DateTimeUtilTest, toGMT) {

@@ -727,34 +727,6 @@ void CastExpr::applyCastPrimitives(
       });
     }
   }
-
-  // If we're converting to a TIMESTAMP, check if we need to adjust the
-  // current GMT timezone to the user provided session timezone.
-  if constexpr (ToKind == TypeKind::TIMESTAMP) {
-    const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-    // If user explicitly asked us to adjust the timezone.
-    if (queryConfig.adjustTimestampToTimezone()) {
-      auto sessionTzName = queryConfig.sessionTimezone();
-      if (!sessionTzName.empty()) {
-        // When context.throwOnError is false, some rows will be marked as
-        // 'failed'. These rows should not be processed further. 'remainingRows'
-        // will contain a subset of 'rows' that have passed all the checks (e.g.
-        // keys are not nulls and number of keys and values is the same).
-        exec::LocalSelectivityVector remainingRows(context, rows);
-        context.deselectErrors(*remainingRows);
-
-        // locate_zone throws runtime_error if the timezone couldn't be found
-        // (so we're safe to dereference the pointer).
-        auto* timeZone = date::locate_zone(sessionTzName);
-        auto rawTimestamps = resultFlatVector->mutableRawValues();
-
-        applyToSelectedNoThrowLocal(
-            context, *remainingRows, result, [&](int row) {
-              rawTimestamps[row].toGMT(*timeZone);
-            });
-      }
-    }
-  }
 }
 
 template <TypeKind ToKind>
