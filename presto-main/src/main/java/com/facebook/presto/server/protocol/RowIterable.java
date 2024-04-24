@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 class RowIterable
@@ -69,6 +70,9 @@ class RowIterable
             if (position >= page.getPositionCount()) {
                 return endOfData();
             }
+            if (page.getChannelCount() > types.size()) {
+                throw new IllegalStateException("columns and types must be the same size");
+            };
 
             List<Object> values = new ArrayList<>(page.getChannelCount());
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
