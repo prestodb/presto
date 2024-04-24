@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.procedure;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.HdfsConfiguration;
@@ -25,6 +25,8 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.iceberg.IcebergConfig;
+import com.facebook.presto.iceberg.IcebergPlugin;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
@@ -45,10 +47,10 @@ import java.util.Map;
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
-import static com.facebook.presto.iceberg.RegisterTableProcedure.METADATA_FOLDER_NAME;
-import static com.facebook.presto.iceberg.RegisterTableProcedure.getFileSystem;
-import static com.facebook.presto.iceberg.RegisterTableProcedure.parseMetadataVersionFromFileName;
-import static com.facebook.presto.iceberg.RegisterTableProcedure.resolveLatestMetadataLocation;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.parseMetadataVersionFromFileName;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
