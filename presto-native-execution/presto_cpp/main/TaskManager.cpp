@@ -207,15 +207,16 @@ void checkSplitsForBatchTask(
 }
 
 struct ZombieTaskStats {
-  const std::string taskId;
-  const std::string taskInfo;
+  const std::string info;
+  const long numExtraReferences;
 
-  explicit ZombieTaskStats(const std::shared_ptr<exec::Task>& task)
-      : taskId(task->taskId()), taskInfo(task->toString()) {}
-
-  std::string toString() const {
-    return SystemConfig::instance()->logZombieTaskInfo() ? taskInfo : taskId;
-  }
+  ZombieTaskStats(
+      const std::shared_ptr<exec::Task>& task,
+      long _numExtraReferences)
+      : info(
+            SystemConfig::instance()->logZombieTaskInfo() ? task->toString()
+                                                          : task->taskId()),
+        numExtraReferences(_numExtraReferences) {}
 };
 
 // Helper structure holding stats for 'zombie' tasks.
@@ -235,7 +236,9 @@ struct ZombieTaskStatsSet {
     tasks.reserve(numSampleTasks);
   }
 
-  void updateCounts(std::shared_ptr<exec::Task>& task) {
+  void updateCounts(
+      std::shared_ptr<exec::Task>& task,
+      long numExtraReferences) {
     switch (task->state()) {
       case exec::TaskState::kRunning:
         ++numRunning;
@@ -256,7 +259,7 @@ struct ZombieTaskStatsSet {
         break;
     }
     if (tasks.size() < numSampleTasks) {
-      tasks.emplace_back(task);
+      tasks.emplace_back(task, numExtraReferences);
     }
   }
 
@@ -271,8 +274,10 @@ struct ZombieTaskStatsSet {
                << numFailed << "]  Sample task IDs (shows only "
                << numSampleTasks << " IDs): " << std::endl;
     for (auto i = 0; i < tasks.size(); ++i) {
-      LOG(ERROR) << "Zombie Task[" << i + 1 << "/" << tasks.size()
-                 << "]: " << tasks[i].toString() << std::endl;
+      LOG(ERROR) << "Zombie " << hangingClassName << " [" << i + 1 << "/"
+                 << tasks.size()
+                 << "]: Extra Refs: " << tasks[i].numExtraReferences << ", "
+                 << tasks[i].info << std::endl;
     }
   }
 };
@@ -615,7 +620,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   }
 
   // Do not erase the finished/aborted tasks, because someone might still want
-  // to get some results from them. Instead we run a periodic task to clean up
+  // to get some results from them. Instead, we run a periodic task to clean up
   // the old finished/aborted tasks.
   if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
     prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
@@ -677,12 +682,12 @@ size_t TaskManager::cleanOldTasks() {
         if (prestoTaskRefCount > 2) {
           ++zombiePrestoTaskCounts.numTotal;
           if (task != nullptr) {
-            zombiePrestoTaskCounts.updateCounts(task);
+            zombiePrestoTaskCounts.updateCounts(task, prestoTaskRefCount - 2);
           }
         }
         if (taskRefCount > 1) {
           ++zombieVeloxTaskCounts.numTotal;
-          zombieVeloxTaskCounts.updateCounts(task);
+          zombieVeloxTaskCounts.updateCounts(task, taskRefCount - 1);
         }
       } else {
         taskIdsToClean.emplace(id);
