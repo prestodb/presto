@@ -120,8 +120,12 @@ template <>
   }
 
   if (type->isIntervalDayTime()) {
-    return ::duckdb::Value::INTERVAL(
-        0, 0, vector->as<SimpleVector<int64_t>>()->valueAt(index));
+    static constexpr int64_t kMicrosecondsInDay =
+        1000L * 1000L * 60L * 60L * 24L;
+    const auto interval = vector->as<SimpleVector<int64_t>>()->valueAt(index);
+    const int64_t microseconds = interval % kMicrosecondsInDay;
+    const int64_t days = interval / kMicrosecondsInDay;
+    return ::duckdb::Value::INTERVAL(0, days, microseconds);
   }
 
   return ::duckdb::Value(vector->as<SimpleVector<T>>()->valueAt(index));
