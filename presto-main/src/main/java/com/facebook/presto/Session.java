@@ -52,7 +52,6 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_JSON_CAST;
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
@@ -497,7 +496,6 @@ public final class Session
 
     public SqlFunctionProperties getSqlFunctionProperties()
     {
-        boolean legacyJsonCast = this.sessionPropertyManager.decodeSystemPropertyValue(LEGACY_JSON_CAST, null, Boolean.class);
         return SqlFunctionProperties.builder()
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
@@ -508,7 +506,6 @@ public final class Session
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
                 .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
-                .setLegacyJsonCast(legacyJsonCast)
                 .setExtraCredentials(identity.getExtraCredentials())
                 .build();
     }
