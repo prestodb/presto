@@ -645,6 +645,64 @@ TEST_F(MapWriterTest, appendToKeysAndValues) {
   ASSERT_EQ(values->asFlatVector<int64_t>()->valueAt(1), 20);
 }
 
+// Make sure MapWriter correctly handles 'result' MapVector, where keys and
+// values child vectors have different sizes.
+TEST_F(MapWriterTest, differentKeyValueSizes) {
+  using out_t = Map<int32_t, int32_t>;
+  auto mapType = CppToType<out_t>::create();
+
+  // Keys vector is shorter than values vector.
+  auto result = std::make_shared<MapVector>(
+      pool(),
+      mapType,
+      nullptr, // no nulls
+      3,
+      makeIndices({0, 2, 4}), // offsets
+      makeIndices({2, 2, 2}), // sizes
+      makeFlatVector<int32_t>({0, 1, 0, 1, 0, 1}), // keys
+      makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) // values
+  );
+
+  EXPECT_EQ(6, result->mapKeys()->size());
+  EXPECT_EQ(10, result->mapValues()->size());
+
+  {
+    // Write map at offset 0.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result);
+    vectorWriter.setOffset(0);
+    auto& mapWriter = vectorWriter.current();
+    mapWriter.copy_from(folly::F14FastMap<int64_t, int64_t>{{1, 2}});
+
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  {
+    // Write map at offset 2.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result);
+    vectorWriter.setOffset(2);
+    auto& mapWriter = vectorWriter.current();
+    mapWriter.copy_from(folly::F14FastMap<int64_t, int64_t>{{3, 4}});
+
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  // Verify sizes of keys and values vectors.
+  EXPECT_EQ(8, result->mapKeys()->size());
+  EXPECT_EQ(8, result->mapValues()->size());
+
+  auto expected = makeMapVector<int32_t, int32_t>({
+      {{1, 2}},
+      {{0, 2}, {1, 3}},
+      {{3, 4}},
+  });
+
+  assertEqualVectors(expected, result);
+}
+
 // Make sure copy from MapView correctly resizes children vectors.
 TEST_F(MapWriterTest, copyFromViewTypeResizedChildren) {
   using out_t = Map<int64_t, Map<int64_t, int64_t>>;
