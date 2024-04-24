@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 #include "velox/functions/lib/DateTimeFormatter.h"
-#include <velox/common/base/VeloxException.h>
-#include <velox/type/StringView.h>
-#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
@@ -24,7 +21,6 @@
 #include "velox/type/tz/TimeZoneMap.h"
 
 #include <gtest/gtest.h>
-#include <string>
 
 using namespace facebook::velox;
 
@@ -678,19 +674,13 @@ TEST_F(JodaDateTimeFormatterTest, parseJodaMonth) {
   // Ensure MMM and MMMM specifiers consume both short- and long-form month
   // names
   for (int i = 0; i < 12; i++) {
-    std::string buildString("2000-" + std::to_string(i + 1) + "-01");
-    EXPECT_EQ(
-        util::fromTimestampString(StringView{buildString}),
-        parseJoda(monthsShort[i], "MMM").timestamp);
-    EXPECT_EQ(
-        util::fromTimestampString(StringView{buildString}),
-        parseJoda(monthsFull[i], "MMM").timestamp);
-    EXPECT_EQ(
-        util::fromTimestampString(StringView{buildString}),
-        parseJoda(monthsShort[i], "MMMM").timestamp);
-    EXPECT_EQ(
-        util::fromTimestampString(StringView{buildString}),
-        parseJoda(monthsFull[i], "MMMM").timestamp);
+    const auto timestampString = fmt::format("2000-{}-01", i + 1);
+    const auto timestamp =
+        util::fromTimestampString(StringView(timestampString));
+    EXPECT_EQ(timestamp, parseJoda(monthsShort[i], "MMM").timestamp);
+    EXPECT_EQ(timestamp, parseJoda(monthsFull[i], "MMM").timestamp);
+    EXPECT_EQ(timestamp, parseJoda(monthsShort[i], "MMMM").timestamp);
+    EXPECT_EQ(timestamp, parseJoda(monthsFull[i], "MMMM").timestamp);
   }
 
   // Month name invalid parse
@@ -1952,12 +1942,15 @@ TEST_F(MysqlDateTimeTest, parseWeekYear) {
       util::fromTimestampString("10-03-08"), parseMysql("10 +10", "%v %x"));
   EXPECT_EQ(
       util::fromTimestampString("100-01-11"), parseMysql("2+100", "%v%x"));
-  EXPECT_THROW(parseMysql("+10001", "%x%m"), VeloxUserError);
-  EXPECT_THROW(parseMysql("++100", "%x"), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      parseMysql("+10001", "%x%m"), "Invalid date format: '+10001'");
+  VELOX_ASSERT_THROW(parseMysql("++100", "%x"), "Invalid date format: '++100'");
 
   // Probe week year range
-  EXPECT_THROW(parseMysql("-292275055", "%x"), VeloxUserError);
-  EXPECT_THROW(parseMysql("292278994", "%x"), VeloxUserError);
+  VELOX_ASSERT_THROW(
+      parseMysql("-292275055", "%x"), "Invalid date format: '-292275055'");
+  VELOX_ASSERT_THROW(
+      parseMysql("292278994", "%x"), "Invalid date format: '292278994'");
 }
 
 TEST_F(MysqlDateTimeTest, parseMonth) {

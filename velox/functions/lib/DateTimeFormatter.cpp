@@ -301,9 +301,9 @@ void parseFail(
     const char* end,
     const bool failOnError) {
   if (failOnError) {
-    VELOX_DCHECK(cur <= end);
+    VELOX_DCHECK_LE(cur, end);
     VELOX_USER_FAIL(
-        "Invalid format: \"{}\" is malformed at \"{}\"",
+        "Invalid date format: '{}' is malformed at '{}'",
         input,
         std::string_view(cur, end - cur));
   }
@@ -532,58 +532,56 @@ std::string formatFractionOfSecond(
 }
 
 // According to DateTimeFormatSpecifier enum class
-std::string getSpecifierName(int enumInt) {
-  switch (enumInt) {
-    case 0:
+std::string getSpecifierName(DateTimeFormatSpecifier specifier) {
+  switch (specifier) {
+    case DateTimeFormatSpecifier::ERA:
       return "ERA";
-    case 1:
+    case DateTimeFormatSpecifier::CENTURY_OF_ERA:
       return "CENTURY_OF_ERA";
-    case 2:
+    case DateTimeFormatSpecifier::YEAR_OF_ERA:
       return "YEAR_OF_ERA";
-    case 3:
+    case DateTimeFormatSpecifier::WEEK_YEAR:
       return "WEEK_YEAR";
-    case 4:
+    case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       return "WEEK_OF_WEEK_YEAR";
-    case 5:
+    case DateTimeFormatSpecifier::DAY_OF_WEEK_0_BASED:
       return "DAY_OF_WEEK_0_BASED";
-    case 6:
+    case DateTimeFormatSpecifier::DAY_OF_WEEK_1_BASED:
       return "DAY_OF_WEEK_1_BASED";
-    case 7:
+    case DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT:
       return "DAY_OF_WEEK_TEXT";
-    case 8:
+    case DateTimeFormatSpecifier::YEAR:
       return "YEAR";
-    case 9:
+    case DateTimeFormatSpecifier::DAY_OF_YEAR:
       return "DAY_OF_YEAR";
-    case 10:
+    case DateTimeFormatSpecifier::MONTH_OF_YEAR:
       return "MONTH_OF_YEAR";
-    case 11:
+    case DateTimeFormatSpecifier::MONTH_OF_YEAR_TEXT:
       return "MONTH_OF_YEAR_TEXT";
-    case 12:
+    case DateTimeFormatSpecifier::DAY_OF_MONTH:
       return "DAY_OF_MONTH";
-    case 13:
+    case DateTimeFormatSpecifier::HALFDAY_OF_DAY:
       return "HALFDAY_OF_DAY";
-    case 14:
+    case DateTimeFormatSpecifier::HOUR_OF_HALFDAY:
       return "HOUR_OF_HALFDAY";
-    case 15:
+    case DateTimeFormatSpecifier::CLOCK_HOUR_OF_HALFDAY:
       return "CLOCK_HOUR_OF_HALFDAY";
-    case 16:
+    case DateTimeFormatSpecifier::HOUR_OF_DAY:
       return "HOUR_OF_DAY";
-    case 17:
+    case DateTimeFormatSpecifier::CLOCK_HOUR_OF_DAY:
       return "CLOCK_HOUR_OF_DAY";
-    case 18:
+    case DateTimeFormatSpecifier::MINUTE_OF_HOUR:
       return "MINUTE_OF_HOUR";
-    case 19:
+    case DateTimeFormatSpecifier::SECOND_OF_MINUTE:
       return "SECOND_OF_MINUTE";
-    case 20:
+    case DateTimeFormatSpecifier::FRACTION_OF_SECOND:
       return "FRACTION_OF_SECOND";
-    case 21:
+    case DateTimeFormatSpecifier::TIMEZONE:
       return "TIMEZONE";
-    case 22:
+    case DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID:
       return "TIMEZONE_OFFSET_ID";
-    case 23:
+    case DateTimeFormatSpecifier::LITERAL_PERCENT:
       return "LITERAL_PERCENT";
-    default:
-      return "[Specifier not updated to conversion function yet]";
   }
 }
 
@@ -944,8 +942,7 @@ int32_t parseFromPattern(
       default:
         VELOX_NYI(
             "Numeric Joda specifier DateTimeFormatSpecifier::" +
-            getSpecifierName(static_cast<int>(curPattern.specifier)) +
-            " not implemented yet.");
+            getSpecifierName(curPattern.specifier) + " not implemented yet.");
     }
   }
   return 0;
@@ -1017,8 +1014,8 @@ uint32_t DateTimeFormatter::maxResultSize(
       case DateTimeFormatSpecifier::WEEK_OF_WEEK_YEAR:
       default:
         VELOX_UNSUPPORTED(
-            "format is not supported for specifier {}",
-            token.pattern.specifier);
+            "Date format specifier is not supported: {}",
+            getSpecifierName(token.pattern.specifier));
     }
   }
   return size;
@@ -1489,7 +1486,8 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
         case 'V':
         case 'w':
         case 'X':
-          VELOX_UNSUPPORTED("Specifier {} is not supported.", *tokenEnd)
+          VELOX_UNSUPPORTED(
+              "Date format specifier is not supported: %{}", *tokenEnd)
         default:
           builder.appendLiteral(tokenEnd, 1);
           break;

@@ -2664,7 +2664,7 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   VELOX_ASSERT_THROW(parseDatetime("", ""), "Invalid pattern specification");
   VELOX_ASSERT_THROW(
       parseDatetime("1234", "Y Y"),
-      "Invalid format: \"1234\" is malformed at \"\"");
+      "Invalid date format: '1234' is malformed at ''");
 
   // Simple tests. More exhaustive tests are provided as part of Joda's
   // implementation.
@@ -2740,7 +2740,7 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
 
   VELOX_ASSERT_THROW(
       parseDatetime("2024-02-25+06:00:99 PST", "yyyy-MM-dd+HH:mm:99 ZZZ"),
-      "Invalid format: \"2024-02-25+06:00:99 PST\" is malformed at \"PST\"");
+      "Invalid date format: '2024-02-25+06:00:99 PST' is malformed at 'PST'");
 }
 
 TEST_F(DateTimeFunctionsTest, formatDateTime) {
@@ -3341,31 +3341,32 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
           fromTimestampString("-2000-02-29 00:00:00.987"),
           "%Y-%m-%d %H:%i:%s.%f"));
 
-  // User format errors or unsupported errors
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%D"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%U"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%u"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%V"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%w"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%X"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%v"),
-      VeloxUserError);
-  EXPECT_THROW(
-      dateFormat(fromTimestampString("-2000-02-29 00:00:00.987"), "%x"),
-      VeloxUserError);
+  // User format errors or unsupported errors.
+  const auto timestamp = fromTimestampString("-2000-02-29 00:00:00.987");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%D"),
+      "Date format specifier is not supported: %D");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%U"),
+      "Date format specifier is not supported: %U");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%u"),
+      "Date format specifier is not supported: %u");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%V"),
+      "Date format specifier is not supported: %V");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%w"),
+      "Date format specifier is not supported: %w");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%X"),
+      "Date format specifier is not supported: %X");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%v"),
+      "Date format specifier is not supported: WEEK_OF_WEEK_YEAR");
+  VELOX_ASSERT_THROW(
+      dateFormat(timestamp, "%x"),
+      "Date format specifier is not supported: WEEK_YEAR");
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
@@ -3467,11 +3468,12 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
       Timestamp(-66600, 0), dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
 
   VELOX_ASSERT_THROW(
-      dateParse("", "%y+"), "Invalid format: \"\" is malformed at \"\"");
+      dateParse("", "%y+"), "Invalid date format: '' is malformed at ''");
   VELOX_ASSERT_THROW(
-      dateParse("1", "%y+"), "Invalid format: \"1\" is malformed at \"1\"");
+      dateParse("1", "%y+"), "Invalid date format: '1' is malformed at '1'");
   VELOX_ASSERT_THROW(
-      dateParse("116", "%y+"), "Invalid format: \"116\" is malformed at \"6\"");
+      dateParse("116", "%y+"),
+      "Invalid date format: '116' is malformed at '6'");
 }
 
 TEST_F(DateTimeFunctionsTest, dateFunctionVarchar) {
