@@ -22,7 +22,6 @@
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/SIMDJsonFunctions.h"
-#include "velox/functions/prestosql/benchmarks/JsonBenchmarkUtil.h"
 #include "velox/functions/prestosql/json/JsonExtractor.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
