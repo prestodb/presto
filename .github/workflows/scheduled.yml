@@ -246,8 +246,8 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           # Remove irrelevant artifacts
-          rm *_bias_functions
-          rm *_signatures_main.json
+          rm -f *_bias_functions
+          rm -f *_signatures_main.json
           # Rename signature files as 'main' files
           for f in *_signatures_contender.json; do
             mv "$f" "${f/_contender.json/_main.json}"
