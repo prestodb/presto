@@ -196,6 +196,9 @@ public final class AggregationUtils
 
     public static double getRegressionR2(RegressionState state)
     {
+        if (state.getM2X() != 0 && state.getM2Y() == 0) {
+            return 1.0;
+        }
         return Math.pow(state.getC2(), 2) / (state.getM2X() * state.getM2Y());
     }
 
