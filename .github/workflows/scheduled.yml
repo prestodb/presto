@@ -228,9 +228,9 @@ jobs:
           source .venv/bin/activate
           python3 -m pip install deepdiff
           python3 scripts/signature.py gh_bias_check presto spark
-          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contendor.json
+          python3 scripts/signature.py export_aggregates --presto /tmp/signatures/presto_aggregate_signatures_contender.json
           python3 scripts/signature.py bias_aggregates  /tmp/signatures/presto_aggregate_signatures_main.json \
-           /tmp/signatures/presto_aggregate_signatures_contendor.json /tmp/signatures/presto_aggregate_bias_functions \
+           /tmp/signatures/presto_aggregate_signatures_contender.json /tmp/signatures/presto_aggregate_bias_functions \
            /tmp/signatures/presto_aggregate_errors
 
       - name: Upload Signature Artifacts
