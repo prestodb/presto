@@ -617,7 +617,10 @@ public class IcebergPageSourceProvider
                             systemMemoryUsage,
                             stats,
                             runtimeStats,
-                            isRowPositionList),
+                            isRowPositionList,
+                            // Iceberg doesn't support row IDs
+                            new byte[0],
+                            ""),
                     Optional.empty(),
                     Optional.empty());
         }

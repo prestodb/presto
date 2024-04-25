@@ -183,6 +183,7 @@ public class HivePageSourceProvider
             return createAggregatedPageSource(aggregatedPageSourceFactories, configuration, session, hiveSplit, hiveLayout, selectedColumns, fileContext, encryptionInformation);
         }
         if (hiveLayout.isPushdownFilterEnabled()) {
+            Optional<byte[]> rowIDPartitionComponent = hiveSplit.getRowIdPartitionComponent();
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
                     configuration,
@@ -371,12 +372,14 @@ public class HivePageSourceProvider
                 .orElse(layout.getDomainPredicate());
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
+            List<HiveColumnHandle> columnHandles = toColumnHandles(columnMappings, true);
+            Optional<byte[]> rowIDPartitionComponent = split.getRowIdPartitionComponent();
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
                     split.getFileSplit(),
                     split.getStorage(),
-                    toColumnHandles(columnMappings, true),
+                    columnHandles,
                     prefilledValues,
                     coercers,
                     bucketAdaptation,
@@ -387,7 +390,7 @@ public class HivePageSourceProvider
                     fileContext,
                     encryptionInformation,
                     layout.isAppendRowNumberEnabled(),
-                    split.getRowIdPartitionComponent());
+                    rowIDPartitionComponent);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -497,7 +500,8 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     hiveFileContext,
-                    encryptionInformation);
+                    encryptionInformation,
+                    rowIdPartitionComponent);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,
