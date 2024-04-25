@@ -507,6 +507,7 @@ public enum FileFormat
                                 OptionalLong.of(targetFile.length()),
                                 modificationTime,
                                 false),
+                        Optional.empty(),
                         Optional.empty())
                 .get();
     }

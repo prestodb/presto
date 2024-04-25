@@ -17,6 +17,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
@@ -55,6 +56,7 @@ import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_SOURCE;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_USER_NAME;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
+import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.parseHiveTimestamp;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
@@ -82,6 +84,30 @@ public class TestHiveUtil
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
+    }
+
+    @Test
+    public void testCheckRowIDPartitionComponent_noRowID()
+    {
+        HiveColumnHandle handle = HiveColumnHandle.pathColumnHandle();
+        List<HiveColumnHandle> columns = ImmutableList.of(handle);
+        checkRowIDPartitionComponent(columns, Optional.empty());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testCheckRowIDPartitionComponent_Missing()
+    {
+        HiveColumnHandle handle = HiveColumnHandle.rowIdColumnHandle();
+        List<HiveColumnHandle> columns = ImmutableList.of(handle);
+        checkRowIDPartitionComponent(columns, Optional.empty());
+    }
+
+    @Test
+    public void testCheckRowIDPartitionComponent_rowID()
+    {
+        HiveColumnHandle handle = HiveColumnHandle.rowIdColumnHandle();
+        List<HiveColumnHandle> columns = ImmutableList.of(handle);
+        checkRowIDPartitionComponent(columns, Optional.of(new byte[0]));
     }
 
     @Test
