@@ -22,6 +22,8 @@ on:
       - 'third_party/**'
       - 'pyvelox/**'
       - '.github/workflows/benchmark.yml'
+      - 'scripts/benchmark-requirements.txt'
+
   push:
     branches: [main]
 

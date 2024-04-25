@@ -1,0 +1,118 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Collect Build Metrics
+
+on:
+  pull_request:
+      paths:
+        - ".github/workflows/build-metrics.yml"
+
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "ref to check"
+        required: true
+
+  schedule:
+    # Run every day at 04:05
+    - cron: "5 4 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  metrics:
+    name: Linux ${{ matrix.type }} with adapters
+    if: ${{ github.repository == 'facebookincubator/velox' }}
+    runs-on: ${{ matrix.runner }}
+    container: ghcr.io/facebookincubator/velox-dev:adapters
+    strategy:
+      fail-fast: false
+      matrix:
+        - runner: "16-core"
+        - type: ["debug", "release"]
+    defaults:
+      run:
+        shell: bash
+    env:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
+      simdjson_SOURCE: BUNDLED
+      xsimd_SOURCE: BUNDLED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory /__w/velox/velox
+
+      - name: Make ${{ matrix.type }} Build
+        env:
+          MAKEFLAGS: 'MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4'
+        run: |
+          EXTRA_CMAKE_FLAGS=(
+            "-DVELOX_ENABLE_BENCHMARKS=ON"
+            "-DVELOX_ENABLE_ARROW=ON"
+            "-DVELOX_ENABLE_PARQUET=ON"
+            "-DVELOX_ENABLE_HDFS=ON"
+            "-DVELOX_ENABLE_S3=ON"
+            "-DVELOX_ENABLE_GCS=ON"
+            "-DVELOX_ENABLE_ABFS=ON"
+            "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+          )
+          make '${{ matrix.type }}'
+
+      - name: Log binary sizes
+        run: |
+          mkdir -p /tmp/metrics
+          sizes_file=/tmp/metrics/object_sizes
+          pushd '_build/${{ matrix.type }}'
+
+          find velox -type f -name '*.so' -o -name '*.a' -exec ls -l -BB {} \; |
+            awk '{print $5, $9; total += $5} END {print total," total_lib_size"}' > $sizes_file
+
+          find velox -type f -name '*.o' -exec ls -l -BB {} \; |
+            awk '{print $5, $9; total += $5} END {print total," total_obj_size"}' >> $sizes_file
+
+          find velox -type f -name 'velox_*' -exec ls -l -BB {} \; |
+            awk '{print $5, $9; total += $5} END {print total," total_exec_size"}' >> $sizes_file
+
+      - name: Copy ninja_log
+        run: cp _build/${{ matrix.type }}/.ninja_log /tmp/metrics/.ninja_log
+
+      - name: "Install dependencies"
+        run: |
+          python3 -m pip install setuptools
+          python3 -m pip install -r scripts/benchmark-requirements.txt
+
+      - name: "Upload Metrics"
+        env:
+          CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
+          CONBENCH_MACHINE_INFO_NAME: "GitHub-runner-${{ matrix.runner }}"
+          CONBENCH_EMAIL: "${{ secrets.CONBENCH_EMAIL }}"
+          CONBENCH_PASSWORD: "${{ secrets.CONBENCH_PASSWORD }}"
+          # These don't actually work https://github.com/conbench/conbench/issues/1484
+          # but have to be there to work regardless??
+          CONBENCH_PROJECT_REPOSITORY: "${{ github.repository }}"
+          CONBENCH_PROJECT_COMMIT: "${{ inputs.ref || github.sha }}"
+        run: |
+          ./scripts/build-metrics.py upload \
+            --build_type "${{ matrix.type }}" \
+            --run_id "BM-${{ matrix.type }}-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --pr_number "${{ github.event.number }}" \
+            --sha "${{ inputs.ref || github.sha }}" \
+            "/tmp/metrics"
