@@ -33,16 +33,7 @@ class LambdaExpr : public SpecialForm {
       RowTypePtr&& signature,
       std::vector<std::shared_ptr<FieldReference>>&& capture,
       std::shared_ptr<Expr>&& body,
-      bool trackCpuUsage)
-      : SpecialForm(
-            std::move(type),
-            std::vector<std::shared_ptr<Expr>>(),
-            "lambda",
-            false /* supportsFlatNoNullsFastPath */,
-            trackCpuUsage),
-        signature_(std::move(signature)),
-        body_(std::move(body)),
-        capture_(std::move(capture)) {}
+      bool trackCpuUsage);
 
   bool isConstant() const override {
     return false;
@@ -79,6 +70,12 @@ class LambdaExpr : public SpecialForm {
   /// The inner expression that will be applied to the elements of the input
   /// array/map.
   ExprPtr body_;
+
+  // List of Shared Exprs that are decendants of 'body_' for which reset() needs
+  // to be called before calling `body_->eval()`.This is because every
+  // invocation of `body_->eval()` should treat its inputs like a fresh batch
+  // similar to how we operate in `ExprSet::eval()`.
+  std::vector<ExprPtr> sharedExprsToReset_;
 
   /// List of field references to columns in the input row vector.
   std::vector<std::shared_ptr<FieldReference>> capture_;
