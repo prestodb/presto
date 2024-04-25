@@ -333,9 +333,8 @@ TEST(DateTimeUtilTest, fromTimestampStringInvalid) {
 
 TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
   // -1 means no timezone information.
-  EXPECT_EQ(
-      fromTimestampWithTimezoneString("1970-01-01 00:00:00"),
-      std::make_pair(Timestamp(0, 0), -1L));
+  auto expected = std::make_pair<Timestamp, int64_t>(Timestamp(0, 0), -1);
+  EXPECT_EQ(fromTimestampWithTimezoneString("1970-01-01 00:00:00"), expected);
 
   // Test timezone offsets.
   EXPECT_EQ(
