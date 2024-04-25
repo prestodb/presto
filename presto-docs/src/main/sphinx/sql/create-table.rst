@@ -10,7 +10,8 @@ Synopsis
     CREATE TABLE [ IF NOT EXISTS ]
     table_name (
       { column_name data_type [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
-      | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ] }
+      | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ]
+      | [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED ] }
       [, ...]
     )
     [ COMMENT table_comment ]
@@ -61,13 +62,14 @@ Create a new table ``orders``::
     WITH (format = 'ORC')
 
 Create the table ``orders`` if it does not already exist, adding a table comment
-and a column comment::
+and a column comment and a primary key constraint on column ``orderkey``::
 
     CREATE TABLE IF NOT EXISTS orders (
       orderkey bigint,
       orderstatus varchar,
       totalprice double COMMENT 'Price in cents.',
-      orderdate date
+      orderdate date,
+      PRIMARY KEY (orderkey)
     )
     COMMENT 'A table to keep track of orders.'
 

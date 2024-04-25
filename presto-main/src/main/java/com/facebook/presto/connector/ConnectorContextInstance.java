@@ -15,6 +15,7 @@ package com.facebook.presto.connector;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -38,6 +39,7 @@ public class ConnectorContextInstance
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final ConnectorSystemConfig connectorSystemConfig;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -48,7 +50,8 @@ public class ConnectorContextInstance
             PageIndexerFactory pageIndexerFactory,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -59,6 +62,7 @@ public class ConnectorContextInstance
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     @Override
@@ -113,5 +117,11 @@ public class ConnectorContextInstance
     public BlockEncodingSerde getBlockEncodingSerde()
     {
         return blockEncodingSerde;
+    }
+
+    @Override
+    public ConnectorSystemConfig getConnectorSystemConfig()
+    {
+        return connectorSystemConfig;
     }
 }

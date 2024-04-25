@@ -361,9 +361,10 @@ public class SectionExecutionFactory
                 }
                 else {
                     // cannot use dynamic lifespan schedule
-                    verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule());
+                    verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule(),
+                            "Stage was planned with DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION, but is not eligible.");
 
-                    // remote source requires nodePartitionMap
+                    // Partitioned remote source requires nodePartitionMap
                     NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
                     if (groupedExecutionForStage) {
                         checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);

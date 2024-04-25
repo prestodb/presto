@@ -128,8 +128,8 @@ To commit code, you should:
 * [Sign the Presto CLA](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#contributor-license-agreement-cla)
 * [Join the Presto Slack](https://communityinviter.com/apps/prestodb/prestodb)
 * [File an issue](https://github.com/prestodb/presto/issues/new/choose)
-* Self-verify new code matches [codestyle](https://github.com/prestodb/presto#code-style) for Presto
-* Follow the [commit standards](https://github.com/prestodb/presto#commit-standards)
+* Self-verify new code matches [codestyle](#code-style) for Presto
+* Follow the [commit standards](#commit-standards)
 * Add or modify existing tests related to code changes being submitted
 * Run and ensure that local tests pass before submitting a merge request
 
@@ -355,6 +355,16 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 
 * When appropriate use Java 8 Stream API
 * Categorize errors when throwing an exception
+* **Tests**
+    * Avoid adding `Thread.sleep` in tests--these can fail due to environmental conditions, such as garbage collection or noisy neighbors in the CI environment.
+    * Do not use random values in tests. All tests should be reproducible.
+    * Be careful when storing test data in fields because doing so is
+      only appropriate for constant, immutable values. Presto tests
+      run with TestNG which, unlike JUnit, does not create a new object for
+      each test. Shared instance fields can make tests tightly coupled,
+      order dependent, and flaky. If you do use instance fields, 
+      reinitialize them before each test in a `@BeforeMethod` method,
+      and annotate the class with `@Test(singleThreaded = true)`.
 
 
 ## Commit Standards
@@ -372,7 +382,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
     * **Body**
         * Wrap the body at 72 characters
         * Use the body to explain what and why versus how
-        * Use the imperative mood in the body\
+        * Use the indicative mood in the body\
           For example, “If applied, this commit will ___________”
         * Communicate only context (why) for the commit in the subject line
         * Use the body for What and Why

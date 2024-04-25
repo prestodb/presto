@@ -71,8 +71,10 @@ import com.google.common.collect.ImmutableSet;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.SqlTimestamp.MICROSECONDS_PER_MILLISECOND;
@@ -203,10 +205,15 @@ public class ShowStatsRewrite
                         .filter(entry -> columns.contains(entry.getKey()))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             }
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, ImmutableList.copyOf(columnHandles.values()), constraint);
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            List<ColumnHandle> nonHiddenColumns = ImmutableList.copyOf(tableMetadata.getColumns().stream().filter(column -> !column.isHidden())
+                    .map(ColumnMetadata::getName)
+                    .map(columnHandles::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList()));
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, nonHiddenColumns, constraint);
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),
@@ -258,6 +265,7 @@ public class ShowStatsRewrite
                     .add("row_count")
                     .add("low_value")
                     .add("high_value")
+                    .add("histogram")
                     .build();
         }
 
@@ -303,6 +311,7 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
             rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
             return new Row(rowValues.build());
         }
 
@@ -316,6 +325,7 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());
         }
 
@@ -327,6 +337,7 @@ public class ShowStatsRewrite
             rowValues.add(NULL_DOUBLE);
             rowValues.add(NULL_DOUBLE);
             rowValues.add(createEstimateRepresentation(tableStatistics.getRowCount()));
+            rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             rowValues.add(NULL_VARCHAR);
             return new Row(rowValues.build());

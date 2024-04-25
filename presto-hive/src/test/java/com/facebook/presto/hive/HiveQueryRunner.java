@@ -46,6 +46,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -242,11 +243,12 @@ public final class HiveQueryRunner
                             .put("hive.compression-codec", "NONE")
                             .build();
 
-            Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(storageProperties)
-                    .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .build();
+            Map<String, String> hiveBucketedProperties = new HashMap<>();
+            hiveBucketedProperties.putAll(storageProperties);
+            hiveBucketedProperties.put("hive.max-initial-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties.put("hive.max-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties = ImmutableMap.copyOf(hiveBucketedProperties);
+
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 

@@ -795,7 +795,7 @@ public class DistributedQueryRunner
         }
     }
 
-    private void cancelAllQueries()
+    public void cancelAllQueries()
     {
         for (TestingPrestoServer coordinator : coordinators) {
             QueryManager queryManager = coordinator.getQueryManager();

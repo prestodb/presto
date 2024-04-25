@@ -153,6 +153,9 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
+``hive.dynamic-split-sizes-enabled``               Enable dynamic sizing of splits based on data scanned by     ``false``
+                                                   the query.
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
@@ -837,20 +840,28 @@ The following procedures are available:
 
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
-    Create an empty partition in the specified table.
+  Create an empty partition in the specified table.
 
 * ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
-    Check and update partitions list in metastore. There are three modes available:
+  Check and update partitions list in metastore. There are three modes available:
 
-    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
-    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
-    * ``FULL``: perform both ``ADD`` and ``DROP``.
+  * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+  * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+  * ``FULL``: perform both ``ADD`` and ``DROP``.
 
-    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
-    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
-    not conforming to this convention are ignored, unless the argument is set to ``false``.
+  The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  not conforming to this convention are ignored, unless the argument is set to ``false``.
+
+* ``system.invalidate_directory_list_cache()``
+
+  Flush full directory list cache.
+
+* ``system.invalidate_directory_list_cache(directory_path)``
+
+  Invalidate directory list cache for specified directory_path.
 
 Extra Hidden Columns
 --------------------

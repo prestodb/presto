@@ -129,6 +129,8 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_ENABLED = "quick_stats_enabled";
     public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
+    public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
+    public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -558,6 +560,11 @@ public final class HiveSessionProperties
                         "Enable estimating split weights based on size in bytes",
                         hiveClientConfig.isSizeBasedSplitWeightsEnabled(),
                         false),
+                booleanProperty(
+                        DYNAMIC_SPLIT_SIZES_ENABLED,
+                        "Enable dynamic sizing of splits based on column statistics",
+                        hiveClientConfig.isDynamicSplitSizesEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         MINIMUM_ASSIGNED_SPLIT_WEIGHT,
                         "Minimum assigned split weight when size based split weighting is enabled",
@@ -623,7 +630,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getQuickStatsBackgroundBuildTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                dataSizeSessionProperty(
+                        AFFINITY_SCHEDULING_FILE_SECTION_SIZE,
+                        "Size of file section for affinity scheduling",
+                        hiveClientConfig.getAffinitySchedulingFileSectionSize(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1032,6 +1044,11 @@ public final class HiveSessionProperties
         return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
     }
 
+    public static boolean isDynamicSplitSizesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_SPLIT_SIZES_ENABLED, Boolean.class);
+    }
+
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
@@ -1080,5 +1097,10 @@ public final class HiveSessionProperties
     public static Duration getQuickStatsBackgroundBuildTimeout(ConnectorSession session)
     {
         return session.getProperty(QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, Duration.class);
+    }
+
+    public static DataSize getAffinitySchedulingFileSectionSize(ConnectorSession session)
+    {
+        return session.getProperty(AFFINITY_SCHEDULING_FILE_SECTION_SIZE, DataSize.class);
     }
 }

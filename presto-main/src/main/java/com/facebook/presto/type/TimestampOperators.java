@@ -54,9 +54,12 @@ import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZo
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.floorDiv;
 
 public final class TimestampOperators
 {
+    public static final int MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+    public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
     private TimestampOperators()
     {
     }
@@ -134,7 +137,7 @@ public final class TimestampOperators
             long millis = date + chronology.getZone().getOffset(date);
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        return TimeUnit.MILLISECONDS.toDays(value);
+        return floorDiv(value, MILLISECONDS_PER_DAY);
     }
 
     @ScalarOperator(CAST)

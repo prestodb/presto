@@ -14,11 +14,14 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.hive.metastore.api.AddPrimaryKeyRequest;
+import org.apache.hadoop.hive.metastore.api.AddUniqueConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.DropConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
@@ -38,6 +41,8 @@ import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
+import org.apache.hadoop.hive.metastore.api.SQLPrimaryKey;
+import org.apache.hadoop.hive.metastore.api.SQLUniqueConstraint;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -55,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
@@ -143,6 +149,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.create_table(table);
+    }
+
+    @Override
+    public void createTableWithConstraints(Table table, List<SQLPrimaryKey> primaryKeys, List<SQLUniqueConstraint> uniqueConstraints)
+            throws TException
+    {
+        client.create_table_with_constraints(table, primaryKeys, emptyList(), uniqueConstraints, emptyList(), emptyList(), emptyList());
     }
 
     @Override
@@ -472,5 +485,29 @@ public class ThriftHiveMetastoreClient
         }
 
         return Optional.of(uniqueConstraintsResponse);
+    }
+
+    @Override
+    public void dropConstraint(String dbName, String tableName, String constraintName)
+            throws TException
+    {
+        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(dbName, tableName, constraintName);
+        client.drop_constraint(dropConstraintRequest);
+    }
+
+    @Override
+    public void addUniqueConstraint(List<SQLUniqueConstraint> constraint)
+            throws TException
+    {
+        AddUniqueConstraintRequest addUniqueConstraintRequest = new AddUniqueConstraintRequest(constraint);
+        client.add_unique_constraint(addUniqueConstraintRequest);
+    }
+
+    @Override
+    public void addPrimaryKeyConstraint(List<SQLPrimaryKey> constraint)
+            throws TException
+    {
+        AddPrimaryKeyRequest addPrimaryKeyRequest = new AddPrimaryKeyRequest(constraint);
+        client.add_primary_key(addPrimaryKeyRequest);
     }
 }

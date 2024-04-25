@@ -20,6 +20,7 @@ import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
@@ -47,9 +48,10 @@ public class DetachedNativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
+            WorkerProperty<?, ?, ?, ?> workerProperty,
+            FeaturesConfig featuresConfig)
     {
-        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty);
+        super(httpClient, coreExecutor, errorRetryScheduledExecutor, serverInfoCodec, workerProperty, featuresConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "ecoreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
@@ -68,6 +70,8 @@ public class DetachedNativeExecutionProcessFactory
     {
         try {
             return new DetachedNativeExecutionProcess(
+                    getExecutablePath(),
+                    getProgramArguments(),
                     session,
                     httpClient,
                     coreExecutor,

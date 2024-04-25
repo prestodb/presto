@@ -25,6 +25,7 @@ import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.Slices;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +42,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
+import static com.facebook.presto.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
@@ -64,7 +67,9 @@ public class HivePageSource
             Optional<BucketAdaptation> bucketAdaptation,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            ConnectorPageSource delegate)
+            ConnectorPageSource delegate,
+            String path,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         requireNonNull(columnMappings, "columnMappings is null");
         requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -90,6 +95,10 @@ public class HivePageSource
 
             if (columnMapping.getCoercionFrom().isPresent()) {
                 coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
+            }
+            else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle()) && rowIdPartitionComponent.isPresent()) {
+                String rowGroupId = Paths.get(path).getFileName().toString();
+                coercers[columnIndex] = new RowIDCoercer(rowIdPartitionComponent.get(), rowGroupId);
             }
 
             if (columnMapping.getKind() == PREFILLED) {
@@ -145,6 +154,10 @@ public class HivePageSource
                 switch (columnMapping.getKind()) {
                     case PREFILLED:
                         blocks.add(RunLengthEncodedBlock.create(types[fieldId], prefilledValues[fieldId], batchSize));
+                        break;
+                    case POSTFILLED:
+                        // Use empty slice for the value since this will be replaced later, after the data is read
+                        blocks.add(RunLengthEncodedBlock.create(types[fieldId], Slices.EMPTY_SLICE, batchSize));
                         break;
                     case REGULAR:
                         Block block = dataPage.getBlock(columnMapping.getIndex());

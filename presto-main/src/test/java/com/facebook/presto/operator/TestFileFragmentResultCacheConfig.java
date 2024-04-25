@@ -41,7 +41,8 @@ public class TestFileFragmentResultCacheConfig
                 .setCacheTtl(new Duration(2, DAYS))
                 .setMaxInFlightSize(new DataSize(1, GIGABYTE))
                 .setMaxSinglePagesSize(new DataSize(500, MEGABYTE))
-                .setMaxCacheSize(new DataSize(100, GIGABYTE)));
+                .setMaxCacheSize(new DataSize(100, GIGABYTE))
+                .setInputDataStatsEnabled(false));
     }
 
     @Test
@@ -57,6 +58,7 @@ public class TestFileFragmentResultCacheConfig
                 .put("fragment-result-cache.max-in-flight-size", "2GB")
                 .put("fragment-result-cache.max-single-pages-size", "200MB")
                 .put("fragment-result-cache.max-cache-size", "200GB")
+                .put("fragment-result-cache.input-data-stats-enabled", "true")
                 .build();
 
         FileFragmentResultCacheConfig expected = new FileFragmentResultCacheConfig()
@@ -67,7 +69,8 @@ public class TestFileFragmentResultCacheConfig
                 .setCacheTtl(new Duration(1, DAYS))
                 .setMaxInFlightSize(new DataSize(2, GIGABYTE))
                 .setMaxSinglePagesSize(new DataSize(200, MEGABYTE))
-                .setMaxCacheSize(new DataSize(200, GIGABYTE));
+                .setMaxCacheSize(new DataSize(200, GIGABYTE))
+                .setInputDataStatsEnabled(true);
 
         assertFullMapping(properties, expected);
     }

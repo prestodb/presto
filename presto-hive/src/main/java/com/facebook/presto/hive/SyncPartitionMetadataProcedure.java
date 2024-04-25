@@ -142,10 +142,10 @@ public class SyncPartitionMetadataProcedure
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, tableLocation);
-            List<String> partitionNamesInMetastore = metastore.getPartitionNames(metastoreContext, schemaName, tableName)
+            List<PartitionNameWithVersion> partitionNamesInMetastore = metastore.getPartitionNames(metastoreContext, schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             ImmutableList.Builder<String> partitionsInMetastore = new ImmutableList.Builder<>();
-            for (List<String> batchPartitionNames : partition(partitionNamesInMetastore, GET_PARTITION_BY_NAMES_BATCH_SIZE)) {
+            for (List<PartitionNameWithVersion> batchPartitionNames : partition(partitionNamesInMetastore, GET_PARTITION_BY_NAMES_BATCH_SIZE)) {
                 Map<String, Optional<Partition>> partitionsOptionalMap = metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, batchPartitionNames);
                 for (Map.Entry<String, Optional<Partition>> entry : partitionsOptionalMap.entrySet()) {
                     if (entry.getValue().isPresent()) {

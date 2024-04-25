@@ -17,8 +17,10 @@ import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
 import com.google.common.util.concurrent.Futures;
@@ -61,7 +63,14 @@ public class ThriftTaskService
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
+                () -> BufferResult.emptyResults(
+                        taskManager.getTaskInstanceId(taskId),
+                        token,
+                        taskManager.getTaskBufferInfo(taskId, bufferId)
+                                .map(BufferInfo::getPageBufferInfo)
+                                .map(PageBufferInfo::getBufferedBytes)
+                                .orElse(0L),
+                        false),
                 waitTime,
                 timeoutExecutor);
 

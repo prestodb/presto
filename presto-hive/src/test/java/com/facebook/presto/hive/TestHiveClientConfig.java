@@ -38,6 +38,7 @@ import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.TestHiveUtil.nonDefaultTimeZone;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHiveClientConfig
 {
@@ -143,6 +144,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(false)
                 .setReadColumnIndexFilter(false)
                 .setSizeBasedSplitWeightsEnabled(true)
+                .setDynamicSplitSizesEnabled(false)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setUserDefinedTypeEncodingEnabled(false)
                 .setUseRecordPageSourceForCustomSplit(true)
@@ -161,7 +163,8 @@ public class TestHiveClientConfig
                 .setQuickStatsReaperExpiry(new Duration(5, TimeUnit.MINUTES))
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(60, TimeUnit.SECONDS))
                 .setMaxConcurrentQuickStatsCalls(100)
-                .setMaxConcurrentParquetQuickStatsCalls(500));
+                .setMaxConcurrentParquetQuickStatsCalls(500)
+                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
     }
 
     @Test
@@ -266,6 +269,7 @@ public class TestHiveClientConfig
                 .put("hive.materialized-view-missing-partitions-threshold", "50")
                 .put("hive.parquet-column-index-filter-enabled", "true")
                 .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.dynamic-split-sizes-enabled", "true")
                 .put("hive.user-defined-type-encoding-enabled", "true")
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.use-record-page-source-for-custom-split", "false")
@@ -285,6 +289,7 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.parquet.file-metadata-fetch-timeout", "30s")
                 .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
                 .put("hive.quick-stats.max-concurrent-calls", "101")
+                .put("hive.affinity-scheduling-file-section-size", "512MB")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -385,6 +390,7 @@ public class TestHiveClientConfig
                 .setLooseMemoryAccountingEnabled(true)
                 .setReadColumnIndexFilter(true)
                 .setSizeBasedSplitWeightsEnabled(false)
+                .setDynamicSplitSizesEnabled(true)
                 .setMinimumAssignedSplitWeight(1.0)
                 .setUserDefinedTypeEncodingEnabled(true)
                 .setUseRecordPageSourceForCustomSplit(false)
@@ -403,7 +409,8 @@ public class TestHiveClientConfig
                 .setQuickStatsReaperExpiry(new Duration(15, TimeUnit.MINUTES))
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
-                .setMaxConcurrentQuickStatsCalls(101);
+                .setMaxConcurrentQuickStatsCalls(101)
+                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

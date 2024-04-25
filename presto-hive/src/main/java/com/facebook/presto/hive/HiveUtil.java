@@ -140,9 +140,9 @@ import static com.facebook.presto.hive.HiveColumnHandle.isFileModifiedTimeColumn
 import static com.facebook.presto.hive.HiveColumnHandle.isFileSizeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.rowIdColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
@@ -958,6 +958,7 @@ public final class HiveUtil
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
+        columns.add(rowIdColumnHandle());
 
         return columns.build();
     }
@@ -1022,7 +1023,6 @@ public final class HiveUtil
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
             return Optional.of(String.valueOf(fileSplit.getFileModifiedTime()));
         }
-
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }
 
@@ -1136,7 +1136,11 @@ public final class HiveUtil
         }
 
         List<String> columnNames = getColumnNames(types);
-        verifyFileHasColumnNames(columnNames, path);
+
+        boolean hasColumnNames = fileHasColumnNames(columnNames);
+        if (!hasColumnNames) {
+            return columns;
+        }
 
         Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(columnNames);
         int nextMissingColumnIndex = physicalNameOrdinalMap.size();
@@ -1145,9 +1149,9 @@ public final class HiveUtil
         for (HiveColumnHandle column : columns) {
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
-                // if the column is missing from the file, assign it a column number larger than the number of columns in the
-                // file so the reader will fill it with nulls.  If the index is negative, i.e. this is a synthesized column like
-                // a partitioning key, $bucket or $path, leave it as is.
+                // If the column is missing from the file, assign it a column number larger than the number of columns in the
+                // file so the reader will fill it with nulls. If the index is negative, i.e. this is a synthesized column like
+                // a partitioning key, $bucket, $row_id, or $path, leave it as is.
                 if (column.getHiveColumnIndex() < 0) {
                     physicalOrdinal = column.getHiveColumnIndex();
                 }
@@ -1166,13 +1170,9 @@ public final class HiveUtil
         return types.get(0).getFieldNames();
     }
 
-    private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
+    private static boolean fileHasColumnNames(List<String> physicalColumnNames)
     {
-        if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
-            throw new PrestoException(
-                    HIVE_FILE_MISSING_COLUMN_NAMES,
-                    "ORC file does not contain column names in the footer: " + path);
-        }
+        return physicalColumnNames.isEmpty() || !physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches());
     }
 
     private static Map<String, Integer> buildPhysicalNameOrdinalMap(List<String> columnNames)

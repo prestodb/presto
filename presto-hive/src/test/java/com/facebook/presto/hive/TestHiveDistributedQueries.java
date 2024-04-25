@@ -34,6 +34,7 @@ import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {

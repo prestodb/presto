@@ -29,6 +29,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.SliceTooLargeException;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +40,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.SLICE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -164,6 +166,10 @@ public final class Failures
     private static ErrorCode toErrorCode(Throwable throwable)
     {
         requireNonNull(throwable);
+
+        if (throwable instanceof SliceTooLargeException) {
+            return SLICE_TOO_LARGE.toErrorCode();
+        }
 
         if (throwable instanceof PrestoException) {
             return ((PrestoException) throwable).getErrorCode();

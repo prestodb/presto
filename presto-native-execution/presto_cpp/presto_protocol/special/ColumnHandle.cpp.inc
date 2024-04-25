@@ -17,23 +17,7 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  if (getConnectorKey(type) == "hive") {
-    j = *std::static_pointer_cast<HiveColumnHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergColumnHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "tpch") {
-    j = *std::static_pointer_cast<TpchColumnHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
@@ -43,29 +27,6 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   } catch (json::parse_error& e) {
     throw ParseError(std::string(e.what()) + " ColumnHandle  ColumnHandle");
   }
-
-  if (getConnectorKey(type) == "hive") {
-    std::shared_ptr<HiveColumnHandle> k = std::make_shared<HiveColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-
-  if (getConnectorKey(type) == "hive-iceberg") {
-    std::shared_ptr<IcebergColumnHandle> k =
-        std::make_shared<IcebergColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-
-  if (getConnectorKey(type) == "tpch") {
-    std::shared_ptr<TpchColumnHandle> k = std::make_shared<TpchColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

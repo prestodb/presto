@@ -47,6 +47,10 @@ public class QueryInfo
     private final List<String> setupQueries;
     private final List<String> teardownQueries;
     private final String checksumQuery;
+    private final String partitionChecksumQueryId;
+    private final String partitionChecksumQuery;
+    private final String bucketChecksumQueryId;
+    private final String bucketChecksumQuery;
     private final String jsonPlan;
     private final String outputTableName;
 
@@ -69,6 +73,10 @@ public class QueryInfo
             Optional<List<String>> setupQueries,
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
+            Optional<String> partitionChecksumQueryId,
+            Optional<String> partitionChecksumQuery,
+            Optional<String> bucketChecksumQueryId,
+            Optional<String> bucketChecksumQuery,
             Optional<String> jsonPlan,
             Optional<QueryActionStats> queryActionStats,
             Optional<String> outputTableName)
@@ -86,6 +94,10 @@ public class QueryInfo
         this.setupQueries = setupQueries.orElse(null);
         this.teardownQueries = teardownQueries.orElse(null);
         this.checksumQuery = checksumQuery.orElse(null);
+        this.partitionChecksumQueryId = partitionChecksumQueryId.orElse(null);
+        this.partitionChecksumQuery = partitionChecksumQuery.orElse(null);
+        this.bucketChecksumQueryId = bucketChecksumQueryId.orElse(null);
+        this.bucketChecksumQuery = bucketChecksumQuery.orElse(null);
         this.jsonPlan = jsonPlan.orElse(null);
         this.cpuTimeSecs = stats.map(QueryStats::getCpuTimeMillis).map(QueryInfo::millisToSeconds).orElse(null);
         this.wallTimeSecs = stats.map(QueryStats::getWallTimeMillis).map(QueryInfo::millisToSeconds).orElse(null);
@@ -173,6 +185,30 @@ public class QueryInfo
     }
 
     @EventField
+    public String getPartitionChecksumQueryId()
+    {
+        return partitionChecksumQueryId;
+    }
+
+    @EventField
+    public String getPartitionChecksumQuery()
+    {
+        return partitionChecksumQuery;
+    }
+
+    @EventField
+    public String getBucketChecksumQueryId()
+    {
+        return bucketChecksumQueryId;
+    }
+
+    @EventField
+    public String getBucketChecksumQuery()
+    {
+        return bucketChecksumQuery;
+    }
+
+    @EventField
     public String getJsonPlan()
     {
         return jsonPlan;
@@ -236,6 +272,10 @@ public class QueryInfo
         private Optional<List<String>> setupQueries = Optional.empty();
         private Optional<List<String>> teardownQueries = Optional.empty();
         private Optional<String> checksumQuery = Optional.empty();
+        private Optional<String> partitionChecksumQueryId = Optional.empty();
+        private Optional<String> partitionChecksumQuery = Optional.empty();
+        private Optional<String> bucketChecksumQueryId = Optional.empty();
+        private Optional<String> bucketChecksumQuery = Optional.empty();
         private Optional<String> jsonPlan = Optional.empty();
         private Optional<QueryActionStats> queryActionStats = Optional.empty();
         private Optional<String> outputTableName = Optional.empty();
@@ -294,6 +334,30 @@ public class QueryInfo
             return this;
         }
 
+        public Builder setPartitionChecksumQueryId(Optional<String> partitionChecksumQueryId)
+        {
+            this.partitionChecksumQueryId = partitionChecksumQueryId;
+            return this;
+        }
+
+        public Builder setPartitionChecksumQuery(Optional<String> partitionChecksumQuery)
+        {
+            this.partitionChecksumQuery = partitionChecksumQuery;
+            return this;
+        }
+
+        public Builder setBucketChecksumQueryId(Optional<String> bucketChecksumQueryId)
+        {
+            this.bucketChecksumQueryId = bucketChecksumQueryId;
+            return this;
+        }
+
+        public Builder setBucketChecksumQuery(Optional<String> bucketChecksumQuery)
+        {
+            this.bucketChecksumQuery = bucketChecksumQuery;
+            return this;
+        }
+
         public Builder setJsonPlan(String jsonPlan)
         {
             this.jsonPlan = Optional.of(jsonPlan);
@@ -326,6 +390,10 @@ public class QueryInfo
                     setupQueries,
                     teardownQueries,
                     checksumQuery,
+                    partitionChecksumQueryId,
+                    partitionChecksumQuery,
+                    bucketChecksumQueryId,
+                    bucketChecksumQuery,
                     jsonPlan,
                     queryActionStats,
                     outputTableName);

@@ -17,11 +17,12 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include "folly/experimental/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -32,8 +33,6 @@
 DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace fs = boost::filesystem;
-using namespace facebook::presto;
-
 using namespace facebook::presto;
 using namespace facebook::velox;
 using namespace facebook::velox::memory;
@@ -413,9 +412,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
         GetParam().immediateBufferTransfer ? "true" : "false");
     const std::string keyPath = getCertsPath("client_ca.pem");
     const std::string ciphers = "AES128-SHA,AES128-SHA256,AES256-GCM-SHA384";
-    sslContext_ = std::make_shared<folly::SSLContext>();
-    sslContext_->loadCertKeyPairFromFiles(keyPath.c_str(), keyPath.c_str());
-    sslContext_->setCiphersOrThrow(ciphers);
+    sslContext_ = facebook::presto::util::createSSLContext(keyPath, ciphers);
   }
 
   void TearDown() override {
@@ -453,7 +450,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
       std::lock_guard<std::mutex> l(queue->mutex());
       ASSERT_TRUE(exchangeSource->shouldRequestLocked());
     }
-    exchangeSource->request(1 << 20, 2);
+    exchangeSource->request(1 << 20, std::chrono::seconds(2));
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -684,25 +681,35 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   ASSERT_EQ(stats.at("prestoExchangeSource.totalBytes"), totalBytes(pages));
 }
 
-TEST_P(PrestoExchangeSourceTest, slowProducerAndEarlyTerminatingConsumer) {
+DEBUG_ONLY_TEST_P(
+    PrestoExchangeSourceTest,
+    slowProducerAndEarlyTerminatingConsumer) {
   const bool useHttps = GetParam().useHttps;
-  std::atomic<bool> codePointHit{false};
+  std::atomic_bool codePointHit{false};
+  folly::EventCount closeWait;
+  std::atomic_bool allCloseCheckPassed{false};
   SCOPED_TESTVALUE_SET(
       "facebook::presto::PrestoExchangeSource::doRequest",
       std::function<void(const PrestoExchangeSource*)>(
+          ([&](const auto* prestoExchangeSource) {
+            allCloseCheckPassed = true;
+          })));
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::PrestoExchangeSource::handleDataResponse",
+      std::function<void(const PrestoExchangeSource*)>(
           ([&](const auto* prestoExchangeSource) { codePointHit = true; })));
-  auto producer = std::make_unique<Producer>();
 
+  auto producer = std::make_unique<Producer>();
   auto producerServer = createHttpServer(useHttps);
   producer->registerEndpoints(producerServer.get());
-
   test::HttpServerWrapper serverWrapper(std::move(producerServer));
   auto producerAddress = serverWrapper.start().get();
 
   auto queue = makeSingleSourceQueue();
   auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
-
   requestNextPage(queue, exchangeSource);
+
+  closeWait.await([&]() { return allCloseCheckPassed.load(); });
 
   // Simulation of an early destruction of 'Task' will release following
   // resources, including pool_
@@ -978,7 +985,7 @@ TEST_P(PrestoExchangeSourceTest, memoryAllocationAndUsageCheck) {
   }
 }
 
-TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
+DEBUG_ONLY_TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
   const auto useHttps = GetParam().useHttps;
   auto producer = std::make_unique<Producer>();
   producer->enqueue("one pager");
@@ -999,7 +1006,7 @@ TEST_P(PrestoExchangeSourceTest, closeRaceCondition) {
     std::lock_guard<std::mutex> l(queue->mutex());
     ASSERT_TRUE(exchangeSource->shouldRequestLocked());
   }
-  auto future = exchangeSource->request(1 << 20, 2);
+  auto future = exchangeSource->request(1 << 20, std::chrono::seconds(2));
   ASSERT_TRUE(future.isReady());
   auto response = std::move(future).get();
   ASSERT_EQ(response.bytes, 0);

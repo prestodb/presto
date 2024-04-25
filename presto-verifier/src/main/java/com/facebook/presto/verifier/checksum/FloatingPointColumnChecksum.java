@@ -58,6 +58,11 @@ public class FloatingPointColumnChecksum
         return negativeInfinityCount;
     }
 
+    public long getRowCount()
+    {
+        return rowCount;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

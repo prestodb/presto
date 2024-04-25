@@ -25,33 +25,13 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
     j = *std::static_pointer_cast<RemoteTransactionHandle>(p);
     return;
   }
-  if (getConnectorKey(type) == "hive") {
-    j = *std::static_pointer_cast<HiveTransactionHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "hive-iceberg") {
-    j = *std::static_pointer_cast<HiveTransactionHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "tpch") {
-    j = *std::static_pointer_cast<TpchTransactionHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTransactionHandle");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
   String type;
   try {
-    // TPC-H transactionHandle is an array ["tpch","INSTANCE"].
-    if (j.is_array()) {
-      type = j[0];
-    } else {
-      type = p->getSubclassKey(j);
-    }
+    type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
     throw ParseError(
         std::string(e.what()) +
@@ -64,25 +44,6 @@ void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
     p = k;
     return;
   }
-  if (getConnectorKey(type) == "hive") {
-    auto k = std::make_shared<HiveTransactionHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-  if (getConnectorKey(type) == "hive-iceberg") {
-    auto k = std::make_shared<HiveTransactionHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-  if (getConnectorKey(type) == "tpch") {
-    auto k = std::make_shared<TpchTransactionHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTransactionHandle");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

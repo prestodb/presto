@@ -17,7 +17,6 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
@@ -85,6 +84,8 @@ public class NativeExecutionProcess
     private static final String WORKER_CONNECTOR_CONFIG_FILE = "/catalog/";
     private static final int SIGSYS = 31;
 
+    private final String executablePath;
+    private final String programArguments;
     private final Session session;
     private final PrestoSparkHttpServerClient serverClient;
     private final URI location;
@@ -98,6 +99,8 @@ public class NativeExecutionProcess
     private volatile ProcessOutputPipe processOutputPipe;
 
     public NativeExecutionProcess(
+            String executablePath,
+            String programArguments,
             Session session,
             HttpClient httpClient,
             Executor executor,
@@ -107,6 +110,8 @@ public class NativeExecutionProcess
             WorkerProperty<?, ?, ?, ?> workerProperty)
             throws IOException
     {
+        this.executablePath = requireNonNull(executablePath, "executablePath is null");
+        this.programArguments = requireNonNull(programArguments, "programArguments is null");
         String nodeInternalAddress = workerProperty.getNodeConfig().getNodeInternalAddress();
         this.port = getAvailableTcpPort(nodeInternalAddress);
         this.session = requireNonNull(session, "session is null");
@@ -407,11 +412,9 @@ public class NativeExecutionProcess
     private List<String> getLaunchCommand()
             throws IOException
     {
-        String executablePath = getProcessWorkingPath(SystemSessionProperties.getNativeExecutionExecutablePath(session));
-        String programArgs = SystemSessionProperties.getNativeExecutionProgramArguments(session);
         String configPath = Paths.get(getProcessWorkingPath("./"), String.valueOf(port)).toAbsolutePath().toString();
         ImmutableList.Builder<String> command = ImmutableList.builder();
-        List<String> argsList = Arrays.asList(programArgs.split("\\s+"));
+        List<String> argsList = Arrays.asList(programArguments.split("\\s+"));
         boolean etcDirSet = false;
         for (int i = 0; i < argsList.size(); i++) {
             String arg = argsList.get(i);

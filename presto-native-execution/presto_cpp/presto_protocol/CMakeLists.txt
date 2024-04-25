@@ -9,8 +9,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp
-                                   DataSize.cpp Duration.cpp Connectors.cpp)
+add_library(
+  presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp DataSize.cpp
+                         Duration.cpp ConnectorProtocol.cpp)
 
 target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
 

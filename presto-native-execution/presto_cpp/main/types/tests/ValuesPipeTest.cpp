@@ -16,11 +16,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <ios>
-#include <iosfwd>
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/Operator.h"
 #include "velox/type/Type.h"
 #include "velox/vector/FlatVector.h"

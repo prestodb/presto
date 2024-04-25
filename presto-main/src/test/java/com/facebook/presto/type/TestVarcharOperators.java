@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
@@ -20,6 +24,7 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 
 public class TestVarcharOperators
         extends AbstractTestFunctions
@@ -139,5 +144,24 @@ public class TestVarcharOperators
         assertOperator(INDETERMINATE, "cast(123456 as varchar)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(12345.0123 as varchar)", BOOLEAN, false);
         assertOperator(INDETERMINATE, "cast(true as varchar)", BOOLEAN, false);
+    }
+
+    @Test
+    public void testCastVarcharAsInteger()
+    {
+        assertFunction("CAST('6' AS BIGINT)", BigintType.BIGINT, 6L);
+        assertFunction("CAST('7' AS INTEGER)", IntegerType.INTEGER, 7);
+        assertFunction("CAST('8' AS SMALLINT)", SmallintType.SMALLINT, (short) 8);
+        assertFunction("CAST('9' AS TINYINT)", TinyintType.TINYINT, (byte) 9);
+
+        assertFunction("CAST(' 6    ' AS BIGINT)", BigintType.BIGINT, 6L);
+        assertFunction("CAST('  7   ' AS INTEGER)", IntegerType.INTEGER, 7);
+        assertFunction("CAST('   8  ' AS SMALLINT)", SmallintType.SMALLINT, (short) 8);
+        assertFunction("CAST('    9 ' AS TINYINT)", TinyintType.TINYINT, (byte) 9);
+
+        assertInvalidFunction("CAST('6 7' AS BIGINT)", INVALID_CAST_ARGUMENT, "Cannot cast '6 7' to BIGINT");
+        assertInvalidFunction("CAST('7 8' AS INTEGER)", INVALID_CAST_ARGUMENT, "Cannot cast '7 8' to INT");
+        assertInvalidFunction("CAST('8 9' AS SMALLINT)", INVALID_CAST_ARGUMENT, "Cannot cast '8 9' to SMALLINT");
+        assertInvalidFunction("CAST('9 6' AS TINYINT)", INVALID_CAST_ARGUMENT, "Cannot cast '9 6' to TINYINT");
     }
 }

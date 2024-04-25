@@ -108,18 +108,18 @@ void TaskResource::registerUris(http::HttpServer& server) {
         return getTaskStatus(message, pathMatch);
       });
 
-  server.registerGet(
-      R"(/v1/task/async/(.+)/results/([0-9]+)/([0-9]+))",
+  server.registerHead(
+      R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
-        return getResults(message, pathMatch);
+        return getResults(message, pathMatch, true);
       });
 
   server.registerGet(
       R"(/v1/task/(.+)/results/([0-9]+)/([0-9]+))",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
-        return getResults(message, pathMatch);
+        return getResults(message, pathMatch, false);
       });
 
   server.registerGet(
@@ -405,18 +405,25 @@ proxygen::RequestHandler* TaskResource::deleteTask(
 
 proxygen::RequestHandler* TaskResource::getResults(
     proxygen::HTTPMessage* message,
-    const std::vector<std::string>& pathMatch) {
+    const std::vector<std::string>& pathMatch,
+    bool getDataSize) {
   protocol::TaskId taskId = pathMatch[1];
   long bufferId = folly::to<long>(pathMatch[2]);
   long token = folly::to<long>(pathMatch[3]);
 
   auto& headers = message->getHeaders();
-  auto maxSize = protocol::DataSize(
-      headers.exists(protocol::PRESTO_MAX_SIZE_HTTP_HEADER)
-          ? headers.getSingleOrEmpty(protocol::PRESTO_MAX_SIZE_HTTP_HEADER)
-          : protocol::PRESTO_MAX_SIZE_DEFAULT);
   auto maxWait = getMaxWait(message).value_or(
       protocol::Duration(protocol::PRESTO_MAX_WAIT_DEFAULT));
+  protocol::DataSize maxSize;
+  if (getDataSize || headers.exists(protocol::PRESTO_GET_DATA_SIZE_HEADER)) {
+    maxSize = protocol::DataSize(0, protocol::DataUnit::BYTE);
+  } else {
+    maxSize = protocol::DataSize(
+        headers.exists(protocol::PRESTO_MAX_SIZE_HTTP_HEADER)
+            ? headers.getSingleOrEmpty(protocol::PRESTO_MAX_SIZE_HTTP_HEADER)
+            : protocol::PRESTO_MAX_SIZE_DEFAULT);
+  }
+
   return new http::CallbackRequestHandler(
       [this, taskId, bufferId, token, maxSize, maxWait](
           proxygen::HTTPMessage* /*message*/,
@@ -447,8 +454,9 @@ proxygen::RequestHandler* TaskResource::getResults(
                     auto status = result->data && result->data->length() == 0
                         ? http::kHttpNoContent
                         : http::kHttpOk;
-                    proxygen::ResponseBuilder(downstream)
-                        .status(status, "")
+
+                    proxygen::ResponseBuilder builder(downstream);
+                    builder.status(status, "")
                         .header(
                             proxygen::HTTP_HEADER_CONTENT_TYPE,
                             protocol::PRESTO_PAGES_MIME_TYPE)
@@ -462,9 +470,13 @@ proxygen::RequestHandler* TaskResource::getResults(
                             std::to_string(result->nextSequence))
                         .header(
                             protocol::PRESTO_BUFFER_COMPLETE_HEADER,
-                            result->complete ? "true" : "false")
-                        .body(std::move(result->data))
-                        .sendWithEOM();
+                            result->complete ? "true" : "false");
+                    if (!result->remainingBytes.empty()) {
+                      builder.header(
+                          protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER,
+                          folly::join(',', result->remainingBytes));
+                    }
+                    builder.body(std::move(result->data)).sendWithEOM();
                   })
                   .thenError(
                       folly::tag_t<velox::VeloxException>{},

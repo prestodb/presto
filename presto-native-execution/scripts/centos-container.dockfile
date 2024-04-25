@@ -11,9 +11,9 @@
 # limitations under the License.
 # Build the test and build container for presto_cpp
 #
-FROM prestocpp/velox-avx-circleci:mikesh-20220717
+FROM ghcr.io/facebookincubator/velox-dev:centos8
 
 COPY setup-centos.sh /
 COPY setup-helper-functions.sh /
 RUN chmod +x ./setup-centos.sh
-RUN mkdir build && ( cd build && ../setup-centos.sh ) && rm -rf build
+RUN mkdir build && ( cd build && ../setup-centos.sh install_presto_deps ) && rm -rf build

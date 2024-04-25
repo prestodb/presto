@@ -134,7 +134,7 @@ class PeriodicTaskManager {
 
   void addWatchdogTask();
 
-  void detachWorker();
+  void detachWorker(const char* reason);
   void maybeAttachWorker();
 
   folly::CPUThreadPoolExecutor* const driverCPUExecutor_;
@@ -157,6 +157,8 @@ class PeriodicTaskManager {
   int64_t lastMemoryCacheStalls_{0};
   int64_t lastMemoryCacheAllocClocks_{0};
   int64_t lastMemoryCacheAgedOuts_{0};
+  int64_t lastSsdCacheCheckpointsWritten_{0};
+  int64_t lastSsdCacheCheckpointsRead_{0};
 
   // Operating system related stats.
   int64_t lastUserCpuTimeUs_{0};
@@ -172,6 +174,7 @@ class PeriodicTaskManager {
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;
   folly::ThreadedRepeatingFunctionRunner repeatedRunner_;
+  size_t numDriverThreads_{0};
 };
 
 } // namespace facebook::presto

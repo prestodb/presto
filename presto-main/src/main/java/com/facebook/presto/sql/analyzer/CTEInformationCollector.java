@@ -23,10 +23,16 @@ public class CTEInformationCollector
 {
     private final HashMap<String, CTEInformation> cteInformationMap = new HashMap<>();
 
+    // In this case cteName will be cteId
     public void addCTEReference(String cteName, boolean isView, boolean isMaterialized)
     {
-        cteInformationMap.putIfAbsent(cteName, new CTEInformation(cteName, 0, isView, isMaterialized));
-        cteInformationMap.get(cteName).incrementReferences();
+        addCTEReference(cteName, cteName, isView, isMaterialized);
+    }
+
+    public void addCTEReference(String cteName, String cteId, boolean isView, boolean isMaterialized)
+    {
+        cteInformationMap.putIfAbsent(cteId, new CTEInformation(cteName, cteId, 0, isView, isMaterialized));
+        cteInformationMap.get(cteId).incrementReferences();
     }
 
     public List<CTEInformation> getCTEInformationList()
@@ -37,5 +43,12 @@ public class CTEInformationCollector
     public HashMap<String, CTEInformation> getCteInformationMap()
     {
         return cteInformationMap;
+    }
+
+    public void disallowCteMaterialization(String cteId)
+    {
+        CTEInformation cteInfo = cteInformationMap.get(cteId);
+        cteInformationMap.put(cteId,
+                new CTEInformation(cteInfo.getCteName(), cteInfo.getCteId(), cteInfo.getNumberOfReferences(), cteInfo.getIsView(), false));
     }
 }

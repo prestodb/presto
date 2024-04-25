@@ -47,10 +47,13 @@ Commas in MBean names should be escaped in the following manner:
 Querying JMX
 ------------
 
-The JMX connector provides two schemas.
+The JMX connector provides three schemas: ``current``, ``history``, and ``information_schema``.
 
-The first one is ``current`` that contains every MBean from every node in the Presto
-cluster. You can see all of the available MBeans by running ``SHOW TABLES``::
+Current Schema
+^^^^^^^^^^^^^^
+
+The ``current`` schema contains every MBean from every node in the Presto
+cluster. To see all of the available MBeans, run ``SHOW TABLES``::
 
     SHOW TABLES FROM jmx.current;
 
@@ -97,6 +100,9 @@ returns information from the different Presto memory pools on each node::
       858993459 | example | com.facebook.presto.memory:type=MemoryPool,name=system
     (3 rows)
 
+History Schema
+^^^^^^^^^^^^^^
+
 The ``history`` schema contains the list of tables configured in the connector properties file.
 The tables have the same columns as those in the current schema, but with an additional
 timestamp column that stores the time at which the snapshot was taken::
@@ -111,3 +117,13 @@ timestamp column that stores the time at which the snapshot was taken::
      2016-01-28 10:19:00.000 |  21422
      2016-01-28 10:19:10.000 |  31412
     (3 rows)
+
+Information Schema
+^^^^^^^^^^^^^^^^^^
+
+The ``information_schema`` contains metadata about all the other schemas.
+To list all the available tables in this schema, run the following command:
+
+.. code-block:: sql
+
+    SHOW TABLES FROM jmx.information_schema;

@@ -11,9 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     name: "Label and notify"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          show-progress: false
       - uses: sourcegraph/codenotify@v0.6.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

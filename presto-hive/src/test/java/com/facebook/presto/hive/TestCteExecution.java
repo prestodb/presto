@@ -27,6 +27,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -51,8 +52,35 @@ public class TestCteExecution
                         "query.cte-partitioning-provider-catalog", "hive"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
-                        "hive.enable-parquet-dereference-pushdown", "true"),
+                        "hive.enable-parquet-dereference-pushdown", "true",
+                        "hive.temporary-table-storage-format", "PAGEFILE"),
                 Optional.empty());
+    }
+
+    @Test
+    public void testCteExecutionWhereOneCteRemovedBySimplifyEmptyInputRule()
+    {
+        String sql = "WITH t as(select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey)," +
+                "t1 as (SELECT * FROM orders)," +
+                " b AS ((SELECT orderkey FROM t) UNION (SELECT orderkey FROM t1)) " +
+                "SELECT * FROM b";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        sql),
+                queryRunner.execute(getSession(),
+                        sql));
+    }
+
+    @Test
+    public void testCteExecutionWhereChildPlanRemovedBySimplifyEmptyInputRule()
+    {
+        String sql = "WITH t as(SELECT * FROM orders LEFT JOIN (select orderkey from orders where false) ON TRUE) " +
+                "SELECT * FROM t";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        sql),
+                queryRunner.execute(getSession(),
+                        sql));
     }
 
     @Test
@@ -1081,6 +1109,7 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), query));
     }
 
+    @Test
     public void testCteFilterPushDown()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1090,6 +1119,7 @@ public class TestCteExecution
                 queryRunner.execute(getSession(), query));
     }
 
+    @Test
     public void testCteNoFilterPushDown()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1098,6 +1128,43 @@ public class TestCteExecution
                 "SELECT * FROM (select orderkey from temp where orderkey > 20) t UNION ALL select orderkey from temp";
         compareResults(queryRunner.execute(getMaterializedSession(), query),
                 queryRunner.execute(getSession(), query));
+    }
+
+    @Test
+    public void testChainedCteProjectionAndFilterPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String query = "WITH cte1 AS (SELECT * FROM ORDERS WHERE orderkey < 1000), " +
+                "cte5 AS (SELECT orderkey FROM cte1 WHERE totalprice < 100000) " +
+                "SELECT * FROM cte5";
+        compareResults(queryRunner.execute(getMaterializedSession(), query),
+                queryRunner.execute(getSession(), query));
+    }
+
+    @Test
+    public void testWrittenIntemediateByteLimit()
+            throws Exception
+    {
+        String testQuery = "WITH  cte1 AS (SELECT * FROM ORDERS JOIN ORDERS ON TRUE) " +
+                "SELECT * FROM cte1";
+        Session session = Session.builder(getMaterializedSession())
+                .setSystemProperty(QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES, "0MB")
+                .build();
+        assertQueryFails(session, testQuery, "Query has exceeded WrittenIntermediate Limit of 0MB.*");
+    }
+
+    @Test
+    public void testNestedCteWithSameName()
+    {
+        String testQuery = "with t1 as ( select orderkey k from orders where orderkey > 5), t2 as ( select orderkey k from orders where orderkey < 10 ), t3 as " +
+                "( select t1.k, t2.k from t1 left join t2 on t1.k=t2.k ), t4 as ( with t2 as ( select orderkey k from orders where orderkey > 5 ), " +
+                "t1 as ( select orderkey k from orders where orderkey < 10 ), t3 as ( select t1.k, t2.k from t1 left join t2 on t1.k=t2.k ) select * from t3 ) " +
+                "select * from t3 except select * from t4";
+        QueryRunner queryRunner = getQueryRunner();
+        compareResults(queryRunner.execute(getMaterializedSession(),
+                        testQuery),
+                queryRunner.execute(getSession(),
+                        testQuery));
     }
 
     private void compareResults(MaterializedResult actual, MaterializedResult expected)

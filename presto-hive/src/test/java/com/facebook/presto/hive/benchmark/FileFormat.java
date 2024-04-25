@@ -161,7 +161,6 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
-                    FUNCTION_RESOLUTION,
                     false,
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
@@ -252,12 +251,6 @@ public enum FileFormat
                 compressionCodec = NONE;
             }
             return new PrestoPageFormatWriter(targetFile, compressionCodec);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return true;
         }
     },
 
@@ -441,7 +434,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         RecordCursor recordCursor = cursorProvider
                 .createRecordCursor(
@@ -484,7 +478,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         return pageSourceFactory
                 .createPageSource(

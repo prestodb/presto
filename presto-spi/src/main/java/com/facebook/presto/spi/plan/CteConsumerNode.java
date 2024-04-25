@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 public final class CteConsumerNode
         extends PlanNode
 {
-    private final String cteName;
+    private final String cteId;
     private final List<VariableReferenceExpression> originalOutputVariables;
     private final PlanNode originalSource;
 
@@ -39,10 +39,10 @@ public final class CteConsumerNode
             Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputvars") List<VariableReferenceExpression> originalOutputVariables,
-            @JsonProperty("cteName") String cteName,
+            @JsonProperty("cteId") String cteId,
             @JsonProperty("originalSource") PlanNode originalSource)
     {
-        this(sourceLocation, id, Optional.empty(), originalOutputVariables, cteName, originalSource);
+        this(sourceLocation, id, Optional.empty(), originalOutputVariables, cteId, originalSource);
     }
 
     public CteConsumerNode(
@@ -50,11 +50,11 @@ public final class CteConsumerNode
             PlanNodeId id,
             Optional<PlanNode> statsEquivalentPlanNode,
             List<VariableReferenceExpression> originalOutputVariables,
-            String cteName,
+            String cteId,
             PlanNode originalSource)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
-        this.cteName = requireNonNull(cteName, "cteName must not be null");
+        this.cteId = requireNonNull(cteId, "cteName must not be null");
         this.originalOutputVariables = requireNonNull(originalOutputVariables, "originalOutputVariables must not be null");
         this.originalSource = originalSource;
     }
@@ -77,14 +77,14 @@ public final class CteConsumerNode
     {
         // this function expects a new instance
         checkArgument(newChildren.size() == 0, "expected newChildren to contain 0 node");
-        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteName, originalSource);
+        return new CteConsumerNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), originalOutputVariables, cteId, originalSource);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
         return new CteConsumerNode(getSourceLocation(), getId(),
-                statsEquivalentPlanNode, originalOutputVariables, cteName, originalSource);
+                statsEquivalentPlanNode, originalOutputVariables, cteId, originalSource);
     }
 
     public PlanNode getOriginalSource()
@@ -99,9 +99,9 @@ public final class CteConsumerNode
     }
 
     @JsonProperty
-    public String getCteName()
+    public String getCteId()
     {
-        return cteName;
+        return cteId;
     }
 
     private static void checkArgument(boolean condition, String message)

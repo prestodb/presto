@@ -212,8 +212,9 @@ public final class SessionPropertyManager
         if (propertyValue == null) {
             return type.cast(metadata.getDefaultValue());
         }
-        Object objectValue = deserializeSessionProperty(metadata.getSqlType(), propertyValue);
+
         try {
+            Object objectValue = deserializeSessionProperty(metadata.getSqlType(), propertyValue);
             return type.cast(metadata.decode(objectValue));
         }
         catch (PrestoException e) {

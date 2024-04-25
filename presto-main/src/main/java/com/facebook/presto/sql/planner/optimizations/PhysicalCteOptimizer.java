@@ -23,7 +23,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.CTEInformation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
@@ -46,14 +45,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getCteHashPartitionCount;
-import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getCtePartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableScan;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithoutExchanges;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.ALL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -92,8 +90,7 @@ public class PhysicalCteOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(warningCollector, "warningCollector is null");
-        if (!getCteMaterializationStrategy(session).equals(ALL)
-                || session.getCteInformationCollector().getCTEInformationList().stream().noneMatch(CTEInformation::isMaterialized)) {
+        if (!isCteMaterializationApplicable(session)) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
         PhysicalCteTransformerContext context = new PhysicalCteTransformerContext();
@@ -157,7 +154,7 @@ public class PhysicalCteOptimizer
                         partitioningProviderCatalog,
                         ImmutableList.copyOf(variableToColumnMap.values()),
                         Optional.of(partitioningMetadata));
-                context.get().put(node.getCteName(),
+                context.get().put(node.getCteId(),
                         new PhysicalCteTransformerContext.TemporaryTableInfo(
                                 createTemporaryTableScan(
                                         metadata,
@@ -221,7 +218,7 @@ public class PhysicalCteOptimizer
         {
             isPlanRewritten = true;
             // Create Table Metadata
-            PhysicalCteTransformerContext.TemporaryTableInfo tableInfo = context.get().getTableInfo(node.getCteName());
+            PhysicalCteTransformerContext.TemporaryTableInfo tableInfo = context.get().getTableInfo(node.getCteId());
             TableScanNode tempScan = tableInfo.getTableScanNode();
 
             // Need to create new Variables for temp table scans to avoid duplicate references

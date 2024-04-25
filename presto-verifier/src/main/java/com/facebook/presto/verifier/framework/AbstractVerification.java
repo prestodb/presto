@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
@@ -73,6 +74,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractVerification<B extends QueryBundle, R extends MatchResult, V>
         implements Verification
 {
+    private static final Logger LOG = Logger.get(AbstractVerification.class);
     private static final String INTERNAL_ERROR = "VERIFIER_INTERNAL_ERROR";
     private static final String SNAPSHOT_DOES_NOT_EXIST = "SNAPSHOT_DOES_NOT_EXIST";
 
@@ -277,6 +279,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         catch (Throwable t) {
             if (exceptionClassifier.shouldResubmit(t)
                     && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
+                LOG.info("Error during verification: %s", t);
                 return new VerificationResult(this, true, Optional.empty());
             }
             throwable = Optional.of(t);
@@ -406,6 +409,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 testId,
                 sourceQuery.getName(),
                 partialResult.getStatus(),
+                matchResult.map(MatchResult::getDataType),
                 matchResult.map(MatchResult::getMatchTypeName),
                 partialResult.getSkippedReason(),
                 determinismAnalysisDetails,
@@ -449,6 +453,10 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setTeardownQueryIds(queryContext.getTeardownQueryIds())
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
+                .setPartitionChecksumQueryId(checksumQueryContext.getPartitionChecksumQueryId())
+                .setPartitionChecksumQuery(checksumQueryContext.getPartitionChecksumQuery())
+                .setBucketChecksumQueryId(checksumQueryContext.getBucketChecksumQueryId())
+                .setBucketChecksumQuery(checksumQueryContext.getBucketChecksumQuery())
                 .setQueryActionStats(queryContext.getMainQueryStats());
         updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
         updateQueryInfo(queryInfo, queryResult);

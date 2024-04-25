@@ -14,10 +14,13 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -28,6 +31,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
@@ -87,10 +91,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -107,8 +113,10 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class IcebergDistributedTestBase
         extends AbstractTestDistributedQueries
 {
@@ -470,41 +478,56 @@ public class IcebergDistributedTestBase
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @Test
-    public void testPartitionedByTimestampType()
+    @DataProvider(name = "timezones")
+    public Object[][] timezones()
     {
-        // create iceberg table partitioned by column of TimestampType, and insert some data
-        assertQuerySucceeds("create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
-        assertQuerySucceeds("insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
+        return new Object[][] {
+                {"UTC", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", true},
+                {"None", false}};
+    }
 
-        // validate return data of TimestampType
-        List<Object> timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-        assertEquals(timestampColumnDatas.size(), 2);
-        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+    @Test(dataProvider = "timezones")
+    public void testPartitionedByTimestampType(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
 
-        // validate column of TimestampType exists in query filter
-        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
-                LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        try {
+            // create iceberg table partitioned by column of TimestampType, and insert some data
+            assertQuerySucceeds(session, "create table test_partition_columns(a bigint, b timestamp) with (partitioning = ARRAY['b'])");
+            assertQuerySucceeds(session, "insert into test_partition_columns values(1, timestamp '1984-12-08 00:10:00'), (2, timestamp '2001-01-08 12:01:01')");
 
-        // validate column of TimestampType in system table "partitions"
-        assertEquals(getQueryRunner().execute("select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
+            // validate return data of TimestampType
+            List<Object> timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+            assertEquals(timestampColumnDatas.size(), 2);
+            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(timestampColumnDatas.get(1), LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        // validate column of TimestampType exists in delete filter
-        assertUpdate("delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
-        timestampColumnDatas = getQueryRunner().execute("select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
-        assertEquals(timestampColumnDatas.size(), 1);
-        assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
-                LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
-        assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+            // validate column of TimestampType exists in query filter
+            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select b from test_partition_columns where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(),
+                    LocalDateTime.parse("2001-01-08 12:01:01", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
-        assertQuerySucceeds("drop table test_partition_columns");
+            // validate column of TimestampType in system table "partitions"
+            assertEquals(getQueryRunner().execute(session, "select count(*) FROM \"test_partition_columns$partitions\"").getOnlyValue(), 2L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '2001-01-08 12:01:01'").getOnlyValue(), 1L);
+
+            // validate column of TimestampType exists in delete filter
+            assertUpdate(session, "delete from test_partition_columns WHERE b = timestamp '2001-01-08 12:01:01'", 1);
+            timestampColumnDatas = getQueryRunner().execute(session, "select b from test_partition_columns order by a asc").getOnlyColumn().collect(Collectors.toList());
+            assertEquals(timestampColumnDatas.size(), 1);
+            assertEquals(timestampColumnDatas.get(0), LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select b FROM test_partition_columns where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(),
+                    LocalDateTime.parse("1984-12-08 00:10:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            assertEquals(getQueryRunner().execute(session, "select count(*) from \"test_partition_columns$partitions\"").getOnlyValue(), 1L);
+            assertEquals(getQueryRunner().execute(session, "select row_count from \"test_partition_columns$partitions\" where b = timestamp '1984-12-08 00:10:00'").getOnlyValue(), 1L);
+        }
+        finally {
+            assertQuerySucceeds(session, "drop table test_partition_columns");
+        }
     }
 
     @Test
@@ -611,49 +634,92 @@ public class IcebergDistributedTestBase
     }
 
     @Test
-    public void testReadWriteNDVs()
+    public void testReadWriteStats()
     {
-        assertUpdate("CREATE TABLE test_stat_ndv (col0 int)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_stat_ndv"));
-        assertTableColumnNames("test_stat_ndv", "col0");
+        assertUpdate("CREATE TABLE test_stats (col0 int, col1 varchar)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_stats"));
+        assertTableColumnNames("test_stats", "col0", "col1");
 
         // test that stats don't exist before analyze
-        TableStatistics stats = getTableStats("test_stat_ndv");
-        assertTrue(stats.getColumnStatistics().isEmpty());
+        Function<Map<ColumnHandle, ColumnStatistics>, Map<String, ColumnStatistics>> remapper = (input) -> input.entrySet().stream().collect(Collectors.toMap(e -> ((IcebergColumnHandle) e.getKey()).getName(), Map.Entry::getValue));
+        Map<String, ColumnStatistics> columnStats;
+        TableStatistics stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        assertTrue(columnStats.isEmpty());
 
         // test after simple insert we get a good estimate
-        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
-        getQueryRunner().execute("ANALYZE test_stat_ndv");
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+        assertUpdate("INSERT INTO test_stats VALUES (1, 'abc'), (2, 'xyz'), (3, 'lmnopqrst')", 3);
+        getQueryRunner().execute("ANALYZE test_stats");
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        ColumnStatistics columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        double dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting the same values, we still get the same estimate
-        assertUpdate("INSERT INTO test_stat_ndv VALUES 1, 2, 3", 3);
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+        assertUpdate("INSERT INTO test_stats VALUES (1, 'abc'), (2, 'xyz'), (3, 'lmnopqrst')", 3);
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
-        // test after ANALYZING with the new inserts that the NDV estimate is the same
-        getQueryRunner().execute("ANALYZE test_stat_ndv");
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+        // test after ANALYZING with the new inserts that the NDV estimate is the same and the data size matches
+        getQueryRunner().execute("ANALYZE test_stats");
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test after inserting a new value, but not analyzing, the estimate is the same.
-        assertUpdate("INSERT INTO test_stat_ndv VALUES 4", 1);
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(3.0));
+        assertUpdate("INSERT INTO test_stats VALUES (4, 'def')", 1);
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(3.0));
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test that after analyzing, the updates stats show up.
-        getQueryRunner().execute("ANALYZE test_stat_ndv");
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+        getQueryRunner().execute("ANALYZE test_stats");
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
         // test adding a null value is successful, and analyze still runs successfully
-        assertUpdate("INSERT INTO test_stat_ndv VALUES NULL", 1);
-        assertQuerySucceeds("ANALYZE test_stat_ndv");
-        stats = getTableStats("test_stat_ndv");
-        assertEquals(stats.getColumnStatistics().values().stream().findFirst().get().getDistinctValuesCount(), Estimate.of(4.0));
+        assertUpdate("INSERT INTO test_stats VALUES (NULL, NULL)", 1);
+        assertQuerySucceeds("ANALYZE test_stats");
+        stats = getTableStats("test_stats");
+        columnStats = remapper.apply(stats.getColumnStatistics());
+        columnStat = columnStats.get("col0");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStat.getDataSize(), Estimate.unknown());
+        columnStat = columnStats.get("col1");
+        assertEquals(columnStat.getDistinctValuesCount(), Estimate.of(4.0));
+        dataSize = (double) (long) getQueryRunner().execute("SELECT sum_data_size_for_stats(col1) FROM test_stats").getOnlyValue();
+        assertEquals(columnStat.getDataSize().getValue(), dataSize);
 
-        assertUpdate("DROP TABLE test_stat_ndv");
+        assertUpdate("DROP TABLE test_stats");
     }
 
     @Test
@@ -790,6 +856,30 @@ public class IcebergDistributedTestBase
         assertUpdate("DROP TABLE test_stat_dist");
     }
 
+    @Test
+    public void testStatsDataSizePrimitives()
+    {
+        assertUpdate("CREATE TABLE test_stat_data_size (c0 int, c1 bigint, c2 double, c3 decimal(4, 0), c4 varchar, c5 varchar(10), c6 date, c7 time, c8 timestamp, c10 boolean)");
+        assertUpdate("INSERT INTO test_stat_data_size VALUES (0, 1, 2.0, CAST(4.01 as decimal(4, 0)), 'testvc', 'testvc10', date '2024-03-14', localtime, localtimestamp, TRUE)", 1);
+        assertQuerySucceeds("ANALYZE test_stat_data_size");
+        TableStatistics stats = getTableStats("test_stat_data_size");
+        stats.getColumnStatistics().entrySet().stream()
+                .filter((e) -> ((IcebergColumnHandle) e.getKey()).getColumnType() != SYNTHESIZED)
+                .forEach((entry) -> {
+                    IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
+                    ColumnStatistics stat = entry.getValue();
+                    if (handle.getType() instanceof FixedWidthType) {
+                        assertEquals(stat.getDataSize(), Estimate.unknown());
+                    }
+                    else {
+                        assertNotEquals(stat.getDataSize(), Estimate.unknown(), String.format("for column %s", handle));
+                        assertTrue(stat.getDataSize().getValue() > 0);
+                    }
+                });
+
+        getQueryRunner().execute("DROP TABLE test_stat_data_size");
+    }
+
     private static void assertEither(Runnable first, Runnable second)
     {
         try {
@@ -887,6 +977,46 @@ public class IcebergDistributedTestBase
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
+    public void testEqualityDeleteWithPartitionColumnMissingInSelect(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_row_delete_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar) WITH (format = '" + fileFormat + "', partitioning=ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, '1001'), (2, '1002'), (2, '1010'), (3, '1003')", 4);
+
+            Table icebergTable = updateTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 2, "b", "1002"), ImmutableMap.of("a", 2));
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("b", "1010"), ImmutableMap.of("a", 2));
+            assertQuery(session, "SELECT b FROM " + tableName, "VALUES ('1001'), ('1003')");
+            assertQuery(session, "SELECT b FROM " + tableName + " WHERE a > 1", "VALUES ('1003')");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c int WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, '1004', 1), (6, '1006', 2), (6, '1009', 2)", 3);
+            icebergTable = updateTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 6, "c", 2, "b", "1006"),
+                    ImmutableMap.of("a", 6, "c", 2));
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("b", "1009"),
+                    ImmutableMap.of("a", 6, "c", 2));
+            assertQuery(session, "SELECT a, b FROM " + tableName, "VALUES (1, '1001'), (3, '1003'), (6, '1004')");
+            assertQuery(session, "SELECT a, b FROM " + tableName + " WHERE a in (1, 6) and c < 3", "VALUES (6, '1004')");
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN d varchar WITH (partitioning = 'truncate(2)')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, '1004', 1, 'th001'), (6, '1006', 2, 'th002'), (6, '1006', 3, 'ti003')", 3);
+            icebergTable = updateTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 6, "c", 1, "d", "th001"),
+                    ImmutableMap.of("a", 6, "c", 1, "d_trunc", "th"));
+            testCheckDeleteFiles(icebergTable, 5, ImmutableList.of(EQUALITY_DELETES, EQUALITY_DELETES, EQUALITY_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
+            assertQuery(session, "SELECT a, b, d FROM " + tableName, "VALUES (1, '1001', NULL), (3, '1003', NULL), (6, '1004', NULL), (6, '1006', 'th002'), (6, '1006', 'ti003')");
+            assertQuery(session, "SELECT a, b, d FROM " + tableName + " WHERE a in (1, 6) and d > 'th000'", "VALUES (6, '1006', 'th002'), (6, '1006', 'ti003')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
     public void testTableWithEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
@@ -918,6 +1048,26 @@ public class IcebergDistributedTestBase
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
+    public void testTableWithEqualityDeleteAndGroupByAndLimit(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        Session disable = deleteAsJoinEnabled(false);
+        // Specify equality delete filter with different column order from table definition
+        String tableName = "test_v2_equality_delete_different_order" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " with (format = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+
+        // Test group by
+        assertQuery(session, "SELECT nationkey FROM " + tableName + " group by nationkey", "VALUES(0),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12),(13),(14),(15),(16),(17),(18),(19),(20),(21),(22),(23),(24)");
+        // Test group by with limit
+        assertQueryWithSameQueryRunner(session, "SELECT nationkey FROM " + tableName + " group by nationkey limit 100", disable);
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
     public void testTableWithPositionDeleteAndEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
             throws Exception
     {
@@ -936,6 +1086,19 @@ public class IcebergDistributedTestBase
         testCheckDeleteFiles(icebergTable, 2, ImmutableList.of(POSITION_DELETES, EQUALITY_DELETES));
         assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 AND nationkey != 0");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
+    }
+
+    @Test(dataProvider = "equalityDeleteOptions")
+    public void testPartitionedTableWithEqualityDelete(String fileFormat, boolean joinRewriteEnabled)
+            throws Exception
+    {
+        Session session = deleteAsJoinEnabled(joinRewriteEnabled);
+        String tableName = "test_v2_equality_delete" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey'], format = '" + fileFormat + "') " + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = updateTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L, "nationkey", 1L), ImmutableMap.of("nationkey", 1L));
+        assertQuery(session, "SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 or nationkey != 1 ");
+        assertQuery(session, "SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1 or nationkey != 1");
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
@@ -1207,5 +1370,15 @@ public class IcebergDistributedTestBase
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
+    }
+
+    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
+    {
+        SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
+        if (legacyTimestamp) {
+            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
+        }
+        return sessionBuilder.build();
     }
 }

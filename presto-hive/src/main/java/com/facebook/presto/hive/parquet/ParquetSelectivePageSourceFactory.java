@@ -71,7 +71,7 @@ public class ParquetSelectivePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
             boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();

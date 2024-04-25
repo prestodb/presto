@@ -48,7 +48,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationByteReductionThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialAggregationStrategy;
-import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isStreamingForPartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.usePartialAggregationHistory;
 import static com.facebook.presto.cost.PartialAggregationStatsEstimate.isUnknown;
@@ -74,11 +73,13 @@ public class PushPartialAggregationThroughExchange
         implements Rule<AggregationNode>
 {
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final boolean nativeExecution;
     private String statsSource;
 
-    public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager)
+    public PushPartialAggregationThroughExchange(FunctionAndTypeManager functionAndTypeManager, boolean nativeExecution)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.nativeExecution = nativeExecution;
     }
 
     private static final Capture<ExchangeNode> EXCHANGE_NODE = Capture.newCapture();
@@ -164,7 +165,7 @@ public class PushPartialAggregationThroughExchange
         }
 
         // System table scan must be run in Java on coordinator and partial aggregation output may not be compatible with Velox
-        if (isNativeExecutionEnabled(context.getSession()) && containsSystemTableScan(exchangeNode, context.getLookup())) {
+        if (nativeExecution && containsSystemTableScan(exchangeNode, context.getLookup())) {
             return Result.empty();
         }
 

@@ -137,6 +137,7 @@ public class TestHiveSplitManager
             new Column("t_date", HIVE_DATE, Optional.empty(), Optional.empty()));
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
+    private static final PartitionNameWithVersion PARTITION_NAME_WITH_VERSION = new PartitionNameWithVersion(PARTITION_NAME, Optional.empty());
     private static final Table TEST_TABLE = new Table(
             "test_db",
             "test_table",
@@ -476,7 +477,8 @@ public class TestHiveSplitManager
                         false,
                         true,
                         0,
-                        0),
+                        0,
+                        Optional.empty()),
                 PARTITION_NAME,
                 partitionStatistics);
 
@@ -491,7 +493,6 @@ public class TestHiveSplitManager
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig),
                 DateTimeZone.forOffsetHours(1),
                 true,
-                false,
                 false,
                 false,
                 true,
@@ -518,7 +519,8 @@ public class TestHiveSplitManager
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()));
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -549,7 +551,7 @@ public class TestHiveSplitManager
         List<HivePartition> partitions = ImmutableList.of(
                 new HivePartition(
                         new SchemaTableName("test_schema", "test_table"),
-                        PARTITION_NAME,
+                        PARTITION_NAME_WITH_VERSION,
                         ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE)))));
         TupleDomain<Subfield> domainPredicate = queryTupleDomain
                 .transform(HiveColumnHandle.class::cast)
@@ -626,7 +628,7 @@ public class TestHiveSplitManager
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), Optional.of(partitionWithStatistics.getPartition()));
         }

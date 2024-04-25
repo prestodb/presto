@@ -34,8 +34,10 @@ import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -51,7 +53,6 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -107,7 +108,10 @@ import static java.util.stream.Collectors.toCollection;
 public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
 {
-    private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
+    private static final String CANONICAL_STRING = "CANONICAL";
+
+    // Not using a new override to objectMapper because PlanNodeId has a JsonValue annotation which cannot be directly overriden in a serializer
+    private final PlanNodeIdAllocator planNodeidAllocator;
     private final VariableAllocator variableAllocator = new VariableAllocator();
     // TODO: DEFAULT strategy has a very different canonicalizaiton implementation, refactor it into a separate class.
     private final PlanCanonicalizationStrategy strategy;
@@ -119,6 +123,26 @@ public class CanonicalPlanGenerator
         this.strategy = requireNonNull(strategy, "strategy is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.session = requireNonNull(session, "session is null");
+        this.planNodeidAllocator = createPlanNodeIdAllocator(strategy);
+    }
+
+    private PlanNodeIdAllocator createPlanNodeIdAllocator(PlanCanonicalizationStrategy strategy)
+    {
+        //ToDO: For HBO we always want planNodeId to be canonicalized but currently fragment result caching is using the same class with default strategy
+        // refactor the default strategy to a different class
+        if (strategy.equals(DEFAULT)) {
+            return new PlanNodeIdAllocator();
+        }
+        else {
+            return new PlanNodeIdAllocator()
+            {
+                @Override
+                public PlanNodeId getNextId()
+                {
+                    return new PlanNodeId(CANONICAL_STRING);
+                }
+            };
+        }
     }
 
     public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme, ObjectMapper objectMapper, Session session)

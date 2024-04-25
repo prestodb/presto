@@ -43,7 +43,6 @@ import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_P
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static com.facebook.presto.SystemSessionProperties.MAX_STAGE_RETRIES;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.RECOVERABLE_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.REDISTRIBUTE_WRITES;
@@ -111,8 +110,7 @@ public class TestHiveRecoverableExecution
                 // set the timeout of the task update requests to something low to improve overall test latency
                 .put("scheduler.http-client.request-timeout", "5s")
                 // this effectively disables the retries
-                .put("query.remote-task.max-error-duration", "1s")
-                .put("use-legacy-scheduler", "false");
+                .put("query.remote-task.max-error-duration", "1s");
 
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS),
@@ -143,8 +141,7 @@ public class TestHiveRecoverableExecution
         return new Object[][] {{1, true}, {2, false}, {2, true}};
     }
 
-    // Flaky test: https://github.com/prestodb/presto/issues/20272
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT, enabled = false)
+    @Test(timeOut = TEST_TIMEOUT, dataProvider = "testSettings", invocationCount = INVOCATION_COUNT)
     public void testCreateBucketedTable(int writerConcurrency, boolean optimizedPartitionUpdateSerializationEnabled)
             throws Exception
     {
@@ -316,29 +313,6 @@ public class TestHiveRecoverableExecution
                         "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_failure"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT)
-    public void testCountOnUnbucketedTable()
-            throws Exception
-    {
-        testRecoverableGroupedExecution(
-                queryRunner,
-                4,
-                true,
-                ImmutableList.of(
-                        "CREATE TABLE test_table AS\n" +
-                                "SELECT orderkey, comment\n" +
-                                "FROM orders\n"),
-                "CREATE TABLE test_success AS\n" +
-                        "SELECT count(*) as a, comment FROM test_table group by comment",
-                "create table test_failure AS\n" +
-                        "SELECT count(*) as a, comment FROM test_table group by comment",
-                14995, // there are 14995 distinct comments in the orders table
-                ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_table",
-                        "DROP TABLE IF EXISTS test_success",
-                        "DROP TABLE IF EXISTS test_failure"));
-    }
-
     private void testRecoverableGroupedExecution(
             DistributedQueryRunner queryRunner,
             int writerConcurrency,
@@ -457,7 +431,6 @@ public class TestHiveRecoverableExecution
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")
                 .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ALL.name())
                 .setSystemProperty(HASH_PARTITION_COUNT, "11")
-                .setSystemProperty(MAX_STAGE_RETRIES, "4")
                 .setCatalogSessionProperty(HIVE_CATALOG, VIRTUAL_BUCKET_COUNT, "16")
                 .setCatalogSessionProperty(HIVE_CATALOG, OPTIMIZED_PARTITION_UPDATE_SERIALIZATION_ENABLED, optimizedPartitionUpdateSerializationEnabled + "")
                 .setCatalog(HIVE_CATALOG)

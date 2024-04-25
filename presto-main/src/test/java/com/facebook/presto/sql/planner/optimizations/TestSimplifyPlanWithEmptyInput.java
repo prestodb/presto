@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -37,6 +38,14 @@ public class TestSimplifyPlanWithEmptyInput
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
+                .build();
+    }
+
+    private Session enableCteMaterialization()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
+                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .build();
     }
 
@@ -245,5 +254,50 @@ public class TestSimplifyPlanWithEmptyInput
                 output(
                         ImmutableList.of("orderkey", "row_number", "orderpriority"),
                         values(ImmutableList.of("orderkey", "orderpriority", "row_number"), ImmutableList.of())));
+    }
+
+    @Test
+    public void testCteMaterializationQueryWithJoinWindowFilterLimitOrderby()
+    {
+        assertPlan("with emptyorders as (select * from orders where false) SELECT c.custkey, c.name, c.acctbal, SUM(l.quantity) OVER (PARTITION BY c.custkey) AS total_quantity " +
+                        "FROM customer c JOIN emptyorders o ON c.custkey = o.custkey JOIN lineitem l ON o.orderkey = l.orderkey WHERE o.orderdate BETWEEN DATE '1995-03-01' AND " +
+                        "DATE '1995-03-31' AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' ORDER BY total_quantity DESC, c.custkey LIMIT 100",
+                enableCteMaterialization(),
+                output(
+                        ImmutableList.of("custkey", "name", "acctbal", "sum"),
+                        values("sum", "custkey", "name", "acctbal")));
+    }
+
+    @Test
+    public void testCteMaterializationQueryCrossJoinWithEmptyInput()
+    {
+        assertPlan("WITH t as (select o.orderkey, o.custkey, l.linenumber from orders o cross join (select orderkey, linenumber from lineitem where false) l) SELECT * FROM t",
+                enableCteMaterialization(),
+                output(
+                        ImmutableList.of("orderkey", "custkey", "linenumber"),
+                        values("orderkey", "custkey", "linenumber")));
+    }
+
+    @Test
+    public void testCteMaterializationQueryWithWindowFilterLimitOrderby()
+    {
+        assertPlan("with emptyorders as (select orderkey, totalprice, orderdate from orders where false) SELECT orderkey, orderdate, totalprice, " +
+                        "ROW_NUMBER() OVER (ORDER BY orderdate) as row_num FROM emptyorders WHERE totalprice > 10 ORDER BY orderdate ASC LIMIT 10",
+                enableCteMaterialization(),
+                output(
+                        ImmutableList.of("orderkey", "orderdate", "totalprice", "row_number"),
+                        values("orderkey", "totalprice", "orderdate", "row_number")));
+    }
+
+    @Test
+    public void testNestedCteMaterializationQueryWithEmptyInput()
+    {
+        assertPlan("WITH t as(select orderkey, count(*) as count from (select orderkey from orders where false) group by orderkey)," +
+                        " b AS (SELECT * FROM t) " +
+                        "SELECT * FROM b",
+                enableCteMaterialization(),
+                output(
+                        ImmutableList.of("orderkey", "count"),
+                        values("orderkey", "count")));
     }
 }

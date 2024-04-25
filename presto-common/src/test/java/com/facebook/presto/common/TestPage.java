@@ -143,6 +143,110 @@ public class TestPage
     }
 
     @Test
+    public void testDropColumn()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        Page page = new Page(block, block, block);
+        assertEquals(page.getChannelCount(), 3);
+        Page newPage = page.dropColumn(1);
+        assertEquals(page.getChannelCount(), 3, "Page was modified");
+        assertEquals(newPage.getChannelCount(), 2);
+
+        assertEquals(newPage.getBlock(0).getLong(0), 0);
+        assertEquals(newPage.getBlock(1).getLong(1), 1);
+    }
+
+    @Test
+    public void testReplaceColumn()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        Page newPage = page.replaceColumn(1, newBlock);
+
+        assertEquals(newPage.getChannelCount(), 3);
+        assertEquals(newPage.getBlock(1).getLong(0), 0);
+        assertEquals(newPage.getBlock(1).getLong(1), -1);
+    }
+
+    @Test(expectedExceptions = IndexOutOfBoundsException.class)
+    public void testReplaceColumn_channelTooLow()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(-1, newBlock);
+    }
+
+    @Test(expectedExceptions = IndexOutOfBoundsException.class)
+    public void testReplaceColumn_channelTooHigh()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(page.getChannelCount(), newBlock);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testReplaceColumn_WrongNumberOfRows()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries - 5; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(1, newBlock);
+    }
+
+    @Test
     public void testRetainedSizeIsCorrect()
     {
         BlockBuilder variableWidthBlockBuilder = VARCHAR.createBlockBuilder(null, 256);

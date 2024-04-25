@@ -1044,7 +1044,8 @@ public class TestHivePushdownFilterQueries
             // no filter
             assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc", cte);
             assertQueryUsingH2Cte("SELECT comment FROM test_file_format_orc", cte);
-            assertQueryFails("SELECT COUNT(*) FROM test_file_format_orc", "Partial aggregation pushdown only supported for ORC/Parquet files. Table tpch.test_file_format_orc has file ((.*?)) of format (.*?). Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
+            assertQueryFails("SELECT COUNT(*) FROM test_file_format_orc", "Table tpch.test_file_format_orc has file of format .* that does not support partial aggregation pushdown. " +
+                    "Set session property \\[catalog\\-name\\].pushdown_partial_aggregations_into_scan=false and execute query again.");
             assertQueryUsingH2Cte(noPartialAggregationPushdown(queryRunner.getDefaultSession()), "SELECT COUNT(*) FROM test_file_format_orc", cte, Function.identity());
 
             // filter on partition column

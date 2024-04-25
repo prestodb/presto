@@ -45,6 +45,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitSort(SortNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnion(UnionNode node, C context)
     {
         return visitPlan(node, context);
@@ -96,11 +101,6 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitCteConsumer(CteConsumerNode node, C context)
-    {
-        return visitPlan(node, context);
-    }
-
-    public R visitSequence(SequenceNode node, C context)
     {
         return visitPlan(node, context);
     }

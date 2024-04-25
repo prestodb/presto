@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.BlockLocation;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -32,14 +32,13 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.hive.BlockLocation.fromHiveBlockLocations;
 import static com.facebook.presto.hive.HiveUtil.isSelectSplittable;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.extractCustomSplitInfo;
@@ -103,7 +102,7 @@ public class InternalHiveSplitFactory
                         isSplittable(inputFormat, fileSystem, hiveFileInfo.getPath()));
         return createInternalHiveSplit(
                 hiveFileInfo.getPath(),
-                hiveFileInfo.getBlockLocations(),
+                hiveFileInfo.getBlockLocations().toArray(new BlockLocation[0]),
                 0,
                 hiveFileInfo.getLength(),
                 hiveFileInfo.getLength(),
@@ -122,7 +121,7 @@ public class InternalHiveSplitFactory
         Map<String, String> customSplitInfo = extractCustomSplitInfo(split);
         return createInternalHiveSplit(
                 split.getPath(),
-                fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
+                fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())).toArray(new BlockLocation[0]),
                 split.getStart(),
                 split.getLength(),
                 file.getLen(),
@@ -157,7 +156,7 @@ public class InternalHiveSplitFactory
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
         if (fileSize == 0 && blockLocations.length == 0) {
-            blockLocations = new BlockLocation[] {new BlockLocation()};
+            blockLocations = new BlockLocation[] {new BlockLocation(ImmutableList.of(), 0, 0)};
             // Turn off force local scheduling because hosts list doesn't exist.
             forceLocalScheduling = false;
         }
@@ -240,14 +239,7 @@ public class InternalHiveSplitFactory
 
     private static List<HostAddress> getHostAddresses(BlockLocation blockLocation)
     {
-        String[] hosts;
-        try {
-            hosts = blockLocation.getHosts();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return Arrays.stream(hosts)
+        return blockLocation.getHosts().stream()
                 .map(HostAddress::fromString)
                 .collect(toImmutableList());
     }

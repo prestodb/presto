@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 
@@ -110,11 +111,12 @@ public class IcebergFileWriterFactory
             JobConf jobConf,
             ConnectorSession session,
             HdfsContext hdfsContext,
-            FileFormat fileFormat)
+            FileFormat fileFormat,
+            MetricsConfig metricsConfig)
     {
         switch (fileFormat) {
             case PARQUET:
-                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
+                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, metricsConfig);
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
         }
@@ -126,7 +128,8 @@ public class IcebergFileWriterFactory
             Schema icebergSchema,
             JobConf jobConf,
             ConnectorSession session,
-            HdfsContext hdfsContext)
+            HdfsContext hdfsContext,
+            MetricsConfig metricsConfig)
     {
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
@@ -161,7 +164,8 @@ public class IcebergFileWriterFactory
                     getCompressionCodec(session).getParquetCompressionCodec().get(),
                     outputPath,
                     hdfsEnvironment,
-                    hdfsContext);
+                    hdfsContext,
+                    metricsConfig);
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);

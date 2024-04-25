@@ -59,7 +59,7 @@ start_docker_container
 # run product tests
 pushd ${PROJECT_ROOT}
 set +e
-./mvnw -pl presto-kudu test -P integration \
+./mvnw --no-transfer-progress -pl presto-kudu test -P integration \
   -Dkudu.client.master-addresses=${DOCKER_HOST_IP}:${KUDU_MASTER_RPC_PORT} \
   -Dkudu.schema-emulation.prefix=${TEST_SCHEMA_EMULATION_PREFIX}
 EXIT_CODE=$?

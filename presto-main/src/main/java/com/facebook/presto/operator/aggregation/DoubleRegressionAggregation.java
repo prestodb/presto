@@ -84,7 +84,8 @@ public class DoubleRegressionAggregation
     public static void regrSxy(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionSxy(state);
-        if (Double.isFinite(result)) {
+        double count = getRegressionCount(state);
+        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {
@@ -97,7 +98,8 @@ public class DoubleRegressionAggregation
     public static void regrSxx(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionSxx(state);
-        if (Double.isFinite(result)) {
+        double count = getRegressionCount(state);
+        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {
@@ -110,7 +112,8 @@ public class DoubleRegressionAggregation
     public static void regrSyy(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionSyy(state);
-        if (Double.isFinite(result)) {
+        double count = getRegressionCount(state);
+        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {
@@ -136,7 +139,7 @@ public class DoubleRegressionAggregation
     public static void regrCount(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionCount(state);
-        if (Double.isFinite(result)) {
+        if (Double.isFinite(result) && result > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {
@@ -149,7 +152,8 @@ public class DoubleRegressionAggregation
     public static void regrAvgy(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionAvgy(state);
-        if (Double.isFinite(result)) {
+        double count = getRegressionCount(state);
+        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {
@@ -162,7 +166,8 @@ public class DoubleRegressionAggregation
     public static void regrAvgx(@AggregationState RegressionState state, BlockBuilder out)
     {
         double result = getRegressionAvgx(state);
-        if (Double.isFinite(result)) {
+        double count = getRegressionCount(state);
+        if (Double.isFinite(result) && Double.isFinite(count) && count > 0) {
             DOUBLE.writeDouble(out, result);
         }
         else {

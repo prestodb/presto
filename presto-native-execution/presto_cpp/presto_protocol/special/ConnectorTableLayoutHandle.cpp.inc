@@ -17,23 +17,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  if (getConnectorKey(type) == "hive") {
-    j = *std::static_pointer_cast<HiveTableLayoutHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergTableLayoutHandle>(p);
-    return;
-  }
-
-  if (getConnectorKey(type) == "tpch") {
-    j = *std::static_pointer_cast<TpchTableLayoutHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableLayoutHandle");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
@@ -45,28 +29,6 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
         std::string(e.what()) +
         " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
   }
-
-  if (getConnectorKey(type) == "hive") {
-    auto k = std::make_shared<HiveTableLayoutHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-
-  if (getConnectorKey(type) == "hive-iceberg") {
-    auto k = std::make_shared<IcebergTableLayoutHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-
-  if (getConnectorKey(type) == "tpch") {
-    auto k = std::make_shared<TpchTableLayoutHandle>();
-    j.get_to(*k);
-    p = k;
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableLayoutHandle");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol

@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDirectoryContext;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
@@ -76,7 +77,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toMap;
@@ -238,21 +238,24 @@ public class QuickStatsProvider
             CompletableFuture<PartitionStatistics> fetchFuture = supplyAsync(() -> buildQuickStats(partitionKey, partitionId, session, metastore, table, metastoreContext), backgroundFetchExecutor);
             partitionStatisticsCompletableFuture.set(fetchFuture);
 
-            // Also add a hook to reap this in-progress thread if it doesn't finish in reaperExpiry seconds
-            inProgressReaperExecutor.schedule(() -> {
-                inProgressBuilds.remove(key);
-                partitionStatisticsCompletableFuture.get().cancel(true);
-            }, reaperExpiryMillis, MILLISECONDS);
-
             return new InProgressBuildInfo(fetchFuture, Instant.now());
         });
 
         CompletableFuture<PartitionStatistics> future = partitionStatisticsCompletableFuture.get();
         if (future != null) {
+            // Add a hook to stop tracking the in-progress build for this partition once the future finishes (successfully or exceptionally)
+            future.whenCompleteAsync((r, e) -> inProgressBuilds.remove(partitionKey), inProgressReaperExecutor);
+
+            // Also add a hook to reap this in-progress thread if it doesn't finish in reaperExpiry seconds
+            inProgressReaperExecutor.schedule(() -> {
+                inProgressBuilds.remove(partitionKey);
+                future.cancel(true);
+            }, reaperExpiryMillis, MILLISECONDS);
+
             long inlineBuildTimeoutMillis = getQuickStatsInlineBuildTimeoutMillis(session);
-            // A background call to build quick stats was started, and we want to wait for quick stats to be built
-            // Note : Only the first query that initiated the quick stats call for this partition will have to wait for the stats to be built
             if (inlineBuildTimeoutMillis > 0) {
+                // A background call to build quick stats was started, and we want to wait for quick stats to be built
+                // Note : Only the first query that initiated the quick stats call for this partition will have to wait for the stats to be built
                 try {
                     PartitionStatistics partitionStatistics = future.get(inlineBuildTimeoutMillis, MILLISECONDS);
                     succesfulResolveFromProviderCount.incrementAndGet(); // successfully resolved quick stats for the partition
@@ -268,15 +271,6 @@ public class QuickStatsProvider
                     session.getRuntimeStats().addMetricValue("QuickStatsProvider/QuickStatsBuildTimeout", RuntimeUnit.NONE, 1L);
                     // Return empty PartitionStats for this partition
                     return empty();
-                }
-                finally {
-                    if (future.isDone()) {
-                        inProgressBuilds.remove(partitionKey);
-                    }
-                    else {
-                        // Remove the in-progress flag when the background fetch finishes
-                        future.whenCompleteAsync((r, e) -> inProgressBuilds.remove(partitionKey), commonPool());
-                    }
                 }
             }
             else {
@@ -322,13 +316,14 @@ public class QuickStatsProvider
         Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
         Optional<Partition> partition;
         Path path;
-        if (UNPARTITIONED_ID.equals(partitionId)) {
+        if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
             partition = Optional.empty();
             path = new Path(resolvedTable.getStorage().getLocation());
         }
         else {
-            partition = metastore.getPartition(metastoreContext, table.getSchemaName(), table.getTableName(), ImmutableList.of(partitionId));
-            checkState(partition.isPresent(), "getPartition returned no partitions for [%s] partition id", partitionId);
+            partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
+                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId);
+            checkState(partition.isPresent(), "getPartitionsByNames returned no partitions for partition with name [%s]", partitionId);
             path = new Path(partition.get().getStorage().getLocation());
         }
 

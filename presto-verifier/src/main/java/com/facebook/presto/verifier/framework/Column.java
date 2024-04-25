@@ -48,7 +48,7 @@ public class Column
         MAP,
     }
 
-    private static final Set<Type> FLOATING_POINT_TYPES = ImmutableSet.of(DOUBLE, REAL);
+    public static final Set<Type> FLOATING_POINT_TYPES = ImmutableSet.of(DOUBLE, REAL);
 
     private final String name;
     private final Expression expression;

@@ -205,7 +205,7 @@ public class MockConnectorFactory
             @Override
             public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
             {
-                return ImmutableList.of();
+                throw new UnsupportedOperationException();
             }
 
             @Override

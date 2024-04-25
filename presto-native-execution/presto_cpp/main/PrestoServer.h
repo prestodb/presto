@@ -89,6 +89,9 @@ class PrestoServer {
     return coordinatorDiscoverer_ != nullptr;
   }
 
+  /// Returns the number of threads in the Driver executor.
+  size_t numDriverThreads() const;
+
   /// Returns true if the server got terminate signal and in the 'shutting down'
   /// mode. False otherwise.
   bool isShuttingDown() const {

@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive.pagefile;
 
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -29,10 +27,5 @@ public class PageInputFormat
     public RecordReader<NullWritable, NullWritable> getRecordReader(InputSplit inputSplit, JobConf jobConf, Reporter reporter)
     {
         throw new UnsupportedOperationException();
-    }
-
-    protected boolean isSplitable(FileSystem fs, Path file)
-    {
-        return true;
     }
 }
