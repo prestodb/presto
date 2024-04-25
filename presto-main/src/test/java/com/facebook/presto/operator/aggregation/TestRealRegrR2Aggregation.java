@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import org.apache.commons.math3.stat.regression.SimpleRegression;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createBlockOfReals;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,6 +44,19 @@ public class TestRealRegrR2Aggregation
             }
             return (float) regression.getRSquare();
         }
+    }
+
+    @Test
+    public void testTwoSpecialCase()
+    {
+        // when m2x = 0, result is null
+        Float[] y = new Float[] {1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+        Float[] x = new Float[] {1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+        testAggregation(null, createBlockOfReals(y), createBlockOfReals(x));
+
+        // when m2x != 0 and m2y = 0, result is 1.0
+        x = new Float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+        testAggregation(1.0f, createBlockOfReals(y), createBlockOfReals(x));
     }
 
     @Override
