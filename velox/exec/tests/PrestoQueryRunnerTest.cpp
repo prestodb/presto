@@ -49,8 +49,10 @@ class PrestoQueryRunnerTest : public ::testing::Test,
 // This test requires a Presto Coordinator running at localhost, so disable it
 // by default.
 TEST_F(PrestoQueryRunnerTest, DISABLED_basic) {
-  auto queryRunner =
-      std::make_unique<PrestoQueryRunner>("http://127.0.0.1:8080", "hive");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      "http://127.0.0.1:8080",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
 
   auto results = queryRunner->execute("SELECT count(*) FROM nation");
   auto expected = makeRowVector({
@@ -87,8 +89,10 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
                   .project({"a0", "a1", "array_sort(a2)"})
                   .planNode();
 
-  auto queryRunner =
-      std::make_unique<PrestoQueryRunner>("http://127.0.0.1:8080", "hive");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      "http://127.0.0.1:8080",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
 
@@ -104,8 +108,8 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
 }
 
 TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
-  auto queryRunner =
-      std::make_unique<PrestoQueryRunner>("http://unused", "hive");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
 
   auto data = makeRowVector({
       makeFlatVector<int64_t>({1, 2, 1, 2, 1}),
@@ -144,8 +148,8 @@ TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
 }
 
 TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
-  auto queryRunner =
-      std::make_unique<PrestoQueryRunner>("http://unused", "hive");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
 
   auto data =
       makeRowVector({makeFlatVector<int64_t>({}), makeFlatVector<int64_t>({})});
@@ -161,8 +165,8 @@ TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
 }
 
 TEST_F(PrestoQueryRunnerTest, toSql) {
-  auto queryRunner =
-      std::make_unique<PrestoQueryRunner>("http://unused", "hive");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      "http://unused", "hive", static_cast<std::chrono::milliseconds>(1000));
   auto dataType = ROW({"c0", "c1", "c2"}, {BIGINT(), BIGINT(), BOOLEAN()});
 
   // Test window queries.

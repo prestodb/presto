@@ -178,13 +178,20 @@ aggregate functions supported by the engine, and call
 ``AggregationFuzzerRunner::run()`` defined in `AggregationFuzzerRunner.h`_. See
 `AggregationFuzzerTest.cpp`_.
 
-.. _AggregationFuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzer.h
+.. _AggregationFuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/exec/fuzzer/AggregationFuzzer.h
 
-.. _AggregationFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzerTest.cpp
+.. _AggregationFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/functions/prestosql/fuzzer/AggregationFuzzerTest.cpp
 
 Aggregation Fuzzer allows to indicate functions whose results depend on the
 order of inputs and optionally provide custom result verifiers. The Fuzzer
 also allows to provide custom input generators for individual functions.
+
+Integration with the Window Fuzzer is similar to Aggregation Fuzzer. See
+`WindowFuzzerRunner.h`_ and `WindowFuzzerTest.cpp`_.
+
+.. _WindowFuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/exec/fuzzer/WindowFuzzer.h
+
+.. _WindowFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/functions/prestosql/fuzzer/WindowFuzzerTest.cpp
 
 How to run
 ----------------------------
@@ -254,6 +261,21 @@ An example set of arguments to run the expression fuzzer with all features enabl
 --max_expression_trees_per_step=2
 --repro_persist_path=<a_valid_local_path>
 --logtostderr=1``
+
+
+`WindowFuzzerTest.cpp`_ and `AggregationFuzzerTest.cpp`_ allow results to be
+verified against Presto. To setup Presto as a reference DB, please follow these
+`instructions`_. The following flags control the connection to the presto
+cluster; ``--presto_url`` which is the http server url along with its port number
+and ``--req_timeout_ms`` which sets the request timeout in milliseconds. The
+timeout is set to 1000 ms by default but can be increased if this time is
+insufficient for certain queries. Example command:
+
+::
+
+    velox/functions/prestosql/fuzzer:velox_window_fuzzer_test --enable_window_reference_verification --presto_url="http://127.0.0.1:8080" --req_timeout_ms=2000 --duration_sec=60 --logtostderr=1 --minloglevel=0
+
+.. _instructions: https://github.com/facebookincubator/velox/issues/8111
 
 How to reproduce failures
 -------------------------------------

@@ -335,7 +335,8 @@ void persistReproInfo(
 // properly.
 std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
     const std::string& prestoUrl,
-    const std::string& runnerName);
+    const std::string& runnerName,
+    const uint32_t& reqTimeoutMs);
 
 // Returns the function name used in a WindowNode. The input `node` should be a
 // pointer to a WindowNode.
