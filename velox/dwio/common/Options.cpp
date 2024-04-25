@@ -36,7 +36,7 @@ FileFormat toFileFormat(std::string s) {
     return FileFormat::JSON;
   } else if (s == "parquet") {
     return FileFormat::PARQUET;
-  } else if (s == "nimble") {
+  } else if (s == "nimble" || s == "alpha") {
     return FileFormat::NIMBLE;
   } else if (s == "orc") {
     return FileFormat::ORC;
