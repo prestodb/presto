@@ -218,7 +218,8 @@ struct SIMDJsonExtractScalarFunction {
       return simdjson::SUCCESS;
     };
 
-    SIMDJSON_TRY(simdJsonExtract(json, jsonPath, consumer));
+    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
 
     if (resultStr.has_value()) {
       result.copy_from(*resultStr);
@@ -284,20 +285,26 @@ struct SIMDJsonExtractFunction {
       return simdjson::SUCCESS;
     };
 
-    SIMDJSON_TRY(simdJsonExtract(json, jsonPath, consumer));
+    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
 
     if (resultSize == 0) {
-      // If the path didn't map to anything in the JSON object, return null.
-      return simdjson::NO_SUCH_FIELD;
-    }
+      if (extractor.isDefinitePath()) {
+        // If the path didn't map to anything in the JSON object, return null.
+        return simdjson::NO_SUCH_FIELD;
+      }
 
-    if (resultSize == 1) {
+      result.copy_from("[]");
+    } else if (resultSize == 1 && extractor.isDefinitePath()) {
       // If there was only one value mapped to by the path, don't wrap it in an
       // array.
       result.copy_from(results);
     } else {
       // Add the square brackets to make it a valid JSON array.
-      result.copy_from("[" + results + "]");
+      result.reserve(2 + results.size());
+      result.append("[");
+      result.append(results);
+      result.append("]");
     }
     return simdjson::SUCCESS;
   }
@@ -349,7 +356,8 @@ struct SIMDJsonSizeFunction {
       return simdjson::SUCCESS;
     };
 
-    SIMDJSON_TRY(simdJsonExtract(json, jsonPath, consumer));
+    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
 
     if (resultCount == 0) {
       // If the path didn't map to anything in the JSON object, return null.

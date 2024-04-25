@@ -22,9 +22,18 @@
 #include "gtest/gtest.h"
 #include "velox/common/base/VeloxException.h"
 
+namespace facebook::velox::functions {
 namespace {
-using facebook::velox::VeloxUserError;
-using facebook::velox::functions::simdJsonExtract;
+
+template <typename TConsumer>
+simdjson::error_code simdJsonExtract(
+    const std::string& json,
+    const std::string& path,
+    TConsumer&& consumer) {
+  auto& extractor = SIMDJsonExtractor::getInstance(path);
+  return simdJsonExtract(
+      velox::StringView(json), extractor, std::forward<TConsumer>(consumer));
+}
 
 class SIMDJsonExtractorTest : public testing::Test {
  public:
@@ -52,8 +61,10 @@ class SIMDJsonExtractorTest : public testing::Test {
       return simdjson::SUCCESS;
     };
 
-    EXPECT_EQ(simdJsonExtract(json, path, consumer), simdjson::SUCCESS)
-        << "with json " << json << " and path " << path;
+    SCOPED_TRACE(json);
+    SCOPED_TRACE(path);
+
+    EXPECT_EQ(simdJsonExtract(json, path, consumer), simdjson::SUCCESS);
 
     if (!expected) {
       EXPECT_EQ(0, res.size());
@@ -536,4 +547,6 @@ TEST_F(SIMDJsonExtractorTest, invalidJson) {
   json = "{\"foo\": [\"bar\", \"baz]}";
   EXPECT_NE(simdJsonExtract(json, "$.foo[0]", consumer), simdjson::SUCCESS);
 }
+
 } // namespace
+} // namespace facebook::velox::functions

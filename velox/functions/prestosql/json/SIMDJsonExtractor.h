@@ -27,16 +27,6 @@
 
 namespace facebook::velox::functions {
 
-template <typename TConsumer>
-simdjson::error_code simdJsonExtract(
-    const velox::StringView& json,
-    const velox::StringView& path,
-    TConsumer&& consumer);
-
-namespace detail {
-
-using JsonVector = std::vector<simdjson::ondemand::value>;
-
 class SIMDJsonExtractor {
  public:
   template <typename TConsumer>
@@ -45,14 +35,26 @@ class SIMDJsonExtractor {
       TConsumer& consumer,
       size_t tokenStartIndex = 0);
 
-  // Returns true if this extractor was initialized with the trivial path "$".
+  /// Returns true if this extractor was initialized with the trivial path "$".
   bool isRootOnlyPath() {
     return tokens_.empty();
   }
 
-  // Use this method to get an instance of SIMDJsonExtractor given a JSON path.
-  // Given the nature of the cache, it's important this is only used by
-  // simdJsonExtract.
+  /// Returns true if this extractor was initialized with a path that's
+  /// guaranteed to match at most one entry.
+  bool isDefinitePath() {
+    for (const auto& token : tokens_) {
+      if (token == "*") {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Use this method to get an instance of SIMDJsonExtractor given a JSON path.
+  /// Given the nature of the cache, it's important this is only used by
+  /// the callers of simdJsonExtract.
   static SIMDJsonExtractor& getInstance(folly::StringPiece path);
 
  private:
@@ -123,9 +125,7 @@ simdjson::error_code SIMDJsonExtractor::extract(
   }
 
   return consumer(input);
-}
-
-} // namespace detail
+};
 
 /**
  * Extract element(s) from a JSON object using the given path.
@@ -145,15 +145,11 @@ simdjson::error_code SIMDJsonExtractor::extract(
  * @return Return simdjson::SUCCESS on success.
  *         If any errors are encountered parsing the JSON, returns the error.
  */
-
 template <typename TConsumer>
 simdjson::error_code simdJsonExtract(
     const velox::StringView& json,
-    const velox::StringView& path,
+    SIMDJsonExtractor& extractor,
     TConsumer&& consumer) {
-  // If extractor fails to parse the path, this will throw a VeloxUserError, and
-  // we want to let this exception bubble up to the client.
-  auto& extractor = detail::SIMDJsonExtractor::getInstance(path);
   simdjson::padded_string paddedJson(json.data(), json.size());
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
 
@@ -167,14 +163,4 @@ simdjson::error_code simdJsonExtract(
   return extractor.extract(value, std::forward<TConsumer>(consumer));
 }
 
-template <typename TConsumer>
-simdjson::error_code simdJsonExtract(
-    const std::string& json,
-    const std::string& path,
-    TConsumer&& consumer) {
-  return simdJsonExtract(
-      velox::StringView(json),
-      velox::StringView(path),
-      std::forward<TConsumer>(consumer));
-}
 } // namespace facebook::velox::functions
