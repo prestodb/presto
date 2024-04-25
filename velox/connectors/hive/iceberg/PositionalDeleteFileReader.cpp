@@ -39,7 +39,6 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
       baseFilePath_(baseFilePath),
       fileHandleFactory_(fileHandleFactory),
       executor_(executor),
-      connectorQueryCtx_(connectorQueryCtx),
       hiveConfig_(hiveConfig),
       ioStats_(ioStats),
       pool_(connectorQueryCtx->memoryPool()),
@@ -89,7 +88,7 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
   configureReaderOptions(
       deleteReaderOpts,
       hiveConfig_,
-      connectorQueryCtx_->sessionProperties(),
+      connectorQueryCtx->sessionProperties(),
       deleteFileSchema,
       deleteSplit_);
 
@@ -98,7 +97,7 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
   auto deleteFileInput = createBufferedInput(
       *deleteFileHandle,
       deleteReaderOpts,
-      connectorQueryCtx_,
+      connectorQueryCtx,
       ioStats_,
       executor_);
 

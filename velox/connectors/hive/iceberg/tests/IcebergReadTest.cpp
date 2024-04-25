@@ -37,57 +37,25 @@ class HiveIcebergTest : public HiveConnectorTestBase {
   void assertPositionalDeletes(
       const std::vector<std::vector<int64_t>>& deleteRowsVec,
       bool multipleBaseFiles = false) {
-    assertPositionalDeletes(
-        deleteRowsVec,
-        "SELECT * FROM tmp WHERE c0 NOT IN (" + makeNotInList(deleteRowsVec) +
-            ")",
-        multipleBaseFiles);
+    assertPositionalDeletesInternal(
+        deleteRowsVec, getQuery(deleteRowsVec), multipleBaseFiles, 1, 0);
   }
 
   void assertPositionalDeletes(
       const std::vector<std::vector<int64_t>>& deleteRowsVec,
       std::string duckdbSql,
       bool multipleBaseFiles = false) {
-    std::shared_ptr<TempFilePath> dataFilePath = writeDataFile(rowCount);
+    assertPositionalDeletesInternal(
+        deleteRowsVec, duckdbSql, multipleBaseFiles, 1, 0);
+  }
 
-    std::mt19937 gen{0};
-    int64_t numDeleteRowsBefore =
-        multipleBaseFiles ? folly::Random::rand32(0, 1000, gen) : 0;
-    int64_t numDeleteRowsAfter =
-        multipleBaseFiles ? folly::Random::rand32(0, 1000, gen) : 0;
-    // Keep the reference to the deleteFilePath, otherwise the corresponding
-    // file will be deleted.
-    std::vector<std::shared_ptr<TempFilePath>> deleteFilePaths;
-    std::vector<IcebergDeleteFile> deleteFiles;
-    deleteFilePaths.reserve(deleteRowsVec.size());
-    deleteFiles.reserve(deleteRowsVec.size());
-    for (auto const& deleteRows : deleteRowsVec) {
-      std::shared_ptr<TempFilePath> deleteFilePath = writePositionDeleteFile(
-          dataFilePath->getPath(),
-          deleteRows,
-          numDeleteRowsBefore,
-          numDeleteRowsAfter);
-      auto path = deleteFilePath->getPath();
-      IcebergDeleteFile deleteFile(
-          FileContent::kPositionalDeletes,
-          deleteFilePath->getPath(),
-          fileFomat_,
-          deleteRows.size() + numDeleteRowsBefore + numDeleteRowsAfter,
-          testing::internal::GetFileSize(std::fopen(path.c_str(), "r")));
-      deleteFilePaths.emplace_back(deleteFilePath);
-      deleteFiles.emplace_back(deleteFile);
-    }
-
-    auto icebergSplit = makeIcebergSplit(dataFilePath->getPath(), deleteFiles);
-
-    auto plan = tableScanNode();
-    auto task = OperatorTestBase::assertQuery(plan, {icebergSplit}, duckdbSql);
-
-    auto planStats = toPlanStats(task->taskStats());
-    auto scanNodeId = plan->id();
-    auto it = planStats.find(scanNodeId);
-    ASSERT_TRUE(it != planStats.end());
-    ASSERT_TRUE(it->second.peakMemoryBytes > 0);
+  void assertPositionalDeletes(
+      const std::vector<std::vector<int64_t>>& deleteRowsVec,
+      std::string duckdbSql,
+      int32_t splitCount,
+      int32_t numPrefetchSplits) {
+    assertPositionalDeletesInternal(
+        deleteRowsVec, duckdbSql, true, splitCount, numPrefetchSplits);
   }
 
   std::vector<int64_t> makeRandomDeleteRows(int32_t maxRowNumber) {
@@ -119,10 +87,66 @@ class HiveIcebergTest : public HiveConnectorTestBase {
     return deleteRows;
   }
 
+  std::string getQuery(const std::vector<std::vector<int64_t>>& deleteRowsVec) {
+    return "SELECT * FROM tmp WHERE c0 NOT IN (" +
+        makeNotInList(deleteRowsVec) + ")";
+  }
+
   const static int rowCount = 20000;
 
  private:
-  std::shared_ptr<connector::ConnectorSplit> makeIcebergSplit(
+  void assertPositionalDeletesInternal(
+      const std::vector<std::vector<int64_t>>& deleteRowsVec,
+      std::string duckdbSql,
+      bool multipleBaseFiles,
+      int32_t splitCount,
+      int32_t numPrefetchSplits) {
+    auto dataFilePaths = writeDataFile(splitCount, rowCount);
+    std::vector<std::shared_ptr<ConnectorSplit>> splits;
+    // Keep the reference to the deleteFilePath, otherwise the corresponding
+    // file will be deleted.
+    std::vector<std::shared_ptr<TempFilePath>> deleteFilePaths;
+    for (const auto& dataFilePath : dataFilePaths) {
+      std::mt19937 gen{0};
+      int64_t numDeleteRowsBefore =
+          multipleBaseFiles ? folly::Random::rand32(0, 1000, gen) : 0;
+      int64_t numDeleteRowsAfter =
+          multipleBaseFiles ? folly::Random::rand32(0, 1000, gen) : 0;
+      std::vector<IcebergDeleteFile> deleteFiles;
+      deleteFiles.reserve(deleteRowsVec.size());
+      for (auto const& deleteRows : deleteRowsVec) {
+        std::shared_ptr<TempFilePath> deleteFilePath = writePositionDeleteFile(
+            dataFilePath->getPath(),
+            deleteRows,
+            numDeleteRowsBefore,
+            numDeleteRowsAfter);
+        auto path = deleteFilePath->getPath();
+        IcebergDeleteFile deleteFile(
+            FileContent::kPositionalDeletes,
+            deleteFilePath->getPath(),
+            fileFomat_,
+            deleteRows.size() + numDeleteRowsBefore + numDeleteRowsAfter,
+            testing::internal::GetFileSize(std::fopen(path.c_str(), "r")));
+        deleteFilePaths.emplace_back(deleteFilePath);
+        deleteFiles.emplace_back(deleteFile);
+      }
+
+      splits.emplace_back(
+          makeIcebergSplit(dataFilePath->getPath(), deleteFiles));
+    }
+
+    auto plan = tableScanNode();
+    auto task = HiveConnectorTestBase::assertQuery(
+        plan, splits, duckdbSql, numPrefetchSplits);
+
+    auto planStats = toPlanStats(task->taskStats());
+    auto scanNodeId = plan->id();
+    auto it = planStats.find(scanNodeId);
+    ASSERT_TRUE(it != planStats.end());
+    ASSERT_TRUE(it->second.peakMemoryBytes > 0);
+  }
+
+  std::shared_ptr<ConnectorSplit> makeIcebergSplit(
       const std::string& dataFilePath,
       const std::vector<IcebergDeleteFile>& deleteFiles = {}) {
     std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
@@ -148,7 +172,6 @@ class HiveIcebergTest : public HiveConnectorTestBase {
 
   std::vector<RowVectorPtr> makeVectors(int32_t count, int32_t rowsPerVector) {
     std::vector<RowVectorPtr> vectors;
-
     for (int i = 0; i < count; i++) {
       auto data = makeSequenceRows(rowsPerVector);
       VectorPtr c0 = vectorMaker_.flatVector<int64_t>(data);
@@ -158,13 +181,18 @@ class HiveIcebergTest : public HiveConnectorTestBase {
     return vectors;
   }
 
-  std::shared_ptr<TempFilePath> writeDataFile(uint64_t numRows) {
-    auto dataVectors = makeVectors(1, numRows);
-
-    auto dataFilePath = TempFilePath::create();
-    writeToFile(dataFilePath->getPath(), dataVectors);
+  std::vector<std::shared_ptr<TempFilePath>> writeDataFile(
+      int32_t splitCount,
+      uint64_t numRows) {
+    auto dataVectors = makeVectors(splitCount, numRows);
+    std::vector<std::shared_ptr<TempFilePath>> dataFilePaths;
+    dataFilePaths.reserve(dataVectors.size());
+    for (auto i = 0; i < dataVectors.size(); i++) {
+      dataFilePaths.emplace_back(TempFilePath::create());
+      writeToFile(dataFilePaths.back()->getPath(), dataVectors[i]);
+    }
     createDuckDbTable(dataVectors);
-    return dataFilePath;
+    return dataFilePaths;
   }
 
   std::shared_ptr<TempFilePath> writePositionDeleteFile(
@@ -247,20 +275,10 @@ class HiveIcebergTest : public HiveConnectorTestBase {
         });
   }
 
-  std::shared_ptr<exec::Task> assertQuery(
-      const core::PlanNodePtr& plan,
-      std::shared_ptr<TempFilePath> dataFilePath,
-      const std::vector<IcebergDeleteFile>& deleteFiles,
-      const std::string& duckDbSql) {
-    auto icebergSplit = makeIcebergSplit(dataFilePath->getPath(), deleteFiles);
-    return OperatorTestBase::assertQuery(plan, {icebergSplit}, duckDbSql);
-  }
-
   core::PlanNodePtr tableScanNode() {
     return PlanBuilder(pool_.get()).tableScan(rowType_).planNode();
   }
 
- private:
   dwio::common::FileFormat fileFomat_{dwio::common::FileFormat::DWRF};
   RowTypePtr rowType_{ROW({"c0"}, {BIGINT()})};
   std::shared_ptr<IcebergMetadataColumn> pathColumn_ =
@@ -318,6 +336,15 @@ TEST_F(HiveIcebergTest, baseFileMultiplePositionalDeletes) {
   assertPositionalDeletes({{1}, {2}, {3}, {4}});
   // Delete the first and last row in each batch (10000 rows per batch).
   assertPositionalDeletes({{0}, {9999}, {10000}, {19999}});
+}
+
+TEST_F(HiveIcebergTest, positionalDeletesMultipleSplits) {
+  folly::SingletonVault::singleton()->registrationComplete();
+  constexpr int32_t splitCount = 50;
+  constexpr int32_t numPrefetchSplits = 10;
+  std::vector<std::vector<int64_t>> deletedRows = {{1}, {2}, {3, 4}};
+  assertPositionalDeletes(
+      deletedRows, getQuery(deletedRows), splitCount, numPrefetchSplits);
 }
 
 } // namespace facebook::velox::connector::hive::iceberg

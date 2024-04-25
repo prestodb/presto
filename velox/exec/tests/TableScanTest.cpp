@@ -112,12 +112,8 @@ class TableScanTest : public virtual HiveConnectorTestBase {
       const std::vector<std::shared_ptr<TempFilePath>>& filePaths,
       const std::string& duckDbSql,
       const int32_t numPrefetchSplit) {
-    return AssertQueryBuilder(plan, duckDbQueryRunner_)
-        .config(
-            core::QueryConfig::kMaxSplitPreloadPerDriver,
-            std::to_string(numPrefetchSplit))
-        .splits(makeHiveConnectorSplits(filePaths))
-        .assertResults(duckDbSql);
+    return HiveConnectorTestBase::assertQuery(
+        plan, makeHiveConnectorSplits(filePaths), duckDbSql, numPrefetchSplit);
   }
 
   // Run query with spill enabled.

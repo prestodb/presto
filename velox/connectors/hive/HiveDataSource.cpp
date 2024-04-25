@@ -332,6 +332,7 @@ void HiveDataSource::setFromDataSource(
   source->scanSpec_->moveAdaptationFrom(*scanSpec_);
   scanSpec_ = std::move(source->scanSpec_);
   splitReader_ = std::move(source->splitReader_);
+  splitReader_->setConnectorQueryCtx(connectorQueryCtx_);
   // New io will be accounted on the stats of 'source'. Add the existing
   // balance to that.
   source->ioStats_->merge(*ioStats_);

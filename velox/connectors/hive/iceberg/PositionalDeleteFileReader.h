@@ -67,7 +67,6 @@ class PositionalDeleteFileReader {
   const std::string& baseFilePath_;
   FileHandleFactory* const fileHandleFactory_;
   folly::Executor* const executor_;
-  const ConnectorQueryCtx* const connectorQueryCtx_;
   const std::shared_ptr<const HiveConfig> hiveConfig_;
   const std::shared_ptr<io::IoStatistics> ioStats_;
   memory::MemoryPool* const pool_;

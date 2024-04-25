@@ -62,6 +62,12 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::vector<std::shared_ptr<TempFilePath>>& filePaths,
       const std::string& duckDbSql);
 
+  std::shared_ptr<Task> assertQuery(
+      const core::PlanNodePtr& plan,
+      const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits,
+      const std::string& duckDbSql,
+      const int32_t numPrefetchSplit);
+
   static std::vector<std::shared_ptr<TempFilePath>> makeFilePaths(int count);
 
   static std::vector<std::shared_ptr<connector::ConnectorSplit>>

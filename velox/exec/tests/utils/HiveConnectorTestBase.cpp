@@ -22,6 +22,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 
 namespace facebook::velox::exec::test {
 
@@ -104,6 +105,19 @@ std::shared_ptr<exec::Task> HiveConnectorTestBase::assertQuery(
     const std::string& duckDbSql) {
   return OperatorTestBase::assertQuery(
       plan, makeHiveConnectorSplits(filePaths), duckDbSql);
+}
+
+std::shared_ptr<Task> HiveConnectorTestBase::assertQuery(
+    const core::PlanNodePtr& plan,
+    const std::vector<std::shared_ptr<connector::ConnectorSplit>>& splits,
+    const std::string& duckDbSql,
+    const int32_t numPrefetchSplit) {
+  return AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .config(
+          core::QueryConfig::kMaxSplitPreloadPerDriver,
+          std::to_string(numPrefetchSplit))
+      .splits(splits)
+      .assertResults(duckDbSql);
 }
 
 std::vector<std::shared_ptr<TempFilePath>> HiveConnectorTestBase::makeFilePaths(
