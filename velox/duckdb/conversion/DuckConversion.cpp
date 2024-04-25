@@ -175,6 +175,13 @@ TypePtr toVeloxType(LogicalType type, bool fileColumnNamesReadAsLowerCase) {
       }
       return ROW(std::move(names), std::move(types));
     }
+    case LogicalTypeId::USER: {
+      const auto name = ::duckdb::UserType::GetTypeName(type);
+      if (auto customType = getCustomType(name)) {
+        return customType;
+      }
+      [[fallthrough]];
+    }
     default:
       throw std::runtime_error(
           "unsupported type for duckdb -> velox conversion: " +

@@ -16,6 +16,7 @@
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/PlanNode.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/parse/Expressions.h"
 
 using namespace facebook::velox;
@@ -365,6 +366,12 @@ TEST(DuckParserTest, cast) {
   EXPECT_EQ(
       "cast(\"c0\", ROW<a:BIGINT,b:REAL,c:VARCHAR>)",
       parseExpr("cast(c0 as struct(a bigint, b real, c varchar))")->toString());
+}
+
+TEST(DuckParserTest, castToJson) {
+  registerJsonType();
+  EXPECT_EQ("cast(\"c0\", JSON)", parseExpr("cast(c0 as json)")->toString());
+  EXPECT_EQ("cast(\"c0\", JSON)", parseExpr("cast(c0 as JSON)")->toString());
 }
 
 TEST(DuckParserTest, ifCase) {
