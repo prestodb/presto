@@ -54,6 +54,9 @@ void generateJsonTyped(
     // Figure out how to produce uppercase digits.
     folly::json::serialization_opts opts;
     opts.encode_non_ascii = true;
+    // Replace invalid UTF-8 bytes with U+FFFD.
+    opts.skip_invalid_utf8 = true;
+
     folly::json::escapeString(value, result, opts);
   } else if constexpr (std::is_same_v<T, UnknownValue>) {
     VELOX_FAIL(

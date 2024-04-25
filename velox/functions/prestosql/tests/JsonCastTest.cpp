@@ -234,6 +234,24 @@ TEST_F(JsonCastTest, fromInteger) {
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
+TEST_F(JsonCastTest, fromInvalidUtf8) {
+  auto fromBytes = [&](const std::vector<unsigned char>& bytes) {
+    std::string s;
+    s.resize(bytes.size());
+    memcpy(s.data(), bytes.data(), bytes.size());
+    return s;
+  };
+
+  auto invalidString = fromBytes({0xBF});
+
+  testCastToJson<StringView>(
+      VARCHAR(), {StringView(invalidString)}, {"\"\\ufffd\""});
+
+  invalidString = fmt::format("head_{}_tail", fromBytes({0xBF}));
+  testCastToJson<StringView>(
+      VARCHAR(), {StringView(invalidString)}, {"\"head_\\ufffd_tail\""});
+}
+
 TEST_F(JsonCastTest, fromVarchar) {
   testCastToJson<StringView>(VARCHAR(), {"\U0001F64F"}, {"\"\\ud83d\\ude4f\""});
   testCastToJson<StringView>(
