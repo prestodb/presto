@@ -319,6 +319,19 @@ void checkColumnNameLowerCase(const core::TypedExprPtr& typeExpr) {
   }
 }
 
+namespace {
+
+void filterOutNullMapKeys(const Type& rootType, common::ScanSpec& rootSpec) {
+  rootSpec.visit(rootType, [](const Type& type, common::ScanSpec& spec) {
+    if (type.isMap()) {
+      spec.childByName(common::ScanSpec::kMapKeysFieldName)
+          ->addFilter(common::IsNotNull());
+    }
+  });
+}
+
+} // namespace
+
 std::shared_ptr<common::ScanSpec> makeScanSpec(
     const RowTypePtr& rowType,
     const folly::F14FastMap<std::string, std::vector<const common::Subfield*>>&
@@ -348,7 +361,8 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     auto& type = rowType->childAt(i);
     auto it = outputSubfields.find(name);
     if (it == outputSubfields.end()) {
-      spec->addFieldRecursively(name, *type, i);
+      auto* fieldSpec = spec->addFieldRecursively(name, *type, i);
+      filterOutNullMapKeys(*type, *fieldSpec);
       filterSubfields.erase(name);
       continue;
     }
@@ -362,7 +376,9 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       }
       filterSubfields.erase(it);
     }
-    addSubfields(*type, subfieldSpecs, 1, pool, *spec->addField(name, i));
+    auto* fieldSpec = spec->addField(name, i);
+    addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
+    filterOutNullMapKeys(*type, *fieldSpec);
     subfieldSpecs.clear();
   }
 
@@ -376,6 +392,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
       auto& type = dataColumns->findChild(fieldName);
       auto* fieldSpec = spec->getOrCreateChild(common::Subfield(fieldName));
       addSubfields(*type, subfieldSpecs, 1, pool, *fieldSpec);
+      filterOutNullMapKeys(*type, *fieldSpec);
       subfieldSpecs.clear();
     }
   }

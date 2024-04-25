@@ -322,6 +322,10 @@ class ScanSpec {
     flatMapFeatureSelection_ = std::move(features);
   }
 
+  /// Invoke the function provided on each node of the ScanSpec tree.
+  template <typename F>
+  void visit(const Type& type, F&& f);
+
  private:
   void reorder();
 
@@ -402,6 +406,31 @@ class ScanSpec {
   // Used only for bulk reader to project flat map features.
   std::vector<std::string> flatMapFeatureSelection_;
 };
+
+template <typename F>
+void ScanSpec::visit(const Type& type, F&& f) {
+  f(type, *this);
+  switch (type.kind()) {
+    case TypeKind::ROW:
+      for (auto& child : children_) {
+        VELOX_CHECK_NE(child->channel(), kNoChannel);
+        child->visit(*type.childAt(child->channel()), std::forward<F>(f));
+      }
+      break;
+    case TypeKind::MAP:
+      childByName(kMapKeysFieldName)
+          ->visit(*type.childAt(0), std::forward<F>(f));
+      childByName(kMapValuesFieldName)
+          ->visit(*type.childAt(1), std::forward<F>(f));
+      break;
+    case TypeKind::ARRAY:
+      childByName(kArrayElementsFieldName)
+          ->visit(*type.childAt(0), std::forward<F>(f));
+      break;
+    default:
+      break;
+  }
+}
 
 // Returns false if no value from a range defined by stats can pass the
 // filter. True, otherwise.

@@ -971,6 +971,23 @@ TEST_F(TableScanTest, subfieldPruningArrayType) {
   }
 }
 
+TEST_F(TableScanTest, skipNullMapKeys) {
+  auto vector = makeRowVector({makeMapVector(
+      {0, 2},
+      makeNullableFlatVector<int64_t>({std::nullopt, 2}),
+      makeFlatVector<int64_t>({1, 2}))});
+  auto rowType = asRowType(vector->type());
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), {vector});
+  auto plan = PlanBuilder().tableScan(rowType).planNode();
+  auto split = makeHiveConnectorSplit(filePath->getPath());
+  auto expected = makeRowVector({makeMapVector(
+      {0, 1},
+      makeNullableFlatVector(std::vector<std::optional<int64_t>>(1, 2)),
+      makeFlatVector(std::vector<int64_t>(1, 2)))});
+  AssertQueryBuilder(plan).split(split).assertResults(expected);
+}
+
 // Test reading files written before schema change, e.g. missing newly added
 // columns.
 TEST_F(TableScanTest, missingColumns) {
