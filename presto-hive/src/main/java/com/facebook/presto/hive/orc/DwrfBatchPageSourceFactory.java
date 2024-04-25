@@ -98,7 +98,8 @@ public class DwrfBatchPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -132,6 +133,7 @@ public class DwrfBatchPageSourceFactory
                         .build(),
                 encryptionInformation,
                 dwrfEncryptionProvider,
-                session));
+                session,
+                rowIDPartitionComponent));
     }
 }

@@ -512,7 +512,8 @@ public class ParquetPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
