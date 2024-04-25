@@ -662,7 +662,6 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
-    if: ${{ github.event_name != 'pull_request' }}
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
       LINUX_DISTRO: "centos"
@@ -824,7 +823,6 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
-    if: ${{ github.event_name != 'pull_request' }}
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache/"
       LINUX_DISTRO: "centos"
