@@ -410,6 +410,10 @@ class ScanSpec {
 template <typename F>
 void ScanSpec::visit(const Type& type, F&& f) {
   f(type, *this);
+  if (isConstant()) {
+    // Child specs are not populated in this case.
+    return;
+  }
   switch (type.kind()) {
     case TypeKind::ROW:
       for (auto& child : children_) {

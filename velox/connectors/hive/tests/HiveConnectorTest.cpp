@@ -417,6 +417,25 @@ TEST_F(HiveConnectorTest, makeScanSpec_filterPartitionKey) {
   ASSERT_FALSE(scanSpec->childByName("ds")->projectOut());
 }
 
+TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
+  auto rowType =
+      ROW({"c0"},
+          {ROW(
+              {{"c0c0", MAP(BIGINT(), MAP(BIGINT(), BIGINT()))},
+               {"c0c1", BIGINT()}})});
+  auto scanSpec = makeScanSpec(
+      rowType,
+      groupSubfields(makeSubfields({"c0.c0c1"})),
+      {},
+      nullptr,
+      {},
+      {},
+      pool_.get());
+  auto* c0 = scanSpec->childByName("c0");
+  ASSERT_EQ(c0->children().size(), 2);
+  ASSERT_TRUE(c0->childByName("c0c0")->isConstant());
+}
+
 TEST_F(HiveConnectorTest, extractFiltersFromRemainingFilter) {
   core::QueryCtx queryCtx;
   exec::SimpleExpressionEvaluator evaluator(&queryCtx, pool_.get());

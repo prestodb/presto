@@ -323,9 +323,10 @@ namespace {
 
 void filterOutNullMapKeys(const Type& rootType, common::ScanSpec& rootSpec) {
   rootSpec.visit(rootType, [](const Type& type, common::ScanSpec& spec) {
-    if (type.isMap()) {
-      spec.childByName(common::ScanSpec::kMapKeysFieldName)
-          ->addFilter(common::IsNotNull());
+    if (type.isMap() && !spec.isConstant()) {
+      auto* keys = spec.childByName(common::ScanSpec::kMapKeysFieldName);
+      VELOX_CHECK_NOT_NULL(keys);
+      keys->addFilter(common::IsNotNull());
     }
   });
 }
