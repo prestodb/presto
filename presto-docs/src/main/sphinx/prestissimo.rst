@@ -22,3 +22,4 @@ Prestissimo's codebase is located at `presto-native-execution
 
     prestissimo/prestissimo-features
     prestissimo/prestissimo-limitations
+    prestissimo/prestissimo-properties
