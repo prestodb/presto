@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 
 import java.util.Comparator;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -60,7 +61,7 @@ public interface KllSketchAggregationState
     @Nullable
     <T> KllItemsSketch<T> getSketch();
 
-    void addMemoryUsage(long value);
+    void addMemoryUsage(Supplier<Long> usage);
 
     Type getType();
 
@@ -115,7 +116,7 @@ public interface KllSketchAggregationState
         }
 
         @Override
-        public void addMemoryUsage(long value)
+        public void addMemoryUsage(Supplier<Long> usage)
         {
             // noop
         }
@@ -161,9 +162,9 @@ public interface KllSketchAggregationState
         }
 
         @Override
-        public void addMemoryUsage(long value)
+        public void addMemoryUsage(Supplier<Long> usage)
         {
-            accumulatedSizeInBytes += value;
+            accumulatedSizeInBytes += usage.get();
         }
 
         @Override
