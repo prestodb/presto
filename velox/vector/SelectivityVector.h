@@ -248,6 +248,14 @@ class SelectivityVector {
         nulls->asMutable<uint64_t>(), bits_.data(), begin_, end_);
   }
 
+  void setNulls(uint64_t* rawNulls) const {
+    VELOX_CHECK_NOT_NULL(rawNulls);
+    bits::andWithNegatedBits(rawNulls, bits_.data(), begin_, end_);
+  }
+
+  /// Copy null bits from 'src' to 'dest' for active rows.
+  void copyNulls(uint64_t* dest, const uint64_t* src) const;
+
   /// Merges the valid vector of another SelectivityVector by or'ing
   /// them together. This is used to support memoization where a state
   /// may acquire new values over time. Grows 'this' if size of 'other' exceeds

@@ -135,7 +135,7 @@ void FlatVector<T>::copyValuesAndNulls(
     const vector_size_t* toSourceRow) {
   if (source->typeKind() == TypeKind::UNKNOWN) {
     auto* rawNulls = BaseVector::mutableRawNulls();
-    rows.applyToSelected([&](auto row) { bits::setNull(rawNulls, row, true); });
+    rows.setNulls(rawNulls);
     return;
   }
 
@@ -145,7 +145,7 @@ void FlatVector<T>::copyValuesAndNulls(
   if (!toSourceRow) {
     VELOX_CHECK_GE(source->size(), rows.end());
   }
-  const uint64_t* sourceNulls = source->rawNulls();
+
   uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
   if (source->mayHaveNulls()) {
     rawNulls = BaseVector::mutableRawNulls();
@@ -161,8 +161,7 @@ void FlatVector<T>::copyValuesAndNulls(
     auto* flatSource = source->asUnchecked<FlatVector<T>>();
     if (flatSource->values() == nullptr) {
       // All source values are null.
-      rows.applyToSelected(
-          [&](auto row) { bits::setNull(rawNulls, row, true); });
+      rows.setNulls(rawNulls);
       return;
     }
 
@@ -202,9 +201,10 @@ void FlatVector<T>::copyValuesAndNulls(
     }
 
     if (rawNulls) {
+      const uint64_t* sourceNulls = source->rawNulls();
+
       if (!sourceNulls) {
-        rows.applyToSelected(
-            [&](vector_size_t row) { bits::setNull(rawNulls, row, false); });
+        rows.clearNulls(rawNulls);
       } else {
         if (toSourceRow) {
           rows.applyToSelected([&](auto row) {
@@ -214,9 +214,7 @@ void FlatVector<T>::copyValuesAndNulls(
                 rawNulls, row, bits::isBitNull(sourceNulls, sourceRow));
           });
         } else {
-          rows.applyToSelected([&](vector_size_t row) {
-            bits::setNull(rawNulls, row, bits::isBitNull(sourceNulls, row));
-          });
+          rows.copyNulls(rawNulls, sourceNulls);
         }
       }
     }
@@ -243,24 +241,47 @@ void FlatVector<T>::copyValuesAndNulls(
     rows.clearNulls(rawNulls);
   } else {
     DecodedVector decoded(*source);
-    rows.applyToSelected([&](auto row) {
-      auto sourceRow = toSourceRow ? toSourceRow[row] : row;
-      VELOX_DCHECK_GT(source->size(), sourceRow);
-      if (!decoded.isNullAt(sourceRow)) {
-        if constexpr (std::is_same_v<T, bool>) {
-          auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
-          bits::setBit(rawValues, row, decoded.valueAt<T>(sourceRow));
-        } else {
-          rawValues_[row] = decoded.valueAt<T>(sourceRow);
+    if (toSourceRow == nullptr) {
+      rows.applyToSelected([&](auto row) {
+        if (!decoded.isNullAt(row)) {
+          if constexpr (std::is_same_v<T, bool>) {
+            auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+            bits::setBit(rawValues, row, decoded.valueAt<T>(row));
+          } else {
+            rawValues_[row] = decoded.valueAt<T>(row);
+          }
         }
+      });
 
-        if (rawNulls) {
-          bits::clearNull(rawNulls, row);
+      if (rawNulls != nullptr) {
+        auto* sourceNulls = decoded.nulls();
+        if (sourceNulls == nullptr) {
+          rows.clearNulls(rawNulls);
+        } else {
+          rows.copyNulls(rawNulls, sourceNulls);
         }
-      } else {
-        bits::setNull(rawNulls, row);
       }
-    });
+
+    } else {
+      rows.applyToSelected([&](auto row) {
+        const auto sourceRow = toSourceRow[row];
+        VELOX_DCHECK_GT(source->size(), sourceRow);
+        if (!decoded.isNullAt(sourceRow)) {
+          if constexpr (std::is_same_v<T, bool>) {
+            auto* rawValues = reinterpret_cast<uint64_t*>(rawValues_);
+            bits::setBit(rawValues, row, decoded.valueAt<T>(sourceRow));
+          } else {
+            rawValues_[row] = decoded.valueAt<T>(sourceRow);
+          }
+
+          if (rawNulls) {
+            bits::clearNull(rawNulls, row);
+          }
+        } else {
+          bits::setNull(rawNulls, row);
+        }
+      });
+    }
   }
 }
 

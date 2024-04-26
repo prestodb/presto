@@ -54,6 +54,40 @@ std::string SelectivityVector::toString(
   return out.str();
 }
 
+void SelectivityVector::copyNulls(uint64_t* dest, const uint64_t* src) const {
+  if (isAllSelected()) {
+    bits::copyBits(src, 0, dest, 0, size_);
+    return;
+  }
+
+  const auto* rowBits = bits_.data();
+
+  bits::forEachWord(
+      begin_,
+      end_,
+      [dest, src, rowBits](int32_t idx, uint64_t mask) {
+        // Set 'dest' to 0 for selected rows.
+        dest[idx] = (dest[idx] & ~mask) | (mask & dest[idx] & ~rowBits[idx]);
+
+        // Set 'copySrc' to 0 for non-selected rows.
+        uint64_t copySrc =
+            (src[idx] & ~mask) | (mask & src[idx] & rowBits[idx]);
+
+        // Combine 'dest' and 'copySrc' with an OR.
+        dest[idx] = (dest[idx] & ~mask) | (mask & (dest[idx] | copySrc));
+      },
+      [dest, src, rowBits](int32_t idx) {
+        // Set 'dest' to 0 for selected rows.
+        dest[idx] = dest[idx] & ~rowBits[idx];
+
+        // Set 'copySrc' to 0 for non-selected rows.
+        uint64_t copySrc = src[idx] & rowBits[idx];
+
+        // Combine 'dest' and 'copySrc' with an OR.
+        dest[idx] = dest[idx] | copySrc;
+      });
+}
+
 void translateToInnerRows(
     const SelectivityVector& outerRows,
     const vector_size_t* indices,
