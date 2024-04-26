@@ -99,6 +99,35 @@ struct WeekFunction : public InitSessionTimezone<T> {
 };
 
 template <typename T>
+struct YearOfWeekFunction : public InitSessionTimezone<T> {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
+    const auto dateTime = getDateTime(date);
+
+    int isoWeekDay = dateTime.tm_wday == 0 ? 7 : dateTime.tm_wday;
+    // The last few days in December may belong to the next year if they are
+    // in the same week as the next January 1 and this January 1 is a Thursday
+    // or before.
+    if (UNLIKELY(
+            dateTime.tm_mon == 11 && dateTime.tm_mday >= 29 &&
+            dateTime.tm_mday - isoWeekDay >= 31 - 3)) {
+      result = 1900 + dateTime.tm_year + 1;
+      return;
+    }
+    // The first few days in January may belong to the last year if they are
+    // in the same week as January 1 and January 1 is a Friday or after.
+    if (UNLIKELY(
+            dateTime.tm_mon == 0 && dateTime.tm_mday <= 3 &&
+            isoWeekDay - (dateTime.tm_mday - 1) >= 5)) {
+      result = 1900 + dateTime.tm_year - 1;
+      return;
+    }
+    result = 1900 + dateTime.tm_year;
+  }
+};
+
+template <typename T>
 struct UnixDateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

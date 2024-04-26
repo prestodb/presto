@@ -968,5 +968,20 @@ TEST_F(DateTimeFunctionsTest, makeYMInterval) {
       fromYear(-178956971), "Integer overflow in make_ym_interval(-178956971)");
 }
 
+TEST_F(DateTimeFunctionsTest, yearOfWeek) {
+  const auto yearOfWeek = [&](std::optional<int32_t> date) {
+    return evaluateOnce<int32_t, int32_t>("year_of_week(c0)", {date}, {DATE()});
+  };
+  EXPECT_EQ(1970, yearOfWeek(0));
+  EXPECT_EQ(1970, yearOfWeek(-1));
+  EXPECT_EQ(1969, yearOfWeek(-4));
+  EXPECT_EQ(1970, yearOfWeek(-3));
+  EXPECT_EQ(1970, yearOfWeek(365));
+  EXPECT_EQ(1970, yearOfWeek(367));
+  EXPECT_EQ(1971, yearOfWeek(368));
+  EXPECT_EQ(2005, yearOfWeek(parseDate("2006-01-01")));
+  EXPECT_EQ(2006, yearOfWeek(parseDate("2006-01-02")));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

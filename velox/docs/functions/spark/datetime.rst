@@ -282,3 +282,10 @@ These functions support TIMESTAMP and DATE input types.
 .. spark:function:: year(x) -> integer
 
     Returns the year from ``x``.
+
+.. spark:function:: year_of_week(x) -> integer
+
+    Returns the ISO week-numbering year that ``x`` falls in. For example, 2005-01-02 is
+    part of the 53rd week of year 2004, so the result is 2004. Only supports DATE type.
+
+        SELECT year_of_week('2005-01-02'); -- 2004
