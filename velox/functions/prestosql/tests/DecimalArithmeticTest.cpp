@@ -116,7 +116,7 @@ TEST_F(DecimalArithmeticTest, add) {
            {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
 
   // Addition overflow.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 + cast(1.00 as decimal(2,0))",
@@ -126,7 +126,7 @@ TEST_F(DecimalArithmeticTest, add) {
       "Decimal overflow. Value '100000000000000000000000000000000000000' is not in the range of Decimal Type");
 
   // Rescaling LHS overflows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 + 0.01",
@@ -135,7 +135,7 @@ TEST_F(DecimalArithmeticTest, add) {
               DECIMAL(38, 0))}),
       "Decimal overflow: 99999999999999999999999999999999999999 + 1");
   // Rescaling RHS overflows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "0.01 + c0",
@@ -202,7 +202,7 @@ TEST_F(DecimalArithmeticTest, subtract) {
            {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
 
   // Subtraction overflow.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 - cast(1.00 as decimal(2,0))",
@@ -211,7 +211,7 @@ TEST_F(DecimalArithmeticTest, subtract) {
               DECIMAL(38, 0))}),
       "Decimal overflow. Value '-100000000000000000000000000000000000000' is not in the range of Decimal Type");
   // Rescaling LHS overflows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 - 0.01",
@@ -220,7 +220,7 @@ TEST_F(DecimalArithmeticTest, subtract) {
               DECIMAL(38, 0))}),
       "Decimal overflow: -99999999999999999999999999999999999999 - 1");
   // Rescaling RHS overflows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "0.01 - c0",
@@ -271,7 +271,7 @@ TEST_F(DecimalArithmeticTest, multiply) {
       expectedConstantFlat, "c0 * 1.00", {shortFlat});
 
   // Long decimal limits
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 * cast(10.00 as decimal(2,0))",
@@ -282,7 +282,7 @@ TEST_F(DecimalArithmeticTest, multiply) {
       "Decimal overflow. Value '119630519620642428561342635425231011830' is not in the range of Decimal Type");
 
   // Rescaling the final result overflows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 * cast(1.00 as decimal(2,1))",
@@ -365,12 +365,12 @@ TEST_F(DecimalArithmeticTest, decimalDivTest) {
       {makeFlatVector<int64_t>({-34, 5, 65, 90, 2, -49}, DECIMAL(2, 1))});
 
   // Divide by zero.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::BIGINT>({}, "c0 / 0.0", {shortFlat}),
       "Division by zero");
 
   // Long decimal limits.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       testDecimalExpr<TypeKind::HUGEINT>(
           {},
           "c0 / 0.01",
@@ -380,7 +380,7 @@ TEST_F(DecimalArithmeticTest, decimalDivTest) {
       "Decimal overflow: 99999999999999999999999999999999999999 * 10000");
 
   // Rescale factor > max precision (38).
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_USER_THROW(
       evaluate(
           "divide(c0, c1)",
           makeRowVector(

@@ -149,7 +149,7 @@ struct DecimalDivideFunction {
     auto bScale = getDecimalPrecisionScale(*bType).second;
     auto rScale = std::max(aScale, bScale);
     aRescale_ = rScale - aScale + bScale;
-    VELOX_CHECK_LE(
+    VELOX_USER_CHECK_LE(
         aRescale_, LongDecimalType::kMaxPrecision, "Decimal overflow");
   }
 
