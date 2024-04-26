@@ -106,6 +106,15 @@ Array Functions
         SELECT filter(array(0, 2, 3), (x, i) -> x > i); -- [2, 3]
         SELECT filter(array(0, null, 2, 3, null), x -> x IS NOT NULL); -- [0, 2, 3]
 
+.. function:: flatten(array(array(E))) -> array(E)
+
+    Transforms an array of arrays into a single array.
+    Returns NULL if the input is NULL or any of the nested arrays is NULL. ::
+
+        SELECT flatten(array(array(1, 2), array(3, 4))); -- [1, 2, 3, 4]
+        SELECT flatten(array(array(1, 2), array(3, NULL))); -- [1, 2, 3, NULL]
+        SELECT flatten(array(array(1, 2), NULL, array(3, 4))); -- NULL
+
 .. spark:function:: in(value, array(E)) -> boolean
 
     Returns true if value matches at least one of the elements of the array.

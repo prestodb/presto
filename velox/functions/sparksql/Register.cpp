@@ -25,6 +25,7 @@
 #include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
 #include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/functions/sparksql/ArrayFlattenFunction.h"
 #include "velox/functions/sparksql/ArrayMinMaxFunction.h"
 #include "velox/functions/sparksql/ArraySizeFunction.h"
 #include "velox/functions/sparksql/ArraySort.h"
@@ -407,6 +408,11 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "monotonically_increasing_id"});
 
   registerFunction<UuidFunction, Varchar, Constant<int64_t>>({prefix + "uuid"});
+
+  registerFunction<
+      ArrayFlattenFunction,
+      Array<Generic<T1>>,
+      Array<Array<Generic<T1>>>>({prefix + "flatten"});
 }
 
 } // namespace sparksql
