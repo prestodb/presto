@@ -16,10 +16,7 @@ set -eufx -o pipefail
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-macos.sh"
 
-MACOS_DEPS="${MACOS_DEPS} bison gperf"
 export FB_OS_VERSION=v2024.04.01.00
-
-export PATH=$(brew --prefix bison)/bin:$PATH
 
 function install_proxygen {
   github_checkout facebook/proxygen "${FB_OS_VERSION}"
@@ -27,7 +24,7 @@ function install_proxygen {
 }
 
 function install_presto_deps {
-  install_velox_deps
+  install_from_brew "gperf"
   run_and_time install_proxygen
 }
 
@@ -35,6 +32,15 @@ if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do
     run_and_time "${cmd}"
   done
+  echo "All specified dependencies installed!"
 else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  install_velox_deps
   install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
 fi

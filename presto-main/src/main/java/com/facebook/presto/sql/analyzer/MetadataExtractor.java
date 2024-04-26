@@ -24,9 +24,11 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.With;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -125,17 +127,21 @@ public class MetadataExtractor
     {
         private final Optional<MetadataExtractorContext> parent;
         private final Set<QualifiedObjectName> tableNames;
+        // avoid sending requests for metadata information for table names that we don't need, such as those involved in a query with a CTE
+        private final Set<Identifier> tableNamesToSkipProcessing;
 
         public MetadataExtractorContext()
         {
             this.parent = Optional.empty();
             this.tableNames = new HashSet<>();
+            this.tableNamesToSkipProcessing = new HashSet<>();
         }
 
         public MetadataExtractorContext(Optional<MetadataExtractorContext> parent)
         {
             this.parent = parent;
             this.tableNames = new HashSet<>();
+            this.tableNamesToSkipProcessing = new HashSet<>();
         }
 
         public void addTable(QualifiedObjectName tableName)
@@ -147,20 +153,26 @@ public class MetadataExtractor
 
         private boolean tableExists(QualifiedObjectName tableName)
         {
-            if (tableNames.contains(tableName)) {
-                return true;
-            }
-
-            if (parent.isPresent()) {
-                return parent.get().tableExists(tableName);
-            }
-
-            return false;
+            return tableNames.contains((tableName)) ||
+                    parent.map(metadataExtractorContext -> metadataExtractorContext.tableExists(tableName)).orElse(false);
         }
 
         public Set<QualifiedObjectName> getTableNames()
         {
             return tableNames;
+        }
+
+        public void addTableNameToSkipProcessing(Identifier commonTableExpressionName)
+        {
+            if (!shouldSkipProcessing(commonTableExpressionName)) {
+                tableNamesToSkipProcessing.add(commonTableExpressionName);
+            }
+        }
+
+        public boolean shouldSkipProcessing(Identifier tableName)
+        {
+            return tableNamesToSkipProcessing.contains(tableName) ||
+                    parent.map(metadataExtractorContext -> metadataExtractorContext.shouldSkipProcessing(tableName)).orElse(false);
         }
     }
 
@@ -185,8 +197,10 @@ public class MetadataExtractor
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema name is empty");
             }
 
+            if (!context.shouldSkipProcessing(new Identifier(tableName.getObjectName()))) {
+                context.addTable(tableName);
+            }
             // This could be either tableName, view, or MView
-            context.addTable(tableName);
             return super.visitTable(table, context);
         }
 
@@ -235,6 +249,16 @@ public class MetadataExtractor
 
             context.addTable(tableName);
             return super.visitAnalyze(node, context);
+        }
+
+        @Override
+        protected Void visitWith(With node, MetadataExtractorContext context)
+        {
+            node.getQueries().forEach(query -> {
+                context.addTableNameToSkipProcessing(query.getName());
+                process(query, context);
+            });
+            return null;
         }
     }
 }

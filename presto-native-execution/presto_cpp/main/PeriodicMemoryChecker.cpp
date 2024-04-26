@@ -153,7 +153,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
   }
 }
 
-void PeriodicMemoryChecker::pushbackMemory() const {
+void PeriodicMemoryChecker::pushbackMemory() {
   const uint64_t currentMemBytes = systemUsedMemoryBytes();
   VELOX_CHECK(config_.systemMemPushbackEnabled);
   LOG(WARNING) << "System used memory " << velox::succinctBytes(currentMemBytes)

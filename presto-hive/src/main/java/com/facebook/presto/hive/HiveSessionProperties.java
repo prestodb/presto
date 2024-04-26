@@ -130,6 +130,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_INLINE_BUILD_TIMEOUT = "quick_stats_inline_build_timeout";
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
+    public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -629,7 +630,12 @@ public final class HiveSessionProperties
                         hiveClientConfig.getQuickStatsBackgroundBuildTimeout(),
                         false,
                         value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        Duration::toString),
+                dataSizeSessionProperty(
+                        AFFINITY_SCHEDULING_FILE_SECTION_SIZE,
+                        "Size of file section for affinity scheduling",
+                        hiveClientConfig.getAffinitySchedulingFileSectionSize(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1091,5 +1097,10 @@ public final class HiveSessionProperties
     public static Duration getQuickStatsBackgroundBuildTimeout(ConnectorSession session)
     {
         return session.getProperty(QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, Duration.class);
+    }
+
+    public static DataSize getAffinitySchedulingFileSectionSize(ConnectorSession session)
+    {
+        return session.getProperty(AFFINITY_SCHEDULING_FILE_SECTION_SIZE, DataSize.class);
     }
 }

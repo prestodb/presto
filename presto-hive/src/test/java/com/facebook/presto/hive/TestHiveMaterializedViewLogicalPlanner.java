@@ -481,7 +481,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['nationkey']) " +
                     "AS %s", view, baseQuery));
 
-            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey < 10", view, baseQuery), 599);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE nationkey < 10", view), 599);
 
             String viewQuery = format("SELECT name, custkey, nationkey from %s ORDER BY name", view);
             baseQuery = format("%s ORDER BY name", baseQuery);
@@ -838,7 +838,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE regionkey = 1", view), 5);
 
             String viewQuery = format("SELECT name, nationkey, regionkey from %s ORDER BY name", view);
-            String baseQuery = format("%s ORDER BY name", viewDefinition, table);
+            String baseQuery = format("%s ORDER BY name", viewDefinition);
 
             MaterializedResult viewTable = computeActual(viewQuery);
             MaterializedResult baseTable = computeActual(baseQuery);
@@ -909,7 +909,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     "FROM %s group by ds, shipmode", view, table));
 
             assertTrue(getQueryRunner().tableExists(getSession(), view));
-            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view, table), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
 
             String viewQuery = format("SELECT sum(_discount_multi_extendedprice_) from %s group by ds ORDER BY sum(_discount_multi_extendedprice_)", view);
             String baseQuery = format("SELECT sum(discount * extendedprice) as _discount_multi_extendedprice_ from %s group by ds " +
@@ -2246,8 +2246,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view, table1, table2), 65025);
 
             String viewQuery = format("SELECT view_orderkey from %s where view_orderkey < 10000 ORDER BY view_orderkey", view);
-            String baseQuery = format("SELECT t1.orderkey FROM %s t1" +
-                    " inner join %s t2 ON t1.ds=t2.ds where t1.orderkey < 10000 ORDER BY t1.orderkey", table1, table2);
+            String baseQuery = format("SELECT t1.orderkey FROM %s t1 inner join %s t2 ON t1.ds=t2.ds where t1.orderkey < 10000 ORDER BY t1.orderkey", table1, table2);
 
             MaterializedResult viewTable = computeActual(viewQuery);
             MaterializedResult baseTable = computeActual(baseQuery);

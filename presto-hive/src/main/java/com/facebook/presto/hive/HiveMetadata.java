@@ -1677,12 +1677,12 @@ public class HiveMetadata
                     handle,
                     table,
                     partitionUpdates);
-            // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
+            // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we roll back
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() :
-                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion, partitionEncryptionParameters, Optional.empty()));
+                        Optional.of(partitionObjectBuilder.buildPartitionObject(session, table, partitionUpdate, prestoVersion, partitionEncryptionParameters, Optional.empty(), Optional.empty()));
                 zeroRowFileCreator.createFiles(
                         session,
                         hdfsContext,
@@ -1725,7 +1725,7 @@ public class HiveMetadata
                 // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
             }
-            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty());
+            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty(), Optional.empty());
             PartitionStatistics partitionStatistics = createPartitionStatistics(
                     session,
                     update.getStatistics(),
@@ -1737,7 +1737,7 @@ public class HiveMetadata
                     handle.getTableName(),
                     table.getStorage().getLocation(),
                     true,
-                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters, Optional.empty()),
+                    partition,
                     update.getWritePath(),
                     partitionStatistics);
         }
@@ -2010,6 +2010,7 @@ public class HiveMetadata
                                 handle.getEncryptionInformation()
                                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                                         .orElseGet(ImmutableMap::of),
+                                Optional.empty(),
                                 Optional.empty()));
                 zeroRowFileCreator.createFiles(
                         session,
@@ -2111,7 +2112,8 @@ public class HiveMetadata
                         partitionUpdate,
                         prestoVersion,
                         extraPartitionMetadata,
-                        existingPartition);
+                        existingPartition,
+                        Optional.empty());
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }

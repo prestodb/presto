@@ -190,7 +190,7 @@ class RelationPlanner
             }
             else {
                 // cte considered for materialization
-                String normalizedCteId = context.getCteInfo().normalize(analysis, namedQuery.getQuery(), cteName);
+                String normalizedCteId = context.getCteInfo().normalize(NodeRef.of(namedQuery.getQuery()), cteName);
                 session.getCteInformationCollector().addCTEReference(cteName, normalizedCteId, namedQuery.isFromView(), true);
                 subPlan = new RelationPlan(
                         new CteReferenceNode(getSourceLocation(node.getLocation()),

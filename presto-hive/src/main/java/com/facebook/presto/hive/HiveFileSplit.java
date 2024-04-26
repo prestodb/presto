@@ -38,6 +38,7 @@ public class HiveFileSplit
     private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
     private final Map<String, String> customSplitInfo;
+    private final long affinitySchedulingFileSectionIndex;
 
     /**
      * @param path the absolute path to the file that contains the split
@@ -56,7 +57,8 @@ public class HiveFileSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
-            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
+            @JsonProperty("affinitySchedulingFileSectionIndex") long affinitySchedulingFileSectionIndex)
     {
         checkArgument(start >= 0, "start must be non-negative");
         checkArgument(length >= 0, "length must be non-negative");
@@ -73,6 +75,7 @@ public class HiveFileSplit
         this.fileModifiedTime = fileModifiedTime;
         this.extraFileInfo = extraFileInfo;
         this.customSplitInfo = ImmutableMap.copyOf(customSplitInfo);
+        this.affinitySchedulingFileSectionIndex = affinitySchedulingFileSectionIndex;
     }
 
     @JsonProperty
@@ -115,6 +118,12 @@ public class HiveFileSplit
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
+    }
+
+    @JsonProperty
+    public long getAffinitySchedulingFileSectionIndex()
+    {
+        return affinitySchedulingFileSectionIndex;
     }
 
     @Override

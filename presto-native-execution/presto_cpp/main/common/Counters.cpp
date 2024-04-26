@@ -216,6 +216,11 @@ void registerPrestoMetrics() {
       kCounterSsdCacheCumulativeReadCheckpointErrors,
       facebook::velox::StatType::AVG);
 
+  DEFINE_METRIC(
+      kCounterSsdCacheCheckpointsRead, facebook::velox::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterSsdCacheCheckpointsWritten, facebook::velox::StatType::SUM);
+
   /// ================== Disk Spilling Counters =================
 
   DEFINE_METRIC(kCounterSpillRuns, facebook::velox::StatType::SUM);

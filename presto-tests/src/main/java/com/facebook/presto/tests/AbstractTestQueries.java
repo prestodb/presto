@@ -124,6 +124,7 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -1025,9 +1026,7 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
         assertQuery(session, "" +
-                        "SELECT DISTINCT x " +
-                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
-                        "LIMIT 100",
+                "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
                 "SELECT 1");
     }
 
@@ -2677,7 +2676,7 @@ public abstract class AbstractTestQueries
     {
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -2685,7 +2684,7 @@ public abstract class AbstractTestQueries
 
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3035,7 +3034,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3043,7 +3042,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -6004,7 +6003,7 @@ public abstract class AbstractTestQueries
 
         assertEquals(actual1.getRowCount(), 2);
         assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), 1);
-        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), null);
+        assertNull(actual1.getMaterializedRows().get(0).getFields().get(1));
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), 2);
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(3, 1L));
     }
@@ -6887,6 +6886,12 @@ public abstract class AbstractTestQueries
                 "WHERE\n" +
                 "    c.nationkey = 1\n";
         assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "WITH temp_cte AS ( \n" +
+                "   SELECT name from nation \n" +
+                "   ) \n" +
+                "   SELECT * FROM temp_cte";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
     }
 
     @Test
@@ -7255,21 +7260,19 @@ public abstract class AbstractTestQueries
         assertSorted(result.getMaterializedRows().get(0).getFields());
     }
 
-    private static boolean assertSorted(List<Object> array)
+    private static void assertSorted(List<Object> array)
     {
         int i = 1;
         for (; i < array.size(); i++) {
             if (array.get(i) == null) {
                 break;
             }
-            assertThat(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
+            assertTrue(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
         }
 
         while (i < array.size()) {
-            assertThat(array.get(i++) == null);
+            assertNull(array.get(i++));
         }
-
-        return true;
     }
 
     @Test
@@ -7513,5 +7516,15 @@ public abstract class AbstractTestQueries
                 "values (null, 0)");
         assertQuery("select orderkey from (select * from (select * from orders where 1=0)) group by rollup(orderkey)",
                 "values (null)");
+    }
+
+    @Test
+    public void testLambdaInAggregation()
+    {
+        assertQuery("SELECT id, reduce_agg(value, 0, (a, b) -> a + b+0, (a, b) -> a + b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id", "values (1, 9), (2, 90)");
+        assertQuery("SELECT id, reduce_agg(value, 's', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
+                "values (1, 's2s3s4s'), (2, 's20s30s40s')");
+        assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
+                ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
     }
 }

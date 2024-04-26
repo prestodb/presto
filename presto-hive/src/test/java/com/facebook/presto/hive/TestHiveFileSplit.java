@@ -26,7 +26,7 @@ public class TestHiveFileSplit
     @Test
     public void testGetters()
     {
-        HiveFileSplit split = new HiveFileSplit("path", 0, 200, 3, 400, Optional.of(new byte[21]), Collections.emptyMap());
+        HiveFileSplit split = new HiveFileSplit("path", 0, 200, 3, 400, Optional.of(new byte[21]), Collections.emptyMap(), 0);
         assertEquals(split.getPath(), "path");
         assertEquals(split.getLength(), 200L);
         assertEquals(split.getStart(), 0L);
@@ -39,6 +39,6 @@ public class TestHiveFileSplit
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "start must be non-negative")
     public void testNegativeStart()
     {
-        new HiveFileSplit("path", -1, 200, 3, 400, Optional.of(new byte[21]), Collections.emptyMap());
+        new HiveFileSplit("path", -1, 200, 3, 400, Optional.of(new byte[21]), Collections.emptyMap(), 0);
     }
 }

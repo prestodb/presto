@@ -636,7 +636,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // Create a local file system storage based shuffle.
     velox::filesystems::registerLocalFileSystem();
     auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
-    auto rootPath = rootDirectory->path;
+    auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
         localShuffleWriteInfo(rootPath, numPartitions);
 
@@ -979,7 +979,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   // Create a local file system storage based shuffle.
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
-  auto rootPath = rootDirectory->path;
+  auto rootPath = rootDirectory->getPath();
 
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.287-SNAPSHOT</version>
+        <version>0.288-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -456,19 +456,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testing-docker</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>3.4.6</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>net.bytebuddy</groupId>
-                    <artifactId>byte-buddy-agent</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

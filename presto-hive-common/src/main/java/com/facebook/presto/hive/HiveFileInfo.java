@@ -13,28 +13,37 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BlockLocation.fromHiveBlockLocations;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class HiveFileInfo
         implements Comparable
 {
     private final Path path;
     private final boolean isDirectory;
-    private final BlockLocation[] blockLocations;
+    private final List<BlockLocation> blockLocations;
     private final long length;
     private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
     private final Map<String, String> customSplitInfo;
 
     public static HiveFileInfo createHiveFileInfo(LocatedFileStatus locatedFileStatus, Optional<byte[]> extraFileContext)
+            throws IOException
     {
         return createHiveFileInfo(
                 locatedFileStatus,
@@ -43,26 +52,77 @@ public class HiveFileInfo
     }
 
     public static HiveFileInfo createHiveFileInfo(LocatedFileStatus locatedFileStatus, Optional<byte[]> extraFileContext, Map<String, String> customSplitInfo)
+            throws IOException
     {
         return new HiveFileInfo(
-                locatedFileStatus.getPath(),
+                locatedFileStatus.getPath().toString(),
                 locatedFileStatus.isDirectory(),
-                locatedFileStatus.getBlockLocations(),
+                fromHiveBlockLocations(locatedFileStatus.getBlockLocations()),
                 locatedFileStatus.getLen(),
                 locatedFileStatus.getModificationTime(),
                 extraFileContext,
                 customSplitInfo);
     }
 
-    private HiveFileInfo(Path path, boolean isDirectory, BlockLocation[] blockLocations, long length, long fileModifiedTime, Optional<byte[]> extraFileInfo, Map<String, String> customSplitInfo)
+    @ThriftConstructor
+    public HiveFileInfo(
+            String pathString,
+            boolean directory,
+            List<BlockLocation> blockLocations,
+            long length,
+            long fileModifiedTime,
+            Optional<byte[]> extraFileInfo,
+            Map<String, String> customSplitInfo)
     {
-        this.path = requireNonNull(path, "path is null");
-        this.isDirectory = isDirectory;
-        this.blockLocations = blockLocations;
+        this.path = new Path(requireNonNull(pathString, "pathString is null"));
+        this.isDirectory = directory;
+        this.blockLocations = requireNonNull(blockLocations, "blockLocations is null");
         this.length = length;
         this.fileModifiedTime = fileModifiedTime;
         this.extraFileInfo = requireNonNull(extraFileInfo, "extraFileInfo is null");
         this.customSplitInfo = requireNonNull(customSplitInfo, "customSplitInfo is null");
+    }
+
+    @ThriftField(1)
+    public String getPathString()
+    {
+        return path.toString();
+    }
+
+    @ThriftField(2)
+    public boolean isDirectory()
+    {
+        return isDirectory;
+    }
+
+    @ThriftField(3)
+    public List<BlockLocation> getBlockLocations()
+    {
+        return blockLocations;
+    }
+
+    @ThriftField(4)
+    public long getLength()
+    {
+        return length;
+    }
+
+    @ThriftField(5)
+    public long getFileModifiedTime()
+    {
+        return fileModifiedTime;
+    }
+
+    @ThriftField(6)
+    public Optional<byte[]> getExtraFileInfo()
+    {
+        return extraFileInfo;
+    }
+
+    @ThriftField(7)
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
     }
 
     public Path getPath()
@@ -70,34 +130,38 @@ public class HiveFileInfo
         return path;
     }
 
-    public boolean isDirectory()
+    @Override
+    public boolean equals(Object o)
     {
-        return isDirectory;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        HiveFileInfo that = (HiveFileInfo) o;
+        return path.equals(that.path) &&
+                blockLocations.equals(that.blockLocations) &&
+                length == that.length;
     }
 
-    public BlockLocation[] getBlockLocations()
+    @Override
+    public int hashCode()
     {
-        return blockLocations;
+        return Objects.hash(path, blockLocations, length);
     }
 
-    public long getLength()
+    @Override
+    public String toString()
     {
-        return length;
-    }
-
-    public long getFileModifiedTime()
-    {
-        return fileModifiedTime;
-    }
-
-    public Optional<byte[]> getExtraFileInfo()
-    {
-        return extraFileInfo;
-    }
-
-    public Map<String, String> getCustomSplitInfo()
-    {
-        return customSplitInfo;
+        return toStringHelper(this)
+                .add("path", path)
+                .add("isDirectory", isDirectory)
+                .add("blockLocations", blockLocations)
+                .add("length", length)
+                .add("fileModifiedTime", fileModifiedTime)
+                .add("customSplitInfo", customSplitInfo)
+                .toString();
     }
 
     @Override

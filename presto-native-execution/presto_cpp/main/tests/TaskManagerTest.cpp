@@ -158,8 +158,6 @@ void setAggregationSpillConfig(
   queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
 }
 
-static const uint64_t kGB = 1024 * 1024 * 1024ULL;
-
 class TaskManagerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
@@ -400,7 +398,8 @@ class TaskManagerTest : public testing::Test {
     protocol::TaskSource source;
     source.planNodeId = sourceId;
     for (auto& filePath : filePaths) {
-      source.splits.emplace_back(makeSplit(filePath->path, splitSequenceId++));
+      source.splits.emplace_back(
+          makeSplit(filePath->getPath(), splitSequenceId++));
     }
     source.noMoreSplits = noMoreSplits;
     return source;
@@ -573,15 +572,16 @@ class TaskManagerTest : public testing::Test {
   static std::shared_ptr<exec::test::TempDirectoryPath> setupSpillPath() {
     auto spillDirectory = exec::test::TempDirectoryPath::create();
     auto sysConfigFilePath =
-        fmt::format("{}/config.properties", spillDirectory->path);
+        fmt::format("{}/config.properties", spillDirectory->getPath());
     auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
     auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
     SystemConfig::instance()->setValue(
-        std::string(SystemConfig::kSpillerSpillPath), spillDirectory->path);
+        std::string(SystemConfig::kSpillerSpillPath),
+        spillDirectory->getPath());
     sysConfigFile->close();
 
     auto nodeConfigFilePath =
-        fmt::format("{}/node.properties", spillDirectory->path);
+        fmt::format("{}/node.properties", spillDirectory->getPath());
     auto nodeConfigFile = fileSystem->openFileForWrite(nodeConfigFilePath);
     nodeConfigFile->append(fmt::format(
         "{}={}\n{}={}",
@@ -649,7 +649,7 @@ TEST_F(TaskManagerTest, tableScanAllSplitsAtOnce) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -675,7 +675,7 @@ TEST_F(TaskManagerTest, fecthFromFinishedTask) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -792,7 +792,7 @@ TEST_F(TaskManagerTest, taskCleanupWithPendingResultData) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
 
   auto planFragment = exec::test::PlanBuilder()
@@ -847,7 +847,7 @@ TEST_F(TaskManagerTest, tableScanOneSplitAtATime) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -881,7 +881,7 @@ TEST_F(TaskManagerTest, tableScanMultipleTasks) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -956,7 +956,7 @@ TEST_F(TaskManagerTest, countAggregation) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -969,7 +969,7 @@ TEST_F(TaskManagerTest, distributedSort) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1041,7 +1041,7 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
   auto filePaths = makeFilePaths(5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (auto i = 0; i < filePaths.size(); i++) {
-    writeToFile(filePaths[i]->path, vectors[i]);
+    writeToFile(filePaths[i]->getPath(), vectors[i]);
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
@@ -1163,7 +1163,7 @@ TEST_F(TaskManagerTest, aggregationSpill) {
   }
   std::vector<RowVectorPtr> vectors;
   for (int i = 0; i < filePaths.size(); ++i) {
-    writeToFile(filePaths[i]->path, batches[i]);
+    writeToFile(filePaths[i]->getPath(), batches[i]);
     std::move(
         batches[i].begin(), batches[i].end(), std::back_inserter(vectors));
   }
@@ -1179,7 +1179,7 @@ TEST_F(TaskManagerTest, aggregationSpill) {
     int32_t spillPct{0};
     if (doSpill) {
       spillDirectory = TaskManagerTest::setupSpillPath();
-      taskManager_->setBaseSpillDirectory(spillDirectory->path);
+      taskManager_->setBaseSpillDirectory(spillDirectory->getPath());
       spillPct = 100;
       queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
       queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
@@ -1489,9 +1489,9 @@ TEST_F(TaskManagerTest, buildSpillDirectoryFailure) {
     if (buildSpillDirectoryFailure) {
       // Set bad formatted spill path.
       taskManager_->setBaseSpillDirectory(
-          fmt::format("/etc/{}", spillDir->path));
+          fmt::format("/etc/{}", spillDir->getPath()));
     } else {
-      taskManager_->setBaseSpillDirectory(spillDir->path);
+      taskManager_->setBaseSpillDirectory(spillDir->getPath());
     }
 
     std::map<std::string, std::string> queryConfigs;

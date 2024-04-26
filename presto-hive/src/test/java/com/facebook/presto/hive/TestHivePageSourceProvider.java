@@ -135,7 +135,8 @@ public class TestHivePageSourceProvider
                 10,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
         HiveSplit split = new HiveSplit(
                 fileSplit,
                 SCHEMA_NAME,
@@ -220,7 +221,8 @@ public class TestHivePageSourceProvider
                 200,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                customSplitInfo);
+                customSplitInfo,
+                0);
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
                 ImmutableSet.of(hiveBatchPageSourceFactory),
@@ -272,7 +274,8 @@ public class TestHivePageSourceProvider
                 200,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
@@ -448,7 +451,8 @@ public class TestHivePageSourceProvider
                 10,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         return new HiveSplit(
                 fileSplit,
@@ -649,7 +653,25 @@ public class TestHivePageSourceProvider
             implements HiveSelectivePageSourceFactory
     {
         @Override
-        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, Map<Integer, String> prefilledValues, Map<Integer, HiveCoercer> coercers, Optional<BucketAdaptation> bucketAdaptation, List<Integer> outputColumns, TupleDomain<Subfield> domainPredicate, RowExpression remainingPredicate, DateTimeZone hiveStorageTimeZone, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation, boolean appendRowNumberEnabled)
+        public Optional<? extends ConnectorPageSource> createPageSource(
+                Configuration configuration,
+                ConnectorSession session,
+                HiveFileSplit fileSplit,
+                Storage storage,
+                List<HiveColumnHandle> columns,
+                Map<Integer,
+                String> prefilledValues,
+                Map<Integer,
+                HiveCoercer> coercers,
+                Optional<BucketAdaptation> bucketAdaptation,
+                List<Integer> outputColumns,
+                TupleDomain<Subfield> domainPredicate,
+                RowExpression remainingPredicate,
+                DateTimeZone hiveStorageTimeZone,
+                HiveFileContext hiveFileContext,
+                Optional<EncryptionInformation> encryptionInformation,
+                boolean appendRowNumberEnabled,
+                Optional<byte[]> rowIDPartitionComponent)
         {
             if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
                 return Optional.empty();
@@ -662,7 +684,7 @@ public class TestHivePageSourceProvider
             implements HiveAggregatedPageSourceFactory
     {
         @Override
-        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation, boolean appendRowNumberEnabled)
+        public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration, ConnectorSession session, HiveFileSplit fileSplit, Storage storage, List<HiveColumnHandle> columns, HiveFileContext hiveFileContext, Optional<EncryptionInformation> encryptionInformation)
         {
             if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
                 return Optional.empty();

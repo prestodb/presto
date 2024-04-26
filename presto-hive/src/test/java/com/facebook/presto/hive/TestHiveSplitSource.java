@@ -19,6 +19,7 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,30 +29,36 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.CacheQuotaScope.PARTITION;
 import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
+import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -122,6 +129,50 @@ public class TestHiveSplitSource
 
         HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
         assertEquals(second.getFileSplit().getLength(), fileSize.toBytes() - halfOfSize);
+    }
+
+    @Test
+    public void testAffinitySchedulingKey()
+    {
+        DataSize sectionSize = getAffinitySchedulingFileSectionSize(SESSION);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                EXECUTOR,
+                new CounterStat(),
+                1);
+
+        // larger than the section size
+        DataSize fileSize = new DataSize(sectionSize.toBytes() * 3, BYTE);
+        hiveSplitSource.addToQueue(new TestSplit("test-relative-path", 1, OptionalInt.empty(), fileSize, SOFT_AFFINITY));
+        hiveSplitSource.noMoreSplits();
+
+        List<HiveSplit> splits = new ArrayList<>();
+        while (!hiveSplitSource.isFinished()) {
+            for (ConnectorSplit split : getSplits(hiveSplitSource, 10)) {
+                splits.add((HiveSplit) split);
+            }
+        }
+        assertThat(splits).isNotEmpty();
+        assertEquals(getAffinitySchedulingKey(splits.get(0)), "path/test-relative-path#0");
+        assertEquals(getAffinitySchedulingKey(splits.get(splits.size() - 1)), "path/test-relative-path#2");
+    }
+
+    private static String getAffinitySchedulingKey(HiveSplit split)
+    {
+        AtomicReference<String> reference = new AtomicReference<>();
+        split.getPreferredNodes((key, count) -> {
+            reference.set(key);
+            return ImmutableList.of();
+        });
+        assertNotNull(reference.get());
+        return reference.get();
     }
 
     @Test
@@ -519,6 +570,8 @@ public class TestHiveSplitSource
     private static class TestSplit
             extends InternalHiveSplit
     {
+        private static final byte[] TEST_ROW_ID_PARTITION_COMPONENT = {9, 76, 32, 11};
+
         private TestSplit(int id)
         {
             this(id, OptionalInt.empty());
@@ -531,8 +584,13 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
         {
+            this("path", id, bucketNumber, fileSize, NO_PREFERENCE);
+        }
+
+        private TestSplit(String path, int id, OptionalInt bucketNumber, DataSize fileSize, NodeSelectionStrategy nodeSelectionStrategy)
+        {
             super(
-                    "path",
+                    path,
                     0,
                     fileSize.toBytes(),
                     fileSize.toBytes(),
@@ -541,7 +599,7 @@ public class TestHiveSplitSource
                     bucketNumber,
                     bucketNumber,
                     true,
-                    NO_PREFERENCE,
+                    nodeSelectionStrategy,
                     false,
                     new HiveSplitPartitionInfo(
                             new Storage(
@@ -558,7 +616,7 @@ public class TestHiveSplitSource
                             TableToPartitionMapping.empty(),
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.empty()),
+                            Optional.of(TEST_ROW_ID_PARTITION_COMPONENT)),
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableMap.of());
