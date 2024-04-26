@@ -227,8 +227,7 @@ Spiller::Spiller(
           memory::spillMemoryPool(),
           spillStats,
           fileCreateConfig) {
-  TestValue::adjust(
-      "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
+  TestValue::adjust("facebook::velox::exec::Spiller", this);
 
   VELOX_CHECK(!spillProbedFlag_ || type_ == Type::kHashJoinBuild);
   VELOX_CHECK_EQ(container_ == nullptr, type_ == Type::kHashJoinProbe);

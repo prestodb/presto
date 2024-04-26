@@ -25,6 +25,7 @@
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -2047,5 +2048,34 @@ DEBUG_ONLY_TEST_F(TaskTest, driverEnqueAfterFailedAndPausedTask) {
   ASSERT_TRUE(waitForTaskAborted(task.get()));
   task.reset();
   waitForAllTasksToBeDeleted();
+}
+
+DEBUG_ONLY_TEST_F(TaskTest, taskReclaimFailure) {
+  const auto rowType =
+      ROW({"c0", "c1", "c2"}, {INTEGER(), DOUBLE(), INTEGER()});
+  const auto inputVectors = makeVectors(rowType, 128, 256);
+  createDuckDbTable(inputVectors);
+
+  const std::string spillTableError{"spillTableError"};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Spiller",
+      std::function<void(Spiller*)>(
+          [&](Spiller* /*unused*/) { VELOX_FAIL(spillTableError); }));
+
+  TestScopedSpillInjection injection(100);
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  VELOX_ASSERT_THROW(
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->getPath())
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kAggregationSpillEnabled, true)
+          .maxDrivers(1)
+          .plan(PlanBuilder()
+                    .values(inputVectors)
+                    .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                    .planNode())
+          .assertResults(
+              "SELECT c0, c1, array_agg(c2) FROM tmp GROUP BY c0, c1"),
+      spillTableError);
 }
 } // namespace facebook::velox::exec::test
