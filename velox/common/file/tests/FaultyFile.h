@@ -87,13 +87,13 @@ struct FaultFileReadvOperation : FaultFileOperation {
 
 /// Fault injection parameters for file write API.
 struct FaultFileWriteOperation : FaultFileOperation {
-  std::string_view data;
+  std::string_view* data;
 
   FaultFileWriteOperation(
       const std::string& _path,
       const std::string_view& _data)
       : FaultFileOperation(FaultFileOperation::Type::kWrite, _path),
-        data(_data) {}
+        data(const_cast<std::string_view*>(&_data)) {}
 };
 
 /// The fault injection hook on the file operation path.

@@ -519,7 +519,7 @@ TEST_F(MockSharedArbitrationTest, constructor) {
     if (i < nonReservedCapacity / kMemoryPoolInitCapacity) {
       ASSERT_EQ(task->capacity(), kMemoryPoolInitCapacity);
     } else {
-      ASSERT_EQ(task->capacity(), kMemoryPoolReservedCapacity);
+      ASSERT_EQ(task->capacity(), kMemoryPoolReservedCapacity) << i;
     }
     remainingFreeCapacity -= task->capacity();
     tasks.push_back(std::move(task));
@@ -586,8 +586,8 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailsTask) {
   // handleOOM().
   auto growTask = addTask(328 * MB);
   auto* growOp = growTask->addMemoryOp(false);
-  auto* bufGrow = growOp->allocate(64 * MB);
-  ASSERT_NO_THROW(manager_->testingGrowPool(growOp->pool(), 128 * MB));
+  auto* bufGrow1 = growOp->allocate(64 * MB);
+  auto* bufGrow2 = growOp->allocate(128 * MB);
   ASSERT_NE(nonReclaimTask->error(), nullptr);
   try {
     std::rethrow_exception(nonReclaimTask->error());
@@ -1639,7 +1639,7 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, orderedArbitration) {
             }
           })));
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableUsedMemory",
+      "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableUsedCapacity",
       std::function<void(const std::vector<SharedArbitrator::Candidate>*)>(
           ([&](const std::vector<SharedArbitrator::Candidate>* candidates) {
             for (int i = 1; i < candidates->size(); ++i) {
@@ -1977,8 +1977,8 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromRequestor) {
     std::atomic_bool arbitrationStarted{false};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::memory::SharedArbitrator::startArbitration",
-        std::function<void(const MemoryPool*)>(
-            ([&](const MemoryPool* /*unused*/) {
+        std::function<void(const SharedArbitrator*)>(
+            ([&](const SharedArbitrator* /*unused*/) {
               if (!arbitrationStarted) {
                 return;
               }
@@ -2167,8 +2167,8 @@ DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, failedToReclaimFromOtherTask) {
     std::atomic<bool> arbitrationStarted{false};
     SCOPED_TESTVALUE_SET(
         "facebook::velox::memory::SharedArbitrator::startArbitration",
-        std::function<void(const MemoryPool*)>(
-            ([&](const MemoryPool* /*unsed*/) {
+        std::function<void(const SharedArbitrator*)>(
+            ([&](const SharedArbitrator* /*unsed*/) {
               if (!arbitrationStarted) {
                 return;
               }
@@ -2308,6 +2308,40 @@ TEST_F(MockSharedArbitrationTest, memoryPoolAbortThrow) {
   ASSERT_EQ(arbitrator_->stats().numAborted, 1);
 }
 
+// This test makes sure the memory capacity grows as expected.
+DEBUG_ONLY_TEST_F(MockSharedArbitrationTest, concurrentArbitrationRequests) {
+  setupMemory(kMemoryCapacity, 0, 0, 0, 128 << 20);
+  std::shared_ptr<MockTask> task = addTask();
+  MockMemoryOperator* op1 = addMemoryOp(task);
+  MockMemoryOperator* op2 = addMemoryOp(task);
+
+  std::atomic_bool arbitrationWaitFlag{true};
+  folly::EventCount arbitrationWait;
+  std::atomic_bool injectOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::SharedArbitrator::startArbitration",
+      std::function<void(const SharedArbitrator*)>(
+          ([&](const SharedArbitrator* arbitrator) {
+            if (!injectOnce.exchange(false)) {
+              return;
+            }
+            arbitrationWaitFlag = false;
+            arbitrationWait.notifyAll();
+            while (arbitrator->testingNumRequests() != 2) {
+              std::this_thread::sleep_for(std::chrono::seconds(5)); // NOLINT
+            }
+          })));
+
+  std::thread firstArbitrationThread([&]() { op1->allocate(64 << 20); });
+
+  std::thread secondArbitrationThread([&]() { op2->allocate(64 << 20); });
+
+  firstArbitrationThread.join();
+  secondArbitrationThread.join();
+
+  ASSERT_EQ(task->capacity(), 128 << 20);
+}
+
 DEBUG_ONLY_TEST_F(
     MockSharedArbitrationTest,
     freeUnusedCapacityWhenReclaimMemoryPool) {
@@ -2326,7 +2360,7 @@ DEBUG_ONLY_TEST_F(
   folly::EventCount reclaimBlock;
   auto reclaimBlockKey = reclaimBlock.prepareWait();
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableUsedMemory",
+      "facebook::velox::memory::SharedArbitrator::sortCandidatesByReclaimableUsedCapacity",
       std::function<void(const MemoryPool*)>(([&](const MemoryPool* /*unsed*/) {
         reclaimWait.notify();
         reclaimBlock.wait(reclaimBlockKey);
@@ -2368,10 +2402,11 @@ DEBUG_ONLY_TEST_F(
 
   SCOPED_TESTVALUE_SET(
       "facebook::velox::memory::SharedArbitrator::startArbitration",
-      std::function<void(const MemoryPool*)>(([&](const MemoryPool* /*unsed*/) {
-        arbitrationRun.notify();
-        arbitrationBlock.wait(arbitrationBlockKey);
-      })));
+      std::function<void(const SharedArbitrator*)>(
+          ([&](const SharedArbitrator* /*unsed*/) {
+            arbitrationRun.notify();
+            arbitrationBlock.wait(arbitrationBlockKey);
+          })));
 
   std::thread allocThread([&]() {
     // Allocate more than its capacity to trigger arbitration which is blocked

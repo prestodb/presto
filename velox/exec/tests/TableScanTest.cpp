@@ -4241,7 +4241,8 @@ DEBUG_ONLY_TEST_F(
         if (!injectOnce.exchange(false)) {
           return;
         }
-        memory::memoryManager()->testingGrowPool(pool, 1 << 20);
+        VELOX_ASSERT_THROW(
+            pool->allocate(memory::memoryManager()->capacity()), "");
       }));
 
   auto op =

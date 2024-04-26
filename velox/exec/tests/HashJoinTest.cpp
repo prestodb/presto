@@ -6512,8 +6512,6 @@ TEST_F(HashJoinTest, reclaimFromJoinBuilderWithMultiDrivers) {
 DEBUG_ONLY_TEST_F(
     HashJoinTest,
     failedToReclaimFromHashJoinBuildersInNonReclaimableSection) {
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
-  const auto& arbitrator = memoryManager->arbitrator();
   auto rowType = ROW({
       {"c0", INTEGER()},
       {"c1", INTEGER()},
@@ -6522,7 +6520,7 @@ DEBUG_ONLY_TEST_F(
   const auto vectors = createVectors(rowType, 64 << 20, fuzzerOpts_);
   const int numDrivers = 1;
   std::shared_ptr<core::QueryCtx> queryCtx =
-      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
+      newQueryCtx(memory::memoryManager(), executor_.get(), 512 << 20);
   const auto expectedResult =
       runHashJoinTask(vectors, queryCtx, numDrivers, pool(), false).data;
 
@@ -6564,14 +6562,12 @@ DEBUG_ONLY_TEST_F(
     ASSERT_EQ(planStats.spilledBytes, 0);
   });
 
-  auto fakePool = queryCtx->pool()->addLeafChild(
-      "fakePool", true, FakeMemoryReclaimer::create());
   // Wait for the hash build operators to enter into non-reclaimable section.
   nonReclaimableSectionWait.await(
       [&]() { return !nonReclaimableSectionWaitFlag.load(); });
 
   // We expect capacity grow fails as we can't reclaim from hash join operators.
-  ASSERT_FALSE(memoryManager->testingGrowPool(fakePool.get(), kMemoryCapacity));
+  memory::testingRunArbitration();
 
   // Notify the hash build operator that memory arbitration has been done.
   memoryArbitrationWaitFlag = false;
@@ -6583,7 +6579,9 @@ DEBUG_ONLY_TEST_F(
   // one. We need to make sure any used memory got cleaned up before exiting
   // the scope
   waitForAllTasksToBeDeleted();
-  ASSERT_EQ(arbitrator->stats().numNonReclaimableAttempts, 2);
+  ASSERT_EQ(
+      memory::memoryManager()->arbitrator()->stats().numNonReclaimableAttempts,
+      2);
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, reclaimFromHashJoinBuildInWaitForTableBuild) {
@@ -6767,103 +6765,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredByEnsureJoinTableFit) {
         ASSERT_GT(opStats.at("HashBuild").spilledBytes, 0);
       })
       .run();
-}
-
-DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringJoinTableBuild) {
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
-  const auto& arbitrator = memoryManager->arbitrator();
-  auto rowType = ROW({
-      {"c0", INTEGER()},
-      {"c1", INTEGER()},
-      {"c2", VARCHAR()},
-  });
-  // Build a large vector to trigger memory arbitration.
-  fuzzerOpts_.vectorSize = 10'000;
-  std::vector<RowVectorPtr> vectors = createVectors(2, rowType, fuzzerOpts_);
-  createDuckDbTable(vectors);
-
-  std::shared_ptr<core::QueryCtx> joinQueryCtx =
-      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
-
-  std::atomic<bool> blockTableBuildOpOnce{true};
-  std::atomic<bool> tableBuildBlocked{false};
-  folly::EventCount tableBuildBlockWait;
-  std::atomic<bool> unblockTableBuild{false};
-  folly::EventCount unblockTableBuildWait;
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::HashTable::parallelJoinBuild",
-      std::function<void(memory::MemoryPool*)>(([&](memory::MemoryPool* pool) {
-        if (!blockTableBuildOpOnce.exchange(false)) {
-          return;
-        }
-        tableBuildBlocked = true;
-        tableBuildBlockWait.notifyAll();
-        unblockTableBuildWait.await([&]() { return unblockTableBuild.load(); });
-        void* buffer = pool->allocate(kMemoryCapacity / 4);
-        pool->free(buffer, kMemoryCapacity / 4);
-      })));
-
-  std::thread joinThread([&]() {
-    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-    const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto task =
-        AssertQueryBuilder(duckDbQueryRunner_)
-            .spillDirectory(spillDirectory->getPath())
-            .config(core::QueryConfig::kSpillEnabled, true)
-            .config(core::QueryConfig::kJoinSpillEnabled, true)
-            .config(core::QueryConfig::kSpillNumPartitionBits, 2)
-            // Set multiple hash build drivers to trigger parallel build.
-            .maxDrivers(4)
-            .queryCtx(joinQueryCtx)
-            .plan(PlanBuilder(planNodeIdGenerator)
-                      .values(vectors, true)
-                      .project({"c0 AS t0", "c1 AS t1", "c2 AS t2"})
-                      .hashJoin(
-                          {"t0", "t1"},
-                          {"u1", "u0"},
-                          PlanBuilder(planNodeIdGenerator)
-                              .values(vectors, true)
-                              .project({"c0 AS u0", "c1 AS u1", "c2 AS u2"})
-                              .planNode(),
-                          "",
-                          {"t1"},
-                          core::JoinType::kInner)
-                      .planNode())
-            .assertResults(
-                "SELECT t.c1 FROM tmp as t, tmp AS u WHERE t.c0 == u.c1 AND t.c1 == u.c0");
-  });
-
-  tableBuildBlockWait.await([&]() { return tableBuildBlocked.load(); });
-
-  folly::EventCount taskPauseWait;
-  std::atomic<bool> taskPaused{false};
-  SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Task::requestPauseLocked",
-      std::function<void(Task*)>(([&](Task* /*unused*/) {
-        taskPaused = true;
-        taskPauseWait.notifyAll();
-      })));
-
-  std::thread memThread([&]() {
-    std::shared_ptr<core::QueryCtx> fakeCtx =
-        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
-    auto fakePool = fakeCtx->pool()->addLeafChild("fakePool");
-    ASSERT_FALSE(memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity()));
-  });
-
-  taskPauseWait.await([&]() { return taskPaused.load(); });
-
-  unblockTableBuild = true;
-  unblockTableBuildWait.notifyAll();
-
-  joinThread.join();
-  memThread.join();
-
-  // This test uses on-demand created memory manager instead of the global
-  // one. We need to make sure any used memory got cleaned up before exiting
-  // the scope
-  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {

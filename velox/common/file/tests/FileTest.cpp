@@ -642,7 +642,7 @@ TEST_F(FaultyFsTest, fileWriteFaultHookInjection) {
       return;
     }
     auto* writeOp = static_cast<FaultFileWriteOperation*>(op);
-    writeOp->data = "Error data";
+    *writeOp->data = "Error data";
   });
   {
     auto writeFile = fs_->openFileForWrite(path1, {});

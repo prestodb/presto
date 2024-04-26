@@ -105,7 +105,12 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
   VELOX_USER_CHECK_GE(capacity(), 0);
   VELOX_CHECK_GE(allocator_->capacity(), arbitrator_->capacity());
   MemoryAllocator::alignmentCheck(0, alignment_);
-  defaultRoot_->grow(defaultRoot_->maxCapacity());
+  const bool ret = defaultRoot_->grow(defaultRoot_->maxCapacity(), 0);
+  VELOX_CHECK(
+      ret,
+      "Failed to set max capacity {} for {}",
+      succinctBytes(defaultRoot_->maxCapacity()),
+      defaultRoot_->name());
   const size_t numSharedPools =
       std::max(1, FLAGS_velox_memory_num_shared_leaf_pools);
   sharedLeafPools_.reserve(numSharedPools);

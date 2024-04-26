@@ -80,10 +80,9 @@ void FaultyWriteFile::append(std::string_view data) {
   if (injectionHook_ != nullptr) {
     FaultFileWriteOperation op(path_, data);
     injectionHook_(&op);
-    if (op.delegate) {
-      delegatedFile_->append(op.data);
+    if (!op.delegate) {
+      return;
     }
-    return;
   }
   delegatedFile_->append(data);
 }

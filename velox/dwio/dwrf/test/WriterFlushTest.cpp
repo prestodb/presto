@@ -167,7 +167,6 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   }
 
   MOCK_CONST_METHOD0(peakBytes, int64_t());
-  // MOCK_CONST_METHOD0(getMaxBytes, int64_t());
 
   MOCK_METHOD1(updateSubtreeMemoryUsage, int64_t(int64_t));
 
@@ -207,7 +206,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
-  uint64_t grow(uint64_t /*unused*/) noexcept override {
+  bool grow(uint64_t /*unused*/, uint64_t /*unused*/) noexcept override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 

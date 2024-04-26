@@ -75,6 +75,8 @@ class SharedArbitrator : public memory::MemoryArbitrator {
   /// Returns 'freeCapacity' back to the arbitrator for testing.
   void testingFreeCapacity(uint64_t freeCapacity);
 
+  uint64_t testingNumRequests() const;
+
   /// Operator level runtime stats that are reported during a shared arbitration
   /// attempt.
   static inline const std::string kMemoryArbitrationWallNanos{
@@ -160,11 +162,17 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       std::vector<Candidate>& candidates,
       uint64_t targetBytes);
 
-  // Invoded to reclaim used memroy capacity from 'candidates' by aborting the
+  // Invoked to reclaim used memory capacity from 'candidates' by aborting the
   // top memory users' queries.
   uint64_t reclaimUsedMemoryFromCandidatesByAbort(
       std::vector<Candidate>& candidates,
       uint64_t targetBytes);
+
+  // Invoked to grow 'pool' capacity by 'growBytes' and commit used reservation
+  // by 'reservationBytes'. The function throws if the grow fails from memory
+  // pool.
+  void
+  checkedGrow(MemoryPool* pool, uint64_t growBytes, uint64_t reservationBytes);
 
   // Invoked to reclaim used memory from 'targetPool' with specified
   // 'targetBytes'. The function returns the actually freed capacity.
@@ -188,14 +196,18 @@ class SharedArbitrator : public memory::MemoryArbitrator {
       uint64_t targetBytes,
       std::vector<Candidate>& candidates);
 
-  // Decrements free capacity from the arbitrator with up to 'maxBytes'. The
-  // arbitrator might have less free available capacity. The function returns
-  // the actual decremented free capacity bytes. If 'minBytes' is not zero and
-  // there is less than 'minBytes' available in non-reserved capacity, then
-  // the arbitrator tries to decrement up to 'minBytes' from the reserved
-  // capacity.
-  uint64_t decrementFreeCapacity(uint64_t maxBytes, uint64_t minBytes);
-  uint64_t decrementFreeCapacityLocked(uint64_t maxBytes, uint64_t minBytes);
+  // Decrements free capacity from the arbitrator with up to
+  // 'maxBytesToReserve'. The arbitrator might have less free available
+  // capacity. The function returns the actual decremented free capacity bytes.
+  // If 'minBytesToReserve' is not zero and there is less than 'minBytes'
+  // available in non-reserved capacity, then the arbitrator tries to decrement
+  // up to 'minBytes' from the reserved capacity.
+  uint64_t decrementFreeCapacity(
+      uint64_t maxBytesToReserve,
+      uint64_t minBytesToReserve);
+  uint64_t decrementFreeCapacityLocked(
+      uint64_t maxBytesToReserve,
+      uint64_t minBytesToReserve);
 
   // Increment free capacity by 'bytes'.
   void incrementFreeCapacity(uint64_t bytes);
@@ -213,7 +225,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
 
   // Returns the max reclaimable capacity from 'pool' which includes both used
   // and free capacities.
-  int64_t reclaimableCapacity(const MemoryPool& pool) const;
+  int64_t maxReclaimableCapacity(const MemoryPool& pool) const;
 
   // Returns the free memory capacity that can be reclaimed from 'pool' by
   // shrink.

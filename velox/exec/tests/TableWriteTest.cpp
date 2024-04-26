@@ -4205,11 +4205,8 @@ DEBUG_ONLY_TEST_F(
       createVectors(rowType_, memoryCapacity / 8, fuzzerOpts_);
   const auto expectedResult =
       runWriteTask(vectors, nullptr, 1, pool(), kHiveConnectorId, false).data;
-
-  auto memoryManager = createMemoryManager(memoryCapacity);
-  auto arbitrator = memoryManager->arbitrator();
   auto queryCtx =
-      newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity);
+      newQueryCtx(memory::memoryManager(), executor_.get(), memoryCapacity);
 
   std::atomic_bool writerCloseWaitFlag{true};
   folly::EventCount writerCloseWait;
@@ -4237,13 +4234,7 @@ DEBUG_ONLY_TEST_F(
 
   writerCloseWait.await([&]() { return !writerCloseWaitFlag.load(); });
 
-  // Creates a fake pool to trigger memory arbitration.
-  auto fakePool = queryCtx->pool()->addLeafChild(
-      "fakePool", true, FakeMemoryReclaimer::create());
-  ASSERT_TRUE(memoryManager->testingGrowPool(
-      fakePool.get(),
-      arbitrator->stats().freeCapacityBytes +
-          queryCtx->pool()->capacity() / 2));
+  memory::testingRunArbitration();
 
   queryThread.join();
   waitForAllTasksToBeDeleted();

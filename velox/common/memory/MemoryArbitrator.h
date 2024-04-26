@@ -128,7 +128,7 @@ class MemoryArbitrator {
   /// Invoked by the memory manager to allocate up to 'targetBytes' of free
   /// memory capacity without triggering memory arbitration. The function will
   /// grow the memory pool's capacity based on the free available memory
-  /// capacity in the arbitrator, and returns the actual growed capacity in
+  /// capacity in the arbitrator, and returns the actual grown capacity in
   /// bytes.
   virtual uint64_t growCapacity(MemoryPool* pool, uint64_t bytes) = 0;
 

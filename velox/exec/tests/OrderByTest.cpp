@@ -1294,78 +1294,39 @@ TEST_F(OrderByTest, maxSpillBytes) {
 DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromOrderBy) {
   std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
   createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
-  std::vector<bool> sameQueries = {false, true};
-  for (bool sameQuery : sameQueries) {
-    SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
-    const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
-    std::shared_ptr<core::QueryCtx> orderByQueryCtx;
-    if (sameQuery) {
-      orderByQueryCtx = fakeQueryCtx;
-    } else {
-      orderByQueryCtx = newQueryCtx(
-          memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
-    }
+  std::atomic_int numInputs{0};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::addInput",
+      std::function<void(Operator*)>(([&](Operator* op) {
+        if (op->operatorType() != "OrderBy") {
+          return;
+        }
+        if (++numInputs != 5) {
+          return;
+        }
+        auto* driver = op->testingOperatorCtx()->driver();
+        SuspendedSection suspendedSection(driver);
+        memory::testingRunArbitration();
+      })));
 
-    folly::EventCount arbitrationWait;
-    std::atomic_bool arbitrationWaitFlag{true};
-    folly::EventCount taskPauseWait;
-    std::atomic_bool taskPauseWaitFlag{true};
-
-    std::atomic_int numInputs{0};
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::Driver::runInternal::addInput",
-        std::function<void(Operator*)>(([&](Operator* op) {
-          if (op->operatorType() != "OrderBy") {
-            return;
-          }
-          if (++numInputs != 5) {
-            return;
-          }
-          arbitrationWaitFlag = false;
-          arbitrationWait.notifyAll();
-
-          // Wait for task pause to be triggered.
-          taskPauseWait.await([&] { return !taskPauseWaitFlag.load(); });
-        })));
-
-    SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::Task::requestPauseLocked",
-        std::function<void(Task*)>(([&](Task* /*unused*/) {
-          taskPauseWaitFlag = false;
-          taskPauseWait.notifyAll();
-        })));
-
-    std::thread orderByThread([&]() {
-      auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
-              .spillDirectory(spillDirectory->getPath())
-              .config(core::QueryConfig::kSpillEnabled, true)
-              .config(core::QueryConfig::kOrderBySpillEnabled, true)
-              .queryCtx(orderByQueryCtx)
-              .plan(PlanBuilder()
-                        .values(vectors)
-                        .orderBy({"c0 ASC NULLS LAST"}, false)
-                        .planNode())
-              .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
-      auto stats = task->taskStats().pipelineStats;
-      ASSERT_GT(stats[0].operatorStats[1].spilledBytes, 0);
-    });
-
-    arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
-
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
-
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
-
-    orderByThread.join();
-
-    waitForAllTasksToBeDeleted();
-  }
+  const auto spillDirectory = exec::test::TempDirectoryPath::create();
+  core::PlanNodeId orderById;
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->getPath())
+          .config(core::QueryConfig::kSpillEnabled, true)
+          .config(core::QueryConfig::kOrderBySpillEnabled, true)
+          .plan(PlanBuilder()
+                    .values(vectors)
+                    .orderBy({"c0 ASC NULLS LAST"}, false)
+                    .capturePlanNodeId(orderById)
+                    .planNode())
+          .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& planStats = taskStats.at(orderById);
+  ASSERT_GT(planStats.spilledBytes, 0);
+  task.reset();
+  waitForAllTasksToBeDeleted();
 }
 
 DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
@@ -1403,54 +1364,4 @@ DEBUG_ONLY_TEST_F(OrderByTest, reclaimFromEmptyOrderBy) {
   ASSERT_EQ(stats[0].operatorStats[1].spilledBytes, 0);
   ASSERT_EQ(stats[0].operatorStats[1].spilledPartitions, 0);
 }
-
-TEST_F(OrderByTest, reclaimFromCompletedOrderBy) {
-  std::vector<RowVectorPtr> vectors = createVectors(8, rowType_, fuzzerOpts_);
-  createDuckDbTable(vectors);
-  std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
-  std::vector<bool> sameQueries = {false, true};
-  for (bool sameQuery : sameQueries) {
-    SCOPED_TRACE(fmt::format("sameQuery {}", sameQuery));
-    const auto spillDirectory = exec::test::TempDirectoryPath::create();
-    std::shared_ptr<core::QueryCtx> fakeQueryCtx =
-        newQueryCtx(memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
-    std::shared_ptr<core::QueryCtx> orderByQueryCtx;
-    if (sameQuery) {
-      orderByQueryCtx = fakeQueryCtx;
-    } else {
-      orderByQueryCtx = newQueryCtx(
-          memoryManager.get(), executor_.get(), kMemoryCapacity * 2);
-    }
-
-    folly::EventCount arbitrationWait;
-    std::atomic_bool arbitrationWaitFlag{true};
-
-    std::thread orderByThread([&]() {
-      auto task =
-          AssertQueryBuilder(duckDbQueryRunner_)
-              .queryCtx(orderByQueryCtx)
-              .plan(PlanBuilder()
-                        .values(vectors)
-                        .orderBy({"c0 ASC NULLS LAST"}, false)
-                        .planNode())
-              .assertResults("SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST");
-      waitForTaskCompletion(task.get());
-      arbitrationWaitFlag = false;
-      arbitrationWait.notifyAll();
-    });
-
-    arbitrationWait.await([&] { return !arbitrationWaitFlag.load(); });
-
-    auto fakePool = fakeQueryCtx->pool()->addLeafChild(
-        "fakePool", true, FakeMemoryReclaimer::create());
-
-    memoryManager->testingGrowPool(
-        fakePool.get(), memoryManager->arbitrator()->capacity());
-
-    orderByThread.join();
-
-    waitForAllTasksToBeDeleted();
-  }
-}
-
 } // namespace facebook::velox::exec::test

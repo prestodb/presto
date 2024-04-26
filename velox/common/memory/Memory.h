@@ -161,7 +161,11 @@ struct MemoryManagerOptions {
   /// pool.
   uint64_t memoryPoolInitCapacity{256 << 20};
 
-  /// The minimal memory capacity reserved for a query memory pool to run.
+  /// The minimal query memory pool capacity that is ensured during arbitration.
+  /// During arbitration, memory arbitrator ensures the participants' memory
+  /// pool capacity to be no less than this value on a best-effort basis, for
+  /// more smooth executions of the queries, to avoid frequent arbitration
+  /// requests.
   uint64_t memoryPoolReservedCapacity{0};
 
   /// The minimal memory capacity to transfer out of or into a memory pool
@@ -285,10 +289,6 @@ class MemoryManager {
 
   const std::vector<std::shared_ptr<MemoryPool>>& testingSharedLeafPools() {
     return sharedLeafPools_;
-  }
-
-  bool testingGrowPool(MemoryPool* pool, uint64_t incrementBytes) {
-    return growPool(pool, incrementBytes);
   }
 
  private:

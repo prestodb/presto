@@ -401,25 +401,87 @@ TEST_P(MemoryPoolTest, DISABLED_memoryLeakCheck) {
   child->free(oneChunk, kChunkSize);
 }
 
-TEST_P(MemoryPoolTest, DISABLED_growBeyondMaxCapacity) {
-  gflags::FlagSaver flagSaver;
-  testing::FLAGS_gtest_death_test_style = "fast";
+TEST_P(MemoryPoolTest, growFailures) {
   auto manager = getMemoryManager();
+  // Grow beyond limit.
   {
     auto poolWithoutLimit = manager->addRootPool("poolWithoutLimit");
     ASSERT_EQ(poolWithoutLimit->capacity(), kMaxMemory);
-    ASSERT_DEATH(
-        poolWithoutLimit->grow(1), "Can't grow with unlimited capacity");
+    ASSERT_EQ(poolWithoutLimit->currentBytes(), 0);
+    VELOX_ASSERT_THROW(
+        poolWithoutLimit->grow(1, 0), "Can't grow with unlimited capacity");
+    ASSERT_EQ(poolWithoutLimit->currentBytes(), 0);
+    VELOX_ASSERT_THROW(
+        poolWithoutLimit->grow(1, 1'000), "Can't grow with unlimited capacity");
+    ASSERT_EQ(poolWithoutLimit->currentBytes(), 0);
   }
   {
     const int64_t capacity = 4 * GB;
     auto poolWithLimit = manager->addRootPool("poolWithLimit", capacity);
     ASSERT_EQ(poolWithLimit->capacity(), capacity);
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
     ASSERT_EQ(poolWithLimit->shrink(poolWithLimit->currentBytes()), capacity);
-    ASSERT_EQ(poolWithLimit->grow(capacity / 2), capacity / 2);
-    ASSERT_DEATH(
-        poolWithLimit->grow(capacity), "Can't grow beyond the max capacity");
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_TRUE(poolWithLimit->grow(capacity / 2, 0));
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_FALSE(poolWithLimit->grow(capacity, 0));
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_EQ(poolWithLimit->capacity(), capacity / 2);
+    ASSERT_FALSE(poolWithLimit->grow(capacity, 1'000));
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
   }
+
+  // Insufficient capacity for new reservation.
+  {
+    const int64_t capacity = 4 * GB;
+    auto poolWithLimit = manager->addRootPool("poolWithLimit", capacity);
+    ASSERT_EQ(poolWithLimit->capacity(), capacity);
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_EQ(poolWithLimit->shrink(poolWithLimit->capacity()), capacity);
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_EQ(poolWithLimit->capacity(), 0);
+
+    ASSERT_FALSE(poolWithLimit->grow(capacity / 2, capacity));
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_EQ(poolWithLimit->capacity(), 0);
+
+    ASSERT_FALSE(poolWithLimit->grow(0, capacity));
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+    ASSERT_EQ(poolWithLimit->capacity(), 0);
+    ASSERT_EQ(poolWithLimit->currentBytes(), 0);
+  }
+}
+
+TEST_P(MemoryPoolTest, grow) {
+  auto manager = getMemoryManager();
+  const int64_t capacity = 4 * GB;
+  auto root = manager->addRootPool("grow", capacity);
+  root->shrink(capacity / 2);
+  ASSERT_EQ(root->capacity(), capacity / 2);
+
+  auto leaf = root->addLeafChild("leafPool");
+  void* buf = leaf->allocate(1 * MB);
+  ASSERT_EQ(root->capacity(), capacity / 2);
+  ASSERT_EQ(root->currentBytes(), 1 * MB);
+
+  ASSERT_TRUE(root->grow(0, 2 * MB));
+  ASSERT_EQ(root->currentBytes(), 3 * MB);
+  ASSERT_EQ(root->capacity(), capacity / 2);
+
+  ASSERT_TRUE(root->grow(0, 4 * MB));
+  ASSERT_EQ(root->currentBytes(), 7 * MB);
+  ASSERT_EQ(root->capacity(), capacity / 2);
+
+  ASSERT_TRUE(root->grow(1 * MB, 2 * MB));
+  ASSERT_EQ(root->currentBytes(), 9 * MB);
+  ASSERT_EQ(root->capacity(), capacity / 2 + 1 * MB);
+
+  ASSERT_TRUE(root->grow(6 * MB, 4 * MB));
+  ASSERT_EQ(root->currentBytes(), 13 * MB);
+  ASSERT_EQ(root->capacity(), capacity / 2 + 7 * MB);
+
+  static_cast<MemoryPoolImpl*>(root.get())->testingSetReservation(1 * MB);
+  leaf->free(buf, 1 * MB);
 }
 
 TEST_P(MemoryPoolTest, ReallocTestSameSize) {
@@ -431,7 +493,6 @@ TEST_P(MemoryPoolTest, ReallocTestSameSize) {
   const int64_t kChunkSize{32L * MB};
 
   // Realloc the same size.
-
   void* oneChunk = pool->allocate(kChunkSize);
   ASSERT_EQ(kChunkSize, pool->currentBytes());
   ASSERT_EQ(kChunkSize, pool->stats().peakBytes);
@@ -2708,11 +2769,14 @@ TEST_P(MemoryPoolTest, shrinkAndGrowAPIs) {
     for (int i = 0; i < step; ++i) {
       const int expectedCapacity = (i + 1) * allocationSize;
       if (i % 3 == 0) {
-        ASSERT_EQ(leafPool->grow(allocationSize), expectedCapacity);
+        ASSERT_TRUE(leafPool->grow(allocationSize, 0));
+        ASSERT_EQ(leafPool->capacity(), expectedCapacity);
       } else if (i % 3 == 1) {
-        ASSERT_EQ(aggregationPool->grow(allocationSize), expectedCapacity);
+        ASSERT_TRUE(aggregationPool->grow(allocationSize, 0));
+        ASSERT_EQ(leafPool->capacity(), expectedCapacity);
       } else {
-        ASSERT_EQ(rootPool->grow(allocationSize), expectedCapacity);
+        ASSERT_TRUE(rootPool->grow(allocationSize, 0));
+        ASSERT_EQ(leafPool->capacity(), expectedCapacity);
       }
       ASSERT_EQ(leafPool->capacity(), expectedCapacity);
       ASSERT_EQ(aggregationPool->capacity(), expectedCapacity);
@@ -3285,31 +3349,6 @@ TEST_P(MemoryPoolTest, maybeReserveFailWithAbort) {
   ASSERT_TRUE(root->aborted());
   VELOX_ASSERT_THROW(
       child->maybeReserve(2 * kMaxSize), "Manual MemoryPool Abortion");
-}
-
-// Model implementation of a GrowCallback.
-bool grow(int64_t size, int64_t hardLimit, MemoryPool& pool) {
-  static std::mutex mutex;
-  // The calls from different threads on the same tracker must be serialized.
-  std::lock_guard<std::mutex> l(mutex);
-  // The total includes the allocation that exceeded the limit. This
-  // function's job is to raise the limit to >= current + size.
-  auto current = pool.reservedBytes();
-  auto limit = pool.capacity();
-  if (current + size <= limit) {
-    // No need to increase. It could be another thread already
-    // increased the cap far enough while this thread was waiting to
-    // enter the lock_guard.
-    return true;
-  }
-  if (current + size > hardLimit) {
-    // The caller will revert the allocation that called this and signal an
-    // error.
-    return false;
-  }
-  // We set the new limit to be the requested size.
-  static_cast<MemoryPoolImpl*>(&pool)->testingSetCapacity(current + size);
-  return true;
 }
 
 DEBUG_ONLY_TEST_P(MemoryPoolTest, raceBetweenFreeAndFailedAllocation) {

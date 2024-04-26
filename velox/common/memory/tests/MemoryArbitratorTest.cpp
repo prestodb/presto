@@ -293,36 +293,21 @@ TEST_F(MemoryArbitrationTest, reservedCapacityFreeByPoolShrink) {
   options.memoryPoolInitCapacity = 2 << 20;
   options.memoryPoolReservedCapacity = 1 << 20;
 
-  for (bool shrinkByCapacityGrow : {false, true}) {
-    SCOPED_TRACE(fmt::format("shrinkByCapacityGrow {}", shrinkByCapacityGrow));
-
-    MemoryManager manager(options);
-    auto* arbitrator = manager.arbitrator();
-    const int numPools = 6;
-    std::vector<std::shared_ptr<MemoryPool>> pools;
-    for (int i = 0; i < numPools; ++i) {
-      pools.push_back(manager.addRootPool("", kMaxMemory));
-      ASSERT_GE(pools.back()->capacity(), 1 << 20);
-    }
-    ASSERT_EQ(arbitrator->stats().freeCapacityBytes, 0);
+  MemoryManager manager(options);
+  auto* arbitrator = manager.arbitrator();
+  const int numPools = 6;
+  std::vector<std::shared_ptr<MemoryPool>> pools;
+  for (int i = 0; i < numPools; ++i) {
     pools.push_back(manager.addRootPool("", kMaxMemory));
-
-    ASSERT_GE(pools.back()->capacity(), 0);
-    if (shrinkByCapacityGrow) {
-      ASSERT_TRUE(
-          arbitrator->growCapacity(pools[numPools - 1].get(), pools, 1 << 20));
-      ASSERT_EQ(arbitrator->stats().freeReservedCapacityBytes, 0);
-      ASSERT_EQ(arbitrator->stats().freeCapacityBytes, 0);
-      ASSERT_EQ(
-          arbitrator->growCapacity(pools[numPools - 1].get(), 1 << 20), 0);
-      ASSERT_EQ(arbitrator->growCapacity(pools.back().get(), 2 << 20), 0);
-    } else {
-      ASSERT_EQ(arbitrator->shrinkCapacity(pools, 1 << 20), 2 << 20);
-      ASSERT_EQ(
-          arbitrator->growCapacity(pools[numPools - 1].get(), 1 << 20), 0);
-      ASSERT_EQ(arbitrator->growCapacity(pools.back().get(), 2 << 20), 1 << 20);
-    }
+    ASSERT_GE(pools.back()->capacity(), 1 << 20);
   }
+  ASSERT_EQ(arbitrator->stats().freeCapacityBytes, 0);
+  pools.push_back(manager.addRootPool("", kMaxMemory));
+
+  ASSERT_GE(pools.back()->capacity(), 0);
+  ASSERT_EQ(arbitrator->shrinkCapacity(pools, 1 << 20), 2 << 20);
+  ASSERT_EQ(arbitrator->growCapacity(pools[numPools - 1].get(), 1 << 20), 0);
+  ASSERT_EQ(arbitrator->growCapacity(pools.back().get(), 2 << 20), 1 << 20);
 }
 
 TEST_F(MemoryArbitrationTest, arbitratorStats) {
