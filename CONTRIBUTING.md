@@ -93,6 +93,13 @@ To simplify iteration, you can also run in `watch` mode, which automatically re-
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
 
+To build the query viewer page, a single-page application which shows the query details from a JSON file,
+run the following command:
+
+    yarn --cwd presto-main/src/main/resources/webapp/src run spa
+
+You can find a HTML file named `query_viewer.html` in the `presto-main/src/main/resources/webapp` directory.
+
 ## Presto native and Velox
 
 [Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) is a C++ rewrite of Presto worker. [Presto native](https://github.com/prestodb/presto/tree/master/presto-native-execution) uses [Velox](https://github.com/facebookincubator/velox) as its primary engine to run presto workloads.
