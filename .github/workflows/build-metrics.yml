@@ -41,8 +41,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        - runner: "16-core"
-        - type: ["debug", "release"]
+        runner: ["16-core"]
+        type: ["debug", "release"]
     defaults:
       run:
         shell: bash
