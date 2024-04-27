@@ -255,6 +255,43 @@ String Functions
 
     Converts ``string`` to uppercase.
 
+.. function:: word_stem(word) -> varchar
+
+    Returns the stem of ``word`` in the English language. If the ``word`` is not an English word,
+    the ``word`` in lowercase is returned.
+
+.. function:: word_stem(word, lang) -> varchar
+
+    Returns the stem of ``word`` in the ``lang`` language. This function supports the following languages:
+
+    =========== ================
+    lang        Language
+    =========== ================
+    ``ca``      ``Catalan``
+    ``da``      ``Danish``
+    ``de``      ``German``
+    ``en``      ``English``
+    ``es``      ``Spanish``
+    ``eu``      ``Basque``
+    ``fi``      ``Finnish``
+    ``fr``      ``French``
+    ``hu``      ``Hungarian``
+    ``hy``      ``Armenian``
+    ``ir``      ``Irish``
+    ``it``      ``Italian``
+    ``lt``      ``Lithuanian``
+    ``nl``      ``Dutch``
+    ``no``      ``Norwegian``
+    ``pt``      ``Portuguese``
+    ``ro``      ``Romanian``
+    ``ru``      ``Russian``
+    ``sv``      ``Swedish``
+    ``tr``      ``Turkish``
+    =========== ================
+
+    If the specified ``lang`` is not supported, this function throws a user error.
+
+
 Unicode Functions
 -----------------
 

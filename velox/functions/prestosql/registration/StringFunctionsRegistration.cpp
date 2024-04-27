@@ -19,6 +19,7 @@
 #include "velox/functions/prestosql/SplitPart.h"
 #include "velox/functions/prestosql/SplitToMap.h"
 #include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/functions/prestosql/WordStem.h"
 
 namespace facebook::velox::functions {
 
@@ -127,5 +128,10 @@ void registerStringFunctions(const std::string& prefix) {
       {prefix + "strrpos"});
   registerFunction<StrRPosFunction, int64_t, Varchar, Varchar, int64_t>(
       {prefix + "strrpos"});
+
+  // word_stem function
+  registerFunction<WordStemFunction, Varchar, Varchar>({prefix + "word_stem"});
+  registerFunction<WordStemFunction, Varchar, Varchar, Varchar>(
+      {prefix + "word_stem"});
 }
 } // namespace facebook::velox::functions

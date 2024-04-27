@@ -37,6 +37,7 @@ by Velox. See details on bundling below.
 | wangle            | v2024.04.01.00  | No       |
 | mvfst             | v2024.04.01.00  | No       |
 | fbthrift          | v2024.04.01.00  | No       |
+| libstemmer        | 2.2.0           | Yes      |
 | DuckDB (testing)  | 0.8.1           | Yes      |
 | cpr (testing)     | 1.10.15         | Yes      |
 

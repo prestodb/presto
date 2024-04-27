@@ -548,6 +548,9 @@ endif()
 set_source(xsimd)
 resolve_dependency(xsimd 10.0.0)
 
+set(stemmer_SOURCE BUNDLED)
+resolve_dependency(stemmer)
+
 if(VELOX_BUILD_TESTING)
   set(BUILD_TESTING ON)
   include(CTest) # include after project() but before add_subdirectory()

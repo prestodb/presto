@@ -97,6 +97,7 @@ add_executable(
   URLFunctionsTest.cpp
   Utf8Test.cpp
   WidthBucketArrayTest.cpp
+  WordStemTest.cpp
   ZipTest.cpp
   ZipWithTest.cpp)
 
