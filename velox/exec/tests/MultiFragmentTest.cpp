@@ -2024,7 +2024,6 @@ TEST_F(MultiFragmentTest, compression) {
                                 .values({data}, false, kNumRepeats)
                                 .partitionedOutput({}, 1)
                                 .planNode();
-  const auto producerTaskId = "local://t1";
 
   const auto plan = test::PlanBuilder()
                         .exchange(asRowType(data->type()))
@@ -2034,7 +2033,9 @@ TEST_F(MultiFragmentTest, compression) {
   const auto expected =
       makeRowVector({makeFlatVector<int64_t>(std::vector<int64_t>{6000000})});
 
-  const auto test = [&](float minCompressionRatio, bool expectSkipCompression) {
+  const auto test = [&](const std::string& producerTaskId,
+                        float minCompressionRatio,
+                        bool expectSkipCompression) {
     PartitionedOutput::testingSetMinCompressionRatio(minCompressionRatio);
     auto producerTask = makeTask(producerTaskId, producerPlan);
     producerTask->start(1);
@@ -2061,8 +2062,8 @@ TEST_F(MultiFragmentTest, compression) {
     }
   };
 
-  test(0.7, false);
-  test(0.0000001, true);
+  test("local://t1", 0.7, false);
+  test("local://t2", 0.0000001, true);
 }
 
 } // namespace
