@@ -99,13 +99,13 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
-import java.util.ArrayList;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -1023,7 +1023,6 @@ public final class SqlToRowExpressionTranslator
             }
             return call("ARRAY", functionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
         }
-
 
         @Override
         protected RowExpression visitRow(Row node, Context context)

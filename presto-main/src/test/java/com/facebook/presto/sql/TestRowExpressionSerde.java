@@ -152,21 +152,22 @@ public class TestRowExpressionSerde
     }
 
     @Test
-    public void testLargeArraySplitting() {
+    public void testLargeArraySplitting()
+    {
         // Test array with more than 200 elements
         int numElements = 900;
         String sql = "ARRAY " + IntStream.rangeClosed(1, numElements)
                 .mapToObj(Integer::toString)
                 .collect(Collectors.joining(", ", "[", "]"));
         List<String> sqlParts = new ArrayList<>();
-        for (int i = 0; i < (numElements - 1) / 200 + 1; i++){
+        for (int i = 0; i < (numElements - 1) / 200 + 1; i++) {
             sqlParts.add("ARRAY " + IntStream.rangeClosed(1 + 200 * i, Math.min(200 * (i + 1), numElements))
                     .mapToObj(Integer::toString)
                     .collect(Collectors.joining(", ", "[", "]")));
         }
         RowExpression roundTripExpression = getRoundTrip(sql, false);
         List<RowExpression> rowExpressionParts = new ArrayList<>();
-        for (int i = 0; i < (numElements - 1) / 200 + 1; i++){
+        for (int i = 0; i < (numElements - 1) / 200 + 1; i++) {
             rowExpressionParts.add(getRoundTrip(sqlParts.get(i), false));
         }
 
@@ -176,7 +177,6 @@ public class TestRowExpressionSerde
         List<RowExpression> arguments = callExpression.getArguments();
         assertEquals(arguments, rowExpressionParts);
     }
-
 
     @Test
     public void testArrayGet()
