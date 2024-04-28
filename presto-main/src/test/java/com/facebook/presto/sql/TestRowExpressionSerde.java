@@ -35,6 +35,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
@@ -58,7 +59,11 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
@@ -145,6 +150,33 @@ public class TestRowExpressionSerde
         assertEquals(block.getInt(1), 2);
         assertEquals(block.getInt(2), 3);
     }
+
+    @Test
+    public void testLargeArraySplitting() {
+        // Test array with more than 200 elements
+        int numElements = 900;
+        String sql = "ARRAY " + IntStream.rangeClosed(1, numElements)
+                .mapToObj(Integer::toString)
+                .collect(Collectors.joining(", ", "[", "]"));
+        List<String> sqlParts = new ArrayList<>();
+        for (int i = 0; i < (numElements - 1) / 200 + 1; i++){
+            sqlParts.add("ARRAY " + IntStream.rangeClosed(1 + 200 * i, Math.min(200 * (i + 1), numElements))
+                    .mapToObj(Integer::toString)
+                    .collect(Collectors.joining(", ", "[", "]")));
+        }
+        RowExpression roundTripExpression = getRoundTrip(sql, false);
+        List<RowExpression> rowExpressionParts = new ArrayList<>();
+        for (int i = 0; i < (numElements - 1) / 200 + 1; i++){
+            rowExpressionParts.add(getRoundTrip(sqlParts.get(i), false));
+        }
+
+        assertTrue(roundTripExpression instanceof CallExpression);
+        CallExpression callExpression = (CallExpression) roundTripExpression;
+        assertEquals(callExpression.getDisplayName(), "concat");
+        List<RowExpression> arguments = callExpression.getArguments();
+        assertEquals(arguments, rowExpressionParts);
+    }
+
 
     @Test
     public void testArrayGet()
