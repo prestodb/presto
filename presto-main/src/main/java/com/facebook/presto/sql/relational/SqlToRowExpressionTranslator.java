@@ -105,6 +105,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -1006,8 +1007,23 @@ public final class SqlToRowExpressionTranslator
             List<Type> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
+
+            if (arguments.size() > 200) {
+                List<RowExpression> concatenatedArguments = new ArrayList<>();
+                for (int i = 0; i < arguments.size(); i += 200) {
+                    int end = Math.min(i + 200, arguments.size());
+                    List<RowExpression> chunk = arguments.subList(i, end);
+                    RowExpression chunkArray = call("ARRAY", functionResolution.arrayConstructor(argumentTypes.subList(i, end)), getType(node), chunk);
+                    concatenatedArguments.add(chunkArray);
+                }
+                List<Type> concatenatedArgumentTypes = concatenatedArguments.stream()
+                        .map(RowExpression::getType)
+                        .collect(toImmutableList());
+                return call("concat", functionAndTypeResolver.lookupFunction("concat", fromTypes(concatenatedArgumentTypes)), getType(node), concatenatedArguments);
+            }
             return call("ARRAY", functionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
         }
+
 
         @Override
         protected RowExpression visitRow(Row node, Context context)
