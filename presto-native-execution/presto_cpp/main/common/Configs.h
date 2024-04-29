@@ -244,8 +244,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
+
   /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
+
   /// Specifies the total memory capacity that can be used by query execution in
   /// GB. The query memory capacity should be configured less than the system
   /// memory capacity ('system-memory-gb') to reserve memory for system usage
@@ -255,6 +257,18 @@ class SystemConfig : public ConfigBase {
   /// NOTE: the query memory capacity is enforced by memory arbitrator so that
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
+
+  /// Specifies the amount of query memory capacity reserved to ensure that each
+  /// query has minimal memory capacity to run. A query can only allocate from
+  /// the reserved query memory if its current capacity is less than the minimal
+  /// memory capacity as specified by 'memory-pool-reserved-capacity'. The
+  /// exceeding capacity has to allocate from the non-reserved query memory.
+  ///
+  /// NOTE: the reserved query memory capacity is enforced by memory arbitrator
+  /// so that this config only applies if the memory arbitration has been
+  /// enabled.
+  static constexpr std::string_view kQueryReservedMemoryGb{
+      "query-reserved-memory-gb"};
 
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
@@ -334,6 +348,11 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolInitCapacity{
       "memory-pool-init-capacity"};
+
+  /// The minimal amount of memory capacity in bytes reserved for each query
+  /// memory pool.
+  static constexpr std::string_view kMemoryPoolReservedCapacity{
+      "memory-pool-reserved-capacity"};
 
   /// The minimal memory capacity in bytes transferred between memory pools
   /// during memory arbitration.
@@ -620,7 +639,11 @@ class SystemConfig : public ConfigBase {
 
   int32_t queryMemoryGb() const;
 
+  int32_t queryReservedMemoryGb() const;
+
   uint64_t memoryPoolInitCapacity() const;
+
+  uint64_t memoryPoolReservedCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
 

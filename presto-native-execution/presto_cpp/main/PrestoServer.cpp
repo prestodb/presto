@@ -669,7 +669,16 @@ void PrestoServer::initializeVeloxMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
+    const uint64_t queryReservedMemoryGb =
+        systemConfig->queryReservedMemoryGb();
+    VELOX_USER_CHECK_LE(
+        queryReservedMemoryGb,
+        queryMemoryGb,
+        "Query reserved memory capacity must not be larger than query memory capacity");
+    options.arbitratorReservedCapacity = queryReservedMemoryGb << 30;
     options.memoryPoolInitCapacity = systemConfig->memoryPoolInitCapacity();
+    options.memoryPoolReservedCapacity =
+        systemConfig->memoryPoolReservedCapacity();
     options.memoryPoolTransferCapacity =
         systemConfig->memoryPoolTransferCapacity();
     options.memoryReclaimWaitMs = systemConfig->memoryReclaimWaitMs();
