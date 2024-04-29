@@ -124,6 +124,7 @@ import com.facebook.presto.server.ConnectorMetadataUpdateHandleJsonSerde;
 import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
@@ -169,6 +170,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -415,9 +417,9 @@ public class LocalQueryRunner
         this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(
                 pluginNodeManager,
                 getFunctionAndTypeManager(),
-                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(featuresConfig, nodeSpillConfig)),
+                new JavaWorkerSystemSessionPropertyProviderFactory(new JavaWorkerSystemSessionPropertyProvider(new JavaFeaturesConfig(), nodeSpillConfig)),
                 new BuiltInNativeSystemSessionPropertyProviderFactory(),
-                featuresConfig);
+                new ServerConfig());
 
         this.metadata = new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
@@ -1094,8 +1096,7 @@ public class LocalQueryRunner
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+                .setDistributedIndexJoinsEnabled(false);
         return new PlanOptimizers(
                 metadata,
                 sqlParser,

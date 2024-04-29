@@ -184,6 +184,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -224,6 +225,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.util.Providers;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -306,6 +308,9 @@ public class ServerMainModule
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        if (!serverConfig.isNativeExecutionEnabled()) {
+            configBinder(binder).bindConfig(JavaFeaturesConfig.class);
+        }
 
         binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
 
@@ -325,8 +330,17 @@ public class ServerMainModule
         binder.bind(BuiltInQueryAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);
         binder.bind(AnalyzerProviderManager.class).in(Scopes.SINGLETON);
-        binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
-        binder.bind(JavaWorkerSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
+
+        if (!serverConfig.isNativeExecutionEnabled()) {
+            binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
+            binder.bind(JavaWorkerSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(JavaWorkerSystemSessionPropertyProviderFactory.class)
+                    .toProvider(Providers.of(null))
+                    .in(Scopes.SINGLETON);
+        }
+
         binder.bind(BuiltInNativeSystemSessionPropertyProviderFactory.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);

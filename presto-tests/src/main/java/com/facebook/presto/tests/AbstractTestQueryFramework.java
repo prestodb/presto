@@ -535,7 +535,11 @@ public abstract class AbstractTestQueryFramework
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
+<<<<<<< HEAD
         FeaturesConfig featuresConfig = createFeaturesConfig();
+=======
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+>>>>>>> ce607725d4 (Move java related config to JavaFeaturesConfig)
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);

@@ -30,7 +30,7 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
@@ -214,7 +214,7 @@ public class PrestoSparkInjectorFactory
             }
 
             if (sparkProcessType.equals(DRIVER) ||
-                    !injector.getInstance(FeaturesConfig.class).isInlineSqlFunctions()) {
+                    !injector.getInstance(JavaFeaturesConfig.class).isInlineSqlFunctions()) {
                 if (functionNamespaceProperties.isPresent()) {
                     injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
                 }

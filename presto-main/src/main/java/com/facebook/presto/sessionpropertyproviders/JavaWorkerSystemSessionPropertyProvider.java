@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spiller.NodeSpillConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
@@ -53,7 +53,7 @@ public class JavaWorkerSystemSessionPropertyProvider
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public JavaWorkerSystemSessionPropertyProvider(FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
+    public JavaWorkerSystemSessionPropertyProvider(JavaFeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
     {
         sessionProperties = ImmutableList.of(
                 booleanProperty(
