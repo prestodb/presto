@@ -17,7 +17,6 @@ import com.facebook.presto.execution.resourceGroups.WeightedFairQueue.Usage;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestWeightedFairQueue
@@ -36,8 +35,8 @@ public class TestWeightedFairQueue
         assertTrue(queue.contains(item1));
         assertEquals(queue.poll(), item1);
         assertEquals(queue.size(), 0);
-        assertNull(queue.poll());
-        assertNull(queue.poll());
+        assertEquals(queue.poll(), null);
+        assertEquals(queue.poll(), null);
         assertEquals(queue.size(), 0);
     }
 

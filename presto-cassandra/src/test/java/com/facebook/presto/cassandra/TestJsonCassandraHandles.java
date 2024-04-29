@@ -25,8 +25,6 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -129,9 +127,9 @@ public class TestJsonCassandraHandles
         assertEquals(columnHandle.getName(), "column");
         assertEquals(columnHandle.getOrdinalPosition(), 42);
         assertEquals(columnHandle.getCassandraType(), CassandraType.BIGINT);
-        assertNull(columnHandle.getTypeArguments());
-        assertFalse(columnHandle.isPartitionKey());
-        assertTrue(columnHandle.isClusteringKey());
+        assertEquals(columnHandle.getTypeArguments(), null);
+        assertEquals(columnHandle.isPartitionKey(), false);
+        assertEquals(columnHandle.isClusteringKey(), true);
     }
 
     @Test

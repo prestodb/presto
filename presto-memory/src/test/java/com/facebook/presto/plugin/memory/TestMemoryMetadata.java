@@ -44,7 +44,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
@@ -290,7 +289,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test1 not found");
         }
-        assertNull(metadata.getTableHandle(SESSION, table1));
+        assertEquals(metadata.getTableHandle(SESSION, table1), null);
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
@@ -304,7 +303,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test2 not found");
         }
-        assertNull(metadata.getTableHandle(SESSION, view2));
+        assertEquals(metadata.getTableHandle(SESSION, view2), null);
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
@@ -319,7 +318,7 @@ public class TestMemoryMetadata
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test3 not found");
         }
-        assertNull(metadata.getTableHandle(SESSION, view3));
+        assertEquals(metadata.getTableHandle(SESSION, view3), null);
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
     }

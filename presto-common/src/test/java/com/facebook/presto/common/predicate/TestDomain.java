@@ -35,7 +35,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -175,7 +174,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Long.MAX_VALUE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(BIGINT));
-        assertNull(domain.getNullableSingleValue());
+        assertEquals(domain.getNullableSingleValue(), null);
     }
 
     @Test
@@ -193,7 +192,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(0L));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(ID));
-        assertNull(domain.getNullableSingleValue());
+        assertEquals(domain.getNullableSingleValue(), null);
     }
 
     @Test
@@ -211,7 +210,7 @@ public class TestDomain
         assertFalse(domain.includesNullableValue(Slices.EMPTY_SLICE));
         assertTrue(domain.includesNullableValue(null));
         assertEquals(domain.complement(), Domain.notNull(HYPER_LOG_LOG));
-        assertNull(domain.getNullableSingleValue());
+        assertEquals(domain.getNullableSingleValue(), null);
     }
 
     @Test

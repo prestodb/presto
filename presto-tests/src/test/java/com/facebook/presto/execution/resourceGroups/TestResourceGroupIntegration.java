@@ -29,7 +29,6 @@ import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupIntegration
@@ -64,7 +63,7 @@ public class TestResourceGroupIntegration
             assertTrue(path.get(1).getSubGroups() != null);
             assertEquals(path.get(2).getId(), new ResourceGroupId("global"));
             assertEquals(path.get(2).getHardConcurrencyLimit(), 100);
-            assertNull(path.get(2).getRunningQueries());
+            assertEquals(path.get(2).getRunningQueries(), null);
         }
     }
 

@@ -6003,7 +6003,7 @@ public abstract class AbstractTestQueries
 
         assertEquals(actual1.getRowCount(), 2);
         assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), 1);
-        assertNull(actual1.getMaterializedRows().get(0).getFields().get(1));
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), null);
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), 2);
         assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(3, 1L));
     }

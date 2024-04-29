@@ -31,7 +31,6 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -160,8 +159,8 @@ public class TestJsonExtract
         assertEquals(doExtract(extractor, "\"ab\\u0002c\""), "ab\002c");
 
         // Complex types should return null
-        assertNull(doExtract(extractor, "[1, 2, 3]"));
-        assertNull(doExtract(extractor, "{\"a\": 1}"));
+        assertEquals(doExtract(extractor, "[1, 2, 3]"), null);
+        assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
     }
 
     @Test
@@ -194,12 +193,12 @@ public class TestJsonExtract
         ObjectFieldJsonExtractor<Slice> firstExtractor = new ObjectFieldJsonExtractor<>("0", new ScalarValueJsonExtractor());
         ObjectFieldJsonExtractor<Slice> secondExtractor = new ObjectFieldJsonExtractor<>("1", new ScalarValueJsonExtractor());
 
-        assertNull(doExtract(firstExtractor, "[]"));
+        assertEquals(doExtract(firstExtractor, "[]"), null);
         assertEquals(doExtract(firstExtractor, "[1, 2, 3]"), "1");
         assertEquals(doExtract(secondExtractor, "[1, 2]"), "2");
-        assertNull(doExtract(secondExtractor, "[1, null]"));
+        assertEquals(doExtract(secondExtractor, "[1, null]"), null);
         // Out of bounds
-        assertNull(doExtract(secondExtractor, "[1]"));
+        assertEquals(doExtract(secondExtractor, "[1]"), null);
         // Check skipping complex structures
         assertEquals(doExtract(secondExtractor, "[{\"a\": 1}, 2, 3]"), "2");
     }
@@ -210,8 +209,8 @@ public class TestJsonExtract
     {
         ObjectFieldJsonExtractor<Slice> extractor = new ObjectFieldJsonExtractor<>("fuu", new ScalarValueJsonExtractor());
 
-        assertNull(doExtract(extractor, "{}"));
-        assertNull(doExtract(extractor, "{\"a\": 1}"));
+        assertEquals(doExtract(extractor, "{}"), null);
+        assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
         assertEquals(doExtract(extractor, "{\"fuu\": 1}"), "1");
         assertEquals(doExtract(extractor, "{\"a\": 0, \"fuu\": 1}"), "1");
         // Check skipping complex structures
@@ -221,12 +220,12 @@ public class TestJsonExtract
     @Test
     public void testFullScalarExtract()
     {
-        assertNull(doScalarExtract("{}", "$"));
+        assertEquals(doScalarExtract("{}", "$"), null);
         assertEquals(doScalarExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), null); // Null b/c value is complex type
         assertEquals(doScalarExtract("{\"fuu\": 1}", "$.fuu"), "1");
         assertEquals(doScalarExtract("{\"fuu\": 1}", "$[fuu]"), "1");
         assertEquals(doScalarExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertNull(doScalarExtract("{\"fuu\": null}", "$.fuu"));
+        assertEquals(doScalarExtract("{\"fuu\": null}", "$.fuu"), null);
         assertEquals(doScalarExtract("{\"fuu\": 1}", "$.bar"), null);
         assertEquals(doScalarExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\001"); // Test escaped characters
         assertEquals(doScalarExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar"), "abc");
@@ -264,7 +263,7 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("{\"fuu\": 1}", "$[fuu]"), "1");
         assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
         assertEquals(doJsonExtract("{\"fuu\": null}", "$.fuu"), "null");
-        assertNull(doJsonExtract("{\"fuu\": 1}", "$.bar"));
+        assertEquals(doJsonExtract("{\"fuu\": 1}", "$.bar"), null);
         assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
         assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar"), "\"abc\"");
         assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]"), "0.1");
@@ -282,7 +281,7 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]"), "1");
         assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
         assertEquals(doJsonExtract("{\"fuu\": null}", "$[\"fuu\"]"), "null");
-        assertNull(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]"));
+        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]"), null);
         assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
         assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]"), "\"abc\"");
         assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]"), "0.1");
@@ -293,7 +292,7 @@ public class TestJsonExtract
         assertEquals(doJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]"), "{\".b.ar\":1}");
         assertEquals(doJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]"), "1");
         assertEquals(doJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]"), "null");
-        assertNull(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]"));
+        assertEquals(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]"), null);
         assertEquals(doJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
         assertEquals(doJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]"), "\"abc\"");
         assertEquals(doJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]"), "0.1");

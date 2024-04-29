@@ -96,7 +96,6 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
@@ -415,7 +414,7 @@ public class TestPrestoS3FileSystem
             s3.setGetObjectMetadataHttpCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             fs.setS3Client(s3);
-            assertNull(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")).getObjectMetadata());
+            assertEquals(fs.getS3ObjectMetadata(new Path("s3n://test-bucket/test")).getObjectMetadata(), null);
         }
     }
 
