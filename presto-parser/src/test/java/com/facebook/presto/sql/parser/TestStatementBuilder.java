@@ -130,6 +130,15 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
+        printStatement("select * from foo for version as of 8772871542276440693");
+        printStatement("select * from foo for system_version as of 8772871542276440693");
+        printStatement("select * from foo for timestamp as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time as of timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for version before 8772871542276440693");
+        printStatement("select * from foo for system_version before 8772871542276440693");
+        printStatement("select * from foo for timestamp before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+        printStatement("select * from foo for system_time before timestamp '2023-08-17 13:29:46.822 America/Los_Angeles'");
+
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");

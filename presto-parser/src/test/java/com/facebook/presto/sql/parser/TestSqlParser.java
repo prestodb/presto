@@ -182,6 +182,7 @@ import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
+import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
@@ -194,6 +195,9 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
@@ -3083,7 +3087,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3095,7 +3099,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3107,8 +3111,8 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("c1"), new LongLiteral("100"))),
+                                new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
+                        Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3119,22 +3123,22 @@ public class TestSqlParser
                 simpleQuery(selectList(new AllColumns()),
                         new Join(Join.Type.IMPLICIT,
                                 new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
                                 new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("123456789012345"))),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("123456789012345"))),
                                 Optional.empty())));
 
         assertStatement("SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693, table2 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
                 simpleQuery(selectList(new AllColumns()),
                         new Join(Join.Type.IMPLICIT,
                                 new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
                                 new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                                 Optional.empty())));
 
         Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
-                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))));
+                        new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))));
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
@@ -3147,7 +3151,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3159,7 +3163,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3171,7 +3175,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                         Optional.of(new ComparisonExpression(GREATER_THAN, new Identifier("c1"), new LongLiteral("100"))),
                         Optional.empty(),
                         Optional.empty(),
@@ -3183,7 +3187,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new AllColumns()),
                         new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new CurrentTime(CurrentTime.Function.TIMESTAMP))),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new CurrentTime(CurrentTime.Function.TIMESTAMP))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -3195,24 +3199,164 @@ public class TestSqlParser
                 simpleQuery(selectList(new AllColumns()),
                         new Join(Join.Type.IMPLICIT,
                                 new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                                 new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-11-01 05:45:25.123 America/Los_Angeles"))),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-11-01 05:45:25.123 America/Los_Angeles"))),
                                 Optional.empty())));
 
         assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles', table2 FOR VERSION AS OF 8772871542276440693",
                 simpleQuery(selectList(new AllColumns()),
                         new Join(Join.Type.IMPLICIT,
                                 new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
                                 new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
-                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.EQUAL, new LongLiteral("8772871542276440693"))),
                                 Optional.empty())));
 
         Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
-                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))));
+                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.EQUAL, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))));
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles'",
+                new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithBeforeVersion()
+    {
+        assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR SYSTEM_VERSION BEFORE 8772871542276440693",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693 WHERE (c1 = 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                        Optional.of(new ComparisonExpression(EQUAL, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693, table2 FOR VERSION BEFORE 123456789012345",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                                new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("123456789012345"))),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693, table2 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                                new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                Optional.empty())));
+
+        Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
+                new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))));
+
+        assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR VERSION BEFORE 8772871542276440693",
+                new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithBeforeTimestamp()
+    {
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR SYSTEM_TIME BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' WHERE (c1 > 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.of(new ComparisonExpression(GREATER_THAN, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP BEFORE CURRENT_TIMESTAMP",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new CurrentTime(CurrentTime.Function.TIMESTAMP))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles', table2 FOR TIMESTAMP BEFORE TIMESTAMP '2023-11-01 05:45:25.123 America/Los_Angeles'",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-11-01 05:45:25.123 America/Los_Angeles"))),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles', table2 FOR VERSION BEFORE 8772871542276440693",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
+                                        new TableVersionExpression(VERSION, TableVersionOperator.LESS_THAN, new LongLiteral("8772871542276440693"))),
+                                Optional.empty())));
+
+        Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
+                new TableVersionExpression(TIMESTAMP, TableVersionOperator.LESS_THAN, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))));
+
+        assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles'",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
     }
 }
