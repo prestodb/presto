@@ -55,9 +55,9 @@ public class DeltaSplit
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy)
     {
-        checkArgument(start >= 0, "start must be positive");
-        checkArgument(length >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(start >= 0, "start must be non-negative");
+        checkArgument(length >= 0, "length must be non-negative");
+        checkArgument(fileSize >= 0, "fileSize must be non-negative");
 
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schema = requireNonNull(schema, "schema name is null");
