@@ -57,14 +57,14 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
 
   // Write to a single output file.
   auto path = exec::test::TempFilePath::create();
-  writeToFile(path->path, json);
+  writeToFile(path->getPath(), json);
 
   // Check functions do not exist first.
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock1") == std::nullopt);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") == std::nullopt);
 
   // Read and register functions in that file.
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 2);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}), 2);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock1") != std::nullopt);
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock2") != std::nullopt);
 }
@@ -87,7 +87,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
 
   // Write to a single output file.
   auto path = exec::test::TempFilePath::create();
-  writeToFile(path->path, json);
+  writeToFile(path->getPath(), json);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
@@ -96,7 +96,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
       exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
       std::nullopt);
 
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}), 1);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}), 1);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
@@ -105,7 +105,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
       exec::getVectorFunctionSignatures("json.mock_schema.mock3") ==
       std::nullopt);
 
-  EXPECT_EQ(registerRemoteFunctions(path->path, {}, "json"), 1);
+  EXPECT_EQ(registerRemoteFunctions(path->getPath(), {}, "json"), 1);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
   EXPECT_TRUE(
