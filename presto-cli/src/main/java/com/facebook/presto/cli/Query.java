@@ -58,14 +58,12 @@ public class Query
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
     private final boolean debug;
-    private final boolean runtime;
     private Optional<Long> clientStopTimestamp = Optional.empty();
 
-    public Query(StatementClient client, boolean debug, boolean runtime)
+    public Query(StatementClient client, boolean debug)
     {
         this.client = requireNonNull(client, "client is null");
         this.debug = debug;
-        this.runtime = runtime;
     }
 
     public Optional<String> getSetCatalog()
@@ -150,7 +148,7 @@ public class Query
         WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(System.err);
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out, debug, runtime);
+            statusPrinter = new StatusPrinter(client, out, debug);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
