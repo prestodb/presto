@@ -144,7 +144,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
    # /etc/os-release is a standard way to query various distribution
    # information and is available everywhere
    LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
-   if [[ "$LINUX_DISTRIBUTION" == "ubuntu" ]]; then
+   if [[ "$LINUX_DISTRIBUTION" == "ubuntu" || "$LINUX_DISTRIBUTION" == "debian" ]]; then
       apt install -y --no-install-recommends libxml2-dev libgsasl7-dev uuid-dev
       # Dependencies of GCS, probably a workaround until the docker image is rebuilt
       apt install -y --no-install-recommends libc-ares-dev libcurl4-openssl-dev
