@@ -32,12 +32,6 @@ public class NativeQueryRunnerUtils
                 "hive.orc-compression-codec", "ZSTD");
     }
 
-    public static Map<String, String> getNativeWorkerIcebergProperties()
-    {
-        return ImmutableMap.of("iceberg.pushdown-filter-enabled", "true",
-                "iceberg.catalog.type", "HIVE");
-    }
-
     public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
