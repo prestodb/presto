@@ -26,11 +26,6 @@ This type captures boolean values ``true`` and ``false``.
 Integer
 -------
 
-.. note::
-
-    Cast conversion functions allow leading and trailing spaces when casting 
-    a string to ``TINYINT``, ``SMALLINT``, ``INTEGER``, or ``BIGINT``.
-
 ``TINYINT``
 ^^^^^^^^^^^
 
