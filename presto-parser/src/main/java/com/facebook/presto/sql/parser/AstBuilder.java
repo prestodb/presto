@@ -209,6 +209,9 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.timestampExpression;
 import static com.facebook.presto.sql.tree.TableVersionExpression.versionExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1601,10 +1604,10 @@ class AstBuilder
         switch (context.tableVersionType.getType()) {
             case SqlBaseLexer.SYSTEM_TIME:
             case SqlBaseLexer.TIMESTAMP:
-                return timestampExpression(getLocation(context), child);
+                return timestampExpression(getLocation(context), getTableVersionOperator((Token) context.tableVersionState().getChild(0).getPayload()), child);
             case SqlBaseLexer.SYSTEM_VERSION:
             case SqlBaseLexer.VERSION:
-                return versionExpression(getLocation(context), child);
+                return versionExpression(getLocation(context), getTableVersionOperator((Token) context.tableVersionState().getChild(0).getPayload()), child);
             default:
                 throw new UnsupportedOperationException("Unsupported Type: " + context.tableVersionType.getText());
         }
@@ -2345,6 +2348,18 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported constraint type: " + token.getText());
+    }
+
+    private static TableVersionOperator getTableVersionOperator(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.AS:
+                return EQUAL;
+            case SqlBaseLexer.BEFORE:
+                return LESS_THAN;
+        }
+
+        throw new IllegalArgumentException("Unsupported table version operator: " + token.getText());
     }
 
     private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)

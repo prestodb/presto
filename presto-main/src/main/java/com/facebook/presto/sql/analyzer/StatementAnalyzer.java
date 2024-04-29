@@ -208,6 +208,7 @@ import static com.facebook.presto.spi.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
@@ -278,6 +279,9 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.PRECEDING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
@@ -1355,13 +1359,24 @@ class StatementAnalyzer
 
         private Optional<TableHandle> getTableHandle(TableColumnMetadata tableColumnsMetadata, Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
-            // Process table version AS OF expression
+            // Process table version AS OF/BEFORE expression
             if (table.getTableVersionExpression().isPresent()) {
                 return processTableVersion(table, name, scope);
             }
             else {
                 return tableColumnsMetadata.getTableHandle();
             }
+        }
+
+        private VersionOperator toVersionOperator(TableVersionOperator operator)
+        {
+            switch (operator) {
+                case EQUAL:
+                    return VersionOperator.EQUAL;
+                case LESS_THAN:
+                    return VersionOperator.LESS_THAN;
+            }
+            throw new SemanticException(NOT_SUPPORTED, "Table version operator %s not supported." + operator);
         }
 
         private VersionType toVersionType(TableVersionType type)
@@ -1372,35 +1387,39 @@ class StatementAnalyzer
                 case VERSION:
                     return VersionType.VERSION;
             }
-            throw new SemanticException(NOT_SUPPORTED, type.toString(), "Table version type not supported.");
+            throw new SemanticException(NOT_SUPPORTED, "Table version type %s not supported." + type);
         }
         private Optional<TableHandle> processTableVersion(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
-            Expression asOfExpr = table.getTableVersionExpression().get().getAsOfExpression();
+            Expression stateExpr = table.getTableVersionExpression().get().getStateExpression();
             TableVersionType tableVersionType = table.getTableVersionExpression().get().getTableVersionType();
-            ExpressionAnalysis expressionAnalysis = analyzeExpression(asOfExpr, scope.get());
+            TableVersionOperator tableVersionOperator = table.getTableVersionExpression().get().getTableVersionOperator();
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(stateExpr, scope.get());
             analysis.recordSubqueries(table, expressionAnalysis);
-            Type asOfExprType = expressionAnalysis.getType(asOfExpr);
-            if (asOfExprType == UNKNOWN) {
-                throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF expression cannot be NULL for %s", name.toString()));
+            Type stateExprType = expressionAnalysis.getType(stateExpr);
+            if (tableVersionOperator == LESS_THAN) {
+                throw new SemanticException(NOT_SUPPORTED, stateExpr, "Table version BEFORE expression is not supported for %s", name.toString());
             }
-            Object evalAsOfExpr = evaluateConstantExpression(asOfExpr, asOfExprType, metadata, session, analysis.getParameters());
+            if (stateExprType == UNKNOWN) {
+                throw new PrestoException(INVALID_ARGUMENTS, format("Table version AS OF/BEFORE expression cannot be NULL for %s", name.toString()));
+            }
+            Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
             if (tableVersionType == TIMESTAMP) {
-                if (!(asOfExprType instanceof TimestampWithTimeZoneType)) {
-                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
-                            "Type %s is invalid. Supported table version AS OF expression type is Timestamp with Time Zone.",
-                            asOfExprType.getDisplayName());
+                if (!(stateExprType instanceof TimestampWithTimeZoneType)) {
+                    throw new SemanticException(TYPE_MISMATCH, stateExpr,
+                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp with Time Zone.",
+                            stateExprType.getDisplayName());
                 }
             }
             if (tableVersionType == VERSION) {
-                if (!(asOfExprType instanceof BigintType)) {
-                    throw new SemanticException(TYPE_MISMATCH, asOfExpr,
-                            "Type %s is invalid. Supported table version AS OF expression type is BIGINT",
-                            asOfExprType.getDisplayName());
+                if (!(stateExprType instanceof BigintType)) {
+                    throw new SemanticException(TYPE_MISMATCH, stateExpr,
+                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is BIGINT",
+                            stateExprType.getDisplayName());
                 }
             }
 
-            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), asOfExprType, evalAsOfExpr);
+            ConnectorTableVersion tableVersion = new ConnectorTableVersion(toVersionType(tableVersionType), toVersionOperator(tableVersionOperator), stateExprType, evalStateExpr);
             return metadata.getHandleVersion(session, name, Optional.of(tableVersion));
         }
 

@@ -547,7 +547,12 @@ qualifiedName
     ;
 
 tableVersionExpression
-    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) AS OF valueExpression          #tableVersion
+    : FOR tableVersionType=(SYSTEM_TIME | SYSTEM_VERSION | TIMESTAMP | VERSION) tableVersionState valueExpression          #tableVersion
+    ;
+
+tableVersionState
+    : AS OF                 #tableversionasof
+    | BEFORE                #tableversionbefore
     ;
 
 grantor
@@ -622,7 +627,7 @@ constraintEnforced
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ADD | ADMIN | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BERNOULLI
+    | BEFORE | BERNOULLI
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFINER | DESC | DETERMINISTIC | DISABLED | DISTRIBUTED
     | ENABLED | ENFORCED | EXCLUDING | EXPLAIN | EXTERNAL
@@ -659,6 +664,7 @@ ARRAY: 'ARRAY';
 AS: 'AS';
 ASC: 'ASC';
 AT: 'AT';
+BEFORE: 'BEFORE';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BY: 'BY';

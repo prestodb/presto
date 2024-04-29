@@ -30,57 +30,69 @@ public class TableVersionExpression
         VERSION
     }
 
-    private final Expression asOfExpression;
+    public enum TableVersionOperator
+    {
+        EQUAL,
+        LESS_THAN
+    }
+    private final Expression stateExpression;
     private final TableVersionType type;
+    private final TableVersionOperator operator;
 
-    public TableVersionExpression(TableVersionType type, Expression value)
+    public TableVersionExpression(TableVersionType type, TableVersionOperator operator, Expression value)
     {
-        this(Optional.empty(), type, value);
+        this(Optional.empty(), type, operator, value);
     }
 
-    public TableVersionExpression(NodeLocation location, TableVersionType type, Expression value)
+    public TableVersionExpression(NodeLocation location, TableVersionType type, TableVersionOperator operator, Expression value)
     {
-        this(Optional.of(location), type, value);
+        this(Optional.of(location), type, operator, value);
     }
 
-    private TableVersionExpression(Optional<NodeLocation> location, TableVersionType type, Expression value)
+    private TableVersionExpression(Optional<NodeLocation> location, TableVersionType type, TableVersionOperator operator, Expression value)
     {
         super(location);
         requireNonNull(value, "value is null");
+        requireNonNull(operator, "operator is null");
         requireNonNull(type, "type is null");
 
-        this.asOfExpression = value;
+        this.stateExpression = value;
+        this.operator = operator;
         this.type = type;
     }
 
-    public static TableVersionExpression timestampExpression(NodeLocation location, Expression value)
+    public static TableVersionExpression timestampExpression(NodeLocation location, TableVersionOperator operator, Expression value)
     {
-        return new TableVersionExpression(Optional.of(location), TableVersionType.TIMESTAMP, value);
+        return new TableVersionExpression(Optional.of(location), TableVersionType.TIMESTAMP, operator, value);
     }
 
-    public static TableVersionExpression versionExpression(NodeLocation location, Expression value)
+    public static TableVersionExpression versionExpression(NodeLocation location, TableVersionOperator operator, Expression value)
     {
-        return new TableVersionExpression(Optional.of(location), TableVersionType.VERSION, value);
+        return new TableVersionExpression(Optional.of(location), TableVersionType.VERSION, operator, value);
     }
 
-    public static TableVersionExpression timestampExpression(Expression value)
+    public static TableVersionExpression timestampExpression(TableVersionOperator operator, Expression value)
     {
-        return new TableVersionExpression(Optional.empty(), TableVersionType.TIMESTAMP, value);
+        return new TableVersionExpression(Optional.empty(), TableVersionType.TIMESTAMP, operator, value);
     }
 
-    public static TableVersionExpression versionExpression(Expression value)
+    public static TableVersionExpression versionExpression(TableVersionOperator operator, Expression value)
     {
-        return new TableVersionExpression(Optional.empty(), TableVersionType.VERSION, value);
+        return new TableVersionExpression(Optional.empty(), TableVersionType.VERSION, operator, value);
     }
 
-    public Expression getAsOfExpression()
+    public Expression getStateExpression()
     {
-        return asOfExpression;
+        return stateExpression;
     }
 
     public TableVersionType getTableVersionType()
     {
         return type;
+    }
+    public TableVersionOperator getTableVersionOperator()
+    {
+        return operator;
     }
 
     @Override
@@ -92,7 +104,7 @@ public class TableVersionExpression
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(asOfExpression);
+        return ImmutableList.of(stateExpression);
     }
 
     @Override
@@ -106,13 +118,13 @@ public class TableVersionExpression
         }
 
         TableVersionExpression that = (TableVersionExpression) o;
-        return Objects.equals(asOfExpression, that.asOfExpression) &&
-                (type == that.type);
+        return Objects.equals(stateExpression, that.stateExpression) &&
+                (type == that.type) && (operator == that.operator);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(asOfExpression, type);
+        return Objects.hash(stateExpression, type, operator);
     }
 }
