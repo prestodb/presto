@@ -29,3 +29,6 @@ FetchContent_Declare(
   URL_HASH ${VELOX_GTEST_BUILD_SHA256_CHECKSUM})
 
 FetchContent_MakeAvailable(gtest)
+
+# Mask compilation warning in clang 16.
+target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
