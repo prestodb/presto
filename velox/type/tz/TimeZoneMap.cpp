@@ -135,7 +135,7 @@ int64_t getTimeZoneID(std::string_view timeZone, bool failOnError) {
     return it->second;
   }
   if (failOnError) {
-    VELOX_FAIL("Unknown time zone: '{}'", timeZone);
+    VELOX_USER_FAIL("Unknown time zone: '{}'", timeZone);
   }
   return -1;
 }

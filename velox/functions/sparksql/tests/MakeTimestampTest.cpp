@@ -173,5 +173,55 @@ TEST_F(MakeTimestampTest, errors) {
       "make_timestamp requires session time zone to be set.");
 }
 
+TEST_F(MakeTimestampTest, invalidTimezone) {
+  const auto microsType = DECIMAL(16, 6);
+  const auto year = makeFlatVector<int32_t>({2021, 2021, 2021, 2021, 2021});
+  const auto month = makeFlatVector<int32_t>({7, 7, 7, 7, 7});
+  const auto day = makeFlatVector<int32_t>({11, 11, 11, 11, 11});
+  const auto hour = makeFlatVector<int32_t>({6, 6, 6, -6, 6});
+  const auto minute = makeFlatVector<int32_t>({30, 30, 30, 30, 30});
+  const auto micros = makeNullableFlatVector<int64_t>(
+      {45678000, 1e6, 6e7, 59999999, std::nullopt}, microsType);
+  auto data = makeRowVector({year, month, day, hour, minute, micros});
+
+  // Invalid time zone from query config.
+  setQueryTimeZone("Invalid");
+  VELOX_ASSERT_USER_THROW(
+      evaluate("make_timestamp(c0, c1, c2, c3, c4, c5)", data),
+      "Unknown time zone: 'Invalid'");
+
+  setQueryTimeZone("");
+  VELOX_ASSERT_USER_THROW(
+      evaluate("make_timestamp(c0, c1, c2, c3, c4, c5)", data),
+      "make_timestamp requires session time zone to be set.");
+
+  // Invalid constant time zone.
+  setQueryTimeZone("GMT");
+  for (auto timeZone : {"Invalid", ""}) {
+    SCOPED_TRACE(fmt::format("timezone: {}", timeZone));
+    VELOX_ASSERT_USER_THROW(
+        evaluate(
+            fmt::format(
+                "make_timestamp(c0, c1, c2, c3, c4, c5, '{}')", timeZone),
+            data),
+        fmt::format("Unknown time zone: '{}'", timeZone));
+  }
+
+  // Invalid timezone from vector.
+  auto timeZones = makeFlatVector<StringView>(
+      {"GMT", "CET", "Asia/Shanghai", "Invalid", "GMT"});
+  data = makeRowVector({year, month, day, hour, minute, micros, timeZones});
+  VELOX_ASSERT_USER_THROW(
+      evaluate("make_timestamp(c0, c1, c2, c3, c4, c5, c6)", data),
+      "Unknown time zone: 'Invalid'");
+
+  timeZones =
+      makeFlatVector<StringView>({"GMT", "CET", "Asia/Shanghai", "", "GMT"});
+  data = makeRowVector({year, month, day, hour, minute, micros, timeZones});
+  VELOX_ASSERT_USER_THROW(
+      evaluate("make_timestamp(c0, c1, c2, c3, c4, c5, c6)", data),
+      "Unknown time zone: ''");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test

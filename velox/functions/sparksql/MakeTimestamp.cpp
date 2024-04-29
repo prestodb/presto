@@ -72,9 +72,9 @@ void setTimestampOrNull(
     std::optional<Timestamp> timestamp,
     DecodedVector* timeZoneVector,
     FlatVector<Timestamp>* result) {
+  const auto timeZone = timeZoneVector->valueAt<StringView>(row);
+  const auto tzID = util::getTimeZoneID(std::string_view(timeZone));
   if (timestamp.has_value()) {
-    auto timeZone = timeZoneVector->valueAt<StringView>(row);
-    auto tzID = util::getTimeZoneID(std::string_view(timeZone));
     (*timestamp).toGMT(tzID);
     result->set(row, *timestamp);
   } else {
@@ -122,7 +122,13 @@ class MakeTimestampFunction : public exec::VectorFunction {
       if (args[6]->isConstantEncoding()) {
         auto tz =
             args[6]->asUnchecked<ConstantVector<StringView>>()->valueAt(0);
-        auto constantTzID = util::getTimeZoneID(std::string_view(tz));
+        int64_t constantTzID;
+        try {
+          constantTzID = util::getTimeZoneID(std::string_view(tz));
+        } catch (const VeloxException& e) {
+          context.setErrors(rows, std::current_exception());
+          return;
+        }
         rows.applyToSelected([&](vector_size_t row) {
           auto timestamp = makeTimeStampFromDecodedArgs(
               row, year, month, day, hour, minute, micros);
@@ -130,7 +136,7 @@ class MakeTimestampFunction : public exec::VectorFunction {
         });
       } else {
         auto* timeZone = decodedArgs.at(6);
-        rows.applyToSelected([&](vector_size_t row) {
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
           auto timestamp = makeTimeStampFromDecodedArgs(
               row, year, month, day, hour, minute, micros);
           setTimestampOrNull(row, timestamp, timeZone, resultFlatVector);
