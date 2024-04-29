@@ -2344,14 +2344,14 @@ public final class SystemSessionProperties
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be non-negative", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
     }
 
     public static DataSize getTopNOperatorUnspillMemoryLimit(Session session)
     {
         DataSize unspillMemoryLimit = session.getSystemProperty(TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
-        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be positive", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
+        checkArgument(unspillMemoryLimit.toBytes() >= 0, "%s must be non-negative", TOPN_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return unspillMemoryLimit;
     }
 
@@ -2363,7 +2363,7 @@ public final class SystemSessionProperties
     public static DataSize getTempStorageSpillerBufferSize(Session session)
     {
         DataSize tempStorageSpillerBufferSize = session.getSystemProperty(TEMP_STORAGE_SPILLER_BUFFER_SIZE, DataSize.class);
-        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be positive", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
+        checkArgument(tempStorageSpillerBufferSize.toBytes() >= 0, "%s must be non-negative", TEMP_STORAGE_SPILLER_BUFFER_SIZE);
         return tempStorageSpillerBufferSize;
     }
 

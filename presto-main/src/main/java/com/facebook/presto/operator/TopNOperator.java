@@ -100,7 +100,7 @@ public class TopNOperator
             List<SortOrder> sortOrders)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        checkArgument(n >= 0, "n must be positive");
+        checkArgument(n >= 0, "n must be non-negative");
         if (n == 0) {
             finishing = true;
             // We create an empty WorkProcessor and finish it

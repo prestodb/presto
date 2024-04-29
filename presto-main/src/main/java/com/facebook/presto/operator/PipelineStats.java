@@ -150,13 +150,13 @@ public class PipelineStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
-        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be non-negative");
         this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
-        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be non-negative");
         this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
