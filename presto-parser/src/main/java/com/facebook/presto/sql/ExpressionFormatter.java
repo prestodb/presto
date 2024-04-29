@@ -94,6 +94,7 @@ import java.util.PrimitiveIterator;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -693,7 +694,9 @@ public final class ExpressionFormatter
 
         protected String visitTableVersion(TableVersionExpression node, Void context)
         {
-            return "FOR " + node.getTableVersionType().name() + " AS OF " + process(node.getAsOfExpression(), context) + " ";
+            return "FOR " + node.getTableVersionType().name()
+                    + (node.getTableVersionOperator() == EQUAL ? " AS OF " : " BEFORE ")
+                    + process(node.getStateExpression(), context) + " ";
         }
     }
 
