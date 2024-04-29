@@ -16,7 +16,7 @@
 
 #include <arrow/c/abi.h>
 #include <arrow/c/bridge.h>
-#include <arrow/testing/gtest_util.h> // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"

@@ -19,7 +19,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_compat.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include "arrow/testing/gtest_compat.h"
 
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"
 #include "velox/dwio/parquet/writer/arrow/FileWriter.h"

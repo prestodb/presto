@@ -29,8 +29,8 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_util.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
-#include "arrow/testing/random.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"

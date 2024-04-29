@@ -29,7 +29,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/io/memory.h"
-#include "arrow/testing/util.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include "arrow/testing/util.h"
 
 #include "velox/dwio/parquet/writer/arrow/ColumnPage.h"
 #include "velox/dwio/parquet/writer/arrow/ColumnWriter.h"

@@ -36,7 +36,7 @@
 #include "velox/dwio/parquet/writer/arrow/tests/TestUtil.h"
 
 #include "arrow/io/memory.h"
-#include "arrow/testing/gtest_util.h" // @manual=fbsource//third-party/apache-arrow:arrow_testing
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 
