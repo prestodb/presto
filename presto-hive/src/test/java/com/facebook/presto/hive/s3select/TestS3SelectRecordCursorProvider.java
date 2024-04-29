@@ -127,8 +127,7 @@ public class TestS3SelectRecordCursorProvider
                 100,
                 0,
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
         return s3SelectRecordCursorProvider.createRecordCursor(
                 new Configuration(),
                 SESSION,

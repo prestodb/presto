@@ -451,8 +451,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     fileSplit.getLength(),
                     Instant.now().toEpochMilli(),
                     Optional.empty(),
-                    ImmutableMap.of(),
-                    0);
+                    ImmutableMap.of());
 
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,

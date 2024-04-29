@@ -87,8 +87,7 @@ public class TestHiveSplit
                 88,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                customSplitInfo,
-                0);
+                customSplitInfo);
 
         byte[] rowIdPartitionComponent = {(byte) 76, (byte) 58};
         HiveSplit expected = new HiveSplit(

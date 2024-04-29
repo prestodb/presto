@@ -135,8 +135,7 @@ public class TestHivePageSourceProvider
                 10,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
         HiveSplit split = new HiveSplit(
                 fileSplit,
                 SCHEMA_NAME,
@@ -221,8 +220,7 @@ public class TestHivePageSourceProvider
                 200,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                customSplitInfo,
-                0);
+                customSplitInfo);
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
                 ImmutableSet.of(hiveBatchPageSourceFactory),
@@ -274,8 +272,7 @@ public class TestHivePageSourceProvider
                 200,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
 
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
@@ -451,8 +448,7 @@ public class TestHivePageSourceProvider
                 10,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
 
         return new HiveSplit(
                 fileSplit,

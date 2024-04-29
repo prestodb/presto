@@ -434,8 +434,7 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
 
         RecordCursor recordCursor = cursorProvider
                 .createRecordCursor(
@@ -478,8 +477,7 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of(),
-                0);
+                ImmutableMap.of());
 
         return pageSourceFactory
                 .createPageSource(
