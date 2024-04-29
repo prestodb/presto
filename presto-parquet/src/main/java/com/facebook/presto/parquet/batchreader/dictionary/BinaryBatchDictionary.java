@@ -33,8 +33,14 @@ public final class BinaryBatchDictionary
     private final byte[] pageBuffer;
     private final int dictionarySize;
     private final int[] offsets;
+    private final Integer length;
 
     public BinaryBatchDictionary(DictionaryPage dictionaryPage)
+    {
+        this(dictionaryPage, null);
+    }
+
+    public BinaryBatchDictionary(DictionaryPage dictionaryPage, Integer length)
     {
         super(dictionaryPage.getEncoding());
         requireNonNull(dictionaryPage, "dictionaryPage is null");
@@ -42,16 +48,29 @@ public final class BinaryBatchDictionary
 
         this.dictionarySize = dictionaryPage.getDictionarySize();
         this.pageBuffer = requireNonNull(dictionaryPage.getSlice(), "dictionary slice is null").getBytes();
+        this.length = length;
 
         // initialize the offsets array
         IntList offsetList = new IntArrayList();
         int offset = 0;
-        while (offset < pageBuffer.length) {
-            int length = BytesUtils.getInt(pageBuffer, offset);
+        if (length == null) {
+            while (offset < pageBuffer.length) {
+                int len = BytesUtils.getInt(pageBuffer, offset);
+                offsetList.add(offset);
+                offset += (4 + len);
+            }
             offsetList.add(offset);
-            offset += (4 + length);
         }
-        offsetList.add(offset);
+        else {
+            int index = 0;
+            while (index < dictionarySize) {
+                offsetList.add(offset);
+                offset += length;
+                index++;
+            }
+            offsetList.add(offset);
+        }
+
         this.offsets = offsetList.toIntArray();
 
         checkArgument(offsets.length - 1 == dictionarySize, "Dictionary size and number of entries don't match");
@@ -60,14 +79,25 @@ public final class BinaryBatchDictionary
     public int getLength(int dictionaryId)
     {
         checkArgument(dictionaryId >= 0 && dictionaryId < dictionarySize, "invalid dictionary id: %s", dictionaryId);
-        return offsets[dictionaryId + 1] - (offsets[dictionaryId] + 4);
+        if (length == null) {
+            return offsets[dictionaryId + 1] - (offsets[dictionaryId] + 4);
+        }
+        else {
+            return length;
+        }
     }
 
     public int copyTo(byte[] byteBuffer, int offset, int dictionaryId)
     {
-        int length = offsets[dictionaryId + 1] - (offsets[dictionaryId] + 4);
-        System.arraycopy(pageBuffer, offsets[dictionaryId] + 4, byteBuffer, offset, length);
-        return length;
+        if (length == null) {
+            int len = offsets[dictionaryId + 1] - (offsets[dictionaryId] + 4);
+            System.arraycopy(pageBuffer, offsets[dictionaryId] + 4, byteBuffer, offset, len);
+            return len;
+        }
+        else {
+            System.arraycopy(pageBuffer, offsets[dictionaryId], byteBuffer, offset, length);
+            return length;
+        }
     }
 
     @Override
