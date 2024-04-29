@@ -50,10 +50,10 @@ public class TestPartitionFields
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid("abc", "Cannot find source column: abc");
         assertInvalid("notes", "Cannot partition by non-primitive source field: list<string>");
-        assertInvalid("bucket(price, 42)", "Cannot bucket by type: double");
-        assertInvalid("bucket(notes, 88)", "Cannot bucket by type: list<string>");
-        assertInvalid("truncate(ts, 13)", "Cannot truncate type: timestamp");
-        assertInvalid("year(order_key)", "Cannot partition type long by year");
+        assertInvalid("bucket(price, 42)", "Invalid source type double for transform: bucket[42]");
+        assertInvalid("bucket(notes, 88)", "Cannot partition by non-primitive source field: list<string>");
+        assertInvalid("truncate(ts, 13)", "Invalid source type timestamp for transform: truncate[13]");
+        assertInvalid("year(order_key)", "Invalid source type long for transform: year");
     }
 
     private static void assertParse(String value, PartitionSpec expected)

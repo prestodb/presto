@@ -49,7 +49,7 @@ public class TestStatisticsBuilders
     @Test
     public void testCreateStatisticsBuilder()
     {
-        assertTrue(createStatisticsBuilder(TINYINT) instanceof CountStatisticsBuilder);
+        assertTrue(createStatisticsBuilder(TINYINT) instanceof IntegerStatisticsBuilder);
         assertTrue(createStatisticsBuilder(SMALLINT) instanceof IntegerStatisticsBuilder);
         assertTrue(createStatisticsBuilder(INTEGER) instanceof IntegerStatisticsBuilder);
         assertTrue(createStatisticsBuilder(BIGINT) instanceof IntegerStatisticsBuilder);

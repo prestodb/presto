@@ -459,6 +459,22 @@ public abstract class DefaultTraversalVisitor<R, C>
         return null;
     }
 
+    protected R visitUpdate(Update node, C context)
+    {
+        process(node.getTable(), context);
+        node.getAssignments().forEach(value -> process(value, context));
+        node.getWhere().ifPresent(where -> process(where, context));
+
+        return null;
+    }
+
+    protected R visitUpdateAssignment(UpdateAssignment node, C context)
+    {
+        process(node.getName(), context);
+        process(node.getValue(), context);
+        return null;
+    }
+
     @Override
     protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {

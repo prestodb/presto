@@ -91,6 +91,7 @@ public class ResourceManagerModule
         smileCodecBinder(binder).bindSmileCodec(BasicQueryInfo.class);
         jsonCodecBinder(binder).bindListJsonCodec(QueryStateInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(ResourceGroupInfo.class);
+        jsonCodecBinder(binder).bindListJsonCodec(ResourceGroupInfo.class);
 
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class);
 

@@ -49,6 +49,9 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -200,7 +203,7 @@ public class TestIterativePlanFragmenter
         JoinNode join = join("join",
                 remoteExchange1,
                 localExchange,
-                JoinNode.DistributionType.PARTITIONED,
+                JoinDistributionType.PARTITIONED,
                 "orderkey_1",
                 "orderkey_0");
         Map<String, Type> types = ImmutableMap.of(
@@ -328,6 +331,7 @@ public class TestIterativePlanFragmenter
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -335,19 +339,19 @@ public class TestIterativePlanFragmenter
      * EquiJoinClause is created from symbols in form of:
      * symbol[0] = symbol[1] AND symbol[2] = symbol[3] AND ...
      */
-    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinNode.DistributionType distributionType, String... symbols)
+    private JoinNode join(String planNodeId, PlanNode left, PlanNode right, JoinDistributionType distributionType, String... symbols)
     {
         checkArgument(symbols.length % 2 == 0);
-        ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
+            criteria.add(new EquiJoinClause(new VariableReferenceExpression(Optional.empty(), symbols[i], BIGINT), new VariableReferenceExpression(Optional.empty(), symbols[i + 1], BIGINT)));
         }
 
         return new JoinNode(
                 Optional.empty(),
                 new PlanNodeId(planNodeId),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

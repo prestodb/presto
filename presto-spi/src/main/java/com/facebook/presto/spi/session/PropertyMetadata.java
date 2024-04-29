@@ -15,6 +15,7 @@ package com.facebook.presto.spi.session;
 
 import com.facebook.presto.common.type.Type;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import java.util.function.Function;
 
@@ -212,5 +213,18 @@ public final class PropertyMetadata<T>
                 hidden,
                 value -> DataSize.valueOf((String) value),
                 DataSize::toString);
+    }
+
+    public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                Duration.class,
+                defaultValue,
+                hidden,
+                value -> Duration.valueOf((String) value),
+                Duration::toString);
     }
 }

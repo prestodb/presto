@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 
 using namespace facebook::velox;
@@ -44,9 +45,19 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
 }
 } // namespace
 
-class PrestoToVeloxSplitTest : public ::testing::Test {};
+class PrestoToVeloxSplitTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    registerPrestoToVeloxConnector(
+        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+  }
 
-TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
+  void TearDown() override {
+    unregisterPrestoToVeloxConnector("hive");
+  }
+};
+
+TEST_F(PrestoToVeloxSplitTest, nullPartitionKey) {
   auto scheduledSplit = makeHiveScheduledSplit();
   auto hiveSplit = std::dynamic_pointer_cast<protocol::HiveSplit>(
       scheduledSplit.split.connectorSplit);
@@ -65,7 +76,7 @@ TEST(PrestoToVeloxSplitTest, nullPartitionKey) {
       veloxHiveSplit->partitionKeys.at("nullPartitionKey").has_value());
 }
 
-TEST(PrestoToVeloxSplitTest, customSplitInfo) {
+TEST_F(PrestoToVeloxSplitTest, customSplitInfo) {
   auto scheduledSplit = makeHiveScheduledSplit();
   auto& hiveSplit =
       static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
@@ -79,7 +90,7 @@ TEST(PrestoToVeloxSplitTest, customSplitInfo) {
   ASSERT_EQ(veloxHiveSplit->customSplitInfo.at("foo"), "bar");
 }
 
-TEST(PrestoToVeloxSplitTest, extraFileInfo) {
+TEST_F(PrestoToVeloxSplitTest, extraFileInfo) {
   auto scheduledSplit = makeHiveScheduledSplit();
   auto& hiveSplit =
       static_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);
@@ -94,7 +105,7 @@ TEST(PrestoToVeloxSplitTest, extraFileInfo) {
   ASSERT_EQ(*veloxHiveSplit->extraFileInfo, "quux");
 }
 
-TEST(PrestoToVeloxSplitTest, serdeParameters) {
+TEST_F(PrestoToVeloxSplitTest, serdeParameters) {
   auto scheduledSplit = makeHiveScheduledSplit();
   auto& hiveSplit =
       dynamic_cast<protocol::HiveSplit&>(*scheduledSplit.split.connectorSplit);

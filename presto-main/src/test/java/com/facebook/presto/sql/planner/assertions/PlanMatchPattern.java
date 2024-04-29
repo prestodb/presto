@@ -21,18 +21,25 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -49,7 +56,7 @@ import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -394,17 +401,17 @@ public final class PlanMatchPattern
         return node(JoinNode.class, left, right);
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
     {
         return join(joinType, expectedEquiCriteria, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern join(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinDistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
@@ -416,8 +423,8 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
+            JoinType joinType,
+            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
             Map<String, String> expectedDynamicFilter,
             Optional<String> expectedStaticFilter,
             PlanMatchPattern leftSource,
@@ -439,6 +446,23 @@ public final class PlanMatchPattern
                 .with(joinMatcher);
     }
 
+    public static PlanMatchPattern cteConsumer(String cteName)
+    {
+        CteConsumerMatcher cteConsumerMatcher = new CteConsumerMatcher(cteName);
+        return node(CteConsumerNode.class).with(cteConsumerMatcher);
+    }
+
+    public static PlanMatchPattern cteProducer(String cteName, PlanMatchPattern source)
+    {
+        CteProducerMatcher cteProducerMatcher = new CteProducerMatcher(cteName);
+        return node(CteProducerNode.class, source).with(cteProducerMatcher);
+    }
+
+    public static PlanMatchPattern sequence(PlanMatchPattern... sources)
+    {
+        return node(SequenceNode.class, sources);
+    }
+
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
@@ -456,7 +480,7 @@ public final class PlanMatchPattern
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedFilter, new ParsingOptions())), Optional.empty()));
     }
 
-    public static PlanMatchPattern mergeJoin(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern mergeJoin(JoinType joinType, List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria, Optional<Expression> filter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(MergeJoinNode.class, left, right).with(
                 new MergeJoinMatcher(
@@ -512,7 +536,7 @@ public final class PlanMatchPattern
         return node(ExceptNode.class, sources);
     }
 
-    public static ExpectedValueProvider<JoinNode.EquiJoinClause> equiJoinClause(String left, String right)
+    public static ExpectedValueProvider<EquiJoinClause> equiJoinClause(String left, String right)
     {
         return new EquiJoinClauseProvider(new SymbolAlias(left), new SymbolAlias(right));
     }
@@ -525,6 +549,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
     {
         return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern filterWithDecimal(String expectedPredicate, PlanMatchPattern source)
+    {
+        return filter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate, new ParsingOptions(DecimalLiteralTreatment.AS_DECIMAL))), source);
     }
 
     public static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
@@ -761,9 +790,9 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern withJoinBuildKeyStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount)
+    public PlanMatchPattern withJoinStatistics(double expectedJoinBuildKeyCount, double expectedNullJoinBuildKeyCount, double expectedJoinProbeKeyCount, double expectedNullJoinProbeKeyCount)
     {
-        matchers.add(new StatsJoinBuildKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount));
+        matchers.add(new StatsJoinKeyCountMatcher(expectedJoinBuildKeyCount, expectedNullJoinBuildKeyCount, expectedJoinProbeKeyCount, expectedNullJoinProbeKeyCount));
         return this;
     }
 

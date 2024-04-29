@@ -16,6 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.InvalidTypeDefinitionException;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spi.ErrorCause;
@@ -29,6 +30,7 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.slice.SliceTooLargeException;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +41,8 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TYPE_DEFINITION;
+import static com.facebook.presto.spi.StandardErrorCode.SLICE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -164,6 +168,14 @@ public final class Failures
     private static ErrorCode toErrorCode(Throwable throwable)
     {
         requireNonNull(throwable);
+
+        if (throwable instanceof SliceTooLargeException) {
+            return SLICE_TOO_LARGE.toErrorCode();
+        }
+
+        if (throwable instanceof InvalidTypeDefinitionException) {
+            return INVALID_TYPE_DEFINITION.toErrorCode();
+        }
 
         if (throwable instanceof PrestoException) {
             return ((PrestoException) throwable).getErrorCode();

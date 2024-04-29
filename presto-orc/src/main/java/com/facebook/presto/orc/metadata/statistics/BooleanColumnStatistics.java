@@ -31,9 +31,11 @@ public class BooleanColumnStatistics
     public BooleanColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             BooleanStatistics booleanStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(booleanStatistics, "booleanStatistics is null");
         this.booleanStatistics = booleanStatistics;
     }
@@ -48,15 +50,6 @@ public class BooleanColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return getNumberOfValues() * BOOLEAN_VALUE_BYTES;
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new BooleanColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                booleanStatistics);
     }
 
     @Override

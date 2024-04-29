@@ -14,104 +14,75 @@
 set -e
 set -x
 
-export FB_OS_VERSION=v2022.11.14.00
+export FB_OS_VERSION=v2024.04.01.00
 export RE2_VERSION=2021-04-01
 export nproc=$(getconf _NPROCESSORS_ONLN)
-
-dnf install -y maven
-dnf install -y java
-dnf install -y python3-devel
-dnf install -y clang-tools-extra
-dnf install -y jq
-dnf install -y perl-XML-XPath
-
-python3 -m pip install regex pyyaml chevron black six
-
-# Required for Antlr4
-dnf install -y libuuid-devel
-
 export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 CPU_TARGET="${CPU_TARGET:-avx}"
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
+if [ -f "${SCRIPT_DIR}/setup-centos8.sh" ]
 then
-  source "${SCRIPT_DIR}/setup-helper-functions.sh"
+  source "${SCRIPT_DIR}/setup-centos8.sh"
 else
-  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
+  source "${SCRIPT_DIR}/../velox/scripts/setup-centos8.sh"
 fi
 
-export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
+function install_presto_deps_from_package_managers {
+  dnf install -y maven java clang-tools-extra jq perl-XML-XPath
+  # This python version is installed by the Velox setup scripts
+  pip3.9 install regex pyyaml chevron black
+}
 
-(
-  wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
-  tar -xzvf LATEST.tar.gz &&
-  cd libsodium-stable &&
-  ./configure &&
-  make "-j$(nproc)" &&
-  make install
-)
-
-(
+function install_gperf {
   wget http://ftp.gnu.org/pub/gnu/gperf/gperf-3.1.tar.gz &&
   tar xvfz gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
   make "-j$(nproc)" &&
-  make install &&
-  ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
-)
+  make install
+  if [ -f /usr/local/bin/gperf ]; then
+    echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
+  else
+    ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
+  fi
+}
 
-(
-  git clone https://github.com/facebook/folly &&
-  cd folly &&
-  git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DFOLLY_HAVE_INT128_T=ON
-)
-
-(
-  git clone https://github.com/facebookincubator/fizz &&
-  cd fizz &&
-  git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
-)
-
-(
-  git clone https://github.com/facebook/wangle &&
-  cd wangle &&
-  git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
-)
-
-(
+function install_proxygen {
   git clone https://github.com/facebook/proxygen &&
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
   cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
-)
+}
 
-(
-  git clone https://github.com/google/re2 &&
-  cd re2 &&
-  git checkout $RE2_VERSION &&    
-  cmake_install -DBUILD_SHARED_LIBS=ON
-)
+function install_presto_deps {
+  run_and_time install_presto_deps_from_package_managers
+  run_and_time install_gperf
+  run_and_time install_proxygen
+}
 
-(
-  wget https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip &&
-  mkdir antlr4-cpp-runtime-4.9.3-source &&
-  cd antlr4-cpp-runtime-4.9.3-source &&
-  unzip ../antlr4-cpp-runtime-4.9.3-source.zip &&
-  cmake_install -DBUILD_SHARED_LIBS=ON
-  ldconfig
-)
-
-(
-  git clone https://github.com/facebook/fbthrift &&
-  cd fbthrift &&
-  git checkout $FB_OS_VERSION &&
-  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
-)
+if [[ $# -ne 0 ]]; then
+  # Activate gcc9; enable errors on unset variables afterwards.
+  source /opt/rh/gcc-toolset-9/enable || exit 1
+  set -u
+  for cmd in "$@"; do
+    run_and_time "${cmd}"
+  done
+  echo "All specified dependencies installed!"
+else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  # Activate gcc9; enable errors on unset variables afterwards.
+  source /opt/rh/gcc-toolset-9/enable || exit 1
+  set -u
+  install_velox_deps
+  install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
+fi
 
 dnf clean all

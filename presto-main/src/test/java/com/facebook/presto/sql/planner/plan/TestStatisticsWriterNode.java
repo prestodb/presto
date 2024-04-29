@@ -28,7 +28,6 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.testing.TestingHandleResolver;
@@ -92,7 +91,7 @@ public class TestStatisticsWriterNode
         VariableAllocator variableAllocator = new VariableAllocator();
         for (String column : COLUMNS) {
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testVariable(variableAllocator));
+                builder.addColumnStatistic(type.getColumnStatisticMetadata(column), testVariable(variableAllocator));
             }
             builder.addGrouping(column, testVariable(variableAllocator));
         }

@@ -14,6 +14,7 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.JsonResponseHandler;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.UnexpectedResponseException;
 import com.facebook.airlift.json.JsonCodec;
@@ -21,6 +22,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ResourceGroupInfo;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -43,9 +45,13 @@ import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
@@ -63,49 +69,73 @@ public class DistributedResourceGroupInfoResource
     private final ListeningExecutorService executor;
     private final HttpClient httpClient;
     private final JsonCodec<ResourceGroupInfo> jsonCodec;
+    private final JsonCodec<List<ResourceGroupInfo>> jsonCodecRootGroups;
 
     @Inject
     public DistributedResourceGroupInfoResource(InternalNodeManager internalNodeManager,
-            @ForResourceManager ListeningExecutorService executor, @ForResourceManager HttpClient httpClient, JsonCodec<ResourceGroupInfo> jsonCodec)
+            @ForResourceManager ListeningExecutorService executor, @ForResourceManager HttpClient httpClient,
+            JsonCodec<ResourceGroupInfo> jsonCodec, JsonCodec<List<ResourceGroupInfo>> jsonCodecRootGroups)
     {
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.jsonCodecRootGroups = requireNonNull(jsonCodecRootGroups, "jsonCodecRootGroups is null");
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
-    @Path("{resourceGroupId: .+}")
+    @Path("{resourceGroupId: .*}")
     public void getResourceGroupInfos(
             @PathParam("resourceGroupId") String resourceGroupIdString,
             @Context UriInfo uriInfo,
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
     {
-        if (isNullOrEmpty(resourceGroupIdString)) {
-            asyncResponse.resume(Response.status(NOT_FOUND).build());
-        }
         try {
-            ImmutableList.Builder<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureBuilder = ImmutableList.builder();
-            for (InternalNode coordinator : internalNodeManager.getCoordinators()) {
-                resourceGroupInfoFutureBuilder.add(getResourceGroupInfoFromCoordinator(uriInfo, coordinator));
-            }
-            List<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureList = resourceGroupInfoFutureBuilder.build();
-            Futures.whenAllComplete(resourceGroupInfoFutureList).call(() -> {
-                try {
-                    ResourceGroupInfo aggregatedResourceGroupInfo = aggregateResourceGroupInfo(resourceGroupInfoFutureList);
-                    if (aggregatedResourceGroupInfo == null) {
-                        return asyncResponse.resume(Response.status(NOT_FOUND).build());
+            if (isNullOrEmpty(resourceGroupIdString)) {
+                // when no resourceGroupId is specified, query all root groups from the coordinators
+                ImmutableList.Builder<ListenableFuture<List<ResourceGroupInfo>>> resourceGroupInfoFutureBuilder = ImmutableList.builder();
+                for (InternalNode coordinator : internalNodeManager.getCoordinators()) {
+                    resourceGroupInfoFutureBuilder.add(
+                            getResourceGroupInfoFromCoordinator(uriInfo, coordinator, createJsonResponseHandler(jsonCodecRootGroups)));
+                }
+                List<ListenableFuture<List<ResourceGroupInfo>>> resourceGroupInfoFutureList = resourceGroupInfoFutureBuilder.build();
+                Futures.whenAllComplete(resourceGroupInfoFutureList).call(() -> {
+                    try {
+                        List<ResourceGroupInfo> aggregatedRootGroups = aggregateRootGroups(resourceGroupInfoFutureList);
+                        if (aggregatedRootGroups == null) {
+                            return asyncResponse.resume(Response.status(NOT_FOUND).build());
+                        }
+                        return asyncResponse.resume(Response.ok(aggregatedRootGroups).build());
                     }
-                    return asyncResponse.resume(Response.ok(aggregatedResourceGroupInfo).build());
+                    catch (Exception ex) {
+                        log.error(ex, "Error in getting root resource groups info from one of the coordinators");
+                        return asyncResponse.resume(Response.serverError().entity(ex.getMessage()).build());
+                    }
+                }, executor);
+            }
+            else {
+                ImmutableList.Builder<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureBuilder = ImmutableList.builder();
+                for (InternalNode coordinator : internalNodeManager.getCoordinators()) {
+                    resourceGroupInfoFutureBuilder.add(getResourceGroupInfoFromCoordinator(uriInfo, coordinator, createJsonResponseHandler(jsonCodec)));
                 }
-                catch (Exception ex) {
-                    log.error(ex, "Error in getting resource group info from one of the coordinators");
-                    return asyncResponse.resume(Response.serverError().entity(ex.getMessage()).build());
-                }
-            }, executor);
+                List<ListenableFuture<ResourceGroupInfo>> resourceGroupInfoFutureList = resourceGroupInfoFutureBuilder.build();
+                Futures.whenAllComplete(resourceGroupInfoFutureList).call(() -> {
+                    try {
+                        ResourceGroupInfo aggregatedResourceGroupInfo = aggregateResourceGroupInfo(resourceGroupInfoFutureList);
+                        if (aggregatedResourceGroupInfo == null) {
+                            return asyncResponse.resume(Response.status(NOT_FOUND).build());
+                        }
+                        return asyncResponse.resume(Response.ok(aggregatedResourceGroupInfo).build());
+                    }
+                    catch (Exception ex) {
+                        log.error(ex, "Error in getting resource group info from one of the coordinators");
+                        return asyncResponse.resume(Response.serverError().entity(ex.getMessage()).build());
+                    }
+                }, executor);
+            }
         }
         catch (IOException ex) {
             log.error(ex, "Error in getting resource group info");
@@ -135,9 +165,38 @@ public class DistributedResourceGroupInfoResource
         return builder.build();
     }
 
-    private ListenableFuture<ResourceGroupInfo> getResourceGroupInfoFromCoordinator(UriInfo uriInfo,
-            InternalNode coordinatorNode)
-            throws IOException
+    private List<ResourceGroupInfo> aggregateRootGroups(List<ListenableFuture<List<ResourceGroupInfo>>> rootGroupsFutureList)
+            throws InterruptedException, ExecutionException
+
+    {
+        Map<ResourceGroupId, AggregatedResourceGroupInfoBuilder> groupAggregators = new HashMap<>();
+        // Iterator through all root resource groups from all coordinators and aggregate each resource group.
+        for (ListenableFuture<List<ResourceGroupInfo>> rootGroupsFuture : rootGroupsFutureList) {
+            try {
+                for (ResourceGroupInfo rootGroup : rootGroupsFuture.get()) {
+                    ResourceGroupId gid = rootGroup.getId();
+                    AggregatedResourceGroupInfoBuilder builder = Optional.ofNullable(groupAggregators.get(gid))
+                            .orElseGet(() -> new AggregatedResourceGroupInfoBuilder());
+
+                    builder.add(rootGroup);
+                    groupAggregators.put(gid, builder);
+                }
+            }
+            catch (ExecutionException e) {
+                Throwable exceptionCause = e.getCause();
+                //airlift JsonResponseHandler throws UnexpectedResponseException for cases where http status code != 2xx
+                if (!(exceptionCause instanceof UnexpectedResponseException) ||
+                        ((UnexpectedResponseException) exceptionCause).getStatusCode() != NOT_FOUND.getStatusCode()) {
+                    throw e;
+                }
+            }
+        }
+        return groupAggregators.values().stream().map(agg -> agg.build()).collect(Collectors.toList());
+    }
+
+    private <T> ListenableFuture<T> getResourceGroupInfoFromCoordinator(UriInfo uriInfo,
+            InternalNode coordinatorNode, JsonResponseHandler<T> handler) throws IOException
+
     {
         String scheme = uriInfo.getRequestUri().getScheme();
         URI uri = uriInfo.getRequestUriBuilder()
@@ -147,6 +206,6 @@ public class DistributedResourceGroupInfoResource
                 .port(coordinatorNode.getInternalUri().getPort())
                 .build();
         Request request = prepareGet().setUri(uri).build();
-        return httpClient.executeAsync(request, createJsonResponseHandler(jsonCodec));
+        return httpClient.executeAsync(request, handler);
     }
 }

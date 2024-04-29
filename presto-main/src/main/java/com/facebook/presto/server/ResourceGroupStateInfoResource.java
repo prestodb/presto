@@ -81,7 +81,7 @@ public class ResourceGroupStateInfoResource
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded
-    @Path("{resourceGroupId: .+}")
+    @Path("{resourceGroupId: .*}")
     public void getResourceGroupInfos(
             @PathParam("resourceGroupId") String resourceGroupIdString,
             @QueryParam("includeQueryInfo") @DefaultValue("true") boolean includeQueryInfo,
@@ -97,8 +97,13 @@ public class ResourceGroupStateInfoResource
             proxyResourceGroupInfoResponse(servletRequest, asyncResponse, xForwardedProto, uriInfo);
             return;
         }
-        if (!isNullOrEmpty(resourceGroupIdString)) {
-            try {
+        try {
+            if (isNullOrEmpty(resourceGroupIdString)) {
+                // return root groups if no group id is specified
+                asyncResponse.resume(Response.ok().entity(resourceGroupManager.getRootResourceGroups()).build());
+                return;
+            }
+            else {
                 asyncResponse.resume(Response.ok().entity(resourceGroupManager.getResourceGroupInfo(
                         new ResourceGroupId(
                                 Arrays.stream(resourceGroupIdString.split("/"))
@@ -107,12 +112,13 @@ public class ResourceGroupStateInfoResource
                         includeQueryInfo,
                         summarizeSubgroups,
                         includeStaticSubgroupsOnly)).build());
-            }
-            catch (NoSuchElementException | IllegalArgumentException e) {
-                asyncResponse.resume(Response.status(NOT_FOUND).build());
+                return;
             }
         }
-        asyncResponse.resume(Response.status(NOT_FOUND).build());
+        catch (NoSuchElementException | IllegalArgumentException e) {
+            asyncResponse.resume(Response.status(NOT_FOUND).build());
+            return;
+        }
     }
 
     private static String urlDecode(String value)

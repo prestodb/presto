@@ -12,6 +12,9 @@
  * limitations under the License.
  */
 
+// HiveColumnHandle is special since it needs an implementation of
+// operator<().
+
 namespace facebook::presto::protocol {
 
 struct HiveColumnHandle : public ColumnHandle {

@@ -77,6 +77,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
             4,
             Optional.of(new DataSize(16, MEGABYTE)),
             false,
+            Optional.empty(),
             new DataSize(16, MEGABYTE),
             new DataSize(16, MEGABYTE),
             new DummySpillerFactory(),

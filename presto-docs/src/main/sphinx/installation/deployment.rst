@@ -419,8 +419,7 @@ Run the Presto server:
 An Example Deployment with Docker
 ---------------------------------
 
-Let's take a look at getting a Docker image together for Presto (though they already exist on Dockerhub,
-e.g. `ahanaio/prestodb-sandbox <https://hub.docker.com/r/ahanaio/prestodb-sandbox>`_).
+Let's take a look at getting a Docker image together for Presto.
 We can see below how relatively easy it is to get Presto up and running.
 For demonstration purposes, this configuration is a single-node Presto installation where the scheduler will include the Coordinator as a Worker.
 We will configure one catalog, `TPCH <https://prestodb.io/docs/current/connector/tpch.html>`_.
@@ -458,7 +457,7 @@ and specify an entry point to run the server.
     RUN chmod +x /usr/local/bin/presto
 
     # Specify the entrypoint to start
-    ENTRYPOINT /opt/presto/bin/launcher run
+    ENTRYPOINT ./opt/presto/bin/launcher run
 
 There are four files in the ``etc/`` folder to configure Presto, along with one catalog in ``etc/catalog/``. A catalog defines the configuration
 of a connector, and the catalog is named after the file name (minus the ``.properties`` extension). You can have multiple

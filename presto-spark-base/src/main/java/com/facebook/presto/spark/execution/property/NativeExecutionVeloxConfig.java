@@ -29,12 +29,16 @@ public class NativeExecutionVeloxConfig
     private static final String AGGREGATION_SPILL_ENABLED = "aggregation_spill_enabled";
     private static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     private static final String ORDER_BY_SPILL_ENABLED = "order_by_spill_enabled";
+    private static final String MAX_SPILL_BYTES = "max_spill_bytes";
 
     private boolean codegenEnabled;
     private boolean spillEnabled = true;
     private boolean aggregationSpillEnabled = true;
     private boolean joinSpillEnabled = true;
     private boolean orderBySpillEnabled = true;
+    // Velox default value is 100GB, as it is designed for Presto cluster
+    // use-case. But for presto-on-spark, 500GB is a reasonable default
+    private Long maxSpillBytes = 500L << 30;
 
     public Map<String, String> getAllProperties()
     {
@@ -43,7 +47,9 @@ public class NativeExecutionVeloxConfig
                 .put(SPILL_ENABLED, String.valueOf(getSpillEnabled()))
                 .put(AGGREGATION_SPILL_ENABLED, String.valueOf(getAggregationSpillEnabled()))
                 .put(JOIN_SPILL_ENABLED, String.valueOf(getJoinSpillEnabled()))
-                .put(ORDER_BY_SPILL_ENABLED, String.valueOf(getOrderBySpillEnabled())).build();
+                .put(ORDER_BY_SPILL_ENABLED, String.valueOf(getOrderBySpillEnabled()))
+                .put(MAX_SPILL_BYTES, String.valueOf(getMaxSpillBytes()))
+                .build();
     }
 
     public boolean getCodegenEnabled()
@@ -103,6 +109,18 @@ public class NativeExecutionVeloxConfig
     public NativeExecutionVeloxConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
     {
         this.orderBySpillEnabled = orderBySpillEnabled;
+        return this;
+    }
+
+    public Long getMaxSpillBytes()
+    {
+        return maxSpillBytes;
+    }
+
+    @Config(MAX_SPILL_BYTES)
+    public NativeExecutionVeloxConfig setMaxSpillBytes(Long maxSpillBytes)
+    {
+        this.maxSpillBytes = maxSpillBytes;
         return this;
     }
 }

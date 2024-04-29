@@ -23,42 +23,32 @@
 namespace facebook::presto::http {
 HttpClient::HttpClient(
     folly::EventBase* eventBase,
+    proxygen::SessionPool* sessionPool,
     const folly::SocketAddress& address,
-    std::chrono::milliseconds timeout,
+    std::chrono::milliseconds transactionTimeout,
+    std::chrono::milliseconds connectTimeout,
     std::shared_ptr<velox::memory::MemoryPool> pool,
-    const std::string& clientCertAndKeyPath,
-    const std::string& ciphers,
+    folly::SSLContextPtr sslContext,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       address_(address),
-      timer_(folly::HHWheelTimer::newTimer(
-          eventBase_,
-          std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-          folly::AsyncTimeout::InternalEnum::NORMAL,
-          timeout)),
+      transactionTimer_(transactionTimeout, eventBase),
+      connectTimeout_(connectTimeout),
       pool_(std::move(pool)),
-      clientCertAndKeyPath_(clientCertAndKeyPath),
-      ciphers_(ciphers),
+      sslContext_(sslContext),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
-  sessionPool_ = std::make_unique<proxygen::SessionPool>(nullptr, 10);
-  // clientCertAndKeyPath_ and ciphers_ both needed to be set for https. For
-  // http, both need to be unset. One set and another is not set is not a valid
-  // configuration.
-  VELOX_CHECK_EQ(clientCertAndKeyPath_.empty(), ciphers_.empty());
+      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()),
+      sessionPool_(sessionPool) {
+  if (!sessionPool_) {
+    sessionPoolHolder_ = std::make_unique<proxygen::SessionPool>();
+    sessionPool_ = sessionPoolHolder_.get();
+  }
 }
 
 HttpClient::~HttpClient() {
-  if (sessionPool_) {
-    // Make sure to destroy SessionPool on the EventBase thread.
-    //
-    // NOTE: we can't run the destruction callback inline in EventBase thread
-    // and wait for it to complete. The reason is that the http dtor is executed
-    // by driver close, there might be some other concurrent activity such as
-    // memory arbitration running on the EventBase thread to wait for the driver
-    // to close.
+  if (sessionPoolHolder_) {
     eventBase_->runInEventBaseThread(
-        [sessionPool = std::move(sessionPool_)] {});
+        [sessionPool = std::move(sessionPoolHolder_)] {});
   }
 }
 
@@ -70,16 +60,15 @@ HttpResponse::HttpResponse(
     : headers_(std::move(headers)),
       pool_(std::move(pool)),
       minResponseAllocBytes_(minResponseAllocBytes),
-      maxResponseAllocBytes_(maxResponseAllocBytes) {
-  VELOX_CHECK_NOT_NULL(pool_);
-}
+      maxResponseAllocBytes_(maxResponseAllocBytes) {}
 
 HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   freeBuffers();
 }
 
-void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  VELOX_CHECK_NOT_NULL(pool_);
   VELOX_CHECK(!iobuf->isChained());
   VELOX_CHECK(!hasError());
 
@@ -116,10 +105,49 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   bodyChain_.back()->trimEnd(roundedSize - dataLength);
 }
 
-void HttpResponse::freeBuffers() {
+void HttpResponse::appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  VELOX_CHECK_NULL(pool_);
+  VELOX_CHECK(!iobuf->isChained());
+  VELOX_CHECK(!hasError());
+  bodyChainBytes_ += iobuf->length();
+  bodyChain_.emplace_back(std::move(iobuf));
+}
+
+void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  if (pool_ == nullptr) {
+    appendWithoutCopy(std::move(iobuf));
+  } else {
+    appendWithCopy(std::move(iobuf));
+  }
+}
+
+std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
+    velox::memory::MemoryPool* pool) {
+  VELOX_CHECK_NULL(pool_);
+  VELOX_CHECK(!hasError());
+  uint64_t totalBytes{0};
+  for (const auto& iobuf : bodyChain_) {
+    VELOX_CHECK(!iobuf->isChained());
+    totalBytes += iobuf->length();
+  }
+  void* newBuf = pool->allocate(totalBytes);
+  void* curr = newBuf;
   for (auto& iobuf : bodyChain_) {
-    if (iobuf != nullptr) {
-      pool_->free(iobuf->writableData(), iobuf->capacity());
+    const auto length = iobuf->length();
+    ::memcpy(curr, iobuf->data(), length);
+    curr = (char*)curr + length;
+    iobuf.reset();
+  }
+  bodyChain_.clear();
+  return folly::IOBuf::wrapBuffer(newBuf, totalBytes);
+}
+
+void HttpResponse::freeBuffers() {
+  if (pool_ != nullptr) {
+    for (auto& iobuf : bodyChain_) {
+      if (iobuf != nullptr) {
+        pool_->free(iobuf->writableData(), iobuf->capacity());
+      }
     }
   }
   bodyChain_.clear();
@@ -160,13 +188,14 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
       : request_(request),
         body_(body),
         reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-        minResponseAllocBytes_(velox::memory::AllocationTraits::pageBytes(
-            client->memoryPool()->sizeClasses().front())),
+        minResponseAllocBytes_(
+            client->memoryPool() == nullptr
+                ? 0
+                : velox::memory::AllocationTraits::pageBytes(
+                      client->memoryPool()->sizeClasses().front())),
         maxResponseAllocBytes_(
             std::max(minResponseAllocBytes_, maxResponseAllocBytes)),
-        client_(std::move(client)) {
-    VELOX_CHECK_NOT_NULL(client_->memoryPool().get());
-  }
+        client_(std::move(client)) {}
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> initialize(
       std::shared_ptr<ResponseHandler> self) {
@@ -246,38 +275,51 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
   std::shared_ptr<HttpClient> client_;
 };
 
+// Responsible for making an HTTP request. The request will be made in 2
+// phases:
+// 1. Connection establishment: An RTT(HTTP) or a series of RTTs(HTTPS) that
+// establishes a connection with the server side. This phase will be timed out
+// by 'connectTimeout_'
+// 2. Transaction: The phase where actual application request is sent to server
+// and response received from server. This phase will be timed out by
+// 'transactionTimer_', also known as request timeout.
+//
+// NOTE: HTTP connection establishment on the proxygen::HTTPServer side can be
+// handled directly in kernel. Whereas HTTPS connection establishment needs to
+// be handled by proxygen::HTTPServer's request handling thread pool. So for
+// HTTPS, connections will not be established if server's request handling
+// thread pool is fully occupied, resulting in long connect time. This needs to
+// be taken into consideration when setting timeouts.
 class ConnectionHandler : public proxygen::HTTPConnector::Callback {
  public:
   ConnectionHandler(
       const std::shared_ptr<ResponseHandler>& responseHandler,
       proxygen::SessionPool* sessionPool,
-      folly::HHWheelTimer* timer,
+      proxygen::WheelTimerInstance transactionTimeout,
+      std::chrono::milliseconds connectTimeout,
       folly::EventBase* eventBase,
       const folly::SocketAddress& address,
-      const std::string& clientCertAndKeyPath,
-      const std::string& ciphers)
+      folly::SSLContextPtr sslContext)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
-        timer_(timer),
+        transactionTimer_(transactionTimeout),
+        connectTimeout_(connectTimeout),
         eventBase_(eventBase),
         address_(address),
-        clientCertAndKeyPath_(clientCertAndKeyPath),
-        ciphers_(ciphers) {}
+        sslContext_(std::move(sslContext)) {}
 
-  bool useHttps() {
-    return !(clientCertAndKeyPath_.empty() && ciphers_.empty());
+  bool useHttps() const {
+    return sslContext_ != nullptr;
   }
 
   void connect() {
-    connector_ = std::make_unique<proxygen::HTTPConnector>(this, timer_);
+    connector_ =
+        std::make_unique<proxygen::HTTPConnector>(this, transactionTimer_);
     if (useHttps()) {
-      auto context = std::make_shared<folly::SSLContext>();
-      context->loadCertKeyPairFromFiles(
-          clientCertAndKeyPath_.c_str(), clientCertAndKeyPath_.c_str());
-      context->setCiphersOrThrow(ciphers_);
-      connector_->connectSSL(eventBase_, address_, context);
+      connector_->connectSSL(
+          eventBase_, address_, sslContext_, nullptr, connectTimeout_);
     } else {
-      connector_->connect(eventBase_, address_);
+      connector_->connect(eventBase_, address_, connectTimeout_);
     }
   }
 
@@ -297,14 +339,17 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
   }
 
  private:
-  std::shared_ptr<ResponseHandler> responseHandler_;
-  proxygen::SessionPool* sessionPool_;
-  std::unique_ptr<proxygen::HTTPConnector> connector_;
-  folly::HHWheelTimer* timer_;
-  folly::EventBase* eventBase_;
+  const std::shared_ptr<ResponseHandler> responseHandler_;
+  proxygen::SessionPool* const sessionPool_;
+  // The request processing timer after the connection succeeds.
+  const proxygen::WheelTimerInstance transactionTimer_;
+  // The connect timeout used to timeout the duration from starting connection
+  // to connect success
+  const std::chrono::milliseconds connectTimeout_;
+  folly::EventBase* const eventBase_;
   const folly::SocketAddress address_;
-  const std::string clientCertAndKeyPath_;
-  const std::string ciphers_;
+  const folly::SSLContextPtr sslContext_;
+  std::unique_ptr<proxygen::HTTPConnector> connector_;
 };
 
 folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
@@ -328,12 +373,12 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
 
     auto connectionHandler = new ConnectionHandler(
         responseHandler,
-        sessionPool_.get(),
-        timer_.get(),
+        sessionPool_,
+        transactionTimer_,
+        connectTimeout_,
         eventBase_,
         address_,
-        clientCertAndKeyPath_,
-        ciphers_);
+        sslContext_);
 
     connectionHandler->connect();
   };

@@ -135,15 +135,13 @@ public final class TimeWithTimeZoneOperators
         if (properties.isLegacyTimestamp()) {
             return unpackMillisUtc(value);
         }
-        else {
-            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
-            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
+        // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
+        // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WIT TIME ZONE
+        long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
+        long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(value);
 
-            ISOChronology chronology = getChronology(unpackZoneKey(value));
-            return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
-        }
+        ISOChronology chronology = getChronology(unpackZoneKey(value));
+        return unpackMillisUtc(value) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
     }
 
     @ScalarOperator(CAST)

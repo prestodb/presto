@@ -471,7 +471,8 @@ public class RowExpressionRewriteRuleSet
                         node.getPreGroupedVariables(),
                         node.getStep(),
                         node.getHashVariable(),
-                        node.getGroupIdVariable());
+                        node.getGroupIdVariable(),
+                        node.getAggregationId());
                 return Result.ofPlanNode(aggregationNode);
             }
             return Result.empty();
@@ -577,7 +578,8 @@ public class RowExpressionRewriteRuleSet
                         node.getTablePartitioningScheme(),
                         node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation,
-                        node.getTaskCountIfScaledWriter()));
+                        node.getTaskCountIfScaledWriter(),
+                        node.getIsTemporaryTableWriter()));
             }
             return Result.empty();
         }

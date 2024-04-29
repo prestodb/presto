@@ -172,7 +172,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 clientRequestTimeout,
                 true,
                 serializedSessionFunctions,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

@@ -20,6 +20,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.isFinite;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @NotThreadSafe
@@ -38,14 +39,14 @@ public class SplitConcurrencyController
         this.adjustmentIntervalNanos = adjustmentInterval.roundTo(NANOSECONDS);
     }
 
-    public void update(long nanos, double utilization, int currentConcurrency)
+    public void update(long durationNanos, double utilization, int currentConcurrency)
     {
-        checkArgument(nanos >= 0, "nanos is negative");
+        checkArgument(durationNanos >= 0, format("durationNanos=%d is negative", durationNanos));
         checkArgument(isFinite(utilization), "utilization must be finite");
-        checkArgument(utilization >= 0, "utilization is negative");
-        checkArgument(currentConcurrency >= 0, "currentConcurrency is negative");
+        checkArgument(utilization >= 0, format("utilization=%f is negative", utilization));
+        checkArgument(currentConcurrency >= 0, format("currentConcurrency=%d is negative", currentConcurrency));
 
-        threadNanosSinceLastAdjustment += nanos;
+        threadNanosSinceLastAdjustment += durationNanos;
         if (threadNanosSinceLastAdjustment >= adjustmentIntervalNanos && utilization < TARGET_UTILIZATION && currentConcurrency >= targetConcurrency) {
             threadNanosSinceLastAdjustment = 0;
             targetConcurrency++;

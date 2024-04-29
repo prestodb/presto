@@ -57,6 +57,7 @@ import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlChecker;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkCredentialsProvider;
+import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
@@ -65,7 +66,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFatalException
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
-import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkAdaptiveQueryExecution;
 import com.facebook.presto.spark.execution.PrestoSparkDataDefinitionExecution;
@@ -85,6 +85,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
@@ -142,8 +143,8 @@ import static com.facebook.presto.security.AccessControlUtils.getAuthorizedIdent
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isAdaptiveQueryExecutionEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.MALFORMED_QUERY_FILE;
+import static com.facebook.presto.spark.util.PrestoSparkExecutionUtils.getExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSparkFailure;
-import static com.facebook.presto.spark.util.PrestoSparkRetryExecutionUtils.getRetryExecutionSettings;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getActionResultWithTimeout;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -336,6 +337,16 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakNodeTotalMemoryInBytes),
                 session.getRuntimeStats());
 
+        Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext = Optional.empty();
+        if (planAndMore.isPresent()) {
+            prestoSparkExecutionContext = Optional.of(
+                    PrestoSparkExecutionContext.create(
+                            planAndMore.get().getPhysicalResourceSettings().getHashPartitionCount(),
+                            planAndMore.get().getPhysicalResourceSettings().getMaxExecutorCount(),
+                            planAndMore.get().getPhysicalResourceSettings().isHashPartitionCountAutoTuned(),
+                            planAndMore.get().getPhysicalResourceSettings().isMaxExecutorCountAutoTuned()));
+        }
+
         return new QueryInfo(
                 session.getQueryId(),
                 session.toSessionRepresentation(),
@@ -378,7 +389,8 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getInvokedAggregateFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of),
-                planAndMore.map(PlanAndMore::getPlan).map(Plan::getPlanIdNodeMap).orElseGet(ImmutableMap::of));
+                planAndMore.map(PlanAndMore::getPlan).map(Plan::getPlanIdNodeMap).orElseGet(ImmutableMap::of),
+                prestoSparkExecutionContext);
     }
 
     public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
@@ -544,7 +556,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
-            List<RetryExecutionStrategy> retryExecutionStrategies,
+            List<ExecutionStrategy> executionStrategies,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
@@ -607,19 +619,19 @@ public class PrestoSparkQueryExecutionFactory
         Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
-        if (!retryExecutionStrategies.isEmpty()) {
-            log.info("Going to retry with following strategies: %s", retryExecutionStrategies);
-            PrestoSparkRetryExecutionSettings prestoSparkRetryExecutionSettings = getRetryExecutionSettings(retryExecutionStrategies, session);
+        if (!executionStrategies.isEmpty()) {
+            log.info("Going to run with following strategies: %s", executionStrategies);
+            PrestoSparkExecutionSettings prestoSparkExecutionSettings = getExecutionSettings(executionStrategies, session);
 
             // Update Spark setting in SparkConf, if present
-            prestoSparkRetryExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
+            prestoSparkExecutionSettings.getSparkConfigProperties().forEach(sparkContext.conf()::set);
 
             // Update Presto settings in Session, if present
             Session.SessionBuilder sessionBuilder = Session.builder(session);
-            transferSessionPropertiesToSession(sessionBuilder, prestoSparkRetryExecutionSettings.getPrestoSessionProperties());
+            transferSessionPropertiesToSession(sessionBuilder, prestoSparkExecutionSettings.getPrestoSessionProperties());
 
             Set<String> clientTags = new HashSet<>(session.getClientTags());
-            retryExecutionStrategies.forEach(s -> clientTags.add(s.name()));
+            executionStrategies.forEach(s -> clientTags.add(s.name()));
             sessionBuilder.setClientTags(clientTags);
 
             session = sessionBuilder.build();
@@ -671,7 +683,7 @@ public class PrestoSparkQueryExecutionFactory
             else {
                 VariableAllocator variableAllocator = new VariableAllocator();
                 PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
-                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator);
+                planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext);
                 JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
                 taskInfoCollector.register(sparkContext, Option.empty(), false);

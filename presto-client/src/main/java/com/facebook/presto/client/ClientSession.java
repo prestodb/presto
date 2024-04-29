@@ -54,6 +54,7 @@ public class ClientSession
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
     private final Map<String, String> sessionFunctions;
+    private final boolean validateNextUriSource;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -87,7 +88,8 @@ public class ClientSession
             Duration clientRequestTimeout,
             boolean compressionDisabled,
             Map<String, String> sessionFunctions,
-            Map<String, String> customHeaders)
+            Map<String, String> customHeaders,
+            boolean validateNextUriSource)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -109,6 +111,7 @@ public class ClientSession
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
         this.sessionFunctions = ImmutableMap.copyOf(requireNonNull(sessionFunctions, "sessionFunctions is null"));
+        this.validateNextUriSource = validateNextUriSource;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -255,6 +258,11 @@ public class ClientSession
         return sessionFunctions;
     }
 
+    public boolean validateNextUriSource()
+    {
+        return validateNextUriSource;
+    }
+
     @Override
     public String toString()
     {
@@ -296,6 +304,7 @@ public class ClientSession
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
         private Map<String, String> sessionFunctions;
+        private boolean validateNextUriSource;
 
         private Builder(ClientSession clientSession)
         {
@@ -320,6 +329,7 @@ public class ClientSession
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
             sessionFunctions = clientSession.getSessionFunctions();
+            validateNextUriSource = clientSession.validateNextUriSource();
         }
 
         public Builder withCatalog(String catalog)
@@ -388,6 +398,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder withValidateNextUriSource(final boolean validateNextUriSource)
+        {
+            this.validateNextUriSource = validateNextUriSource;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -410,7 +426,8 @@ public class ClientSession
                     clientRequestTimeout,
                     compressionDisabled,
                     sessionFunctions,
-                    customHeaders);
+                    customHeaders,
+                    validateNextUriSource);
         }
     }
 }

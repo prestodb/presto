@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
 import static com.facebook.presto.SystemSessionProperties.JOINS_NOT_NULL_INFERENCE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -470,6 +471,29 @@ public abstract class AbstractTestJoinQueries
                 "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey + 1 = orders.orderkey + 1",
                 // H2 takes a million years because it can't join efficiently on a non-indexed field/expression
                 "SELECT SUM(custkey) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey ");
+
+        Session handleComplexEquiJoins = Session.builder(getSession())
+                .setSystemProperty(HANDLE_COMPLEX_EQUI_JOINS, "true")
+                .build();
+
+        assertQueryWithSameQueryRunner(
+                handleComplexEquiJoins,
+                "select c.custkey, ps.partkey, s.suppkey, o.orderkey " +
+                        "from customer c, " +
+                        "    partsupp ps, " +
+                        "    orders o, " +
+                        "    supplier s " +
+                        "where s.suppkey = ps.suppkey " +
+                        "    and c.custkey = o.custkey " +
+                        "    and s.nationkey + ps.partkey = c.nationkey " +
+                        "order by c.custkey, ps.partkey, s.suppkey, o.orderkey",
+                noJoinReordering(),
+                "select c.custkey, ps.partkey, s.suppkey, o.orderkey " +
+                        "from (customer c inner join orders o ON c.custkey = o.custkey) " +
+                        "    inner join  " +
+                        "    (partsupp ps inner join supplier s ON s.suppkey = ps.suppkey) " +
+                        "    on s.nationkey + ps.partkey = c.nationkey " +
+                        "order by c.custkey, ps.partkey, s.suppkey, o.orderkey");
     }
 
     @Test

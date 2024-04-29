@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -84,12 +85,13 @@ public class HudiPartitionManager
                 partitionPredicate.put(partitionColumn, Domain.all(column.getHiveType().getType(typeManager)));
             }
         }
-        List<String> partitionNames = metastore.getPartitionNamesByFilter(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionPredicate);
+        List<PartitionNameWithVersion> partitionNames = metastore.getPartitionNamesByFilter(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionPredicate);
         List<Type> partitionTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getType().getTypeSignature()))
                 .collect(toList());
 
         return partitionNames.stream()
+                .map(PartitionNameWithVersion::getPartitionName)
                 // Apply extra filters which could not be done by getPartitionNamesByFilter, similar to filtering in HivePartitionManager#getPartitionsIterator
                 .filter(partitionName -> parseValuesAndFilterPartition(
                         partitionName,

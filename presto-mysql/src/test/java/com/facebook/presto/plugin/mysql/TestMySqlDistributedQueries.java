@@ -33,7 +33,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-@Test
+@Test(singleThreaded = true)
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -112,6 +112,12 @@ public class TestMySqlDistributedQueries
     public void testDelete()
     {
         // Delete is currently unsupported
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest

@@ -343,4 +343,9 @@ public final class FunctionResolution
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "contains"));
     }
+
+    public boolean isElementAtFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at"));
+    }
 }

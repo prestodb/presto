@@ -14,6 +14,20 @@ To install venv:
 python3 -m pip install --user virtualenv
 ```
 
+Optionally, the PDF version of `presto-docs` requires LaTeX tooling.
+
+For MacOS,
+```
+brew install --cask mactex
+```
+
+For Ubuntu,
+```
+sudo apt-get update
+sudo apt-get install -y texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra latexmk tex-gyre texlive-xetex fonts-freefont-otf xindy
+```
+
+
 ## Building manually
 The default build uses Apache Maven to download dependencies and generate the HTML. You can run it as follows:
 ```
@@ -25,6 +39,12 @@ Or, to build the documentation more quickly:
 cd presto-docs
 ./build
 ```
+To build PDF version of the documentation
+```
+cd presto-docs
+./build --with-pdf
+```
+
 ## Viewing the documentation
 When the build is complete, you'll find the output HTML files in the `target/html/` folder.
 

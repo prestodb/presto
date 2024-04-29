@@ -27,16 +27,20 @@ public class TestIcebergTableName
     @Test
     public void testFrom()
     {
-        assertFrom("abc", "abc", TableType.DATA, Optional.empty());
-        assertFrom("abc@123", "abc", TableType.DATA, Optional.of(123L));
-        assertFrom("abc$data", "abc", TableType.DATA, Optional.empty());
-        assertFrom("xyz@456", "xyz", TableType.DATA, Optional.of(456L));
-        assertFrom("xyz$data@456", "xyz", TableType.DATA, Optional.of(456L));
-        assertFrom("abc$partitions@456", "abc", TableType.PARTITIONS, Optional.of(456L));
-        assertFrom("abc$manifests@456", "abc", TableType.MANIFESTS, Optional.of(456L));
-        assertFrom("abc$manifests@456", "abc", TableType.MANIFESTS, Optional.of(456L));
-        assertFrom("abc$history", "abc", TableType.HISTORY, Optional.empty());
-        assertFrom("abc$snapshots", "abc", TableType.SNAPSHOTS, Optional.empty());
+        assertFrom("abc", "abc", IcebergTableType.DATA);
+        assertFrom("abc@123", "abc", IcebergTableType.DATA, Optional.of(123L));
+        assertFrom("abc$data", "abc", IcebergTableType.DATA);
+        assertFrom("xyz@456", "xyz", IcebergTableType.DATA, Optional.of(456L));
+        assertFrom("xyz$data@456", "xyz", IcebergTableType.DATA, Optional.of(456L));
+        assertFrom("abc$partitions@456", "abc", IcebergTableType.PARTITIONS, Optional.of(456L));
+        assertFrom("abc$manifests@456", "abc", IcebergTableType.MANIFESTS, Optional.of(456L));
+        assertFrom("abc$manifests@456", "abc", IcebergTableType.MANIFESTS, Optional.of(456L));
+        assertFrom("abc$history", "abc", IcebergTableType.HISTORY);
+        assertFrom("abc$snapshots", "abc", IcebergTableType.SNAPSHOTS);
+        assertFrom("abc$changelog", "abc", IcebergTableType.CHANGELOG);
+        assertFrom("abc@123$changelog", "abc", IcebergTableType.CHANGELOG, Optional.of(123L));
+        assertFrom("abc$changelog@123", "abc", IcebergTableType.CHANGELOG, Optional.empty(), Optional.of(123L));
+        assertFrom("abc@123$changelog@124", "abc", IcebergTableType.CHANGELOG, Optional.of(123L), Optional.of(124L));
 
         assertInvalid("abc@xyz", "Invalid Iceberg table name: abc@xyz");
         assertInvalid("abc$what", "Invalid Iceberg table name (unknown type 'what'): abc$what");
@@ -57,11 +61,22 @@ public class TestIcebergTableName
         }
     }
 
-    private static void assertFrom(String inputName, String tableName, TableType tableType, Optional<Long> snapshotId)
+    private static void assertFrom(String inputName, String tableName, IcebergTableType icebergTableType, Optional<Long> snapshotId, Optional<Long> changelogEndSnapshot)
     {
         IcebergTableName name = IcebergTableName.from(inputName);
         assertEquals(name.getTableName(), tableName);
-        assertEquals(name.getTableType(), tableType);
+        assertEquals(name.getTableType(), icebergTableType);
         assertEquals(name.getSnapshotId(), snapshotId);
+        assertEquals(name.getChangelogEndSnapshot(), changelogEndSnapshot);
+    }
+
+    private static void assertFrom(String inputName, String tableName, IcebergTableType icebergTableType, Optional<Long> snapshotId)
+    {
+        assertFrom(inputName, tableName, icebergTableType, snapshotId, Optional.empty());
+    }
+
+    private static void assertFrom(String inputName, String tableName, IcebergTableType icebergTableType)
+    {
+        assertFrom(inputName, tableName, icebergTableType, Optional.empty(), Optional.empty());
     }
 }

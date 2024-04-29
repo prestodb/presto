@@ -29,13 +29,16 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -65,7 +68,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -95,6 +98,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationPartitioningMergingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -120,6 +124,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.LimitNode.Step.PARTIAL;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumberOfTableScans;
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
@@ -155,19 +160,22 @@ public class AddExchanges
     private final SqlParser parser;
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
+    private final boolean nativeExecution;
 
-    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager)
+    public AddExchanges(Metadata metadata, SqlParser parser, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager).accept(plan, PreferredProperties.any());
-        return result.getNode();
+        PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
+        boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
+        return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
     }
 
     private class Rewriter
@@ -187,12 +195,14 @@ public class AddExchanges
         private final int hashPartitionCount;
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
+        private final boolean nativeExecution;
 
         public Rewriter(
                 PlanNodeIdAllocator idAllocator,
                 VariableAllocator variableAllocator,
                 Session session,
-                PartitioningProviderManager partitioningProviderManager)
+                PartitioningProviderManager partitioningProviderManager,
+                boolean nativeExecution)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -208,6 +218,7 @@ public class AddExchanges
             this.hashPartitionCount = getHashPartitionCount(session);
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -613,6 +624,22 @@ public class AddExchanges
         }
 
         @Override
+        public PlanWithProperties visitSequence(SequenceNode node, PreferredProperties preferredProperties)
+        {
+            List<PlanWithProperties> leftPlans = node.getCteProducers().stream()
+                    .map(source -> accept(source, PreferredProperties.any()))
+                    .collect(toImmutableList());
+            PlanWithProperties rightPlan = accept(node.getPrimarySource(), preferredProperties);
+            List<PlanNode> childrenNodes = Stream.concat(
+                    leftPlans.stream().map(PlanWithProperties::getNode),
+                    Stream.of(rightPlan.getNode())
+            ).collect(toImmutableList());
+            return new PlanWithProperties(
+                    node.replaceChildren(childrenNodes),
+                    rightPlan.getProperties());
+        }
+
+        @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
             return planTableScan(node, TRUE_CONSTANT);
@@ -683,6 +710,11 @@ public class AddExchanges
         private PlanWithProperties planTableScan(TableScanNode node, RowExpression predicate)
         {
             PlanNode plan = pushPredicateIntoTableScan(node, predicate, true, session, idAllocator, metadata);
+            // Presto Java and Presto Native use different hash functions for partitioning
+            // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
+            if (nativeExecution && containsSystemTableScan(plan)) {
+                plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+            }
             // TODO: Support selecting layout with best local property once connector can participate in query optimization.
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
@@ -787,15 +819,15 @@ public class AddExchanges
         public PlanWithProperties visitJoin(JoinNode node, PreferredProperties preferredProperties)
         {
             List<VariableReferenceExpression> leftVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getLeft)
+                    .map(EquiJoinClause::getLeft)
                     .collect(toImmutableList());
             List<VariableReferenceExpression> rightVariables = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::getRight)
+                    .map(EquiJoinClause::getRight)
                     .collect(toImmutableList());
 
-            JoinNode.DistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
+            JoinDistributionType distributionType = node.getDistributionType().orElseThrow(() -> new IllegalArgumentException("distributionType not yet set"));
 
-            if (distributionType == JoinNode.DistributionType.REPLICATED) {
+            if (distributionType == JoinDistributionType.REPLICATED) {
                 PlanWithProperties left = accept(node.getLeft(), PreferredProperties.any());
 
                 // use partitioned join if probe side is naturally partitioned on join symbols (e.g: because of aggregation)
@@ -888,7 +920,7 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.PARTITIONED);
+            return buildJoin(node, left, right, JoinDistributionType.PARTITIONED);
         }
 
         private PlanWithProperties planReplicatedJoin(JoinNode node, PlanWithProperties left)
@@ -910,10 +942,10 @@ public class AddExchanges
                         right.getProperties());
             }
 
-            return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
+            return buildJoin(node, left, right, JoinDistributionType.REPLICATED);
         }
 
-        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
+        private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinDistributionType newDistributionType)
         {
             JoinNode result = new JoinNode(
                     node.getSourceLocation(),

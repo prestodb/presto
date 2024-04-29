@@ -96,6 +96,8 @@ public class LookupJoinOperator
     private Optional<ListenableFuture<Supplier<LookupSource>>> unspilledLookupSource = Optional.empty();
     private Iterator<Page> unspilledInputPages = emptyIterator();
     private final boolean optimizeProbeForEmptyBuild;
+    private long nullProbeRowCount;
+    private long inputProbeRowCount;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -404,6 +406,8 @@ public class LookupJoinOperator
             lookupSourceProvider = null;
         }
         spiller.ifPresent(PartitioningSpiller::verifyAllPartitionsRead);
+        operatorContext.recordJoinProbeKeyCount(inputProbeRowCount);
+        operatorContext.recordNullJoinProbeKeyCount(nullProbeRowCount);
         finished = true;
     }
 
@@ -715,6 +719,10 @@ public class LookupJoinOperator
     private void clearProbe()
     {
         // Before updating the probe flush the current page
+        if (probe != null) {
+            nullProbeRowCount += probe.getNullRowCount();
+            inputProbeRowCount += probe.getPositionCount();
+        }
         buildPage();
         probe = null;
     }

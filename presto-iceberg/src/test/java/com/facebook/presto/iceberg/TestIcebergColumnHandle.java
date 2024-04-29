@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
@@ -55,7 +56,8 @@ public class TestIcebergColumnHandle
                 RowType.from(ImmutableList.of(
                         RowType.field("foo2", BIGINT),
                         RowType.field("foo3", new ArrayType(BIGINT)))),
-                Optional.empty());
+                Optional.empty(),
+                REGULAR);
         testRoundTrip(nestedColumn);
     }
 

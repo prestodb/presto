@@ -52,6 +52,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static com.facebook.presto.jdbc.ConnectionProperties.CUSTOM_HEADERS;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static com.facebook.presto.jdbc.ConnectionProperties.FOLLOW_REDIRECTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROTOCOLS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -71,6 +72,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASS
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
+import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -208,6 +210,18 @@ final class PrestoDriverUri
             throws SQLException
     {
         return HTTP_PROTOCOLS.getValue(properties);
+    }
+
+    public boolean validateNextUriSource()
+            throws SQLException
+    {
+        return VALIDATE_NEXTURI_SOURCE.getValue(properties).orElse(false);
+    }
+
+    public boolean followRedirects()
+            throws SQLException
+    {
+        return FOLLOW_REDIRECTS.getValue(properties).orElse(true);
     }
 
     public void setupClient(OkHttpClient.Builder builder)

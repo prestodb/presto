@@ -101,6 +101,6 @@ public class TestArrayNgramsFunction
                 ImmutableList.of("", "")));
 
         assertInvalidFunction("ngrams(ARRAY['foo','bar'], 0)", "N must be positive");
-        assertInvalidFunction("ngrams(ARRAY['foo','bar'], 0)", "N must be positive");
+        assertInvalidFunction("ngrams(ARRAY['foo','bar'], -1)", "N must be positive");
     }
 }

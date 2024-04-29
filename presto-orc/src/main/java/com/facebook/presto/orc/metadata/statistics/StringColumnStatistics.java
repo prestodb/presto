@@ -31,9 +31,11 @@ public class StringColumnStatistics
     public StringColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             StringStatistics stringStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(stringStatistics, "stringStatistics is null");
         this.stringStatistics = stringStatistics;
     }
@@ -48,15 +50,6 @@ public class StringColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return STRING_VALUE_BYTES_OVERHEAD * getNumberOfValues() + stringStatistics.getSum();
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new StringColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                stringStatistics);
     }
 
     @Override

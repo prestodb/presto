@@ -40,6 +40,8 @@ public class FileFragmentResultCacheConfig
     private DataSize maxSinglePagesSize = new DataSize(500, MEGABYTE);
     private DataSize maxCacheSize = new DataSize(100, GIGABYTE);
 
+    private boolean inputDataStatsEnabled;
+
     public boolean isCachingEnabled()
     {
         return cachingEnabled;
@@ -146,6 +148,19 @@ public class FileFragmentResultCacheConfig
     public FileFragmentResultCacheConfig setMaxCacheSize(DataSize maxCacheSize)
     {
         this.maxCacheSize = maxCacheSize;
+        return this;
+    }
+
+    public boolean isInputDataStatsEnabled()
+    {
+        return inputDataStatsEnabled;
+    }
+
+    @Config("fragment-result-cache.input-data-stats-enabled")
+    @ConfigDescription("Enable tracking of the input data size for fragment cache")
+    public FileFragmentResultCacheConfig setInputDataStatsEnabled(boolean inputDataStatsEnabled)
+    {
+        this.inputDataStatsEnabled = inputDataStatsEnabled;
         return this;
     }
 }

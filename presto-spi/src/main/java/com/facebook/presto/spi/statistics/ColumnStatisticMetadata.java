@@ -25,13 +25,17 @@ public class ColumnStatisticMetadata
     private final String columnName;
     private final ColumnStatisticType statisticType;
 
+    private final String functionName;
+
     @JsonCreator
     public ColumnStatisticMetadata(
             @JsonProperty("columnName") String columnName,
-            @JsonProperty("statisticType") ColumnStatisticType statisticType)
+            @JsonProperty("statisticType") ColumnStatisticType statisticType,
+            @JsonProperty("functionName") String functionName)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.statisticType = requireNonNull(statisticType, "statisticType is null");
+        this.functionName = requireNonNull(functionName, "functionName is null");
     }
 
     @JsonProperty
@@ -46,6 +50,12 @@ public class ColumnStatisticMetadata
         return statisticType;
     }
 
+    @JsonProperty
+    public String getFunctionName()
+    {
+        return functionName;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -57,13 +67,14 @@ public class ColumnStatisticMetadata
         }
         ColumnStatisticMetadata that = (ColumnStatisticMetadata) o;
         return Objects.equals(columnName, that.columnName) &&
-                statisticType == that.statisticType;
+                statisticType == that.statisticType &&
+                Objects.equals(functionName, that.functionName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, statisticType);
+        return Objects.hash(columnName, statisticType, functionName);
     }
 
     @Override
@@ -72,6 +83,7 @@ public class ColumnStatisticMetadata
         return "ColumnStatisticMetadata{" +
                 "columnName='" + columnName + '\'' +
                 ", statisticType=" + statisticType +
+                ", functionName=" + functionName +
                 '}';
     }
 }

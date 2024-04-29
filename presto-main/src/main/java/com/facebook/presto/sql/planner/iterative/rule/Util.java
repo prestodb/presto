@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.LogicalProperties;
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -25,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +37,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 class Util
 {
@@ -123,5 +128,31 @@ class Util
             return Optional.empty();
         }
         return Optional.of(node.replaceChildren(newChildrenBuilder.build()));
+    }
+
+    public static OrderingScheme pruneOrderingColumns(OrderingScheme nodeOrderingScheme, LogicalProperties sourceLogicalProperties)
+    {
+        requireNonNull(nodeOrderingScheme, "nodeOrderingScheme is null");
+        requireNonNull(sourceLogicalProperties, "nodeOrderingScheme is null");
+
+        List<VariableReferenceExpression> orderingVariables = nodeOrderingScheme.getOrderBy().stream().map(Ordering::getVariable).collect(toImmutableList());
+        int sizeSmallestDistinctPrefix = sizeSmallestDistinctPrefix(sourceLogicalProperties, orderingVariables);
+        if (sizeSmallestDistinctPrefix == 0) {
+            return nodeOrderingScheme;
+        }
+        List<Ordering> keyPrefix = nodeOrderingScheme.getOrderBy().subList(0, sizeSmallestDistinctPrefix);
+        return new OrderingScheme(keyPrefix);
+    }
+
+    private static int sizeSmallestDistinctPrefix(LogicalProperties logicalProperties, List<VariableReferenceExpression> candidateVariables)
+    {
+        HashSet<VariableReferenceExpression> possibleKeySet = new HashSet<>();
+        for (int prefixSize = 1; prefixSize < candidateVariables.size(); prefixSize++) {
+            possibleKeySet.add(candidateVariables.get(prefixSize - 1));
+            if (logicalProperties.isDistinct(possibleKeySet)) {
+                return prefixSize;
+            }
+        }
+        return 0;
     }
 }

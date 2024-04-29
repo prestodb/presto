@@ -19,6 +19,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -37,10 +38,9 @@ import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.SystemSessionProperties.isInPredicatesAsInnerJoinsEnabled;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.matching.Capture.newCapture;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
-import static com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.Patterns.Join.type;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -152,7 +152,8 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
                 aggregationNode.getPreGroupedVariables(),
                 aggregationNode.getStep(),
                 aggregationNode.getHashVariable(),
-                aggregationNode.getGroupIdVariable());
+                aggregationNode.getGroupIdVariable(),
+                aggregationNode.getAggregationId());
 
         return Result.ofPlanNode(newAggregationNode);
     }

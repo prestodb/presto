@@ -192,6 +192,7 @@ public class SliceDictionaryColumnWriter
     @Override
     protected ColumnStatistics createColumnStatistics()
     {
+        statisticsBuilder.incrementRawSize(rawSize);
         ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         statisticsBuilder = newStringStatisticsBuilder();
         return statistics;
@@ -218,6 +219,12 @@ public class SliceDictionaryColumnWriter
     protected void movePresentStreamToDirectWriter(PresentOutputStream presentStream)
     {
         directColumnWriter.updatePresentStream(presentStream);
+    }
+
+    @Override
+    protected void updateRawSizeInDirectWriter(long rawSize)
+    {
+        directColumnWriter.updateRawSize(rawSize);
     }
 
     @Override

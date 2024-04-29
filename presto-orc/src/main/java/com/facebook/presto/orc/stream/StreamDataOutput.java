@@ -20,6 +20,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.function.ToLongFunction;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -67,5 +68,13 @@ public final class StreamDataOutput
     {
         long size = writer.applyAsLong(sliceOutput);
         verify(stream.getLength() == size, "Data stream did not write expected size");
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("stream", stream)
+                .toString();
     }
 }

@@ -28,6 +28,8 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteReferenceNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -106,6 +108,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.getCteMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -116,6 +119,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolR
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.resolveEnumLiteral;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
@@ -180,8 +184,20 @@ class RelationPlanner
             if (namedQuery.isFromView()) {
                 cteName = createQualifiedObjectName(session, node, node.getName()).toString();
             }
-            session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView());
             RelationPlan subPlan = process(namedQuery.getQuery(), context);
+            if (getCteMaterializationStrategy(session).equals(NONE)) {
+                session.getCteInformationCollector().addCTEReference(cteName, namedQuery.isFromView(), false);
+            }
+            else {
+                // cte considered for materialization
+                String normalizedCteId = context.getCteInfo().normalize(NodeRef.of(namedQuery.getQuery()), cteName);
+                session.getCteInformationCollector().addCTEReference(cteName, normalizedCteId, namedQuery.isFromView(), true);
+                subPlan = new RelationPlan(
+                        new CteReferenceNode(getSourceLocation(node.getLocation()),
+                                idAllocator.getNextId(), subPlan.getRoot(), normalizedCteId),
+                        subPlan.getScope(),
+                        subPlan.getFieldMappings());
+            }
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
@@ -201,7 +217,7 @@ class RelationPlanner
         }
 
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        List<TableConstraint<ColumnHandle>> tableConstraints = metadata.getTableMetadata(session, handle).getMetadata().getTableConstraints();
+        List<TableConstraint<ColumnHandle>> tableConstraints = metadata.getTableMetadata(session, handle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         context.incrementLeafNodes(session);
         PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), tableConstraints, TupleDomain.all(), TupleDomain.all());
 
@@ -289,7 +305,7 @@ class RelationPlanner
                 .addAll(rightPlan.getFieldMappings())
                 .build();
 
-        ImmutableList.Builder<JoinNode.EquiJoinClause> equiClauses = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> equiClauses = ImmutableList.builder();
         List<Expression> complexJoinExpressions = new ArrayList<>();
         List<Expression> postInnerJoinConditions = new ArrayList<>();
 
@@ -357,7 +373,7 @@ class RelationPlanner
                     VariableReferenceExpression leftVariable = leftPlanBuilder.translateToVariable(leftComparisonExpressions.get(i));
                     VariableReferenceExpression rightVariable = rightPlanBuilder.translateToVariable(rightComparisonExpressions.get(i));
 
-                    equiClauses.add(new JoinNode.EquiJoinClause(leftVariable, rightVariable));
+                    equiClauses.add(new EquiJoinClause(leftVariable, rightVariable));
                 }
                 else {
                     Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
@@ -505,7 +521,7 @@ class RelationPlanner
 
         Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
 
-        ImmutableList.Builder<JoinNode.EquiJoinClause> clauses = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> clauses = ImmutableList.builder();
 
         Map<Identifier, VariableReferenceExpression> leftJoinColumns = new HashMap<>();
         Map<Identifier, VariableReferenceExpression> rightJoinColumns = new HashMap<>();
@@ -545,7 +561,7 @@ class RelationPlanner
                     context));
             rightJoinColumns.put(identifier, rightOutput);
 
-            clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
+            clauses.add(new EquiJoinClause(leftOutput, rightOutput));
         }
 
         ProjectNode leftCoercion = new ProjectNode(idAllocator.getNextId(), left.getRoot(), leftCoercions.build());
@@ -1026,6 +1042,7 @@ class RelationPlanner
                 singleGroupingSet(node.getOutputVariables()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

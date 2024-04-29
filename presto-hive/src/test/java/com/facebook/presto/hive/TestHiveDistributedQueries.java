@@ -34,6 +34,7 @@ import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -78,6 +79,12 @@ public class TestHiveDistributedQueries
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     @Test

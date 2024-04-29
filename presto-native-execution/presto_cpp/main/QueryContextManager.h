@@ -23,10 +23,6 @@
 #include "velox/core/QueryCtx.h"
 
 namespace facebook::presto {
-
-folly::CPUThreadPoolExecutor* driverCPUExecutor();
-folly::IOThreadPoolExecutor* spillExecutorPtr();
-
 class QueryContextCache {
  public:
   using QueryCtxWeakPtr = std::weak_ptr<velox::core::QueryCtx>;
@@ -91,6 +87,8 @@ class QueryContextCache {
     return queryCtxs_;
   }
 
+  void testingClear();
+
  private:
   size_t capacity_;
 
@@ -102,16 +100,21 @@ class QueryContextCache {
 
 class QueryContextManager {
  public:
-  QueryContextManager() = default;
+  QueryContextManager(
+      folly::Executor* driverExecutor,
+      folly::Executor* spillerExecutor);
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       const protocol::SessionRepresentation& session);
 
-  // Calls the given functor for every present query context.
+  /// Calls the given functor for every present query context.
   void visitAllContexts(std::function<void(
                             const protocol::QueryId&,
                             const velox::core::QueryCtx*)> visitor) const;
+
+  /// Test method to clear the query context cache.
+  void testingClearCache();
 
  private:
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
@@ -121,6 +124,9 @@ class QueryContextManager {
           std::string,
           std::unordered_map<std::string, std::string>>&&
           connectorConfigStrings);
+
+  folly::Executor* const driverExecutor_{nullptr};
+  folly::Executor* const spillerExecutor_{nullptr};
 
   folly::Synchronized<QueryContextCache> queryContextCache_;
 };

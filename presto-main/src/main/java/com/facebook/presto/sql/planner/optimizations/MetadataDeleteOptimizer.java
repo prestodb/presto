@@ -58,9 +58,11 @@ public class MetadataDeleteOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        Optimizer optimizer = new Optimizer(session, metadata, idAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
     }
 
     private static class Optimizer
@@ -69,12 +71,18 @@ public class MetadataDeleteOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
         private final Metadata metadata;
+        private boolean planChanged;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.metadata = metadata;
             this.idAllocator = idAllocator;
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -93,6 +101,7 @@ public class MetadataDeleteOptimizer
                 return context.defaultRewrite(node);
             }
 
+            planChanged = true;
             return new MetadataDeleteNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),

@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_NAMES;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_SIZES;
@@ -46,7 +47,6 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileNames;
 import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
@@ -151,7 +151,7 @@ public class ManifestPartitionLoader
             boolean schedulerUsesHostAddresses)
             throws IOException
     {
-        String partitionName = partition.getHivePartition().getPartitionId();
+        String partitionName = partition.getHivePartition().getPartitionId().getPartitionName();
         Storage storage = partition.getPartition().map(Partition::getStorage).orElse(table.getStorage());
         String inputFormatName = storage.getStorageFormat().getInputFormat();
         int partitionDataColumnCount = partition.getPartition()
@@ -178,7 +178,8 @@ public class ManifestPartitionLoader
                         partitionDataColumnCount,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
-                        partition.getRedundantColumnDomains()),
+                        partition.getRedundantColumnDomains(),
+                        partition.getRowIdPartitionComponent()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
     }
@@ -191,7 +192,8 @@ public class ManifestPartitionLoader
                 recursiveDirWalkerEnabled ? RECURSE : IGNORED,
                 false,
                 hdfsContext.getIdentity(),
-                buildDirectoryContextProperties(session));
+                buildDirectoryContextProperties(session),
+                session.getRuntimeStats());
 
         Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, partition.getPartition(), namenodeStats, hiveDirectoryContext);
         int fileCount = 0;

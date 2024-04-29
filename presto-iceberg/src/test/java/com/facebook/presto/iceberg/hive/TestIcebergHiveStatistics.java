@@ -20,6 +20,8 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.iceberg.IcebergMetadataColumn;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
@@ -27,6 +29,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
@@ -45,7 +48,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.HIVE_METASTORE_STATISTICS_MERGE_STRATEGY;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -63,7 +71,7 @@ public class TestIcebergHiveStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of("iceberg.hive-statistics-merge-strategy", "USE_NDV"));
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of("iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name()));
     }
 
     private static final Set<String> NUMERIC_ORDERS_COLUMNS = ImmutableSet.<String>builder()
@@ -273,11 +281,80 @@ public class TestIcebergHiveStatistics
         assertQuerySucceeds("DROP TABLE statsWithPartition");
     }
 
+    @Test
+    public void testHiveStatisticsMergeFlags()
+    {
+        assertQuerySucceeds("CREATE TABLE mergeFlagsStats (i int, v varchar)");
+        assertQuerySucceeds("INSERT INTO mergeFlagsStats VALUES (0, '1'), (1, '22'), (2, '333'), (NULL, 'aaaaa'), (4, NULL)");
+        assertQuerySucceeds("ANALYZE mergeFlagsStats"); // stats stored in
+        // Test stats without merging doesn't return NDVs or data size
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, "")
+                .build();
+        TableStatistics stats = getTableStatistics(session, "mergeFlagsStats");
+        Map<String, ColumnStatistics> columnStatistics = getColumnNameMap(stats);
+        assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.unknown());
+        assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
+        assertEquals(columnStatistics.get("v").getDistinctValuesCount(), Estimate.unknown());
+        assertEquals(columnStatistics.get("v").getDataSize(), Estimate.unknown());
+
+        // Test stats merging for NDVs
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, NUMBER_OF_DISTINCT_VALUES.name())
+                .build();
+        stats = getTableStatistics(session, "mergeFlagsStats");
+        columnStatistics = getColumnNameMap(stats);
+        assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
+        assertEquals(columnStatistics.get("v").getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStatistics.get("v").getDataSize(), Estimate.unknown());
+
+        // Test stats for data size
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, TOTAL_SIZE_IN_BYTES.name())
+                .build();
+        stats = getTableStatistics(session, "mergeFlagsStats");
+        columnStatistics = getColumnNameMap(stats);
+        assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.unknown());
+        assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown()); // fixed-width isn't collected
+        assertEquals(columnStatistics.get("v").getDistinctValuesCount(), Estimate.unknown());
+        assertEquals(columnStatistics.get("v").getDataSize(), Estimate.of(11));
+
+        // Test stats for both
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", HIVE_METASTORE_STATISTICS_MERGE_STRATEGY, NUMBER_OF_DISTINCT_VALUES.name() + "," + TOTAL_SIZE_IN_BYTES)
+                .build();
+        stats = getTableStatistics(session, "mergeFlagsStats");
+        columnStatistics = getColumnNameMap(stats);
+        assertEquals(columnStatistics.get("i").getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
+        assertEquals(columnStatistics.get("v").getDistinctValuesCount(), Estimate.of(4.0));
+        assertEquals(columnStatistics.get("v").getDataSize(), Estimate.of(11));
+    }
+
+    private TableStatistics getTableStatistics(Session session, String table)
+    {
+        Metadata meta = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session txnSession = session.beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(table, txnSession);
+        List<ColumnHandle> columnHandleList = new ArrayList<>(columnHandles.values());
+        return meta.getTableStatistics(txnSession, getAnalyzeTableHandle(table, txnSession), columnHandleList, Constraint.alwaysTrue());
+    }
+
     private void columnStatsEqual(Map<ColumnHandle, ColumnStatistics> actualStats, Map<ColumnHandle, ColumnStatistics> expectedStats)
     {
-        for (ColumnHandle handle : actualStats.keySet()) {
-            ColumnStatistics actual = actualStats.get(handle);
+        for (ColumnHandle handle : expectedStats.keySet()) {
             ColumnStatistics expected = expectedStats.get(handle);
+            if (((IcebergColumnHandle) handle).getColumnType() == PARTITION_KEY) {
+                handle = new IcebergColumnHandle(
+                        ((IcebergColumnHandle) handle).getColumnIdentity(),
+                        ((IcebergColumnHandle) handle).getType(),
+                        ((IcebergColumnHandle) handle).getComment(),
+                        REGULAR,
+                        handle.getRequiredSubfields());
+            }
+            ColumnStatistics actual = actualStats.get(handle);
             assertEquals(actual.getRange(), expected.getRange(), "range for col: " + handle);
             assertEquals(actual.getNullsFraction(), expected.getNullsFraction(), "nulls fraction for col: " + handle);
             assertEquals(actual.getDistinctValuesCount(), expected.getDistinctValuesCount(), "NDVs for col: " + handle);
@@ -308,7 +385,9 @@ public class TestIcebergHiveStatistics
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)
     {
-        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session));
+        return getQueryRunner().getMetadata().getColumnHandles(session, getTableHandle(tableName, session)).entrySet().stream()
+                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     static void assertStatValuePresent(StatsSchema column, MaterializedResult result, Set<String> columnNames)
@@ -334,6 +413,13 @@ public class TestIcebergHiveStatistics
                 }
             }
         });
+    }
+
+    private static Map<String, ColumnStatistics> getColumnNameMap(TableStatistics statistics)
+    {
+        return statistics.getColumnStatistics().entrySet().stream().collect(Collectors.toMap(e ->
+                        ((IcebergColumnHandle) e.getKey()).getName(),
+                Map.Entry::getValue));
     }
 
     static void assertNDVsPresent(TableStatistics stats)

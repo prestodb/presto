@@ -179,6 +179,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
     }
@@ -205,6 +210,16 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
+    {
+    }
+
+    @Override
+    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }
 }

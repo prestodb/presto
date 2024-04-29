@@ -63,20 +63,22 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxBufferSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcOptimizedWriterValidateMode;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcOptimizedWriterEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcOptimizedWriterValidate;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.facebook.presto.hive.HiveSessionProperties.getCompressionLevel;
 import static com.facebook.presto.hive.HiveSessionProperties.getDwrfWriterStripeCacheMaxSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxDictionaryMemory;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeRows;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMaxStripeSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
-import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static com.facebook.presto.hive.HiveSessionProperties.isDwrfWriterStripeCacheEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isExecutionBasedMemoryAccountingEnabled;
@@ -202,7 +204,7 @@ public class OrcFileWriterFactory
             ConnectorSession session,
             Optional<EncryptionInformation> encryptionInformation)
     {
-        if (!HiveSessionProperties.isOrcOptimizedWriterEnabled(session)) {
+        if (!isOrcOptimizedWriterEnabled(session)) {
             return Optional.empty();
         }
 
@@ -235,7 +237,7 @@ public class OrcFileWriterFactory
             DataSink dataSink = createDataSink(session, fileSystem, path);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
-            if (HiveSessionProperties.isOrcOptimizedWriterValidate(session)) {
+            if (isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
                         return new HdfsOrcDataSource(

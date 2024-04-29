@@ -40,7 +40,7 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;

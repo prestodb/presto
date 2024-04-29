@@ -81,6 +81,7 @@ public class Driver
     private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
+    private final Optional<UpdateOperator> updateOperator;
 
     // This variable acts as a staging area. When new splits (encapsulated in TaskSource) are
     // provided to a Driver, the Driver will not process them right away. Instead, the splits are
@@ -140,6 +141,7 @@ public class Driver
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
         Optional<DeleteOperator> deleteOperator = Optional.empty();
+        Optional<UpdateOperator> updateOperator = Optional.empty();
         for (Operator operator : operators) {
             if (operator instanceof SourceOperator) {
                 checkArgument(!sourceOperator.isPresent(), "There must be at most one SourceOperator");
@@ -149,9 +151,14 @@ public class Driver
                 checkArgument(!deleteOperator.isPresent(), "There must be at most one DeleteOperator");
                 deleteOperator = Optional.of((DeleteOperator) operator);
             }
+            else if (operator instanceof UpdateOperator) {
+                checkArgument(!updateOperator.isPresent(), "There must be at most one UpdateOperator");
+                updateOperator = Optional.of((UpdateOperator) operator);
+            }
         }
         this.sourceOperator = sourceOperator;
         this.deleteOperator = deleteOperator;
+        this.updateOperator = updateOperator;
 
         currentTaskSource = sourceOperator.map(operator -> new TaskSource(operator.getSourceId(), ImmutableSet.of(), false)).orElse(null);
         // initially the driverBlockedFuture is not blocked (it is completed)
@@ -266,17 +273,23 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get()
+                FragmentCacheResult fragmentCacheResult = fragmentResultCacheContext.get().get()
                         .getFragmentResultCacheManager()
                         .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                Optional<Iterator<Page>> pages = fragmentCacheResult.getPages();
                 sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
                         pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
+                if (pages.isPresent()) {
+                    sourceOperator.getOperatorContext().recordProcessedInput(fragmentCacheResult.getInputDataSize(), 0);
+                    sourceOperator.getOperatorContext().recordRawInput(fragmentCacheResult.getInputDataSize(), 0);
+                }
                 this.cachedResult.set(pages);
                 this.split.set(split);
             }
 
             Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(newSplit);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
+            updateOperator.ifPresent(updateOperator -> updateOperator.setPageSource(pageSource));
         }
 
         // set no more splits
@@ -469,7 +482,12 @@ public class Driver
                     if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
                         checkState(split.get() != null);
                         checkState(fragmentResultCacheContext.get().isPresent());
-                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split.get(), outputPages);
+                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(
+                                fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(),
+                                split.get(),
+                                outputPages,
+                                // also cache the bytes read count from the source operator for this fragment
+                                sourceOperator.get().getOperatorContext().getInputDataSize().getTotalCount());
                     }
 
                     // Finish the next operator, which is now the first operator.

@@ -19,7 +19,6 @@ namespace facebook::presto::protocol {
 // Deserializes base64-encoded string created by
 // presto-common/src/main/java/com/facebook/presto/common/block/BlockEncodingManager.java
 // into vector.
-// TODO Refactor to avoid duplicating logic in PrestoSerializer.
 velox::VectorPtr readBlock(
     const velox::TypePtr& type,
     const std::string& base64Encoded,

@@ -145,8 +145,10 @@ public final class AggregationUtils
     public static void updateRegressionState(RegressionState state, double x, double y)
     {
         double oldMeanX = state.getMeanX();
+        double oldMeanY = state.getMeanY();
         updateCovarianceState(state, x, y);
         state.setM2X(state.getM2X() + (x - oldMeanX) * (x - state.getMeanX()));
+        state.setM2Y(state.getM2Y() + (y - oldMeanY) * (y - state.getMeanY()));
     }
 
     public static double getRegressionSlope(RegressionState state)
@@ -165,6 +167,41 @@ public final class AggregationUtils
         double meanY = state.getMeanY();
 
         return meanY - slope * meanX;
+    }
+
+    public static double getRegressionAvgy(RegressionState state)
+    {
+        return state.getMeanY();
+    }
+
+    public static double getRegressionAvgx(RegressionState state)
+    {
+        return state.getMeanX();
+    }
+
+    public static double getRegressionSxx(RegressionState state)
+    {
+        return state.getM2X();
+    }
+
+    public static double getRegressionSxy(RegressionState state)
+    {
+        return state.getC2();
+    }
+
+    public static double getRegressionSyy(RegressionState state)
+    {
+        return state.getM2Y();
+    }
+
+    public static double getRegressionR2(RegressionState state)
+    {
+        return Math.pow(state.getC2(), 2) / (state.getM2X() * state.getM2Y());
+    }
+
+    public static double getRegressionCount(RegressionState state)
+    {
+        return state.getCount();
     }
 
     public static void mergeVarianceState(VarianceState state, VarianceState otherState)
@@ -265,6 +302,7 @@ public final class AggregationUtils
         long na = state.getCount();
         long nb = otherState.getCount();
         state.setM2X(state.getM2X() + otherState.getM2X() + na * nb * Math.pow(state.getMeanX() - otherState.getMeanX(), 2) / (double) (na + nb));
+        state.setM2Y(state.getM2Y() + otherState.getM2Y() + na * nb * Math.pow(state.getMeanY() - otherState.getMeanY(), 2) / (double) (na + nb));
         updateCovarianceState(state, otherState);
     }
 

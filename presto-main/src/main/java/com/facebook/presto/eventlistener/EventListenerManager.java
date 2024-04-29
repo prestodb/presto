@@ -99,29 +99,25 @@ public class EventListenerManager
 
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCompleted(queryCompletedEvent);
-        }
+        configuredEventListener.get()
+                .ifPresent(eventListener -> eventListener.queryCompleted(queryCompletedEvent));
     }
 
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCreated(queryCreatedEvent);
-        }
+        configuredEventListener.get()
+                .ifPresent(eventListener -> eventListener.queryCreated(queryCreatedEvent));
     }
 
     public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryUpdated(queryUpdatedEvent);
-        }
+        configuredEventListener.get()
+                .ifPresent(eventListener -> eventListener.queryUpdated(queryUpdatedEvent));
     }
 
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
-        }
+        configuredEventListener.get()
+                .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
     }
 }

@@ -22,6 +22,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.sql.tree.CreateView;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartiti
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
+import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -57,7 +59,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using"})
+        "deprecated.legacy-join-using",
+        "use-legacy-scheduler",
+        "max-stage-retries"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -79,7 +83,6 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
-    private int maxStageRetries;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
@@ -90,12 +93,18 @@ public class FeaturesConfig
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
+    private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
+    private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean trackHistoryStatsFromFailedQuery = true;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
+    private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
+    private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -160,15 +169,18 @@ public class FeaturesConfig
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
+    private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
-    private boolean exploitConstraints;
+    private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
+    private boolean adaptivePartialAggregationEnabled;
+    private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
@@ -201,7 +213,6 @@ public class FeaturesConfig
 
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
-    private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
@@ -266,11 +277,13 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean fieldNamesInJsonCastEnabled;
+    private boolean legacyJsonCast = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
     private boolean rewriteCrossJoinWithArrayContainsFilterToInnerJoin = true;
+    private LeftJoinArrayContainsToInnerJoinStrategy leftJoinWithArrayContainsToEquiJoinStrategy = LeftJoinArrayContainsToInnerJoinStrategy.DISABLED;
     private boolean rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin = true;
     private JoinNotNullInferenceStrategy joinNotNullInferenceStrategy = NONE;
     private boolean leftJoinNullFilterToSemiJoin = true;
@@ -279,11 +292,23 @@ public class FeaturesConfig
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
+    private boolean rewriteExpressionWithConstantVariable = true;
 
     private boolean preProcessMetadataCalls;
+    private boolean handleComplexEquiJoins;
     private boolean useHBOForScaledWriters;
 
+    private boolean usePartialAggregationHistory;
+
+    private boolean trackPartialAggregationHistory = true;
+
     private boolean removeRedundantCastToVarcharInJoin = true;
+    private boolean skipHashGenerationForJoinWithTableScanInput;
+    private long kHyperLogLogAggregationGroupNumberLimit;
+    private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
+    private boolean generateDomainFilters;
+    private CreateView.Security defaultViewSecurityMode = DEFINER;
+    private boolean useHistograms;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -338,6 +363,16 @@ public class FeaturesConfig
         {
             return this == TOP_DOWN;
         }
+    }
+
+    public enum CteMaterializationStrategy
+    {
+        ALL, // Materialize all CTES
+        NONE, // Materialize no CTES
+
+        // HEURISTIC algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization
+        HEURISTIC, // Materialize CTES occuring  >= CTE_HEURISTIC_REPLICATION_THRESHOLD
+        HEURISTIC_COMPLEX_QUERIES_ONLY // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate
     }
 
     public enum TaskSpillingStrategy
@@ -415,6 +450,13 @@ public class FeaturesConfig
          * to check if this function can operate on NULL inputs
          */
         USE_FUNCTION_METADATA
+    }
+
+    // TODO: Implement cost based strategy
+    public enum LeftJoinArrayContainsToInnerJoinStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED
     }
 
     public double getCpuCostWeight()
@@ -557,6 +599,45 @@ public class FeaturesConfig
         return this;
     }
 
+    public CteMaterializationStrategy getCteMaterializationStrategy()
+    {
+        return cteMaterializationStrategy;
+    }
+
+    @Config("cte-materialization-strategy")
+    @ConfigDescription("Set strategy used to determine whether to materialize ctes (ALL, NONE, HEURISTIC, HEURISTIC_COMPLEX_QUERIES_ONLY)")
+    public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
+    {
+        this.cteMaterializationStrategy = cteMaterializationStrategy;
+        return this;
+    }
+
+    public boolean getCteFilterAndProjectionPushdownEnabled()
+    {
+        return cteFilterAndProjectionPushdownEnabled;
+    }
+
+    @Config("cte-filter-and-projection-pushdown-enabled")
+    @ConfigDescription("Enable pushing down filters and projections inside common table expressions")
+    public FeaturesConfig setCteFilterAndProjectionPushdownEnabled(boolean cteFilterAndProjectionPushdownEnabled)
+    {
+        this.cteFilterAndProjectionPushdownEnabled = cteFilterAndProjectionPushdownEnabled;
+        return this;
+    }
+
+    public int getCteHeuristicReplicationThreshold()
+    {
+        return cteHeuristicReplicationThreshold;
+    }
+
+    @Config("cte-heuristic-replication-threshold")
+    @ConfigDescription("Used with CTE Materialization Strategy = Heuristic. CTES are only materialized if they are used greater than or equal to this number")
+    public FeaturesConfig setCteHeuristicReplicationThreshold(int cteHeuristicReplicationThreshold)
+    {
+        this.cteHeuristicReplicationThreshold = cteHeuristicReplicationThreshold;
+        return this;
+    }
+
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
@@ -571,6 +652,18 @@ public class FeaturesConfig
     public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
     {
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        return this;
+    }
+
+    public boolean isLegacyJsonCast()
+    {
+        return legacyJsonCast;
+    }
+
+    @Config("legacy-json-cast")
+    public FeaturesConfig setLegacyJsonCast(boolean legacyJsonCast)
+    {
+        this.legacyJsonCast = legacyJsonCast;
         return this;
     }
 
@@ -659,19 +752,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxFailedTaskPercentage(double maxFailedTaskPercentage)
     {
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
-        return this;
-    }
-
-    public int getMaxStageRetries()
-    {
-        return maxStageRetries;
-    }
-
-    @Config("max-stage-retries")
-    @ConfigDescription("Maximum number of times that stages can be retried")
-    public FeaturesConfig setMaxStageRetries(int maxStageRetries)
-    {
-        this.maxStageRetries = maxStageRetries;
         return this;
     }
 
@@ -857,6 +937,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isTrackHistoryStatsFromFailedQuery()
+    {
+        return trackHistoryStatsFromFailedQuery;
+    }
+
+    @Config("optimizer.track-history-stats-from-failed-queries")
+    public FeaturesConfig setTrackHistoryStatsFromFailedQuery(boolean trackHistoryStatsFromFailedQuery)
+    {
+        this.trackHistoryStatsFromFailedQuery = trackHistoryStatsFromFailedQuery;
+        return this;
+    }
+
     public boolean isUsePerfectlyConsistentHistories()
     {
         return usePerfectlyConsistentHistories;
@@ -893,6 +985,31 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerTimeout(Duration historyBasedOptimizerTimeout)
     {
         this.historyBasedOptimizerTimeout = historyBasedOptimizerTimeout;
+        return this;
+    }
+
+    @NotNull
+    public String getHistoryBasedOptimizerPlanCanonicalizationStrategies()
+    {
+        return historyBasedOptimizerPlanCanonicalizationStrategies;
+    }
+
+    @Config("optimizer.history-based-optimizer-plan-canonicalization-strategies")
+    public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
+    {
+        this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
+        return this;
+    }
+
+    public boolean isLogPlansUsedInHistoryBasedOptimizer()
+    {
+        return logPlansUsedInHistoryBasedOptimizer;
+    }
+
+    @Config("optimizer.log-plans-used-in-history-based-optimizer")
+    public FeaturesConfig setLogPlansUsedInHistoryBasedOptimizer(boolean logPlansUsedInHistoryBasedOptimizer)
+    {
+        this.logPlansUsedInHistoryBasedOptimizer = logPlansUsedInHistoryBasedOptimizer;
         return this;
     }
 
@@ -1054,6 +1171,30 @@ public class FeaturesConfig
     public FeaturesConfig setPartialAggregationByteReductionThreshold(double partialAggregationByteReductionThreshold)
     {
         this.partialAggregationByteReductionThreshold = partialAggregationByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isAdaptivePartialAggregationEnabled()
+    {
+        return adaptivePartialAggregationEnabled;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation")
+    public FeaturesConfig setAdaptivePartialAggregationEnabled(boolean adaptivePartialAggregationEnabled)
+    {
+        this.adaptivePartialAggregationEnabled = adaptivePartialAggregationEnabled;
+        return this;
+    }
+
+    public double getAdaptivePartialAggregationRowsReductionRatioThreshold()
+    {
+        return adaptivePartialAggregationRowsReductionRatioThreshold;
+    }
+
+    @Config("experimental.adaptive-partial-aggregation-rows-reduction-ratio-threshold")
+    public FeaturesConfig setAdaptivePartialAggregationRowsReductionRatioThreshold(double adaptivePartialAggregationRowsReductionRatioThreshold)
+    {
+        this.adaptivePartialAggregationRowsReductionRatioThreshold = adaptivePartialAggregationRowsReductionRatioThreshold;
         return this;
     }
 
@@ -1419,6 +1560,19 @@ public class FeaturesConfig
     public double getDefaultJoinSelectivityCoefficient()
     {
         return defaultJoinSelectivityCoefficient;
+    }
+
+    @Config("optimizer.default-writer-replication-coefficient")
+    @ConfigDescription("Replication coefficient for costing write operations")
+    public FeaturesConfig setDefaultWriterReplicationCoefficient(double defaultJoinSelectivityCoefficient)
+    {
+        this.defaultWriterReplicationCoefficient = defaultJoinSelectivityCoefficient;
+        return this;
+    }
+
+    public double getDefaultWriterReplicationCoefficient()
+    {
+        return defaultWriterReplicationCoefficient;
     }
 
     public DataSize getTopNOperatorUnspillMemoryLimit()
@@ -1943,19 +2097,6 @@ public class FeaturesConfig
     public FeaturesConfig setExperimentalFunctionsEnabled(boolean experimentalFunctionsEnabled)
     {
         this.experimentalFunctionsEnabled = experimentalFunctionsEnabled;
-        return this;
-    }
-
-    public boolean isUseLegacyScheduler()
-    {
-        return useLegacyScheduler;
-    }
-
-    @Config("use-legacy-scheduler")
-    @ConfigDescription("Use the version of the scheduler before refactorings for section retries")
-    public FeaturesConfig setUseLegacyScheduler(boolean useLegacyScheduler)
-    {
-        this.useLegacyScheduler = useLegacyScheduler;
         return this;
     }
 
@@ -2715,6 +2856,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public LeftJoinArrayContainsToInnerJoinStrategy getLeftJoinWithArrayContainsToEquiJoinStrategy()
+    {
+        return leftJoinWithArrayContainsToEquiJoinStrategy;
+    }
+
+    @Config("optimizer.left-join-with-array-contains-to-equi-join-strategy")
+    @ConfigDescription("When to apply rewrite left join with array contains to equi join")
+    public FeaturesConfig setLeftJoinWithArrayContainsToEquiJoinStrategy(LeftJoinArrayContainsToInnerJoinStrategy leftJoinWithArrayContainsToEquiJoinStrategy)
+    {
+        this.leftJoinWithArrayContainsToEquiJoinStrategy = leftJoinWithArrayContainsToEquiJoinStrategy;
+        return this;
+    }
+
     public boolean isRewriteCrossJoinWithArrayNotContainsFilterToAntiJoin()
     {
         return this.rewriteCrossJoinWithArrayNotContainsFilterToAntiJoin;
@@ -2819,6 +2973,32 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isUsePartialAggregationHistory()
+    {
+        return this.usePartialAggregationHistory;
+    }
+
+    @Config("optimizer.use-partial-aggregation-history")
+    @ConfigDescription("Use partial aggregation histories for splitting aggregations")
+    public FeaturesConfig setUsePartialAggregationHistory(boolean usePartialAggregationHistory)
+    {
+        this.usePartialAggregationHistory = usePartialAggregationHistory;
+        return this;
+    }
+
+    public boolean isTrackPartialAggregationHistory()
+    {
+        return this.trackPartialAggregationHistory;
+    }
+
+    @Config("optimizer.track-partial-aggregation-history")
+    @ConfigDescription("Track partial aggregation histories")
+    public FeaturesConfig setTrackPartialAggregationHistory(boolean trackPartialAggregationHistory)
+    {
+        this.trackPartialAggregationHistory = trackPartialAggregationHistory;
+        return this;
+    }
+
     public boolean isRemoveRedundantCastToVarcharInJoin()
     {
         return removeRedundantCastToVarcharInJoin;
@@ -2829,6 +3009,110 @@ public class FeaturesConfig
     public FeaturesConfig setRemoveRedundantCastToVarcharInJoin(boolean removeRedundantCastToVarcharInJoin)
     {
         this.removeRedundantCastToVarcharInJoin = removeRedundantCastToVarcharInJoin;
+        return this;
+    }
+
+    public boolean getHandleComplexEquiJoins()
+    {
+        return handleComplexEquiJoins;
+    }
+
+    @Config("optimizer.handle-complex-equi-joins")
+    @ConfigDescription("Handle complex equi-join conditions to open up join space for join reordering")
+    public FeaturesConfig setHandleComplexEquiJoins(boolean handleComplexEquiJoins)
+    {
+        this.handleComplexEquiJoins = handleComplexEquiJoins;
+        return this;
+    }
+
+    public boolean isSkipHashGenerationForJoinWithTableScanInput()
+    {
+        return skipHashGenerationForJoinWithTableScanInput;
+    }
+
+    @Config("optimizer.skip-hash-generation-for-join-with-table-scan-input")
+    @ConfigDescription("Skip hash generation for join, when input is table scan node")
+    public FeaturesConfig setSkipHashGenerationForJoinWithTableScanInput(boolean skipHashGenerationForJoinWithTableScanInput)
+    {
+        this.skipHashGenerationForJoinWithTableScanInput = skipHashGenerationForJoinWithTableScanInput;
+        return this;
+    }
+
+    public long getKHyperLogLogAggregationGroupNumberLimit()
+    {
+        return kHyperLogLogAggregationGroupNumberLimit;
+    }
+
+    @Config("khyperloglog-agg-group-limit")
+    @ConfigDescription("Maximum number of groups for khyperloglog_agg per task")
+    public FeaturesConfig setKHyperLogLogAggregationGroupNumberLimit(long kHyperLogLogAggregationGroupNumberLimit)
+    {
+        this.kHyperLogLogAggregationGroupNumberLimit = kHyperLogLogAggregationGroupNumberLimit;
+        return this;
+    }
+
+    public boolean getLimitNumberOfGroupsForKHyperLogLogAggregations()
+    {
+        return limitNumberOfGroupsForKHyperLogLogAggregations;
+    }
+
+    @Config("limit-khyperloglog-agg-group-number-enabled")
+    @ConfigDescription("Enable limiting number of groups for khyperloglog_agg and merge of KHyperLogLog states")
+    public FeaturesConfig setLimitNumberOfGroupsForKHyperLogLogAggregations(boolean limitNumberOfGroupsForKHyperLogLogAggregations)
+    {
+        this.limitNumberOfGroupsForKHyperLogLogAggregations = limitNumberOfGroupsForKHyperLogLogAggregations;
+        return this;
+    }
+
+    public boolean getGenerateDomainFilters()
+    {
+        return generateDomainFilters;
+    }
+
+    @Config("optimizer.generate-domain-filters")
+    @ConfigDescription("Infer predicates from column domains during predicate pushdown")
+    public FeaturesConfig setGenerateDomainFilters(boolean generateDomainFilters)
+    {
+        this.generateDomainFilters = generateDomainFilters;
+        return this;
+    }
+
+    public boolean isRewriteExpressionWithConstantVariable()
+    {
+        return this.rewriteExpressionWithConstantVariable;
+    }
+
+    @Config("optimizer.rewrite-expression-with-constant-variable")
+    @ConfigDescription("Rewrite expression with constant variables")
+    public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
+    {
+        this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public CreateView.Security getDefaultViewSecurityMode()
+    {
+        return this.defaultViewSecurityMode;
+    }
+
+    @Config("default-view-security-mode")
+    @ConfigDescription("Sets the default security mode for view creation. The options are definer/invoker.")
+    public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
+    {
+        this.defaultViewSecurityMode = securityMode;
+        return this;
+    }
+
+    public boolean isUseHistograms()
+    {
+        return useHistograms;
+    }
+
+    @Config("optimizer.use-histograms")
+    @ConfigDescription("Use histogram statistics in cost-based calculations in the optimizer")
+    public FeaturesConfig setUseHistograms(boolean useHistograms)
+    {
+        this.useHistograms = useHistograms;
         return this;
     }
 }

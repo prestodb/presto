@@ -16,6 +16,7 @@ package com.facebook.presto.security;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AccessDeniedException;
@@ -42,7 +43,9 @@ public class AccessControlUtils
                     new AccessControlContext(
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
+                            Optional.ofNullable(sessionContext.getSource()),
+                            WarningCollector.NOOP,
+                            sessionContext.getRuntimeStats()),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -64,7 +67,9 @@ public class AccessControlUtils
                     new AccessControlContext(
                             queryId,
                             Optional.ofNullable(sessionContext.getClientInfo()),
-                            Optional.ofNullable(sessionContext.getSource())),
+                            Optional.ofNullable(sessionContext.getSource()),
+                            WarningCollector.NOOP,
+                            sessionContext.getRuntimeStats()),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);

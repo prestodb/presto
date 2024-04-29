@@ -107,7 +107,7 @@ public class RewriteIfOverAggregation
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan,
+    public PlanOptimizerResult optimize(PlanNode plan,
             Session session,
             TypeProvider types,
             VariableAllocator variableAllocator,
@@ -115,10 +115,11 @@ public class RewriteIfOverAggregation
             WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(
-                    new Rewriter(variableAllocator, idAllocator, new RowExpressionDeterminismEvaluator(functionAndTypeManager)), plan, ImmutableMap.of());
+            Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, new RowExpressionDeterminismEvaluator(functionAndTypeManager));
+            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, ImmutableMap.of());
+            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     // Map<VariableReferenceExpression, RowExpression> stores the candidate IF expressions for rewrite.
@@ -128,6 +129,7 @@ public class RewriteIfOverAggregation
         private final VariableAllocator planVariableAllocator;
         private final PlanNodeIdAllocator planNodeIdAllocator;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
+        private boolean planChanged;
 
         private Rewriter(VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, RowExpressionDeterminismEvaluator determinismEvaluator)
         {
@@ -146,6 +148,11 @@ public class RewriteIfOverAggregation
         private static RowExpression inlineReferences(RowExpression expression, Assignments assignments)
         {
             return RowExpressionVariableInliner.inlineVariables(variable -> assignments.getMap().getOrDefault(variable, variable), expression);
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -223,6 +230,7 @@ public class RewriteIfOverAggregation
             newAggregations.putAll(
                     node.getAggregations().entrySet().stream().filter(x -> !candidate.containsKey(x.getKey())).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
+            planChanged = true;
             AggregationNode aggregationNode = new AggregationNode(
                     node.getSourceLocation(),
                     node.getId(),
@@ -232,7 +240,8 @@ public class RewriteIfOverAggregation
                     node.getPreGroupedVariables(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
 
             return context.defaultRewrite(aggregationNode, ImmutableMap.of());
         }

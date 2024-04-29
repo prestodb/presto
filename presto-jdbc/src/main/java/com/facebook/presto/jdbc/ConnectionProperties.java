@@ -62,6 +62,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<List<Protocol>> HTTP_PROTOCOLS = new HttpProtocols();
     public static final ConnectionProperty<List<QueryInterceptor>> QUERY_INTERCEPTORS = new QueryInterceptors();
+    public static final ConnectionProperty<Boolean> VALIDATE_NEXTURI_SOURCE = new ValidateNextUriSource();
+    public static final ConnectionProperty<Boolean> FOLLOW_REDIRECTS = new FollowRedirects();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -89,6 +91,8 @@ final class ConnectionProperties
             .add(SESSION_PROPERTIES)
             .add(HTTP_PROTOCOLS)
             .add(QUERY_INTERCEPTORS)
+            .add(VALIDATE_NEXTURI_SOURCE)
+            .add(FOLLOW_REDIRECTS)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -365,6 +369,24 @@ final class ConnectionProperties
         public QueryInterceptors()
         {
             super("queryInterceptors", NOT_REQUIRED, ALLOWED, CLASS_LIST_CONVERTER);
+        }
+    }
+
+    private static class ValidateNextUriSource
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public ValidateNextUriSource()
+        {
+            super("validateNextUriSource", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class FollowRedirects
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public FollowRedirects()
+        {
+            super("followRedirects", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 }

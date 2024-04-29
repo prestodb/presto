@@ -28,6 +28,7 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
@@ -102,6 +103,7 @@ public class QueryInfo
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
     private Map<PlanNodeId, PlanNode> planIdNodeMap;
+    private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
 
     @JsonCreator
     public QueryInfo(
@@ -146,7 +148,8 @@ public class QueryInfo
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowsFunctions") Set<String> windowsFunctions,
             List<CanonicalPlanWithInfo> planCanonicalInfo,
-            Map<PlanNodeId, PlanNode> planIdNodeMap)
+            Map<PlanNodeId, PlanNode> planIdNodeMap,
+            @JsonProperty("prestoSparkExecutionContext") Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -180,6 +183,7 @@ public class QueryInfo
         requireNonNull(scalarFunctions, "scalarFunctions is null");
         requireNonNull(aggregateFunctions, "aggregateFunctions is null");
         requireNonNull(windowsFunctions, "windowsFunctions is null");
+        requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -228,6 +232,7 @@ public class QueryInfo
         this.windowsFunctions = windowsFunctions;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
         this.planIdNodeMap = planIdNodeMap == null ? ImmutableMap.of() : ImmutableMap.copyOf(planIdNodeMap);
+        this.prestoSparkExecutionContext = prestoSparkExecutionContext;
     }
 
     @JsonProperty
@@ -484,6 +489,12 @@ public class QueryInfo
     public Set<String> getWindowsFunctions()
     {
         return windowsFunctions;
+    }
+
+    @JsonProperty
+    public Optional<PrestoSparkExecutionContext> getPrestoSparkExecutionContext()
+    {
+        return prestoSparkExecutionContext;
     }
 
     // Don't serialize this field because it can be big

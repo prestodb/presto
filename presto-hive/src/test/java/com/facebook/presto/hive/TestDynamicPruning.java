@@ -47,14 +47,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveAggregatedPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveBatchPageSourceFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveSelectivePageSourceFactories;
@@ -132,7 +133,8 @@ public class TestDynamicPruning
                 outputFile.length(),
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         HiveSplit split = new HiveSplit(
                 fileSplit,
@@ -159,7 +161,8 @@ public class TestDynamicPruning
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
                 ImmutableSet.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                Optional.empty());
 
         HiveTableHandle hiveTableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HiveTableLayoutHandle tableLayoutHandle = new HiveTableLayoutHandle.Builder()
@@ -187,7 +190,14 @@ public class TestDynamicPruning
                 hiveTableHandle,
                 transaction,
                 Optional.of(tableLayoutHandle));
-        HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
+        HivePageSourceProvider provider = new HivePageSourceProvider(
+                config, createTestHdfsEnvironment(config, metastoreClientConfig),
+                getDefaultHiveRecordCursorProvider(config, metastoreClientConfig),
+                getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig),
+                getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
+                FUNCTION_AND_TYPE_MANAGER,
+                ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext);
     }
 

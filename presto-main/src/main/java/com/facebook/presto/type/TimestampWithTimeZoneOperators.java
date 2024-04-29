@@ -143,12 +143,7 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.TIME)
     public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        if (properties.isLegacyTimestamp()) {
-            return modulo24Hour(unpackChronology(value), unpackMillisUtc(value));
-        }
-        else {
-            return modulo24Hour(castToTimestamp(properties, value));
-        }
+        return properties.isLegacyTimestamp() ? modulo24Hour(unpackChronology(value), unpackMillisUtc(value)) : modulo24Hour(castToTimestamp(properties, value));
     }
 
     @ScalarOperator(CAST)

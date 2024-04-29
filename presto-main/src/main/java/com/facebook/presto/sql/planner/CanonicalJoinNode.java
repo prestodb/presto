@@ -14,11 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -35,8 +36,8 @@ public class CanonicalJoinNode
         extends PlanNode
 {
     private final List<PlanNode> sources;
-    private final JoinNode.Type type;
-    private final Set<JoinNode.EquiJoinClause> criteria;
+    private final JoinType type;
+    private final Set<EquiJoinClause> criteria;
     private final Set<RowExpression> filters;
     private final List<VariableReferenceExpression> outputVariables;
 
@@ -44,8 +45,8 @@ public class CanonicalJoinNode
     public CanonicalJoinNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
-            @JsonProperty("type") JoinNode.Type type,
-            @JsonProperty("criteria") Set<JoinNode.EquiJoinClause> criteria,
+            @JsonProperty("type") JoinType type,
+            @JsonProperty("criteria") Set<EquiJoinClause> criteria,
             @JsonProperty("filter") Set<RowExpression> filters,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
@@ -65,13 +66,13 @@ public class CanonicalJoinNode
     }
 
     @JsonProperty
-    public JoinNode.Type getType()
+    public JoinType getType()
     {
         return type;
     }
 
     @JsonProperty
-    public Set<JoinNode.EquiJoinClause> getCriteria()
+    public Set<EquiJoinClause> getCriteria()
     {
         return criteria;
     }
@@ -124,5 +125,17 @@ public class CanonicalJoinNode
     public int hashCode()
     {
         return Objects.hash(sources, type, criteria, filters, outputVariables);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "CanonicalJoinNode{" +
+                "sources=" + sources +
+                ", type=" + type +
+                ", criteria=" + criteria +
+                ", filters=" + filters +
+                ", outputVariables=" + outputVariables +
+                '}';
     }
 }

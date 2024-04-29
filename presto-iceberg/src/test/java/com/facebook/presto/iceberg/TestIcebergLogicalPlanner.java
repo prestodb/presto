@@ -14,24 +14,43 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -41,29 +60,59 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
+import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.predicate.Range.greaterThan;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filterWithDecimal;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergLogicalPlanner
         extends AbstractTestQueryFramework
@@ -75,6 +124,1170 @@ public class TestIcebergLogicalPlanner
             throws Exception
     {
         return createIcebergQueryRunner(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), ImmutableMap.of());
+    }
+
+    @Test
+    public void testFilterByUnmatchedValueWithFilterPushdown()
+    {
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        String tableName = "test_filter_by_unmatched_value";
+        assertUpdate("CREATE TABLE " + tableName + " (a varchar, b integer, r row(c int, d varchar)) WITH(partitioning = ARRAY['a'])");
+
+        // query with normal column filter on empty table
+        assertPlan(sessionWithFilterPushdown, "select a, r from " + tableName + " where b = 1001",
+                output(values("a", "r")));
+
+        // query with partition column filter on empty table
+        assertPlan(sessionWithFilterPushdown, "select b, r from " + tableName + " where a = 'var3'",
+                output(values("b", "r")));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var1', 1, (1001, 't1')), ('var1', 3, (1003, 't3'))", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var2', 8, (1008, 't8')), ('var2', 10, (1010, 't10'))", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('var1', 2, (1002, 't2')), ('var1', 9, (1009, 't9'))", 2);
+
+        // query with unmatched normal column filter
+        assertPlan(sessionWithFilterPushdown, "select a, r from " + tableName + " where b = 1001",
+                output(values("a", "r")));
+
+        // query with unmatched partition column filter
+        assertPlan(sessionWithFilterPushdown, "select b, r from " + tableName + " where a = 'var3'",
+                output(values("b", "r")));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testFiltersWithPushdownDisable()
+    {
+        // The filter pushdown session property is disabled by default
+        Session sessionWithoutFilterPushdown = getQueryRunner().getDefaultSession();
+
+        assertUpdate("CREATE TABLE test_filters_with_pushdown_disable(id int, name varchar, r row(a int, b varchar)) with (partitioning = ARRAY['id'])");
+
+        // Only identity partition column predicates, would be enforced totally by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name, r FROM test_filters_with_pushdown_disable WHERE id = 10",
+                output(exchange(
+                        strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "test_filters_with_pushdown_disable",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                        "id",
+                                        ImmutableList.of()),
+                                singleValue(INTEGER, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("id")));
+
+        // Only normal column predicates, would not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE name = 'adam'",
+                output(exchange(project(
+                        filter("name='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Only subfield column predicates, would not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE r.a = 10",
+                output(exchange(project(
+                        filter("r.a=10",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Predicates with identity partition column and normal column
+        // The predicate was enforced partially by tableScan, so the filterNode drop it's filter condition `id=10`
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'adam'",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("name='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
+
+        // Predicates with identity partition column and subfield column
+        // The predicate was enforced partially by tableScan, so the filterNode drop it's filter condition `id=10`
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id = 10 and r.b = 'adam'",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("r.b='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
+
+        // Predicates expression `in` for identity partition columns could be enforced by iceberg table as well
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id in (1, 3, 5, 7, 9) and r.b = 'adam'",
+                output(exchange(project(
+                        filter("r.b='adam'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // When predicate simplification causing changes in the predicate, it could not be enforced by iceberg table
+        String params = "(" + Joiner.on(", ").join(IntStream.rangeClosed(1, 50).mapToObj(i -> String.valueOf(2 * i + 1)).toArray()) + ")";
+        assertPlan(sessionWithoutFilterPushdown, "SELECT name FROM test_filters_with_pushdown_disable WHERE id in " + params + " and r.b = 'adam'",
+                output(exchange(project(
+                        filter("r.b='adam' AND id in " + params,
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name", "r")))))));
+
+        // Add a new identity partitioned column for iceberg table
+        assertUpdate("ALTER TABLE test_filters_with_pushdown_disable add column newpart bigint with (partitioning = 'identity')");
+
+        // Predicates with originally present identity partition column and newly added identity partition column
+        // Only the predicate on originally present identity partition column could be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, name FROM test_filters_with_pushdown_disable WHERE id = 10 and newpart = 1001",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("newpart=1001",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "newpart")))))));
+
+        assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
+
+        assertUpdate("CREATE TABLE test_filters_with_pushdown_disable(id int, name varchar, r row(a int, b varchar)) with (partitioning = ARRAY['id', 'truncate(name, 2)'])");
+
+        // Predicates with non-identity partitioned column could not be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id FROM test_filters_with_pushdown_disable WHERE name = 'hd001'",
+                output(exchange(project(
+                        filter("name='hd001'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("id", "name")))))));
+
+        // Predicates with identity partition column and non-identity partitioned column
+        // Only the predicate on identity partition column could be enforced by tableScan
+        assertPlan(sessionWithoutFilterPushdown, "SELECT id, r FROM test_filters_with_pushdown_disable WHERE id = 10 and name = 'hd001'",
+                output(exchange(project(
+                        ImmutableMap.of("id", expression("10")),
+                        filter("name='hd001'",
+                                strictTableScan("test_filters_with_pushdown_disable", identityMap("name", "r")))))));
+        assertUpdate("DROP TABLE test_filters_with_pushdown_disable");
+    }
+
+    @DataProvider(name = "timezones")
+    public Object[][] timezones()
+    {
+        return new Object[][] {
+                {"UTC", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", true},
+                {"None", false}};
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testHourTransform(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate(session, "CREATE TABLE test_hour_transform (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
+
+            assertPlan(session, "SELECT * FROM test_hour_transform WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_hour_transform", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_hour_transform WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_hour_transform", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_hour_transform WHERE d >= DATE '2015-05-15'",
+                    thoroughlyPushdown(strictTableScan("test_hour_transform", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00'",
+                    thoroughlyPushdown(strictTableScan("test_hour_transform", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_hour_transform WHERE d >= TIMESTAMP '2015-05-15 12:00:00.001'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-05-15 12:00:00.001'",
+                            strictTableScan("test_hour_transform", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_hour_transform");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testDayTransformDate(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate(session, "CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1969-01-01', 10), " +
+                    "(DATE '1969-12-31', 11), " +
+                    "(DATE '1970-01-01', 1), " +
+                    "(DATE '1970-03-04', 2), " +
+                    "(DATE '2015-01-01', 3), " +
+                    "(DATE '2015-01-13', 4), " +
+                    "(DATE '2015-01-13', 5), " +
+                    "(DATE '2015-05-15', 6), " +
+                    "(DATE '2015-05-15', 7), " +
+                    "(DATE '2020-02-21', 8), " +
+                    "(DATE '2020-02-21', 9)";
+            assertUpdate(session, "INSERT INTO test_day_transform_date " + values, 12);
+            assertQuery(session, "SELECT * FROM test_day_transform_date", values);
+
+            String expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL), " +
+                    "(DATE '1969-01-01', 1, DATE '1969-01-01', DATE '1969-01-01'), " +
+                    "(DATE '1969-12-31', 1, DATE '1969-12-31', DATE '1969-12-31'), " +
+                    "(DATE '1970-01-01', 1, DATE '1970-01-01', DATE '1970-01-01'), " +
+                    "(DATE '1970-03-04', 1, DATE '1970-03-04', DATE '1970-03-04'), " +
+                    "(DATE '2015-01-01', 1, DATE '2015-01-01', DATE '2015-01-01'), " +
+                    "(DATE '2015-01-13', 2, DATE '2015-01-13', DATE '2015-01-13'), " +
+                    "(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15'), " +
+                    "(DATE '2020-02-21', 2, DATE '2020-02-21', DATE '2020-02-21')";
+            assertQuery(session, "SELECT d_day, row_count, d.min, d.max FROM \"test_day_transform_date$partitions\"",
+                    expected);
+
+            // Exercise non-pushdownable predicates
+            assertQuery(session, "SELECT * FROM test_day_transform_date WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                    "VALUES (DATE '1969-01-01', 10)");
+
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE d >= DATE '2015-01-13'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE CAST(d AS date) >= DATE '2015-01-13'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE d >= cast(TIMESTAMP '2015-01-13 00:00:00' as date)",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE d > cast(TIMESTAMP '2015-01-13 00:00:00.001' as date)",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_day_transform_date");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testDayTransformTimestamp(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1969-12-25 15:13:12.876', 8)," +
+                    "(TIMESTAMP '1969-12-30 18:47:33.345', 9)," +
+                    "(TIMESTAMP '1969-12-31 00:00:00.000', 10)," +
+                    "(TIMESTAMP '1969-12-31 05:06:07.234', 11)," +
+                    "(TIMESTAMP '1970-01-01 12:03:08.456', 12)," +
+                    "(TIMESTAMP '2015-01-01 10:01:23.123', 1)," +
+                    "(TIMESTAMP '2015-01-01 11:10:02.987', 2)," +
+                    "(TIMESTAMP '2015-01-01 12:55:00.456', 3)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 4)," +
+                    "(TIMESTAMP '2015-05-15 14:21:02.345', 5)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 6)," +
+                    "(TIMESTAMP '2020-02-21 16:12:12.654', 7)";
+            assertUpdate(session, "INSERT INTO test_day_transform_timestamp " + values, 13);
+            assertQuery(session, "SELECT * FROM test_day_transform_timestamp", values);
+
+            String expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL), " +
+                    "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876', TIMESTAMP '1969-12-25 15:13:12.876'), " +
+                    "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345', TIMESTAMP '1969-12-30 18:47:33.345'), " +
+                    "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000', TIMESTAMP '1969-12-31 05:06:07.234'), " +
+                    "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456', TIMESTAMP '1970-01-01 12:03:08.456'), " +
+                    "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123', TIMESTAMP '2015-01-01 12:55:00.456'), " +
+                    "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234', TIMESTAMP '2015-05-15 14:21:02.345'), " +
+                    "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876', TIMESTAMP '2020-02-21 16:12:12.654')";
+
+            assertQuery(session, "SELECT d_day, row_count, d.min, d.max FROM \"test_day_transform_timestamp$partitions\"", expected);
+
+            // Exercise non-pushdownable predicates
+            assertQuery(session,
+                    "SELECT * FROM test_day_transform_timestamp WHERE day_of_week(d) = 3 AND b % 7 = 3",
+                    "VALUES (TIMESTAMP '1969-12-31 00:00:00.000', 10)");
+
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d >= cast(DATE '2015-05-15' as TIMESTAMP)",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d >= DATE '2015-05-15'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE d >= TIMESTAMP '2015-05-15 00:00:00.001'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-05-15 00:00:00.001'",
+                            strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_day_transform_timestamp");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testMonthTransformDate(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1969-11-13', 1)," +
+                    "(DATE '1969-12-01', 2)," +
+                    "(DATE '1969-12-02', 3)," +
+                    "(DATE '1969-12-31', 4)," +
+                    "(DATE '1970-01-01', 5), " +
+                    "(DATE '1970-05-13', 6), " +
+                    "(DATE '1970-12-31', 7), " +
+                    "(DATE '2020-01-01', 8), " +
+                    "(DATE '2020-06-16', 9), " +
+                    "(DATE '2020-06-28', 10), " +
+                    "(DATE '2020-06-06', 11), " +
+                    "(DATE '2020-07-18', 12), " +
+                    "(DATE '2020-07-28', 13), " +
+                    "(DATE '2020-12-31', 14)";
+            assertUpdate("INSERT INTO test_month_transform_date " + values, 15);
+            assertQuery("SELECT * FROM test_month_transform_date", values);
+
+            assertQuery(
+                    "SELECT d_month, row_count, d.min, d.max FROM \"test_month_transform_date$partitions\"",
+                    "VALUES " +
+                            "(NULL, 1, NULL, NULL), " +
+                            "(-2, 1, DATE '1969-11-13', DATE '1969-11-13'), " +
+                            "(-1, 3, DATE '1969-12-01', DATE '1969-12-31'), " +
+                            "(0, 1, DATE '1970-01-01', DATE '1970-01-01'), " +
+                            "(4, 1, DATE '1970-05-13', DATE '1970-05-13'), " +
+                            "(11, 1, DATE '1970-12-31', DATE '1970-12-31'), " +
+                            "(600, 1, DATE '2020-01-01', DATE '2020-01-01'), " +
+                            "(605, 3, DATE '2020-06-06', DATE '2020-06-28'), " +
+                            "(606, 2, DATE '2020-07-18', DATE '2020-07-28'), " +
+                            "(611, 1, DATE '2020-12-31', DATE '2020-12-31')");
+
+            // Exercise non-pushdownable predicates
+            assertQuery(
+                    "SELECT * FROM test_month_transform_date WHERE day_of_week(d) = 7 AND b % 7 = 3",
+                    "VALUES (DATE '2020-06-28', 10)");
+
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d >= DATE '2020-06-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d >= DATE '2020-06-02'",
+                    notThoroughlyPushdown("d >= DATE '2020-06-02'",
+                            strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE CAST(d AS date) >= DATE '2020-06-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE CAST(d AS date) >= DATE '2020-06-02'",
+                    notThoroughlyPushdown("d >= DATE '2020-06-02'",
+                            strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d >= cast(TIMESTAMP '2015-06-01 00:00:00' as date)",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE d > cast(TIMESTAMP '2015-05-01 00:00:00.001' as date)",
+                    notThoroughlyPushdown("d > DATE '2015-05-01'",
+                            strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_month_transform_date");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testMonthTransformTimestamp(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1969-11-15 15:13:12.876', 8)," +
+                    "(TIMESTAMP '1969-11-19 18:47:33.345', 9)," +
+                    "(TIMESTAMP '1969-12-01 00:00:00.000', 10)," +
+                    "(TIMESTAMP '1969-12-01 05:06:07.234', 11)," +
+                    "(TIMESTAMP '1970-01-01 12:03:08.456', 12)," +
+                    "(TIMESTAMP '2015-01-01 10:01:23.123', 1)," +
+                    "(TIMESTAMP '2015-01-01 11:10:02.987', 2)," +
+                    "(TIMESTAMP '2015-01-01 12:55:00.456', 3)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 4)," +
+                    "(TIMESTAMP '2015-05-15 14:21:02.345', 5)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 6)," +
+                    "(TIMESTAMP '2020-02-21 16:12:12.654', 7)";
+            assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 13);
+            assertQuery("SELECT * FROM test_month_transform_timestamp", values);
+
+            String expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL), " +
+                    "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876', TIMESTAMP '1969-11-19 18:47:33.345'), " +
+                    "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000', TIMESTAMP '1969-12-01 05:06:07.234'), " +
+                    "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456', TIMESTAMP '1970-01-01 12:03:08.456'), " +
+                    "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123', TIMESTAMP '2015-01-01 12:55:00.456'), " +
+                    "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234', TIMESTAMP '2015-05-15 14:21:02.345'), " +
+                    "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876', TIMESTAMP '2020-02-21 16:12:12.654')";
+
+            assertQuery("SELECT d_month, row_count, d.min, d.max FROM \"test_month_transform_timestamp$partitions\"", expected);
+
+            // Exercise non-pushdownable predicates
+            assertQuery(
+                    "SELECT * FROM test_month_transform_timestamp WHERE day_of_week(d) = 1 AND b % 7 = 3",
+                    "VALUES (TIMESTAMP '1969-12-01 00:00:00.000', 10)");
+
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= DATE '2015-05-02'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-05-02 00:00:00.000'",
+                            strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= cast(DATE '2015-05-01' as TIMESTAMP)",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= cast(DATE '2015-05-02' as TIMESTAMP)",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-05-02 00:00:00.000'",
+                            strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE d >= TIMESTAMP '2015-05-01 00:00:00.001'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-05-01 00:00:00.001'",
+                            strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_month_transform_timestamp");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testYearTransformDate(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1968-10-13', 1), " +
+                    "(DATE '1969-01-01', 2), " +
+                    "(DATE '1969-03-15', 3), " +
+                    "(DATE '1970-01-01', 4), " +
+                    "(DATE '1970-03-05', 5), " +
+                    "(DATE '2015-01-01', 6), " +
+                    "(DATE '2015-06-16', 7), " +
+                    "(DATE '2015-07-28', 8), " +
+                    "(DATE '2016-05-15', 9), " +
+                    "(DATE '2016-06-06', 10), " +
+                    "(DATE '2020-02-21', 11), " +
+                    "(DATE '2020-11-10', 12)";
+            assertUpdate("INSERT INTO test_year_transform_date " + values, 13);
+            assertQuery("SELECT * FROM test_year_transform_date", values);
+
+            assertQuery(
+                    "SELECT d_year, row_count, d.min, d.max FROM \"test_year_transform_date$partitions\"",
+                    "VALUES " +
+                            "(NULL, 1, NULL, NULL), " +
+                            "(-2, 1, DATE '1968-10-13', DATE '1968-10-13'), " +
+                            "(-1, 2, DATE '1969-01-01', DATE '1969-03-15'), " +
+                            "(0, 2, DATE '1970-01-01', DATE '1970-03-05'), " +
+                            "(45, 3, DATE '2015-01-01', DATE '2015-07-28'), " +
+                            "(46, 2, DATE '2016-05-15', DATE '2016-06-06'), " +
+                            "(50, 2, DATE '2020-02-21', DATE '2020-11-10')");
+
+            // Exercise non-pushdownable predicates
+            assertQuery(
+                    "SELECT * FROM test_year_transform_date WHERE day_of_week(d) = 1 AND b % 7 = 3",
+                    "VALUES (DATE '2016-06-06', 10)");
+
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d >= DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d >= DATE '2015-01-02'",
+                    notThoroughlyPushdown("d >= DATE '2015-01-02'",
+                            strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE CAST(d AS date) >= DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE CAST(d AS date) >= DATE '2015-01-02'",
+                    notThoroughlyPushdown("d >= DATE '2015-01-02'",
+                            strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d >= cast(TIMESTAMP '2015-01-01 00:00:00' as date)",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE d > cast(TIMESTAMP '2015-01-01 00:00:00.000001' as date)",
+                    notThoroughlyPushdown("d > DATE '2015-01-01'",
+                            strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_year_transform_date");
+        }
+    }
+
+    @Test(dataProvider = "timezones")
+    public void testYearTransformTimestamp(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1968-03-15 15:13:12.876', 1)," +
+                    "(TIMESTAMP '1968-11-19 18:47:33.345', 2)," +
+                    "(TIMESTAMP '1969-01-01 00:00:00.000', 3)," +
+                    "(TIMESTAMP '1969-01-01 05:06:07.234', 4)," +
+                    "(TIMESTAMP '1970-01-18 12:03:08.456', 5)," +
+                    "(TIMESTAMP '1970-03-14 10:01:23.123', 6)," +
+                    "(TIMESTAMP '1970-08-19 11:10:02.987', 7)," +
+                    "(TIMESTAMP '1970-12-31 12:55:00.456', 8)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 9)," +
+                    "(TIMESTAMP '2015-09-15 14:21:02.345', 10)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 11)," +
+                    "(TIMESTAMP '2020-08-21 16:12:12.654', 12)";
+            assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 13);
+            assertQuery("SELECT * FROM test_year_transform_timestamp", values);
+
+            String expected = "VALUES " +
+                    "(NULL, 1, NULL, NULL), " +
+                    "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876', TIMESTAMP '1968-11-19 18:47:33.345'), " +
+                    "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000', TIMESTAMP '1969-01-01 05:06:07.234'), " +
+                    "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456', TIMESTAMP '1970-12-31 12:55:00.456'), " +
+                    "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234', TIMESTAMP '2015-09-15 14:21:02.345'), " +
+                    "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876', TIMESTAMP '2020-08-21 16:12:12.654')";
+            assertQuery("SELECT d_year, row_count, d.min, d.max FROM \"test_year_transform_timestamp$partitions\"", expected);
+
+            // Exercise non-pushdownable predicates
+            assertQuery(
+                    "SELECT * FROM test_year_transform_timestamp WHERE day_of_week(d) = 2 AND b % 7 = 3",
+                    "VALUES (TIMESTAMP '2015-09-15 14:21:02.345', 10)");
+
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= DATE '2015-01-02'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-01-02 00:00:00.000'",
+                            strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= CAST(DATE '2015-01-01' as TIMESTAMP)",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= CAST(DATE '2015-01-02' as TIMESTAMP)",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-01-02 00:00:00.000'",
+                            strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE d >= TIMESTAMP '2015-01-01 00:00:00.001'",
+                    notThoroughlyPushdown("d >= TIMESTAMP '2015-01-01 00:00:00.001'",
+                            strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_year_transform_timestamp");
+        }
+    }
+
+    @Test
+    public void testTruncateTextTransform()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
+            String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_text_transform$partitions\"";
+
+            assertUpdate("INSERT INTO test_truncate_text_transform VALUES" +
+                    "(NULL, 101)," +
+                    "('abcd', 1)," +
+                    "('abxy', 2)," +
+                    "('ab598', 3)," +
+                    "('Kielce', 4)," +
+                    "('Kiev', 5)," +
+                    "('Greece', 6)," +
+                    "('Grozny', 7)", 8);
+
+            assertQuery("SELECT d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES NULL, 'ab', 'Ki', 'Gr'");
+
+            assertQuery("SELECT b FROM test_truncate_text_transform WHERE substr(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
+            assertQuery(select + " WHERE d_trunc = 'ab'",
+                    "VALUES ('ab', 3, 'ab598', 'abxy')");
+
+            assertQuery("SELECT b FROM test_truncate_text_transform WHERE substr(d, 1, 2) = 'Ki'", "VALUES 4, 5");
+            assertQuery(select + " WHERE d_trunc = 'Ki'",
+                    "VALUES ('Ki', 2, 'Kielce', 'Kiev')");
+
+            assertQuery("SELECT b FROM test_truncate_text_transform WHERE substr(d, 1, 2) = 'Gr'", "VALUES 6, 7");
+            assertQuery(select + " WHERE d_trunc = 'Gr'",
+                    "VALUES ('Gr', 2, 'Greece', 'Grozny')");
+
+            // Exercise non-pushdownable predicates
+            assertQuery(
+                    "SELECT * FROM test_truncate_text_transform WHERE length(d) = 4 AND b % 7 = 2",
+                    "VALUES ('abxy', 2)");
+
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+
+            // TODO: subsume partition boundary filters on varchar
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d >= 'ab'",
+                    notThoroughlyPushdown("d >= 'ab'",
+                            strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+
+            // TODO: subsume prefix-checking LIKE with truncate().
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d LIKE 'ab%'",
+                    notThoroughlyPushdown("substr(d, 1, 2) = 'ab'",
+                            strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+
+            // condition to long to subsume, we use truncate(2)
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d >= 'abc'",
+                    notThoroughlyPushdown("d >= 'abc'",
+                            strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+
+            // condition to long to subsume, we use truncate(2)
+            assertPlan("SELECT * FROM test_truncate_text_transform WHERE d LIKE 'abc%'",
+                    notThoroughlyPushdown("substr(d, 1, 3) = 'abc'",
+                            strictTableScan("test_truncate_text_transform", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_truncate_text_transform");
+        }
+    }
+
+    @Test
+    public void testTruncateIntegerTransform()
+    {
+        testTruncateIntegerTransform("integer");
+        testTruncateIntegerTransform("bigint");
+    }
+
+    private void testTruncateIntegerTransform(String dataType)
+    {
+        String table = format("test_truncate_%s_transform", dataType);
+        try {
+            assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
+            String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"" + table + "$partitions\"";
+
+            assertUpdate("INSERT INTO " + table + " VALUES" +
+                    "(NULL, 101)," +
+                    "(0, 1)," +
+                    "(1, 2)," +
+                    "(5, 3)," +
+                    "(9, 4)," +
+                    "(10, 5)," +
+                    "(11, 6)," +
+                    "(120, 7)," +
+                    "(121, 8)," +
+                    "(123, 9)," +
+                    "(-1, 10)," +
+                    "(-5, 11)," +
+                    "(-10, 12)," +
+                    "(-11, 13)," +
+                    "(-123, 14)," +
+                    "(-130, 15)", 16);
+
+            assertQuery("SELECT d_trunc FROM \"" + table + "$partitions\"", "VALUES NULL, 0, 10, 120, -10, -20, -130");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d IN (0, 1, 5, 9)", "VALUES 1, 2, 3, 4");
+            assertQuery(select + " WHERE d_trunc = 0",
+                    "VALUES (0, 4, 0, 9)");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d IN (10, 11)", "VALUES 5, 6");
+            assertQuery(select + " WHERE d_trunc = 10",
+                    "VALUES (10, 2, 10, 11)");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d IN (120, 121, 123)", "VALUES 7, 8, 9");
+            assertQuery(select + " WHERE d_trunc = 120",
+                    "VALUES (120, 3, 120, 123)");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d IN (-1, -5, -10)", "VALUES 10, 11, 12");
+            assertQuery(select + " WHERE d_trunc = -10",
+                    "VALUES (-10, 3, -10, -1)");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d = -11", "VALUES 13");
+            assertQuery(select + " WHERE d_trunc = -20",
+                    "VALUES (-20, 1, -11, -11)");
+
+            assertQuery("SELECT b FROM " + table + " WHERE d IN (-123, -130)", "VALUES 14, 15");
+            assertQuery(select + " WHERE d_trunc = -130",
+                    "VALUES (-130, 2, -130, -123)");
+
+            // Exercise non-pushdownable predicates
+            assertQuery("SELECT * FROM " + table + " WHERE d % 10 = -1 AND b % 7 = 3",
+                    "VALUES (-1, 10)");
+
+            assertPlan("SELECT * FROM " + table + " WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan(table, identityMap("d", "b"))));
+            assertPlan("SELECT * FROM " + table + " WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan(table, identityMap("d", "b"))));
+
+            assertPlan("SELECT * FROM " + table + " WHERE d >= 10",
+                    thoroughlyPushdown(strictTableScan(table, identityMap("d", "b"))));
+
+            assertPlan("SELECT * FROM " + table + " WHERE d > 10",
+                    notThoroughlyPushdown("d > 10",
+                            strictTableScan(table, identityMap("d", "b"))));
+            assertPlan("SELECT * FROM " + table + " WHERE d >= 11",
+                    notThoroughlyPushdown("d >= 11",
+                            strictTableScan(table, identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + table);
+        }
+    }
+
+    @Test
+    public void testTruncateShortDecimalTransform()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
+            String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_decimal_transform$partitions\"";
+
+            assertUpdate("INSERT INTO test_truncate_decimal_transform VALUES" +
+                    "(NULL, 101)," +
+                    "(12.34, 1)," +
+                    "(12.30, 2)," +
+                    "(12.29, 3)," +
+                    "(0.05, 4)," +
+                    "(-0.05, 5)", 6);
+
+            assertQuery("SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES NULL, 12.30, 12.20, 0.00, -0.10");
+
+            assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+            assertQuery(select + " WHERE d_trunc = 12.30",
+                    "VALUES (12.30, 2, 12.30, 12.34)");
+
+            assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
+            assertQuery(select + " WHERE d_trunc = 12.20",
+                    "VALUES (12.20, 1, 12.29, 12.29)");
+
+            assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
+            assertQuery(select + " WHERE d_trunc = 0.00",
+                    "VALUES (0.00, 1, 0.05, 0.05)");
+
+            assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
+            assertQuery(select + " WHERE d_trunc = -0.10",
+                    "VALUES (-0.10, 1, -0.05, -0.05)");
+
+            // Exercise non-pushdownable predicates
+            assertQuery("SELECT * FROM test_truncate_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                    "VALUES (12.29, 3)");
+
+            assertPlan("SELECT * FROM test_truncate_decimal_transform WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_decimal_transform", identityMap("d", "b"))));
+            assertPlan("SELECT * FROM test_truncate_decimal_transform WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_decimal_transform", identityMap("d", "b"))));
+
+            // TODO: subsume partition boundary filters on decimals
+            assertPlan("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.20",
+                    notThoroughlyPushdown(true, "d >= 12.20",
+                            strictTableScan("test_truncate_decimal_transform", identityMap("d", "b"))));
+
+            assertPlan("SELECT * FROM test_truncate_decimal_transform WHERE d > 12.20",
+                    notThoroughlyPushdown(true, "d > 12.20",
+                            strictTableScan("test_truncate_decimal_transform", identityMap("d", "b"))));
+            assertPlan("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.21",
+                    notThoroughlyPushdown(true, "d >= 12.21",
+                            strictTableScan("test_truncate_decimal_transform", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_truncate_decimal_transform");
+        }
+    }
+
+    @Test
+    public void testTruncateLongDecimalTransform()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_truncate_long_decimal_transform (d DECIMAL(20, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
+            String select = "SELECT d_trunc, row_count, d.min, d.max FROM \"test_truncate_long_decimal_transform$partitions\"";
+
+            assertUpdate("INSERT INTO test_truncate_long_decimal_transform VALUES" +
+                    "(NULL, 101)," +
+                    "(12.34, 1)," +
+                    "(12.30, 2)," +
+                    "(11111111111111112.29, 3)," +
+                    "(0.05, 4)," +
+                    "(-0.05, 5)", 6);
+
+            assertQuery("SELECT d_trunc FROM \"test_truncate_long_decimal_transform$partitions\"", "VALUES NULL, 12.30, 11111111111111112.20, 0.00, -0.10");
+
+            assertQuery("SELECT b FROM test_truncate_long_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
+            assertQuery(select + " WHERE d_trunc = 12.30",
+                    "VALUES (12.30, 2, 12.30, 12.34)");
+
+            assertQuery("SELECT b FROM test_truncate_long_decimal_transform WHERE d = 11111111111111112.29", "VALUES 3");
+            assertQuery(select + " WHERE d_trunc = 11111111111111112.20",
+                    "VALUES (11111111111111112.20, 1, 11111111111111112.29, 11111111111111112.29)");
+
+            assertQuery("SELECT b FROM test_truncate_long_decimal_transform WHERE d = 0.05", "VALUES 4");
+            assertQuery(select + " WHERE d_trunc = 0.00",
+                    "VALUES (0.00, 1, 0.05, 0.05)");
+
+            assertQuery("SELECT b FROM test_truncate_long_decimal_transform WHERE d = -0.05", "VALUES 5");
+            assertQuery(select + " WHERE d_trunc = -0.10",
+                    "VALUES (-0.10, 1, -0.05, -0.05)");
+
+            // Exercise non-pushdownable predicates
+            assertQuery("SELECT * FROM test_truncate_long_decimal_transform WHERE d * 100 % 10 = 9 AND b % 7 = 3",
+                    "VALUES (11111111111111112.29, 3)");
+
+            assertPlan("SELECT * FROM test_truncate_long_decimal_transform WHERE d IS NOT NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_long_decimal_transform", identityMap("d", "b"))));
+            assertPlan("SELECT * FROM test_truncate_long_decimal_transform WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan("test_truncate_long_decimal_transform", identityMap("d", "b"))));
+
+            // TODO: subsume partition boundary filters on decimals
+            assertPlan("SELECT * FROM test_truncate_long_decimal_transform WHERE d >= 12.20",
+                    notThoroughlyPushdown(true, "d >= 12.20",
+                            strictTableScan("test_truncate_long_decimal_transform", identityMap("d", "b"))));
+
+            assertPlan("SELECT * FROM test_truncate_long_decimal_transform WHERE d > 12.20",
+                    notThoroughlyPushdown(true, "d > 12.20",
+                            strictTableScan("test_truncate_long_decimal_transform", identityMap("d", "b"))));
+            assertPlan("SELECT * FROM test_truncate_long_decimal_transform WHERE d >= 12.21",
+                    notThoroughlyPushdown(true, "d >= 12.21",
+                            strictTableScan("test_truncate_long_decimal_transform", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_truncate_long_decimal_transform");
+        }
+    }
+
+    @Test
+    public void testBucketTransform()
+    {
+        testBucketTransformForType("DATE", "DATE '2020-05-19'", "DATE '2020-08-19'", "DATE '2020-11-19'");
+        testBucketTransformForType("VARCHAR", "CAST('abcd' AS VARCHAR)", "CAST('mommy' AS VARCHAR)", "CAST('abxy' AS VARCHAR)");
+        testBucketTransformForType("INTEGER", "10", "12", "20");
+        testBucketTransformForType("BIGINT", "CAST(100000000 AS BIGINT)", "CAST(200000002 AS BIGINT)", "CAST(400000001 AS BIGINT)");
+    }
+
+    private void testBucketTransformForType(
+            String type,
+            String value,
+            String greaterValueInSameBucket,
+            String valueInOtherBucket)
+    {
+        String tableName = format("test_bucket_transform%s", type.toLowerCase(ENGLISH));
+
+        try {
+            assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
+            assertUpdate(format("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
+            assertQuery(format("SELECT * FROM %s", tableName), format("VALUES (NULL), (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
+            assertQuery(format("SELECT * FROM %s WHERE d <= %s AND (rand() = 42 OR d != %s)", tableName, value, valueInOtherBucket),
+                    "VALUES " + value);
+            assertQuery(format("SELECT * FROM %s WHERE d >= %s AND (rand() = 42 OR d != %s)", tableName, greaterValueInSameBucket, valueInOtherBucket),
+                    "VALUES " + greaterValueInSameBucket);
+
+            String selectFromPartitions = format("SELECT d_bucket, row_count FROM \"%s$partitions\"", tableName);
+            assertQuery(selectFromPartitions + " WHERE d_bucket = 0", format("VALUES(0, %d)", 2));
+            assertQuery(selectFromPartitions + " WHERE d_bucket = 1", format("VALUES(1, %d)", 1));
+
+            assertPlan("SELECT * FROM " + tableName + " WHERE d IS NULL",
+                    thoroughlyPushdown(strictTableScan(tableName, identityMap("d"))));
+            assertPlan("SELECT * FROM " + tableName + " WHERE d IS NOT NULL",
+                    notThoroughlyPushdown("d IS NOT NULL",
+                            strictTableScan(tableName, identityMap("d"))));
+
+            // Bucketing transform doesn't allow comparison filter elimination
+            assertPlan("SELECT * FROM " + tableName + " WHERE d >= " + value,
+                    notThoroughlyPushdown("d >= " + value,
+                            strictTableScan(tableName, identityMap("d"))));
+            assertPlan("SELECT * FROM " + tableName + " WHERE d >= " + greaterValueInSameBucket,
+                    notThoroughlyPushdown("d >= " + greaterValueInSameBucket,
+                            strictTableScan(tableName, identityMap("d"))));
+            assertPlan("SELECT * FROM " + tableName + " WHERE d >= " + valueInOtherBucket,
+                    notThoroughlyPushdown("d >= " + valueInOtherBucket,
+                            strictTableScan(tableName, identityMap("d"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testFilterPushdown()
+    {
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+
+        // Only domain predicates
+        assertPlan("SELECT linenumber FROM lineitem WHERE partkey = 10",
+                output(exchange(project(
+                        filter("partkey=10",
+                                strictTableScan("lineitem", identityMap("linenumber", "partkey")))))));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE partkey = 10",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                "partkey",
+                                ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("partkey")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT partkey, linenumber FROM lineitem WHERE partkey = 10",
+                output(exchange(
+                        project(ImmutableMap.of("partkey", expression("10")),
+                                strictTableScan("lineitem", identityMap("linenumber"))))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                "partkey",
+                                ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("partkey")));
+
+        // Remaining predicate is NULL
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE cardinality(NULL) > 0",
+                output(values("linenumber")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey > 10 AND cardinality(NULL) > 0",
+                output(values("linenumber")));
+
+        // Remaining predicate is always FALSE
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE cardinality(ARRAY[1]) > 1",
+                output(values("linenumber")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey > 10 AND cardinality(ARRAY[1]) > 1",
+                output(values("linenumber")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey = 10 OR cardinality(ARRAY[1]) > 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                        "orderkey",
+                                        ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("orderkey")));
+
+        // Remaining predicate is always TRUE
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE cardinality(ARRAY[1]) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        TupleDomain.all(),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of()));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey = 10 AND cardinality(ARRAY[1]) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                        "orderkey",
+                                        ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of("orderkey")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey = 10 OR cardinality(ARRAY[1]) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        TupleDomain.all(),
+                        TRUE_CONSTANT,
+                        ImmutableSet.of()));
+
+        // TupleDomain predicate is always FALSE
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey = 1 AND orderkey = 2",
+                output(values("linenumber")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE orderkey = 1 AND orderkey = 2 AND linenumber % 2 = 1",
+                output(values("linenumber")));
+
+        FunctionAndTypeManager functionAndTypeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager();
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+
+        // orderkey % 2 = 1
+        RowExpression remainingPredicate = new CallExpression(EQUAL.name(),
+                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                BOOLEAN,
+                ImmutableList.of(
+                        new CallExpression("mod",
+                                functionAndTypeManager.lookupFunction("mod", fromTypes(BIGINT, BIGINT)),
+                                BIGINT,
+                                ImmutableList.of(
+                                        new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT),
+                                        constant(2))),
+                        constant(1)));
+
+        // Only remaining predicate
+        assertPlan("SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
+                output(exchange(project(
+                        filter("mod(orderkey, 2) = 1",
+                                strictTableScan("lineitem", identityMap("linenumber", "orderkey")))))));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        TupleDomain.all(),
+                        remainingPredicate,
+                        ImmutableSet.of("orderkey")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT orderkey, linenumber FROM lineitem WHERE mod(orderkey, 2) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("orderkey", "linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        TupleDomain.all(),
+                        remainingPredicate,
+                        ImmutableSet.of("orderkey")));
+
+        // A mix of domain and remaining predicates
+        assertPlan("SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
+                output(exchange(project(
+                        filter("partkey = 10 AND mod(orderkey, 2) = 1",
+                                strictTableScan("lineitem", identityMap("linenumber", "orderkey", "partkey")))))));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
+                output(exchange(
+                        strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                "partkey",
+                                ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        remainingPredicate,
+                        ImmutableSet.of("partkey", "orderkey")));
+
+        assertPlan(sessionWithFilterPushdown, "SELECT partkey, orderkey, linenumber FROM lineitem WHERE partkey = 10 AND mod(orderkey, 2) = 1",
+                output(exchange(
+                        project(ImmutableMap.of("partkey", expression("10")),
+                                strictTableScan("lineitem", identityMap("orderkey", "linenumber"))))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(new Subfield(
+                                "partkey",
+                                ImmutableList.of()),
+                                singleValue(BIGINT, 10L))),
+                        remainingPredicate,
+                        ImmutableSet.of("partkey", "orderkey")));
+
+        // (partkey = 10 OR orderkey = 5) AND (partkey = 5 OR orderkey = 10)
+        RowExpression remainingPredicateForAndOrCombination = new SpecialFormExpression(AND,
+                BOOLEAN,
+                ImmutableList.of(
+                        new SpecialFormExpression(OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new CallExpression(EQUAL.name(),
+                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new VariableReferenceExpression(Optional.empty(), "partkey", BIGINT),
+                                                        constant(10))),
+                                        new CallExpression(EQUAL.name(),
+                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT),
+                                                        constant(5))))),
+                        new SpecialFormExpression(OR,
+                                BOOLEAN,
+                                ImmutableList.of(
+                                        new CallExpression(EQUAL.name(),
+                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new VariableReferenceExpression(Optional.empty(), "orderkey", BIGINT),
+                                                        constant(10))),
+                                        new CallExpression(EQUAL.name(),
+                                                functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
+                                                BOOLEAN,
+                                                ImmutableList.of(
+                                                        new VariableReferenceExpression(Optional.empty(), "partkey", BIGINT),
+                                                        constant(5)))))));
+
+        // A mix of OR, AND in domain predicates
+        assertPlan(sessionWithFilterPushdown, "SELECT linenumber FROM lineitem WHERE (partkey = 10 and orderkey = 10) OR (partkey = 5 AND orderkey = 5)",
+                output(exchange(strictTableScan("lineitem", identityMap("linenumber")))),
+                plan -> assertTableLayout(
+                        plan,
+                        "lineitem",
+                        withColumnDomains(ImmutableMap.of(
+                                new Subfield("partkey", ImmutableList.of()),
+                                multipleValues(BIGINT, ImmutableList.of(5L, 10L)),
+                                new Subfield("orderkey", ImmutableList.of()),
+                                multipleValues(BIGINT, ImmutableList.of(5L, 10L)))),
+                        remainingPredicateForAndOrCombination,
+                        ImmutableSet.of("partkey", "orderkey")));
+    }
+
+    @Test
+    public void testPartitionPruning()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("CREATE TABLE test_partition_pruning WITH (partitioning = ARRAY['ds']) AS " +
+                "SELECT orderkey, CAST(to_iso8601(date_add('DAY', orderkey % 7, date('2019-11-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE ds = '2019-11-01'",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2019-11-01"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE date(ds) = date('2019-11-01')",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", singleValue(VARCHAR, utf8Slice("2019-11-01"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE date(ds) BETWEEN date('2019-11-02') AND date('2019-11-04')",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-02", "2019-11-03", "2019-11-04"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE ds < '2019-11-05'",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-01", "2019-11-02", "2019-11-03", "2019-11-04"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE date(ds) > date('2019-11-02')",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-03", "2019-11-04", "2019-11-05", "2019-11-06", "2019-11-07"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE ds < '2019-11-05' AND date(ds) > date('2019-11-02')",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-03", "2019-11-04"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE ds < '2019-11-05' OR ds = '2019-11-07'",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-01", "2019-11-02", "2019-11-03", "2019-11-04", "2019-11-07"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE (ds < '2019-11-05' AND date(ds) > date('2019-11-02')) OR (ds > '2019-11-05' AND ds < '2019-11-07')",
+                    anyTree(tableScanWithConstraint("test_partition_pruning", ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2019-11-03", "2019-11-04", "2019-11-06"))))));
+
+            assertPlan(sessionWithFilterPushdown, "SELECT * FROM test_partition_pruning WHERE ds = '2019-11-01' AND orderkey = 7",
+                    anyTree(tableScanWithConstraint(
+                            "test_partition_pruning",
+                            ImmutableMap.of(
+                                    "ds", singleValue(VARCHAR, utf8Slice("2019-11-01")),
+                                    "orderkey", singleValue(BIGINT, 7L)))),
+                    plan -> assertTableLayout(
+                            plan,
+                            "test_partition_pruning",
+                            withColumnDomains(ImmutableMap.of(new Subfield(
+                                            "orderkey",
+                                            ImmutableList.of()),
+                                    singleValue(BIGINT, 7L))),
+                            TRUE_CONSTANT,
+                            ImmutableSet.of("orderkey")));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE test_partition_pruning");
+        }
     }
 
     @Test
@@ -233,6 +1446,282 @@ public class TestIcebergLogicalPlanner
         assertUpdate("DROP TABLE test_pushdown_nestedcolumn_parquet");
     }
 
+    // TODO: the following @Ignore test cases could work after optimizer implementing left function unwrap()
+    // See https://github.com/prestodb/presto/issues/22244
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testDayTransformDateWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate(session, "CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1969-01-01', 10), " +
+                    "(DATE '1969-12-31', 11), " +
+                    "(DATE '1970-01-01', 1), " +
+                    "(DATE '1970-03-04', 2), " +
+                    "(DATE '2015-01-01', 3), " +
+                    "(DATE '2015-01-13', 4), " +
+                    "(DATE '2015-01-13', 5), " +
+                    "(DATE '2015-05-15', 6), " +
+                    "(DATE '2015-05-15', 7), " +
+                    "(DATE '2020-02-21', 8), " +
+                    "(DATE '2020-02-21', 9)";
+            assertUpdate(session, "INSERT INTO test_day_transform_date " + values, 12);
+            assertQuery(session, "SELECT * FROM test_day_transform_date", values);
+
+            // date()
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE date(d) = DATE '2015-01-13'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE date_trunc('day', d) = DATE '2015-01-13'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_day_transform_date");
+        }
+    }
+
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testDayTransformTimestampWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1969-12-25 15:13:12.876', 8)," +
+                    "(TIMESTAMP '1969-12-30 18:47:33.345', 9)," +
+                    "(TIMESTAMP '1969-12-31 00:00:00.000', 10)," +
+                    "(TIMESTAMP '1969-12-31 05:06:07.234', 11)," +
+                    "(TIMESTAMP '1970-01-01 12:03:08.456', 12)," +
+                    "(TIMESTAMP '2015-01-01 10:01:23.123', 1)," +
+                    "(TIMESTAMP '2015-01-01 11:10:02.987', 2)," +
+                    "(TIMESTAMP '2015-01-01 12:55:00.456', 3)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 4)," +
+                    "(TIMESTAMP '2015-05-15 14:21:02.345', 5)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 6)," +
+                    "(TIMESTAMP '2020-02-21 16:12:12.654', 7)";
+            assertUpdate(session, "INSERT INTO test_day_transform_timestamp " + values, 13);
+            assertQuery(session, "SELECT * FROM test_day_transform_timestamp", values);
+
+            // date()
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE date(d) = DATE '2015-05-15'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE date_trunc('day', d) = DATE '2015-05-15'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_day_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_day_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_day_transform_timestamp");
+        }
+    }
+
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testMonthTransformDateWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1969-11-13', 1)," +
+                    "(DATE '1969-12-01', 2)," +
+                    "(DATE '1969-12-02', 3)," +
+                    "(DATE '1969-12-31', 4)," +
+                    "(DATE '1970-01-01', 5), " +
+                    "(DATE '1970-05-13', 6), " +
+                    "(DATE '1970-12-31', 7), " +
+                    "(DATE '2020-01-01', 8), " +
+                    "(DATE '2020-06-16', 9), " +
+                    "(DATE '2020-06-28', 10), " +
+                    "(DATE '2020-06-06', 11), " +
+                    "(DATE '2020-07-18', 12), " +
+                    "(DATE '2020-07-28', 13), " +
+                    "(DATE '2020-12-31', 14)";
+            assertUpdate("INSERT INTO test_month_transform_date " + values, 15);
+            assertQuery("SELECT * FROM test_month_transform_date", values);
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE date_trunc('month', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_month_transform_date");
+        }
+    }
+
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testMonthTransformTimestampWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1969-11-15 15:13:12.876', 8)," +
+                    "(TIMESTAMP '1969-11-19 18:47:33.345', 9)," +
+                    "(TIMESTAMP '1969-12-01 00:00:00.000', 10)," +
+                    "(TIMESTAMP '1969-12-01 05:06:07.234', 11)," +
+                    "(TIMESTAMP '1970-01-01 12:03:08.456', 12)," +
+                    "(TIMESTAMP '2015-01-01 10:01:23.123', 1)," +
+                    "(TIMESTAMP '2015-01-01 11:10:02.987', 2)," +
+                    "(TIMESTAMP '2015-01-01 12:55:00.456', 3)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 4)," +
+                    "(TIMESTAMP '2015-05-15 14:21:02.345', 5)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 6)," +
+                    "(TIMESTAMP '2020-02-21 16:12:12.654', 7)";
+            assertUpdate("INSERT INTO test_month_transform_timestamp " + values, 13);
+            assertQuery("SELECT * FROM test_month_transform_timestamp", values);
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE date_trunc('month', d) = DATE '2015-05-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+            assertPlan(session, "SELECT * FROM test_month_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_month_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_month_transform_timestamp");
+        }
+    }
+
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testYearTransformDateWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+
+        try {
+            assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(DATE '1968-10-13', 1), " +
+                    "(DATE '1969-01-01', 2), " +
+                    "(DATE '1969-03-15', 3), " +
+                    "(DATE '1970-01-01', 4), " +
+                    "(DATE '1970-03-05', 5), " +
+                    "(DATE '2015-01-01', 6), " +
+                    "(DATE '2015-06-16', 7), " +
+                    "(DATE '2015-07-28', 8), " +
+                    "(DATE '2016-05-15', 9), " +
+                    "(DATE '2016-06-06', 10), " +
+                    "(DATE '2020-02-21', 11), " +
+                    "(DATE '2020-11-10', 12)";
+            assertUpdate("INSERT INTO test_year_transform_date " + values, 13);
+            assertQuery("SELECT * FROM test_year_transform_date", values);
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_year_transform_date WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_date", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_year_transform_date");
+        }
+    }
+
+    @Ignore
+    @Test(dataProvider = "timezones")
+    public void testYearTransformTimestampWithLeftFunctionUnwrap(String zoneId, boolean legacyTimestamp)
+    {
+        Session session = sessionForTimezone(zoneId, legacyTimestamp);
+        try {
+            assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
+
+            String values = "VALUES " +
+                    "(NULL, 101)," +
+                    "(TIMESTAMP '1968-03-15 15:13:12.876', 1)," +
+                    "(TIMESTAMP '1968-11-19 18:47:33.345', 2)," +
+                    "(TIMESTAMP '1969-01-01 00:00:00.000', 3)," +
+                    "(TIMESTAMP '1969-01-01 05:06:07.234', 4)," +
+                    "(TIMESTAMP '1970-01-18 12:03:08.456', 5)," +
+                    "(TIMESTAMP '1970-03-14 10:01:23.123', 6)," +
+                    "(TIMESTAMP '1970-08-19 11:10:02.987', 7)," +
+                    "(TIMESTAMP '1970-12-31 12:55:00.456', 8)," +
+                    "(TIMESTAMP '2015-05-15 13:05:01.234', 9)," +
+                    "(TIMESTAMP '2015-09-15 14:21:02.345', 10)," +
+                    "(TIMESTAMP '2020-02-21 15:11:11.876', 11)," +
+                    "(TIMESTAMP '2020-08-21 16:12:12.654', 12)";
+            assertUpdate("INSERT INTO test_year_transform_timestamp " + values, 13);
+            assertQuery("SELECT * FROM test_year_transform_timestamp", values);
+
+            // year()
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE year(d) = 2015",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+
+            // date_trunc
+            assertPlan(session, "SELECT * FROM test_year_transform_timestamp WHERE date_trunc('year', d) = DATE '2015-01-01'",
+                    thoroughlyPushdown(strictTableScan("test_year_transform_timestamp", identityMap("d", "b"))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_year_transform_timestamp");
+        }
+    }
+
+    private static PlanMatchPattern thoroughlyPushdown(PlanMatchPattern source)
+    {
+        return anyTree(anyNot(FilterNode.class, source));
+    }
+
+    private static PlanMatchPattern notThoroughlyPushdown(String expectedPredicate, PlanMatchPattern source)
+    {
+        return notThoroughlyPushdown(false, expectedPredicate, source);
+    }
+
+    private static PlanMatchPattern notThoroughlyPushdown(boolean isDecimalFilter, String expectedPredicate, PlanMatchPattern source)
+    {
+        if (isDecimalFilter) {
+            return anyTree(filterWithDecimal(expectedPredicate, source));
+        }
+        else {
+            return anyTree(filter(expectedPredicate, source));
+        }
+    }
+
     private static PlanMatchPattern tableScanParquetDeferencePushDowns(String expectedTableName, Map<String, Subfield> expectedDeferencePushDowns)
     {
         return PlanMatchPattern.tableScan(expectedTableName).with(new IcebergParquetDereferencePushdownMatcher(expectedDeferencePushDowns, ImmutableSet.of(), TupleDomain.all()));
@@ -265,6 +1754,42 @@ public class TestIcebergLogicalPlanner
         assertPlan(session, query, anyTree(tableScanParquetDeferencePushDowns(tableName, expectedDeferencePushDowns)));
     }
 
+    private RowExpression constant(long value)
+    {
+        return new ConstantExpression(value, BIGINT);
+    }
+
+    private static Map<String, String> identityMap(String... values)
+    {
+        return Arrays.stream(values).collect(toImmutableMap(Functions.identity(), Functions.identity()));
+    }
+
+    private void assertTableLayout(Plan plan, String tableName, TupleDomain<Subfield> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)
+    {
+        TableScanNode tableScan = searchFrom(plan.getRoot())
+                .where(node -> isTableScanNode(node, tableName))
+                .findOnlyElement();
+
+        assertTrue(tableScan.getTable().getLayout().isPresent());
+        IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+        assertEquals(layoutHandle.getPredicateColumns().keySet(), predicateColumnNames);
+        assertEquals(layoutHandle.getDomainPredicate(), domainPredicate);
+        assertEquals(layoutHandle.getRemainingPredicate(), remainingPredicate);
+    }
+
+    private static boolean isTableScanNode(PlanNode node, String tableName)
+    {
+        return node instanceof TableScanNode && ((IcebergTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getIcebergTableName().getTableName().equals(tableName);
+    }
+
+    private Session pushdownFilterEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+    }
+
     private Session withParquetDereferencePushDownEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
@@ -279,6 +1804,16 @@ public class TestIcebergLogicalPlanner
                 .setSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, "false")
                 .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, "false")
                 .build();
+    }
+
+    private Session sessionForTimezone(String zoneId, boolean legacyTimestamp)
+    {
+        SessionBuilder sessionBuilder = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, String.valueOf(legacyTimestamp));
+        if (legacyTimestamp) {
+            sessionBuilder.setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId));
+        }
+        return sessionBuilder.build();
     }
 
     private static Set<Subfield> toSubfields(String... subfieldPaths)
@@ -296,6 +1831,38 @@ public class TestIcebergLogicalPlanner
     private static PlanMatchPattern tableScan(String expectedTableName, Map<String, Set<Subfield>> expectedRequiredSubfields)
     {
         return PlanMatchPattern.tableScan(expectedTableName).with(new IcebergTableScanMatcher(expectedRequiredSubfields));
+    }
+
+    private static List<Slice> utf8Slices(String... values)
+    {
+        return Arrays.stream(values).map(Slices::utf8Slice).collect(toImmutableList());
+    }
+
+    private static PlanMatchPattern tableScanWithConstraint(String tableName, Map<String, Domain> expectedConstraint)
+    {
+        return PlanMatchPattern.tableScan(tableName).with(new Matcher()
+        {
+            @Override
+            public boolean shapeMatches(PlanNode node)
+            {
+                return node instanceof TableScanNode;
+            }
+
+            @Override
+            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            {
+                TableScanNode tableScan = (TableScanNode) node;
+                TupleDomain<String> constraint = tableScan.getCurrentConstraint()
+                        .transform(IcebergColumnHandle.class::cast)
+                        .transform(IcebergColumnHandle::getName);
+
+                if (!expectedConstraint.equals(constraint.getDomains().get())) {
+                    return NO_MATCH;
+                }
+
+                return match();
+            }
+        });
     }
 
     private static final class IcebergTableScanMatcher
@@ -403,7 +1970,12 @@ public class TestIcebergLogicalPlanner
 
             IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout.get();
 
-            Optional<List<TupleDomain.ColumnDomain<ColumnHandle>>> columnDomains = layoutHandle.getTupleDomain().getColumnDomains();
+            TupleDomain<ColumnHandle> tupleDomain = layoutHandle.getDomainPredicate()
+                    .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
+                    .transform(layoutHandle.getPredicateColumns()::get)
+                    .transform(ColumnHandle.class::cast);
+
+            Optional<List<TupleDomain.ColumnDomain<ColumnHandle>>> columnDomains = tupleDomain.getColumnDomains();
             Set<String> actualPredicateColumns = ImmutableSet.of();
             if (columnDomains.isPresent()) {
                 actualPredicateColumns = columnDomains.get().stream()
@@ -414,7 +1986,7 @@ public class TestIcebergLogicalPlanner
             }
 
             if (!Objects.equals(actualPredicateColumns, predicateColumns)
-                    || !Objects.equals(layoutHandle.getTupleDomain(), predicate)) {
+                    || !Objects.equals(tupleDomain, predicate)) {
                 return NO_MATCH;
             }
 

@@ -34,7 +34,6 @@ public class TestClientOptions
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "presto-cli");
     }
-
     @Test
     public void testSource()
     {
@@ -134,6 +133,20 @@ public class TestClientOptions
         assertTrue(console.clientOptions.toClientSession().isCompressionDisabled());
     }
 
+    @Test
+    public void testDisableFollowingRedirects()
+    {
+        Console console = singleCommand(Console.class).parse("--disable-redirects");
+        assertTrue(console.clientOptions.disableRedirects);
+    }
+
+    @Test
+    public void testRunTimeStat()
+    {
+        Console console = singleCommand(Console.class).parse("--runtime-stats");
+        assertTrue(console.clientOptions.runtime);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testThreePartPropertyName()
     {
@@ -170,5 +183,13 @@ public class TestClientOptions
         Console console = singleCommand(Console.class).parse("--extra-credential", "test.token.foo=foo", "--extra-credential", "test.token.foo=bar");
         ClientOptions options = console.clientOptions;
         options.toClientSession();
+    }
+
+    @Test
+    public void testValidateNextUriSource()
+    {
+        Console console = singleCommand(Console.class).parse("--validate-nexturi-source");
+        assertTrue(console.clientOptions.validateNextUriSource);
+        assertTrue(console.clientOptions.toClientSession().validateNextUriSource());
     }
 }

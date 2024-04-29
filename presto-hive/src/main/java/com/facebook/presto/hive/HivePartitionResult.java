@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class HivePartitionResult
 {
-    private final List<HiveColumnHandle> partitionColumns;
+    private final List<BaseHiveColumnHandle> partitionColumns;
     private final List<Column> dataColumns;
     private final Map<String, String> tableParameters;
     private final List<HivePartition> partitions;
@@ -47,7 +47,7 @@ public class HivePartitionResult
     private final Optional<HiveBucketFilter> bucketFilter;
 
     public HivePartitionResult(
-            List<HiveColumnHandle> partitionColumns,
+            List<BaseHiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             Map<String, String> tableParameters,
             List<HivePartition> partitions,
@@ -68,7 +68,7 @@ public class HivePartitionResult
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
 
-    public List<HiveColumnHandle> getPartitionColumns()
+    public List<BaseHiveColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
     }

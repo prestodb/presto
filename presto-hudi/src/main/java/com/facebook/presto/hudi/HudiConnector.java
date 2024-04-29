@@ -15,6 +15,7 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -30,6 +31,7 @@ import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -50,6 +52,7 @@ public class HudiConnector
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final ConnectorAccessControl accessControl;
     private final HudiSessionProperties hudiSessionProperties;
+    private final HiveCommonSessionProperties hiveCommonSessionProperties;
 
     public HudiConnector(
             LifeCycleManager lifeCycleManager,
@@ -59,7 +62,8 @@ public class HudiConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorNodePartitioningProvider nodePartitioningProvider,
             ConnectorAccessControl accessControl,
-            HudiSessionProperties hudiSessionProperties)
+            HudiSessionProperties hudiSessionProperties,
+            HiveCommonSessionProperties hiveCommonSessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -69,6 +73,7 @@ public class HudiConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.hudiSessionProperties = requireNonNull(hudiSessionProperties, "hudiSessionProperties is null");
+        this.hiveCommonSessionProperties = requireNonNull(hiveCommonSessionProperties, "hiveCommonSessionProperties is null");
     }
 
     @Override
@@ -109,7 +114,9 @@ public class HudiConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return hudiSessionProperties.getSessionProperties();
+        List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hudiSessionProperties.getSessionProperties());
+        allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+        return allSessionProperties;
     }
 
     @Override

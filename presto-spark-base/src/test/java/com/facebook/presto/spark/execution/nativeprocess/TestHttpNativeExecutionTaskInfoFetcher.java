@@ -20,7 +20,6 @@ import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.http.TestPrestoSparkHttpClient;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -29,7 +28,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -41,43 +39,35 @@ public class TestHttpNativeExecutionTaskInfoFetcher
     private static final JsonCodec<TaskInfo> TASK_INFO_JSON_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
     private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
     private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchTaskUpdateRequest.class);
-    private static final ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
     private static final ScheduledExecutorService updateScheduledExecutor = newScheduledThreadPool(4);
 
     @Test
     public void testNativeExecutionTaskFailsWhenProcessCrashes()
     {
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
-                new TestPrestoSparkHttpClient.TestingHttpClient(new TestPrestoSparkHttpClient.TestingResponseManager(
-                        TEST_TASK_ID.toString(),
-                        new TestPrestoSparkHttpClient.TestingResponseManager.CrashingTaskInfoResponseManager(1))),
+                new TestPrestoSparkHttpClient.TestingHttpClient(
+                        updateScheduledExecutor,
+                        new TestPrestoSparkHttpClient.TestingResponseManager(
+                                TEST_TASK_ID.toString(),
+                                new TestPrestoSparkHttpClient.TestingResponseManager.CrashingTaskInfoResponseManager())),
                 TEST_TASK_ID,
                 BASE_URI,
                 TASK_INFO_JSON_CODEC,
                 PLAN_FRAGMENT_JSON_CODEC,
                 TASK_UPDATE_REQUEST_JSON_CODEC,
-                new Duration(1, TimeUnit.MILLISECONDS), // very low tolerance for error for unit testing
-                ImmutableMap.of());
+                // very low tolerance for error for unit testing
+                new Duration(1, TimeUnit.MILLISECONDS),
+                updateScheduledExecutor,
+                updateScheduledExecutor,
+                new Duration(1, TimeUnit.SECONDS));
 
         Object taskFinishedOrLostSignal = new Object();
 
         HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 updateScheduledExecutor,
-                errorScheduler,
                 workerClient,
-                directExecutor(),
-                new Duration(1, TimeUnit.SECONDS),
                 new Duration(1, TimeUnit.SECONDS),
                 taskFinishedOrLostSignal);
-
-        // first attempt will result in task info
-        taskInfoFetcher.doGetTaskInfo();
-
-        // subsequent attempts will result in failed to fetch task info
-        // we call enough number of times to trigger error tracker
-        taskInfoFetcher.doGetTaskInfo();
-        taskInfoFetcher.doGetTaskInfo();
-        taskInfoFetcher.doGetTaskInfo();
 
         // set up a listener for the notification
         AtomicBoolean notifyCalled = new AtomicBoolean(false);

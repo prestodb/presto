@@ -70,5 +70,11 @@ public class TestPostgreSqlDistributedQueries
         // Delete is currently unsupported
     }
 
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
+    }
+
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest
 }

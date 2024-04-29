@@ -37,7 +37,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.ROOT_FRAGMENT_ID;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.finalizeSubPlan;
-import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getTableWriterNodeIds;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.getOutputTableWriterNodeIds;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
@@ -81,7 +81,7 @@ public class PlanFragmenter
                 sqlParser,
                 idAllocator,
                 variableAllocator,
-                getTableWriterNodeIds(plan.getRoot()));
+                getOutputTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),

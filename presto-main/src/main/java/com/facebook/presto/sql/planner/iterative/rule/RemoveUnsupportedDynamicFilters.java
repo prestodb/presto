@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -74,7 +75,7 @@ public class RemoveUnsupportedDynamicFilters
     }
 
     @Override
-    public PlanNode optimize(
+    public PlanOptimizerResult optimize(
             PlanNode plan,
             Session session,
             TypeProvider types,
@@ -82,13 +83,21 @@ public class RemoveUnsupportedDynamicFilters
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(), ImmutableSet.of());
-        return result.getNode();
+        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter();
+        PlanWithConsumedDynamicFilters result = plan.accept(rewriter, ImmutableSet.of());
+        return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());
     }
 
     private class Rewriter
             extends InternalPlanVisitor<PlanWithConsumedDynamicFilters, Set<String>>
     {
+        boolean planChanged;
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
+        }
+
         @Override
         public PlanWithConsumedDynamicFilters visitPlan(PlanNode node, Set<String> allowedDynamicFilterIds)
         {
@@ -198,6 +207,7 @@ public class RemoveUnsupportedDynamicFilters
             RowExpression modified;
             if (source instanceof TableScanNode) {
                 // Keep only allowed dynamic filters
+                planChanged = true;
                 modified = removeDynamicFilters(original, allowedDynamicFilterIds, consumedDynamicFilterIds);
             }
             else {

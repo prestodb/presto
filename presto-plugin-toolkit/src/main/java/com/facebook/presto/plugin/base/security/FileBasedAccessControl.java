@@ -38,13 +38,16 @@ import static com.facebook.presto.plugin.base.security.TableAccessControlRule.Ta
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
+import static com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -56,6 +59,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -198,6 +202,14 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        if (!checkTablePermission(identity, tableName, UPDATE)) {
+            denyUpdateTableColumns(tableName.toString(), updatedColumns);
+        }
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         if (!isDatabaseOwner(identity, viewName.getSchemaName())) {
@@ -289,15 +301,28 @@ public class FileBasedAccessControl
     {
     }
 
+    @Override
+    public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyDropConstraint(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyAddConstraint(tableName.toString());
+        }
+    }
+
     private boolean canSetSessionProperty(ConnectorIdentity identity, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
             Optional<Boolean> allowed = rule.match(identity.getUser(), property);
-            if (allowed.isPresent() && allowed.get()) {
-                return true;
-            }
-            if (allowed.isPresent() && !allowed.get()) {
-                return false;
+            if (allowed.isPresent()) {
+                return allowed.get();
             }
         }
         return false;

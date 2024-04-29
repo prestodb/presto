@@ -234,6 +234,7 @@ export function getChildren(nodeInfo: any): any[]
         case "TopNNode":
         case "SampleNode":
         case "TableWriterNode":
+        case "TableWriterMergeNode":
         case "DeleteNode":
         case "MetadataDeleteNode":
         case "TableFinishNode":

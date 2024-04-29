@@ -105,7 +105,7 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
         return getTaskProcessor().process(
                 taskSourceIterator,
                 getShuffleReadDescriptors(partitions),
-                getShuffleWriteDescriptor(split));
+                getShuffleWriteDescriptor(context.stageId(), split));
     }
 
     private PrestoSparkNativeTaskRdd(
@@ -158,14 +158,14 @@ public class PrestoSparkNativeTaskRdd<T extends PrestoSparkTaskOutput>
         return shuffleReadDescriptors.build();
     }
 
-    private Optional<PrestoSparkShuffleWriteDescriptor> getShuffleWriteDescriptor(Partition split)
+    private Optional<PrestoSparkShuffleWriteDescriptor> getShuffleWriteDescriptor(int stageId, Partition split)
     {
         // Get shuffle information from Spark shuffle manager for shuffle write
         checkState(
                 SparkEnv.get().shuffleManager() instanceof PrestoSparkNativeExecutionShuffleManager,
                 "Native execution requires to use PrestoSparkNativeExecutionShuffleManager. But got: %s", SparkEnv.get().shuffleManager().getClass().getName());
         PrestoSparkNativeExecutionShuffleManager shuffleManager = (PrestoSparkNativeExecutionShuffleManager) SparkEnv.get().shuffleManager();
-        Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(split.index());
+        Optional<ShuffleHandle> shuffleHandle = shuffleManager.getShuffleHandle(stageId, split.index());
 
         return shuffleHandle.map(handle -> new PrestoSparkShuffleWriteDescriptor(handle, shuffleManager.getNumOfPartitions(handle.shuffleId())));
     }

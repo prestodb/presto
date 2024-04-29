@@ -96,16 +96,227 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+Type mapping
+------------
+
+PrestoDB and MySQL each support types that the other does not. When reading from or writing to MySQL, Presto converts
+the data types from MySQL to equivalent Presto data types, and from Presto to equivalent MySQL data types.
+Refer to the following sections for type mapping in each direction.
+
+MySQL to PrestoDB type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps MySQL types to the corresponding PrestoDB types:
+
+.. list-table:: MySQL to PrestoDB type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - MySQL type
+    - PrestoDB type
+  * - ``BIT``
+    - ``BOOLEAN``
+  * - ``BOOLEAN``
+    - ``TINYINT``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``TINYINT UNSIGNED``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``SMALLINT UNSIGNED``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``INTEGER UNSIGNED``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``BIGINT UNSIGNED``
+    - ``BIGINT``
+  * - ``DOUBLE PRECISION``
+    - ``DOUBLE``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``REAL``
+    - ``DOUBLE``
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+  * - ``TINYTEXT``
+    - ``VARCHAR(255)``
+  * - ``TEXT``
+    - ``VARCHAR(65535)``
+  * - ``MEDIUMTEXT``
+    - ``VARCHAR(16777215)``
+  * - ``LONGTEXT``
+    - ``VARCHAR``
+  * - ``ENUM(n)``
+    - ``CHAR(n)``
+  * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
+    - ``VARBINARY``
+  * - ``JSON``
+    - ``CHAR(n)``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME(n)``
+    - ``TIME``
+  * - ``DATETIME(n)``
+    - ``DATETIME``
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP``
+
+No other types are supported.
+
+PrestoDB to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PrestoDB types to the corresponding MySQL types:
+
+.. list-table:: PrestoDB to MySQL type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - MySQL type
+  * - ``BOOLEAN``
+    - ``TINYINT``
+  * - ``TINYINT``
+    - ``TINYINT``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+  * - ``INTEGER``
+    - ``INTEGER``
+  * - ``BIGINT``
+    - ``BIGINT``
+  * - ``REAL``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE PRECISION``
+  * - ``DECIMAL(p, s)``
+    - ``DECIMAL(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``TINYTEXT``, ``MEDIUMTEXT``
+  * - ``VARCHAR``
+    - ``LONGTEXT``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME``
+  * - ``TIMESTAMP``
+    - ``DATETIME``
+  * - ``VARBINARY``
+    - ``MEDIUMBLOB``
+
+No other types are supported.
+
+SQL Support
+-----------
+
+The MySQL connector allows querying and creating MySQL tables. Here are some examples of the SQL operations supported:
+
+ALTER TABLE
+^^^^^^^^^^^
+
+.. code-block:: sql
+
+    ALTER TABLE mysql.web.page_views ADD COLUMN zipcode VARCHAR;
+    ALTER TABLE mysql.web.page_views RENAME COLUMN zipcode TO location;
+    ALTER TABLE mysql.web.page_views DROP COLUMN location;
+
+CREATE TABLE
+^^^^^^^^^^^^
+
+Create a new MySQL table named ``page_views`` in the ``web`` schema:
+
+.. code-block:: sql
+
+    CREATE TABLE mysql.web.page_views (
+      user_id bigint,
+      page_url varchar,
+      ds date,
+      country varchar
+    );
+
+.. note:: Presto does not enforce primary key constraints. For example, the following statement
+
+ .. code-block:: sql
+
+  CREATE TABLE users (
+          id INT PRIMARY KEY,
+          name TEXT,
+          email TEXT
+      );
+
+ returns an error similar to the following:
+
+ ``Query 20240322_095447_00010_syzb3 failed: line 2:19: mismatched input 'PRIMARY'. Expecting: ')', ','``
+
+CREATE TABLE AS SELECT
+^^^^^^^^^^^^^^^^^^^^^^
+
+Create a new table ``page_views_new`` from an existing table ``page_views``:
+
+.. code-block:: sql
+
+    CREATE TABLE mysql.web.page_views_new AS SELECT * FROM mysql.web.page_views;
+
+.. note:: Advanced SQL features such as data compression are not supported in the ``CREATE TABLE AS SELECT`` statement.
+
+ .. code-block:: sql
+
+   CREATE TABLE compressed_employees AS SELECT * FROM employees WITH (compression = 'Zlib');
+
+ returns an error similar to the following:
+
+ ``Query 20240321_103408_00015_kbd43 failed: line 1:67: mismatched input '('. Expecting: 'DATA', 'NO'``
+
+INSERT INTO
+^^^^^^^^^^^
+
+Insert data into the ``page_views`` table:
+
+.. code-block:: sql
+
+    INSERT INTO mysql.web.page_views VALUES(1, 'https://example.com', current_date, 'country');
+
+SELECT
+^^^^^^
+
+.. code-block:: sql
+
+    SELECT * FROM mysql.web.page_views;
+
+TRUNCATE
+^^^^^^^^
+
+Delete all of the data from the table ``page_views`` without dropping the table:
+
+.. code-block:: sql
+
+    TRUNCATE TABLE mysql.web.page_views;
+
 MySQL Connector Limitations
 ---------------------------
 
-The following SQL statements are not yet supported:
+The following SQL statements are not supported:
 
-* :doc:`/sql/delete`
 * :doc:`/sql/alter-table`
-* :doc:`/sql/create-table` (:doc:`/sql/create-table-as` is supported)
+* :doc:`/sql/analyze`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/create-view`
+* :doc:`/sql/delete`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/drop-view`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
 * :doc:`/sql/show-role-grants`
+* :doc:`/sql/show-roles`
+* :doc:`/sql/update`

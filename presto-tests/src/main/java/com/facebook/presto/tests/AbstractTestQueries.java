@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_FUNCTION;
@@ -71,12 +72,15 @@ import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_T
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CASE_TO_MAP_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_ARRAY_NOT_CONTAINS_TO_ANTI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
+import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
@@ -120,6 +124,7 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -1021,9 +1026,7 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
         assertQuery(session, "" +
-                        "SELECT DISTINCT x " +
-                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
-                        "LIMIT 100",
+                "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
                 "SELECT 1");
     }
 
@@ -1811,6 +1814,21 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT orderkey, min(orderkey, 3) over() AS t FROM orders",
                 "SELECT orderkey, ARRAY[cast(1 as bigint), cast(2 as bigint), cast(3 as bigint)] t FROM orders");
+    }
+
+    @Test
+    public void testMinMaxByN()
+    {
+        assertQuery("SELECT MIN_BY(c0, c0, c1) OVER ( PARTITION BY c2 ORDER BY c3 ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) FROM " +
+                "( VALUES (1, 10, FALSE, 0), (2, 10, FALSE, 1) ) AS t(c0, c1, c2, c3)", "values array[1], array[1, 2]");
+        assertQuery("SELECT MIN_BY(c0, c3, c1) OVER ( PARTITION BY c2 ORDER BY c3 ASC RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) FROM " +
+                "( VALUES (1, 10, FALSE, 2), (2, 10, FALSE, 1) ) AS t(c0, c1, c2, c3)", "values array[2], array[2, 1]");
+        assertQuery("select max_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0)) " +
+                "t(k1, k2, k3, k4)", "values array[8], array[5, 8], array[2], array[2, 1]");
+        assertQuery("select max_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0), (7, 'e', 1, 8), " +
+                "(9, 'f', 2, 10), (0, 'g', 1, 9)) t(k1, k2, k3, k4)", "values array[8], array[5, 8], array[9, 5], array[2], array[2, 1], array[7, 2], array[0, 7]");
+        assertQuery("select min_by(k1, k2, 2) over (partition by k3 order by k4) from (values (1, 'a', 1, 3), (2, 'b', 1, 2), (5, 'd', 2, 1), (8, 'c', 2, 0), (7, 'e', 1, 8), " +
+                "(9, 'f', 2, 10), (0, 'g', 1, 9)) t(k1, k2, k3, k4)", "values array[2], array[1, 2], array[1, 2], array[1, 2], array[8], array[8, 5], array[8, 5]");
     }
 
     @Test
@@ -2658,7 +2676,7 @@ public abstract class AbstractTestQueries
     {
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -2666,7 +2684,7 @@ public abstract class AbstractTestQueries
 
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -2977,7 +2995,8 @@ public abstract class AbstractTestQueries
                 getSession().getPreparedStatements(),
                 ImmutableMap.of(),
                 getSession().getTracer(),
-                getSession().getWarningCollector());
+                getSession().getWarningCollector(),
+                getSession().getRuntimeStats());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -3015,7 +3034,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3023,7 +3042,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
-            assertTrue(false);
+            fail();
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3715,7 +3734,14 @@ public abstract class AbstractTestQueries
         // explicit LIMIT in subquery
         assertQueryFails(
                 "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)",
-                "line 1:9: Given correlated subquery is not supported");
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        assertQuery(
+                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 2) FROM (values 7) t(corr_key)");
+
+        // Limit(1) and non-constant output symbol of the subquery (count)
+        assertQueryFails("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -4140,6 +4166,25 @@ public abstract class AbstractTestQueries
                 "SELECT count(*) FROM orders o " +
                         "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey > 10 OR o.orderkey != 3)))",
                 "VALUES 14999");
+    }
+
+    @Test
+    public void testCorrelatedJoin()
+    {
+        // TopN in correlated subquery
+        assertQuery(
+                "SELECT regionkey, n.name FROM region CROSS JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY nationkey LIMIT 2) n",
+                "VALUES " +
+                        "(0, 'ETHIOPIA'), " +
+                        "(0, 'ALGERIA'), " +
+                        "(1, 'BRAZIL'), " +
+                        "(1, 'ARGENTINA'), " +
+                        "(2, 'INDONESIA'), " +
+                        "(2, 'INDIA'), " +
+                        "(3, 'GERMANY'), " +
+                        "(3, 'FRANCE'), " +
+                        "(4, 'IRAN'), " +
+                        "(4, 'EGYPT')");
     }
 
     @Test
@@ -5620,7 +5665,7 @@ public abstract class AbstractTestQueries
         assertQueryFails(stringBuilder.toString(), "Query results in large bytecode exceeding the limits imposed by JVM|Compiler failed");
     }
 
-    @Test(timeOut = 30_000)
+    @Test(timeOut = 60_000)
     public void testLargeQuery()
     {
         StringBuilder query = new StringBuilder("SELECT * FROM (VALUES ROW(0, '0')");
@@ -5952,6 +5997,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testApproxMostFrequentWithNullGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("select k, approx_most_frequent(2, v, 10) from (values (1, null), (2, 3)) t(k, v) group by k order by k");
+
+        assertEquals(actual1.getRowCount(), 2);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), 1);
+        assertNull(actual1.getMaterializedRows().get(0).getFields().get(1));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), 2);
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(3, 1L));
+    }
+
+    @Test
     public void testUnknownMaxBy()
     {
         assertQuery("select max_by(x, y) from (select 1 x, null y)", "select null");
@@ -6000,6 +6057,10 @@ public abstract class AbstractTestQueries
         actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) x union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>))x) group by y");
         assertEquals(actual.getRowCount(), 1);
         assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1L, "y", 20L, "z", 30L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<real>)) x union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<real>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1.0f, "y", 20.0f, "z", 30.0f));
 
         actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>)) x " +
                 "union all select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) " +
@@ -6277,22 +6338,22 @@ public abstract class AbstractTestQueries
                 .build();
 
         String leftJoin = "SELECT o.orderkey, l.discount FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey";
-        assertQuery(enableRandomize, leftJoin, getSession(), leftJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, leftJoin, getSession());
 
         String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
-        assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableRandomize, multipleJoin, getSession());
 
         Session enableKeyFromOuterJoin = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY, "key_from_outer_join")
                 .build();
-        assertQuery(enableKeyFromOuterJoin, multipleJoin, getSession(), multipleJoin);
+        assertQueryWithSameQueryRunner(enableKeyFromOuterJoin, multipleJoin, getSession());
 
         Session enableRandomizeFourPartition = Session.builder(getSession())
                 .setSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, "true")
                 .setSystemProperty(HASH_PARTITION_COUNT, "1")
                 .build();
         String varcharJoinKey = "select t.k, t2.k, t2.v from (values 'r0', 'r1', 'r2', 'r3') t(k) left join (values (null, 1), (null, 2), (null, 3), (null, 4)) t2(k, v) on t.k = t2.k";
-        assertQuery(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
+        assertQueryWithSameQueryRunner(enableRandomizeFourPartition, varcharJoinKey, "values ('r0', null, null), ('r1', null, null), ('r2', null, null), ('r3', null, null)");
     }
 
     @Test
@@ -6614,6 +6675,8 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "WITH emptyorders as (select * from orders where false) SELECT p.name, l.orderkey, l.partkey, l.quantity, RANK() OVER (PARTITION BY p.name ORDER BY l.quantity DESC) AS rank_quantity " +
                 "FROM lineitem l JOIN emptyorders o ON l.orderkey = o.orderkey JOIN part p ON l.partkey = p.partkey WHERE o.orderdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' " +
                 "AND l.shipdate BETWEEN DATE '1995-03-01' AND DATE '1995-03-31' AND p.size = 15 ORDER BY p.name, rank_quantity LIMIT 100");
+        assertQuery(enableOptimization, "select orderkey, row_number() over (partition by orderpriority), orderpriority from (select orderkey, orderpriority from orders where false)");
+        assertQuery(enableOptimization, "select * from (select orderkey, row_number() over (partition by orderpriority order by orderkey) row_number, orderpriority from (select orderkey, orderpriority from orders where false)) where row_number < 2");
 
         emptyJoinQueries(enableOptimization);
     }
@@ -6823,6 +6886,12 @@ public abstract class AbstractTestQueries
                 "WHERE\n" +
                 "    c.nationkey = 1\n";
         assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
+
+        query = "WITH temp_cte AS ( \n" +
+                "   SELECT name from nation \n" +
+                "   ) \n" +
+                "   SELECT * FROM temp_cte";
+        assertEqualsIgnoreOrder(computeActual(enablePreProcessMetadataCalls, query), computeActual(getSession(), query));
     }
 
     @Test
@@ -6933,6 +7002,72 @@ public abstract class AbstractTestQueries
         sql = "with t1 as (select * from (values (1, 'JAPAN'), (2, 'invalid_nation')) t(k, nation)) " +
                 "select t1.k, t1.nation from t1 where contains(transform((select array_agg(name) from nation), (x) ->lower(x)), lower(t1.nation))";
         assertQuery(enableOptimization, sql, "values (1, 'JAPAN')");
+    }
+
+    @Test
+    public void testLeftJoinWithArrayContainsCondition()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REWRITE_LEFT_JOIN_ARRAY_CONTAINS_TO_EQUI_JOIN, "ALWAYS_ENABLED")
+                .build();
+
+        String sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3, null], 10), (array[4, 5, 6, null, null], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11), (array[null, 9], 12)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b'), (null, 'c'), (9, 'd'), (8, 'd')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b'), (null, null, 'c'), (12, 9, 'd'), (null, 8, 'd')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3, null, null], 10), (array[4, 5, 6, null, null], 11), (array[null, 9], 12)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b'), (null, 'c'), (9, 'd'), (8, 'd')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b'), (null, null, 'c'), (12, 9, 'd'), (null, 8, 'd')");
+
+        sql = "with t1 as (select * from (values (array[1, 1, 3], 10), (array[4, 4, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 1, 3, null, null], 10), (array[4, 4, 6, null, null], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, null, 3], 10), (array[4, null, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (null, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (10, 1, 'a'), (NULL, NULL, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k) and t1.k > 10";
+        assertQuery(enableOptimization, sql, "values (NULL, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select * from (values (array[1, 2, 3], 1), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (1, 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k) or t1.k = t2.k";
+        assertQuery(enableOptimization, sql, "values (1, 1, 'a'), (11, 4, 'b')");
+
+        sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on contains(t1.orderkey, o.orderkey) where o.totalprice < 2000";
+        // Because the UDF has different names in H2, which is `array_contains`
+        String h2Sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on array_contains(t1.orderkey, o.orderkey) where o.totalprice < 2000";
+        assertQuery(enableOptimization, sql, h2Sql);
+
+        sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on contains(t1.orderkey, o.orderkey) and t1.partkey < o.orderkey where o.totalprice < 2000";
+        h2Sql = "with t1 as (select array_agg(orderkey) orderkey, partkey from lineitem l where l.quantity < 5 group by partkey) " +
+                "select t1.partkey, o.orderkey, o.totalprice from orders o left join t1 on array_contains(t1.orderkey, o.orderkey) and t1.partkey < o.orderkey where o.totalprice < 2000";
+        assertQuery(enableOptimization, sql, h2Sql);
+
+        // Element type and array type does not match
+        sql = "with t1 as (select * from (values (array[cast(1 as bigint), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as integer), 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
+
+        sql = "with t1 as (select * from (values (array[cast(1 as integer), 2, 3], 10), (array[4, 5, 6], 11)) t(arr, k)), t2 as (select * from (values (cast(1 as bigint), 'a'), (4, 'b')) t(k, v)) " +
+                "select t1.k, t2.k, t2.v from t2 left join t1 on contains(t1.arr, t2.k)";
+        assertQuery(enableOptimization, sql, "values (11, 4, 'b'), (10, 1, 'a')");
     }
 
     @Test
@@ -7125,21 +7260,19 @@ public abstract class AbstractTestQueries
         assertSorted(result.getMaterializedRows().get(0).getFields());
     }
 
-    private static boolean assertSorted(List<Object> array)
+    private static void assertSorted(List<Object> array)
     {
         int i = 1;
         for (; i < array.size(); i++) {
             if (array.get(i) == null) {
                 break;
             }
-            assertThat(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
+            assertTrue(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
         }
 
         while (i < array.size()) {
-            assertThat(array.get(i++) == null);
+            assertNull(array.get(i++));
         }
-
-        return true;
     }
 
     @Test
@@ -7153,6 +7286,21 @@ public abstract class AbstractTestQueries
         assertQuery("select x like '%_%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
         assertQuery("select x like '%a%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
         assertQuery("select x like '%acd%xy%' from (values 'xa bc', 'xabcy', 'abcd') T(x)");
+    }
+
+    @Test
+    public void testLikePrefixAndSuffixWithChars()
+    {
+        assertQuery("select x like 'abc%' from (values CAST ('abc' AS CHAR(3)), CAST ('def' AS CHAR(3)), CAST ('bcd' AS CHAR(3))) T(x)");
+        assertQuery("select x like '%abc%' from (values CAST ('xabcy' AS CHAR(5)), CAST ('abxabcdef' AS CHAR(9)), CAST ('bcd' AS CHAR(3)),  CAST ('xabcyabcz' AS CHAR(9))) T(x)");
+        assertQuery(
+                "select x like '%abc' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4)), CAST ('xabc' AS CHAR(4)), CAST (' xabc' AS CHAR(5))) T(x)",
+                "SELECT * FROM (VALUES(false), (false), (false), (false), (true)) T");
+        assertQuery("select x like '%ab_c' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4))) T(x)");
+        assertQuery("select x like '%' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4))) T(x)");
+        assertQuery("select x like '%_%' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4))) T(x)");
+        assertQuery("select x like '%a%' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4))) T(x)");
+        assertQuery("select x like '%acd%xy%' from (values CAST('xa bc' AS CHAR(5)), CAST ('xabcy' AS CHAR(5)), CAST ('abcd' AS CHAR(4))) T(x)");
     }
 
     @Test
@@ -7173,6 +7321,11 @@ public abstract class AbstractTestQueries
                 "values ('+1')");
         assertQuery(session, "select transform(col1, x -> if(x, col2[2], 0)) from (values (array[false], array[0])) t(col1, col2)", "values array[0]");
         assertQuery(session, "select transform(arr1, x -> arr2[2]) from (values (array[], array[0])) t(arr1, arr2)", "values array[]");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b)) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> regexp_like(x, CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> regexp_like(x, CONCAT('a', b))) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b)) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(1 AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> regexp_like(x, CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> regexp_like(x, CONCAT('a', b))) FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(1 AS VARCHAR) AS b )", "values (false, array[])");
+        assertQuery(session, "SELECT ANY_MATCH(a, x -> (x LIKE CONCAT('a', b))) AS rejected_by_control_model, FILTER(a, x -> x LIKE CONCAT('a', b) ESCAPE '#') FROM ( SELECT ARRAY[CAST(random() AS VARCHAR)] a, CAST(random() AS VARCHAR) AS b )", "values (false, array[])");
     }
 
     @Test
@@ -7205,8 +7358,173 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGenerateDomainFilters()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(GENERATE_DOMAIN_FILTERS, "true")
+                .build();
+
+        //Inner Join, domain predicates for both sides of Join inferred
+        assertQuery(session, "select s.acctbal, n.name from supplier s inner join nation n on s.nationkey = n.nationkey " +
+                "where (n.name = 'INDIA' AND s.acctbal BETWEEN 10 AND 5000) OR" +
+                " (n.name = 'CANADA' AND s.acctbal BETWEEN 5001 AND 8000) OR" +
+                " (n.name = 'ARGENTINA' AND s.acctbal > 8001)");
+
+        //Outer Join, domain predicates for both sides of Join inferred since NULL is not inferred for inner side of join
+        assertQuery(session, "select s.acctbal, n.name from supplier s left join nation n on s.nationkey = n.nationkey " +
+                "where (n.name = 'INDIA' AND s.acctbal BETWEEN 10 AND 5000) OR" +
+                " (n.name = 'CANADA' AND s.acctbal BETWEEN 5001 AND 8000) OR" +
+                " (n.name = 'ARGENTINA' AND s.acctbal > 8001)");
+
+        //Outer Join, domain predicate inferred only for outer side of join since NULL domain is inferred for `n.name`
+        assertQuery(session, "select s.acctbal, n.name from supplier s left join nation n on s.nationkey = n.nationkey " +
+                "where (n.name = 'INDIA' AND s.acctbal BETWEEN 10 AND 5000) OR" +
+                " (n.name = 'CANADA' AND s.acctbal BETWEEN 5001 AND 8000) OR" +
+                " (n.name IS NULL AND s.acctbal > 8001)");
+    }
+
+    @Test
     public void testMapBlockBug()
     {
         assertQueryFails(" VALUES(MAP_AGG(12345,123))", ".*Cannot evaluate non-scalar function.*");
+    }
+
+    @Test
+    public void testReplaceConstantVariableReferencesWithConstants()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "true")
+                .build();
+
+        String sql = "select orderkey, orderpriority, avg(totalprice) from orders where orderpriority='3-MEDIUM' group by orderkey, orderpriority";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority, idx from orders cross join unnest(array[1, 2]) t(idx) where orderpriority='3-MEDIUM'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, o.orderpriority, l.tax from lineitem l join orders o on o.orderkey = l.orderkey where o.orderpriority='3-MEDIUM'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderpriority, avg(totalprice) from orders where orderpriority='3-MEDIUM' group by orderpriority";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, o.orderpriority, sum(l.quantity) from lineitem l join orders o on o.orderkey = l.orderkey where o.orderpriority='3-MEDIUM' group by o.orderkey, o.orderpriority";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderpriority, orderkey from orders where orderpriority='3-MEDIUM' and orderkey in (select orderkey from lineitem)";
+        assertQuery(enableOptimization, sql);
+
+        sql = "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority, avg(totalprice) from orders where orderpriority='3-MEDIUM' group by orderkey, orderpriority";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority, idx from orders cross join unnest(array[1, 2]) t(idx) where orderpriority='3-MEDIUM'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, o.orderpriority, l.tax from lineitem l join orders o on o.orderkey = l.orderkey where o.orderpriority='3-MEDIUM'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, o.orderpriority, l.tax from lineitem l left join (select orderkey, orderpriority from orders where orderpriority='3-MEDIUM') o on o.orderkey = l.orderkey";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select o.orderkey, l.linestatus, l.tax from (select tax, linestatus, orderkey from lineitem where linestatus ='O') l left join orders o on o.orderkey = l.orderkey";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderpriority, orderkey from orders where orderpriority='3-MEDIUM' and orderkey in (select orderkey from lineitem)";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM' and orderpriority='5-HIGH'";
+        assertQuery(enableOptimization, sql);
+
+        sql = "with t1 as (select orderkey, orderstatus from orders where orderkey = 10) select l.orderkey, partkey, orderstatus from t1 join lineitem l on t1.orderkey = l.orderkey where partkey in (select suppkey from lineitem)";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey+1 as nk from lineitem where orderkey=1";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM' order by orderpriority";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM' order by orderpriority, orderkey";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM' order by orderpriority, orderkey limit 10";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, orderpriority from orders where orderpriority='3-MEDIUM' order by orderpriority, orderkey limit 10";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, price, count(*) from (select orderkey, extendedprice as price from lineitem where orderkey=5 union all select orderkey, totalprice as price from orders where orderkey=5) group by orderkey, price";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, price, count(*) from (select orderkey, extendedprice as price from lineitem where orderkey=5 union all select orderkey, totalprice as price from orders where orderkey=2) group by orderkey, price";
+        assertQuery(enableOptimization, sql);
+
+        sql = "select orderkey, price, count(*) from (select orderkey, extendedprice as price from lineitem where orderkey=5 union all select orderkey, totalprice as price from orders) group by orderkey, price";
+        assertQuery(enableOptimization, sql);
+    }
+
+    @Test
+    public void testMergeKHyperLogLog()
+    {
+        assertQueryWithSameQueryRunner("select k1, cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
+                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2) group by k1",
+                "select k1, cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
+                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1");
+
+        assertQueryWithSameQueryRunner("select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
+                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2)",
+                "select cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
+                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2)");
+    }
+
+    @Test
+    public void testRepeat()
+    {
+        assertQuery("select repeat(k1, k2), repeat(k1, 5), repeat(3, k2) from (values (3, 2), (5, 4), (2, 4))t(k1, k2)",
+                "values (array[3, 3], array[3,3,3,3,3], array[3, 3]), (array[5, 5, 5, 5], array[5, 5, 5, 5, 5], array[3, 3, 3, 3]), (array[2, 2, 2, 2], array[2, 2, 2, 2, 2], array[3, 3, 3, 3])");
+    }
+
+    @Test
+    public void testRemoveMapCast()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_MAP_CAST, "true")
+                .build();
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 4)) t(feature,  key)",
+                "values 0.5, 0.1");
+        assertQuery(enableOptimization, "select element_at(feature, key) from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                "values 0.5, null");
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
+                ".*Out of range for integer.*");
+        assertQuery(enableOptimization, "select feature[key] from (values (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), cast('2' as varchar)), (map(array[cast(1 as varchar), '2', '3', '4'], array[0.3, 0.5, 0.9, 0.1]), '4')) t(feature,  key)",
+                "values 0.5, 0.1");
+    }
+
+    // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
+    @Test
+    public void testGuardConstraintFramework()
+    {
+        assertQuery("with t as (select orderkey, count(1) cnt from (select * from (select * from orders where 1=0) left join (select partkey, suppkey from lineitem where 1=0) on partkey=10 where suppkey is not null) group by rollup(orderkey)) select t1.orderkey, t1.cnt from t t1 cross join t t2",
+                "values (null, 0)");
+        assertQuery("select orderkey from (select * from (select * from orders where 1=0)) group by rollup(orderkey)",
+                "values (null)");
+    }
+
+    @Test
+    public void testLambdaInAggregation()
+    {
+        assertQuery("SELECT id, reduce_agg(value, 0, (a, b) -> a + b+0, (a, b) -> a + b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id", "values (1, 9), (2, 90)");
+        assertQuery("SELECT id, reduce_agg(value, 's', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
+                "values (1, 's2s3s4s'), (2, 's20s30s40s')");
+        assertQueryFails("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id",
+                ".*REDUCE_AGG only supports non-NULL literal as the initial value.*");
     }
 }

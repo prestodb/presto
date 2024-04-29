@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestPage
@@ -40,14 +41,19 @@ public class TestPage
     @Test
     public void testGetRegion()
     {
-        assertEquals(new Page(10).getRegion(5, 5).getPositionCount(), 5);
+        Page page = new Page(10);
+        Page region = page.getRegion(0, 10);
+        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
+        assertEquals(region.getPositionCount(), 10);
+        assertSame(page, region);
     }
 
     @Test
     public void testGetEmptyRegion()
     {
+        Page page = new Page(10);
         assertEquals(new Page(0).getRegion(0, 0).getPositionCount(), 0);
-        assertEquals(new Page(10).getRegion(5, 0).getPositionCount(), 0);
+        assertEquals(page.getRegion(5, 0).getPositionCount(), 0);
     }
 
     @Test(expectedExceptions = IndexOutOfBoundsException.class, expectedExceptionsMessageRegExp = "Invalid position 1 and length 1 in page with 0 positions")
@@ -134,6 +140,110 @@ public class TestPage
             assertEquals(page.getBlock(i).getLong(3), 2);
             assertEquals(page.getBlock(i).getLong(4), 5);
         }
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        Page page = new Page(block, block, block);
+        assertEquals(page.getChannelCount(), 3);
+        Page newPage = page.dropColumn(1);
+        assertEquals(page.getChannelCount(), 3, "Page was modified");
+        assertEquals(newPage.getChannelCount(), 2);
+
+        assertEquals(newPage.getBlock(0).getLong(0), 0);
+        assertEquals(newPage.getBlock(1).getLong(1), 1);
+    }
+
+    @Test
+    public void testReplaceColumn()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        Page newPage = page.replaceColumn(1, newBlock);
+
+        assertEquals(newPage.getChannelCount(), 3);
+        assertEquals(newPage.getBlock(1).getLong(0), 0);
+        assertEquals(newPage.getBlock(1).getLong(1), -1);
+    }
+
+    @Test(expectedExceptions = IndexOutOfBoundsException.class)
+    public void testReplaceColumn_channelTooLow()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(-1, newBlock);
+    }
+
+    @Test(expectedExceptions = IndexOutOfBoundsException.class)
+    public void testReplaceColumn_channelTooHigh()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(page.getChannelCount(), newBlock);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testReplaceColumn_WrongNumberOfRows()
+    {
+        int entries = 10;
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries; i++) {
+            BIGINT.writeLong(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+        Page page = new Page(block, block, block);
+        assertEquals(page.getBlock(1).getLong(0), 0);
+
+        BlockBuilder newBlockBuilder = BIGINT.createBlockBuilder(null, entries);
+        for (int i = 0; i < entries - 5; i++) {
+            BIGINT.writeLong(newBlockBuilder, -i);
+        }
+        Block newBlock = newBlockBuilder.build();
+        page.replaceColumn(1, newBlock);
     }
 
     @Test

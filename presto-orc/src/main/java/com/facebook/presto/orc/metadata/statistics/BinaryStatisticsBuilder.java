@@ -25,7 +25,7 @@ public class BinaryStatisticsBuilder
         implements SliceColumnStatisticsBuilder
 {
     private long nonNullValueCount;
-    private long size;
+    private long storageSize;
     private long rawSize;
     private long sum;
 
@@ -59,9 +59,9 @@ public class BinaryStatisticsBuilder
         Optional<BinaryStatistics> binaryStatistics = buildBinaryStatistics();
         if (binaryStatistics.isPresent()) {
             verify(nonNullValueCount > 0);
-            return new BinaryColumnStatistics(nonNullValueCount, null, binaryStatistics.get());
+            return new BinaryColumnStatistics(nonNullValueCount, null, rawSize, storageSize, binaryStatistics.get());
         }
-        return new ColumnStatistics(nonNullValueCount, null);
+        return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }
 
     @Override
@@ -71,9 +71,9 @@ public class BinaryStatisticsBuilder
     }
 
     @Override
-    public void incrementSize(long size)
+    public void incrementSize(long storageSize)
     {
-        this.size += size;
+        this.storageSize += storageSize;
     }
 
     public static Optional<BinaryStatistics> mergeBinaryStatistics(List<ColumnStatistics> stats)

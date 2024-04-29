@@ -31,9 +31,11 @@ public class BinaryColumnStatistics
     public BinaryColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             BinaryStatistics binaryStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(binaryStatistics, "binaryStatistics is null");
         this.binaryStatistics = binaryStatistics;
     }
@@ -48,15 +50,6 @@ public class BinaryColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return BINARY_VALUE_BYTES_OVERHEAD * getNumberOfValues() + binaryStatistics.getSum();
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new BinaryColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                binaryStatistics);
     }
 
     @Override

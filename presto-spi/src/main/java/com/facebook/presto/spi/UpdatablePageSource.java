@@ -13,16 +13,26 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface UpdatablePageSource
         extends ConnectorPageSource
 {
-    void deleteRows(Block rowIds);
+    default void deleteRows(Block rowIds)
+    {
+        throw new UnsupportedOperationException("This connector does not support row-level delete");
+    }
+
+    default void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
+    {
+        throw new UnsupportedOperationException("This connector does not support row update");
+    }
 
     CompletableFuture<Collection<Slice>> finish();
 

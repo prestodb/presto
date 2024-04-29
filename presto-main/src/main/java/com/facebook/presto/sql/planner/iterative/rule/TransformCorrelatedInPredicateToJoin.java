@@ -20,6 +20,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -222,6 +223,7 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         // TODO since we care only about "some count > 0", we could have specialized node instead of leftOuterJoin that does the job without materializing join results
@@ -259,7 +261,7 @@ public class TransformCorrelatedInPredicateToJoin
         return new JoinNode(
                 probeSide.getSourceLocation(),
                 idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 probeSide,
                 buildSide,
                 ImmutableList.of(),

@@ -28,7 +28,7 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.orc.writer.StreamLayout.ByColumnSize;
+import com.facebook.presto.orc.writer.ColumnSizeLayout;
 import com.facebook.presto.orc.writer.StreamLayout.ByStreamSize;
 import com.facebook.presto.orc.writer.StreamLayoutFactory;
 import com.facebook.presto.orc.writer.StreamOrderingLayout;
@@ -43,6 +43,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -51,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.SortedMap;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -62,8 +65,13 @@ import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_MAP_FLAT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_MAP;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Collections.shuffle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -88,12 +96,10 @@ public class TestStreamLayout
         assertEquals(stream.getStreamKind(), streamKind);
     }
 
-    private static void verifyStream(Stream stream, int nodeId, int seqId, StreamKind streamKind, int length)
+    private static void verifyStream(Stream actual, int nodeId, int seqId, StreamKind streamKind, int length)
     {
-        assertEquals(stream.getColumn(), nodeId);
-        assertEquals(stream.getSequence(), seqId);
-        assertEquals(stream.getLength(), length);
-        assertEquals(stream.getStreamKind(), streamKind);
+        Stream expected = new Stream(nodeId, seqId, streamKind, length, true);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -102,62 +108,231 @@ public class TestStreamLayout
         List<StreamDataOutput> streams = new ArrayList<>();
         int length = 10_000;
         for (int i = 0; i < 10; i++) {
-            streams.add(createStream(i, StreamKind.PRESENT, length - i));
-            streams.add(createStream(i, StreamKind.DATA, length - 100 - i));
+            streams.add(createStream(i, PRESENT, length - i));
+            streams.add(createStream(i, DATA, length - 100 - i));
         }
 
-        Collections.shuffle(streams);
+        shuffle(streams);
 
         new ByStreamSize().reorder(streams);
 
         assertEquals(streams.size(), 20);
         Iterator<StreamDataOutput> iterator = streams.iterator();
         for (int i = 9; i >= 0; i--) {
-            verifyStream(iterator.next().getStream(), i, StreamKind.DATA, length - 100 - i);
+            verifyStream(iterator.next().getStream(), i, DATA, length - 100 - i);
         }
 
         for (int i = 9; i >= 0; i--) {
-            verifyStream(iterator.next().getStream(), i, StreamKind.PRESENT, length - i);
+            verifyStream(iterator.next().getStream(), i, PRESENT, length - i);
         }
         assertFalse(iterator.hasNext());
     }
 
-    @Test
-    public void testByColumnSize()
+    @DataProvider
+    public static Object[][] testByColumnSizeDataProvider()
     {
-        // Assume the file has 3 streams
-        // 1st Column( 1010), Data(1000), Present(10)
-        // 2nd column (1010), Dictionary (300), Present (10), Data(600), Length(100)
-        // 3rd Column > 2GB
+        // Assume the following schema:
+        // Node 1, Column 0,  Type: MAP (map1)
+        //   Node 2, Column 0, Type: INT
+        //   Node 3, Column 0, Type: LIST
+        //     Node 4, Column 0, Type: INT
 
-        List<StreamDataOutput> streams = new ArrayList<>();
-        streams.add(createStream(1, StreamKind.DATA, 1_000));
-        streams.add(createStream(1, StreamKind.PRESENT, 10));
+        // Node 5, Column 1, Type: MAP (FLAT flatMap1)
+        //   Node 6, Column 1, Type: INT (absent in flat maps)
+        //   Node 7, Column 1,  Type: LIST
+        //     Node 8, Column 1, Type: INT
 
-        streams.add(createStream(2, StreamKind.DICTIONARY_DATA, 300));
-        streams.add(createStream(2, StreamKind.PRESENT, 10));
-        streams.add(createStream(2, StreamKind.DATA, 600));
-        streams.add(createStream(2, StreamKind.LENGTH, 100));
+        // Node 9, Column 2, Type: LIST (list1)
+        //   Node 10, Column 2, Type: INT
 
-        streams.add(createStream(3, StreamKind.DATA, Integer.MAX_VALUE));
-        streams.add(createStream(3, StreamKind.PRESENT, Integer.MAX_VALUE));
+        // Node 11, Column 3, Name: m2, Type: MAP (FLAT flatMap2)
+        //   Node 12, Column 3, Name: key, Type: INT (absent in flat maps)
+        //   Node 13, Column 3, Name: item, Type: INT
 
-        Collections.shuffle(streams);
-        new ByColumnSize().reorder(streams);
+        // Node 14, Column 4, Type: INT (regular1)
+        // Node 15, Column 5, Type: INT (regular2)
+        // Node 16, Column 6, Type: INT (regular3)
+        final int map1 = 1;
+        final int map1Key = 2;
+        final int map1Val = 3;
+        final int map1ValElem = 4;
 
-        Iterator<StreamDataOutput> iterator = streams.iterator();
-        verifyStream(iterator.next().getStream(), 1, StreamKind.PRESENT, 10);
-        verifyStream(iterator.next().getStream(), 1, StreamKind.DATA, 1000);
+        final int flatMap1 = 5;
+        final int flatMap1Val = 7;
+        final int flatMap1ValElem = 8;
 
-        verifyStream(iterator.next().getStream(), 2, StreamKind.PRESENT, 10);
-        verifyStream(iterator.next().getStream(), 2, StreamKind.LENGTH, 100);
-        verifyStream(iterator.next().getStream(), 2, StreamKind.DICTIONARY_DATA, 300);
-        verifyStream(iterator.next().getStream(), 2, StreamKind.DATA, 600);
+        final int list1 = 9;
+        final int list1Elem = 10;
 
-        verifyStream(iterator.next().getStream(), 3, StreamKind.PRESENT, Integer.MAX_VALUE);
-        verifyStream(iterator.next().getStream(), 3, StreamKind.DATA, Integer.MAX_VALUE);
+        final int flatMap2 = 11;
+        final int flatMap2Val = 13;
 
-        assertFalse(iterator.hasNext());
+        final int regular1 = 14;
+        final int regular2 = 15;
+        final int regular3 = 16;
+
+        // supply streams in the expected order, test will perform several reorder
+        // iterations with shuffling
+        return new Object[][] {
+                {
+                        "split non-flatmap and flatmap columns into separate groups",
+                        new StreamDataOutput[] {
+                                createStream(map1, PRESENT, 0),
+                                createStream(map1Key, PRESENT, 0),
+                                createStream(list1, PRESENT, 0),
+                                createStream(regular1, PRESENT, 0),
+                                createStream(regular2, PRESENT, 0),
+
+                                createStream(flatMap1, PRESENT, 0),
+                                createStream(flatMap1Val, PRESENT, 0),
+                                createStream(flatMap1ValElem, 1, PRESENT, 0),
+                                createStream(flatMap1ValElem, 2, PRESENT, 0),
+                                createStream(flatMap1ValElem, 3, PRESENT, 0),
+                                createStream(flatMap2, PRESENT, 0),
+                                createStream(flatMap2Val, 1, PRESENT, 0),
+                                createStream(flatMap2Val, 2, PRESENT, 0)
+                        }
+                },
+                {
+                        "order columns by total column size in desc order",
+                        new StreamDataOutput[] {
+                                createStream(regular1, PRESENT, 5_000_000),
+                                createStream(regular2, PRESENT, 4_000_000),
+
+                                createStream(list1, PRESENT, 3_000_000),
+                                createStream(list1Elem, PRESENT, 200),
+
+                                createStream(map1, PRESENT, 10),
+                                createStream(map1Key, PRESENT, 3_000_000),
+
+                                createStream(flatMap2, PRESENT, 1),
+                                createStream(flatMap2Val, 1, PRESENT, 5),
+                                createStream(flatMap2Val, 1, DATA, 5),
+                                createStream(flatMap2Val, 2, DATA, 5),
+                                createStream(flatMap2Val, 3, PRESENT, 5),
+
+                                createStream(flatMap1, PRESENT, 1),
+                                createStream(flatMap1Val, PRESENT, 1),
+                                createStream(flatMap1ValElem, 1, PRESENT, 1),
+                                createStream(flatMap1ValElem, 1, DATA, 1),
+                                createStream(flatMap1ValElem, 1, LENGTH, 1),
+                        }
+                },
+
+                {
+                        "group by sequence",
+                        new StreamDataOutput[] {
+                                createStream(flatMap1, PRESENT, 1),
+                                createStream(flatMap1Val, 1, PRESENT, 1),
+                                createStream(flatMap1ValElem, 1, PRESENT, 0),
+                                createStream(flatMap1ValElem, 1, DATA, 0),
+                                createStream(flatMap1ValElem, 1, LENGTH, 0),
+                                createStream(flatMap1Val, 2, PRESENT, 1),
+                                createStream(flatMap1ValElem, 2, PRESENT, 0),
+                                createStream(flatMap1ValElem, 2, DATA, 0),
+                                createStream(flatMap1ValElem, 2, LENGTH, 0),
+
+                                createStream(flatMap2, PRESENT, 0),
+                                createStream(flatMap2Val, 1, PRESENT, 0),
+                                createStream(flatMap2Val, 1, DATA, 0),
+                                createStream(flatMap2Val, 1, LENGTH, 0),
+                                createStream(flatMap2Val, 2, PRESENT, 0),
+                                createStream(flatMap2Val, 2, DATA, 0),
+                                createStream(flatMap2Val, 2, LENGTH, 0),
+                        }
+                },
+                {
+                        "order sequence streams by column+sequence size in desc order",
+                        new StreamDataOutput[] {
+                                createStream(flatMap1, PRESENT, 1000),
+                                // seq 2
+                                createStream(flatMap1Val, 2, PRESENT, 20),
+                                createStream(flatMap1ValElem, 2, PRESENT, 20),
+                                createStream(flatMap1ValElem, 2, DATA, 20),
+                                createStream(flatMap1ValElem, 2, LENGTH, 20),
+                                // seq 1
+                                createStream(flatMap1Val, 1, PRESENT, 10),
+                                createStream(flatMap1ValElem, 1, PRESENT, 10),
+                                createStream(flatMap1ValElem, 1, DATA, 10),
+                                createStream(flatMap1ValElem, 1, LENGTH, 10),
+//
+                                createStream(flatMap2, PRESENT, 10),
+                                // seq 1
+                                createStream(flatMap2Val, 1, PRESENT, 30),
+                                createStream(flatMap2Val, 1, DATA, 30),
+                                createStream(flatMap2Val, 1, LENGTH, 30),
+                                // seq 2
+                                createStream(flatMap2Val, 2, PRESENT, 10),
+                                createStream(flatMap2Val, 2, DATA, 10),
+                                createStream(flatMap2Val, 2, LENGTH, 10),
+                        }
+                },
+                {
+                        "order by the node in asc order",
+                        new StreamDataOutput[] {
+                                createStream(list1, PRESENT, 5),
+                                createStream(list1Elem, PRESENT, 5),
+                                createStream(regular1, PRESENT, 10),
+                                createStream(regular2, DATA, 10),
+
+                                createStream(flatMap1, PRESENT, 5),
+                                createStream(flatMap1Val, 1, DATA, 5),
+                                createStream(flatMap2, PRESENT, 5),
+                                createStream(flatMap2Val, 1, DATA, 5),
+                        }
+                },
+                {
+                        "order by stream kind",
+                        new StreamDataOutput[] {
+                                createStream(list1, PRESENT, 0),
+                                createStream(list1Elem, PRESENT, 0),
+                                createStream(list1Elem, DATA, 0),
+                                createStream(list1Elem, LENGTH, 0),
+                        }
+                },
+        };
+    }
+
+    @Test(dataProvider = "testByColumnSizeDataProvider")
+    public void testByColumnSize(String testName, StreamDataOutput[] streams)
+    {
+        List<StreamDataOutput> expectedStreams = ImmutableList.copyOf(streams);
+        List<StreamDataOutput> testStreams = new ArrayList<>(ImmutableList.copyOf(streams));
+
+        Map<Integer, Integer> nodeToColumn = ImmutableMap.<Integer, Integer>builder()
+                .put(1, 0)
+                .put(2, 0)
+                .put(3, 0)
+                .put(4, 0)
+                .put(5, 1)
+                .put(6, 1)
+                .put(7, 1)
+                .put(8, 1)
+                .put(9, 2)
+                .put(10, 2)
+                .put(11, 3)
+                .put(12, 3)
+                .put(13, 3)
+                .put(14, 4)
+                .put(15, 5)
+                .put(16, 6)
+                .build();
+
+        Map<Integer, ColumnEncoding> nodeIdToColumnEncodings = ImmutableMap.<Integer, ColumnEncoding>builder()
+                .put(5, new ColumnEncoding(DWRF_MAP_FLAT, 0))
+                .put(11, new ColumnEncoding(DWRF_MAP_FLAT, 0))
+                .build();
+
+        ColumnSizeLayout layout = new ColumnSizeLayout();
+
+        int seed = LocalDate.now(ZoneId.of("America/Los_Angeles")).getDayOfYear();
+        Random rnd = new Random(seed);
+
+        for (int i = 0; i < 25; i++) {
+            shuffle(testStreams, rnd);
+            layout.reorder(testStreams, nodeToColumn, nodeIdToColumnEncodings);
+            assertEquals(testStreams, expectedStreams);
+        }
     }
 
     @DataProvider(name = "testParams")
@@ -179,17 +354,17 @@ public class TestStreamLayout
             verifyFlatMapColumns(iterator);
         }
         // non flat map columns
-        verifyStream(iterator.next().getStream(), 5, 0, StreamKind.DATA, 1);
-        verifyStream(iterator.next().getStream(), 2, 0, StreamKind.LENGTH, 2);
-        verifyStream(iterator.next().getStream(), 1, 0, StreamKind.DATA, 3);
-        verifyStream(iterator.next().getStream(), 4, 0, StreamKind.LENGTH, 5);
-        verifyStream(iterator.next().getStream(), 3, 0, StreamKind.DATA, 8);
-        verifyStream(iterator.next().getStream(), 1, 0, StreamKind.PRESENT, 12);
+        verifyStream(iterator.next().getStream(), 5, 0, DATA, 1);
+        verifyStream(iterator.next().getStream(), 2, 0, LENGTH, 2);
+        verifyStream(iterator.next().getStream(), 1, 0, DATA, 3);
+        verifyStream(iterator.next().getStream(), 4, 0, LENGTH, 5);
+        verifyStream(iterator.next().getStream(), 3, 0, DATA, 8);
+        verifyStream(iterator.next().getStream(), 1, 0, PRESENT, 12);
         if (!isEmptyMap) {
             // flat map stream not reordered
-            verifyStream(iterator.next().getStream(), 11, 5, StreamKind.IN_MAP, 13);
-            verifyStream(iterator.next().getStream(), 11, 5, StreamKind.LENGTH, 14);
-            verifyStream(iterator.next().getStream(), 12, 5, StreamKind.DATA, 15);
+            verifyStream(iterator.next().getStream(), 11, 5, IN_MAP, 13);
+            verifyStream(iterator.next().getStream(), 11, 5, LENGTH, 14);
+            verifyStream(iterator.next().getStream(), 12, 5, DATA, 15);
         }
         assertFalse(iterator.hasNext());
     }
@@ -198,26 +373,31 @@ public class TestStreamLayout
     public void testByColumnSizeStreamOrdering(boolean isEmptyMap)
     {
         List<StreamDataOutput> streams = createStreams(isEmptyMap);
-        ByColumnSize streamLayout = new ByColumnSize();
-        StreamOrderingLayout streamOrderingLayout = new StreamOrderingLayout(createStreamReorderingInput(), streamLayout);
+        ColumnSizeLayout layout = new ColumnSizeLayout();
+        StreamOrderingLayout streamOrderingLayout = new StreamOrderingLayout(createStreamReorderingInput(), layout);
         streamOrderingLayout.reorder(streams, createNodeIdToColumnId(), createColumnEncodings(isEmptyMap));
 
         Iterator<StreamDataOutput> iterator = streams.iterator();
         if (!isEmptyMap) {
             verifyFlatMapColumns(iterator);
         }
-        // non flat map columns
-        verifyStream(iterator.next().getStream(), 5, 0, StreamKind.DATA, 1);
-        verifyStream(iterator.next().getStream(), 2, 0, StreamKind.LENGTH, 2);
-        verifyStream(iterator.next().getStream(), 4, 0, StreamKind.LENGTH, 5);
-        verifyStream(iterator.next().getStream(), 3, 0, StreamKind.DATA, 8);
-        verifyStream(iterator.next().getStream(), 1, 0, StreamKind.DATA, 3);
-        verifyStream(iterator.next().getStream(), 1, 0, StreamKind.PRESENT, 12);
+
+        // regular columns
+        // column 1 with total size 16, ordered by nodes
+        verifyStream(iterator.next().getStream(), 2, 0, LENGTH, 2);
+        verifyStream(iterator.next().getStream(), 3, 0, DATA, 8);
+        verifyStream(iterator.next().getStream(), 4, 0, LENGTH, 5);
+        verifyStream(iterator.next().getStream(), 5, 0, DATA, 1);
+
+        // column 0 with total size 15, ordered by stream kind
+        verifyStream(iterator.next().getStream(), 1, 0, PRESENT, 12);
+        verifyStream(iterator.next().getStream(), 1, 0, DATA, 3);
+
         if (!isEmptyMap) {
-            // flat map stream not reordered
-            verifyStream(iterator.next().getStream(), 12, 5, StreamKind.DATA, 15);
-            verifyStream(iterator.next().getStream(), 11, 5, StreamKind.IN_MAP, 13);
-            verifyStream(iterator.next().getStream(), 11, 5, StreamKind.LENGTH, 14);
+            // flat map stream are also ordered by node and kind
+            verifyStream(iterator.next().getStream(), 11, 5, LENGTH, 14);
+            verifyStream(iterator.next().getStream(), 11, 5, IN_MAP, 13);
+            verifyStream(iterator.next().getStream(), 12, 5, DATA, 15);
         }
         assertFalse(iterator.hasNext());
     }
@@ -315,80 +495,82 @@ public class TestStreamLayout
 
     private static void verifyFlatMapColumns(Iterator<StreamDataOutput> iterator)
     {
+        // flat map stream are ordered by node and kind
+        // Kind order: DATA:1, LENGTH:2, IN_MAP:12
         // column 2
-        verifyStream(iterator.next().getStream(), 8, 3, StreamKind.IN_MAP, 6);
-        verifyStream(iterator.next().getStream(), 8, 3, StreamKind.DATA, 7);
-        verifyStream(iterator.next().getStream(), 8, 2, StreamKind.IN_MAP, 4);
-        verifyStream(iterator.next().getStream(), 8, 2, StreamKind.DATA, 5);
-        verifyStream(iterator.next().getStream(), 8, 1, StreamKind.IN_MAP, 2);
-        verifyStream(iterator.next().getStream(), 8, 1, StreamKind.DATA, 3);
+        verifyStream(iterator.next().getStream(), 8, 3, DATA, 7);
+        verifyStream(iterator.next().getStream(), 8, 3, IN_MAP, 6);
+        verifyStream(iterator.next().getStream(), 8, 2, DATA, 5);
+        verifyStream(iterator.next().getStream(), 8, 2, IN_MAP, 4);
+        verifyStream(iterator.next().getStream(), 8, 1, DATA, 3);
+        verifyStream(iterator.next().getStream(), 8, 1, IN_MAP, 2);
 
         // column 3
-        verifyStream(iterator.next().getStream(), 11, 1, StreamKind.IN_MAP, 1);
-        verifyStream(iterator.next().getStream(), 11, 1, StreamKind.LENGTH, 2);
-        verifyStream(iterator.next().getStream(), 12, 1, StreamKind.DATA, 3);
+        verifyStream(iterator.next().getStream(), 11, 1, LENGTH, 2);
+        verifyStream(iterator.next().getStream(), 11, 1, IN_MAP, 1);
+        verifyStream(iterator.next().getStream(), 12, 1, DATA, 3);
 
-        verifyStream(iterator.next().getStream(), 11, 2, StreamKind.IN_MAP, 4);
-        verifyStream(iterator.next().getStream(), 11, 2, StreamKind.LENGTH, 5);
-        verifyStream(iterator.next().getStream(), 12, 2, StreamKind.DATA, 6);
+        verifyStream(iterator.next().getStream(), 11, 2, LENGTH, 5);
+        verifyStream(iterator.next().getStream(), 11, 2, IN_MAP, 4);
+        verifyStream(iterator.next().getStream(), 12, 2, DATA, 6);
 
-        verifyStream(iterator.next().getStream(), 11, 4, StreamKind.IN_MAP, 10);
-        verifyStream(iterator.next().getStream(), 11, 4, StreamKind.LENGTH, 11);
-        verifyStream(iterator.next().getStream(), 12, 4, StreamKind.DATA, 12);
+        verifyStream(iterator.next().getStream(), 11, 4, LENGTH, 11);
+        verifyStream(iterator.next().getStream(), 11, 4, IN_MAP, 10);
+        verifyStream(iterator.next().getStream(), 12, 4, DATA, 12);
 
-        verifyStream(iterator.next().getStream(), 11, 3, StreamKind.IN_MAP, 7);
-        verifyStream(iterator.next().getStream(), 11, 3, StreamKind.LENGTH, 8);
-        verifyStream(iterator.next().getStream(), 12, 3, StreamKind.DATA, 9);
+        verifyStream(iterator.next().getStream(), 11, 3, LENGTH, 8);
+        verifyStream(iterator.next().getStream(), 11, 3, IN_MAP, 7);
+        verifyStream(iterator.next().getStream(), 12, 3, DATA, 9);
     }
 
     private static List<StreamDataOutput> createStreams(boolean isEmptyMap)
     {
-        // Assume the file has the following schema
-        // column 0: INT (Node 0)
-        // column 1: MAP<INT, LIST<INT>> // non flat map
-        // column 2: MAP<INT, FLOAT> // flat map
-        // column 3: MAP<INT, LIST<INT> // flat map
+        // Assume the file has the following schema:
+        // column 0: 1INT
+        // column 1: 2MAP<3INT, 4LIST<5INT>> // non flat map
+        // column 2: 6MAP<7INT, 8FLOAT> // flat map
+        // column 3: 9MAP<10INT, 11LIST<12INT> // flat map
 
         List<StreamDataOutput> streams = new ArrayList<>();
         // column 0
-        streams.add(createStream(1, StreamKind.DATA, 3));
-        streams.add(createStream(1, StreamKind.PRESENT, 12));
+        streams.add(createStream(1, DATA, 3));
+        streams.add(createStream(1, PRESENT, 12));
 
         // column 1 MAP<INT, LIST<INT>> <2, <3, 4<5>>>>
-        streams.add(createStream(2, StreamKind.LENGTH, 2)); // MAP
-        streams.add(createStream(3, StreamKind.DATA, 8)); // INT
-        streams.add(createStream(4, StreamKind.LENGTH, 5)); // LIST<INT>
-        streams.add(createStream(5, StreamKind.DATA, 1)); // INT
+        streams.add(createStream(2, LENGTH, 2)); // MAP
+        streams.add(createStream(3, DATA, 8)); // INT
+        streams.add(createStream(4, LENGTH, 5)); // LIST<INT>
+        streams.add(createStream(5, DATA, 1)); // INT
 
         if (!isEmptyMap) {
             // column 2 MAP<INT, FLOAT> <6 <7, 8>>
-            streams.add(createStream(8, 1, StreamKind.IN_MAP, 2));
-            streams.add(createStream(8, 1, StreamKind.DATA, 3));
-            streams.add(createStream(8, 2, StreamKind.IN_MAP, 4));
-            streams.add(createStream(8, 2, StreamKind.DATA, 5));
-            streams.add(createStream(8, 3, StreamKind.IN_MAP, 6));
-            streams.add(createStream(8, 3, StreamKind.DATA, 7));
+            streams.add(createStream(8, 1, IN_MAP, 2));
+            streams.add(createStream(8, 1, DATA, 3));
+            streams.add(createStream(8, 2, IN_MAP, 4));
+            streams.add(createStream(8, 2, DATA, 5));
+            streams.add(createStream(8, 3, IN_MAP, 6));
+            streams.add(createStream(8, 3, DATA, 7));
 
             // column 3 MAP<INT, LIST<INT> <9 <10, 11<12>>>
-            streams.add(createStream(11, 1, StreamKind.IN_MAP, 1));
-            streams.add(createStream(11, 1, StreamKind.LENGTH, 2));
-            streams.add(createStream(12, 1, StreamKind.DATA, 3));
+            streams.add(createStream(11, 1, IN_MAP, 1));
+            streams.add(createStream(11, 1, LENGTH, 2));
+            streams.add(createStream(12, 1, DATA, 3));
 
-            streams.add(createStream(11, 2, StreamKind.IN_MAP, 4));
-            streams.add(createStream(11, 2, StreamKind.LENGTH, 5));
-            streams.add(createStream(12, 2, StreamKind.DATA, 6));
+            streams.add(createStream(11, 2, IN_MAP, 4));
+            streams.add(createStream(11, 2, LENGTH, 5));
+            streams.add(createStream(12, 2, DATA, 6));
 
-            streams.add(createStream(11, 3, StreamKind.IN_MAP, 7));
-            streams.add(createStream(11, 3, StreamKind.LENGTH, 8));
-            streams.add(createStream(12, 3, StreamKind.DATA, 9));
+            streams.add(createStream(11, 3, IN_MAP, 7));
+            streams.add(createStream(11, 3, LENGTH, 8));
+            streams.add(createStream(12, 3, DATA, 9));
 
-            streams.add(createStream(11, 4, StreamKind.IN_MAP, 10));
-            streams.add(createStream(11, 4, StreamKind.LENGTH, 11));
-            streams.add(createStream(12, 4, StreamKind.DATA, 12));
+            streams.add(createStream(11, 4, IN_MAP, 10));
+            streams.add(createStream(11, 4, LENGTH, 11));
+            streams.add(createStream(12, 4, DATA, 12));
 
-            streams.add(createStream(11, 5, StreamKind.IN_MAP, 13));
-            streams.add(createStream(11, 5, StreamKind.LENGTH, 14));
-            streams.add(createStream(12, 5, StreamKind.DATA, 15));
+            streams.add(createStream(11, 5, IN_MAP, 13));
+            streams.add(createStream(11, 5, LENGTH, 14));
+            streams.add(createStream(12, 5, DATA, 15));
         }
         return streams;
     }

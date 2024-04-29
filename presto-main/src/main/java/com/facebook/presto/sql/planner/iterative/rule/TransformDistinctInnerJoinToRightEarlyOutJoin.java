@@ -39,8 +39,8 @@ import static com.facebook.presto.SystemSessionProperties.isInPredicatesAsInnerJ
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.Patterns.Join.type;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
@@ -111,6 +111,7 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
                 ImmutableList.of(),
                 SINGLE,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         JoinNode newInnerJoin = new JoinNode(
@@ -136,7 +137,8 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
                 aggregationNode.getPreGroupedVariables(),
                 aggregationNode.getStep(),
                 aggregationNode.getHashVariable(),
-                aggregationNode.getGroupIdVariable());
+                aggregationNode.getGroupIdVariable(),
+                aggregationNode.getAggregationId());
 
         return Result.ofPlanNode(newDistinctNode);
     }

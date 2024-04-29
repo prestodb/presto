@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -191,5 +192,11 @@ public class FullConnectorSession
     public WarningCollector getWarningCollector()
     {
         return session.getWarningCollector();
+    }
+
+    @Override
+    public RuntimeStats getRuntimeStats()
+    {
+        return session.getRuntimeStats();
     }
 }

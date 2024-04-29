@@ -20,12 +20,12 @@ import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 
 @Test(singleThreaded = true)
 public class TestRuntimeReorderJoinSides
@@ -127,7 +127,7 @@ public class TestRuntimeReorderJoinSides
                         INNER,
                         p.tableScan(nationTableHandle, ImmutableList.of(p.variable("nationkey", BIGINT)), ImmutableMap.of(p.variable("nationkey", BIGINT), nationColumnHandle)),
                         p.values(new PlanNodeId("valuesB"), 10000, p.variable("B1", BIGINT)),
-                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkey", BIGINT), p.variable("B1", BIGINT))),
+                        ImmutableList.of(new EquiJoinClause(p.variable("nationkey", BIGINT), p.variable("B1", BIGINT))),
                         ImmutableList.of(p.variable("nationkey", BIGINT), p.variable("B1", BIGINT)),
                         Optional.empty()))
                 .doesNotFire();
@@ -151,7 +151,7 @@ public class TestRuntimeReorderJoinSides
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
                                     .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                            ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty());
                 })
@@ -182,7 +182,7 @@ public class TestRuntimeReorderJoinSides
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
                                     .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                            ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty());
                 })
@@ -216,7 +216,7 @@ public class TestRuntimeReorderJoinSides
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
                                     .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                            ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty(),
                             Optional.empty(),
@@ -251,7 +251,7 @@ public class TestRuntimeReorderJoinSides
                                     .addSource(suppNode)
                                     .addInputsSet(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)))
                                     .fixedHashDistributionPartitioningScheme(ImmutableList.of(p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)), ImmutableList.of(p.variable("nationkeyS", BIGINT)))),
-                            ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
+                            ImmutableList.of(new EquiJoinClause(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT))),
                             ImmutableList.of(p.variable("nationkeyN", BIGINT), p.variable("nationkeyS", BIGINT), p.variable("suppkey", BIGINT)),
                             Optional.empty(),
                             Optional.empty(),

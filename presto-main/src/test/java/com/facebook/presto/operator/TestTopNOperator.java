@@ -39,10 +39,12 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -169,8 +171,6 @@ public class TestTopNOperator
     public void testLimitZero()
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT).row(1L).build();
-
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -180,9 +180,9 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST));
 
         try (Operator operator = factory.createOperator(driverContext)) {
-            assertEquals(operator.isFinished(), true);
-            assertEquals(operator.needsInput(), false);
-            assertEquals(operator.getOutput(), null);
+            assertTrue(operator.isFinished());
+            assertFalse(operator.needsInput());
+            assertNull(operator.getOutput());
         }
     }
 

@@ -29,10 +29,11 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY;
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestCachingPlanCanonicalInfoProvider
@@ -66,18 +67,30 @@ public class TestCachingPlanCanonicalInfoProvider
         assertTrue(root.getStatsEquivalentPlanNode().isPresent());
 
         CachingPlanCanonicalInfoProvider planCanonicalInfoProvider = (CachingPlanCanonicalInfoProvider) ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanCanonicalInfoProvider();
-        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList(session).size());
         forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(child -> {
             if (!child.getStatsEquivalentPlanNode().isPresent()) {
                 return;
             }
-            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy).get();
+            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, false).get();
             }
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
-        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList(session).size());
         planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
+
+        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(child -> {
+            if (!child.getStatsEquivalentPlanNode().isPresent()) {
+                return;
+            }
+            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+                // Only read from cache, hence will return Optional.empty() as the cache is already invalidated
+                assertFalse(planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy, true).isPresent());
+            }
+        });
+        // Assert that cache is not populated as we only read from cache without populating with cache miss
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 

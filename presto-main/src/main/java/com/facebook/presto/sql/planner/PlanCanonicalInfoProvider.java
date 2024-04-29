@@ -32,16 +32,18 @@ public interface PlanCanonicalInfoProvider
      * @param session Session for query being run
      * @param planNode Plan node to hash
      * @param strategy Strategy to canonicalize the plan node
+     * @param cacheOnly Only fetch from cache, and return Optional.empty() if set to true and no entry found in cache
      * @return Hash of the plan node. Returns Optional.empty() if unable to hash.
      */
-    Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy);
+    Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy, boolean cacheOnly);
 
     /**
      * Canonicalize the plan, and return statistics of input tables. Output order is consistent with
      * plan canonicalization.
      * @param session Session for query being run
      * @param planNode Plan node to hash
+     * @param cacheOnly Only fetch from cache, and return Optional.empty() if set to true and no entry found in cache
      * @return Statistics of leaf input tables to plan node, ordered by a consistent canonicalization strategy.
      */
-    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode);
+    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode, boolean cacheOnly);
 }

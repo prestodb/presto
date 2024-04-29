@@ -206,6 +206,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot truncate table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames)
+    {
+        denyUpdateTableColumns(tableName, updatedColumnNames, null);
+    }
+
+    public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot update columns [%s] in table %s%s", updatedColumnNames, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateView(String viewName)
     {
         denyCreateView(viewName, null);
@@ -344,6 +354,26 @@ public class AccessDeniedException
     public static void denySetRole(String role)
     {
         throw new AccessDeniedException(format("Cannot set role %s", role));
+    }
+
+    public static void denyDropConstraint(String tableName)
+    {
+        denyDropConstraint(tableName, null);
+    }
+
+    public static void denyDropConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop a constraint from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAddConstraint(String tableName)
+    {
+        denyAddConstraint(tableName, null);
+    }
+
+    public static void denyAddConstraint(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot add a constraint to table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     private static Object formatExtraInfo(String extraInfo)

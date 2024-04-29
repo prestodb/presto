@@ -321,3 +321,68 @@ function follows:
   is used when performing a ``GROUP BY`` aggregation, and an implementation
   will be automatically generated for you, if you don't specify a
   ``AccumulatorStateFactory``
+
+
+Advanced Use Cases
+------------------
+
+Raw Block Inputs
+^^^^^^^^^^^^^^^^
+
+Both scalar and aggregation function annotations allow you to define methods
+which operate on native types. In Java, these native types are ``boolean``,
+``Slice``, and ``long``. For parameterized implementations or parametric types,
+the standard Java types can't be used as they aren't able to represent the input
+data.
+
+To define a method handle which can accept *any* types, use ``@BlockPosition``
+in conjunction with the ``@BlockIndex`` parameters. Similar to the
+``@SqlNullable`` annotation, use the ``@NullablePosition`` annotation to denote
+that the function should be called when the block position is ``NULL``.
+
+This works for both scalar and aggregation function implementations.
+
+.. code-block:: java
+
+    @ScalarFunction("example")
+    public static Block exampleFunction(
+            @BlockPosition @NullablePosition @SqlType("array(int)") Block block,
+            @BlockIndex int index) { /* ...implementation */ }
+
+Applying Generic Types with ``@BlockPosition``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Function signatures that use the ``@BlockPosition`` syntax are able to operate
+over generic types when the function is defined with a ``@TypeParameter``
+annotation. Augment the ``@BlockPosition`` argument with an additional
+``@SqlType("T")`` annotation to denote that it accepts an argument corresponding
+to the generic type. This works for both scalar and aggregation function
+implementations.
+
+.. code-block:: java
+
+    @ScalarFunction("example")
+    @TypeParameter("T")
+    public static Block exampleFunction(
+            @BlockPosition @SqlType("T") Block block,
+            @BlockIndex int index) { /* ...implementation */ }
+
+
+Retrieving the Generic Type with ``@TypeParameter``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Add the ``@TypeParameter`` annotation at the beginning of a function's argument
+list to allow the implementation to perform type-specific logic. Add a
+``Type``-typed argument annotated with ``@TypeParameter`` as the first argument
+of the function signature to get access to the ``Type``. This works for both
+scalar and aggregation functions.
+
+.. code-block:: java
+
+    @ScalarFunction("example")
+    @TypeParameter("T")
+    public static Block exampleFunction(
+            @TypeParameter("T") Type type,
+            @BlockPosition @SqlType("T") Block block,
+            @BlockIndex int index) { /* ...implementation */ }
+

@@ -1,0 +1,33 @@
+@startuml
+Planner -> MetastoreHiveStatisticsProvider: Get table or partition stats
+note over MetastoreHiveStatisticsProvider
+ 1. Identify query's relevant partitions
+ 2. Identify if we have partitions with missing stats
+end note
+
+
+MetastoreHiveStatisticsProvider -> QuickStatsProvider: getQuickStats (only for missing partitions)
+QuickStatsProvider -> partitionIdToQuickStatsCache: Check cache
+
+alt #green Cache entry found
+    QuickStatsProvider -> MetastoreHiveStatisticsProvider: Return cached PartitionStats
+else #lightcyan Cache entry not found
+    QuickStatsProvider -> directoryLister: list
+    directoryLister ->  QuickStatsProvider: List<HiveFileInfo>
+    loop foreach List<QuickStatsBuilderInterface> strategies
+                QuickStatsProvider -> strategy: QuickStatsBuilderInterface.buildQuickStats(List<HiveFileInfo>)
+                note over strategy
+                Strategy is one of
+                - ParquetQuickStatsBuilder
+                - IcebergQuickStatsBuilder
+                - HudiQuickStatsBuilder
+                end note
+                strategy -> QuickStatsProvider: PartitionQuickStats
+                note over QuickStatsProvider: If PartitionQuickStats is non-empty,\n stop loop
+    end
+    note over QuickStatsProvider : Convert PartitionQuickStats \nto PartitionStats
+    QuickStatsProvider -> partitionIdToQuickStatsCache: Insert into cache
+    QuickStatsProvider -> MetastoreHiveStatisticsProvider : Return PartitionStats
+end
+MetastoreHiveStatisticsProvider -> Planner: Return stats
+@enduml

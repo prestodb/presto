@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation.noisyaggregation;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.util.SecureRandomGeneration;
 
-import java.security.SecureRandom;
 import java.util.Random;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -71,7 +71,7 @@ public class NoisyCountAggregationUtils
 
     public static double getNoise(NoisyCountState state)
     {
-        Random random = new SecureRandom();
+        Random random = SecureRandomGeneration.getNonBlocking();
         if (!state.isNullRandomSeed()) {
             random = new Random(state.getRandomSeed());
         }

@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestClickHouseDistributedQueries
             extends AbstractTestDistributedQueries
 {
@@ -106,6 +107,12 @@ public class TestClickHouseDistributedQueries
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
         throw new SkipException("TODO: test not implemented yet");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     @Test

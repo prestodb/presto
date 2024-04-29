@@ -16,11 +16,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <ios>
-#include <iosfwd>
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/Operator.h"
 #include "velox/type/Type.h"
 #include "velox/vector/FlatVector.h"
@@ -64,7 +62,7 @@ TEST_F(TestValues, valuesRowVector) {
 
   testJsonRoundtrip(j, p);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
@@ -104,7 +102,7 @@ TEST_F(TestValues, valuesPlan) {
 
   testJsonRoundtrip(j, p);
 
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = converter.toVeloxQueryPlan(

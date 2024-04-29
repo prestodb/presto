@@ -100,18 +100,34 @@ public class VerificationFactory
         }
 
         QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
+        DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
+                sourceQuery,
+                queryActions.getHelperAction(),
+                queryRewriter,
+                checksumValidator,
+                typeManager,
+                determinismAnalyzerConfig);
+        FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(sqlParser, queryActions.getHelperAction()));
         switch (queryType) {
             case CREATE_TABLE_AS_SELECT:
             case INSERT:
+                if (verifierConfig.isExtendedVerification()) {
+                    return new ExtendedVerification(
+                            queryActions,
+                            sourceQuery,
+                            queryRewriter,
+                            determinismAnalyzer,
+                            failureResolverManager,
+                            exceptionClassifier,
+                            verificationContext,
+                            verifierConfig,
+                            typeManager,
+                            checksumValidator,
+                            executor,
+                            snapshotQueryConsumer,
+                            snapshotQueries);
+                }
             case QUERY:
-                DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
-                        sourceQuery,
-                        queryActions.getHelperAction(),
-                        queryRewriter,
-                        checksumValidator,
-                        typeManager,
-                        determinismAnalyzerConfig);
-                FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(sqlParser, queryActions.getHelperAction()));
                 return new DataVerification(
                         queryActions,
                         sourceQuery,

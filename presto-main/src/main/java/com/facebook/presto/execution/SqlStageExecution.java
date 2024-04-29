@@ -23,6 +23,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.RemoteSplit;
@@ -346,6 +347,17 @@ public final class SqlStageExecution
         }
         long datasize = getAllTasks().stream()
                 .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSizeInBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
+    }
+
+    public synchronized DataSize getWrittenIntermediateDataSize()
+    {
+        long datasize = getAllTasks().stream()
+                .filter(remoteTask -> remoteTask instanceof HttpRemoteTask)
+                .map(remoteTask -> (HttpRemoteTask) remoteTask)
+                .filter(httpRemoteTask -> !httpRemoteTask.getPlanFragment().isOutputTableWriterFragment())
+                .mapToLong(task -> task.getTaskInfo().getStats().getPhysicalWrittenDataSizeInBytes())
                 .sum();
         return DataSize.succinctBytes(datasize);
     }

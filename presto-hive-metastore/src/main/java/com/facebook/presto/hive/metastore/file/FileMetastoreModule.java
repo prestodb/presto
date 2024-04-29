@@ -14,8 +14,8 @@
 package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -40,8 +40,8 @@ public class FileMetastoreModule
     {
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+                .as(generatedNameOf(InMemoryCachingHiveMetastore.class, connectorId));
     }
 }

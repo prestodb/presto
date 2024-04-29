@@ -43,7 +43,8 @@ import static com.facebook.presto.SystemSessionProperties.RESTRICT_HISTORY_BASED
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.SystemSessionProperties.USE_PERFECTLY_CONSISTENT_HISTORIES;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SAFE_CONSTANTS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.IGNORE_SCAN_CONSTANTS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
@@ -120,11 +121,20 @@ public class TestHiveCanonicalPlanHashes
             assertSamePlanHash(
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey, CAST(2 AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10",
-                    REMOVE_SAFE_CONSTANTS);
+                    IGNORE_SAFE_CONSTANTS);
             assertDifferentPlanHash(
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 20",
-                    REMOVE_SAFE_CONSTANTS);
+                    IGNORE_SAFE_CONSTANTS);
+
+            assertSamePlanHash(
+                    "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey, CAST(2 AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 10",
+                    IGNORE_SCAN_CONSTANTS);
+            assertDifferentPlanHash(
+                    "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
+                    "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 20",
+                    IGNORE_SCAN_CONSTANTS);
 
             assertSamePlanHash(
                     "INSERT INTO test_orders select * from test_orders",

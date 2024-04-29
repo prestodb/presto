@@ -14,6 +14,7 @@
 #pragma once
 
 #include <memory>
+#include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/Task.h"
@@ -55,31 +56,51 @@ struct Result {
   int64_t nextSequence;
   std::unique_ptr<folly::IOBuf> data;
   bool complete;
+  std::vector<int64_t> remainingBytes;
 };
 
 struct ResultRequest {
   PromiseHolderWeakPtr<std::unique_ptr<Result>> promise;
+  std::weak_ptr<http::CallbackRequestHandlerState> state;
   protocol::TaskId taskId;
   int64_t bufferId;
   int64_t token;
   protocol::DataSize maxSize;
+
+  ResultRequest(
+      PromiseHolderWeakPtr<std::unique_ptr<Result>> _promise,
+      std::weak_ptr<http::CallbackRequestHandlerState> _state,
+      protocol::TaskId _taskId,
+      int64_t _bufferId,
+      int64_t _token,
+      protocol::DataSize _maxSize)
+      : promise(std::move(_promise)),
+        state(std::move(_state)),
+        taskId(_taskId),
+        bufferId(_bufferId),
+        token(_token),
+        maxSize(_maxSize) {}
 };
 
 struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
   std::shared_ptr<velox::exec::Task> task;
+  std::atomic_bool hasStuckOperator{false};
 
-  // Has the task been normally created and started.
-  // When you create task with error - it has never been started.
-  // When you create task from 'delete task' - it has never been started.
-  // When you create task from any other endpoint, such as 'get result' - it has
-  // not been started, until the actual 'create task' message comes.
+  /// Has the task been normally created and started.
+  /// When you create task with error - it has never been started.
+  /// When you create task from 'delete task' - it has never been started.
+  /// When you create task from any other endpoint, such as 'get result' - it
+  /// has not been started, until the actual 'create task' message comes.
   bool taskStarted{false};
 
   uint64_t lastHeartbeatMs{0};
   uint64_t lastTaskStatsUpdateMs = {0};
   uint64_t lastMemoryReservation = {0};
+  uint64_t createTimeMs{0};
+  uint64_t firstSplitStartTimeMs{0};
+  uint64_t lastEndTimeMs{0};
   mutable std::mutex mutex;
 
   /// Error before task is created or when task is being created.
@@ -132,13 +153,33 @@ struct PrestoTask {
   /// Returns process-wide CPU time in nanoseconds.
   static long getProcessCpuTime();
 
+  /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
   protocol::TaskInfo updateInfoLocked();
 
-  std::string toJsonString() const;
+  folly::dynamic toJson() const;
 
  private:
   void recordProcessCpuTime();
+
+  void updateOutputBufferInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateTimeInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateExecutionInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      const protocol::TaskStatus& prestoTaskStatus,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+  void updateMemoryInfoLocked(
+      const velox::exec::TaskStats& veloxTaskStats,
+      uint64_t currentTimeMs,
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};
 };

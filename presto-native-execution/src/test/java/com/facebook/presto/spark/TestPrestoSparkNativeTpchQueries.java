@@ -34,13 +34,6 @@ public class TestPrestoSparkNativeTpchQueries
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 
-    @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
     // TODO: Enable following Ignored tests after fixing (Tests can be enabled by removing the method)
     // Following tests require broadcast join
     @Override

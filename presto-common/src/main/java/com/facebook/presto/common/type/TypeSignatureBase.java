@@ -35,7 +35,7 @@ public class TypeSignatureBase
     {
         int pos = name.indexOf(":");
         if (pos >= 0) {
-            return new TypeSignatureBase(QualifiedObjectName.valueOf(name.substring(0, pos)), name.substring(pos + 1));
+            return new TypeSignatureBase(QualifiedObjectName.valueOf(name.substring(0, pos).toLowerCase(ENGLISH)), name.substring(pos + 1));
         }
         if (name.chars().noneMatch(c -> c == '.')) {
             return new TypeSignatureBase(name);

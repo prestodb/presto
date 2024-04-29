@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
+
 public class NativeQueryRunnerUtils
 {
     private NativeQueryRunnerUtils() {}
@@ -30,9 +32,16 @@ public class NativeQueryRunnerUtils
                 "hive.orc-compression-codec", "ZSTD");
     }
 
+    public static Map<String, String> getNativeWorkerIcebergProperties()
+    {
+        return ImmutableMap.of("iceberg.pushdown-filter-enabled", "true",
+                "iceberg.catalog.type", "HIVE");
+    }
+
     public static Map<String, String> getNativeWorkerSystemProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .put("native-execution-enabled", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("regex-library", "RE2J")
@@ -69,6 +78,23 @@ public class NativeQueryRunnerUtils
         createBucketedLineitemAndOrders(queryRunner);
     }
 
+    /**
+     * Creates all iceberg tables for local testing.
+     *
+     * @param queryRunner
+     */
+    public static void createAllIcebergTables(QueryRunner queryRunner)
+    {
+        createLineitemForIceberg(queryRunner);
+        createOrders(queryRunner);
+        createNationWithFormat(queryRunner, ICEBERG_DEFAULT_STORAGE_FORMAT);
+        createCustomer(queryRunner);
+        createPart(queryRunner);
+        createPartSupp(queryRunner);
+        createRegion(queryRunner);
+        createSupplier(queryRunner);
+    }
+
     public static void createLineitem(QueryRunner queryRunner)
     {
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
@@ -80,6 +106,17 @@ public class NativeQueryRunnerUtils
                     "   cast(tax as real) as tax_as_real, cast(discount as real) as discount_as_real, " +
                     "   cast(linenumber as smallint) as linenumber_as_smallint, " +
                     "   cast(linenumber as tinyint) as linenumber_as_tinyint " +
+                    "FROM tpch.tiny.lineitem");
+        }
+    }
+
+    public static void createLineitemForIceberg(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
+            queryRunner.execute("CREATE TABLE lineitem AS " +
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
+                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
                     "FROM tpch.tiny.lineitem");
         }
     }
@@ -123,6 +160,25 @@ public class NativeQueryRunnerUtils
             queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
+            queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
+        }
+    }
+
+    public static void createNationWithFormat(QueryRunner queryRunner, String storageFormat)
+    {
+        if (storageFormat.equals("PARQUET") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("ORC") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("JSON") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
+            queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
+        }
+
+        if (storageFormat.equals("TEXTFILE") && !queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_text")) {
             queryRunner.execute("CREATE TABLE nation_text WITH (FORMAT = 'TEXTFILE') AS SELECT * FROM tpch.tiny.nation");
         }
     }

@@ -76,6 +76,9 @@ master_doc = 'index'
 
 project = u'Presto'
 
+# Set Author blank to avoid default value of 'unknown'
+author = ''
+
 version = get_version()
 release = version
 
@@ -87,6 +90,9 @@ rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
 .. |presto_router_release| replace:: ``presto-router-{release}``
 """.replace('{release}', release)
+
+# 'xelatex' natively supports Unicode
+latex_engine = 'xelatex'
 
 # -- Options for HTML output ---------------------------------------------------
 
@@ -125,7 +131,7 @@ html_theme_options = {
   #  'nav_title': 'Project Name',
 
     # Set your GA account ID to enable tracking
-   'google_analytics_account': 'UA-82811140-44',
+   'google_analytics_account': 'G-K7GB6F0LBZ',
 
     # Specify a base_url used to generate sitemap.xml. If not
     # specified, then no sitemap will be built.

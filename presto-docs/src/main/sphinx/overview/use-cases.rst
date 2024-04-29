@@ -44,4 +44,4 @@ Presto is an open source project that operates under the governance of the
 Presto Foundation, which is part of the
 `Linux Foundation <https://www.linuxfoundation.org>`_.
 Presto was invented at Meta, and continues to be developed by community 
-members at Meta, Bytedance, Ahana (an IBM company), Uber, Twitter, and elsewhere.
+members at Meta, Bytedance, IBM, Uber, Twitter, and elsewhere.

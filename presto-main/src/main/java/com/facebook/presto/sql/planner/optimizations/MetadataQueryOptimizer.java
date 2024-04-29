@@ -29,19 +29,17 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -50,7 +48,6 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -101,12 +98,14 @@ public class MetadataQueryOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session) && !SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session)) {
-            return plan;
+            return PlanOptimizerResult.optimizerResult(plan, false);
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
+        Optimizer optimizer = new Optimizer(session, metadata, idAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(optimizer, plan, null);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
     }
 
     private static class Optimizer
@@ -118,6 +117,7 @@ public class MetadataQueryOptimizer
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final boolean ignoreMetadataStats;
         private final int metastoreCallNumThreshold;
+        private boolean planChanged;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
@@ -127,6 +127,11 @@ public class MetadataQueryOptimizer
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
             this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -244,8 +249,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            planChanged = true;
             return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), inputs, rowsBuilder.build(), Optional.empty())), node);
         }
 
@@ -325,8 +329,7 @@ public class MetadataQueryOptimizer
                     return context.defaultRewrite(node);
                 }
             }
-            session.getOptimizerInformationCollector().addInformation(
-                    new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            planChanged = true;
             Assignments assignments = assignmentsBuilder.build();
             ValuesNode valuesNode = new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())), Optional.empty());
             return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), valuesNode, assignments, LOCAL);
@@ -379,8 +382,6 @@ public class MetadataQueryOptimizer
                 // allow any chain of linear transformations
                 if (source instanceof MarkDistinctNode ||
                         source instanceof FilterNode ||
-                        source instanceof LimitNode ||
-                        source instanceof TopNNode ||
                         source instanceof SortNode) {
                     source = source.getSources().get(0);
                 }

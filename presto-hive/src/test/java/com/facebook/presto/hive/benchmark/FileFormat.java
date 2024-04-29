@@ -81,8 +81,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
@@ -161,7 +161,6 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
-                    FUNCTION_RESOLUTION,
                     false,
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
@@ -252,12 +251,6 @@ public enum FileFormat
                 compressionCodec = NONE;
             }
             return new PrestoPageFormatWriter(targetFile, compressionCodec);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return true;
         }
     },
 
@@ -441,7 +434,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         RecordCursor recordCursor = cursorProvider
                 .createRecordCursor(
@@ -484,7 +478,8 @@ public enum FileFormat
                 targetFile.length(),
                 0,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                0);
 
         return pageSourceFactory
                 .createPageSource(

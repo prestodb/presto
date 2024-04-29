@@ -37,7 +37,7 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
     public void testBinomialCDF()
     {
         assertQuery("SELECT binomial_cdf(CAST (nationkey AS INTEGER), 0.1, 0 ) FROM nation WHERE nationkey > 0");
-        assertQuery("SELECT binomial_cdf(CAST (nationkey AS INTEGER), 0.1, CAST (regionkey AS INTEGER)) FROM nation WHERE nationkey > 0;");
+        assertQuery("SELECT binomial_cdf(CAST (nationkey AS INTEGER), 0.1, CAST (regionkey AS INTEGER)) FROM nation WHERE nationkey > 0");
     }
 
     @Test
@@ -105,9 +105,9 @@ public abstract class AbstractTestNativeProbabilityFunctionQueries
     @Test
     public void testLaplaceCDF()
     {
-        assertQuery("SELECT laplace_cdf(acctbal, 0.0, 1.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT laplace_cdf(acctbal, 0.1, 1.0) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
         assertQuery("SELECT laplace_cdf(1.0, acctbal, 1.5) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
-        assertQuery("SELECT laplace_cdf(11.0, -1.0, acctbal) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
+        assertQuery("SELECT laplace_cdf(11.0, 0.1, acctbal) FROM supplier WHERE acctbal > 0.0 AND acctbal < 999.0");
     }
 
     @Test

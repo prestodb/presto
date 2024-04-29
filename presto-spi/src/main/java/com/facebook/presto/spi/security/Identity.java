@@ -56,6 +56,11 @@ public class Identity
         this(user, principal, emptyMap(), emptyMap(), emptyMap(), Optional.empty(), Optional.empty());
     }
 
+    public Identity(String user, Optional<Principal> principal, Map<String, String> extraCredentials)
+    {
+        this(user, principal, emptyMap(), extraCredentials, emptyMap(), Optional.empty(), Optional.empty());
+    }
+
     public Identity(
             String user,
             Optional<Principal> principal,

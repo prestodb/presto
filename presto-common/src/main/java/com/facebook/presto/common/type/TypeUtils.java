@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.math.BigDecimal;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -132,7 +134,12 @@ public final class TypeUtils
             type.writeDouble(blockBuilder, ((Number) value).doubleValue());
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, ((Number) value).longValue());
+            if (value instanceof BigDecimal) {
+                type.writeLong(blockBuilder, ((BigDecimal) value).unscaledValue().longValue());
+            }
+            else {
+                type.writeLong(blockBuilder, ((Number) value).longValue());
+            }
         }
         else if (type.getJavaType() == Slice.class) {
             Slice slice;
@@ -141,6 +148,9 @@ public final class TypeUtils
             }
             else if (value instanceof String) {
                 slice = Slices.utf8Slice((String) value);
+            }
+            else if (value instanceof BigDecimal) {
+                slice = encodeScaledValue((BigDecimal) value);
             }
             else {
                 slice = (Slice) value;

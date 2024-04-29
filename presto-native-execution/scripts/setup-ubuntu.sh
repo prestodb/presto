@@ -18,26 +18,10 @@ set -eufx -o pipefail
 
 # Run the velox setup script first.
 source "$(dirname "${BASH_SOURCE}")/../velox/scripts/setup-ubuntu.sh"
-export FB_OS_VERSION=v2022.11.14.00
-sudo apt install -y gperf uuid-dev libsodium-dev
+export FB_OS_VERSION=v2024.04.01.00
 
-function install_six {
-  pip3 install six
-}
-
-function install_fizz {
-  github_checkout facebookincubator/fizz "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S fizz
-}
-
-function install_wangle {
-  github_checkout facebook/wangle "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF -S wangle
-}
-
-function install_fbthrift {
-  github_checkout facebook/fbthrift "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
+function install_presto_deps_from_apt {
+  sudo apt install -y gperf
 }
 
 function install_proxygen {
@@ -45,32 +29,24 @@ function install_proxygen {
   cmake_install -DBUILD_TESTS=OFF
 }
 
-function install_antlr4 {
-    cd "${DEPENDENCY_DIR}"
-      if [ -d "antlr4-cpp-runtime-4.9.3-source" ]; then
-        rm -rf antlr4-cpp-runtime-4.9.3-source
-      fi
-    wget https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip -O antlr4-cpp-runtime-4.9.3-source.zip
-    mkdir antlr4-cpp-runtime-4.9.3-source && cd antlr4-cpp-runtime-4.9.3-source
-    unzip ../antlr4-cpp-runtime-4.9.3-source.zip
-    mkdir build && mkdir run && cd build
-    cmake .. && make "-j${NPROC}" install
-}
-
 function install_presto_deps {
-  install_velox_deps
-  run_and_time install_six
-  run_and_time install_fizz
-  run_and_time install_wangle
-  run_and_time install_fbthrift
+  run_and_time install_presto_deps_from_apt
   run_and_time install_proxygen
-  run_and_time install_antlr4
 }
 
 if [[ $# -ne 0 ]]; then
   for cmd in "$@"; do
     run_and_time "${cmd}"
   done
+  echo "All specified dependencies installed!"
 else
+  if [ "${INSTALL_PREREQUISITES:-Y}" == "Y" ]; then
+    echo "Installing build dependencies"
+    run_and_time install_build_prerequisites
+  else
+    echo "Skipping installation of build dependencies since INSTALL_PREREQUISITES is not set"
+  fi
+  install_velox_deps
   install_presto_deps
+  echo "All dependencies for Prestissimo installed!"
 fi

@@ -318,7 +318,8 @@ public class CombineApproxPercentileFunctions
                                 ImmutableList.of(),
                                 aggregationNode.getStep(),
                                 aggregationNode.getHashVariable(),
-                                aggregationNode.getGroupIdVariable()),
+                                aggregationNode.getGroupIdVariable(),
+                                aggregationNode.getAggregationId()),
                         outputProjectAssignments.build()));
     }
 }

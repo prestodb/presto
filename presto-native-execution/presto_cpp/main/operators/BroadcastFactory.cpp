@@ -130,7 +130,8 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
   const IndexRange allRows{0, numRows};
 
   auto arena = std::make_unique<StreamArena>(pool_);
-  auto serializer = serde_->createSerializer(inputType_, numRows, arena.get());
+  auto serializer =
+      serde_->createIterativeSerializer(inputType_, numRows, arena.get());
 
   serializer->append(rowVector, folly::Range(&allRows, 1));
   maxSerializedSize_ += serializer->maxSerializedSize();

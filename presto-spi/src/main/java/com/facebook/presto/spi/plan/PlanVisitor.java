@@ -45,6 +45,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitSort(SortNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnion(UnionNode node, C context)
     {
         return visitPlan(node, context);
@@ -81,6 +86,26 @@ public abstract class PlanVisitor<R, C>
     }
 
     public R visitDistinctLimit(DistinctLimitNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitCteReference(CteReferenceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitCteProducer(CteProducerNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitCteConsumer(CteConsumerNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitConnectorJoinNode(ConnectorJoinNode node, C context)
     {
         return visitPlan(node, context);
     }

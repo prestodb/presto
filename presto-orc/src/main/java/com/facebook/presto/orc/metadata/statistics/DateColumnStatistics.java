@@ -31,9 +31,11 @@ public class DateColumnStatistics
     public DateColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             DateStatistics dateStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(dateStatistics, "dateStatistics is null");
         this.dateStatistics = dateStatistics;
     }
@@ -48,15 +50,6 @@ public class DateColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return getNumberOfValues() * DATE_VALUE_BYTES;
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new DateColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                dateStatistics);
     }
 
     @Override

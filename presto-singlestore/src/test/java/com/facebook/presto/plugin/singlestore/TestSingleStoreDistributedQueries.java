@@ -29,7 +29,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertTrue;
 
-@Test
+@Test(singleThreaded = true)
 public class TestSingleStoreDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -216,5 +216,11 @@ public class TestSingleStoreDistributedQueries
     public void testDelete()
     {
         // Delete is currently unsupported
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 }

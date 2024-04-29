@@ -16,6 +16,12 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Query;
+import com.google.common.annotations.VisibleForTesting;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.SystemSessionProperties.isLeafNodeLimitEnabled;
@@ -28,10 +34,18 @@ public class SqlPlannerContext
     private int leafNodesInLogicalPlan;
     private final SqlToRowExpressionTranslator.Context translatorContext;
 
+    private final CteInfo cteInfo;
+
     public SqlPlannerContext(int leafNodesInLogicalPlan)
     {
         this.leafNodesInLogicalPlan = leafNodesInLogicalPlan;
         this.translatorContext = new SqlToRowExpressionTranslator.Context();
+        this.cteInfo = new CteInfo();
+    }
+
+    public CteInfo getCteInfo()
+    {
+        return cteInfo;
     }
 
     public SqlToRowExpressionTranslator.Context getTranslatorContext()
@@ -47,6 +61,27 @@ public class SqlPlannerContext
                 throw new PrestoException(EXCEEDED_PLAN_NODE_LIMIT, format("Number of leaf nodes in logical plan exceeds threshold %s set in max_leaf_nodes_in_plan",
                         getMaxLeafNodesInPlan(session)));
             }
+        }
+    }
+
+    public class CteInfo
+    {
+        @VisibleForTesting
+        public static final String delimiter = "_*%$_";
+        // never decreases
+        private int prefix;
+
+        // Map a cte Query to a unique ID, which will be used in CTE reference node to identify the same CTE
+        private final Map<NodeRef<Query>, String> cteQueryUniqueIdMap = new HashMap<>();
+
+        public String normalize(NodeRef<Query> queryNodeRef, String cteName)
+        {
+            if (cteQueryUniqueIdMap.containsKey(queryNodeRef)) {
+                return cteQueryUniqueIdMap.get(queryNodeRef) + delimiter + cteName;
+            }
+            String identityString = String.valueOf(prefix++);
+            cteQueryUniqueIdMap.put(queryNodeRef, identityString);
+            return identityString + delimiter + cteName;
         }
     }
 }

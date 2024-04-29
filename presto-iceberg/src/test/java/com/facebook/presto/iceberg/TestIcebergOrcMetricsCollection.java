@@ -21,7 +21,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import org.apache.iceberg.FileContent;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -30,6 +29,7 @@ import java.util.Map;
 import static com.facebook.presto.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.TASK_WRITER_COUNT;
+import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.TestIcebergOrcMetricsCollection.DataFileRecord.toDataFileRecord;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -82,7 +82,7 @@ public class TestIcebergOrcMetricsCollection
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // check content
-        assertEquals(datafile.getContent(), FileContent.DATA.id());
+        assertEquals(datafile.getContent(), DATA.id());
 
         // Check file format
         assertEquals(datafile.getFileFormat(), "ORC");

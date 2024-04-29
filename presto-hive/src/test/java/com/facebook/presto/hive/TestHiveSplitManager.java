@@ -34,6 +34,7 @@ import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
+import com.facebook.presto.hive.statistics.QuickStatsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
@@ -82,14 +83,17 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_SERVER_VERSION;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -133,6 +137,7 @@ public class TestHiveSplitManager
             new Column("t_date", HIVE_DATE, Optional.empty(), Optional.empty()));
     private static final String PARTITION_VALUE = "2020-01-01";
     private static final String PARTITION_NAME = "ds=2020-01-01";
+    private static final PartitionNameWithVersion PARTITION_NAME_WITH_VERSION = new PartitionNameWithVersion(PARTITION_NAME, Optional.empty());
     private static final Table TEST_TABLE = new Table(
             "test_db",
             "test_table",
@@ -472,7 +477,8 @@ public class TestHiveSplitManager
                         false,
                         true,
                         0,
-                        0),
+                        0,
+                        Optional.empty()),
                 PARTITION_NAME,
                 partitionStatistics);
 
@@ -487,7 +493,6 @@ public class TestHiveSplitManager
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig),
                 DateTimeZone.forOffsetHours(1),
                 true,
-                false,
                 false,
                 false,
                 true,
@@ -513,7 +518,9 @@ public class TestHiveSplitManager
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -544,7 +551,7 @@ public class TestHiveSplitManager
         List<HivePartition> partitions = ImmutableList.of(
                 new HivePartition(
                         new SchemaTableName("test_schema", "test_table"),
-                        PARTITION_NAME,
+                        PARTITION_NAME_WITH_VERSION,
                         ImmutableMap.of(partitionColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice(PARTITION_VALUE)))));
         TupleDomain<Subfield> domainPredicate = queryTupleDomain
                 .transform(HiveColumnHandle.class::cast)
@@ -575,7 +582,7 @@ public class TestHiveSplitManager
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
-                new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
+                new TestingConnectorSession(getAllSessionProperties(hiveClientConfig, new HiveCommonClientConfig())),
                 layoutHandle,
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
@@ -621,7 +628,7 @@ public class TestHiveSplitManager
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
         {
             return ImmutableMap.of(partitionWithStatistics.getPartitionName(), Optional.of(partitionWithStatistics.getPartition()));
         }

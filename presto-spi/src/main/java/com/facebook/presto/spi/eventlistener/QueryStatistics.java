@@ -42,6 +42,8 @@ public class QueryStatistics
     private final long peakTaskUserMemory;
     private final long peakTaskTotalMemory;
     private final long peakNodeTotalMemory;
+    private final long shuffledBytes;
+    private final long shuffledRows;
     private final long totalBytes;
     private final long totalRows;
     private final long outputBytes;
@@ -77,6 +79,8 @@ public class QueryStatistics
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
             long peakNodeTotalMemory,
+            long shuffledBytes,
+            long shuffledRows,
             long totalBytes,
             long totalRows,
             long outputBytes,
@@ -109,6 +113,8 @@ public class QueryStatistics
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.peakNodeTotalMemory = peakNodeTotalMemory;
+        this.shuffledBytes = shuffledBytes;
+        this.shuffledRows = shuffledRows;
         this.totalBytes = totalBytes;
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
@@ -212,6 +218,16 @@ public class QueryStatistics
     public long getPeakNodeTotalMemory()
     {
         return peakNodeTotalMemory;
+    }
+
+    public long getShuffledBytes()
+    {
+        return shuffledBytes;
+    }
+
+    public long getShuffledRows()
+    {
+        return shuffledRows;
     }
 
     public long getTotalBytes()

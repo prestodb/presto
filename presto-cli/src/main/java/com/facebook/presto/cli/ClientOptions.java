@@ -110,13 +110,16 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = "--runtime-stats", title = "runtime stats", description = "Enable runtime stats information. Flag must be used in conjunction with the --debug flag")
+    public boolean runtime;
+
     @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
+    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, JSON, CSV, TSV, CSV_HEADER, TSV_HEADER, NULL] (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
     @Option(name = "--resource-estimate", title = "resource-estimate", description = "Resource estimate (property can be used multiple times; format is key=value)")
@@ -143,6 +146,12 @@ public class ClientOptions
     @Option(name = "--disable-compression", title = "disable response compression", description = "Disable compression of query results")
     public boolean disableCompression;
 
+    @Option(name = "--validate-nexturi-source", title = "validate nextUri source", description = "Validate nextUri server host and port does not change during query execution")
+    public boolean validateNextUriSource;
+
+    @Option(name = "--disable-redirects", title = "disable redirects", description = "Disable client following redirects from server")
+    public boolean disableRedirects;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -151,6 +160,7 @@ public class ClientOptions
         TSV,
         CSV_HEADER,
         TSV_HEADER,
+        JSON,
         NULL
     }
 
@@ -176,7 +186,8 @@ public class ClientOptions
                 clientRequestTimeout,
                 disableCompression,
                 emptyMap(),
-                emptyMap());
+                emptyMap(),
+                validateNextUriSource);
     }
 
     public static URI parseServer(String server)

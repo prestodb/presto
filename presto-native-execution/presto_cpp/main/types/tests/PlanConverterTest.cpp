@@ -21,9 +21,8 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/presto_protocol/Connectors.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
@@ -62,7 +61,7 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
 
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
@@ -80,7 +79,7 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::addDefaultLeafMemoryPool();
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = std::make_shared<core::QueryCtx>();
   VeloxBatchQueryPlanConverter converter(
       shuffleName,
@@ -95,12 +94,28 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
 }
 } // namespace
 
-class PlanConverterTest : public ::testing::Test {};
+class PlanConverterTest : public ::testing::Test {
+ protected:
+  static void SetUpTestCase() {
+    memory::MemoryManager::testingSetInstance({});
+  }
+
+  void SetUp() override {
+    registerPrestoToVeloxConnector(
+        std::make_unique<HivePrestoToVeloxConnector>("hive"));
+    registerPrestoToVeloxConnector(
+        std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+  }
+
+  void TearDown() override {
+    unregisterPrestoToVeloxConnector("hive");
+    unregisterPrestoToVeloxConnector("hive-plus");
+  }
+};
 
 // Leaf stage plan for select regionkey, sum(1) from nation group by 1
 // Scan + Partial Agg + Repartitioning
 TEST_F(PlanConverterTest, scanAgg) {
-  protocol::registerConnector("hive", "hive");
   auto partitionedOutput = assertToVeloxQueryPlan("ScanAgg.json");
   auto* tableScan = dynamic_cast<const core::TableScanNode*>(
       partitionedOutput->sources()[0]->sources()[0]->sources()[0].get());
@@ -127,7 +142,6 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_EQ(tableParameters.find("totalSize")->second, "1451");
   ASSERT_EQ(tableParameters.find("foobar"), tableParameters.end());
 
-  protocol::registerConnector("hive-plus", "hive");
   assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
 }
 
@@ -162,8 +176,6 @@ TEST_F(PlanConverterTest, offsetLimit) {
 }
 
 TEST_F(PlanConverterTest, batchPlanConversion) {
-  protocol::unregisterConnector("hive");
-  protocol::registerConnector("hive", "hive");
   filesystems::registerLocalFileSystem();
   auto root = assertToBatchVeloxQueryPlan(
       "ScanAggBatch.json",
@@ -173,7 +185,7 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
           "  \"rootPath\": \"{}\",\n"
           "  \"numPartitions\": {}\n"
           "}}",
-          exec::test::TempDirectoryPath::create()->path,
+          exec::test::TempDirectoryPath::create()->getPath(),
           10)),
       std::make_shared<std::string>("/tmp"));
 

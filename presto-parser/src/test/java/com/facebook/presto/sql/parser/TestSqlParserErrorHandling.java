@@ -40,17 +40,16 @@ public class TestSqlParserErrorHandling
         return new Object[][] {
                 {"",
                  "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'USE', <query>"},
+                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"},
                 {"@select",
                  "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'USE', <query>"},
+                         "'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"},
                 {"select * from foo where @what",
                  "line 1:25: mismatched input '@'. Expecting: <expression>"},
                 {"select * from 'oops",
                  "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                 "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', " +
-                         "'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
+                 "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
                  "line 3:7: mismatched input 'from'. Expecting: <expression>"},
                 {"select * from",
@@ -88,7 +87,7 @@ public class TestSqlParserErrorHandling
                 {"SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
                  "line 1:18: mismatched input '+'. Expecting: ')', ','"},
                 {"SELECT x() over (ROWS select) FROM t",
-                 "line 1:23: mismatched input 'select'. Expecting: 'BETWEEN', 'CURRENT', 'UNBOUNDED', <expression>"},
+                 "line 1:17: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT X() OVER (ROWS UNBOUNDED) FROM T",
                  "line 1:32: mismatched input ')'. Expecting: 'FOLLOWING', 'PRECEDING'"},
                 {"SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
@@ -110,7 +109,7 @@ public class TestSqlParserErrorHandling
                 {"SELECT CAST(a AS decimal()",
                  "line 1:26: mismatched input ')'. Expecting: <integer>, <type>"},
                 {"SELECT foo(*) filter (",
-                 "line 1:23: mismatched input '<EOF>'. Expecting: 'WHERE'"},
+                 "line 1:22: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t t x",
                  "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'OFFSET', 'ORDER', " +
                          "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},

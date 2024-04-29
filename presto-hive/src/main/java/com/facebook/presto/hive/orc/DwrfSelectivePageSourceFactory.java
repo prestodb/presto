@@ -108,7 +108,7 @@ public class DwrfSelectivePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
             boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable)
+            Optional<byte[]> rowIDPartitionComponent)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -146,6 +146,6 @@ public class DwrfSelectivePageSourceFactory
                 encryptionInformation,
                 dwrfEncryptionProvider,
                 appendRowNumberEnabled,
-                footerStatsUnreliable));
+                rowIDPartitionComponent));
     }
 }

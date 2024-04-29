@@ -40,6 +40,7 @@ public class NodeSchedulerConfig
     private NodeSelectionHashStrategy nodeSelectionHashStrategy = NodeSelectionHashStrategy.MODULAR_HASHING;
     private int minVirtualNodeCount = 1000;
     private ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy = ResourceAwareSchedulingStrategy.RANDOM;
+    private int maxPreferredNodes = 2;
 
     @NotNull
     public String getNetworkTopology()
@@ -157,6 +158,19 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setResourceAwareSchedulingStrategy(ResourceAwareSchedulingStrategy resourceAwareSchedulingStrategy)
     {
         this.resourceAwareSchedulingStrategy = resourceAwareSchedulingStrategy;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPreferredNodes()
+    {
+        return maxPreferredNodes;
+    }
+
+    @Config("node-scheduler.max-preferred-nodes")
+    public NodeSchedulerConfig setMaxPreferredNodes(int maxPreferredNodes)
+    {
+        this.maxPreferredNodes = maxPreferredNodes;
         return this;
     }
 

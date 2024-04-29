@@ -99,6 +99,8 @@ public class TestQueryStats
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
                     0,
+                    0,
+                    0,
                     0),
             new OperatorStats(
                     20,
@@ -141,6 +143,8 @@ public class TestQueryStats
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
                     0,
+                    0,
+                    0,
                     0),
             new OperatorStats(
                     30,
@@ -182,6 +186,8 @@ public class TestQueryStats
                     Optional.empty(),
                     null,
                     new RuntimeStats(),
+                    0,
+                    0,
                     0,
                     0));
 
@@ -544,6 +550,8 @@ public class TestQueryStats
                 Optional.empty(),
                 null,
                 new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                0,
+                0,
                 0,
                 0);
     }

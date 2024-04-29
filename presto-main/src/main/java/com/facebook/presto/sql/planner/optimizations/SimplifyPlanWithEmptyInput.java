@@ -16,9 +16,10 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -34,16 +36,23 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isSimplifyPlanWithEmptyInputEnabled;
@@ -71,7 +80,7 @@ import static java.util.function.Function.identity;
  * <pre>
  *     - Empty Values
  * </pre>
- *
+ * <p>
  * For outer join: replace with empty values if outer side is empty and project node if inner side is empty
  * For example:
  * <pre>
@@ -87,7 +96,7 @@ import static java.util.function.Function.identity;
  *          assignments := NULL if output not in Scan, otherwise identity projection
  *          - Scan
  * </pre>
- *
+ * <p>
  * For aggregation: if it has default output for empty input, stop and do not simplify, otherwise convert to empty values node
  * <pre>
  *     - Aggregation
@@ -95,8 +104,9 @@ import static java.util.function.Function.identity;
  *          - Empty Values
  * </pre>
  * No change for this query plan
- *
- * For Union node: if it has only one non-empty input, convert to a project node. If all inputs are empty, convert to empty values node
+ * <p>
+ * For Union node: if it has only one non-empty input, convert to a project node. If all inputs are empty, convert to empty values node. If more than one input is non-empty,
+ * remove the empty inputs and keep the union node and the non-empty inputs.
  */
 
 public class SimplifyPlanWithEmptyInput
@@ -117,18 +127,14 @@ public class SimplifyPlanWithEmptyInput
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         if (isEnabled(session)) {
-            Rewriter rewriter = new Rewriter(idAllocator);
+            Rewriter rewriter = new Rewriter(idAllocator, session);
             PlanNode rewrittenNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
-            if (rewriter.isPlanChanged()) {
-                session.getOptimizerInformationCollector().addInformation(
-                        new PlanOptimizerInformation(SimplifyPlanWithEmptyInput.class.getSimpleName(), true, Optional.empty(), Optional.empty(), Optional.of(false), Optional.empty()));
-            }
-            return rewrittenNode;
+            return PlanOptimizerResult.optimizerResult(rewrittenNode, rewriter.isPlanChanged());
         }
-        return plan;
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private static class Rewriter
@@ -137,10 +143,13 @@ public class SimplifyPlanWithEmptyInput
         private final PlanNodeIdAllocator idAllocator;
         private boolean planChanged;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator)
+        private final Session session;
+
+        public Rewriter(PlanNodeIdAllocator idAllocator, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.planChanged = false;
+            this.session = session;
         }
 
         private static boolean isEmptyNode(PlanNode planNode)
@@ -199,6 +208,61 @@ public class SimplifyPlanWithEmptyInput
         }
 
         @Override
+        public PlanNode visitSequence(SequenceNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> cteProducers = node.getCteProducers();
+            List<PlanNode> newCteProducerList = new ArrayList<>();
+            // Visit in the order of execution
+            Set<Integer> removedIndexes = new HashSet<>();
+            for (int i = cteProducers.size() - 1; i >= 0; i--) {
+                PlanNode rewrittenProducer = context.rewrite(cteProducers.get(i));
+                if (!isEmptyNode(rewrittenProducer)) {
+                    newCteProducerList.add(rewrittenProducer);
+                }
+                else {
+                    this.planChanged = true;
+                    removedIndexes.add(i);
+                }
+            }
+            PlanNode rewrittenPrimarySource = context.rewrite(node.getPrimarySource());
+            if (isEmptyNode(rewrittenPrimarySource) || newCteProducerList.isEmpty()) {
+                return rewrittenPrimarySource;
+            }
+            if (!this.planChanged) {
+                return node;
+            }
+            // Reverse order for execution
+            Collections.reverse(newCteProducerList);
+            return new SequenceNode(node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    ImmutableList.copyOf(newCteProducerList),
+                    rewrittenPrimarySource,
+                    node.removeCteProducersFromCteDependencyGraph(removedIndexes));
+        }
+
+        @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Void> context)
+        {
+            PlanNode rewrittenSource = context.rewrite(node.getSource());
+            if (isEmptyNode(rewrittenSource)) {
+                // Remove CTE materialization from session
+                // This will be used to convert consumer to values and in further optimizations
+                session.getCteInformationCollector().disallowCteMaterialization(node.getCteId());
+                return convertToEmptyValuesNode(node);
+            }
+            return node.replaceChildren(ImmutableList.of(rewrittenSource));
+        }
+
+        @Override
+        public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Void> context)
+        {
+            if (!session.getCteInformationCollector().getCteInformationMap().get(node.getCteId()).isMaterialized()) {
+                return convertToEmptyValuesNode(node);
+            }
+            return node;
+        }
+
+        @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             PlanNode rewrittenSource = context.rewrite(node.getSource());
@@ -222,6 +286,13 @@ public class SimplifyPlanWithEmptyInput
                 Assignments.Builder builder = Assignments.builder();
                 builder.putAll(node.getVariableMapping().entrySet().stream().collect(toImmutableMap(entry -> entry.getKey(), entry -> entry.getValue().get(index))));
                 return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenChildren.get(index), builder.build(), LOCAL);
+            }
+            else if (nonEmptyChildIndex.size() < node.getSources().size()) {
+                this.planChanged = true;
+                List<PlanNode> nonEmptyInput = nonEmptyChildIndex.stream().map(x -> node.getSources().get(x)).collect(toImmutableList());
+                Map<VariableReferenceExpression, List<VariableReferenceExpression>> newOutputToInputs = node.getVariableMapping().entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> nonEmptyChildIndex.stream().map(idx -> entry.getValue().get(idx)).collect(toImmutableList())));
+                return new UnionNode(node.getSourceLocation(), idAllocator.getNextId(), nonEmptyInput, node.getOutputVariables(), newOutputToInputs);
             }
             return node.replaceChildren(rewrittenChildren);
         }
@@ -275,6 +346,18 @@ public class SimplifyPlanWithEmptyInput
 
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
+        {
+            return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
+        {
+            return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
         {
             return convertToEmptyNodeIfInputEmpty(node, context);
         }

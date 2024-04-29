@@ -32,6 +32,7 @@ public class SecurityConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<AuthenticationType> authenticationTypes = ImmutableList.of();
+    private boolean allowForwardedHttps;
     private boolean authorizedIdentitySelectionEnabled;
 
     public enum AuthenticationType
@@ -66,6 +67,19 @@ public class SecurityConfig
         authenticationTypes = stream(SPLITTER.split(types))
                 .map(AuthenticationType::valueOf)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    public boolean getAllowForwardedHttps()
+    {
+        return allowForwardedHttps;
+    }
+
+    @Config("http-server.authentication.allow-forwarded-https")
+    @ConfigDescription("Allow forwarded HTTPS requests")
+    public SecurityConfig setAllowForwardedHttps(boolean allowForwardedHttps)
+    {
+        this.allowForwardedHttps = allowForwardedHttps;
         return this;
     }
 

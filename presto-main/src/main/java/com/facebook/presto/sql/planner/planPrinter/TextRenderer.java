@@ -272,7 +272,7 @@ public class TextRenderer
     public static String formatAsLong(double value)
     {
         if (isFinite(value)) {
-            return format(Locale.US, "%d", Math.round(value));
+            return format(Locale.US, "%,d", Math.round(value));
         }
 
         return "?";
@@ -281,7 +281,7 @@ public class TextRenderer
     public static String formatDouble(double value)
     {
         if (isFinite(value)) {
-            return format(Locale.US, "%.2f", value);
+            return format(Locale.US, "%,.2f", value);
         }
 
         return "?";
@@ -290,7 +290,7 @@ public class TextRenderer
     static String formatPositions(long positions)
     {
         String noun = (positions == 1) ? "row" : "rows";
-        return positions + " " + noun;
+        return format(Locale.US, "%,d %s", positions, noun);
     }
 
     static String indentString(int indent)

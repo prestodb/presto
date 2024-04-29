@@ -101,7 +101,7 @@ public class NullIfCodeGenerator
             Type actualType,
             Type requiredType)
     {
-        if (actualType.getTypeSignature().equals(requiredType)) {
+        if (actualType.getTypeSignature().equals(requiredType.getTypeSignature())) {
             return argument;
         }
 

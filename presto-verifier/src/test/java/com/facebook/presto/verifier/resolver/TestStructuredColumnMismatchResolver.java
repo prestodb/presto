@@ -23,6 +23,8 @@ import com.facebook.presto.verifier.checksum.SimpleColumnChecksum;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -42,23 +44,32 @@ public class TestStructuredColumnMismatchResolver
     @Test
     public void testResolveArray()
     {
-        ArrayColumnChecksum checksum1 = new ArrayColumnChecksum(binary(0xa), binary(0xb), 1);
-        ArrayColumnChecksum checksum2 = new ArrayColumnChecksum(binary(0x1a), binary(0xb), 1);
-        ArrayColumnChecksum checksum3 = new ArrayColumnChecksum(binary(0xa), binary(0x1b), 1);
-        ArrayColumnChecksum checksum4 = new ArrayColumnChecksum(binary(0xa), binary(0xb), 2);
+        ArrayColumnChecksum checksum1 = new ArrayColumnChecksum(binary(0xa), binary(0xb), 1, Optional.empty());
+        ArrayColumnChecksum checksum2 = new ArrayColumnChecksum(binary(0x1a), binary(0xb), 1, Optional.empty());
+        ArrayColumnChecksum checksum3 = new ArrayColumnChecksum(binary(0xa), binary(0x1b), 1, Optional.empty());
+        ArrayColumnChecksum checksum4 = new ArrayColumnChecksum(binary(0xa), binary(0xb), 2, Optional.empty());
 
-        // resolved
+        // Resolved: floating point, but without FloatingPointColumnChecksum part.
         assertResolved(createMismatchedColumn(new ArrayType(DOUBLE), checksum1, checksum2));
         assertResolved(createMismatchedColumn(new ArrayType(REAL), checksum1, checksum2));
         assertResolved(createMismatchedColumn(new ArrayType(new ArrayType(DOUBLE)), checksum1, checksum2));
 
-        // not resolved, contains no floating point types
+        // Not resolved: contains no floating point types.
         assertNotResolved(createMismatchedColumn(new ArrayType(INTEGER), checksum1, checksum2));
         assertNotResolved(createMismatchedColumn(new ArrayType(new ArrayType(INTEGER)), checksum1, checksum2));
 
-        // not resolved, cardinality mismatches
+        // Not resolved: floating point, without FloatingPointColumnChecksum part, but cardinality mismatches.
         assertNotResolved(createMismatchedColumn(new ArrayType(DOUBLE), checksum1, checksum3));
-        assertNotResolved(createMismatchedColumn(new ArrayType(DOUBLE), checksum1, checksum4));
+        assertNotResolved(createMismatchedColumn(new ArrayType(REAL), checksum1, checksum4));
+
+        ArrayColumnChecksum checksum5 = new ArrayColumnChecksum(null, binary(0xb), 1,
+                Optional.of(new FloatingPointColumnChecksum(binary(0xa), 1, 2, 3, 1)));
+        ArrayColumnChecksum checksum6 = new ArrayColumnChecksum(null, binary(0xb), 1,
+                Optional.of(new FloatingPointColumnChecksum(binary(0xc), 1, 2, 3, 1)));
+
+        // Not resolved: floating point, but with FloatingPointColumnChecksum part.
+        assertNotResolved(createMismatchedColumn(new ArrayType(DOUBLE), checksum5, checksum6));
+        assertNotResolved(createMismatchedColumn(new ArrayType(REAL), checksum1, checksum4));
     }
 
     @Test
@@ -105,8 +116,8 @@ public class TestStructuredColumnMismatchResolver
     {
         ColumnMatchResult<?> resolvable1 = createMismatchedColumn(
                 new ArrayType(new ArrayType(DOUBLE)),
-                new ArrayColumnChecksum(binary(0xa), binary(0xc), 1),
-                new ArrayColumnChecksum(binary(0xb), binary(0xc), 1));
+                new ArrayColumnChecksum(binary(0xa), binary(0xc), 1, Optional.empty()),
+                new ArrayColumnChecksum(binary(0xb), binary(0xc), 1, Optional.empty()));
         ColumnMatchResult<?> resolvable2 = createMismatchedColumn(
                 mapType(REAL, DOUBLE),
                 new MapColumnChecksum(binary(0x1), binary(0xa), binary(0xa), binary(0xc), 1),

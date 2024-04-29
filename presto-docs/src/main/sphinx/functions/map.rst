@@ -99,31 +99,45 @@ Map Functions
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
         SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
 
+.. function:: map_key_exists(x(K, V), k) -> boolean
+
+    Returns whether the given key exists in the map. Returns ``true`` if key is present in the input map, returns ``false`` if not present.
+
+        SELECT map_key_exists(MAP(ARRAY['x','y'], ARRAY[100,200]), 'x'); -- TRUE
+
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
 
 .. function:: map_top_n_keys(x(K,V), n) -> array(K)
 
-    Returns top n keys in the map ``x``.
-    ``n`` must be a non-negative integer
-    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting
+    Returns top ``n`` keys in the map ``x`` by sorting its keys in descending order.
+    ``n`` must be a non-negative integer.
 
-        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- ['c', 'b']
+    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting ::
+
+        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2) --- ['c', 'b']
 
 .. function:: map_top_n_keys(x(K,V), n, function(K,K,int)) -> array(K)
 
-    Returns top n keys in the map ``x`` based on the given comparator ``function``. The comparator will take
+    Returns top ``n`` keys in the map ``x`` by sorting its keys using the given comparator ``function``. The comparator takes
     two non-nullable arguments representing two keys of the ``map``. It returns -1, 0, or 1
     as the first key is less than, equal to, or greater than the second key.
     If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
 
-        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
+        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
+
+.. function:: map_keys_by_top_n_values(x(K,V), n) -> array(K)
+
+    Returns top ``n`` keys in the map ``x`` by sorting its values in descending order. If two or more keys have equal values, the higher key takes precedence.
+    ``n`` must be a non-negative integer.::
+
+        SELECT map_top_n_keys_by_value(map(ARRAY['a', 'b', 'c'], ARRAY[2, 1, 3]), 2) --- ['c', 'a']
 
 .. function:: map_top_n(x(K,V), n) -> map(K, V)
 
     Truncates map items. Keeps only the top N elements by value.
-    ``n`` must be a non-negative integer
+    ``n`` must be a non-negative integer.::
 
         SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
 
@@ -140,7 +154,7 @@ Map Functions
 
     Returns top n values in the map ``x``.
     ``n`` must be a positive integer
-    For bottom ``n`` values, use the function with lambda operator to perform custom sorting
+    For bottom ``n`` values, use the function with lambda operator to perform custom sorting.::
 
         SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
 

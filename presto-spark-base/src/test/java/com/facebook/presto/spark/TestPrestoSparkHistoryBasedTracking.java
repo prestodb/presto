@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
@@ -94,7 +95,7 @@ public class TestPrestoSparkHistoryBasedTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", getSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.PARTITIONED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.PARTITIONED))
                     .findFirst()
                     .isPresent());
 
@@ -108,7 +109,7 @@ public class TestPrestoSparkHistoryBasedTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", getSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinNode.DistributionType.REPLICATED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.REPLICATED))
                     .findFirst()
                     .isPresent());
         }

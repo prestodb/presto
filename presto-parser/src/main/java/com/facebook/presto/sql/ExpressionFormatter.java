@@ -73,6 +73,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -688,6 +689,11 @@ public final class ExpressionFormatter
             return Joiner.on(", ").join(expressions.stream()
                     .map((e) -> process(e, null))
                     .iterator());
+        }
+
+        protected String visitTableVersion(TableVersionExpression node, Void context)
+        {
+            return "FOR " + node.getTableVersionType().name() + " AS OF " + process(node.getAsOfExpression(), context) + " ";
         }
     }
 

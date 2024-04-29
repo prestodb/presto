@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.jmx.JmxPlugin;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
@@ -24,9 +25,13 @@ import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.testing.InMemoryHistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpcds.TpcdsTableName;
 import com.facebook.presto.tpcds.TpcdsPlugin;
@@ -41,6 +46,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,7 +80,7 @@ public final class HiveQueryRunner
     public static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     public static final String TPCDS_SCHEMA = "tpcds";
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
@@ -237,11 +243,12 @@ public final class HiveQueryRunner
                             .put("hive.compression-codec", "NONE")
                             .build();
 
-            Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                    .putAll(storageProperties)
-                    .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                    .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                    .build();
+            Map<String, String> hiveBucketedProperties = new HashMap<>();
+            hiveBucketedProperties.putAll(storageProperties);
+            hiveBucketedProperties.put("hive.max-initial-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties.put("hive.max-split-size", "10kB"); // so that each bucket has multiple splits
+            hiveBucketedProperties = ImmutableMap.copyOf(hiveBucketedProperties);
+
             queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
@@ -470,6 +477,21 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
+
+        try {
+            queryRunner.installPlugin(new Plugin()
+            {
+                @Override
+                public Iterable<HistoryBasedPlanStatisticsProvider> getHistoryBasedPlanStatisticsProviders()
+                {
+                    return ImmutableList.of(new InMemoryHistoryBasedPlanStatisticsProvider());
+                }
+            });
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
+        }
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

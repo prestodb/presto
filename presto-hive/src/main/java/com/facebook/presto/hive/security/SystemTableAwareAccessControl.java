@@ -155,6 +155,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        delegate.checkCanUpdateTableColumns(transactionHandle, identity, context, tableName, updatedColumns);
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         delegate.checkCanCreateView(transactionHandle, identity, context, viewName);
@@ -236,5 +242,17 @@ public class SystemTableAwareAccessControl
     public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
         delegate.checkCanShowRoleGrants(transactionHandle, identity, context, catalogName);
+    }
+
+    @Override
+    public void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanDropConstraint(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate.checkCanAddConstraint(transactionHandle, identity, context, tableName);
     }
 }

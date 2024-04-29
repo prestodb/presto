@@ -34,12 +34,14 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -52,13 +54,16 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetCata
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_VIEW;
@@ -70,6 +75,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -244,6 +250,17 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), UPDATE_TABLE)) {
+            denyUpdateTableColumns(tableName.toString(), updatedColumnNames);
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanUpdateTableColumns(transactionId, identity, context, tableName, updatedColumnNames);
+        }
+    }
+
+    @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
         if (shouldDenyPrivilege(identity.getUser(), viewName.getObjectName(), CREATE_VIEW)) {
@@ -315,6 +332,24 @@ public class TestingAccessControlManager
         }
     }
 
+    @Override
+    public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), DROP_CONSTRAINT)) {
+            denyDropConstraint(tableName.toString());
+        }
+        super.checkCanDropConstraint(transactionId, identity, context, tableName);
+    }
+
+    @Override
+    public void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), ADD_CONSTRAINT)) {
+            denyAddConstraint(tableName.toString());
+        }
+        super.checkCanAddConstraints(transactionId, identity, context, tableName);
+    }
+
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
         TestingPrivilege testPrivilege = privilege(userName, entityName, type);
@@ -330,8 +365,9 @@ public class TestingAccessControlManager
     {
         SET_USER,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, INSERT_TABLE, DELETE_TABLE, TRUNCATE_TABLE,
+        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, INSERT_TABLE, DELETE_TABLE, TRUNCATE_TABLE, UPDATE_TABLE,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
+        ADD_CONSTRAINT, DROP_CONSTRAINT,
         CREATE_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         SET_SESSION
     }

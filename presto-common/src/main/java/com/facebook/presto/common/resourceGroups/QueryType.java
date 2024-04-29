@@ -27,6 +27,7 @@ public enum QueryType
     INSERT(6),
     SELECT(7),
     CONTROL(8),
+    UPDATE(9)
     /**/;
 
     private final int value;

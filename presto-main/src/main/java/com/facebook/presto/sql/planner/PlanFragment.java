@@ -51,6 +51,8 @@ public class PlanFragment
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
+
+    // Only true for output table writer and false for temporary table writers
     private final boolean outputTableWriterFragment;
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;

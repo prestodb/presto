@@ -19,18 +19,16 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
-#include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
 
-struct DriverCountStats {
-  size_t numBlockedDrivers{0};
-  size_t numRunningDrivers{0};
-};
-
 class TaskManager {
  public:
-  TaskManager();
+  TaskManager(
+      folly::Executor* driverExecutor,
+      folly::Executor* httpSrvExecutor,
+      folly::Executor* spillerExecutor);
 
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
@@ -103,7 +101,7 @@ class TaskManager {
 
   folly::Future<std::unique_ptr<Result>> getResults(
       const protocol::TaskId& taskId,
-      long bufferId,
+      long destination,
       long token,
       protocol::DataSize maxSize,
       protocol::Duration maxWait,
@@ -122,7 +120,7 @@ class TaskManager {
   std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {
-    return &queryContextManager_;
+    return queryContextManager_.get();
   }
 
   /// Make upto target task threads to yield. Task candidate must have been on
@@ -136,12 +134,21 @@ class TaskManager {
     return taskMap_.rlock()->size();
   }
 
-  // Returns the number of running drivers in all tasks.
-  DriverCountStats getDriverCountStats() const;
+  /// Stores the number of drivers in various states of execution.
+  velox::exec::Task::DriverCounts getDriverCounts() const;
 
   // Returns array with number of tasks for each of five TaskState (enum defined
   // in exec/Task.h).
   std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
+
+  /// Invoked to check the stuck operation calls in the system.  If the function
+  /// fails to get the stuck call information from a task due to the lock
+  /// timeout, it adds the task to 'blockedTasks'.  Otherwise, it adds all stuck
+  /// call information to 'stuckOpCalls'.  The function returns false if a lock
+  /// on the taskMap cannot be taken, otherwise returns true.
+  bool getStuckOpCalls(
+      std::vector<std::string>& deadlockTasks,
+      std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
   /// Build directory path for spilling for the given task.
   /// Always returns non-empty string.
@@ -176,9 +183,10 @@ class TaskManager {
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
-  std::shared_ptr<velox::exec::PartitionedOutputBufferManager> bufferManager_;
+  std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
-  QueryContextManager queryContextManager_;
+  std::unique_ptr<QueryContextManager> queryContextManager_;
+  folly::Executor* httpSrvCpuExecutor_;
 };
 
 } // namespace facebook::presto

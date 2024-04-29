@@ -44,5 +44,5 @@ public interface HiveSelectivePageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
             boolean appendRowNumberEnabled,
-            boolean footerStatsUnreliable);
+            Optional<byte[]> rowIDPartitionComponent);
 }

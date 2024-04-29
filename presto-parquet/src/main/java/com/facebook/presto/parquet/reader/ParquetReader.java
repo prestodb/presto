@@ -453,12 +453,6 @@ public class ParquetReader
             {
                 return (int) (totalSize - readBytes);
             }
-
-            @Override
-            public boolean markSupported()
-            {
-                return false;
-            }
         };
         return dataSourceAsStream;
     }

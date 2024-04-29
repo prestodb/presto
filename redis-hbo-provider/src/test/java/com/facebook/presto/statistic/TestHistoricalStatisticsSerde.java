@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.statistic;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
+import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +40,9 @@ public class TestHistoricalStatisticsSerde
     public void testSimpleHistoricalStatisticsEncoderDecoder()
     {
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(ImmutableList.of(new HistoricalPlanStatisticsEntry(
-                new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
-                ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty())))));
+                new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
+                ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty())),
+                new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))));
         HistoricalStatisticsSerde historicalStatisticsEncoderDecoder = new HistoricalStatisticsSerde();
 
         // Test PlanHash
@@ -55,8 +59,9 @@ public class TestHistoricalStatisticsSerde
     {
         List<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
-                    ImmutableList.of(new PlanStatistics(Estimate.of(100), Estimate.of(i), 0, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()))));
+            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
+                    ImmutableList.of(new PlanStatistics(Estimate.of(100), Estimate.of(i), 0, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty())),
+                    new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test")));
         }
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(historicalPlanStatisticsEntryList);
         HistoricalStatisticsSerde historicalStatisticsEncoderDecoder = new HistoricalStatisticsSerde();
@@ -82,12 +87,12 @@ public class TestHistoricalStatisticsSerde
     {
         List<PlanStatistics> planStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            planStatisticsEntryList.add(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()));
+            planStatisticsEntryList.add(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()));
         }
         List<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntryList = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
-            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
-                    planStatisticsEntryList));
+            historicalPlanStatisticsEntryList.add(new HistoricalPlanStatisticsEntry(new PlanStatistics(Estimate.of(i * 5), Estimate.of(i * 5), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
+                    planStatisticsEntryList, new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test")));
         }
         HistoricalPlanStatistics samplePlanStatistics = new HistoricalPlanStatistics(historicalPlanStatisticsEntryList);
         HistoricalStatisticsSerde historicalStatisticsEncoderDecoder = new HistoricalStatisticsSerde();
@@ -107,6 +112,6 @@ public class TestHistoricalStatisticsSerde
         RuntimeException exception = expectThrows(
                 RuntimeException.class,
                 () -> historicalStatisticsEncoderDecoder.decodeValue(encodedKey));
-        assertTrue(exception.getMessage().contains("Invalid thrift object"));
+        assertTrue(exception.getMessage().contains("Error decoding historicalPlanStatistics value"));
     }
 }

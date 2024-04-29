@@ -248,8 +248,6 @@ Here are the key components of selector rules in PrestoDB:
 
 * ``user`` (optional): This is a regular expression that matches the user who is submitting the query.
 
-* ``userGroup`` (optional): Regex to match against every user group the user belongs to.
-
 * ``source`` (optional): This matches the source of the query, which is typically the
   application submitting the query.
 
@@ -321,30 +319,29 @@ There are four selectors, that define which queries run in which resource group:
 
 * The first selector matches queries from ``bob`` and places them in the admin group.
 
-* The second selector matches queries from ``admin`` user group and places them in the admin group.
-
-* The third selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
+* The second selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
   and places them in the ``global.data_definition`` group. This could help reduce queue times for this
   class of queries, since they are expected to be fast.
 
-* The fourth selector matches queries from a source name that includes ``pipeline``, and places them in a
+* The third selector matches queries from a source name that includes ``pipeline``, and places them in a
   dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
-* The fifth selector matches queries that come from BI tools which have a source matching the regular
-  expression ``jdbc#(?<toolname>.*)`` and have client provided tags that are a superset of ``hipri``.
-  These are placed in a dynamically-created sub-group under the ``global.adhoc`` group.
-  The dynamic sub-groups are created based on the values of named variables ``toolname`` and ``user``.
-  The values are derived from the source regular expression and the query user respectively.
-  Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and client tags ``hipri`` and ``fast``.
-  This query is routed to the ``global.adhoc.bi-powerfulbi.kayla`` resource group.
+* The fourth selector matches queries that come from BI tools which have a source matching the regular
+  expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
+  These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
+  sub-group is created based on the named variable ``toolname``, which is extracted from the
+  regular expression for source.
+
+  Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
+  client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
+  resource group.
 
 * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
   adhoc group.
 
 Together, these selectors implement the following policy:
 
-* The user ``bob`` and any user belonging to user group ``admin``
-  is an admin and can run up to 50 concurrent queries.
+* The user ``bob`` is an admin and can run up to 50 concurrent queries.
   Queries will be run based on user-provided priority.
 
 For the remaining users:

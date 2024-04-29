@@ -22,7 +22,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 
 public interface PlanOptimizer
 {
-    PlanNode optimize(PlanNode plan,
+    PlanOptimizerResult optimize(PlanNode plan,
             Session session,
             TypeProvider types,
             VariableAllocator variableAllocator,
@@ -62,8 +62,8 @@ public interface PlanOptimizer
         boolean isApplicable = false;
         try {
             // wrap in try/catch block in case optimization throws an error
-            PlanNode newPlan = optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
-            isApplicable = !plan.equals(newPlan);
+            PlanOptimizerResult optimizerResult = optimize(plan, session, types, variableAllocator, idAllocator, warningCollector);
+            isApplicable = optimizerResult.isOptimizerTriggered();
         }
         finally {
             setEnabledForTesting(false);

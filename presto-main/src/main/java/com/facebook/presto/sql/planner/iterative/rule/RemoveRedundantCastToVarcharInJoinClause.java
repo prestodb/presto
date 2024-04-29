@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -114,11 +115,11 @@ public class RemoveRedundantCastToVarcharInJoinClause
         ProjectNode leftProject = (ProjectNode) leftInput;
         ProjectNode rightProject = (ProjectNode) rightInput;
 
-        ImmutableList.Builder<JoinNode.EquiJoinClause> joinClauseBuilder = ImmutableList.builder();
+        ImmutableList.Builder<EquiJoinClause> joinClauseBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> newLeftAssignmentsBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> newRightAssignmentsBuilder = ImmutableMap.builder();
         boolean isChanged = false;
-        for (JoinNode.EquiJoinClause equiJoinClause : node.getCriteria()) {
+        for (EquiJoinClause equiJoinClause : node.getCriteria()) {
             RowExpression leftProjectAssignment = leftProject.getAssignments().getMap().get(equiJoinClause.getLeft());
             RowExpression rightProjectAssignment = rightProject.getAssignments().getMap().get(equiJoinClause.getRight());
             if (!isSupportedCast(leftProjectAssignment) || !isSupportedCast(rightProjectAssignment)) {
@@ -140,7 +141,7 @@ public class RemoveRedundantCastToVarcharInJoinClause
             VariableReferenceExpression newRight = context.getVariableAllocator().newVariable(rightAssignment);
             newRightAssignmentsBuilder.put(newRight, rightAssignment);
 
-            joinClauseBuilder.add(new JoinNode.EquiJoinClause(newLeft, newRight));
+            joinClauseBuilder.add(new EquiJoinClause(newLeft, newRight));
             isChanged = true;
         }
 

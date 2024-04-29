@@ -23,7 +23,7 @@ Druid Connector Changes
 _______________________
 * Add support for querying non-lowercase table names in Druid connector (:pr:`15920`).
 
-Elasticserarch Changes
+Elasticsearch Changes
 ______________________
 * Fix to avoid ``NullPointerException`` when there is an unsupported data type column in the Object field.
 

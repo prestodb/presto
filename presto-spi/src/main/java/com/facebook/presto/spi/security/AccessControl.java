@@ -172,6 +172,13 @@ public interface AccessControl
     void checkCanTruncateTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to update the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
+
+    /**
      * Check if identity is allowed to create the specified view.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -275,13 +282,29 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
+
+    /**
+     * Check if identity is allowed to drop constraint from the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
+
+    /**
+     * Check if identity is allowed to add constraints to the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
 }

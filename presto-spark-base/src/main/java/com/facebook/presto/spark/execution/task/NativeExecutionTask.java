@@ -13,29 +13,22 @@
  */
 package com.facebook.presto.spark.execution.task;
 
-import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
-import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.execution.TaskState.ABORTED;
@@ -68,12 +61,10 @@ public class NativeExecutionTask
     private final Optional<String> shuffleWriteInfo;
     private final Optional<String> broadcastBasePath;
     private final List<TaskSource> sources;
-    private final Executor executor;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
     // Results will be fetched only if not written to shuffle.
     private final Optional<HttpNativeExecutionTaskResultFetcher> taskResultFetcher;
     private final Object taskFinishedOrHasResult = new Object();
-    private Optional<TokenAuthenticator> tokenAuthenticator;
 
     public NativeExecutionTask(
             Session session,
@@ -83,11 +74,8 @@ public class NativeExecutionTask
             TableWriteInfo tableWriteInfo,
             Optional<String> shuffleWriteInfo,
             Optional<String> broadcastBasePath,
-            Executor executor,
-            ScheduledExecutorService updateScheduledExecutor,
-            ScheduledExecutorService errorRetryScheduledExecutor,
-            TaskManagerConfig taskManagerConfig,
-            QueryManagerConfig queryManagerConfig)
+            ScheduledExecutorService scheduledExecutorService,
+            TaskManagerConfig taskManagerConfig)
     {
         this.session = requireNonNull(session, "session is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
@@ -95,27 +83,19 @@ public class NativeExecutionTask
         this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
         this.broadcastBasePath = requireNonNull(broadcastBasePath, "broadcastBasePath is null");
         this.sources = requireNonNull(sources, "sources is null");
-        this.executor = requireNonNull(executor, "executor is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(planFragment.getPartitioningScheme().getPartitioning().getHandle()).withNoMoreBufferIds();
         requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
+        requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
-                updateScheduledExecutor,
-                errorRetryScheduledExecutor,
+                scheduledExecutorService,
                 this.workerClient,
-                this.executor,
                 taskManagerConfig.getInfoUpdateInterval(),
-                queryManagerConfig.getRemoteTaskMaxErrorDuration(),
                 taskFinishedOrHasResult);
         if (!shuffleWriteInfo.isPresent()) {
             this.taskResultFetcher = Optional.of(new HttpNativeExecutionTaskResultFetcher(
-                    updateScheduledExecutor,
-                    errorRetryScheduledExecutor,
+                    scheduledExecutorService,
                     this.workerClient,
-                    this.executor,
-                    queryManagerConfig.getRemoteTaskMaxErrorDuration(),
                     taskFinishedOrHasResult));
         }
         else {
@@ -191,33 +171,18 @@ public class NativeExecutionTask
     {
         taskInfoFetcher.stop();
         taskResultFetcher.ifPresent(fetcher -> fetcher.stop(success));
-        workerClient.abortResults();
+        workerClient.abortResultsAsync();
     }
 
     private TaskInfo sendUpdateRequest()
     {
-        try {
-            ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.updateTask(
-                    sources,
-                    planFragment,
-                    tableWriteInfo,
-                    shuffleWriteInfo,
-                    broadcastBasePath,
-                    session,
-                    outputBuffers);
-            BaseResponse<TaskInfo> response = future.get();
-            if (response.hasValue()) {
-                return response.getValue();
-            }
-            else {
-                String message = String.format("Create-or-update task request didn't return a result. %s: %s",
-                        HttpStatus.fromStatusCode(response.getStatusCode()),
-                        response.getStatusMessage());
-                throw new IllegalStateException(message);
-            }
-        }
-        catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return workerClient.updateTask(
+                sources,
+                planFragment,
+                tableWriteInfo,
+                shuffleWriteInfo,
+                broadcastBasePath,
+                session,
+                outputBuffers);
     }
 }

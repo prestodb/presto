@@ -28,6 +28,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
+import com.facebook.presto.util.SecureRandomGeneration;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import org.apache.commons.math3.distribution.BetaDistribution;
@@ -43,7 +44,6 @@ import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -61,7 +61,6 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unsca
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.type.DecimalOperators.modulusScalarFunction;
@@ -97,13 +96,6 @@ public final class MathFunctions
                             .divide(BigInteger.valueOf(2))
                             .subtract(BigInteger.ONE));
         }
-    }
-
-    private static final String SECURE_RANDOM_ALGORITHM;
-
-    static {
-        String os = System.getProperty("os.name");
-        SECURE_RANDOM_ALGORITHM = os.startsWith("Windows") ? "SHA1PRNG" : "NativePRNGNonBlocking";
     }
 
     private MathFunctions() {}
@@ -703,13 +695,8 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double secure_random()
     {
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.nextDouble();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.nextDouble();
     }
 
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
@@ -718,15 +705,10 @@ public final class MathFunctions
     public static double secure_random(@SqlType(StandardTypes.DOUBLE) double lower, @SqlType(StandardTypes.DOUBLE) double upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.doubles(lower, upper)
-                    .findFirst()
-                    .getAsDouble();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.doubles(lower, upper)
+                .findFirst()
+                .getAsDouble();
     }
 
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
@@ -735,15 +717,10 @@ public final class MathFunctions
     public static long secureRandomTinyint(@SqlType(StandardTypes.TINYINT) long lower, @SqlType(StandardTypes.TINYINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.ints((int) lower, (int) upper)
-                    .findFirst()
-                    .getAsInt();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.ints((int) lower, (int) upper)
+                .findFirst()
+                .getAsInt();
     }
 
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
@@ -752,15 +729,10 @@ public final class MathFunctions
     public static long secureRandomSmallint(@SqlType(StandardTypes.SMALLINT) long lower, @SqlType(StandardTypes.SMALLINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.ints((int) lower, (int) upper)
-                    .findFirst()
-                    .getAsInt();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.ints((int) lower, (int) upper)
+                .findFirst()
+                .getAsInt();
     }
 
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
@@ -769,15 +741,10 @@ public final class MathFunctions
     public static long secureRandomInteger(@SqlType(StandardTypes.INTEGER) long lower, @SqlType(StandardTypes.INTEGER) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.ints((int) lower, (int) upper)
-                    .findFirst()
-                    .getAsInt();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.ints((int) lower, (int) upper)
+                .findFirst()
+                .getAsInt();
     }
 
     @Description("a cryptographically secure random number between lower and upper (exclusive)")
@@ -786,15 +753,10 @@ public final class MathFunctions
     public static long secureRandomBigint(@SqlType(StandardTypes.BIGINT) long lower, @SqlType(StandardTypes.BIGINT) long upper)
     {
         checkCondition(lower < upper, INVALID_FUNCTION_ARGUMENT, "upper bound must be greater than lower bound");
-        try {
-            SecureRandom random = SecureRandom.getInstance(SECURE_RANDOM_ALGORITHM);
-            return random.longs(lower, upper)
-                    .findFirst()
-                    .getAsLong();
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(NOT_SUPPORTED, SECURE_RANDOM_ALGORITHM + " is not supported in your OS", e);
-        }
+        SecureRandom random = SecureRandomGeneration.getNonBlocking();
+        return random.longs(lower, upper)
+                .findFirst()
+                .getAsLong();
     }
 
     @Description("Inverse of normal cdf given a mean, std, and probability")

@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
@@ -39,6 +40,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyDefaults
 {
@@ -49,11 +51,13 @@ public class SessionPropertyDefaults
     private final SessionPropertyConfigurationManagerContext configurationManagerContext;
     private final Map<String, SessionPropertyConfigurationManagerFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<SessionPropertyConfigurationManager> delegate = new AtomicReference<>();
+    private final String prestoServerVersion;
 
     @Inject
-    public SessionPropertyDefaults(NodeInfo nodeInfo)
+    public SessionPropertyDefaults(NodeInfo nodeInfo, NodeVersion nodeVersion)
     {
         this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
+        this.prestoServerVersion = requireNonNull(nodeVersion.getVersion(), "prestoServerVersion is null");
     }
 
     public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
@@ -118,7 +122,8 @@ public class SessionPropertyDefaults
                 session.getClientTags(),
                 queryType,
                 resourceGroupId,
-                session.getClientInfo());
+                session.getClientInfo(),
+                prestoServerVersion);
 
         SystemSessionPropertyConfiguration systemPropertyConfiguration = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);

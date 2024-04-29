@@ -14,20 +14,20 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Join;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
 
@@ -49,7 +49,7 @@ public final class JoinNodeUtils
                 ImmutableList.of(clause.getLeft(), clause.getRight()));
     }
 
-    public static JoinNode.Type typeConvert(Join.Type joinType)
+    public static JoinType typeConvert(Join.Type joinType)
     {
         // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
         switch (joinType) {

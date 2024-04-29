@@ -23,7 +23,7 @@ public interface StreamLayoutFactory
         @Override
         public StreamLayout create()
         {
-            return new StreamLayout.ByColumnSize();
+            return new ColumnSizeLayout();
         }
 
         @Override

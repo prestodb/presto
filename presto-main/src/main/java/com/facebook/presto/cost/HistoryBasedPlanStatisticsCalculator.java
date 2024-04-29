@@ -18,6 +18,7 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.PlanStatistics;
@@ -36,9 +37,13 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryInputTableStatisticsMatchingThreshold;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
-import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
+import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES;
+import static com.facebook.presto.common.RuntimeMetricName.HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getSelectedHistoricalPlanStatisticsEntry;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.graph.Traverser.forTree;
@@ -79,21 +84,48 @@ public class HistoryBasedPlanStatisticsCalculator
     @Override
     public boolean registerPlan(PlanNode root, Session session, long startTimeInNano, long timeoutInMilliseconds)
     {
+        // If previous registration timeout for this query, this run is likely to timeout too, return false.
+        if (historyBasedStatisticsCacheManager.historyBasedQueryRegistrationTimeout(session.getQueryId())) {
+            return false;
+        }
+        // record the statsEquivalentPlanNode of root node, and do serialization if enabled when query completes to avoid introduce additional latency for HBO optimizer
+        if (root.getStatsEquivalentPlanNode().isPresent()) {
+            historyBasedStatisticsCacheManager.setStatsEquivalentPlanRootNode(session.getQueryId(), root.getStatsEquivalentPlanNode().get());
+        }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         Iterable<PlanNode> planNodeIterable = forTree(PlanNode::getSources).depthFirstPreOrder(root);
+        boolean enableVerboseRuntimeStats = isVerboseRuntimeStatsEnabled(session);
+        long profileStartTime = 0;
         for (PlanNode plan : planNodeIterable) {
             if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+                historyBasedStatisticsCacheManager.setHistoryBasedQueryRegistrationTimeout(session.getQueryId());
                 return false;
             }
             if (plan.getStatsEquivalentPlanNode().isPresent()) {
-                planNodesWithHash.addAll(getPlanNodeHashes(plan, session).values());
+                if (enableVerboseRuntimeStats) {
+                    profileStartTime = System.nanoTime();
+                }
+                planNodesWithHash.addAll(getPlanNodeHashes(plan, session, false).values());
+                if (enableVerboseRuntimeStats) {
+                    session.getRuntimeStats().addMetricValue(HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_PLAN_NODE_HASHES, NANO, System.nanoTime() - profileStartTime);
+                }
             }
         }
         try {
+            if (enableVerboseRuntimeStats) {
+                profileStartTime = System.nanoTime();
+            }
             historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider, getHistoryBasedOptimizerTimeoutLimit(session).toMillis()).getAll(planNodesWithHash.build());
+            if (enableVerboseRuntimeStats) {
+                session.getRuntimeStats().addMetricValue(HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS, NANO, System.nanoTime() - profileStartTime);
+            }
         }
         catch (ExecutionException e) {
             throw new RuntimeException("Unable to register plan: ", e.getCause());
+        }
+
+        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds)) {
+            historyBasedStatisticsCacheManager.setHistoryBasedQueryRegistrationTimeout(session.getQueryId());
         }
         // Return true even if get empty history statistics, so that HistoricalStatisticsEquivalentPlanMarkingOptimizer still return the plan with StatsEquivalentPlanNode which
         // will be used in populating history statistics
@@ -123,7 +155,7 @@ public class HistoryBasedPlanStatisticsCalculator
         return historyBasedPlanStatisticsProvider;
     }
 
-    private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session)
+    private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session, boolean cacheOnly)
     {
         if (!useHistoryBasedPlanStatisticsEnabled(session) || !plan.getStatsEquivalentPlanNode().isPresent()) {
             return ImmutableMap.of();
@@ -131,10 +163,11 @@ public class HistoryBasedPlanStatisticsCalculator
 
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
         ImmutableMap.Builder<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashesBuilder = ImmutableMap.builder();
-
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy);
-            allHashesBuilder.put(strategy, new PlanNodeWithHash(statsEquivalentPlanNode, hash));
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
+            Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, cacheOnly);
+            if (hash.isPresent()) {
+                allHashesBuilder.put(strategy, new PlanNodeWithHash(statsEquivalentPlanNode, hash));
+            }
         }
 
         return allHashesBuilder.build();
@@ -142,12 +175,12 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private PlanNodeStatsEstimate getStatistics(PlanNode planNode, Session session, Lookup lookup, PlanNodeStatsEstimate delegateStats)
     {
-        if (!useHistoryBasedPlanStatisticsEnabled(session) || historyBasedStatisticsCacheManager.loadHistoryFailed(session.getQueryId())) {
+        if (!useHistoryBasedPlanStatisticsEnabled(session)) {
             return delegateStats;
         }
 
         PlanNode plan = resolveGroupReferences(planNode, lookup);
-        Map<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashes = getPlanNodeHashes(plan, session);
+        Map<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashes = getPlanNodeHashes(plan, session, true);
 
         Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = ImmutableMap.of();
         try {
@@ -160,16 +193,19 @@ public class HistoryBasedPlanStatisticsCalculator
         }
         double historyMatchingThreshold = getHistoryInputTableStatisticsMatchingThreshold(session) > 0 ? getHistoryInputTableStatisticsMatchingThreshold(session) : config.getHistoryMatchingThreshold();
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
                 if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
-                    Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session);
+                    Optional<List<PlanStatistics>> inputTableStatistics = getPlanNodeInputTableStatistics(plan, session, true);
                     if (inputTableStatistics.isPresent()) {
-                        PlanStatistics predictedPlanStatistics = getPredictedPlanStatistics(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
-                        if (predictedPlanStatistics.getConfidence() > 0) {
-                            return delegateStats.combineStats(
-                                    predictedPlanStatistics,
-                                    new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics));
+                        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(entry.getValue(), inputTableStatistics.get(), historyMatchingThreshold);
+                        if (historicalPlanStatisticsEntry.isPresent()) {
+                            PlanStatistics predictedPlanStatistics = historicalPlanStatisticsEntry.get().getPlanStatistics();
+                            if (predictedPlanStatistics.getConfidence() > 0) {
+                                return delegateStats.combineStats(
+                                        predictedPlanStatistics,
+                                        new HistoryBasedSourceInfo(entry.getKey().getHash(), inputTableStatistics, Optional.ofNullable(historicalPlanStatisticsEntry.get().getHistoricalPlanStatisticsEntryInfo())));
+                            }
                         }
                     }
                 }
@@ -179,13 +215,13 @@ public class HistoryBasedPlanStatisticsCalculator
         return delegateStats;
     }
 
-    private Optional<List<PlanStatistics>> getPlanNodeInputTableStatistics(PlanNode plan, Session session)
+    private Optional<List<PlanStatistics>> getPlanNodeInputTableStatistics(PlanNode plan, Session session, boolean cacheOnly)
     {
         if (!useHistoryBasedPlanStatisticsEnabled(session) || !plan.getStatsEquivalentPlanNode().isPresent()) {
             return Optional.empty();
         }
 
         PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
-        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode);
+        return planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, cacheOnly);
     }
 }

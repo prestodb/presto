@@ -51,5 +51,10 @@ public class TestUserDefinedTypes
         assertQuery("SELECT x FROM (SELECT CAST(4 as testing.type.num) AS x)", "SELECT 4");
         assertQuerySucceeds("CREATE TYPE testing.type.mypair AS (fst testing.type.num, snd integer)");
         assertQuery("SELECT p.fst FROM (SELECT CAST(ROW(CAST(4 AS testing.type.num),3) as testing.type.mypair) AS p)", "SELECT 4");
+
+        assertQuerySucceeds("CREATE TYPE testing.type.str AS varchar");
+        assertQuery("SELECT x FROM (SELECT CAST('hello world' as testing.type.str) AS x)", "SELECT 'hello world'");
+        assertQuerySucceeds("CREATE TYPE testing.type.strpair AS (fst testing.type.str, snd varchar)");
+        assertQuery("SELECT p.fst FROM (SELECT CAST(ROW(CAST('hello world' AS testing.type.str), 'test string') as testing.type.strpair) AS p)", "SELECT 'hello world'");
     }
 }

@@ -20,7 +20,10 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.CteConsumerNode;
+import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -31,6 +34,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SetOperationNode;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -52,8 +56,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -108,7 +112,7 @@ public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -116,17 +120,25 @@ public class PruneUnreferencedOutputs
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(variableAllocator), plan, ImmutableSet.of());
+        Rewriter rewriter = new Rewriter(variableAllocator);
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, ImmutableSet.of());
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Set<VariableReferenceExpression>>
     {
         private final VariableAllocator variableAllocator;
+        private boolean planChanged;
 
         public Rewriter(VariableAllocator variableAllocator)
         {
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        }
+
+        public boolean isPlanChanged()
+        {
+            return planChanged;
         }
 
         @Override
@@ -159,6 +171,7 @@ public class PruneUnreferencedOutputs
                     }
                 }
             }
+            planChanged = node.getOutputVariables().size() != newOutputVariables.size();
 
             // newOutputVariables contains all partition, sort and hash variables so simply swap the output layout
             PartitioningScheme partitioningScheme = new PartitioningScheme(
@@ -202,7 +215,7 @@ public class PruneUnreferencedOutputs
             }
 
             ImmutableSet.Builder<VariableReferenceExpression> leftInputsBuilder = ImmutableSet.builder();
-            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft));
+            leftInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), EquiJoinClause::getLeft));
             if (node.getLeftHashVariable().isPresent()) {
                 leftInputsBuilder.add(node.getLeftHashVariable().get());
             }
@@ -210,7 +223,7 @@ public class PruneUnreferencedOutputs
             Set<VariableReferenceExpression> leftInputs = leftInputsBuilder.build();
 
             ImmutableSet.Builder<VariableReferenceExpression> rightInputsBuilder = ImmutableSet.builder();
-            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight));
+            rightInputsBuilder.addAll(context.get()).addAll(Iterables.transform(node.getCriteria(), EquiJoinClause::getRight));
             if (node.getRightHashVariable().isPresent()) {
                 rightInputsBuilder.add(node.getRightHashVariable().get());
             }
@@ -235,6 +248,8 @@ public class PruneUnreferencedOutputs
                         .distinct()
                         .collect(toImmutableList());
             }
+
+            planChanged = node.getOutputVariables().size() != outputVariables.size();
 
             return new JoinNode(
                     node.getSourceLocation(),
@@ -310,6 +325,8 @@ public class PruneUnreferencedOutputs
                     .distinct()
                     .collect(toImmutableList());
 
+            planChanged = outputVariables.size() != node.getOutputVariables().size();
+
             return new SpatialJoinNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getType(), left, right, outputVariables, node.getFilter(), node.getLeftPartitionVariable(), node.getRightPartitionVariable(), node.getKdbTree());
         }
 
@@ -352,6 +369,8 @@ public class PruneUnreferencedOutputs
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputVariables.stream()
                     .collect(toImmutableMap(identity(), node.getAssignments()::get));
 
+            planChanged = newLookupVariables.size() != node.getLookupVariables().size();
+
             return new IndexSourceNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getIndexHandle(), node.getTableHandle(), newLookupVariables, newOutputVariables, newAssignments, node.getCurrentConstraint());
         }
 
@@ -388,7 +407,8 @@ public class PruneUnreferencedOutputs
                     ImmutableList.of(),
                     node.getStep(),
                     node.getHashVariable(),
-                    node.getGroupIdVariable());
+                    node.getGroupIdVariable(),
+                    node.getAggregationId());
         }
 
         @Override
@@ -460,6 +480,8 @@ public class PruneUnreferencedOutputs
             Map<VariableReferenceExpression, ColumnHandle> newAssignments = newOutputs.stream()
                     .collect(Collectors.toMap(identity(), node.getAssignments()::get));
 
+            planChanged = newOutputs.size() != node.getOutputVariables().size();
+
             return new TableScanNode(
                     node.getSourceLocation(),
                     node.getId(),
@@ -486,6 +508,34 @@ public class PruneUnreferencedOutputs
         }
 
         @Override
+        public PlanNode visitCteConsumer(CteConsumerNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            // Some output can be pruned but current implementation of PhysicalCteProducer does not allow cteconsumer pruning
+            return node;
+        }
+
+        @Override
+        public PlanNode visitCteProducer(CteProducerNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            Set<VariableReferenceExpression> expectedInputs = ImmutableSet.copyOf(node.getOutputVariables());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs);
+            return new CteProducerNode(node.getSourceLocation(), node.getId(), source, node.getCteId(), node.getRowCountVariable(), node.getOutputVariables());
+        }
+
+        @Override
+        public PlanNode visitSequence(SequenceNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            ImmutableSet.Builder<VariableReferenceExpression> cteProducersBuilder = ImmutableSet.builder();
+            node.getCteProducers().forEach(leftSource -> cteProducersBuilder.addAll(leftSource.getOutputVariables()));
+            Set<VariableReferenceExpression> leftInputs = cteProducersBuilder.build();
+            List<PlanNode> cteProducers = node.getCteProducers().stream()
+                    .map(leftSource -> context.rewrite(leftSource, leftInputs)).collect(toImmutableList());
+            Set<VariableReferenceExpression> rightInputs = ImmutableSet.copyOf(node.getPrimarySource().getOutputVariables());
+            PlanNode primarySource = context.rewrite(node.getPrimarySource(), rightInputs);
+            return new SequenceNode(node.getSourceLocation(), node.getId(), cteProducers, primarySource, node.getCteDependencyGraph());
+        }
+
+        @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.builder();
@@ -509,6 +559,7 @@ public class PruneUnreferencedOutputs
                     }
                 }
                 newGroupingSets.add(newGroupingSet.build());
+                planChanged = groupingSet.size() != newGroupingSet.build().size();
             }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
@@ -519,6 +570,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             if (!context.get().contains(node.getMarkerVariable())) {
+                planChanged = true;
                 return context.rewrite(node.getSource(), context.get());
             }
 
@@ -543,8 +595,11 @@ public class PruneUnreferencedOutputs
                     .filter(context.get()::contains)
                     .collect(toImmutableList());
 
+            planChanged = replicateVariables.size() != node.getReplicateVariables().size();
+
             Optional<VariableReferenceExpression> ordinalityVariable = node.getOrdinalityVariable();
             if (ordinalityVariable.isPresent() && !context.get().contains(ordinalityVariable.get())) {
+                planChanged = true;
                 ordinalityVariable = Optional.empty();
             }
             Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = node.getUnnestVariables();
@@ -566,6 +621,9 @@ public class PruneUnreferencedOutputs
                 if (context.get().contains(variable)) {
                     expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
                     builder.put(variable, expression);
+                }
+                else {
+                    planChanged = true;
                 }
             });
 
@@ -706,7 +764,8 @@ public class PruneUnreferencedOutputs
                     node.getTablePartitioningScheme(),
                     node.getPreferredShufflePartitioningScheme(),
                     node.getStatisticsAggregation(),
-                    node.getTaskCountIfScaledWriter());
+                    node.getTaskCountIfScaledWriter(),
+                    node.getIsTemporaryTableWriter());
         }
 
         @Override
@@ -764,7 +823,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitUnion(UnionNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context, true);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new UnionNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
@@ -772,7 +831,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context, false);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new IntersectNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
@@ -780,17 +839,17 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitExcept(ExceptNode node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
-            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context);
+            ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMapping = rewriteSetOperationVariableMapping(node, context, false);
             ImmutableList<PlanNode> rewrittenSubPlans = rewriteSetOperationSubPlans(node, context, rewrittenVariableMapping);
             return new ExceptNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSubPlans, ImmutableList.copyOf(rewrittenVariableMapping.keySet()), fromListMultimap(rewrittenVariableMapping));
         }
 
-        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        private ListMultimap<VariableReferenceExpression, VariableReferenceExpression> rewriteSetOperationVariableMapping(SetOperationNode node, RewriteContext<Set<VariableReferenceExpression>> context, boolean pruneUnreferencedOutput)
         {
             // Find out which output variables we need to keep
             ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> rewrittenVariableMappingBuilder = ImmutableListMultimap.builder();
             for (VariableReferenceExpression variable : node.getOutputVariables()) {
-                if (context.get().contains(variable)) {
+                if (context.get().contains(variable) || !pruneUnreferencedOutput) {
                     rewrittenVariableMappingBuilder.putAll(
                             variable,
                             node.getVariableMapping().get(variable));
@@ -837,7 +896,9 @@ public class PruneUnreferencedOutputs
             List<List<RowExpression>> rewrittenRows = rowBuilders.stream()
                     .map(ImmutableList.Builder::build)
                     .collect(toImmutableList());
-            return new ValuesNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenOutputVariablesBuilder.build(), rewrittenRows, node.getValuesNodeLabel());
+            List<VariableReferenceExpression> rewrittenOutputVariables = rewrittenOutputVariablesBuilder.build();
+            planChanged = rewrittenOutputVariables.size() != node.getOutputVariables().size();
+            return new ValuesNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenOutputVariables, rewrittenRows, node.getValuesNodeLabel());
         }
 
         @Override
@@ -845,6 +906,7 @@ public class PruneUnreferencedOutputs
         {
             // remove unused apply nodes
             if (intersection(node.getSubqueryAssignments().getVariables(), context.get()).isEmpty()) {
+                planChanged = true;
                 return context.rewrite(node.getInput(), context.get());
             }
 
@@ -868,6 +930,7 @@ public class PruneUnreferencedOutputs
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
+            planChanged = newCorrelation.size() != node.getCorrelation().size();
 
             Set<VariableReferenceExpression> inputContext = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
@@ -884,6 +947,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Set<VariableReferenceExpression>> context)
         {
             if (!context.get().contains(node.getIdVariable())) {
+                planChanged = true;
                 return context.rewrite(node.getSource(), context.get());
             }
             return context.defaultRewrite(node, context.get());
@@ -896,6 +960,7 @@ public class PruneUnreferencedOutputs
 
             // remove unused lateral nodes
             if (intersection(ImmutableSet.copyOf(subquery.getOutputVariables()), context.get()).isEmpty() && isScalar(subquery)) {
+                planChanged = true;
                 return context.rewrite(node.getInput(), context.get());
             }
 
@@ -904,6 +969,7 @@ public class PruneUnreferencedOutputs
             List<VariableReferenceExpression> newCorrelation = node.getCorrelation().stream()
                     .filter(subqueryVariables::contains)
                     .collect(toImmutableList());
+            planChanged = newCorrelation.size() != node.getCorrelation().size();
 
             Set<VariableReferenceExpression> inputContext = ImmutableSet.<VariableReferenceExpression>builder()
                     .addAll(context.get())
@@ -913,6 +979,7 @@ public class PruneUnreferencedOutputs
 
             // remove unused lateral nodes
             if (intersection(ImmutableSet.copyOf(input.getOutputVariables()), inputContext).isEmpty() && isScalar(input)) {
+                planChanged = true;
                 return subquery;
             }
 

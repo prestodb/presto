@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -28,7 +28,11 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergFileFormat.ORC;
 import static com.facebook.presto.iceberg.IcebergFileFormat.PARQUET;
-import static com.facebook.presto.iceberg.util.HiveStatisticsMergeStrategy.USE_NDV;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
 
 public class TestIcebergConfig
 {
@@ -42,11 +46,19 @@ public class TestIcebergConfig
                 .setCatalogWarehouse(null)
                 .setCatalogCacheSize(10)
                 .setHadoopConfigResources(null)
-                .setHiveStatisticsMergeStrategy(HiveStatisticsMergeStrategy.NONE)
+                .setHiveStatisticsMergeFlags("")
+                .setStatisticSnapshotRecordDifferenceWeight(0.0)
                 .setMaxPartitionsPerWriter(100)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setParquetDereferencePushdownEnabled(true)
-                .setMergeOnReadModeEnabled(false));
+                .setMergeOnReadModeEnabled(true)
+                .setPushdownFilterEnabled(false)
+                .setDeleteAsJoinRewriteEnabled(true)
+                .setManifestCachingEnabled(false)
+                .setFileIOImpl(HadoopFileIO.class.getName())
+                .setMaxManifestCacheSize(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT)
+                .setManifestCacheExpireDuration(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT)
+                .setManifestCacheMaxContentLength(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT));
     }
 
     @Test
@@ -62,8 +74,16 @@ public class TestIcebergConfig
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.enable-parquet-dereference-pushdown", "false")
-                .put("iceberg.enable-merge-on-read-mode", "true")
-                .put("iceberg.hive-statistics-merge-strategy", "USE_NDV")
+                .put("iceberg.enable-merge-on-read-mode", "false")
+                .put("iceberg.statistic-snapshot-record-difference-weight", "1.0")
+                .put("iceberg.hive-statistics-merge-strategy", NUMBER_OF_DISTINCT_VALUES.name() + "," + TOTAL_SIZE_IN_BYTES.name())
+                .put("iceberg.pushdown-filter-enabled", "true")
+                .put("iceberg.delete-as-join-rewrite-enabled", "false")
+                .put("iceberg.io.manifest.cache-enabled", "true")
+                .put("iceberg.io-impl", "com.facebook.presto.iceberg.HdfsFileIO")
+                .put("iceberg.io.manifest.cache.max-total-bytes", "1048576000")
+                .put("iceberg.io.manifest.cache.expiration-interval-ms", "600000")
+                .put("iceberg.io.manifest.cache.max-content-length", "10485760")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -75,9 +95,17 @@ public class TestIcebergConfig
                 .setHadoopConfigResources("/etc/hadoop/conf/core-site.xml")
                 .setMaxPartitionsPerWriter(222)
                 .setMinimumAssignedSplitWeight(0.01)
+                .setStatisticSnapshotRecordDifferenceWeight(1.0)
                 .setParquetDereferencePushdownEnabled(false)
-                .setMergeOnReadModeEnabled(true)
-                .setHiveStatisticsMergeStrategy(USE_NDV);
+                .setMergeOnReadModeEnabled(false)
+                .setHiveStatisticsMergeFlags("NUMBER_OF_DISTINCT_VALUES,TOTAL_SIZE_IN_BYTES")
+                .setPushdownFilterEnabled(true)
+                .setDeleteAsJoinRewriteEnabled(false)
+                .setManifestCachingEnabled(true)
+                .setFileIOImpl("com.facebook.presto.iceberg.HdfsFileIO")
+                .setMaxManifestCacheSize(1048576000)
+                .setManifestCacheExpireDuration(600000)
+                .setManifestCacheMaxContentLength(10485760);
 
         assertFullMapping(properties, expected);
     }

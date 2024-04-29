@@ -231,7 +231,8 @@ public class RewriteAggregationIfToFilter
                         aggregationNode.getPreGroupedVariables(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashVariable(),
-                        aggregationNode.getGroupIdVariable()));
+                        aggregationNode.getGroupIdVariable(),
+                        aggregationNode.getAggregationId()));
     }
 
     private boolean shouldRewriteAggregation(Aggregation aggregation, ProjectNode sourceProject)

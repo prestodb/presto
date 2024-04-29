@@ -23,7 +23,7 @@ export default function Split(): void {
     const containerRef = useRef(null);
     const timelineRef = useRef(null);
     const timerid = useRef(0);
-    const [queryState, setQueryState] = useState({query: null, failed: false, ended: false, items: null, groups: null});
+    const [queryState, setQueryState] = useState({query: null, failed: false, ended: false});
 
     function calculateItemsGroups(query) {
         const getTasks = (stage) => {
@@ -47,6 +47,27 @@ export default function Split(): void {
 
         const groups = new DataSet();
         const items = new DataSet();
+
+        // Initializes or updates the timelineRef
+        const updateTimeline = () => {
+            if (!containerRef.current) return;
+            if (timelineRef.current) {
+                timelineRef.current.setData({groups, items});
+                timelineRef.current.fit();
+            } else {
+                timelineRef.current = new Timeline(
+                    containerRef.current,
+                    items,
+                    groups,
+                    {
+                        stack: false,
+                        groupOrder: 'sort',
+                        margin: 0,
+                        clickToUse: true,
+                    });
+            }
+        }
+
         for (const task of tasks) {
             const [stageId, _, taskNumberStr] = task.taskId.split('.');
             const taskNumber = parseInt(taskNumberStr);
@@ -58,47 +79,57 @@ export default function Split(): void {
                     subgroupOrder: 'sort',
                 });
             }
-            items.add({
-                group: stageId,
-                start: task.time.create,
-                end: task.time.firstStart,
-                className: 'red',
-                subgroup: taskNumber,
-                sort: -taskNumber,
-            });
-            items.add({
-                group: stageId,
-                start: task.time.firstStart,
-                end: task.time.lastStart,
-                className: 'green',
-                subgroup: taskNumber,
-                sort: -taskNumber,
-            });
-            items.add({
-                group: stageId,
-                start: task.time.lastStart,
-                end: task.time.lastEnd,
-                className: 'blue',
-                subgroup: taskNumber,
-                sort: -taskNumber,
-            });
-            items.add({
-                group: stageId,
-                start: task.time.lastEnd,
-                end: task.time.end,
-                className: 'orange',
-                subgroup: taskNumber,
-                sort: -taskNumber,
-            });
+            if (task.time.create) {
+                items.add({
+                    group: stageId,
+                    start: task.time.create,
+                    end: task.time.firstStart,
+                    className: 'red',
+                    subgroup: taskNumber,
+                    sort: -taskNumber,
+                });
+            }
+            if (task.time.firstStart) {
+                items.add({
+                    group: stageId,
+                    start: task.time.firstStart,
+                    end: task.time.lastStart,
+                    className: 'green',
+                    subgroup: taskNumber,
+                    sort: -taskNumber,
+                });
+            }
+            if (task.time.lastStart) {
+                items.add({
+                    group: stageId,
+                    start: task.time.lastStart,
+                    end: task.time.lastEnd,
+                    className: 'blue',
+                    subgroup: taskNumber,
+                    sort: -taskNumber,
+                });
+            }
+            if (task.time.lastEnd) {
+                items.add({
+                    group: stageId,
+                    start: task.time.lastEnd,
+                    end: task.time.end,
+                    className: 'orange',
+                    subgroup: taskNumber,
+                    sort: -taskNumber,
+                });
+            }
         }
         if (timerid.current !== 0) {
             clearTimeout(timerid.current);
             timerid.current = 0;
         }
-        const newQueryState = {query, ended: query.finalQueryInfo, failed: false, groups, items};
+        const newQueryState = {query, ended: query.finalQueryInfo, failed: false};
         if (newQueryState.ended === false && newQueryState.failed === false && timerid.current === 0) {
             timerid.current = setTimeout(queryResult, 3000);
         }
+
+        updateTimeline();
         setQueryState(newQueryState);
     };
 
@@ -124,13 +155,10 @@ export default function Split(): void {
         queryResult();
     }, [containerRef]);
 
-    if (queryState.query === null || queryState.ended === false) {
-        return (
-            <>
-                { queryState.query && (
-                <QueryHeader query={queryState.query}/>
-                )}
-                <div className="row error-message">
+    return (
+        <>
+            { queryState.query && <QueryHeader query={queryState.query}/>}
+            {(!queryState.query || queryState.ended === false) && <div className="row error-message">
                     <div className="col-xs-12">
                     { queryState.failed && queryState.query === null ? (
                     <h4>Query not found</h4>
@@ -138,27 +166,7 @@ export default function Split(): void {
                     <h4><div className="loader">Loading...</div></h4>
                     )}
                     </div>
-                </div>
-            </>
-        );
-    }
-    // need to update the <div ref={containerRef} /> with the
-    // Timeline after the div is created
-    setTimeout(() => {
-        timelineRef.current = new Timeline(
-            containerRef.current,
-            queryState.items,
-            queryState.groups,
-            {
-                stack: false,
-                groupOrder: 'sort',
-                margin: 0,
-                clickToUse: true,
-            });
-    });
-    return (
-        <>
-            <QueryHeader query={queryState.query}/>
+            </div>}
             <div id="legend" className="row">
                 <div>
                     <div className="red bar"></div>

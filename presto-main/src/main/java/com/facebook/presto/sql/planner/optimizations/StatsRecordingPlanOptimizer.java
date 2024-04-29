@@ -43,7 +43,7 @@ public final class StatsRecordingPlanOptimizer
         return delegate;
     }
 
-    public final PlanNode optimize(
+    public final PlanOptimizerResult optimize(
             PlanNode plan,
             Session session,
             TypeProvider types,
@@ -51,7 +51,7 @@ public final class StatsRecordingPlanOptimizer
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        PlanNode result;
+        PlanOptimizerResult result;
         long duration;
         try {
             long start = System.nanoTime();

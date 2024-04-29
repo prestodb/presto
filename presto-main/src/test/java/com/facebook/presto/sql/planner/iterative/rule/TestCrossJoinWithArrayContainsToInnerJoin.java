@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,13 +47,13 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k1", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT))),
                                     p.values(p.variable("right_k1"))));
                 })
                 .matches(
                         join(
-                                JoinNode.Type.INNER,
+                                JoinType.INNER,
                                 ImmutableList.of(equiJoinClause("field", "right_k1")),
                                 unnest(
                                         ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -74,13 +74,13 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, left_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1")),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 })
                 .matches(
                         join(
-                                JoinNode.Type.INNER,
+                                JoinType.INNER,
                                 ImmutableList.of(equiJoinClause("left_k1", "field")),
                                 values("left_k1"),
                                 unnest(
@@ -103,7 +103,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_array_k2", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1) and contains(right_array_k2, left_k2)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT)), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_array_k2", new ArrayType(BIGINT)))));
                 })
@@ -111,7 +111,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                         filter(
                                 "contains(right_array_k2, left_k2)",
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("field", "right_k1")),
                                         unnest(
                                                 ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -134,7 +134,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_array_k2", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1) or contains(right_array_k2, left_k2)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT)), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_array_k2", new ArrayType(BIGINT)))));
                 }).doesNotFire();
@@ -151,7 +151,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k1", DOUBLE);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(DOUBLE))),
                                     p.values(p.variable("right_k1", DOUBLE))));
                 }).doesNotFire();
@@ -168,7 +168,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k1", VARCHAR);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, CAST(right_k1 AS BIGINT))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", new ArrayType(BIGINT))),
                                     p.values(p.variable("right_k1", VARCHAR))));
                 }).doesNotFire();
@@ -188,14 +188,14 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k1", VARCHAR);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, CAST(right_k1 AS BIGINT))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT))),
                                     p.values(p.variable("right_k1", VARCHAR))));
                 })
                 .matches(
                         project(
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("field", "cast_r")),
                                         unnest(
                                                 ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -221,14 +221,14 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k1", VARCHAR);
                     return p.filter(
                             p.rowExpression("contains(CAST(left_array_k1 AS ARRAY<VARCHAR>), right_k1)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT))),
                                     p.values(p.variable("right_k1", VARCHAR))));
                 })
                 .matches(
                         project(
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("field", "right_k1")),
                                         unnest(
                                                 ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -254,14 +254,14 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_array_k1", new ArrayType(BIGINT));
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, CAST(left_k1 AS BIGINT))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 })
                 .matches(
                         project(
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("cast_l", "field")),
                                         project(
                                                 ImmutableMap.of("cast_l", expression("CAST(left_k1 AS bigint)")),
@@ -288,14 +288,14 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, coalesce(CAST(right_k1 AS BIGINT), right_k2))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT))),
                                     p.values(p.variable("right_k1", VARCHAR), p.variable("right_k2", BIGINT))));
                 })
                 .matches(
                         project(
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("field", "expr")),
                                         unnest(
                                                 ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -322,14 +322,14 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("left_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, coalesce(CAST(left_k1 AS BIGINT), left_k2))"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1", VARCHAR), p.variable("left_k2", BIGINT)),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)))));
                 })
                 .matches(
                         project(
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("expr", "field")),
                                         project(
                                                 ImmutableMap.of("expr", expression("COALESCE(CAST(left_k1 AS bigint), left_k2)")),
@@ -354,7 +354,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1) and left_k2+right_k2 > 10"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT)), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 })
@@ -362,7 +362,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                         filter(
                                 "left_k2+right_k2 > 10",
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("field", "right_k1")),
                                         unnest(
                                                 ImmutableMap.of("array_distinct", ImmutableList.of("field")),
@@ -385,7 +385,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("left_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(right_array_k1, left_k1) and right_k2+left_k2 > 10"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_k1"), p.variable("left_k2")),
                                     p.values(p.variable("right_array_k1", new ArrayType(BIGINT)), p.variable("right_k2"))));
                 })
@@ -393,7 +393,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                         filter(
                                 "right_k2+left_k2 > 10",
                                 join(
-                                        JoinNode.Type.INNER,
+                                        JoinType.INNER,
                                         ImmutableList.of(equiJoinClause("left_k1", "field")),
                                         values("left_k1", "left_k2"),
                                         unnest(
@@ -416,7 +416,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, right_k1) or left_k2+right_k2 > 10"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT)), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 }).doesNotFire();
@@ -435,7 +435,7 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
                     p.variable("right_k2", BIGINT);
                     return p.filter(
                             p.rowExpression("contains(left_array_k1, left_k2)"),
-                            p.join(JoinNode.Type.INNER,
+                            p.join(JoinType.INNER,
                                     p.values(p.variable("left_array_k1", new ArrayType(BIGINT)), p.variable("left_k2")),
                                     p.values(p.variable("right_k1"), p.variable("right_k2"))));
                 }).doesNotFire();

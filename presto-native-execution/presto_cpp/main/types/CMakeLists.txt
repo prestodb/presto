@@ -9,15 +9,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+add_library(presto_type_converter OBJECT TypeParser.cpp)
+
+target_link_libraries(presto_type_converter velox_type_parser)
+
 add_library(
-  presto_type_converter OBJECT
-  TypeSignatureTypeConverter.cpp antlr/TypeSignatureLexer.cpp
-  antlr/TypeSignatureParser.cpp)
-
-target_link_libraries(presto_type_converter velox_type)
-
-add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
-                                PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp)
+  presto_types OBJECT PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp
+                      PrestoToVeloxSplit.cpp PrestoToVeloxConnector.cpp)
 add_dependencies(presto_types presto_operators presto_type_converter velox_type
                  velox_type_fbhive velox_dwio_dwrf_proto)
 

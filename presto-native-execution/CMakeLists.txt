@@ -123,13 +123,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 find_package(gflags COMPONENTS shared)
 
-find_library(ANTLR4_RUNTIME antlr4-runtime)
-find_path(
-  ANTLR4_RUNTIME_INCLUDE_DIR
-  NAMES antlr4-runtime.h
-  PATH_SUFFIXES antlr4-runtime)
-include_directories(SYSTEM ${ANTLR4_RUNTIME_INCLUDE_DIR})
-
 find_library(GLOG glog)
 
 find_library(FMT fmt)
@@ -197,6 +190,7 @@ set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
+  set(BUILD_TESTING ON) # some third-party dependency could have disabled this.
   include(CTest) # include after project() but before add_subdirectory()
   include_directories(${VELOX_GTEST_INCUDE_DIR})
 else()

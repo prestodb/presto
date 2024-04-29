@@ -87,6 +87,13 @@ public class TestTimeZoneUtils
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 
             assertDateTimeZoneEquals(zoneId, indexedZone);
+            if (dateTimeZone.getID().equals("Pacific/Kanton")) {
+                // Pacific/Enderbury normalizes to Pacific/Kanton,
+                // both introduced in tzdata2021b 2021/09/25
+                // These are not yet available in all supported JDK patch versions.
+                // TODO: Remove once minimum Java version is increased to 17.0.2/11.0.14/8u321
+                continue;
+            }
             assertTimeZone(zoneId, dateTimeZone);
         }
     }

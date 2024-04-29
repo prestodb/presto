@@ -248,19 +248,32 @@ public final class QueryAssertions
             Multiset<?> unexpectedRows = Multisets.difference(actualSet, expectedSet);
             Multiset<?> missingRows = Multisets.difference(expectedSet, actualSet);
             int limit = 100;
-            fail(format(
-                    "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
+            String extraRowsMessage = "";
+            if (!unexpectedRows.isEmpty()) {
+                int numShown = Math.min(limit, unexpectedRows.size());
+                extraRowsMessage = format(
+                        "Actual rows (%s of %s extra rows shown, %s rows in total):\n    %s\n",
+                        numShown,
+                        unexpectedRows.size(),
+                        actualSet.size(),
+                        Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)));
+            }
+            String missingRowsMessage = "";
+            if (!missingRows.isEmpty()) {
+                int numShown = Math.min(limit, missingRows.size());
+                missingRowsMessage = format(
+                        "Expected rows (%s of %s missing rows shown, %s rows in total):\n    %s\n",
+                        numShown,
+                        missingRows.size(),
+                        expectedSet.size(),
+                        Joiner.on("\n    ").join(Iterables.limit(missingRows, limit)));
+            }
+            String rowsDiff = format(
+                    "%snot equal\n%s%s",
                     message == null ? "" : (message + "\n"),
-                    limit,
-                    unexpectedRows.size(),
-                    actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)),
-                    limit,
-                    missingRows.size(),
-                    expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(missingRows, limit))));
+                    extraRowsMessage,
+                    missingRowsMessage);
+            fail(rowsDiff);
         }
     }
 

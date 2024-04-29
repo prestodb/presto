@@ -19,8 +19,6 @@ import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.hive.s3.S3FileSystemType;
-import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -41,12 +39,12 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior.OVERWRITE;
 import static com.facebook.presto.hive.HiveSessionProperties.INSERT_EXISTING_PARTITIONS_BEHAVIOR;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -78,7 +76,6 @@ public class HiveClientConfig
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
-    private NodeSelectionStrategy nodeSelectionStrategy = NO_PREFERENCE;
     private boolean recursiveDirWalkerEnabled;
 
     private int maxConcurrentFileRenames = 20;
@@ -110,28 +107,11 @@ public class HiveClientConfig
     private List<String> resourceConfigFiles = ImmutableList.of();
 
     private DataSize textMaxLineLength = new DataSize(100, MEGABYTE);
-
-    private boolean useParquetColumnNames;
-    private DataSize parquetMaxReadBlockSize = new DataSize(16, MEGABYTE);
-
     private boolean assumeCanonicalPartitionKeys;
-
     private boolean useOrcColumnNames;
-    private boolean orcBloomFiltersEnabled;
     private double orcDefaultBloomFilterFpp = 0.05;
-    private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
-    private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize orcTinyStripeThreshold = new DataSize(8, MEGABYTE);
-    private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
-    private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
-    private boolean orcLazyReadSmallRanges = true;
-    private boolean orcOptimizedWriterEnabled = true;
-    private double orcWriterValidationPercentage;
-    private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
-
     private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
-
     private HdfsAuthenticationType hdfsAuthenticationType = HdfsAuthenticationType.NONE;
     private boolean hdfsImpersonationEnabled;
     private boolean hdfsWireEncryptionEnabled;
@@ -142,6 +122,8 @@ public class HiveClientConfig
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
     private BucketFunctionType bucketFunctionTypeForExchange = HIVE_COMPATIBLE;
+
+    private BucketFunctionType bucketFunctionTypeForCteMaterialization = PRESTO_NATIVE;
     private boolean ignoreTableBucketing;
     private boolean ignoreUnreadablePartition;
     private int minBucketCountToNotIgnoreTableBucketing;
@@ -177,17 +159,12 @@ public class HiveClientConfig
 
     private boolean pushdownFilterEnabled;
     private boolean parquetPushdownFilterEnabled;
-    private boolean rangeFiltersOnSubscriptsEnabled;
     private boolean adaptiveFilterReorderingEnabled = true;
-    private boolean zstdJniDecompressionEnabled;
-
     private Duration fileStatusCacheExpireAfterWrite = new Duration(0, TimeUnit.SECONDS);
     private long fileStatusCacheMaxSize;
     private List<String> fileStatusCacheTables = ImmutableList.of();
 
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
-    private boolean parquetBatchReadOptimizationEnabled;
-    private boolean parquetEnableBatchReaderVerification;
     private boolean parquetDereferencePushdownEnabled;
 
     private int maxMetadataUpdaterThreads = 100;
@@ -213,6 +190,7 @@ public class HiveClientConfig
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean dynamicSplitSizesEnabled;
 
     private boolean userDefinedTypeEncodingEnabled;
 
@@ -220,7 +198,6 @@ public class HiveClientConfig
     private boolean fileSplittable = true;
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
-    private boolean isReadNullMaskedParquetEncryptedValueEnabled;
 
     private boolean copyOnFirstWriteConfigurationEnabled = true;
 
@@ -228,6 +205,18 @@ public class HiveClientConfig
 
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
+    private boolean quickStatsEnabled;
+    // Duration the initiator query of the quick stats fetch for a partition should wait for stats to be built, before failing and returning EMPTY PartitionStats
+    private Duration quickStatsInlineBuildTimeout = new Duration(60, TimeUnit.SECONDS);
+    // If an in-progress background build is already observed for a partition, this duration is what the current query will wait for the background build to finish
+    // before giving up and returning EMPTY stats
+    private Duration quickStatsBackgroundBuildTimeout = new Duration(0, TimeUnit.SECONDS);
+    private Duration quickStatsCacheExpiry = new Duration(24, TimeUnit.HOURS);
+    private Duration quickStatsInProgressReaperExpiry = new Duration(5, TimeUnit.MINUTES);
+    private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
+    private int parquetQuickStatsMaxConcurrentCalls = 500;
+    private int quickStatsMaxConcurrentCalls = 100;
+    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -295,18 +284,6 @@ public class HiveClientConfig
     public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
     {
         this.writerSortBufferSize = writerSortBufferSize;
-        return this;
-    }
-
-    public NodeSelectionStrategy getNodeSelectionStrategy()
-    {
-        return nodeSelectionStrategy;
-    }
-
-    @Config("hive.node-selection-strategy")
-    public HiveClientConfig setNodeSelectionStrategy(NodeSelectionStrategy nodeSelectionStrategy)
-    {
-        this.nodeSelectionStrategy = nodeSelectionStrategy;
         return this;
     }
 
@@ -773,103 +750,10 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.use-column-names")
-    @ConfigDescription("Access ORC columns using names from the file")
+    @ConfigDescription("Access ORC columns using names from the file first, and fallback to Hive schema column names if not found to ensure backward compatibility with old data")
     public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
     {
         this.useOrcColumnNames = useOrcColumnNames;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxMergeDistance()
-    {
-        return orcMaxMergeDistance;
-    }
-
-    @Config("hive.orc.max-merge-distance")
-    public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
-    {
-        this.orcMaxMergeDistance = orcMaxMergeDistance;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxBufferSize()
-    {
-        return orcMaxBufferSize;
-    }
-
-    @Config("hive.orc.max-buffer-size")
-    public HiveClientConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
-    {
-        this.orcMaxBufferSize = orcMaxBufferSize;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcStreamBufferSize()
-    {
-        return orcStreamBufferSize;
-    }
-
-    @Config("hive.orc.stream-buffer-size")
-    public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
-    {
-        this.orcStreamBufferSize = orcStreamBufferSize;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcTinyStripeThreshold()
-    {
-        return orcTinyStripeThreshold;
-    }
-
-    @Config("hive.orc.tiny-stripe-threshold")
-    public HiveClientConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
-    {
-        this.orcTinyStripeThreshold = orcTinyStripeThreshold;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOrcMaxReadBlockSize()
-    {
-        return orcMaxReadBlockSize;
-    }
-
-    @Config("hive.orc.max-read-block-size")
-    public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
-    {
-        this.orcMaxReadBlockSize = orcMaxReadBlockSize;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isOrcLazyReadSmallRanges()
-    {
-        return orcLazyReadSmallRanges;
-    }
-
-    // TODO remove config option once efficacy is proven
-    @Deprecated
-    @Config("hive.orc.lazy-read-small-ranges")
-    @ConfigDescription("ORC read small disk ranges lazily")
-    public HiveClientConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
-    {
-        this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
-        return this;
-    }
-
-    public boolean isOrcBloomFiltersEnabled()
-    {
-        return orcBloomFiltersEnabled;
-    }
-
-    @Config("hive.orc.bloom-filters.enabled")
-    public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
-    {
-        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
         return this;
     }
 
@@ -883,49 +767,6 @@ public class HiveClientConfig
     public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
     {
         this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isOrcOptimizedWriterEnabled()
-    {
-        return orcOptimizedWriterEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.orc.optimized-writer.enabled")
-    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
-    {
-        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
-        return this;
-    }
-
-    @DecimalMin("0.0")
-    @DecimalMax("100.0")
-    public double getOrcWriterValidationPercentage()
-    {
-        return orcWriterValidationPercentage;
-    }
-
-    @Config("hive.orc.writer.validation-percentage")
-    @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
-    public HiveClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
-    {
-        this.orcWriterValidationPercentage = orcWriterValidationPercentage;
-        return this;
-    }
-
-    @NotNull
-    public OrcWriteValidationMode getOrcWriterValidationMode()
-    {
-        return orcWriterValidationMode;
-    }
-
-    @Config("hive.orc.writer.validation-mode")
-    @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
-    public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
-    {
-        this.orcWriterValidationMode = orcWriterValidationMode;
         return this;
     }
 
@@ -984,32 +825,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isUseParquetColumnNames()
-    {
-        return useParquetColumnNames;
-    }
-
-    @Config("hive.parquet.use-column-names")
-    @ConfigDescription("Access Parquet columns using names from the file")
-    public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
-    {
-        this.useParquetColumnNames = useParquetColumnNames;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getParquetMaxReadBlockSize()
-    {
-        return parquetMaxReadBlockSize;
-    }
-
-    @Config("hive.parquet.max-read-block-size")
-    public HiveClientConfig setParquetMaxReadBlockSize(DataSize parquetMaxReadBlockSize)
-    {
-        this.parquetMaxReadBlockSize = parquetMaxReadBlockSize;
-        return this;
-    }
-
     @Deprecated
     public boolean isOptimizeMismatchedBucketCount()
     {
@@ -1021,18 +836,6 @@ public class HiveClientConfig
     public HiveClientConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
     {
         this.optimizeMismatchedBucketCount = optimizeMismatchedBucketCount;
-        return this;
-    }
-
-    public boolean isZstdJniDecompressionEnabled()
-    {
-        return zstdJniDecompressionEnabled;
-    }
-
-    @Config("hive.zstd-jni-decompression-enabled")
-    public HiveClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
-    {
-        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         return this;
     }
 
@@ -1182,6 +985,19 @@ public class HiveClientConfig
     public BucketFunctionType getBucketFunctionTypeForExchange()
     {
         return bucketFunctionTypeForExchange;
+    }
+
+    @Config("hive.bucket-function-type-for-cte-materialization")
+    @ConfigDescription("Hash function type for cte materialization")
+    public HiveClientConfig setBucketFunctionTypeForCteMaterialization(BucketFunctionType bucketFunctionTypeForCteMaterialization)
+    {
+        this.bucketFunctionTypeForCteMaterialization = bucketFunctionTypeForCteMaterialization;
+        return this;
+    }
+
+    public BucketFunctionType getBucketFunctionTypeForCteMaterialization()
+    {
+        return bucketFunctionTypeForCteMaterialization;
     }
 
     @Config("hive.ignore-unreadable-partition")
@@ -1526,19 +1342,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean isRangeFiltersOnSubscriptsEnabled()
-    {
-        return rangeFiltersOnSubscriptsEnabled;
-    }
-
-    @Config("hive.range-filters-on-subscripts-enabled")
-    @ConfigDescription("Experimental: enable pushdown of range filters on subscripts (a[2] = 5) into ORC column readers")
-    public HiveClientConfig setRangeFiltersOnSubscriptsEnabled(boolean rangeFiltersOnSubscriptsEnabled)
-    {
-        this.rangeFiltersOnSubscriptsEnabled = rangeFiltersOnSubscriptsEnabled;
-        return this;
-    }
-
     public boolean isAdaptiveFilterReorderingEnabled()
     {
         return adaptiveFilterReorderingEnabled;
@@ -1562,32 +1365,6 @@ public class HiveClientConfig
     {
         this.pageFileStripeMaxSize = pageFileStripeMaxSize;
         return this;
-    }
-
-    @Config("hive.parquet-batch-read-optimization-enabled")
-    @ConfigDescription("enable parquet batch reads optimization")
-    public HiveClientConfig setParquetBatchReadOptimizationEnabled(boolean parquetBatchReadOptimizationEnabled)
-    {
-        this.parquetBatchReadOptimizationEnabled = parquetBatchReadOptimizationEnabled;
-        return this;
-    }
-
-    public boolean isParquetBatchReadOptimizationEnabled()
-    {
-        return this.parquetBatchReadOptimizationEnabled;
-    }
-
-    @Config("hive.enable-parquet-batch-reader-verification")
-    @ConfigDescription("enable optimized parquet reader")
-    public HiveClientConfig setParquetBatchReaderVerificationEnabled(boolean parquetEnableBatchReaderVerification)
-    {
-        this.parquetEnableBatchReaderVerification = parquetEnableBatchReaderVerification;
-        return this;
-    }
-
-    public boolean isParquetBatchReaderVerificationEnabled()
-    {
-        return this.parquetEnableBatchReaderVerification;
     }
 
     @Config("hive.enable-parquet-dereference-pushdown")
@@ -1784,6 +1561,18 @@ public class HiveClientConfig
         return sizeBasedSplitWeightsEnabled;
     }
 
+    @Config("hive.dynamic-split-sizes-enabled")
+    public HiveClientConfig setDynamicSplitSizesEnabled(boolean dynamicSplitSizesEnabled)
+    {
+        this.dynamicSplitSizesEnabled = dynamicSplitSizesEnabled;
+        return this;
+    }
+
+    public boolean isDynamicSplitSizesEnabled()
+    {
+        return dynamicSplitSizesEnabled;
+    }
+
     @Config("hive.minimum-assigned-split-weight")
     @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
     public HiveClientConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
@@ -1838,6 +1627,105 @@ public class HiveClientConfig
         return this.hudiMetadataEnabled;
     }
 
+    @Config("hive.quick-stats.enabled")
+    @ConfigDescription("Use quick stats to resolve stats")
+    public HiveClientConfig setQuickStatsEnabled(boolean quickStatsEnabled)
+    {
+        this.quickStatsEnabled = quickStatsEnabled;
+        return this;
+    }
+
+    public boolean isQuickStatsEnabled()
+    {
+        return this.quickStatsEnabled;
+    }
+
+    @Config("hive.quick-stats.inline-build-timeout")
+    public HiveClientConfig setQuickStatsInlineBuildTimeout(Duration buildTimeout)
+    {
+        this.quickStatsInlineBuildTimeout = buildTimeout;
+        return this;
+    }
+
+    public Duration getQuickStatsInlineBuildTimeout()
+    {
+        return this.quickStatsInlineBuildTimeout;
+    }
+
+    @Config("hive.quick-stats.background-build-timeout")
+    public HiveClientConfig setQuickStatsBackgroundBuildTimeout(Duration buildTimeout)
+    {
+        this.quickStatsBackgroundBuildTimeout = buildTimeout;
+        return this;
+    }
+
+    public Duration getQuickStatsBackgroundBuildTimeout()
+    {
+        return this.quickStatsBackgroundBuildTimeout;
+    }
+
+    @Config("hive.quick-stats.cache-expiry")
+    public HiveClientConfig setQuickStatsCacheExpiry(Duration cacheExpiry)
+    {
+        this.quickStatsCacheExpiry = cacheExpiry;
+        return this;
+    }
+
+    public Duration getQuickStatsCacheExpiry()
+    {
+        return this.quickStatsCacheExpiry;
+    }
+
+    @Config("hive.quick-stats.reaper-expiry")
+    public HiveClientConfig setQuickStatsReaperExpiry(Duration reaperExpiry)
+    {
+        this.quickStatsInProgressReaperExpiry = reaperExpiry;
+        return this;
+    }
+
+    public Duration getQuickStatsReaperExpiry()
+    {
+        return this.quickStatsInProgressReaperExpiry;
+    }
+
+    @Config("hive.quick-stats.parquet.file-metadata-fetch-timeout")
+    public HiveClientConfig setParquetQuickStatsFileMetadataFetchTimeout(Duration fileMetadataFetchTimeout)
+    {
+        this.parquetQuickStatsFileMetadataFetchTimeout = fileMetadataFetchTimeout;
+        return this;
+    }
+
+    public Duration getParquetQuickStatsFileMetadataFetchTimeout()
+    {
+        return this.parquetQuickStatsFileMetadataFetchTimeout;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentParquetQuickStatsCalls()
+    {
+        return parquetQuickStatsMaxConcurrentCalls;
+    }
+
+    @Config("hive.quick-stats.parquet.max-concurrent-calls")
+    public HiveClientConfig setMaxConcurrentParquetQuickStatsCalls(int maxConcurrentCalls)
+    {
+        this.parquetQuickStatsMaxConcurrentCalls = maxConcurrentCalls;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentQuickStatsCalls()
+    {
+        return quickStatsMaxConcurrentCalls;
+    }
+
+    @Config("hive.quick-stats.max-concurrent-calls")
+    public HiveClientConfig setMaxConcurrentQuickStatsCalls(int maxConcurrentFooterFetchCalls)
+    {
+        this.quickStatsMaxConcurrentCalls = maxConcurrentFooterFetchCalls;
+        return this;
+    }
+
     public Protocol getThriftProtocol()
     {
         return thriftProtocol;
@@ -1890,19 +1778,6 @@ public class HiveClientConfig
         return this;
     }
 
-    @Config("hive.read-null-masked-parquet-encrypted-value-enabled")
-    @ConfigDescription("Read null masked value when access is denied for an encrypted parquet column")
-    public HiveClientConfig setReadNullMaskedParquetEncryptedValue(boolean isReadNullMaskedParquetEncryptedValueEnabled)
-    {
-        this.isReadNullMaskedParquetEncryptedValueEnabled = isReadNullMaskedParquetEncryptedValueEnabled;
-        return this;
-    }
-
-    public boolean getReadNullMaskedParquetEncryptedValue()
-    {
-        return this.isReadNullMaskedParquetEncryptedValueEnabled;
-    }
-
     @Config("hive.parallel-parsing-of-partition-values-enabled")
     @ConfigDescription("Enables parallel parsing of partition values using a thread pool")
     public HiveClientConfig setParallelParsingOfPartitionValuesEnabled(boolean parallelParsingOfPartitionValuesEnabled)
@@ -1927,5 +1802,18 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
+    }
+
+    @NotNull
+    public DataSize getAffinitySchedulingFileSectionSize()
+    {
+        return affinitySchedulingFileSectionSize;
+    }
+
+    @Config("hive.affinity-scheduling-file-section-size")
+    public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
+    {
+        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
+        return this;
     }
 }

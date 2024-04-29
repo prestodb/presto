@@ -35,3 +35,4 @@ Functions and Operators
     functions/teradata
     functions/internationalization
     functions/setdigest
+    functions/sketch

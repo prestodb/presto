@@ -2,10 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom";
 import {ClusterHUD} from "./components/ClusterHUD";
 import {QueryList} from "./components/QueryList";
-import {PageTitle} from "./components/PageTitle";
+import { PageTitle } from "./components/PageTitle";
 
 ReactDOM.render(
-    <PageTitle title="Cluster Overview" />,
+    <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>,
     document.getElementById('title')
 );
 

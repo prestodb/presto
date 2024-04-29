@@ -121,16 +121,14 @@ public final class TimeOperators
         if (properties.isLegacyTimestamp()) {
             return packDateTimeWithZone(value, properties.getTimeZoneKey());
         }
-        else {
-            ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
+        ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
+        // This cast does treat TIME as wall time in session TZ. This means that in order to get
+        // its UTC representation we need to shift the value by the offset of TZ.
+        // We use value offset in this place to be sure that we will have same hour represented
+        // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
+        // This is done due to inadequate TIME WITH TIME ZONE representation.
 
-            // This cast does treat TIME as wall time in session TZ. This means that in order to get
-            // its UTC representation we need to shift the value by the offset of TZ.
-            // We use value offset in this place to be sure that we will have same hour represented
-            // in TIME WITH TIME ZONE. Calculating real TZ offset will happen when really required.
-            // This is done due to inadequate TIME WITH TIME ZONE representation.
-            return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), properties.getTimeZoneKey());
-        }
+        return packDateTimeWithZone(localChronology.getZone().convertLocalToUTC(value, false), properties.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)

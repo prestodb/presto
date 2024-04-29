@@ -57,7 +57,7 @@ public final class SingleStoreQueryRunner
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog(TPCH_SCHEMA, TPCH_SCHEMA);
-
+            server.setGlobalVariable("maximum_blob_cache_size_mb", "1024");
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("allow-drop-table", "true");

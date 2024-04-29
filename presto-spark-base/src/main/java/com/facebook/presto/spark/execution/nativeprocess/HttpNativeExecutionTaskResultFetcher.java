@@ -15,32 +15,28 @@ package com.facebook.presto.spark.execution.nativeprocess;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.operator.PageBufferClient;
-import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERIALIZED_PAGE_CHECKSUM_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.isChecksumValid;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -61,17 +57,13 @@ public class HttpNativeExecutionTaskResultFetcher
     private static final Duration POLL_TIMEOUT = new Duration(100, TimeUnit.MILLISECONDS);
     private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(128, DataSize.Unit.MEGABYTE);
-    private static final String TASK_ERROR_MESSAGE = "TaskResultsFetcher encountered too many errors talking to native process.";
 
-    private final Executor executor;
     private final ScheduledExecutorService scheduler;
     private final PrestoSparkHttpTaskClient workerClient;
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
     private final AtomicLong bufferMemoryBytes;
     private final Object taskHasResult;
-    private final Duration maxErrorDuration;
-    private final RequestErrorTracker errorTracker;
-    private final AtomicReference<RuntimeException> lastException = new AtomicReference<>();
+    private final AtomicReference<Throwable> lastException = new AtomicReference<>();
 
     private ScheduledFuture<?> scheduledFuture;
 
@@ -79,26 +71,13 @@ public class HttpNativeExecutionTaskResultFetcher
 
     public HttpNativeExecutionTaskResultFetcher(
             ScheduledExecutorService scheduler,
-            ScheduledExecutorService errorRetryScheduledExecutor,
             PrestoSparkHttpTaskClient workerClient,
-            Executor executor,
-            Duration maxErrorDuration,
             Object taskHasResult)
     {
-        this.executor = requireNonNull(executor, "executor is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.bufferMemoryBytes = new AtomicLong();
         this.taskHasResult = requireNonNull(taskHasResult, "taskHasResult is null");
-        this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
-        this.errorTracker = new RequestErrorTracker(
-                "NativeExecution",
-                workerClient.getLocation(),
-                NATIVE_EXECUTION_TASK_ERROR,
-                TASK_ERROR_MESSAGE,
-                maxErrorDuration,
-                requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null"),
-                "getting results from native process");
     }
 
     public void start()
@@ -129,10 +108,7 @@ public class HttpNativeExecutionTaskResultFetcher
     public Optional<SerializedPage> pollPage()
             throws InterruptedException
     {
-        if (scheduledFuture != null && scheduledFuture.isCancelled() && lastException.get() != null) {
-            throw lastException.get();
-        }
-
+        throwIfFailed();
         SerializedPage page = pageBuffer.poll((long) POLL_TIMEOUT.getValue(), POLL_TIMEOUT.getUnit());
         if (page != null) {
             bufferMemoryBytes.addAndGet(-page.getSizeInBytes());
@@ -143,11 +119,17 @@ public class HttpNativeExecutionTaskResultFetcher
 
     public boolean hasPage()
     {
-        if (scheduledFuture != null && scheduledFuture.isCancelled() && lastException.get() != null) {
-            throw lastException.get();
-        }
-
+        throwIfFailed();
         return !pageBuffer.isEmpty();
+    }
+
+    private void throwIfFailed()
+    {
+        if (scheduledFuture != null && scheduledFuture.isCancelled() && lastException.get() != null) {
+            Throwable failure = lastException.get();
+            throwIfUnchecked(failure);
+            throw new RuntimeException(failure);
+        }
     }
 
     private void doGetResults()
@@ -157,7 +139,7 @@ public class HttpNativeExecutionTaskResultFetcher
         }
 
         try {
-            PageBufferClient.PagesResponse pagesResponse = workerClient.getResults(token, MAX_RESPONSE_SIZE).get();
+            PageBufferClient.PagesResponse pagesResponse = getFutureValue(workerClient.getResults(token, MAX_RESPONSE_SIZE));
             onSuccess(pagesResponse);
         }
         catch (Throwable t) {
@@ -167,8 +149,6 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void onSuccess(PageBufferClient.PagesResponse pagesResponse)
     {
-        errorTracker.requestSucceeded();
-
         List<SerializedPage> pages = pagesResponse.getPages();
         long bytes = 0;
         long positionCount = 0;
@@ -192,7 +172,7 @@ public class HttpNativeExecutionTaskResultFetcher
         }
         token = nextToken;
         if (pagesResponse.isClientComplete()) {
-            workerClient.abortResults();
+            workerClient.abortResultsAsync();
             scheduledFuture.cancel(false);
         }
         if (!pages.isEmpty()) {
@@ -204,29 +184,11 @@ public class HttpNativeExecutionTaskResultFetcher
 
     private void onFailure(Throwable t)
     {
-        // record failure
-        try {
-            errorTracker.requestFailed(t);
-        }
-        catch (PrestoException e) {
-            // Entering here means that we are unable to get any results from the CPP process
-            // likely because process has crashed.
-            workerClient.abortResults();
-            stop(false);
-            lastException.set(e);
-            synchronized (taskHasResult) {
-                taskHasResult.notifyAll();
-            }
-            return;
-        }
-        ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
-        try {
-            // synchronously wait on throttling
-            errorRateLimit.get(maxErrorDuration.toMillis(), TimeUnit.MILLISECONDS);
-        }
-        catch (InterruptedException | ExecutionException | TimeoutException e) {
-            // throttling error is not fatal, just log the error.
-            log.debug(e.getMessage());
+        workerClient.abortResultsAsync();
+        stop(false);
+        lastException.set(t);
+        synchronized (taskHasResult) {
+            taskHasResult.notifyAll();
         }
     }
 }

@@ -37,13 +37,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
-import static com.facebook.presto.hive.HiveMetadata.createPredicate;
 import static com.facebook.presto.hive.HiveMetadata.decodePreferredOrderingColumnsFromStorage;
 import static com.facebook.presto.hive.HiveMetadata.encodePreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
@@ -122,7 +122,7 @@ public class TestHiveMetadata
         for (int i = 0; i < 5_000; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
@@ -137,7 +137,7 @@ public class TestHiveMetadata
         for (int i = 0; i < 5; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
         }
 
@@ -152,13 +152,13 @@ public class TestHiveMetadata
         for (int i = 0; i < 5; i++) {
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
-                    Integer.toString(i),
+                    new PartitionNameWithVersion(Integer.toString(i), Optional.empty()),
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
         }
 
         partitions.add(new HivePartition(
                 new SchemaTableName("test", "test"),
-                "null",
+                new PartitionNameWithVersion("null", Optional.empty()),
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR))));
 
         createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());

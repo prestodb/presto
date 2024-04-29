@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -149,7 +150,8 @@ public class PlanFragmenterUtils
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionTagger.GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
-            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE);
+            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
+                    && new HashSet<>(properties.getCapableTableScanNodes()).containsAll(fragment.getTableScanSchedulingOrder());
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
             if (bucketNodeMap.isDynamic()) {
                 /*
@@ -242,6 +244,16 @@ public class PlanFragmenterUtils
         return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
                 .filter(node -> node instanceof TableWriterNode)
                 .map(PlanNode::getId)
+                .collect(toImmutableSet());
+    }
+
+    public static Set<PlanNodeId> getOutputTableWriterNodeIds(PlanNode plan)
+    {
+        return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
+                .filter(node -> node instanceof TableWriterNode)
+                .map(node -> (TableWriterNode) node)
+                .filter(tableWriterNode -> !tableWriterNode.getIsTemporaryTableWriter().orElse(false))
+                .map(TableWriterNode::getId)
                 .collect(toImmutableSet());
     }
 

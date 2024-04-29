@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.delta.DeltaSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;

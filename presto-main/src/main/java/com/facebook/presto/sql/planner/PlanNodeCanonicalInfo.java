@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
 
@@ -78,14 +78,14 @@ public class PlanNodeCanonicalInfo
             PlanCanonicalInfoProvider planCanonicalInfoProvider)
     {
         ImmutableList.Builder<CanonicalPlanWithInfo> result = ImmutableList.builder();
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
             for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
                 if (!node.getStatsEquivalentPlanNode().isPresent()) {
                     continue;
                 }
                 PlanNode statsEquivalentPlanNode = node.getStatsEquivalentPlanNode().get();
-                Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy);
-                Optional<List<PlanStatistics>> inputTableStatistics = planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode);
+                Optional<String> hash = planCanonicalInfoProvider.hash(session, statsEquivalentPlanNode, strategy, true);
+                Optional<List<PlanStatistics>> inputTableStatistics = planCanonicalInfoProvider.getInputTableStatistics(session, statsEquivalentPlanNode, true);
                 if (hash.isPresent() && inputTableStatistics.isPresent()) {
                     result.add(new CanonicalPlanWithInfo(new CanonicalPlan(statsEquivalentPlanNode, strategy), new PlanNodeCanonicalInfo(hash.get(), inputTableStatistics.get())));
                 }

@@ -189,6 +189,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        delegate().checkCanUpdateTableColumns(identity, context, table, updatedColumnNames);
+    }
+
+    @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanCreateView(identity, context, view);
@@ -222,5 +228,17 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         delegate().checkCanRevokeTablePrivilege(identity, context, privilege, table, revokee, grantOptionFor);
+    }
+
+    @Override
+    public void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanDropConstraint(identity, context, table);
+    }
+
+    @Override
+    public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanAddConstraint(identity, context, table);
     }
 }

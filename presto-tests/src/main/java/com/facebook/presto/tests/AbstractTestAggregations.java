@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.Session.builder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
@@ -216,7 +215,7 @@ public abstract class AbstractTestAggregations
                         "  GROUP BY orderkey " +
                         "HAVING COUNT(DISTINCT partkey) != CARDINALITY(ARRAY_DISTINCT(ARRAY_AGG(partkey))))",
                 "VALUES 0");
-        assertQuery(builder(TEST_SESSION)
+        assertQuery(builder(getSession())
                         .setSystemProperty("use_mark_distinct", "false")
                         .build(),
                 " SELECT COUNT(*) FROM (SELECT orderkey, COUNT(DISTINCT partkey) FROM lineitem " +

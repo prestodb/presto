@@ -53,8 +53,8 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -87,8 +87,10 @@ public class TestHiveSplit
                 88,
                 Instant.now().toEpochMilli(),
                 Optional.empty(),
-                customSplitInfo);
+                customSplitInfo,
+                0);
 
+        byte[] rowIdPartitionComponent = {(byte) 76, (byte) 58};
         HiveSplit expected = new HiveSplit(
                 fileSplit,
                 "db",
@@ -120,7 +122,8 @@ public class TestHiveSplit
                         "test_algo",
                         "test_provider"))),
                 redundantColumnDomains,
-                SplitWeight.fromProportion(2.0)); // some non-standard value
+                SplitWeight.fromProportion(2.0), // some non-standard value
+                Optional.of(rowIdPartitionComponent));
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -142,6 +145,7 @@ public class TestHiveSplit
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
+        assertEquals(actual.getRowIdPartitionComponent().get(), expected.getRowIdPartitionComponent().get());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

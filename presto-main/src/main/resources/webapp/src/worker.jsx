@@ -5,7 +5,7 @@ import {WorkerThreadList} from "./components/WorkerThreadList";
 import {PageTitle} from "./components/PageTitle";
 
 ReactDOM.render(
-    <PageTitle title="Worker Status" />,
+    <PageTitle titles={["Worker Status"]} />,
     document.getElementById('title')
 );
 

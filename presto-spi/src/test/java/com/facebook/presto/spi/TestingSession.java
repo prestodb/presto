@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -122,6 +123,12 @@ public final class TestingSession
         public WarningCollector getWarningCollector()
         {
             return WarningCollector.NOOP;
+        }
+
+        @Override
+        public RuntimeStats getRuntimeStats()
+        {
+            return new RuntimeStats();
         }
     };
 

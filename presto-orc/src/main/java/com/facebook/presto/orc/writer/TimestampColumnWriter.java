@@ -207,7 +207,7 @@ public class TimestampColumnWriter
     public Map<Integer, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, null, rawSize, null);
         rowGroupColumnStatistics.add(statistics);
         columnStatisticsRetainedSizeInBytes += statistics.getRetainedSizeInBytes();
         nonNullValueCount = 0;

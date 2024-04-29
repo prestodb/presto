@@ -70,6 +70,13 @@ public class TestConditions
         assertFunction("'monkey' not like 'monkey' escape null", BOOLEAN, null);
 
         assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape string must be a single character");
+
+        assertFunction("'你好a世界' like '你好%'", BOOLEAN, true);
+        assertFunction("'你好a世界' like '你好a%'", BOOLEAN, true);
+        assertFunction("'你好a世界' like '%世界'", BOOLEAN, true);
+        assertFunction("'你好a世界' like '%好a世%'", BOOLEAN, true);
+        assertFunction("'你好a世界' not like '你好b%'", BOOLEAN, true);
+        assertFunction("'你好a世界' not like null", BOOLEAN, null);
     }
 
     @Test

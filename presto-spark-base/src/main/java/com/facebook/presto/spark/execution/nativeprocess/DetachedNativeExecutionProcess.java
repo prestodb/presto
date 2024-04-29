@@ -18,13 +18,12 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import io.airlift.units.Duration;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static java.util.Objects.requireNonNull;
@@ -40,27 +39,31 @@ public class DetachedNativeExecutionProcess
     private static final Logger log = Logger.get(DetachedNativeExecutionProcess.class);
 
     public DetachedNativeExecutionProcess(
+            String executablePath,
+            String programArguments,
             Session session,
-            URI uri,
             HttpClient httpClient,
+            ExecutorService executorService,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
-            TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty) throws IOException
+            WorkerProperty<?, ?, ?, ?> workerProperty)
+            throws IOException
     {
-        super(session,
-                uri,
+        super(executablePath,
+                programArguments,
+                session,
                 httpClient,
+                executorService,
                 errorRetryScheduledExecutor,
                 serverInfoCodec,
                 maxErrorDuration,
-                taskManagerConfig,
                 workerProperty);
     }
 
     @Override
-    public void start() throws ExecutionException, InterruptedException
+    public void start()
+            throws ExecutionException, InterruptedException
     {
         log.info("Please use port " + getPort() + " for detached native process launching.");
         // getServerInfoWithRetry will return a Future on the getting the ServerInfo from the native process, we
@@ -72,6 +75,7 @@ public class DetachedNativeExecutionProcess
     /**
      * The port Spark native is going to use instead of dynamically generate. Since this class is for local debugging
      * only, there is no need to make this port configurable.
+     *
      * @return a fixed port.
      */
     @Override

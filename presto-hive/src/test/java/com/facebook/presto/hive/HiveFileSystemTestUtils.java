@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.AbstractTestHiveClient.HiveTransaction;
 import com.facebook.presto.hive.AbstractTestHiveClient.Transaction;
@@ -44,6 +43,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveFileSystem.SPLIT_SCHEDULING_CONTEXT;
+import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
@@ -209,11 +209,7 @@ public class HiveFileSystemTestUtils
 
     public static ConnectorSession newSession(HiveClientConfig config)
     {
-        return new TestingConnectorSession(new HiveSessionProperties(
-                config,
-                new OrcFileWriterConfig(),
-                new ParquetFileWriterConfig(),
-                new CacheConfig()).getSessionProperties());
+        return new TestingConnectorSession(getAllSessionProperties(config, new HiveCommonClientConfig()));
     }
 
     public static ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName, ConnectorSession session)

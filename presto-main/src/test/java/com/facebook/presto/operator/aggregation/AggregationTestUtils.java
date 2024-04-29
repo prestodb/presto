@@ -253,6 +253,14 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
+    /**
+     * Gets the aggregation result with asserting any intermediate states or reversed argument results
+     */
+    public static Object executeAggregation(JavaAggregationFunctionImplementation function, Block... blocks)
+    {
+        return aggregation(function, createArgs(function), Optional.empty(), new Page(blocks));
+    }
+
     private static Object aggregation(JavaAggregationFunctionImplementation function, int[] args, Optional<Integer> maskChannel, Page... pages)
     {
         Accumulator aggregation = generateAccumulatorFactory(function, Ints.asList(args), maskChannel).createAccumulator(UpdateMemory.NOOP);

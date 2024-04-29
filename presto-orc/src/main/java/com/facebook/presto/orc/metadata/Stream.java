@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -20,7 +21,8 @@ import static java.util.Objects.requireNonNull;
 
 public class Stream
 {
-    public enum StreamArea {
+    public enum StreamArea
+    {
         INDEX,
         DATA,
     }
@@ -129,5 +131,29 @@ public class Stream
                 this.useVInts,
                 this.sequence,
                 Optional.of(offset));
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Stream stream = (Stream) o;
+        return column == stream.column
+                && length == stream.length
+                && useVInts == stream.useVInts
+                && sequence == stream.sequence
+                && streamKind == stream.streamKind
+                && Objects.equals(offset, stream.offset);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(column, streamKind, length, useVInts, sequence, offset);
     }
 }

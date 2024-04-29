@@ -17,16 +17,17 @@ import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.SetOfValues;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.TypeParameter;
 import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;
 
 public class SetAggregationStateFactory
-        implements AccumulatorStateFactory
+        implements AccumulatorStateFactory<SetAggregationState>
 {
     private final Type elementType;
 
-    public SetAggregationStateFactory(Type elementType)
+    public SetAggregationStateFactory(@TypeParameter("T") Type elementType)
     {
         this.elementType = elementType;
     }

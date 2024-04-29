@@ -36,6 +36,8 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestFileResourceGroupConfigurationManager
@@ -118,9 +120,9 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
-        assertEquals(sub.getSchedulingPolicy(), null);
+        assertNull(sub.getSchedulingPolicy());
         assertEquals(sub.getSchedulingWeight(), 5);
-        assertEquals(sub.getJmxExport(), false);
+        assertFalse(sub.getJmxExport());
         assertEquals(sub.getPerQueryLimits().getExecutionTimeLimit(), Optional.empty());
         assertEquals(sub.getPerQueryLimits().getTotalMemoryLimit(), Optional.empty());
         assertEquals(sub.getPerQueryLimits().getCpuTimeLimit(), Optional.empty());

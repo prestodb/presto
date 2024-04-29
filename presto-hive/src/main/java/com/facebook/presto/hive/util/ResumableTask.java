@@ -24,27 +24,27 @@ public interface ResumableTask
      * @return a finished status if the task is complete, otherwise includes a continuation future to indicate
      * when it should be continued to be processed.
      */
-    TaskStatus process();
+    ResumableTaskStatus process();
 
-    class TaskStatus
+    class ResumableTaskStatus
     {
         private final boolean finished;
         private final ListenableFuture<?> continuationFuture;
 
-        private TaskStatus(boolean finished, ListenableFuture<?> continuationFuture)
+        private ResumableTaskStatus(boolean finished, ListenableFuture<?> continuationFuture)
         {
             this.finished = finished;
             this.continuationFuture = continuationFuture;
         }
 
-        public static TaskStatus finished()
+        public static ResumableTaskStatus finished()
         {
-            return new TaskStatus(true, Futures.immediateFuture(null));
+            return new ResumableTaskStatus(true, Futures.immediateFuture(null));
         }
 
-        public static TaskStatus continueOn(ListenableFuture<?> continuationFuture)
+        public static ResumableTaskStatus continueOn(ListenableFuture<?> continuationFuture)
         {
-            return new TaskStatus(false, continuationFuture);
+            return new ResumableTaskStatus(false, continuationFuture);
         }
 
         public boolean isFinished()

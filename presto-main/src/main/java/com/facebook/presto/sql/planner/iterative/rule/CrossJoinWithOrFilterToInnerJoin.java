@@ -23,7 +23,9 @@ import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -120,7 +122,7 @@ public class CrossJoinWithOrFilterToInnerJoin
     private static final Capture<JoinNode> CHILD = newCapture();
 
     private static final Pattern<FilterNode> PATTERN = filter()
-            .with(source().matching(join().matching(x -> x.getType().equals(JoinNode.Type.INNER) && x.getCriteria().isEmpty()).capturedAs(CHILD)));
+            .with(source().matching(join().matching(x -> x.getType().equals(JoinType.INNER) && x.getCriteria().isEmpty()).capturedAs(CHILD)));
 
     private final FunctionAndTypeManager functionAndTypeManager;
 
@@ -230,7 +232,7 @@ public class CrossJoinWithOrFilterToInnerJoin
     public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
         JoinNode joinNode = captures.get(CHILD);
-        if (!(joinNode.getType().equals(JoinNode.Type.INNER) && joinNode.getCriteria().isEmpty())) {
+        if (!(joinNode.getType().equals(JoinType.INNER) && joinNode.getCriteria().isEmpty())) {
             return Result.empty();
         }
         RowExpression candidateOrExpressions = getCandidateOrExpression(filterNode.getPredicate(), joinNode.getLeft().getOutputVariables(), joinNode.getRight().getOutputVariables());
@@ -270,8 +272,8 @@ public class CrossJoinWithOrFilterToInnerJoin
                 joinNode.getType(),
                 leftJoinInput.getNode(),
                 rightJoinInput.getNode(),
-                ImmutableList.of(new JoinNode.EquiJoinClause(leftJoinInput.getJoinKey(), rightJoinInput.getJoinKey()),
-                        new JoinNode.EquiJoinClause(leftJoinInput.getUnnestIndex(), rightJoinInput.getUnnestIndex())),
+                ImmutableList.of(new EquiJoinClause(leftJoinInput.getJoinKey(), rightJoinInput.getJoinKey()),
+                        new EquiJoinClause(leftJoinInput.getUnnestIndex(), rightJoinInput.getUnnestIndex())),
                 joinOutput.build(),
                 joinNode.getFilter(),
                 Optional.empty(),

@@ -52,7 +52,7 @@ public class TaskId
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageExecutionId");
         this.attemptNumber = attemptNumber;
-        checkArgument(id >= 0, "id is negative");
+        checkArgument(id >= 0, "id is negative: %s", id);
         this.id = id;
     }
 

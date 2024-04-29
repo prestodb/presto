@@ -61,6 +61,10 @@ upstream worker.
   the receipt of the results and allows the worker to delete them.
 * A ``DELETE`` on ``{taskId}/results/{bufferId}`` deletes all results from the
   specified output buffer in case of an error.
+* Optionally, a ``HEAD`` request can be made to ``{taskId}/results/{bufferId}``
+  to retrieve any non-data page sequence related headers.  Use this to check if
+  the buffer is finished, or to see how much data is buffered without fetching
+  the data.
 
 Coordinator and workers fetch results in chunks. They specify the maximum size
 in bytes for the chunk using ``X-Presto-Max-Size`` HTTP header. Each chunk is
@@ -73,6 +77,10 @@ response includes:
   request the next chunk as ``X-Presto-Page-End-Sequence-Id`` HTTP header,
 * An indication that there are no more results as ``X-Presto-Buffer-Complete``
   HTTP header with the value of "true".
+* The remaining buffered bytes in the output buffer as ``X-Presto-Buffer-Remaining-Bytes``
+  HTTP header.  This should return a comma separated list of the size in bytes of
+  the pages that can be returned in the next request.  This can be used as a hint
+  to upstream tasks to optimize data exchange.
 
 The body of the response contains a list of pages in :doc:`SerializedPage wire format <serialized-page>`.
 
@@ -82,6 +90,11 @@ the value of the ``X-Presto-Page-End-Sequence-Id`` HTTP header received earlier
 along with the results. Then, the client uses that sequence number to request
 the next chunk of results. The client keeps fetching results until it receives
 ``X-Presto-Buffer-Complete`` HTTP header with the value of "true".
+
+If the worker times out populating a response, or the task has already failed
+or been aborted, the worker will return empty results. The client can attempt
+to retry the request. In the case where the task is in a terminal state, it
+is assumed that the Control Plane will eventually handle the state change.
 
 If the client missed a response it can repeat the request and the worker will
 send the results again. Upon receiving an ack for a sequence number, the worker
@@ -112,3 +125,72 @@ upstream workers using buffer number 2.
 
 .. image:: worker-protocol-output-buffers.png
   :width: 600
+
+Failure Handling
+~~~~~~~~~~~~~~~~
+
+Task failures are reported to the coordinator via ``TaskStatus`` and ``TaskInfo``
+updates.
+
+When a task failure is discovered, the coordinator aborts all remaining tasks and
+reports a query failure to the client. When a task failure occurs or an abort
+request is received, all further processing stops, and all remaining task output
+is discarded.
+
+Failed or aborted tasks continue responding to data plane requests as usual to
+prevent cascading failures. Because the output is fully discarded upon failure, all
+following responses are empty. The ``X-Presto-Buffer-Complete`` header is set to
+``false`` to prevent downstream tasks from finishing successfully and producing
+incorrect results.
+
+To the client, these responses are indistinguishable from those of healthy tasks.
+To avoid request bursts, a standard delay before responding with an empty result
+set is applied.
+
+Diagnosing Issues
+~~~~~~~~~~~~~~~~~
+
+HTTP request logging can help to diagnose protocol related problems.
+
+Request logging can be enabled through the ``config.properties`` file.
+
+In Presto:
+
+.. code-block:: none
+
+    http-server.log.enabled=true
+    http-server.log.path=<request_log_file_path>
+
+
+In Prestissimo (logs are written to standard log):
+
+.. code-block:: none
+
+    http-server.enable-access-log=true
+
+Use grep to follow a certain protocol interaction.
+
+An Exchange:
+
+.. code-block:: none
+
+    cat stderr* | grep '/v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results'
+    I0402 15:33:06.928076   625 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:06] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/0 HTTP/1.1" 200 0   57
+    I0402 15:33:07.181629   625 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:07] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/0 HTTP/1.1" 200 94024   0
+    I0402 15:33:25.392717   675 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:25] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213/1 HTTP/1.1" 200 0   0
+    I0402 15:33:25.393162   675 AccessLogFilter.cpp:69] 2401:db00:126c:f2f:face:0:3e1:0 - - [2024-04-02 15:33:25] "DELETE /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/results/213 HTTP/1.1" 200 0   0
+
+A ``TaskStatus`` update:
+
+.. code-block:: none
+
+    cat stderr* | grep '/v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status'
+    I0402 15:33:34.629278   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:34] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:35.636466   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:35] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:36.644189   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:36] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 739   1000
+    I0402 15:33:36.768704   668 AccessLogFilter.cpp:69] 2401:db00:1210:4267:face:0:15:0 - - [2024-04-02 15:33:36] "GET /v1/task/20240402_223203_00000_kg5tr.11.0.455.0/status HTTP/1.1" 200 717   115
+
+
+The log records contain information such as response status, response size,
+and time to respond, which can help understand the interaction flow, including
+delays and timeouts, when examining them.

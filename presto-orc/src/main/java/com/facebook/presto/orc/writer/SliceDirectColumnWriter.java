@@ -130,6 +130,11 @@ public class SliceDirectColumnWriter
         presentStream = updatedPresentStream;
     }
 
+    void updateRawSize(long rawSize)
+    {
+        statisticsBuilder.incrementRawSize(rawSize);
+    }
+
     @Override
     public long writeBlock(Block block)
     {

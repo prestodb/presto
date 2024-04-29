@@ -7,6 +7,7 @@ Presto Documentation
 
     overview
     installation
+    clients
     security
     admin
     cache
@@ -17,8 +18,11 @@ Presto Documentation
     language
     sql
     migration
+    rest
+    ecosystem
     router
     develop
+    prestissimo
     release
 
 .. Note: If "release" is not the last item, the CSS must be updated.

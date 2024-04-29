@@ -138,11 +138,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated
     public boolean isS3UseInstanceCredentials()
     {
         return s3UseInstanceCredentials;
     }
 
+    @Deprecated
     @Config("hive.s3.use-instance-credentials")
     public HiveS3Config setS3UseInstanceCredentials(boolean s3UseInstanceCredentials)
     {

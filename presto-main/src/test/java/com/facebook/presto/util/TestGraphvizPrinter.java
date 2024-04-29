@@ -18,6 +18,8 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -153,7 +155,7 @@ public class TestGraphvizPrinter
         PlanNode node = new JoinNode(
                 Optional.empty(),
                 new PlanNodeId("join"),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 TEST_TABLE_SCAN_NODE, //Left : Probe side
                 valuesNode, //Right : Build side
                 Collections.emptyList(), //No Criteria
@@ -164,7 +166,7 @@ public class TestGraphvizPrinter
                 Optional.empty(), //NO filter
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(JoinNode.DistributionType.REPLICATED),
+                Optional.of(JoinDistributionType.REPLICATED),
                 ImmutableMap.of());
 
         String actual = printLogical(

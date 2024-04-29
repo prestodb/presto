@@ -17,17 +17,16 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.execution.task.ForNativeExecutionTask;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,13 +39,13 @@ import static java.util.Objects.requireNonNull;
 public class NativeExecutionProcessFactory
 {
     private static final Duration MAX_ERROR_DURATION = new Duration(2, TimeUnit.MINUTES);
-    public static final URI DEFAULT_URI = URI.create("http://127.0.0.1");
     private final HttpClient httpClient;
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final TaskManagerConfig taskManagerConfig;
     private final WorkerProperty<?, ?, ?, ?> workerProperty;
+    private final String executablePath;
+    private final String programArguments;
 
     private static NativeExecutionProcess process;
 
@@ -56,42 +55,38 @@ public class NativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            TaskManagerConfig taskManagerConfig,
-            WorkerProperty<?, ?, ?, ?> workerProperty)
-
+            WorkerProperty<?, ?, ?, ?> workerProperty,
+            FeaturesConfig featuresConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
+        this.executablePath = featuresConfig.getNativeExecutionExecutablePath();
+        this.programArguments = featuresConfig.getNativeExecutionProgramArguments();
     }
 
-    public synchronized NativeExecutionProcess getNativeExecutionProcess(
-            Session session,
-            URI location)
+    public synchronized NativeExecutionProcess getNativeExecutionProcess(Session session)
     {
         if (!isNativeExecutionProcessReuseEnabled(session) || process == null || !process.isAlive()) {
-            process = createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
+            process = createNativeExecutionProcess(session, MAX_ERROR_DURATION);
         }
         return process;
     }
 
-    public NativeExecutionProcess createNativeExecutionProcess(
-            Session session,
-            URI location,
-            Duration maxErrorDuration)
+    public NativeExecutionProcess createNativeExecutionProcess(Session session, Duration maxErrorDuration)
     {
         try {
             return new NativeExecutionProcess(
+                    executablePath,
+                    programArguments,
                     session,
-                    location,
                     httpClient,
+                    coreExecutor,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
                     maxErrorDuration,
-                    taskManagerConfig,
                     workerProperty);
         }
         catch (IOException e) {
@@ -107,5 +102,15 @@ public class NativeExecutionProcessFactory
         if (process != null) {
             process.close();
         }
+    }
+
+    protected String getExecutablePath()
+    {
+        return executablePath;
+    }
+
+    protected String getProgramArguments()
+    {
+        return programArguments;
     }
 }

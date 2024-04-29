@@ -269,9 +269,9 @@ class HttpsConfig {
 class HttpServer {
  public:
   explicit HttpServer(
+      const std::shared_ptr<folly::IOThreadPoolExecutor>& httpIOExecutor,
       std::unique_ptr<HttpConfig> httpConfig,
-      std::unique_ptr<HttpsConfig> httpsConfig = nullptr,
-      int httpExecThreads = 8);
+      std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
       std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
@@ -280,7 +280,7 @@ class HttpServer {
       std::function<void(std::exception_ptr)> onError = nullptr);
 
   folly::IOThreadPoolExecutor* getExecutor() {
-    return httpExecutor_.get();
+    return httpIOExecutor_.get();
   }
 
   void stop() {
@@ -360,10 +360,9 @@ class HttpServer {
  private:
   const std::unique_ptr<HttpConfig> httpConfig_;
   const std::unique_ptr<HttpsConfig> httpsConfig_;
-  int httpExecThreads_;
   std::unique_ptr<DispatchingRequestHandlerFactory> handlerFactory_;
   std::unique_ptr<proxygen::HTTPServer> server_;
-  std::shared_ptr<folly::IOThreadPoolExecutor> httpExecutor_;
+  std::shared_ptr<folly::IOThreadPoolExecutor> httpIOExecutor_;
 
   static EndpointRequestHandlerFactory endPointWrapper(
       const RequestHandlerCallback& callback) {

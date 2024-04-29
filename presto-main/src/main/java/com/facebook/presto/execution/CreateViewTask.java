@@ -37,6 +37,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getDefaultViewSecurityMode;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.analyzer.ViewDefinition.ViewColumn;
@@ -97,9 +98,10 @@ public class CreateViewTask
                 .collect(toImmutableList());
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(toSchemaTableName(name), columnMetadata);
-        // use DEFINER security by default
+
+        CreateView.Security defaultViewSecurityMode = getDefaultViewSecurityMode(session);
         Optional<String> owner = Optional.of(session.getUser());
-        if (statement.getSecurity().orElse(null) == INVOKER) {
+        if (statement.getSecurity().orElse(defaultViewSecurityMode) == INVOKER) {
             owner = Optional.empty();
         }
 

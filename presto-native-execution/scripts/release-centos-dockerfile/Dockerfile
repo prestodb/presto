@@ -70,19 +70,11 @@ RUN --mount=type=ssh \
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
     set -exu && \
-    sed -i 's/\(.*folly.*\)/# \1/g' "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
-    bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
     set +exu && \
     source /opt/rh/gcc-toolset-9/enable && \
     set -exu && \
-#-----------------------------------------------------------
-#---( START wget valid antlr java runtime
-#-----------------------------------------------------------
-    wget -q 'https://www.antlr.org/download/antlr-4.9.3-complete.jar' -O '/usr/local/lib/antlr-4.9.3-complete.jar' && \
-    printf '#!/usr/bin/bash\n\njava -jar /usr/local/lib/antlr-4.9.3-complete.jar "$@"' > '/usr/local/bin/antlr' && \
-    chmod +x "/usr/local/bin/antlr" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-adapters.sh" && \
     dnf clean all
 
@@ -112,7 +104,7 @@ RUN set -exu && \
     ) && \
     ( \
       mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/main/* ${PRESTODB_HOME}/ && \
-      mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/presto_protocol/tests/presto_protocol_test $${PRESTODB_HOME}/ || true \
+      mv ${PRESTODB_HOME}/_repo/presto-native-execution/_build/release/presto_cpp/presto_protocol/tests/presto_protocol_test ${PRESTODB_HOME}/ || true \
     ) && \
     [ ${CLEANUP_BUILD_ARTIFACTS} -eq 0 ] || \
     rm -rf ${PRESTODB_HOME}/_repo/presto-native-execution/_repo /opt/dependency/aws-sdk-cpp /tmp/* && \

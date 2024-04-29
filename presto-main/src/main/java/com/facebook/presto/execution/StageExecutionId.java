@@ -50,6 +50,7 @@ public class StageExecutionId
     public StageExecutionId(StageId stageId, int id)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
+        checkArgument(id >= 0, "id is negative: %s", id);
         this.id = id;
     }
 

@@ -1,4 +1,4 @@
-remote exchange (GATHER, SINGLE, [])
+cross join:
     cross join:
         cross join:
             cross join:
@@ -13,110 +13,81 @@ remote exchange (GATHER, SINGLE, [])
                                                 cross join:
                                                     cross join:
                                                         cross join:
-                                                            cross join:
-                                                                scan reason
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        final aggregation over ()
-                                                                            local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (GATHER, SINGLE, [])
-                                                                                    partial aggregation over ()
-                                                                                        scan store_sales
-                                                            local exchange (GATHER, SINGLE, [])
-                                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                                    final aggregation over ()
-                                                                        local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (GATHER, SINGLE, [])
-                                                                                partial aggregation over ()
-                                                                                    scan store_sales
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                final aggregation over ()
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (GATHER, SINGLE, [])
-                                                                            partial aggregation over ()
-                                                                                scan store_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
                                                             final aggregation over ()
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (GATHER, SINGLE, [])
                                                                         partial aggregation over ()
                                                                             scan store_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    scan reason
                                                         final aggregation over ()
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (GATHER, SINGLE, [])
                                                                     partial aggregation over ()
                                                                         scan store_sales
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
                                                     final aggregation over ()
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (GATHER, SINGLE, [])
                                                                 partial aggregation over ()
                                                                     scan store_sales
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
                                                 final aggregation over ()
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
                                                                 scan store_sales
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPLICATE, BROADCAST, [])
                                             final aggregation over ()
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (GATHER, SINGLE, [])
                                                         partial aggregation over ()
                                                             scan store_sales
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over ()
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (GATHER, SINGLE, [])
                                                     partial aggregation over ()
                                                         scan store_sales
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
                                     final aggregation over ()
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (GATHER, SINGLE, [])
                                                 partial aggregation over ()
                                                     scan store_sales
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
                                 final aggregation over ()
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (GATHER, SINGLE, [])
                                             partial aggregation over ()
                                                 scan store_sales
-                    local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
                             final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (GATHER, SINGLE, [])
                                         partial aggregation over ()
                                             scan store_sales
-                local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
                                         scan store_sales
-            local exchange (GATHER, SINGLE, [])
-                remote exchange (REPLICATE, BROADCAST, [])
                     final aggregation over ()
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over ()
                                     scan store_sales
-        local exchange (GATHER, SINGLE, [])
-            remote exchange (REPLICATE, BROADCAST, [])
                 final aggregation over ()
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (GATHER, SINGLE, [])
                             partial aggregation over ()
                                 scan store_sales
+            final aggregation over ()
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        partial aggregation over ()
+                            scan store_sales
+        final aggregation over ()
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (GATHER, SINGLE, [])
+                    partial aggregation over ()
+                        scan store_sales
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    scan store_sales

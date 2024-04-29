@@ -15,15 +15,19 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -39,12 +43,14 @@ import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode.toMultiJoinNode;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -57,13 +63,15 @@ public class TestJoinNodeFlattener
     private FunctionResolution functionResolution;
 
     private LocalQueryRunner queryRunner;
+    private FunctionAndTypeResolver functionAndTypeResolver;
 
     @BeforeClass
     public void setUp()
     {
         queryRunner = new LocalQueryRunner(testSessionBuilder().build());
         determinismEvaluator = new RowExpressionDeterminismEvaluator(queryRunner.getMetadata());
-        functionResolution = new FunctionResolution(queryRunner.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        functionAndTypeResolver = queryRunner.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver();
+        functionResolution = new FunctionResolution(functionAndTypeResolver);
     }
 
     @AfterClass(alwaysRun = true)
@@ -86,7 +94,7 @@ public class TestJoinNodeFlattener
                 ImmutableList.of(equiJoinClause(a1, b1)),
                 ImmutableList.of(a1, b1),
                 Optional.empty());
-        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator);
+        toMultiJoinNode(outerJoin, noLookup(), DEFAULT_JOIN_LIMIT, false, functionResolution, determinismEvaluator);
     }
 
     @Test
@@ -116,7 +124,7 @@ public class TestJoinNodeFlattener
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputVariables(a1, b1, c1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, false, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -149,7 +157,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputVariables(a1, b1)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, false, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -206,8 +214,9 @@ public class TestJoinNodeFlattener
         MultiJoinNode expected = new MultiJoinNode(
                 new LinkedHashSet<>(ImmutableList.of(valuesA, valuesB, valuesC)),
                 and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1), bcFilter, abcFilter),
-                ImmutableList.of(a1, b1, b2, c1, c2));
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, functionResolution, determinismEvaluator), expected);
+                ImmutableList.of(a1, b1, b2, c1, c2),
+                Assignments.builder().build());
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), DEFAULT_JOIN_LIMIT, false, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -258,7 +267,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 5, false, functionResolution, determinismEvaluator), expected);
     }
 
     @Test
@@ -311,15 +320,142 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputVariables(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2, functionResolution, determinismEvaluator), expected);
+        assertEquals(toMultiJoinNode(joinNode, noLookup(), 2, true, functionResolution, determinismEvaluator), expected);
     }
 
-    private RowExpression createEqualsExpression(VariableReferenceExpression left, VariableReferenceExpression right)
+    @Test
+    public void testProjectNodesBetweenJoinNodesAreFlattenedForComplexEquiJoins()
+    {
+        PlanBuilder p = planBuilder();
+        VariableReferenceExpression a1 = p.variable("A1");
+        VariableReferenceExpression b1 = p.variable("B1");
+        VariableReferenceExpression c1 = p.variable("C1");
+        VariableReferenceExpression d1 = p.variable("D1");
+        VariableReferenceExpression e1 = p.variable("E1");
+        VariableReferenceExpression sum = p.variable("SUM");
+        VariableReferenceExpression rename = p.variable("RENAME");
+        VariableReferenceExpression renamePlusSum = p.variable("RENAME_PLUS_SUM");
+
+        ValuesNode valuesA = p.values(a1);
+        ValuesNode valuesB = p.values(b1);
+        ValuesNode valuesC = p.values(c1);
+        ValuesNode valuesD = p.values(d1);
+        ValuesNode valuesE = p.values(e1);
+        Assignments assignmentA1PlusB1 = Assignments.builder().put(sum, createAddExpression(a1, b1)).build();
+        Assignments assignmentRenameC1 = Assignments.builder().put(rename, c1).build();
+        Assignments assignmentRenamePlusSum = Assignments.builder().put(renamePlusSum, createAddExpression(rename, sum)).build();
+
+        ProjectNode projectOverJoin3 = p.project(assignmentRenamePlusSum, p.join(
+                INNER,
+                p.project(assignmentA1PlusB1, p.join(// projectOverJoin1
+                        INNER,
+                        valuesA,
+                        valuesB,
+                        ImmutableList.of(equiJoinClause(a1, b1)),
+                        ImmutableList.of(a1, b1),
+                        Optional.empty())),
+                p.project(assignmentRenameC1, p.join(// projectOverJoin2
+                        INNER,
+                        valuesC,
+                        valuesD,
+                        ImmutableList.of(equiJoinClause(c1, d1)),
+                        ImmutableList.of(c1),
+                        Optional.empty())),
+                ImmutableList.of(equiJoinClause(sum, rename)),
+                ImmutableList.of(sum, rename),
+                Optional.empty()));
+
+        JoinNode topMostJoinNode = p.join(
+                INNER,
+                valuesE,
+                projectOverJoin3,
+                ImmutableList.of(equiJoinClause(e1, renamePlusSum)),
+                ImmutableList.of(e1, renamePlusSum),
+                Optional.empty());
+
+        MultiJoinNode expected = MultiJoinNode.builder()
+                .setSources(valuesA, valuesB, valuesC, valuesD, valuesE)
+                .setFilter(and(createEqualsExpression(a1, b1),
+                        createEqualsExpression(c1, d1),
+                        createEqualsExpression(createAddExpression(a1, b1), c1),
+                        createEqualsExpression(e1, createAddExpression(c1, createAddExpression(a1, b1)))))
+                .setAssignments(Assignments.of(e1, e1, renamePlusSum, createAddExpression(c1, createAddExpression(a1, b1))))
+                .setOutputVariables(e1, c1, a1, b1)
+                .build();
+        MultiJoinNode actual = toMultiJoinNode(topMostJoinNode, noLookup(), 5, /*handleComplexEquiJoins*/ true, functionResolution, determinismEvaluator);
+        assertEquals(actual, expected);
+
+        // Negative test - when handleComplexEquiJoins = false, we have a split join space; the ProjectNodes are not flattened
+        expected = MultiJoinNode.builder()
+                .setSources(valuesE, projectOverJoin3)
+                .setFilter(createEqualsExpression(e1, renamePlusSum))
+                .setAssignments(Assignments.of())
+                .setOutputVariables(e1, renamePlusSum)
+                .build();
+
+        assertEquals(toMultiJoinNode(topMostJoinNode, noLookup(), 5, /*handleComplexEquiJoins*/ false, functionResolution, determinismEvaluator), expected);
+    }
+
+    @Test
+    public void testProjectNodesWithNonDeterministicAssignmentsAreNotFlattenedForComplexEquiJoins()
+    {
+        PlanBuilder p = planBuilder();
+        VariableReferenceExpression a1 = p.variable("A1");
+        VariableReferenceExpression b1 = p.variable("B1");
+        VariableReferenceExpression c1 = p.variable("C1");
+        VariableReferenceExpression randomPlusSum = p.variable("RANDOM_PLUS_SUM");
+        Assignments nonDeterministicAssignment = Assignments.builder().put(randomPlusSum, createAddExpression(createRandomExpression(), createAddExpression(a1, b1))).build();
+
+        ValuesNode valuesA = p.values(a1);
+        ValuesNode valuesB = p.values(b1);
+        ValuesNode valuesC = p.values(c1);
+
+        ProjectNode projectWithNonDeterministicAssignment = p.project(nonDeterministicAssignment, p.join(
+                INNER,
+                valuesA,
+                valuesB,
+                ImmutableList.of(equiJoinClause(a1, b1)),
+                ImmutableList.of(a1, b1),
+                Optional.empty()));
+
+        JoinNode joinNodeToFlatten = p.join(
+                INNER,
+                projectWithNonDeterministicAssignment,
+                valuesC,
+                ImmutableList.of(equiJoinClause(randomPlusSum, c1)),
+                ImmutableList.of(),
+                Optional.empty());
+
+        MultiJoinNode expected = MultiJoinNode.builder()
+                .setSources(projectWithNonDeterministicAssignment, valuesC)
+                .setFilter(createEqualsExpression(randomPlusSum, c1))
+                .setAssignments(Assignments.of())
+                .setOutputVariables()
+                .build();
+
+        assertEquals(toMultiJoinNode(joinNodeToFlatten, noLookup(), 5, /*handleComplexEquiJoins*/ true, functionResolution, determinismEvaluator), expected);
+    }
+
+    private CallExpression createRandomExpression()
+    {
+        return call("random", functionAndTypeResolver.lookupFunction("random", fromTypes()), DOUBLE);
+    }
+
+    private RowExpression createEqualsExpression(RowExpression left, RowExpression right)
     {
         return call(
                 OperatorType.EQUAL.name(),
                 functionResolution.comparisonFunction(OperatorType.EQUAL, left.getType(), right.getType()),
                 BOOLEAN,
+                ImmutableList.of(left, right));
+    }
+
+    private RowExpression createAddExpression(RowExpression left, RowExpression right)
+    {
+        return call(
+                OperatorType.ADD.name(),
+                functionResolution.arithmeticFunction(OperatorType.ADD, left.getType(), right.getType()),
+                BIGINT,
                 ImmutableList.of(left, right));
     }
 

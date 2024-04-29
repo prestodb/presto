@@ -31,9 +31,11 @@ public class DoubleColumnStatistics
     public DoubleColumnStatistics(
             Long numberOfValues,
             HiveBloomFilter bloomFilter,
+            Long rawSize,
+            Long storageSize,
             DoubleStatistics doubleStatistics)
     {
-        super(numberOfValues, bloomFilter);
+        super(numberOfValues, bloomFilter, rawSize, storageSize);
         requireNonNull(doubleStatistics, "doubleStatistics is null");
         this.doubleStatistics = doubleStatistics;
     }
@@ -48,15 +50,6 @@ public class DoubleColumnStatistics
     public long getTotalValueSizeInBytes()
     {
         return getNumberOfValues() * DOUBLE_VALUE_BYTES;
-    }
-
-    @Override
-    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
-    {
-        return new DoubleColumnStatistics(
-                getNumberOfValues(),
-                bloomFilter,
-                doubleStatistics);
     }
 
     @Override

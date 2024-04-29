@@ -130,7 +130,8 @@ public class AddIntermediateAggregations
                     aggregation.getPreGroupedVariables(),
                     INTERMEDIATE,
                     aggregation.getHashVariable(),
-                    aggregation.getGroupIdVariable());
+                    aggregation.getGroupIdVariable(),
+                    aggregation.getAggregationId());
             source = gatheringExchange(idAllocator.getNextId(), LOCAL, source);
         }
 
@@ -174,7 +175,8 @@ public class AddIntermediateAggregations
                 aggregation.getPreGroupedVariables(),
                 INTERMEDIATE,
                 aggregation.getHashVariable(),
-                aggregation.getGroupIdVariable());
+                aggregation.getGroupIdVariable(),
+                aggregation.getAggregationId());
     }
 
     /**

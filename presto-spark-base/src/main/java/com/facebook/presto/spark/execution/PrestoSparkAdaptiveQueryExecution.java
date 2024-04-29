@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.apache.spark.MapOutputStatistics;
@@ -91,6 +92,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createQueryInfo;
+import static com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.createStageInfo;
 import static com.facebook.presto.spark.execution.RuntimeStatistics.createRuntimeStats;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
@@ -247,6 +251,17 @@ public class PrestoSparkAdaptiveQueryExecution
         log.info("Using AdaptiveQueryExecutor");
         log.info(format("Logical plan : %s",
                 textLogicalPlan(this.planAndMore.getPlan().getRoot(), this.planAndMore.getPlan().getTypes(), this.planAndMore.getPlan().getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0)));
+        queryMonitor.queryUpdatedEvent(
+                createQueryInfo(
+                        session,
+                        query,
+                        PLANNING,
+                        Optional.of(planAndMore),
+                        sparkQueueName,
+                        Optional.empty(),
+                        queryStateTimer,
+                        Optional.of(createStageInfo(session.getQueryId(), planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector), ImmutableList.of())),
+                        warningCollector));
 
         IterativePlanFragmenter.PlanAndFragments planAndFragments = iterativePlanFragmenter.createReadySubPlans(this.planAndMore.getPlan().getRoot());
 
@@ -330,7 +345,7 @@ public class PrestoSparkAdaptiveQueryExecution
             // Re-optimize plan.
             PlanNode optimizedPlan = planAndFragments.getRemainingPlan().get();
             for (PlanOptimizer optimizer : adaptivePlanOptimizers) {
-                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
             }
 
             if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().get())) {

@@ -21,7 +21,9 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -128,7 +130,7 @@ public class CrossJoinWithArrayNotContainsToAntiJoin
     {
         JoinNode joinNode = captures.get(JOIN);
 
-        if (!(joinNode.getType().equals(JoinNode.Type.INNER) && joinNode.getCriteria().isEmpty())) {
+        if (!(joinNode.getType().equals(JoinType.INNER) && joinNode.getCriteria().isEmpty())) {
             return Result.empty();
         }
         List<VariableReferenceExpression> leftColumns = joinNode.getLeft().getOutputVariables();
@@ -182,13 +184,13 @@ public class CrossJoinWithArrayNotContainsToAntiJoin
         // if element is not a VariableReferenceExpression, push the expression into a Project node so the variable can be used in equijoins
         checkState(element instanceof VariableReferenceExpression, "Argument to CONTAINS is not a column");
 
-        JoinNode.EquiJoinClause equiJoinClause = new JoinNode.EquiJoinClause((VariableReferenceExpression) element, unnestVariable);
+        EquiJoinClause equiJoinClause = new EquiJoinClause((VariableReferenceExpression) element, unnestVariable);
 
         List<VariableReferenceExpression> newOutputColumns = Stream.concat(newLeftNode.getOutputVariables().stream(), unnest.getOutputVariables().stream()).collect(toImmutableList());
 
         JoinNode newJoinNode = new JoinNode(joinNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 newLeftNode,
                 unnest,
                 ImmutableList.of(equiJoinClause),

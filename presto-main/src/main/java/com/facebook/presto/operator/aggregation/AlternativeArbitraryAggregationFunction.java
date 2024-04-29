@@ -20,9 +20,16 @@ public class AlternativeArbitraryAggregationFunction
 {
     public static final AlternativeArbitraryAggregationFunction ALTERNATIVE_ARBITRARY_AGGREGATION = new AlternativeArbitraryAggregationFunction();
 
+    public static final AlternativeArbitraryAggregationFunction ALTERNATIVE_ANY_VALUE_AGGREGATION = new AlternativeArbitraryAggregationFunction(ArbitraryAggregationFunction.getAnyValueName());
+
     public AlternativeArbitraryAggregationFunction()
     {
         super();
+    }
+
+    public AlternativeArbitraryAggregationFunction(String name)
+    {
+        super(name);
     }
 
     @Override

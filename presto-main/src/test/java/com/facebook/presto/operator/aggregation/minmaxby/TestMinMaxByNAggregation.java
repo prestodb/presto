@@ -293,6 +293,13 @@ public class TestMinMaxByNAggregation
         }
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Count argument is not constant: found multiple values \\[3, 2]")
+    public void testInconsistentN()
+    {
+        JavaAggregationFunctionImplementation function = getMaxByAggregation(BIGINT, BIGINT, BIGINT);
+        groupedAggregation(function, new Page(createDoublesBlock(new Double[] {3.0, 2.0, 1.0}), createDoublesBlock(new Double[] {1.0, 2.0, 3.0}), createLongsBlock(new Long[] {2L, 2L, 3L})));
+    }
+
     private JavaAggregationFunctionImplementation getMaxByAggregation(Type... arguments)
     {
         return FUNCTION_AND_TYPE_MANAGER.getJavaAggregateFunctionImplementation(

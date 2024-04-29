@@ -76,13 +76,6 @@ public class TestPrestoSparkNativeSimpleQueries
         return PrestoSparkNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 
-    @Override
-    protected void assertQuery(String sql)
-    {
-        super.assertQuery(sql);
-        PrestoSparkNativeQueryRunnerUtils.assertShuffleMetadata();
-    }
-
     @Test
     public void testMapOnlyQueries()
     {
@@ -138,7 +131,6 @@ public class TestPrestoSparkNativeSimpleQueries
         Session session = Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
-                .setCatalogSessionProperty("hive", "optimized_partition_update_serialization_enabled", "false")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
         try {

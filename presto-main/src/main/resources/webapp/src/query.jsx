@@ -4,7 +4,7 @@ import {QueryDetail} from "./components/QueryDetail";
 import {PageTitle} from "./components/PageTitle";
 
 ReactDOM.render(
-    <PageTitle title="Query Details" />,
+    <PageTitle titles={["Query Details"]} />,
     document.getElementById('title')
 );
 

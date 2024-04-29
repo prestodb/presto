@@ -36,9 +36,6 @@ CREATE TABLE IF NOT EXISTS resource_groups (
 INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, jmx_export)
 VALUES ('global', '80%', 100, 1000, true);
 
-INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, jmx_export, parent_id)
-VALUES ('user', '50%', 50, 500, false, LAST_INSERT_ID());
-
 CREATE TABLE IF NOT EXISTS selectors (
                                          id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                                          resource_group_id BIGINT NOT NULL,

@@ -98,6 +98,7 @@ public class PrestoConnection
     private final QueryExecutor queryExecutor;
     private final WarningsManager warningsManager = new WarningsManager();
     private final List<QueryInterceptor> queryInterceptorInstances;
+    private final boolean validateNextUriSource;
 
     PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -116,6 +117,7 @@ public class PrestoConnection
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
         this.connectionProperties = uri.getProperties();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
+        this.validateNextUriSource = uri.validateNextUriSource();
         uri.getClientTags().ifPresent(tags -> clientInfo.put("ClientTags", tags));
 
         timeZoneId.set(uri.getTimeZoneId());
@@ -792,7 +794,8 @@ public class PrestoConnection
                 timeout,
                 compressionDisabled,
                 ImmutableMap.of(),
-                customHeaders);
+                customHeaders,
+                validateNextUriSource);
 
         return queryExecutor.startQuery(session, sql);
     }

@@ -14,14 +14,17 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
+import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.Optimizer;
@@ -124,8 +127,9 @@ public class TestHistoryBasedStatsProvider
                             TableScanNode node = (TableScanNode) PlanNodeWithHash.getPlanNode();
                             if (node.getTable().toString().contains("orders")) {
                                 return new HistoricalPlanStatistics(ImmutableList.of(new HistoricalPlanStatisticsEntry(
-                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty()),
-                                        ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty())))));
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty()),
+                                        ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1, JoinNodeStatistics.empty(), TableWriterNodeStatistics.empty(), PartialAggregationStatistics.empty())),
+                                        new HistoricalPlanStatisticsEntryInfo(HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, QueryId.valueOf("0"), "test"))));
                             }
                         }
                         return HistoricalPlanStatistics.empty();

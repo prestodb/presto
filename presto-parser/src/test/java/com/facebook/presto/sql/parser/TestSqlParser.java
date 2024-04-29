@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -50,6 +52,7 @@ import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
+import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
@@ -88,6 +91,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -139,12 +143,15 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Update;
+import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.Window;
@@ -177,6 +184,8 @@ import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
+import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
@@ -1571,6 +1580,37 @@ public class TestSqlParser
     }
 
     @Test
+    public void testUpdate()
+    {
+        assertStatement("" +
+                        "UPDATE foo_table\n" +
+                        "    SET bar = 23, baz = 3.1415E0, bletch = 'barf'\n" +
+                        "WHERE (nothing = 'fun')",
+                new Update(
+                        new NodeLocation(1, 1),
+                        table(QualifiedName.of("foo_table")),
+                        ImmutableList.of(
+                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23")),
+                                new UpdateAssignment(new Identifier("baz"), new DoubleLiteral("3.1415")),
+                                new UpdateAssignment(new Identifier("bletch"), new StringLiteral("barf"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("nothing"), new StringLiteral("fun")))));
+    }
+
+    @Test
+    public void testWherelessUpdate()
+    {
+        assertStatement("" +
+                        "UPDATE foo_table\n" +
+                        "    SET bar = 23",
+                new Update(
+                        new NodeLocation(1, 1),
+                        table(QualifiedName.of("foo_table")),
+                        ImmutableList.of(
+                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
+                        Optional.empty()));
+    }
+
+    @Test
     public void testRenameTable()
     {
         assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
@@ -2681,6 +2721,298 @@ public class TestSqlParser
         assertStatement("Use \"test_catalog\".\"test_schema\"", new Use(Optional.of(quotedIdentifier("test_catalog")), quotedIdentifier("test_schema")));
     }
 
+    @Test
+    public void testDropConstraint()
+    {
+        assertStatement("ALTER TABLE foo.t DROP CONSTRAINT cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP CONSTRAINT \"c d\"", new DropConstraint(QualifiedName.of("t x"), quotedIdentifier("c d").toString(), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP CONSTRAINT cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", true, false));
+        assertStatement("ALTER TABLE foo.t DROP CONSTRAINT IF EXISTS cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP CONSTRAINT IF EXISTS cons", new DropConstraint(QualifiedName.of("foo", "t"), "cons", true, true));
+    }
+
+    @Test
+    public void testAlterTableAddConstraint()
+    {
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2)", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD CONSTRAINT cons primary key (c1, c2)", new AddConstraint(QualifiedName.of("foo", "t"), true, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons UNIQUE (c1, c2)", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), UNIQUE, true, true, true)));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD CONSTRAINT cons UNIQUE (c1, c2)", new AddConstraint(QualifiedName.of("foo", "t"), true, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), UNIQUE, true, true, true)));
+
+        // Test all combinations of enabled/rely/enforced
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, false)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) NOT RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, false)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, false)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, false)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) NOT RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) NOT RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, false)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED NOT RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED NOT RELY", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, false, true)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED NOT RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, true)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED NOT RELY ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, false, true)));
+
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, true, false)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) ENABLED NOT RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, true, false, false)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, true, false)));
+        assertStatement("ALTER TABLE foo.t ADD CONSTRAINT cons PRIMARY KEY (c1, c2) DISABLED NOT RELY NOT ENFORCED", new AddConstraint(QualifiedName.of("foo", "t"), false, new ConstraintSpecification(Optional.of("cons"), ImmutableList.of("c1", "c2"), PRIMARY_KEY, false, false, false)));
+
+        // Negative tests
+        assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY", ".*mismatched input.*");
+        assertInvalidStatement("ALTER TABLE foo.t ADD CONSTRAINT uq UNIQUE", ".*mismatched input.*");
+        assertInvalidStatement("ALTER TABLE foo.t ADD CONSTRAINT pk PRIMARY KEY (c1, c2), ADD CONSTRAINT uq UNIQUE (c3)", ".*mismatched input.*");
+        assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY (c1) ENFORCED RELY", ".*mismatched input.*");
+        assertInvalidStatement("ALTER TABLE foo.t ADD PRIMARY KEY (c1) RELY ENABLED", ".*mismatched input.*");
+    }
+
+    @Test
+    public void testCreateTableWithConstraints()
+    {
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // test constrainnt qualifiers
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) ENABLED NOT RELY ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, false, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, true, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED NOT RELY NOT ENFORCED)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, false, false)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b), PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), CONSTRAINT pk PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), PRIMARY KEY (a))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // The following two cases are illegal since they have duplicate constraints. But they pass the parser and error handling happens later
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b), CONSTRAINT pk PRIMARY KEY (b), CONSTRAINT pk PRIMARY KEY (c))",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("b"), PRIMARY_KEY, true, true, true),
+                                new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c"), PRIMARY_KEY, true, true, true)),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // Since PRIMARY is not a reserved word, this is parsed as a column of type KEY
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY)",
+                new CreateTable(QualifiedName.of("foo"),
+                        ImmutableList.of(
+                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(identifier("PRIMARY"), "KEY", true, emptyList(), Optional.empty())),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        //Negative tests
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE)", ".*mismatched input.*");
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) ENFORCED DISABLED)", ".*mismatched input.*");
+        assertInvalidStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), UNIQUE (a) RELY DISABLED)", ".*mismatched input.*");
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);
@@ -2742,5 +3074,145 @@ public class TestSqlParser
     {
         String indent = "    ";
         return indent + value.trim().replaceAll("\n", "\n" + indent);
+    }
+
+    @Test
+    public void testSelectWithAsOfVersion()
+    {
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR SYSTEM_VERSION AS OF 8772871542276440693",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693 WHERE (c1 = 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693, table2 FOR VERSION AS OF 123456789012345",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("123456789012345"))),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693, table2 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                new Table(new NodeLocation(1, 60), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                Optional.empty())));
+
+        Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
+                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))));
+
+        assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR VERSION AS OF 8772871542276440693",
+                new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithAsOfTimestamp()
+    {
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR SYSTEM_TIME AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles' WHERE (c1 > 100)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                        Optional.of(new ComparisonExpression(GREATER_THAN, new Identifier("c1"), new LongLiteral("100"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF CURRENT_TIMESTAMP",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new CurrentTime(CurrentTime.Function.TIMESTAMP))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles', table2 FOR TIMESTAMP AS OF TIMESTAMP '2023-11-01 05:45:25.123 America/Los_Angeles'",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-11-01 05:45:25.123 America/Los_Angeles"))),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles', table2 FOR VERSION AS OF 8772871542276440693",
+                simpleQuery(selectList(new AllColumns()),
+                        new Join(Join.Type.IMPLICIT,
+                                new Table(new NodeLocation(1, 15), QualifiedName.of("table1"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))),
+                                new Table(new NodeLocation(1, 98), QualifiedName.of("table2"),
+                                        new TableVersionExpression(TableVersionExpression.TableVersionType.VERSION, new LongLiteral("8772871542276440693"))),
+                                Optional.empty())));
+
+        Query query = simpleQuery(selectList(new AllColumns()), new Table(new NodeLocation(1, 35), QualifiedName.of("table1"),
+                        new TableVersionExpression(TableVersionExpression.TableVersionType.TIMESTAMP, new TimestampLiteral("2023-08-17 13:29:46.822 America/Los_Angeles"))));
+
+        assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles'",
+                new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
     }
 }

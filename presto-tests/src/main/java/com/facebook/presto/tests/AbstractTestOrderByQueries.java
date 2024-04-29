@@ -19,6 +19,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
+import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -245,5 +246,24 @@ public abstract class AbstractTestOrderByQueries
     public void testCaseInsensitiveOutputAliasInOrderBy()
     {
         assertQueryOrdered("SELECT orderkey X FROM orders ORDER BY x");
+    }
+
+    @Test
+    public void testOrderByWithRedundantSortColumnsPruned()
+    {
+        Session session = Session.builder(getSession())
+                // With constraints framework turned on, RemoveRedundantTopNColumns & RemoveRedundantSortColumns will work to remove redundant columns from the OrderBy clause
+                .setSystemProperty(EXPLOIT_CONSTRAINTS, "true")
+                .build();
+
+        assertQuery(
+                session,
+                "SELECT orderkey, custkey, sum(totalprice), min(orderdate) FROM orders " +
+                        "GROUP BY orderkey, custkey ORDER BY orderkey, custkey, sum(totalprice), min(orderdate) LIMIT 10");
+
+        assertQuery(
+                session,
+                "SELECT orderkey, custkey, sum(totalprice), min(orderdate) FROM orders " +
+                        "GROUP BY orderkey, custkey ORDER BY orderkey, custkey, sum(totalprice), min(orderdate)");
     }
 }

@@ -114,6 +114,7 @@ class StatementClientV1
     private final boolean compressionDisabled;
     private final Map<String, String> addedSessionFunctions = new ConcurrentHashMap<>();
     private final Set<String> removedSessionFunctions = newConcurrentHashSet();
+    private final boolean validateNextUriSource;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -129,6 +130,7 @@ class StatementClientV1
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
         this.compressionDisabled = session.isCompressionDisabled();
+        this.validateNextUriSource = session.validateNextUriSource();
 
         Request request = buildQueryRequest(session, query);
 
@@ -365,6 +367,7 @@ class StatementClientV1
             state.compareAndSet(State.RUNNING, State.FINISHED);
             return false;
         }
+        validateNextUriSource(nextUri, currentStatusInfo().getInfoUri());
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
 
@@ -420,6 +423,20 @@ class StatementClientV1
                 throw requestFailedException("fetching next", request, response);
             }
         }
+    }
+
+    private void validateNextUriSource(final URI nextUri, final URI infoUri)
+    {
+        if (!validateNextUriSource) {
+            return;
+        }
+
+        if (nextUri.getHost().equals(infoUri.getHost())
+                && nextUri.getPort() == infoUri.getPort()) {
+            return;
+        }
+        state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+        throw new RuntimeException(format("Next URI host and port %s are different than current %s", nextUri.getHost(), infoUri.getHost()));
     }
 
     private void processResponse(Headers headers, QueryResults results)

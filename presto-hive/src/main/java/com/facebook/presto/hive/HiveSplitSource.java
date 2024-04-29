@@ -54,6 +54,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
@@ -69,6 +70,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -98,6 +101,8 @@ class HiveSplitSource
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
     private final HiveSplitWeightProvider splitWeightProvider;
+    private final double splitScanRatio;
+    private final long affinitySchedulingFileSectionSizeInBytes;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -109,7 +114,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             CounterStat highMemorySplitSourceCounter,
-            boolean useRewindableSplitSource)
+            boolean useRewindableSplitSource,
+            double splitScanRatio)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -126,6 +132,17 @@ class HiveSplitSource
         this.useRewindableSplitSource = useRewindableSplitSource;
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
+        // Clamp value within [0.1, 1.0].
+        // This ratio will be used to increase split sizes. The range implies
+        // 1) We do not increase more than 10x(>= 0.1)
+        // 2) We do not decrease split sizes(<= 1.0)
+        // We schedule only upto 10x larger splits - being conservative not to schedule splits with too many rows.
+        // For default size of 64MB, this will keep split sizes sent within 1GB. Usually files are smaller than this.
+        if (!Double.isFinite(splitScanRatio)) {
+            splitScanRatio = 1.0;
+        }
+        this.splitScanRatio = max(min(splitScanRatio, 1.0), 0.1);
+        affinitySchedulingFileSectionSizeInBytes = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     public static HiveSplitSource allAtOnce(
@@ -138,7 +155,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            double splitScanRatio)
     {
         return new HiveSplitSource(
                 session,
@@ -186,7 +204,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                false);
+                false,
+                splitScanRatio);
     }
 
     public static HiveSplitSource bucketed(
@@ -199,7 +218,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            double splitScanRatio)
     {
         return new HiveSplitSource(
                 session,
@@ -267,7 +287,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                false);
+                false,
+                splitScanRatio);
     }
 
     public static HiveSplitSource bucketedRewindable(
@@ -279,7 +300,8 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             Executor executor,
-            CounterStat highMemorySplitSourceCounter)
+            CounterStat highMemorySplitSourceCounter,
+            double splitScanRatio)
     {
         return new HiveSplitSource(
                 session,
@@ -359,7 +381,8 @@ class HiveSplitSource
                 maxOutstandingSplitsSize,
                 splitLoader,
                 highMemorySplitSourceCounter,
-                true);
+                true,
+                splitScanRatio);
     }
 
     /**
@@ -469,6 +492,8 @@ class HiveSplitSource
                         maxSplitBytes = maxInitialSplitSize.toBytes();
                     }
                 }
+                // Increase split size if scanned bytes per split are expected to be less.
+                maxSplitBytes = (long) (maxSplitBytes / splitScanRatio);
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
@@ -495,7 +520,8 @@ class HiveSplitSource
                         internalSplit.getFileSize(),
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getExtraFileInfo(),
-                        internalSplit.getCustomSplitInfo());
+                        internalSplit.getCustomSplitInfo(),
+                        internalSplit.getStart() / affinitySchedulingFileSectionSizeInBytes);
 
                 resultBuilder.add(new HiveSplit(
                         fileSplit,
@@ -515,7 +541,8 @@ class HiveSplitSource
                         cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation(),
                         internalSplit.getPartitionInfo().getRedundantColumnDomains(),
-                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
+                        splitWeightProvider.weightForSplitSizeInBytes(splitBytes),
+                        internalSplit.getPartitionInfo().getRowIdPartitionComponent()));
 
                 internalSplit.increaseStart(splitBytes);
 

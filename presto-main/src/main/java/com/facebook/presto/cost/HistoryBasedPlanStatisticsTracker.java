@@ -20,16 +20,22 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntryInfo;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.JoinNodeStatistics;
+import com.facebook.presto.spi.statistics.PartialAggregationStatistics;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
@@ -39,6 +45,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -51,10 +58,12 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.SystemSessionProperties.trackHistoryStatsFromFailedQuery;
+import static com.facebook.presto.SystemSessionProperties.trackPartialAggregationHistory;
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanStatistics;
+import static com.facebook.presto.cost.HistoryBasedPlanStatisticsManager.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -71,22 +80,38 @@ public class HistoryBasedPlanStatisticsTracker
     private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final HistoryBasedOptimizationConfig config;
+    private final boolean isNativeExecution;
+    private final String serverVersion;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager,
             SessionPropertyManager sessionPropertyManager,
-            HistoryBasedOptimizationConfig config)
+            HistoryBasedOptimizationConfig config,
+            boolean isNativeExecution,
+            String serverVersion)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.isNativeExecution = isNativeExecution;
+        this.serverVersion = serverVersion;
     }
 
     public void updateStatistics(QueryExecution queryExecution)
     {
         queryExecution.addFinalQueryInfoListener(this::updateStatistics);
+    }
+
+    public Map<PlanCanonicalizationStrategy, String> getCanonicalPlan(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getCanonicalPlan(queryId);
+    }
+
+    public Optional<PlanNode> getStatsEquivalentPlanRootNode(QueryId queryId)
+    {
+        return historyBasedStatisticsCacheManager.getStatsEquivalentPlanRootNode(queryId);
     }
 
     @VisibleForTesting
@@ -102,10 +127,10 @@ public class HistoryBasedPlanStatisticsTracker
             return ImmutableMap.of();
         }
 
-        // Only update statistics for successful queries
-        if (queryInfo.getFailureInfo() != null ||
-                !queryInfo.getOutputStage().isPresent() ||
-                !queryInfo.getOutputStage().get().getPlan().isPresent()) {
+        // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
+        boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
+        boolean querySucceed = queryInfo.getFailureInfo() == null;
+        if ((!querySucceed && !trackStatsForFailedQueries) || !queryInfo.getOutputStage().isPresent() || !queryInfo.getOutputStage().get().getPlan().isPresent()) {
             return ImmutableMap.of();
         }
 
@@ -120,11 +145,26 @@ public class HistoryBasedPlanStatisticsTracker
         }
 
         StageInfo outputStage = queryInfo.getOutputStage().get();
-        List<StageInfo> allStages = outputStage.getAllStages();
+        List<StageInfo> allStages = ImmutableList.of();
+        if (querySucceed) {
+            allStages = outputStage.getAllStages();
+        }
+        else if (trackStatsForFailedQueries) {
+            allStages = outputStage.getAllStages().stream().filter(x -> x.getLatestAttemptExecutionInfo().getState().equals(StageExecutionState.FINISHED)).collect(toImmutableList());
+        }
+
+        if (allStages.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        HistoricalPlanStatisticsEntryInfo historicalPlanStatisticsEntryInfo = new HistoricalPlanStatisticsEntryInfo(
+                isNativeExecution ? HistoricalPlanStatisticsEntryInfo.WorkerType.CPP : HistoricalPlanStatisticsEntryInfo.WorkerType.JAVA, queryInfo.getQueryId(), serverVersion);
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
-        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = new HashMap<>();
+        Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap = new HashMap<>();
         Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
+        Map<Integer, FinalAggregationStatsInfo> aggregationNodeMap = new HashMap<>();
+
         queryInfo.getPlanCanonicalInfo().forEach(canonicalPlanWithInfo -> {
             // We can have duplicate stats equivalent plan nodes. It's ok to use any stats in this case
             canonicalInfoMap.putIfAbsent(canonicalPlanWithInfo.getCanonicalPlan(), canonicalPlanWithInfo.getInfo());
@@ -137,21 +177,36 @@ public class HistoryBasedPlanStatisticsTracker
             boolean isScaledWriterStage = stageInfo.getPlan().isPresent() && stageInfo.getPlan().get().getPartitioning().equals(SCALED_WRITER_DISTRIBUTION);
             PlanNode root = stageInfo.getPlan().get().getRoot();
             for (PlanNode planNode : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
-                if (!planNode.getStatsEquivalentPlanNode().isPresent()) {
+                if (!planNode.getStatsEquivalentPlanNode().isPresent() && !isAggregation(planNode, AggregationNode.Step.PARTIAL)) {
                     continue;
                 }
                 PlanNodeStats planNodeStats = planNodeStatsMap.get(planNode.getId());
                 if (planNodeStats == null) {
                     continue;
                 }
+
                 double outputPositions = planNodeStats.getPlanNodeOutputPositions();
                 double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
                 double nullJoinBuildKeyCount = planNodeStats.getPlanNodeNullJoinBuildKeyCount();
                 double joinBuildKeyCount = planNodeStats.getPlanNodeJoinBuildKeyCount();
+                double nullJoinProbeKeyCount = planNodeStats.getPlanNodeNullJoinProbeKeyCount();
+                double joinProbeKeyCount = planNodeStats.getPlanNodeJoinProbeKeyCount();
+                PartialAggregationStatistics partialAggregationStatistics = PartialAggregationStatistics.empty();
+
+                if (isAggregation(planNode, AggregationNode.Step.PARTIAL) && trackPartialAggregationHistory(session)) {
+                    // we're doing a depth-first traversal of the plan tree so we must have seen the corresponding final agg already:
+                    // find it and update its partial agg stats
+                    partialAggregationStatistics = constructAggregationNodeStatistics(planNode, planNodeStatsMap, outputBytes, outputPositions);
+                    updatePartialAggregationStatistics((AggregationNode) planNode, aggregationNodeMap, partialAggregationStatistics, planStatisticsMap);
+                }
+
+                if (!planNode.getStatsEquivalentPlanNode().isPresent()) {
+                    continue;
+                }
 
                 JoinNodeStatistics joinNodeStatistics = JoinNodeStatistics.empty();
                 if (planNode instanceof JoinNode) {
-                    joinNodeStatistics = new JoinNodeStatistics(Estimate.of(nullJoinBuildKeyCount), Estimate.of(joinBuildKeyCount));
+                    joinNodeStatistics = new JoinNodeStatistics(Estimate.of(nullJoinBuildKeyCount), Estimate.of(joinBuildKeyCount), Estimate.of(nullJoinProbeKeyCount), Estimate.of(joinProbeKeyCount));
                 }
 
                 TableWriterNodeStatistics tableWriterNodeStatistics = TableWriterNodeStatistics.empty();
@@ -160,7 +215,7 @@ public class HistoryBasedPlanStatisticsTracker
                 }
 
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
-                for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+                for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList(session)) {
                     Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
                             canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy)));
                     if (planNodeCanonicalInfo.isPresent()) {
@@ -174,21 +229,71 @@ public class HistoryBasedPlanStatisticsTracker
                                 Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
                                 1.0,
                                 joinNodeStatistics,
-                                tableWriterNodeStatistics);
-                        if (planStatistics.containsKey(planNodeWithHash)) {
-                            newPlanNodeStats = planStatistics.get(planNodeWithHash).getPlanStatistics().update(newPlanNodeStats);
+                                tableWriterNodeStatistics,
+                                partialAggregationStatistics);
+                        if (planStatisticsMap.containsKey(planNodeWithHash)) {
+                            newPlanNodeStats = planStatisticsMap.get(planNodeWithHash).getPlanStatistics().update(newPlanNodeStats);
                         }
-                        planStatistics.put(
-                                planNodeWithHash,
-                                new PlanStatisticsWithSourceInfo(
-                                        planNode.getId(),
-                                        newPlanNodeStats,
-                                        new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics))));
+                        PlanStatisticsWithSourceInfo planStatsWithSourceInfo = new PlanStatisticsWithSourceInfo(
+                                planNode.getId(),
+                                newPlanNodeStats,
+                                new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics), Optional.of(historicalPlanStatisticsEntryInfo)));
+                        planStatisticsMap.put(planNodeWithHash, planStatsWithSourceInfo);
+
+                        if (isAggregation(planNode, AggregationNode.Step.FINAL) && ((AggregationNode) planNode).getAggregationId().isPresent() && trackPartialAggregationHistory(session)) {
+                            // we're doing a depth-first traversal of the plan tree: cache the final agg so that when we encounter the partial agg we can come back
+                            // and update the partial agg statistics
+                            aggregationNodeMap.put(((AggregationNode) planNode).getAggregationId().get(), new FinalAggregationStatsInfo(planNodeWithHash, planStatsWithSourceInfo));
+                        }
                     }
                 }
             }
         }
-        return ImmutableMap.copyOf(planStatistics);
+        return ImmutableMap.copyOf(planStatisticsMap);
+    }
+
+    private static void updatePartialAggregationStatistics(
+            AggregationNode partialAggregationNode,
+            Map<Integer, FinalAggregationStatsInfo> aggregationNodeStats,
+            PartialAggregationStatistics partialAggregationStatistics,
+            Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatisticsMap)
+    {
+        if (!partialAggregationNode.getAggregationId().isPresent() || !aggregationNodeStats.containsKey(partialAggregationNode.getAggregationId().get())) {
+            return;
+        }
+
+        // find the stats for the matching final aggregation node (the partial and the final node share the same aggregationId)
+        FinalAggregationStatsInfo finalAggregationStatsInfo = aggregationNodeStats.get(partialAggregationNode.getAggregationId().get());
+        PlanStatisticsWithSourceInfo planStatisticsWithSourceInfo = finalAggregationStatsInfo.getPlanStatisticsWithSourceInfo();
+        PlanStatistics planStatisticsFinalAgg = planStatisticsWithSourceInfo.getPlanStatistics();
+        planStatisticsFinalAgg = planStatisticsFinalAgg.updateAggregationStatistics(partialAggregationStatistics);
+
+        planStatisticsMap.put(
+                finalAggregationStatsInfo.getPlanNodeWithHash(),
+                new PlanStatisticsWithSourceInfo(
+                    planStatisticsWithSourceInfo.getId(),
+                    planStatisticsFinalAgg,
+                    planStatisticsWithSourceInfo.getSourceInfo()));
+    }
+
+    private PartialAggregationStatistics constructAggregationNodeStatistics(PlanNode planNode, Map<PlanNodeId, PlanNodeStats> planNodeStatsMap, double outputBytes, double outputPositions)
+    {
+        PlanNode childNode = planNode.getSources().get(0);
+        PlanNodeStats childNodeStats = planNodeStatsMap.get(childNode.getId());
+        if (childNodeStats != null) {
+            double partialAggregationInputBytes = adjustedOutputBytes(childNode, childNodeStats);
+            return new PartialAggregationStatistics(
+                    Double.isNaN(partialAggregationInputBytes) ? Estimate.unknown() : Estimate.of(partialAggregationInputBytes),
+                    Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
+                    Estimate.of(childNodeStats.getPlanNodeOutputPositions()),
+                    Estimate.of(outputPositions));
+        }
+        return PartialAggregationStatistics.empty();
+    }
+
+    private boolean isAggregation(PlanNode planNode, AggregationNode.Step step)
+    {
+        return planNode instanceof AggregationNode && ((AggregationNode) planNode).getStep() == step;
     }
 
     // After we assign stats equivalent plan node, additional variables may be introduced by optimizer, for example
@@ -203,10 +308,18 @@ public class HistoryBasedPlanStatisticsTracker
         outputBytes -= planNode.getOutputVariables().stream()
                 .mapToDouble(variable -> variable.getType() instanceof FixedWidthType ? outputPositions * ((FixedWidthType) variable.getType()).getFixedSize() : 0)
                 .sum();
-        outputBytes += planNode.getStatsEquivalentPlanNode().get().getOutputVariables().stream()
+        // partial aggregation nodes have no stats equivalent plan node: use original output variables
+        List<VariableReferenceExpression> outputVariables = planNode.getOutputVariables();
+        if (planNode.getStatsEquivalentPlanNode().isPresent()) {
+            outputVariables = planNode.getStatsEquivalentPlanNode().get().getOutputVariables();
+        }
+        outputBytes += outputVariables.stream()
                 .mapToDouble(variable -> variable.getType() instanceof FixedWidthType ? outputPositions * ((FixedWidthType) variable.getType()).getFixedSize() : 0)
                 .sum();
-        if (outputBytes < 0 || (outputPositions > 0 && outputBytes < 1)) {
+        // annotate illegal cases with NaN: if outputBytes is less than 0, or if there is at least 1 output row but less than 1 output byte
+        // Note that this function may be called for partial aggs that produce no output columns (e.g. "select count(*)"), where 0 is a valid number of output bytes, in this case
+        // the ouptput variables is an empty list
+        if (outputBytes < 0 || (outputPositions > 0 && outputBytes < 1 && !outputVariables.isEmpty())) {
             outputBytes = Double.NaN;
         }
         return outputBytes;
@@ -225,7 +338,8 @@ public class HistoryBasedPlanStatisticsTracker
         Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
                 .filter(entry -> entry.getKey().getHash().isPresent() &&
                         entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&
-                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent())
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent() &&
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getHistoricalPlanStatisticsEntryInfo().isPresent())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> {
@@ -236,12 +350,35 @@ public class HistoryBasedPlanStatisticsTracker
                                     historicalPlanStatistics,
                                     historyBasedSourceInfo.getInputTableStatistics().get(),
                                     entry.getValue().getPlanStatistics(),
-                                    config);
+                                    config,
+                                    historyBasedSourceInfo.getHistoricalPlanStatisticsEntryInfo().get());
                         }));
 
         if (!newPlanStatistics.isEmpty()) {
             historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(newPlanStatistics));
         }
         historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
+    }
+
+    private class FinalAggregationStatsInfo
+    {
+        private final PlanNodeWithHash planNodeWithHash;
+        private final PlanStatisticsWithSourceInfo planStatisticsWithSourceInfo;
+
+        FinalAggregationStatsInfo(PlanNodeWithHash planNodeWithHash, PlanStatisticsWithSourceInfo planStatisticsWithSourceInfo)
+        {
+            this.planNodeWithHash = requireNonNull(planNodeWithHash);
+            this.planStatisticsWithSourceInfo = requireNonNull(planStatisticsWithSourceInfo);
+        }
+
+        public PlanNodeWithHash getPlanNodeWithHash()
+        {
+            return planNodeWithHash;
+        }
+
+        public PlanStatisticsWithSourceInfo getPlanStatisticsWithSourceInfo()
+        {
+            return planStatisticsWithSourceInfo;
+        }
     }
 }

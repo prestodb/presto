@@ -169,6 +169,29 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testMysqlTimestamp()
+    {
+        // Do not support timestamp with time zone in mysql connector
+        assertQueryFails("CREATE TABLE test_timestamp (x timestamp with time zone)", "Unsupported column type: timestamp with time zone");
+
+        assertUpdate("CREATE TABLE test_timestamp (x timestamp)");
+        assertUpdate("INSERT INTO test_timestamp VALUES (timestamp '1970-01-01 00:00:00')", 1);
+        assertUpdate("INSERT INTO test_timestamp VALUES (timestamp '2017-05-01 10:12:34')", 1);
+        assertUpdate("INSERT INTO test_timestamp VALUES (timestamp '2018-06-02 11:13:45.123')", 1);
+        assertQuery("SELECT * FROM test_timestamp", "VALUES CAST('1970-01-01 00:00:00' AS TIMESTAMP)," +
+                " CAST('2017-05-01 10:12:34' AS TIMESTAMP)," +
+                " CAST('2018-06-02 11:13:45.123' AS TIMESTAMP)");
+
+        assertUpdate("CREATE TABLE test_timestamp2 (x timestamp)");
+        assertUpdate("INSERT INTO test_timestamp2 SELECT * from test_timestamp", 3);
+        assertQuery("SELECT * FROM test_timestamp2", "VALUES CAST('1970-01-01 00:00:00' AS TIMESTAMP)," +
+                " CAST('2017-05-01 10:12:34' AS TIMESTAMP)," +
+                " CAST('2018-06-02 11:13:45.123' AS TIMESTAMP)");
+        assertUpdate("DROP TABLE test_timestamp");
+        assertUpdate("DROP TABLE test_timestamp2");
+    }
+
+    @Test
     public void testCharTrailingSpace()
             throws Exception
     {

@@ -48,6 +48,7 @@ public class StageId
     public StageId(QueryId queryId, int id)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        checkArgument(id >= 0, "id is negative: %s", id);
         this.id = id;
     }
 

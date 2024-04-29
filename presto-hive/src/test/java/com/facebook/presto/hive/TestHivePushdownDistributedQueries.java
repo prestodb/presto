@@ -26,6 +26,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestHivePushdownDistributedQueries
         extends AbstractTestDistributedQueries
 {
@@ -55,6 +56,12 @@ public class TestHivePushdownDistributedQueries
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     @Test

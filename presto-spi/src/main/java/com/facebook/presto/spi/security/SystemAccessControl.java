@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -32,6 +33,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
@@ -45,6 +47,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectC
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
 public interface SystemAccessControl
 {
@@ -267,6 +270,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to update the supplied columns in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanUpdateTableColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        denyUpdateTableColumns(table.toString(), updatedColumnNames);
+    }
+
+    /**
      * Check if identity is allowed to create the specified view in a catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -324,5 +337,25 @@ public interface SystemAccessControl
     default void checkCanRevokeTablePrivilege(Identity identity, AccessControlContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop constraints from the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyDropConstraint(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to add constraints to the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyAddConstraint(table.toString());
     }
 }

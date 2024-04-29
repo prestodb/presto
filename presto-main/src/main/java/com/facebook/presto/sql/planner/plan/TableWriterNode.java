@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.metadata.NewTableLayout;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
@@ -56,6 +57,7 @@ public class TableWriterNode
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final List<VariableReferenceExpression> outputs;
     private final Optional<Integer> taskCountIfScaledWriter;
+    private final Optional<Boolean> isTemporaryTableWriter;
 
     @JsonCreator
     public TableWriterNode(
@@ -72,9 +74,10 @@ public class TableWriterNode
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> tablePartitioningScheme,
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
-            @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter)
+            @JsonProperty("taskCountIfScaledWriter") Optional<Integer> taskCountIfScaledWriter,
+            @JsonProperty("isTemporaryTableWriter") Optional<Boolean> isTemporaryTableWriter)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation, taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     public TableWriterNode(
@@ -92,7 +95,8 @@ public class TableWriterNode
             Optional<PartitioningScheme> tablePartitioningScheme,
             Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             Optional<StatisticAggregations> statisticsAggregation,
-            Optional<Integer> taskCountIfScaledWriter)
+            Optional<Integer> taskCountIfScaledWriter,
+            Optional<Boolean> isTemporaryTableWriter)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
@@ -125,6 +129,7 @@ public class TableWriterNode
         });
         this.outputs = outputs.build();
         this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
+        this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter, "isTemporaryTableWriter is null");
     }
 
     @JsonProperty
@@ -211,6 +216,12 @@ public class TableWriterNode
         return taskCountIfScaledWriter;
     }
 
+    @JsonProperty
+    public Optional<Boolean> getIsTemporaryTableWriter()
+    {
+        return isTemporaryTableWriter;
+    }
+
     @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
@@ -235,7 +246,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter);
+                taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     @Override
@@ -256,7 +267,7 @@ public class TableWriterNode
                 tablePartitioningScheme,
                 preferredShufflePartitioningScheme,
                 statisticsAggregation,
-                taskCountIfScaledWriter);
+                taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
     // only used during planning -- will not be serialized
@@ -415,6 +426,65 @@ public class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class UpdateTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
+        private final List<String> updatedColumns;
+        private final List<ColumnHandle> updatedColumnHandles;
+
+        @JsonCreator
+        public UpdateTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("updatedColumns") List<String> updatedColumns,
+                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            checkArgument(updatedColumns.size() == updatedColumnHandles.size(), "updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size());
+            this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
+            this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public List<String> getUpdatedColumns()
+        {
+            return updatedColumns;
+        }
+
+        @JsonProperty
+        public List<ColumnHandle> getUpdatedColumnHandles()
+        {
+            return updatedColumnHandles;
         }
 
         @Override

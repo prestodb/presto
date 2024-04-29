@@ -30,7 +30,8 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExecutionWriterTarget.CreateHandle.class, name = "CreateHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.InsertHandle.class, name = "InsertHandle"),
         @JsonSubTypes.Type(value = ExecutionWriterTarget.DeleteHandle.class, name = "DeleteHandle"),
-        @JsonSubTypes.Type(value = ExecutionWriterTarget.RefreshMaterializedViewHandle.class, name = "RefreshMaterializedViewHandle")})
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.RefreshMaterializedViewHandle.class, name = "RefreshMaterializedViewHandle"),
+        @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle")})
 @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
 public abstract class ExecutionWriterTarget
 {
@@ -153,6 +154,40 @@ public abstract class ExecutionWriterTarget
 
         @JsonProperty
         public InsertTableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class UpdateHandle
+            extends ExecutionWriterTarget
+    {
+        private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
+
+        @JsonCreator
+        public UpdateHandle(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
         {
             return handle;
         }

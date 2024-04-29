@@ -112,10 +112,10 @@ public class FilesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable, snapshotId));
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable, Optional<Long> snapshotId)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, Optional<Long> snapshotId)
     {
         PageListBuilder pagesBuilder = forTable(tableMetadata);
         TableScan tableScan = getTableScan(TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();

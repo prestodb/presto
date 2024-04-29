@@ -19,6 +19,7 @@ import com.facebook.airlift.event.client.EventModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -83,6 +84,7 @@ public class HudiConnectorFactory
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(catalogName, metastore),
                     new CachingModule(),
+                    new HiveCommonModule(),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());

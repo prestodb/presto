@@ -49,6 +49,7 @@ import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
@@ -100,6 +101,9 @@ final class FixJsonDataUtils
         }
         if (signature.isDistinctType()) {
             return fixValue(signature.getDistinctTypeInfo().getBaseType(), value);
+        }
+        if (signature.getTypeSignatureBase().hasTypeName() && signature.getTypeSignatureBase().hasStandardType()) {
+            return fixValue(signature.getStandardTypeSignature(), value);
         }
         if (signature.getBase().equals(ARRAY)) {
             if (List.class.isAssignableFrom(value.getClass())) {
@@ -215,6 +219,7 @@ final class FixJsonDataUtils
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
+            case SPHERICAL_GEOGRAPHY:
             case UUID:
                 return String.class.cast(value);
             case BING_TILE:

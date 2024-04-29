@@ -119,6 +119,8 @@ Run IntelliJ IDEA:
   * Class: `com.facebook.presto.nativeworker.TestPrestoNativeGeneralQueriesJSON`
   * VM Options: `-ea -DPRESTO_SERVER=/Users/<user>/git/presto_cpp/cmake-build-debug/presto_cpp/main/presto_server -DDATA_DIR=/Users/<user>/Desktop/data`
   * Working directory: `$MODULE_WORKING_DIR$`
+  * On Apple Silicon
+    * Environment Variables: `DYLD_LIBRARY_PATH=/usr/local/lib`
 * Edit/Create `Presto Client` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.cli.Presto`
   * Program arguments: `--catalog hive --schema tpch`

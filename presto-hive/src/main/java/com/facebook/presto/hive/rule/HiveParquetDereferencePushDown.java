@@ -31,7 +31,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetDereferencePushdownEnabled;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;

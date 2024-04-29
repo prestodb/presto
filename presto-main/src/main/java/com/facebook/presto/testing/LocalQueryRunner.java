@@ -18,6 +18,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -436,7 +437,7 @@ public class LocalQueryRunner
         this.statsNormalizer = new StatsNormalizer();
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata);
         this.filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer);
-        this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig());
+        this.historyBasedPlanStatisticsManager = new HistoryBasedPlanStatisticsManager(objectMapper, new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), featuresConfig, new NodeVersion("1"));
         this.fragmentStatsProvider = new FragmentStatsProvider();
         this.statsCalculator = createNewStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer, filterStatsCalculator, historyBasedPlanStatisticsManager, fragmentStatsProvider);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -450,6 +451,7 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         NodeInfo nodeInfo = new NodeInfo("test");
+        NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
                 metadata,
                 catalogManager,
@@ -473,7 +475,8 @@ public class LocalQueryRunner
                 new RowExpressionPredicateCompiler(metadata),
                 new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
                 new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
-                blockEncodingManager);
+                blockEncodingManager,
+                featuresConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -501,7 +504,7 @@ public class LocalQueryRunner
                 blockEncodingManager,
                 new TestingTempStorageManager(),
                 new QueryPrerequisitesManager(),
-                new SessionPropertyDefaults(nodeInfo),
+                new SessionPropertyDefaults(nodeInfo, nodeVersion),
                 new ThrowingNodeTtlFetcherManager(),
                 new ThrowingClusterTtlProviderManager(),
                 historyBasedPlanStatisticsManager,
@@ -539,7 +542,8 @@ public class LocalQueryRunner
                 defaultSession.getPreparedStatements(),
                 defaultSession.getSessionFunctions(),
                 defaultSession.getTracer(),
-                defaultSession.getWarningCollector());
+                defaultSession.getWarningCollector(),
+                defaultSession.getRuntimeStats());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
@@ -1084,7 +1088,8 @@ public class LocalQueryRunner
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                partitioningProviderManager).getPlanningTimeOptimizers();
+                partitioningProviderManager,
+                featuresConfig).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -31,6 +32,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateV
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropColumn;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyDropConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
@@ -51,6 +53,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRol
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
@@ -236,6 +239,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to update the supplied columns in the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanUpdateTableColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        denyUpdateTableColumns(tableName.toString(), updatedColumns);
+    }
+
+    /**
      * Check if identity is allowed to create the specified view in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
@@ -348,5 +361,25 @@ public interface ConnectorAccessControl
     default void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String catalogName)
     {
         denyShowRoleGrants(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to drop constraints from the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanDropConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyDropConstraint(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to add constraints to the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyAddConstraint(tableName.toString());
     }
 }

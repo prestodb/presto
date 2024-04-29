@@ -16,11 +16,13 @@ package com.facebook.presto.hive;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.airlift.tpch.TpchTable.getTables;
 
+@Test(singleThreaded = true)
 public class TestHiveDistributedQueriesWithOptimizedRepartitioning
         extends AbstractTestDistributedQueries
 {
@@ -47,6 +49,12 @@ public class TestHiveDistributedQueriesWithOptimizedRepartitioning
     public void testDelete()
     {
         // Hive connector currently does not support row-by-row delete
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        // Updates are not supported by the connector
     }
 
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest

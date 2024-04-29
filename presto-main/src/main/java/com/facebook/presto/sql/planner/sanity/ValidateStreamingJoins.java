@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.sanity;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -81,7 +82,7 @@ public class ValidateStreamingJoins
             // Validate the streaming property of the join node is satisfied when no RemoteSourceNode is involved.
             if (!searchFrom(node).where(RemoteSourceNode.class::isInstance).matches()) {
                 List<VariableReferenceExpression> buildJoinVariables = node.getCriteria().stream()
-                        .map(JoinNode.EquiJoinClause::getRight)
+                        .map(EquiJoinClause::getRight)
                         .collect(toImmutableList());
                 StreamPreferredProperties requiredBuildProperty;
                 if (getTaskConcurrency(session) > 1) {

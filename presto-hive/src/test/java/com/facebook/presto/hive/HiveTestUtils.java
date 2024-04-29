@@ -33,13 +33,16 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
+import com.facebook.presto.hive.orc.DwrfAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.DwrfSelectivePageSourceFactory;
+import com.facebook.presto.hive.orc.OrcAggregatedPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcSelectivePageSourceFactory;
 import com.facebook.presto.hive.orc.TupleDomainFilterCache;
 import com.facebook.presto.hive.pagefile.PageFilePageSourceFactory;
 import com.facebook.presto.hive.pagefile.PageFileWriterFactory;
+import com.facebook.presto.hive.parquet.ParquetAggregatedPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
@@ -64,6 +67,7 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -76,13 +80,16 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.smile.SmileCodec.smileCodec;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.hive.HiveDwrfEncryptionProvider.NO_ENCRYPTION;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
@@ -91,12 +98,12 @@ public final class HiveTestUtils
     {
     }
 
+    public static final DirectoryLister DO_NOTHING_DIRECTORY_LISTER = (fileSystem, table, path, partition, namenodeStats, hiveDirectoryContext) -> null;
+
     public static final JsonCodec<PartitionUpdate> PARTITION_UPDATE_CODEC = jsonCodec(PartitionUpdate.class);
     public static final SmileCodec<PartitionUpdate> PARTITION_UPDATE_SMILE_CODEC = smileCodec(PartitionUpdate.class);
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
-
+    public static final ConnectorSession SESSION = new TestingConnectorSession(getAllSessionProperties(new HiveClientConfig(), new HiveCommonClientConfig()));
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
     public static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
@@ -166,6 +173,17 @@ public final class HiveTestUtils
         return ImmutableSet.<HiveSelectivePageSourceFactory>builder()
                 .add(new OrcSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache()))
                 .add(new DwrfSelectivePageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), new TupleDomainFilterCache(), NO_ENCRYPTION))
+                .build();
+    }
+
+    public static Set<HiveAggregatedPageSourceFactory> getDefaultHiveAggregatedPageSourceFactories(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig)
+    {
+        FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
+        return ImmutableSet.<HiveAggregatedPageSourceFactory>builder()
+                .add(new OrcAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                .add(new DwrfAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource())))
+                .add(new ParquetAggregatedPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, testHdfsEnvironment, stats, new MetadataReader()))
                 .build();
     }
 
@@ -266,5 +284,51 @@ public final class HiveTestUtils
     public static Slice longDecimal(String value)
     {
         return encodeScaledValue(new BigDecimal(value));
+    }
+
+    public static Optional<String> getProperty(String name)
+    {
+        String systemPropertyValue = System.getProperty(name);
+        String environmentVariableValue = System.getenv(name);
+        if (systemPropertyValue == null) {
+            if (environmentVariableValue == null) {
+                return Optional.empty();
+            }
+            else {
+                return Optional.of(environmentVariableValue);
+            }
+        }
+        else {
+            if (environmentVariableValue != null && !systemPropertyValue.equals(environmentVariableValue)) {
+                throw new IllegalArgumentException(format("%s is set in both Java system property and environment variable, but their values are different. The Java system property value is %s, while the" +
+                                " environment variable value is %s. Please use only one value.",
+                        name,
+                        systemPropertyValue,
+                        environmentVariableValue));
+            }
+            return Optional.of(systemPropertyValue);
+        }
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        return getAllSessionProperties(hiveClientConfig, new ParquetFileWriterConfig(), hiveCommonClientConfig);
+    }
+
+    public static List<PropertyMetadata<?>> getAllSessionProperties(HiveClientConfig hiveClientConfig, ParquetFileWriterConfig parquetFileWriterConfig, HiveCommonClientConfig hiveCommonClientConfig)
+    {
+        HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
+                hiveClientConfig,
+                new OrcFileWriterConfig(),
+                parquetFileWriterConfig,
+                new CacheConfig());
+
+        List<PropertyMetadata<?>> allSessionProperties = new ArrayList<>(hiveSessionProperties.getSessionProperties());
+
+        HiveCommonSessionProperties hiveCommonSessionProperties = new HiveCommonSessionProperties(
+                hiveCommonClientConfig);
+
+        allSessionProperties.addAll(hiveCommonSessionProperties.getSessionProperties());
+        return allSessionProperties;
     }
 }

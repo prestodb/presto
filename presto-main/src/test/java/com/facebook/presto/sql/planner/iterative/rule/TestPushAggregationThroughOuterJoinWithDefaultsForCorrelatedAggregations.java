@@ -14,10 +14,11 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -51,10 +52,10 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
-                                        JoinNode.Type.LEFT,
+                                        JoinType.LEFT,
                                         p.values(ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10L))),
                                         p.values(p.variable("COL2")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                        ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
                                         ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
@@ -65,7 +66,7 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
                         project(ImmutableMap.of(
                                         "COL1", expression("COL1"),
                                         "COALESCE", expression("coalesce(AVG, NULL)")),
-                                join(JoinNode.Type.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(JoinType.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                         values(ImmutableMap.of("COL1", 0)),
                                         aggregation(
                                                 singleGroupingSet("COL2"),
@@ -83,12 +84,12 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
-                                        JoinNode.Type.LEFT,
+                                        JoinType.LEFT,
                                         p.values(
                                                 ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
                                                 ImmutableList.of(constantExpressions(BIGINT, 10L, 20L))),
                                         p.values(p.variable("COL2"), p.variable("COL4")),
-                                        ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                        ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
                                         ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
                                         Optional.empty(),
                                         Optional.empty(),
@@ -106,7 +107,7 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
                                         "COL1", expression("COL1"),
                                         "COL3", expression("COL3"),
                                         "COALESCE", expression("coalesce(AVG, NULL)")),
-                                join(JoinNode.Type.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                join(JoinType.LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
                                         values(ImmutableMap.of("COL1", 0, "COL3", 0)),
                                         aggregation(
                                                 singleGroupingSet("COL2"),
@@ -127,10 +128,10 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
         tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
-                                JoinNode.Type.RIGHT,
+                                JoinType.RIGHT,
                                 p.values(p.variable("COL2")),
                                 p.values(ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10L))),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.variable("COL2"), p.variable("COL1"))),
+                                ImmutableList.of(new EquiJoinClause(p.variable("COL2"), p.variable("COL1"))),
                                 ImmutableList.of(p.variable("COL2"), p.variable("COL1")),
                                 Optional.empty(),
                                 Optional.empty(),
@@ -141,7 +142,7 @@ public class TestPushAggregationThroughOuterJoinWithDefaultsForCorrelatedAggrega
                         project(ImmutableMap.of(
                                         "COALESCE", expression("coalesce(AVG, NULL)"),
                                         "COL1", expression("COL1")),
-                                join(JoinNode.Type.RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
+                                join(JoinType.RIGHT, ImmutableList.of(equiJoinClause("COL2", "COL1")),
                                         aggregation(
                                                 singleGroupingSet("COL2"),
                                                 ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),

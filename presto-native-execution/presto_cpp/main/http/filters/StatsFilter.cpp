@@ -24,12 +24,12 @@ StatsFilter::StatsFilter(proxygen::RequestHandler* upstream)
 void StatsFilter::onRequest(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
   startTime_ = std::chrono::steady_clock::now();
-  REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequest, 1);
+  RECORD_METRIC_VALUE(kCounterNumHTTPRequest, 1);
   Filter::onRequest(std::move(msg));
 }
 
 void StatsFilter::requestComplete() noexcept {
-  REPORT_ADD_STAT_VALUE(
+  RECORD_METRIC_VALUE(
       kCounterHTTPRequestLatencyMs,
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - startTime_)
@@ -38,7 +38,7 @@ void StatsFilter::requestComplete() noexcept {
 }
 
 void StatsFilter::onError(proxygen::ProxygenError err) noexcept {
-  REPORT_ADD_STAT_VALUE(kCounterNumHTTPRequestError, 1);
+  RECORD_METRIC_VALUE(kCounterNumHTTPRequestError, 1);
   delete this;
 }
 

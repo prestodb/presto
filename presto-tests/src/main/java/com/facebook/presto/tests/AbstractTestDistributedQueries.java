@@ -50,6 +50,7 @@ import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -82,6 +83,7 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
@@ -371,41 +373,13 @@ public abstract class AbstractTestDistributedQueries
         computeActual("EXPLAIN ANALYZE DROP TABLE orders");
     }
 
-    private void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
-    }
-
-    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-    {
-        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
-        assertQuery(session, "SELECT * FROM " + table, expectedQuery);
-        assertUpdate(session, "DROP TABLE " + table);
-
-        assertFalse(getQueryRunner().tableExists(session, table));
-    }
-
-    // Flaky test: https://github.com/prestodb/presto/issues/20764
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Regexp matching interrupted", timeOut = 30_000, enabled = false)
+    @Test(expectedExceptions = RuntimeException.class,
+            expectedExceptionsMessageRegExp = "Regexp matching interrupted|The query optimizer exceeded the timeout of .*",
+            timeOut = 30_000)
     public void testRunawayRegexAnalyzerTimeout()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "1s")
+                .setSystemProperty(SystemSessionProperties.QUERY_ANALYZER_TIMEOUT, "5s")
                 .build();
 
         computeActual(session, "select REGEXP_EXTRACT('runaway_regex-is-evaluated-infinitely - xxx\"}', '.*runaway_(.*?)+-+xxx.*')");
@@ -466,8 +440,9 @@ public abstract class AbstractTestDistributedQueries
                 "SHOW CREATE TABLE test_not_null_with_insert",
                 "VALUES '" + createTableStatement + "'");
 
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a) VALUES (date '2012-12-31')", "(?s).*column_b.*null.*");
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a, column_b) VALUES (date '2012-12-31', null)", "(?s).*column_b.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_b");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
+        assertQueryFails("INSERT INTO test_not_null_with_insert VALUES (date '2011-11-30', date '2011-10-01'), (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_not_null_with_insert ADD COLUMN column_c BIGINT NOT NULL");
         assertQuery(
@@ -478,8 +453,9 @@ public abstract class AbstractTestDistributedQueries
                         "   \"column_c\" bigint NOT NULL\n" +
                         ")'");
 
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "(?s).*column_c.*null.*");
-        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', null)", "(?s).*column_c.*null.*");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b) VALUES (date '2012-12-31')", "NULL value not allowed for NOT NULL column: column_c");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
+        assertQueryFails("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2011-11-30', 123), (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
 
         assertUpdate("INSERT INTO test_not_null_with_insert (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
         assertUpdate("INSERT INTO test_not_null_with_insert (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
@@ -816,6 +792,17 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testUpdate()
+    {
+        assertUpdate("CREATE TABLE test_update AS SELECT * FROM orders", "SELECT count(*) FROM orders");
+
+        assertUpdate("UPDATE test_update SET orderstatus = 'O_UPDATED' WHERE orderstatus = 'O'", "SELECT count(*) FROM orders WHERE orderstatus = 'O'");
+        assertQuery("SELECT * FROM test_update", "SELECT * FROM orders WHERE orderstatus <> 'O'");
+
+        assertUpdate("DROP TABLE test_update");
+    }
+
+    @Test
     public void testDropTableIfExists()
     {
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
@@ -1107,6 +1094,48 @@ public abstract class AbstractTestDistributedQueries
             // There is no clean exception message for authorization failure.  We simply get a 403
             Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
+    }
+
+    @Test
+    public void testViewAccessControlInvokerDefault()
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setSystemProperty("default_view_security_mode", INVOKER.name())
+                .build();
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from columns.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access1 SECURITY DEFINER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access1",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access1");
     }
 
     @Test
@@ -1485,6 +1514,17 @@ public abstract class AbstractTestDistributedQueries
 
             assertQueryWithSameQueryRunner(session, query, defaultSession);
         }
+    }
+
+    @Test
+    public void testSessionPropertyDecode()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setSystemProperty("task_writer_count", "abc" /*number is expected*/)
+                        .build(),
+                "SELECT 1",
+                ".*task_writer_count is invalid.*");
     }
 
     private void checkCTEInfo(String explain, String name, int frequency, boolean isView)

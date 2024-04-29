@@ -130,6 +130,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
     }
@@ -206,6 +211,16 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
+    {
+    }
+
+    @Override
+    public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
     }
 }

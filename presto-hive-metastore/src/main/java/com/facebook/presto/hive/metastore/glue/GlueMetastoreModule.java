@@ -15,8 +15,8 @@ package com.facebook.presto.hive.metastore.glue;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -49,9 +49,9 @@ public class GlueMetastoreModule
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+                .as(generatedNameOf(InMemoryCachingHiveMetastore.class, connectorId));
         newExporter(binder).export(GlueHiveMetastore.class)
                 .as(generatedNameOf(GlueHiveMetastore.class, connectorId));
     }

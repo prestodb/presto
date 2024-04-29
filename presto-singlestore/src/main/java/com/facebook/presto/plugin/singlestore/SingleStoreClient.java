@@ -33,7 +33,6 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -91,14 +90,6 @@ public class SingleStoreClient
         // Abort connection before closing. Without this, the driver
         // attempts to drain the connection by reading all the results.
         connection.abort(directExecutor());
-    }
-
-    @Override
-    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection,
-            String sql)
-            throws SQLException
-    {
-        return connection.prepareStatement(sql);
     }
 
     @Override

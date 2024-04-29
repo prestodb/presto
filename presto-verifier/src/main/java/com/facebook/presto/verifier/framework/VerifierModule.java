@@ -130,6 +130,7 @@ public class VerifierModule
         binder.bind(VerificationManager.class).in(SINGLETON);
         binder.bind(VerificationFactory.class).in(SINGLETON);
         binder.bind(ChecksumValidator.class).in(SINGLETON);
+        binder.bind(FloatingPointColumnValidator.class).in(SINGLETON);
         MapBinder<Category, ColumnValidator> columnValidatorBinder = MapBinder.newMapBinder(binder, Category.class, ColumnValidator.class);
         columnValidatorBinder.addBinding(SIMPLE).to(SimpleColumnValidator.class).in(SINGLETON);
         columnValidatorBinder.addBinding(FLOATING_POINT).to(FloatingPointColumnValidator.class).in(SINGLETON);

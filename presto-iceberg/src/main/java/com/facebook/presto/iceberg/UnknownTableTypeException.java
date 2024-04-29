@@ -17,21 +17,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
-import static java.util.Objects.requireNonNull;
 
 public class UnknownTableTypeException
         extends PrestoException
 {
-    private final SchemaTableName tableName;
-
     public UnknownTableTypeException(SchemaTableName tableName)
     {
         super(ICEBERG_UNKNOWN_TABLE_TYPE, "Not an Iceberg table: " + tableName);
-        this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    public SchemaTableName getTableName()
-    {
-        return tableName;
     }
 }
