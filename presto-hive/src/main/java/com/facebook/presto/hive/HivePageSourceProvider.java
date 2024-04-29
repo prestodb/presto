@@ -275,7 +275,8 @@ public class HivePageSourceProvider
                     hiveSplit.getStorage(),
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     fileContext,
-                    encryptionInformation);
+                    encryptionInformation,
+                    hiveLayout.isAppendRowNumberEnabled() || hiveLayout.isAppendRowId());
             if (pageSource.isPresent()) {
                 return pageSource.get();
             }
@@ -312,7 +313,7 @@ public class HivePageSourceProvider
             ConnectorSession session,
             HiveSplit split,
             HiveTableLayoutHandle layout,
-            List<HiveColumnHandle> selectedColumns,
+            List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
@@ -325,10 +326,10 @@ public class HivePageSourceProvider
                 .addAll(split.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()))
                 .build();
 
-        Set<String> columnNames = selectedColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+        Set<String> columnNames = columns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
 
         List<HiveColumnHandle> allColumns = ImmutableList.<HiveColumnHandle>builder()
-                .addAll(selectedColumns)
+                .addAll(columns)
                 .addAll(interimColumns.stream().filter(column -> !columnNames.contains(column.getName())).collect(toImmutableList()))
                 .build();
 
@@ -352,7 +353,7 @@ public class HivePageSourceProvider
                         mapping -> mapping.getHiveColumnHandle().getHiveColumnIndex(),
                         mapping -> createCoercer(typeManager, mapping.getCoercionFrom().get(), mapping.getHiveColumnHandle().getHiveType())));
 
-        List<Integer> outputColumns = selectedColumns.stream()
+        List<Integer> outputColumns = columns.stream()
                 .map(HiveColumnHandle::getHiveColumnIndex)
                 .collect(toImmutableList());
 
@@ -386,8 +387,7 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     fileContext,
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled(),
-                    split.getRowIdPartitionComponent());
+                    layout.isAppendRowNumberEnabled() || layout.isAppendRowId());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }

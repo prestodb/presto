@@ -171,13 +171,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -2160,20 +2158,17 @@ public abstract class AbstractTestHiveClient
         // Alter the bucket count to 16
         alterBucketProperty(tableName, Optional.of(new HiveBucketProperty(ImmutableList.of("id"), bucketCount, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty())));
 
+        MaterializedResult result;
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
 
             ConnectorTableHandle hiveTableHandle = getTableHandle(metadata, tableName);
 
-            // select all columns in table, including synthetic columns such as $path, except for $row_id.
-            // $row_id will throw some exceptions if there's a not a real metastore running to supply
-            // the row ID partition components.
-            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, hiveTableHandle).values()
-                    .stream()
-                    .map(e -> (HiveColumnHandle) e)
-                    .filter(e -> !HiveColumnHandle.isRowIdColumnHandle(e))
-                    .collect(Collectors.toList());
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, hiveTableHandle).values())
+                    .build();
 
             HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getTableLayout(session, transaction.getMetadata(), hiveTableHandle, Constraint.alwaysTrue(), transaction).getHandle();
             HiveBucketHandle bucketHandle = layoutHandle.getBucketHandle().get();
@@ -2194,7 +2189,7 @@ public abstract class AbstractTestHiveClient
                     allRows.addAll(intermediateResult.getMaterializedRows());
                 }
             }
-            MaterializedResult result = new MaterializedResult(allRows.build(), getTypes(columnHandles));
+            result = new MaterializedResult(allRows.build(), getTypes(columnHandles));
 
             assertEquals(result.getRowCount(), rowCount);
 
@@ -2261,15 +2256,10 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            // select all columns in table, including synthetic columns such as $path, except for $row_id.
-            // $row_id will throw some exceptions if there's a not a real metastore running to supply
-            // the row ID partition components.
-            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values()
-                    .stream()
-                    .map(e -> (HiveColumnHandle) e)
-                    .filter(e -> !HiveColumnHandle.isRowIdColumnHandle(e))
-                    .collect(Collectors.toList());
-
+            // read entire table
+            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
+                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
+                    .build();
             MaterializedResult result = readTable(
                     transaction,
                     tableHandle,
@@ -2314,23 +2304,21 @@ public abstract class AbstractTestHiveClient
                     Optional.empty());
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
 
-            // read single bucket, without selecting the bucketing column (i.e. id column) or the $row_id column
-            ImmutableList<ColumnHandle> nonBucketColumnHandles = ImmutableList.<ColumnHandle>builder()
+            // read single bucket, without selecting the bucketing column (i.e. id column)
+            columnHandles = ImmutableList.<ColumnHandle>builder()
                     .addAll(metadata.getColumnHandles(session, tableHandle).values().stream()
                             .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
-                            .filter(columnHandle -> !HiveColumnHandle.isRowIdColumnHandle((HiveColumnHandle) columnHandle))
                             .collect(toImmutableList()))
                     .build();
-
             result = readTable(
                     transaction,
                     tableHandle,
                     layoutHandle,
-                    nonBucketColumnHandles,
+                    columnHandles,
                     session,
                     OptionalInt.empty(),
                     Optional.empty());
-            assertBucketTableEvolutionResult(result, nonBucketColumnHandles, ImmutableSet.of(6), rowCount);
+            assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
         }
     }
 
@@ -3114,9 +3102,6 @@ public abstract class AbstractTestHiveClient
 
             // finish creating table
             metadata.finishCreateTable(session, outputHandle, fragments, ImmutableList.of());
-            // TODO: problem: in normal usage creating the table sends this to Metastore and we get it back later,
-           // but here it seems we somehow use it again without calling Metastore? so the row ID partition component
-           // isn't set?
 
             transaction.commit();
         }
@@ -3127,14 +3112,7 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession(ImmutableMap.of(SORTED_WRITE_TO_TEMP_PATH_ENABLED, useTempPath));
 
             ConnectorTableHandle hiveTableHandle = getTableHandle(metadata, table);
-            // select all columns in table, including synthetic columns such as $path, except for $row_id.
-            // $row_id will throw some exceptions if there's a not a real metastore running to supply
-            // the row ID partition components.
-            List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, hiveTableHandle).values()
-                    .stream()
-                    .map(e -> (HiveColumnHandle) e)
-                    .filter(e -> !HiveColumnHandle.isRowIdColumnHandle(e))
-                    .collect(Collectors.toList());
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, hiveTableHandle).values());
 
             ConnectorTableLayoutHandle layoutHandle = getLayout(session, transaction, hiveTableHandle, TupleDomain.all());
             List<ConnectorSplit> splits = getAllSplits(session, transaction, layoutHandle);
@@ -3879,13 +3857,11 @@ public abstract class AbstractTestHiveClient
 
     protected Partition createDummyPartition(Table table, String partitionName, Optional<HiveBucketProperty> bucketProperty)
     {
-        byte[] rowIdPartitionComponent = {98, 45};
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
                 .setValues(toPartitionValues(partitionName))
-                .setRowIdPartitionComponent(Optional.of(rowIdPartitionComponent))
                 .withStorage(storage -> storage
                         .setStorageFormat(fromHiveStorageFormat(HiveStorageFormat.ORC))
                         .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName))
@@ -5261,8 +5237,7 @@ public abstract class AbstractTestHiveClient
 
     private List<ConnectorSplit> getAllSplits(ConnectorSession session, Transaction transaction, ConnectorTableLayoutHandle layoutHandle)
     {
-        ConnectorSplitSource splits = splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, SPLIT_SCHEDULING_CONTEXT);
-        return getAllSplits(splits);
+        return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, SPLIT_SCHEDULING_CONTEXT));
     }
 
     private ConnectorTableLayoutHandle getLayout(ConnectorSession session, Transaction transaction, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
@@ -5275,10 +5250,7 @@ public abstract class AbstractTestHiveClient
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            CompletableFuture<ConnectorSplitSource.ConnectorSplitBatch> nextBatch = splitSource.getNextBatch(NOT_PARTITIONED, 1000);
-            ConnectorSplitSource.ConnectorSplitBatch futureValue = getFutureValue(nextBatch);
-            List<ConnectorSplit> splits1 = futureValue.getSplits();
-            splits.addAll(splits1);
+            splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
         }
         return splits.build();
     }

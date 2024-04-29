@@ -35,8 +35,7 @@ public class HivePartitionObjectBuilder
             PartitionUpdate partitionUpdate,
             String prestoVersion,
             Map<String, String> extraParameters,
-            Optional<Partition> previousPartition,
-            Optional<byte[]> rowIDPartitionComponent)
+            Optional<Partition> previousPartition)
     {
         ImmutableMap.Builder extraParametersBuilder = ImmutableMap.builder()
                 .put(MetastoreUtil.PRESTO_VERSION_NAME, prestoVersion)
@@ -60,7 +59,6 @@ public class HivePartitionObjectBuilder
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters())
                         .setParameters(table.getStorage().getParameters()))
-                .setRowIdPartitionComponent(rowIDPartitionComponent)
                 .build();
     }
 }

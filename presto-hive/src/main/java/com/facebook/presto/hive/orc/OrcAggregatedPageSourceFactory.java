@@ -115,7 +115,8 @@ public class OrcAggregatedPageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -142,8 +143,7 @@ public class OrcAggregatedPageSourceFactory
                 hiveFileContext,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                false,
-                Optional.empty()));
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -162,8 +162,7 @@ public class OrcAggregatedPageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            boolean appendRowNumberEnabled,
-            Optional<byte[]> rowIDPartitionComponent)
+            boolean appendRowNumberEnabled)
     {
         OrcDataSource orcDataSource = getOrcDataSource(session, fileSplit, hdfsEnvironment, configuration, hiveFileContext, stats);
 

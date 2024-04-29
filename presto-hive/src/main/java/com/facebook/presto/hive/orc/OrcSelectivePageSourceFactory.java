@@ -194,7 +194,7 @@ public class OrcSelectivePageSourceFactory
             ConnectorSession session,
             HiveFileSplit fileSplit,
             Storage storage,
-            List<HiveColumnHandle> selectedColumns,
+            List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
             Optional<BucketAdaptation> bucketAdaptation,
@@ -204,8 +204,7 @@ public class OrcSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled,
-            Optional<byte[]> rowIDPartitionComponent)
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -222,7 +221,7 @@ public class OrcSelectivePageSourceFactory
                 hdfsEnvironment,
                 configuration,
                 fileSplit,
-                selectedColumns,
+                columns,
                 prefilledValues,
                 coercers,
                 bucketAdaptation,
@@ -243,8 +242,7 @@ public class OrcSelectivePageSourceFactory
                 tupleDomainFilterCache,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                appendRowNumberEnabled,
-                rowIDPartitionComponent));
+                appendRowNumberEnabled));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -253,7 +251,7 @@ public class OrcSelectivePageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             Configuration configuration,
             HiveFileSplit fileSplit,
-            List<HiveColumnHandle> selectedColumns,
+            List<HiveColumnHandle> columns,
             Map<Integer, String> prefilledValues,
             Map<Integer, HiveCoercer> coercers,
             Optional<BucketAdaptation> bucketAdaptation,
@@ -274,18 +272,12 @@ public class OrcSelectivePageSourceFactory
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            boolean appendRowNumberEnabled,
-            Optional<byte[]> rowIDPartitionComponent)
+            boolean appendRowNumberEnabled)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
         OrcDataSource orcDataSource = getOrcDataSource(session, fileSplit, hdfsEnvironment, configuration, hiveFileContext, stats);
         Path path = new Path(fileSplit.getPath());
-
-        boolean supplyRowIDs = selectedColumns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
-        String rowGroupId = path.getName();
-        checkArgument(!supplyRowIDs || rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
-        byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
 
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
         DataSize tinyStripeThreshold = getOrcTinyStripeThreshold(session);
@@ -295,7 +287,7 @@ public class OrcSelectivePageSourceFactory
                 .withTinyStripeThreshold(tinyStripeThreshold)
                 .withMaxBlockSize(maxReadBlockSize)
                 .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
-                .withAppendRowNumber(appendRowNumberEnabled || supplyRowIDs)
+                .withAppendRowNumber(appendRowNumberEnabled)
                 .build();
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
@@ -303,7 +295,7 @@ public class OrcSelectivePageSourceFactory
 
             OrcReader reader = getOrcReader(
                     orcEncoding,
-                    selectedColumns,
+                    columns,
                     useOrcColumnNames,
                     orcFileTailSource,
                     stripeMetadataSourceFactory,
@@ -314,11 +306,11 @@ public class OrcSelectivePageSourceFactory
                     orcDataSource,
                     path);
 
-            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(selectedColumns, useOrcColumnNames, reader.getTypes(), path);
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
 
-            Map<Integer, Integer> indexMapping = IntStream.range(0, selectedColumns.size())
+            Map<Integer, Integer> indexMapping = IntStream.range(0, columns.size())
                     .boxed()
-                    .collect(toImmutableMap(i -> selectedColumns.get(i).getHiveColumnIndex(), i -> physicalColumns.get(i).getHiveColumnIndex()));
+                    .collect(toImmutableMap(i -> columns.get(i).getHiveColumnIndex(), i -> physicalColumns.get(i).getHiveColumnIndex()));
 
             Map<Integer, String> columnNames = physicalColumns.stream()
                     .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, HiveColumnHandle::getName));
@@ -385,11 +377,7 @@ public class OrcSelectivePageSourceFactory
                     reader.getOrcDataSource(),
                     systemMemoryUsage,
                     stats,
-                    hiveFileContext.getStats(),
-                    appendRowNumberEnabled,
-                    partitionID,
-                    rowGroupId,
-                    recordReader.isColumnPresent(OrcSelectivePageSource.ROW_ID_COLUMN_INDEX));
+                    hiveFileContext.getStats());
         }
         catch (Exception e) {
             try {

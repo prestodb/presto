@@ -83,7 +83,8 @@ public class ParquetAggregatedPageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();

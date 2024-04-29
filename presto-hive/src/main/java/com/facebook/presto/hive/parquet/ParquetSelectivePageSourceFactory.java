@@ -70,8 +70,7 @@ public class ParquetSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled,
-            Optional<byte[]> rowIDPartitionComponent)
+            boolean appendRowNumberEnabled)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();

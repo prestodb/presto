@@ -100,7 +100,8 @@ public class DwrfAggregatedPageSourceFactory
             Storage storage,
             List<HiveColumnHandle> columns,
             HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean appendRowNumberEnabled)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -126,7 +127,6 @@ public class DwrfAggregatedPageSourceFactory
                 hiveFileContext,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                false,
-                Optional.empty()));
+                appendRowNumberEnabled));
     }
 }
