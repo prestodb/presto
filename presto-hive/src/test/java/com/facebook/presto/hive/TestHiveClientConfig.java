@@ -164,7 +164,8 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(60, TimeUnit.SECONDS))
                 .setMaxConcurrentQuickStatsCalls(100)
                 .setMaxConcurrentParquetQuickStatsCalls(500)
-                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
+                .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE))
+                .setRowIDEnabled(true));
     }
 
     @Test
@@ -290,6 +291,7 @@ public class TestHiveClientConfig
                 .put("hive.quick-stats.parquet.max-concurrent-calls", "399")
                 .put("hive.quick-stats.max-concurrent-calls", "101")
                 .put("hive.affinity-scheduling-file-section-size", "512MB")
+                .put("hive.row-id-enabled", "false")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -410,8 +412,8 @@ public class TestHiveClientConfig
                 .setParquetQuickStatsFileMetadataFetchTimeout(new Duration(30, TimeUnit.SECONDS))
                 .setMaxConcurrentParquetQuickStatsCalls(399)
                 .setMaxConcurrentQuickStatsCalls(101)
-                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
-
+                .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE))
+                .setRowIDEnabled(false);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }

@@ -103,6 +103,7 @@ public class HivePageSourceProvider
     private final TypeManager typeManager;
     private final RowExpressionService rowExpressionService;
     private final LoadingCache<RowExpressionCacheKey, RowExpression> optimizedRowExpressionCache;
+    private final boolean rowIDEnabled;
 
     @Inject
     public HivePageSourceProvider(
@@ -117,6 +118,7 @@ public class HivePageSourceProvider
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
+        this.rowIDEnabled = hiveClientConfig.isRowIDEnabled();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
@@ -195,7 +197,8 @@ public class HivePageSourceProvider
                     optimizedRowExpressionCache,
                     splitContext,
                     fileContext,
-                    encryptionInformation);
+                    encryptionInformation,
+                    this.rowIDEnabled);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
@@ -318,7 +321,8 @@ public class HivePageSourceProvider
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
             SplitContext splitContext,
             HiveFileContext fileContext,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            boolean rowIDEnabled)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -371,6 +375,11 @@ public class HivePageSourceProvider
                 .orElse(layout.getDomainPredicate());
 
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
+            // TODO check rowidenabled
+            Optional<byte[]> rowIdPartitionComponent = split.getRowIdPartitionComponent();
+            if (!rowIDEnabled) {
+                rowIdPartitionComponent = Optional.empty();
+            }
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
                     session,
@@ -387,7 +396,7 @@ public class HivePageSourceProvider
                     fileContext,
                     encryptionInformation,
                     layout.isAppendRowNumberEnabled(),
-                    split.getRowIdPartitionComponent());
+                    rowIdPartitionComponent);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }

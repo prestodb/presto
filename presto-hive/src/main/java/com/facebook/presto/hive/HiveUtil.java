@@ -941,7 +941,7 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(Table table)
+    public static List<HiveColumnHandle> hiveColumnHandles(Table table, boolean rowIDEnabled)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -958,7 +958,9 @@ public final class HiveUtil
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
-        columns.add(rowIdColumnHandle());
+        if (rowIDEnabled) {
+            columns.add(rowIdColumnHandle());
+        }
 
         return columns.build();
     }

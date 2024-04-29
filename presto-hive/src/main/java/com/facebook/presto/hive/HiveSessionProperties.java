@@ -131,6 +131,7 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
+    public static final String ROW_ID_ENABLED = "row_id_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -601,6 +602,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isHudiMetadataEnabled(),
                         false),
                 booleanProperty(
+                        ROW_ID_ENABLED,
+                        "Support the $row_id hidden column",
+                        hiveClientConfig.isRowIDEnabled(),
+                        false),
+                booleanProperty(
                         PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED,
                         "Enables parallel parsing of partition values from partition names using thread pool",
                         hiveClientConfig.isParallelParsingOfPartitionValuesEnabled(),
@@ -666,6 +672,11 @@ public final class HiveSessionProperties
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
+    }
+
+    public static boolean isRowIDEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ROW_ID_ENABLED, Boolean.class);
     }
 
     public static DataSize getOrcStringStatisticsLimit(ConnectorSession session)

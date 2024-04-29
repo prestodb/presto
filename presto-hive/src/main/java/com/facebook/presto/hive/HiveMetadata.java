@@ -649,10 +649,11 @@ public class HiveMetadata
             throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
         }
 
-        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager, metastoreContext.getColumnConverter());
+        boolean enableRowID = HiveSessionProperties.isRowIDEnabled(session);
+        Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager, metastoreContext.getColumnConverter(), enableRowID);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         Map<String, ColumnHandle> columnNameToHandleAssignments = new HashMap<>();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get())) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get(), enableRowID)) {
             columns.add(metadataGetter.apply(columnHandle));
             columnNameToHandleAssignments.put(columnHandle.getName(), columnHandle);
         }
@@ -808,7 +809,7 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Table table = metastore.getTable(metastoreContext, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
-        return hiveColumnHandles(table).stream()
+        return hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session)).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -1137,7 +1138,7 @@ public class HiveMetadata
         List<String> partitionColumnNames = table.getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session));
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
@@ -1490,7 +1491,7 @@ public class HiveMetadata
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session));
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
@@ -1890,7 +1891,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -2761,7 +2762,7 @@ public class HiveMetadata
 
             // capture subfields from domainPredicate to add to remainingPredicate
             // so those filters don't get lost
-            Map<String, Type> columnTypes = hiveColumnHandles(table).stream()
+            Map<String, Type> columnTypes = hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session)).stream()
                     .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager).getType()));
 
             subfieldPredicate = getSubfieldPredicate(session, hiveLayoutHandle, columnTypes, functionResolution, rowExpressionService);
@@ -2778,7 +2779,7 @@ public class HiveMetadata
                 && !table.getStorage().getBucketProperty().get().getSortedBy().isEmpty()
                 && isOrderBasedExecutionEnabled(session)) {
             ImmutableSet.Builder<ColumnHandle> streamPartitionColumnsBuilder = ImmutableSet.builder();
-            Map<String, ColumnHandle> columnHandles = hiveColumnHandles(table).stream()
+            Map<String, ColumnHandle> columnHandles = hiveColumnHandles(table, HiveSessionProperties.isRowIDEnabled(session)).stream()
                     .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
 
             // streamPartitioningColumns is how we partition the data across splits.
@@ -3623,7 +3624,7 @@ public class HiveMetadata
     }
 
     @VisibleForTesting
-    static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager, ColumnConverter columnConverter)
+    static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table, TypeManager typeManager, ColumnConverter columnConverter, boolean enableRowID)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
@@ -3655,7 +3656,9 @@ public class HiveMetadata
 
         builder.put(FILE_SIZE_COLUMN_NAME, Optional.empty());
         builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, Optional.empty());
-        builder.put(ROW_ID_COLUMN_NAME, Optional.empty());
+        if (enableRowID) {
+            builder.put(ROW_ID_COLUMN_NAME, Optional.empty());
+        }
 
         Map<String, Optional<String>> columnComment = builder.build();
 
