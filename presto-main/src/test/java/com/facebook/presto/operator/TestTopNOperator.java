@@ -169,6 +169,8 @@ public class TestTopNOperator
     public void testLimitZero()
             throws Exception
     {
+        List<Page> input = rowPagesBuilder(BIGINT).row(1L).build();
+
         TopNOperatorFactory factory = new TopNOperatorFactory(
                 0,
                 new PlanNodeId("test"),
