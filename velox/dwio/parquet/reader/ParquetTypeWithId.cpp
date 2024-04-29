@@ -48,6 +48,8 @@ ParquetTypeWithId::moveChildren() && {
     auto logicalType = parquetChild->logicalType_;
     auto maxRepeat = parquetChild->maxRepeat_;
     auto maxDefine = parquetChild->maxDefine_;
+    auto isOptional = parquetChild->isOptional_;
+    auto isRepeated = parquetChild->isRepeated_;
     auto precision = parquetChild->precision_;
     auto scale = parquetChild->scale_;
     auto typeLength = parquetChild->typeLength_;
@@ -62,6 +64,8 @@ ParquetTypeWithId::moveChildren() && {
         std::move(logicalType),
         maxRepeat,
         maxDefine,
+        isOptional,
+        isRepeated,
         precision,
         scale,
         typeLength));
@@ -86,15 +90,14 @@ bool ParquetTypeWithId::hasNonRepeatedLeaf() const {
 }
 
 LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
-  int16_t repeatedAncestor = 0;
-  for (auto parent = parquetParent(); parent;
-       parent = parent->parquetParent()) {
-    if (parent->type()->kind() == TypeKind::ARRAY ||
-        parent->type()->kind() == TypeKind::MAP) {
-      repeatedAncestor = parent->maxDefine_;
-      break;
+  int repeatedAncestor = maxDefine_;
+  auto node = this;
+  do {
+    if (node->isOptional_) {
+      repeatedAncestor--;
     }
-  }
+    node = node->parquetParent();
+  } while (node && !node->isRepeated_);
   bool isList = type()->kind() == TypeKind::ARRAY;
   bool isStruct = type()->kind() == TypeKind::ROW;
   bool isMap = type()->kind() == TypeKind::MAP;

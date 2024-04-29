@@ -111,6 +111,19 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     createDuckDbTable({data});
   }
 
+  void loadDataWithRowType(const std::string& filePath, RowVectorPtr data) {
+    splits_ = {makeSplit(filePath)};
+    auto pool = facebook::velox::memory::memoryManager()->addLeafPool();
+    dwio::common::ReaderOptions readerOpts{pool.get()};
+    auto reader = std::make_unique<ParquetReader>(
+        std::make_unique<facebook::velox::dwio::common::BufferedInput>(
+            std::make_shared<LocalReadFile>(filePath),
+            readerOpts.getMemoryPool()),
+        readerOpts);
+    rowType_ = reader->rowType();
+    createDuckDbTable({data});
+  }
+
   std::string getExampleFilePath(const std::string& fileName) {
     return facebook::velox::test::getDataFilePath(
         "velox/dwio/parquet/tests/reader", "../examples/" + fileName);
@@ -303,9 +316,8 @@ TEST_F(ParquetTableScanTest, singleRowStruct) {
 }
 
 // Core dump and incorrect result are fixed.
-TEST_F(ParquetTableScanTest, DISABLED_array) {
-  auto vector = makeArrayVector<int32_t>({{1, 2, 3}});
-
+TEST_F(ParquetTableScanTest, array) {
+  auto vector = makeArrayVector<int32_t>({});
   loadData(
       getExampleFilePath("old_repeated_int.parquet"),
       ROW({"repeatedInt"}, {ARRAY(INTEGER())}),
@@ -316,12 +328,11 @@ TEST_F(ParquetTableScanTest, DISABLED_array) {
           }));
 
   assertSelectWithFilter(
-      {"repeatedInt"}, {}, "", "SELECT repeatedInt FROM tmp");
+      {"repeatedInt"}, {}, "", "SELECT UNNEST(array[array[1,2,3]])");
 }
 
 // Optional array with required elements.
-// Incorrect result.
-TEST_F(ParquetTableScanTest, DISABLED_optArrayReqEle) {
+TEST_F(ParquetTableScanTest, optArrayReqEle) {
   auto vector = makeArrayVector<StringView>({});
 
   loadData(
@@ -341,8 +352,7 @@ TEST_F(ParquetTableScanTest, DISABLED_optArrayReqEle) {
 }
 
 // Required array with required elements.
-// Core dump is fixed, but the result is incorrect.
-TEST_F(ParquetTableScanTest, DISABLED_reqArrayReqEle) {
+TEST_F(ParquetTableScanTest, reqArrayReqEle) {
   auto vector = makeArrayVector<StringView>({});
 
   loadData(
@@ -362,8 +372,7 @@ TEST_F(ParquetTableScanTest, DISABLED_reqArrayReqEle) {
 }
 
 // Required array with optional elements.
-// Incorrect result.
-TEST_F(ParquetTableScanTest, DISABLED_reqArrayOptEle) {
+TEST_F(ParquetTableScanTest, reqArrayOptEle) {
   auto vector = makeArrayVector<StringView>({});
 
   loadData(
@@ -382,14 +391,11 @@ TEST_F(ParquetTableScanTest, DISABLED_reqArrayOptEle) {
       "SELECT UNNEST(array[array['a', null], array[], array[null, 'b']])");
 }
 
-// Required array with legacy format.
-// Incorrect result.
-TEST_F(ParquetTableScanTest, DISABLED_reqArrayLegacy) {
+TEST_F(ParquetTableScanTest, arrayOfArrayTest) {
   auto vector = makeArrayVector<StringView>({});
 
-  loadData(
-      getExampleFilePath("array_3.parquet"),
-      ROW({"_1"}, {ARRAY(VARCHAR())}),
+  loadDataWithRowType(
+      getExampleFilePath("array_of_array1.parquet"),
       makeRowVector(
           {"_1"},
           {
@@ -398,6 +404,26 @@ TEST_F(ParquetTableScanTest, DISABLED_reqArrayLegacy) {
 
   assertSelectWithFilter(
       {"_1"},
+      {},
+      "",
+      "SELECT UNNEST(array[null, array[array['g', 'h'], null]])");
+}
+
+// Required array with legacy format.
+TEST_F(ParquetTableScanTest, reqArrayLegacy) {
+  auto vector = makeArrayVector<StringView>({});
+
+  loadData(
+      getExampleFilePath("array_3.parquet"),
+      ROW({"element"}, {ARRAY(VARCHAR())}),
+      makeRowVector(
+          {"element"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter(
+      {"element"},
       {},
       "",
       "SELECT UNNEST(array[array['a', 'b'], array[], array['c', 'd']])");
