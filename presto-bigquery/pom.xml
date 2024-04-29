@@ -173,6 +173,10 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>com.google.oauth-client</groupId>
+                    <artifactId>google-oauth-client</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>io.grpc</groupId>
                     <artifactId>grpc-protobuf-lite</artifactId>
                 </exclusion>
