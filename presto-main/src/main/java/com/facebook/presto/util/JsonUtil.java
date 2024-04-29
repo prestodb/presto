@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -95,7 +96,6 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonUtil
@@ -914,7 +914,7 @@ public final class JsonUtil
     // given a JSON parser, write to the BlockBuilder
     public interface BlockBuilderAppender
     {
-        void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException;
 
         static BlockBuilderAppender createBlockBuilderAppender(Type type)
@@ -955,7 +955,7 @@ public final class JsonUtil
                 case StandardTypes.VARCHAR:
                     return new VarcharBlockBuilderAppender(type);
                 case StandardTypes.JSON:
-                    return (parser, blockBuilder, sqlFunctionProperties) -> {
+                    return (parser, blockBuilder) -> {
                         String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
                         JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
                     };
@@ -974,7 +974,7 @@ public final class JsonUtil
                     for (int i = 0; i < fieldAppenders.length; i++) {
                         fieldAppenders[i] = createBlockBuilderAppender(rowFields.get(i).getType());
                     }
-                    return new RowBlockBuilderAppender(fieldAppenders, rowType);
+                    return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
                 default:
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
             }
@@ -985,7 +985,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Boolean result = currentTokenAsBoolean(parser);
@@ -1002,7 +1002,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsTinyint(parser);
@@ -1019,7 +1019,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsInteger(parser);
@@ -1036,7 +1036,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsInteger(parser);
@@ -1053,7 +1053,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsBigint(parser);
@@ -1070,7 +1070,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsReal(parser);
@@ -1087,7 +1087,7 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Double result = currentTokenAsDouble(parser);
@@ -1111,7 +1111,7 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Long result = currentTokenAsShortDecimal(parser, type.getPrecision(), type.getScale());
@@ -1136,7 +1136,7 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Slice result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
@@ -1161,7 +1161,7 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             Slice result = currentTokenAsVarchar(parser);
@@ -1185,7 +1185,7 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
@@ -1198,7 +1198,7 @@ public final class JsonUtil
             }
             BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
             while (parser.nextToken() != END_ARRAY) {
-                elementAppender.append(parser, entryBuilder, sqlFunctionProperties);
+                elementAppender.append(parser, entryBuilder);
             }
             blockBuilder.closeEntry();
         }
@@ -1219,7 +1219,7 @@ public final class JsonUtil
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
@@ -1234,9 +1234,9 @@ public final class JsonUtil
             HashTable entryBuilderHashTable = new HashTable(keyType, entryBuilder);
             int position = 0;
             while (parser.nextToken() != END_OBJECT) {
-                keyAppender.append(parser, entryBuilder, sqlFunctionProperties);
+                keyAppender.append(parser, entryBuilder);
                 parser.nextToken();
-                valueAppender.append(parser, entryBuilder, sqlFunctionProperties);
+                valueAppender.append(parser, entryBuilder);
                 if (!entryBuilderHashTable.addIfAbsent(position)) {
                     throw new JsonCastException("Duplicate keys are not allowed");
                 }
@@ -1250,18 +1250,16 @@ public final class JsonUtil
             implements BlockBuilderAppender
     {
         final BlockBuilderAppender[] fieldAppenders;
-        final RowType rowType;
+        final Optional<Map<String, Integer>> fieldNameToIndex;
 
-        RowBlockBuilderAppender(
-                BlockBuilderAppender[] fieldAppenders,
-                RowType rowType)
+        RowBlockBuilderAppender(BlockBuilderAppender[] fieldAppenders, Optional<Map<String, Integer>> fieldNameToIndex)
         {
             this.fieldAppenders = fieldAppenders;
-            this.rowType = rowType;
+            this.fieldNameToIndex = fieldNameToIndex;
         }
 
         @Override
-        public void append(JsonParser parser, BlockBuilder blockBuilder, SqlFunctionProperties sqlFunctionProperties)
+        public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
             if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
@@ -1277,21 +1275,20 @@ public final class JsonUtil
                     parser,
                     (SingleRowBlockWriter) blockBuilder.beginBlockEntry(),
                     fieldAppenders,
-                    rowType,
-                    sqlFunctionProperties);
+                    fieldNameToIndex);
             blockBuilder.closeEntry();
         }
     }
 
-    public static Optional<Map<Field, Integer>> getFieldToIndex(List<Field> rowFields)
+    public static Optional<Map<String, Integer>> getFieldNameToIndex(List<Field> rowFields)
     {
         if (!rowFields.get(0).getName().isPresent()) {
             return Optional.empty();
         }
 
-        Map<Field, Integer> fieldNameToIndex = new HashMap<>(rowFields.size());
+        Map<String, Integer> fieldNameToIndex = new HashMap<>(rowFields.size());
         for (int i = 0; i < rowFields.size(); i++) {
-            fieldNameToIndex.put(rowFields.get(i), i);
+            fieldNameToIndex.put(rowFields.get(i).getName().get(), i);
         }
         return Optional.of(fieldNameToIndex);
     }
@@ -1303,14 +1300,13 @@ public final class JsonUtil
             JsonParser parser,
             SingleRowBlockWriter singleRowBlockWriter,
             BlockBuilderAppender[] fieldAppenders,
-            RowType rowType,
-            SqlFunctionProperties sqlFunctionProperties)
+            Optional<Map<String, Integer>> fieldNameToIndex)
             throws IOException
     {
         if (parser.getCurrentToken() == START_ARRAY) {
             for (int i = 0; i < fieldAppenders.length; i++) {
                 parser.nextToken();
-                fieldAppenders[i].append(parser, singleRowBlockWriter, sqlFunctionProperties);
+                fieldAppenders[i].append(parser, singleRowBlockWriter);
             }
             if (parser.nextToken() != JsonToken.END_ARRAY) {
                 throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
@@ -1318,47 +1314,18 @@ public final class JsonUtil
         }
         else {
             verify(parser.getCurrentToken() == START_OBJECT);
-            Optional<Map<Field, Integer>> fieldToIndex = getFieldToIndex(rowType.getFields());
-            if (!fieldToIndex.isPresent()) {
+            if (!fieldNameToIndex.isPresent()) {
                 throw new JsonCastException("Cannot cast a JSON object to anonymous row type. Input must be a JSON array.");
             }
             boolean[] fieldWritten = new boolean[fieldAppenders.length];
             int numFieldsWritten = 0;
 
-            Map<String, Integer> caseSensitiveWhenMatching = new HashMap<>();
-            Map<String, Integer> caseInsensitiveWhenMatching = new HashMap<>();
-            if (sqlFunctionProperties.isLegacyJsonCast()) {
-                fieldToIndex.get().entrySet().stream()
-                        .forEach(entry -> caseInsensitiveWhenMatching.put(
-                                entry.getKey().getName().get().toLowerCase(ENGLISH),
-                                entry.getValue()));
-            }
-            else {
-                fieldToIndex.get().entrySet().stream()
-                        .forEach(entry -> {
-                            if (entry.getKey().isDelimited()) {
-                                caseSensitiveWhenMatching.put(
-                                        entry.getKey().getName().get(),
-                                        entry.getValue());
-                            }
-                            else {
-                                caseInsensitiveWhenMatching.put(
-                                        entry.getKey().getName().get().toLowerCase(ENGLISH),
-                                        entry.getValue());
-                            }
-                        });
-            }
             while (parser.nextToken() != JsonToken.END_OBJECT) {
                 if (parser.currentToken() != FIELD_NAME) {
                     throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
                 }
-
-                String fieldName = parser.getText();
-                Integer fieldIndex = caseSensitiveWhenMatching.get(fieldName);
-                if (fieldIndex == null) {
-                    fieldIndex = caseInsensitiveWhenMatching.get(fieldName.toLowerCase(ENGLISH));
-                }
-
+                String fieldName = parser.getText().toLowerCase(Locale.ENGLISH);
+                Integer fieldIndex = fieldNameToIndex.get().get(fieldName);
                 parser.nextToken();
                 if (fieldIndex != null) {
                     if (fieldWritten[fieldIndex]) {
@@ -1366,9 +1333,7 @@ public final class JsonUtil
                     }
                     fieldWritten[fieldIndex] = true;
                     numFieldsWritten++;
-                    fieldAppenders[fieldIndex].append(parser,
-                            singleRowBlockWriter.getFieldBlockBuilder(fieldIndex),
-                            sqlFunctionProperties);
+                    fieldAppenders[fieldIndex].append(parser, singleRowBlockWriter.getFieldBlockBuilder(fieldIndex));
                 }
                 else {
                     parser.skipChildren();
