@@ -18,8 +18,10 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
+import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -51,6 +53,7 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistri
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy.MODULAR_HASHING;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -77,7 +80,7 @@ public class SimpleNodeSelector
     private final long maxPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
-    private final int maxPreferredNodes;
+    private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -90,7 +93,7 @@ public class SimpleNodeSelector
             long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             int maxTasksPerStage,
-            int maxPreferredNodes)
+            NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -103,7 +106,7 @@ public class SimpleNodeSelector
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
-        this.maxPreferredNodes = maxPreferredNodes;
+        this.nodeSelectionHashStrategy = requireNonNull(nodeSelectionHashStrategy, "nodeSelectionHashStrategy is null");
     }
 
     @Override
@@ -149,7 +152,8 @@ public class SimpleNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        NodeProvider nodeProvider = nodeMap.getNodeProvider(maxPreferredNodes);
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
+
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
             List<InternalNode> candidateNodes;
@@ -159,6 +163,10 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
+                    // Using all nodes for soft affinity scheduling with modular hashing because otherwise temporarily down nodes would trigger too much rehashing
+                    if (nodeSelectionHashStrategy == MODULAR_HASHING) {
+                        nodeProvider = new ModularHashingNodeProvider(nodeMap.getAllNodes());
+                    }
                     candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()

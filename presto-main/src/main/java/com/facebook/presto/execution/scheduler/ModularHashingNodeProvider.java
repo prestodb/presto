@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.hash.HashFunction;
 
@@ -28,6 +29,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 
 public class ModularHashingNodeProvider
+        implements NodeProvider
 {
     private static final HashFunction HASH_FUNCTION = murmur3_32();
 
@@ -41,6 +43,7 @@ public class ModularHashingNodeProvider
         this.sortedCandidates = sortedCandidates;
     }
 
+    @Override
     public List<HostAddress> get(String identifier, int count)
     {
         int size = sortedCandidates.size();

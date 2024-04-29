@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 
@@ -33,6 +34,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ConsistentHashingNodeProvider
+        implements NodeProvider
 {
     private static final HashFunction HASH_FUNCTION = murmur3_32();
     private final NavigableMap<Integer, InternalNode> candidates;
@@ -55,6 +57,7 @@ public class ConsistentHashingNodeProvider
         this.nodeCount = nodeCount;
     }
 
+    @Override
     public List<HostAddress> get(String key, int count)
     {
         if (count > nodeCount) {

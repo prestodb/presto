@@ -167,7 +167,7 @@ public class TestHiveSplitSource
     private static String getAffinitySchedulingKey(HiveSplit split)
     {
         AtomicReference<String> reference = new AtomicReference<>();
-        split.getPreferredNodes((key) -> {
+        split.getPreferredNodes((key, count) -> {
             reference.set(key);
             return ImmutableList.of();
         });

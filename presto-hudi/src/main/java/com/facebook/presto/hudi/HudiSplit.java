@@ -109,7 +109,7 @@ public class HudiSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return baseFile.map(file -> nodeProvider.get(file.getPath())).orElse(addresses);
+            return baseFile.map(file -> nodeProvider.get(file.getPath(), 2)).orElse(addresses);
         }
         return addresses;
     }

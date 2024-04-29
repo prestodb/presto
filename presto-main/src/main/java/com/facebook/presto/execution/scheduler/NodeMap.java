@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.lang.String.format;
+
 public class NodeMap
 {
     private final Map<String, InternalNode> activeNodesByNodeId;
@@ -90,12 +92,15 @@ public class NodeMap
         return allNodesByHostAndPort;
     }
 
-    public NodeProvider getNodeProvider(int nodeCount)
+    public NodeProvider getActiveNodeProvider(NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
-        if (consistentHashingNodeProvider.isPresent()) {
-            return (key) -> consistentHashingNodeProvider.get().get(key, nodeCount);
+        switch (nodeSelectionHashStrategy) {
+            case MODULAR_HASHING:
+                return new ModularHashingNodeProvider(activeNodes);
+            case CONSISTENT_HASHING:
+                return consistentHashingNodeProvider.get();
+            default:
+                throw new IllegalArgumentException(format("Unknown NodeSelectionHashStrategy: %s", nodeSelectionHashStrategy));
         }
-        ModularHashingNodeProvider modularHashingNodeProvider = new ModularHashingNodeProvider(allNodes);
-        return (key) -> modularHashingNodeProvider.get(key, nodeCount);
     }
 }

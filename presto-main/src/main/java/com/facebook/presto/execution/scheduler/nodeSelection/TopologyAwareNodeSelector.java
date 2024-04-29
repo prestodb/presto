@@ -22,6 +22,7 @@ import com.facebook.presto.execution.scheduler.NetworkLocation;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSelectionHashStrategy;
 import com.facebook.presto.execution.scheduler.ResettableRandomizedIterator;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
@@ -76,7 +77,7 @@ public class TopologyAwareNodeSelector
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NetworkLocationCache networkLocationCache;
-    private final int maxPreferredNodes;
+    private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
@@ -91,7 +92,7 @@ public class TopologyAwareNodeSelector
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
             NetworkLocationCache networkLocationCache,
-            int maxPreferredNodes)
+            NodeSelectionHashStrategy nodeSelectionHashStrategy)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -106,7 +107,7 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
-        this.maxPreferredNodes = maxPreferredNodes;
+        this.nodeSelectionHashStrategy = requireNonNull(nodeSelectionHashStrategy, "nodeSelectionHashStrategy is null");
     }
 
     @Override
@@ -152,7 +153,8 @@ public class TopologyAwareNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        NodeProvider nodeProvider = nodeMap.getNodeProvider(maxPreferredNodes);
+        NodeProvider nodeProvider = nodeMap.getActiveNodeProvider(nodeSelectionHashStrategy);
+
         for (Split split : splits) {
             SplitWeight splitWeight = split.getSplitWeight();
             if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
