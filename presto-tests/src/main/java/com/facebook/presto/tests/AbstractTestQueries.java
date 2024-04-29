@@ -124,7 +124,6 @@ import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -1026,7 +1025,9 @@ public abstract class AbstractTestQueries
         assertQuerySucceeds(session, "SELECT DISTINCT custkey FROM orders LIMIT 10000");
 
         assertQuery(session, "" +
-                "SELECT DISTINCT x FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a LIMIT 100",
+                        "SELECT DISTINCT x " +
+                        "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
+                        "LIMIT 100",
                 "SELECT 1");
     }
 
@@ -2676,7 +2677,7 @@ public abstract class AbstractTestQueries
     {
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE ''");
-            fail();
+            assertTrue(false);
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -2684,7 +2685,7 @@ public abstract class AbstractTestQueries
 
         try {
             MaterializedResult result = computeActual(getSession(), "SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'");
-            fail();
+            assertTrue(false);
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3034,7 +3035,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE ''");
-            fail();
+            assertTrue(false);
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -3042,7 +3043,7 @@ public abstract class AbstractTestQueries
 
         try {
             computeActual(session, "SHOW SESSION LIKE 't$_%' ESCAPE '$$'");
-            fail();
+            assertTrue(false);
         }
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
@@ -7260,19 +7261,21 @@ public abstract class AbstractTestQueries
         assertSorted(result.getMaterializedRows().get(0).getFields());
     }
 
-    private static void assertSorted(List<Object> array)
+    private static boolean assertSorted(List<Object> array)
     {
         int i = 1;
         for (; i < array.size(); i++) {
             if (array.get(i) == null) {
                 break;
             }
-            assertTrue(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
+            assertThat(((Comparable) array.get(i)).compareTo((Comparable) array.get(i - 1)) >= 0);
         }
 
         while (i < array.size()) {
-            assertNull(array.get(i++));
+            assertThat(array.get(i++) == null);
         }
+
+        return true;
     }
 
     @Test
