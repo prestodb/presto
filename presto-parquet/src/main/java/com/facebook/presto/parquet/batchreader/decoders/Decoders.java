@@ -13,19 +13,33 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DataPageV1;
 import com.facebook.presto.parquet.DataPageV2;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryLongDecimalDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.BinaryShortDecimalDeltaValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayLongDecimalDeltaValueDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.FixedLenByteArrayShortDecimalDeltaValueDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int32DeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int32ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryLongDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayLongDecimalPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.FixedLenByteArrayShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
@@ -33,6 +47,8 @@ import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDeco
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
@@ -43,6 +59,7 @@ import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.ByteArrayInputStream;
@@ -50,6 +67,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static com.facebook.presto.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
@@ -61,7 +79,11 @@ import static com.facebook.presto.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_IO_READ_ERROR;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.parquet.ParquetErrorCode.PARQUET_UNSUPPORTED_ENCODING;
+import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ValuesType.VALUES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -98,11 +120,18 @@ public class Decoders
                 case BOOLEAN:
                     return new BooleanPlainValuesDecoder(buffer, offset, length);
                 case INT32:
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int32ShortDecimalPlainValuesDecoder(buffer, offset, length);
+                    }
                 case FLOAT:
                     return new Int32PlainValuesDecoder(buffer, offset, length);
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
                         return new Int64TimestampMicrosPlainValuesDecoder(buffer, offset, length);
+                    }
+
+                    if (isShortDecimalType(columnDescriptor)) {
+                        return new Int64ShortDecimalPlainValuesDecoder(buffer, offset, length);
                     }
                 }
                 case DOUBLE:
@@ -110,8 +139,25 @@ public class Decoders
                 case INT96:
                     return new TimestampPlainValuesDecoder(buffer, offset, length);
                 case BINARY:
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new BinaryShortDecimalPlainValuesDecoder(buffer, offset, length);
+                        }
+                        return new BinaryLongDecimalPlainValuesDecoder(buffer, offset, length);
+                    }
                     return new BinaryPlainValuesDecoder(buffer, offset, length);
                 case FIXED_LEN_BYTE_ARRAY:
+                    Optional<Type> prestoType = createDecimalType(columnDescriptor);
+                    if (prestoType.isPresent()) {
+                        DecimalType decimalType = (DecimalType) prestoType.get();
+                        if (decimalType.isShort()) {
+                            return new FixedLenByteArrayShortDecimalPlainValuesDecoder(columnDescriptor, buffer, offset, length);
+                        }
+                        else {
+                            int typeLength = columnDescriptor.getPrimitiveType().getTypeLength();
+                            return new FixedLenByteArrayLongDecimalPlainValuesDecoder(typeLength, buffer, offset, length);
+                        }
+                    }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
@@ -146,6 +192,12 @@ public class Decoders
                     return new BinaryRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
                 }
                 case FIXED_LEN_BYTE_ARRAY:
+                    if (isDecimalType(columnDescriptor)) {
+                        if (isShortDecimalType(columnDescriptor)) {
+                            return new ShortDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                        }
+                        return new LongDecimalRLEDictionaryValuesDecoder(bitWidth, inputStream, (BinaryBatchDictionary) dictionary);
+                    }
                 default:
                     throw new PrestoException(PARQUET_UNSUPPORTED_COLUMN_TYPE, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
             }
@@ -155,12 +207,21 @@ public class Decoders
             ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
             switch (type) {
                 case INT32:
+                    if (isShortDecimalType(columnDescriptor)) {
+                        ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                        return new Int32ShortDecimalDeltaValuesDecoder(parquetReader);
+                    }
                 case FLOAT: {
                     return new Int32DeltaBinaryPackedValuesDecoder(valueCount, inputStream);
                 }
                 case INT64: {
                     if (isTimeStampMicrosType(columnDescriptor)) {
                         return new Int64TimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream);
+                    }
+
+                    if (isShortDecimalType(columnDescriptor)) {
+                        ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                        return new Int64ShortDecimalDeltaValuesDecoder(parquetReader);
                     }
                 }
                 case DOUBLE: {
@@ -173,9 +234,44 @@ public class Decoders
 
         if ((encoding == DELTA_BYTE_ARRAY || encoding == DELTA_LENGTH_BYTE_ARRAY) && type == PrimitiveTypeName.BINARY) {
             ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+
+            Optional<Type> prestoType = createDecimalType(columnDescriptor);
+            if (prestoType.isPresent()) {
+                DecimalType decimalType = (DecimalType) prestoType.get();
+                if (decimalType.isShort()) {
+                    return new BinaryShortDecimalDeltaValuesDecoder(encoding, valueCount, inputStream);
+                }
+                else {
+                    return new BinaryLongDecimalDeltaValuesDecoder(encoding, valueCount, inputStream);
+                }
+            }
             return new BinaryDeltaValuesDecoder(encoding, valueCount, inputStream);
         }
+
+        if (encoding == DELTA_BYTE_ARRAY && type == PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY) {
+            Optional<Type> prestoType = createDecimalType(columnDescriptor);
+            if (prestoType.isPresent()) {
+                ByteBufferInputStream inputStream = ByteBufferInputStream.wrap(ByteBuffer.wrap(buffer, offset, length));
+                DecimalType decimalType = (DecimalType) prestoType.get();
+                ValuesReader parquetReader = getParquetReader(encoding, columnDescriptor, valueCount, inputStream);
+                if (decimalType.isShort()) {
+                    return new FixedLenByteArrayShortDecimalDeltaValueDecoder(parquetReader, columnDescriptor);
+                }
+                else {
+                    return new FixedLenByteArrayLongDecimalDeltaValueDecoder(parquetReader);
+                }
+            }
+        }
+
         throw new PrestoException(PARQUET_UNSUPPORTED_ENCODING, format("Column: %s, Encoding: %s", columnDescriptor, encoding));
+    }
+
+    private static ValuesReader getParquetReader(ParquetEncoding encoding, ColumnDescriptor descriptor, int valueCount, ByteBufferInputStream inputStream)
+            throws IOException
+    {
+        ValuesReader valuesReader = encoding.getValuesReader(descriptor, VALUES);
+        valuesReader.initFromPage(valueCount, inputStream);
+        return valuesReader;
     }
 
     private static FlatDecoders readFlatPageV1(DataPageV1 page, RichColumnDescriptor columnDescriptor, Dictionary dictionary)

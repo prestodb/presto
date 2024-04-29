@@ -61,4 +61,9 @@ public class BytesUtils
         out[6 + outPos] = (byte) (inByte >> 6 & 1);
         out[7 + outPos] = (byte) (inByte >> 7 & 1);
     }
+
+    public static long propagateSignBit(long value, int bitsToPad)
+    {
+        return value << bitsToPad >> bitsToPad;
+    }
 }

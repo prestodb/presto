@@ -134,6 +134,7 @@ public class ParquetTestUtils
         jobConf.setLong(ParquetOutputFormat.BLOCK_SIZE, new DataSize(256, MEGABYTE).toBytes());
         jobConf.setLong(ParquetOutputFormat.PAGE_SIZE, new DataSize(100, KILOBYTE).toBytes());
         jobConf.set(ParquetOutputFormat.COMPRESSION, "snappy");
+        jobConf.setBoolean(org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY, false);
 
         Properties properties = new Properties();
         properties.setProperty("columns", columnName);
@@ -439,7 +440,8 @@ public class ParquetTestUtils
 
             if (primitiveType.getDecimalMetadata() != null) {
                 builder = (Types.PrimitiveBuilder<PrimitiveType>) builder.scale(primitiveType.getDecimalMetadata().getScale())
-                        .precision(primitiveType.getDecimalMetadata().getPrecision());
+                        .precision(primitiveType.getDecimalMetadata().getPrecision())
+                        .as(primitiveType.getOriginalType());
             }
 
             return builder.length(primitiveType.getTypeLength())
