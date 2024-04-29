@@ -30,19 +30,17 @@ template <typename T>
 struct ToUnixtimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       double& result,
       const arg_type<Timestamp>& timestamp) {
     result = toUnixtime(timestamp);
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       double& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     const auto milliseconds = unpackMillisUtc(timestampWithTimezone);
     result = (double)milliseconds / kMillisecondsInSecond;
-    return true;
   }
 };
 
@@ -1025,7 +1023,7 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Varchar>& unitString,
       const int64_t value,
@@ -1059,11 +1057,9 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
     } else {
       result = addToTimestamp(timestamp, unit, (int32_t)value);
     }
-
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<TimestampWithTimezone>& result,
       const arg_type<Varchar>& unitString,
       const int64_t value,
@@ -1081,11 +1077,9 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
     auto tzID = unpackZoneKeyId(timestampWithTimezone);
     finalTimeStamp.toGMT(tzID);
     result = pack(finalTimeStamp.toMillis(), tzID);
-
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& unitString,
       const int64_t value,
@@ -1099,7 +1093,6 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
     }
 
     result = addToDate(date, unit, (int32_t)value);
-    return true;
   }
 };
 
@@ -1228,7 +1221,7 @@ struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<Timestamp>& timestamp,
       const arg_type<Varchar>& formatString) {
@@ -1240,15 +1233,14 @@ struct DateFormatFunction : public TimestampWithTimezoneSupport<T> {
     const auto resultSize = mysqlDateTime_->format(
         timestamp, sessionTimeZone_, maxResultSize_, result.data());
     result.resize(resultSize);
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone,
       const arg_type<Varchar>& formatString) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);
-    return call(result, timestamp, formatString);
+    call(result, timestamp, formatString);
   }
 
  private:
@@ -1301,7 +1293,7 @@ struct DateParseFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
@@ -1319,7 +1311,6 @@ struct DateParseFunction {
     int16_t timezoneId = sessionTzID_.value_or(0);
     dateTimeResult.timestamp.toGMT(timezoneId);
     result = dateTimeResult.timestamp;
-    return true;
   }
 };
 
@@ -1415,7 +1406,7 @@ struct ParseDateTimeFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<TimestampWithTimezone>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
@@ -1434,7 +1425,6 @@ struct ParseDateTimeFunction {
         : sessionTzID_.value_or(0);
     dateTimeResult.timestamp.toGMT(timezoneId);
     result = pack(dateTimeResult.timestamp.toMillis(), timezoneId);
-    return true;
   }
 };
 
