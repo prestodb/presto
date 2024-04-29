@@ -158,6 +158,9 @@ public class TableScanOperator
 
         this.split = split;
 
+        // TODO if the columns has $row_id then split.getConnectorSplit() should have a row ID partition component
+        // check that here, clean install, then run locally with a throw to see where the split comes from
+
         Object splitInfo = split.getInfo();
         Map<String, String> infoMap = split.getInfoMap();
 
