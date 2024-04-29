@@ -17,17 +17,21 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.type.VarbinaryType;
-import com.google.common.primitives.Longs;
 import org.testng.annotations.Test;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowIDCoercer
 {
-    private final byte[] rowIdPartitionComponent = {(byte) 8, (byte) 9};
-    private HiveCoercer coercer = new RowIDCoercer(rowIdPartitionComponent, "some_filename.dat");
+    private static final String ROW_GROUP_ID = "some_filename.dat";
+    private static final byte[] ROW_GROUP_ID_BYTES = ROW_GROUP_ID.getBytes(UTF_8);
+    private static final byte[] PARTITION_COMPONENT = {(byte) 8, (byte) 9};
+    private HiveCoercer coercer = new RowIDCoercer(PARTITION_COMPONENT, ROW_GROUP_ID);
 
     @Test
     public void testGetToType()
@@ -56,23 +60,18 @@ public class TestRowIDCoercer
         assertRowId(rowIDs, 5, Long.MAX_VALUE);
     }
 
-    private static void assertRowId(Block rowIDs, int position, long expected)
+    private static void assertRowId(Block rowIDs, int position, long rowNumber)
     {
         byte[] rowID = rowIDs.getSlice(position, 0, rowIDs.getSliceLength(position)).getBytes();
         assertEquals(rowID.length, 27);
-        assertEquals(rowID[25], (byte) 8);
-        assertEquals(rowID[26], (byte) 9);
-        byte[] rowNumber = reverse(Arrays.copyOf(rowID, 8));
-        assertEquals(Longs.fromByteArray(rowNumber), expected);
-    }
 
-    // I'm sure this can be micro-optimized. It's only a test. Clarity matters more.
-    private static byte[] reverse(byte[] in)
-    {
-        byte[] out = new byte[in.length];
-        for (int i = 0; i < in.length; i++) {
-            out[i] = in[in.length - i - 1];
-        }
-        return out;
+        byte[] actualPartitionComponent = Arrays.copyOfRange(rowID, 25, 27);
+        assertEquals(actualPartitionComponent, PARTITION_COMPONENT);
+
+        byte[] actualRowGroupId = Arrays.copyOfRange(rowID, 8, 25);
+        assertEquals(actualRowGroupId, ROW_GROUP_ID_BYTES);
+
+        long actualRowNumber = ByteBuffer.wrap(rowID).order(ByteOrder.LITTLE_ENDIAN).getLong();
+        assertEquals(actualRowNumber, rowNumber);
     }
 }
