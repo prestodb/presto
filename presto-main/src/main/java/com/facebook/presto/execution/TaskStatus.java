@@ -112,14 +112,14 @@ public class TaskStatus
         this.self = requireNonNull(self, "self is null");
         this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
-        checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
+        checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be non-negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
-        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be non-negative");
         this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
-        checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
+        checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be non-negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
-        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be non-negative");
         this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         this.outputBufferUtilization = outputBufferUtilization;
