@@ -711,15 +711,6 @@ void SsdFile::checkpoint(bool force) {
   checkpointDeleted_ = false;
   bytesAfterCheckpoint_ = 0;
   try {
-    // We schedule the potentially long fsync of the cache file on another
-    // thread of the cache write executor, if available. If there is none, we do
-    // the sync on this thread at the end.
-    auto fileSync = std::make_shared<AsyncSource<int>>(
-        [fd = fd_]() { return std::make_unique<int>(::fsync(fd)); });
-    if (executor_ != nullptr) {
-      executor_->add([fileSync]() { fileSync->prepare(); });
-    }
-
     const auto checkRc = [&](int32_t rc, const std::string& errMsg) {
       if (rc < 0) {
         VELOX_FAIL("{} with rc {} :{}", errMsg, rc, folly::errnoStr(errno));
@@ -767,6 +758,15 @@ void SsdFile::checkpoint(bool force) {
       state.write(asChar(&pair.first.offset), sizeof(pair.first.offset));
       auto offsetAndSize = pair.second.bits();
       state.write(asChar(&offsetAndSize), sizeof(offsetAndSize));
+    }
+
+    // We schedule the potentially long fsync of the cache file on another
+    // thread of the cache write executor, if available. If there is none, we do
+    // the sync on this thread at the end.
+    auto fileSync = std::make_shared<AsyncSource<int>>(
+        [fd = fd_]() { return std::make_unique<int>(::fsync(fd)); });
+    if (executor_ != nullptr) {
+      executor_->add([fileSync]() { fileSync->prepare(); });
     }
 
     // NOTE: we need to ensure cache file data sync update completes before
