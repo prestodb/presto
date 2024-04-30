@@ -139,10 +139,8 @@ class ExpressionFuzzerVerifier {
 
     // A no-op since we cannot tie errors directly to functions where they
     // occurred.
-    void onError(
-        const SelectivityVector& /*rows*/,
-        const ::facebook::velox::ErrorVector& /*errors*/,
-        const std::string& /*queryId*/) override {}
+    void onError(vector_size_t /*numRows*/, const std::string& /*queryId*/)
+        override {}
 
    private:
     std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;

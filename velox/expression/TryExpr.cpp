@@ -66,24 +66,21 @@ void applyListenersOnError(
   auto errors = context.errors();
   VELOX_CHECK_NOT_NULL(errors);
 
-  exec::LocalSelectivityVector errorRows(context.execCtx(), errors->size());
-  errorRows->clearAll();
+  vector_size_t numErrors = 0;
   rows.applyToSelected([&](auto row) {
     if (row < errors->size() && !errors->isNullAt(row)) {
-      errorRows->setValid(row, true);
+      ++numErrors;
     }
   });
-  errorRows->updateBounds();
 
-  if (!errorRows->hasSelections()) {
+  if (numErrors == 0) {
     return;
   }
 
   exprSetListeners().withRLock([&](auto& listeners) {
     if (!listeners.empty()) {
       for (auto& listener : listeners) {
-        listener->onError(
-            *errorRows, *errors, context.execCtx()->queryCtx()->queryId());
+        listener->onError(numErrors, context.execCtx()->queryCtx()->queryId());
       }
     }
   });

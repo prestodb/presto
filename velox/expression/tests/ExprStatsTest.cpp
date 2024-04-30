@@ -158,10 +158,8 @@ struct Event {
 
 class TestListener : public exec::ExprSetListener {
  public:
-  explicit TestListener(
-      std::vector<Event>& events,
-      std::vector<std::string>& exceptions)
-      : events_{events}, exceptions_{exceptions}, exceptionCount_{0} {}
+  explicit TestListener(std::vector<Event>& events)
+      : events_{events}, exceptionCount_{0} {}
 
   void onCompletion(
       const std::string& uuid,
@@ -169,21 +167,8 @@ class TestListener : public exec::ExprSetListener {
     events_.push_back({uuid, event.stats, event.sqls});
   }
 
-  void onError(
-      const SelectivityVector& rows,
-      const ::facebook::velox::ErrorVector& errors,
-      const std::string& /*queryId*/) override {
-    rows.applyToSelected([&](auto row) {
-      exceptionCount_++;
-
-      try {
-        auto exception =
-            *std::static_pointer_cast<std::exception_ptr>(errors.valueAt(row));
-        std::rethrow_exception(exception);
-      } catch (const std::exception& e) {
-        exceptions_.push_back(e.what());
-      }
-    });
+  void onError(vector_size_t numRows, const std::string& /*queryId*/) override {
+    exceptionCount_ += numRows;
   }
 
   int exceptionCount() const {
@@ -193,12 +178,10 @@ class TestListener : public exec::ExprSetListener {
   void reset() {
     exceptionCount_ = 0;
     events_.clear();
-    exceptions_.clear();
   }
 
  private:
   std::vector<Event>& events_;
-  std::vector<std::string>& exceptions_;
   int exceptionCount_;
 };
 
@@ -207,8 +190,7 @@ TEST_F(ExprStatsTest, listener) {
 
   // Register a listener to receive stats on ExprSet destruction.
   std::vector<Event> events;
-  std::vector<std::string> exceptions;
-  auto listener = std::make_shared<TestListener>(events, exceptions);
+  auto listener = std::make_shared<TestListener>(events);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
   ASSERT_FALSE(exec::registerExprSetListener(listener));
 
@@ -308,8 +290,7 @@ TEST_F(ExprStatsTest, specialForms) {
 
   // Register a listener to receive stats on ExprSet destruction.
   std::vector<Event> events;
-  std::vector<std::string> exceptions;
-  auto listener = std::make_shared<TestListener>(events, exceptions);
+  auto listener = std::make_shared<TestListener>(events);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
 
   auto data = makeRowVector({
@@ -367,8 +348,7 @@ TEST_F(ExprStatsTest, specialForms) {
 TEST_F(ExprStatsTest, errorLog) {
   // Register a listener to log exceptions.
   std::vector<Event> events;
-  std::vector<std::string> exceptions;
-  auto listener = std::make_shared<TestListener>(events, exceptions);
+  auto listener = std::make_shared<TestListener>(events);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
 
   auto data = makeRowVector(
@@ -386,14 +366,6 @@ TEST_F(ExprStatsTest, errorLog) {
 
   // Expect errors at rows 2 and 4.
   ASSERT_EQ(2, listener->exceptionCount());
-  ASSERT_EQ(2, exceptions.size());
-  for (const auto& exception : exceptions) {
-    ASSERT_TRUE(
-        exception.find("Context: cast((c0) as INTEGER)") != std::string::npos);
-    ASSERT_TRUE(
-        exception.find("Error Code: INVALID_ARGUMENT") != std::string::npos);
-    ASSERT_TRUE(exception.find("Stack trace:") != std::string::npos);
-  }
 
   // Test with multiple try expressions. Expect errors at rows 1, 2, 4, and 6.
   // The second row in c1 does not cause an additional error because the
@@ -405,7 +377,6 @@ TEST_F(ExprStatsTest, errorLog) {
 
   evaluate(*exprSet, data);
   ASSERT_EQ(4, listener->exceptionCount());
-  ASSERT_EQ(4, exceptions.size());
 
   // Test with nested try expressions. Expect errors at rows 2, 3, 4, and 6. Row
   // 5 in c2 does not cause an error because the corresponding row in c0 is
@@ -416,15 +387,6 @@ TEST_F(ExprStatsTest, errorLog) {
 
   evaluate(*exprSet, data);
   ASSERT_EQ(4, listener->exceptionCount());
-  ASSERT_EQ(4, exceptions.size());
-  ASSERT_TRUE(
-      exceptions[0].find("Error Code: INVALID_ARGUMENT") != std::string::npos);
-  ASSERT_TRUE(
-      exceptions[1].find("Error Code: INVALID_ARGUMENT") != std::string::npos);
-  ASSERT_TRUE(
-      exceptions[2].find("Error Code: ARITHMETIC_ERROR") != std::string::npos);
-  ASSERT_TRUE(
-      exceptions[3].find("Error Code: ARITHMETIC_ERROR") != std::string::npos);
 
   // Test with no error.
   listener->reset();
@@ -432,7 +394,6 @@ TEST_F(ExprStatsTest, errorLog) {
 
   evaluate(*exprSet, data);
   ASSERT_EQ(0, listener->exceptionCount());
-  ASSERT_EQ(0, exceptions.size());
 
   ASSERT_TRUE(exec::unregisterExprSetListener(listener));
 }
@@ -442,8 +403,7 @@ TEST_F(ExprStatsTest, complexConstants) {
   // '__complex_constant(c#)' pseudo functions.
 
   std::vector<Event> events;
-  std::vector<std::string> exceptions;
-  auto listener = std::make_shared<TestListener>(events, exceptions);
+  auto listener = std::make_shared<TestListener>(events);
   ASSERT_TRUE(exec::registerExprSetListener(listener));
 
   std::vector<core::TypedExprPtr> expressions = {
@@ -456,7 +416,7 @@ TEST_F(ExprStatsTest, complexConstants) {
   }
 
   ASSERT_EQ(1, events.size());
-  ASSERT_EQ(0, exceptions.size());
+  ASSERT_EQ(0, listener->exceptionCount());
 
   ASSERT_EQ(1, events[0].sqls.size());
   ASSERT_EQ("__complex_constant(c0)", events[0].sqls[0]);

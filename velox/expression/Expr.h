@@ -819,14 +819,10 @@ class ExprSetListener {
       const ExprSetCompletionEvent& event) = 0;
 
   /// Called when a batch of rows encounters errors processing one or more
-  /// rows in a try expression to provide information about these errors. This
-  /// function must neither change rows nor errors.
-  /// @param rows Rows where errors exist.
-  /// @param errors Error vector produced inside the try expression.
-  virtual void onError(
-      const SelectivityVector& rows,
-      const ErrorVector& errors,
-      const std::string& queryId) = 0;
+  /// rows in a try expression to provide information about these errors.
+  /// @param numRows Number of rows with errors.
+  /// @param queryId Query ID.
+  virtual void onError(vector_size_t numRows, const std::string& queryId) = 0;
 };
 
 /// Return the ExprSetListeners having been registered.
