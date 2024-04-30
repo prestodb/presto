@@ -270,4 +270,15 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT value FROM test_rename.tmp_rename_new_table", "SELECT 1");
         assertUpdate("DROP TABLE test_rename.tmp_rename_new_table");
     }
+
+    @Test
+    public void testDeleteDocuments()
+    {
+        assertUpdate("CREATE TABLE test_delete.tmp_delete_rows (value bigint)");
+        MongoCollection<Document> collection = mongoQueryRunner.getMongoClient().getDatabase("test_delete").getCollection("tmp_delete_rows");
+        collection.insertOne(new Document(ImmutableMap.of("value", 1)));
+
+        assertUpdate("DELETE FROM test_delete.tmp_delete_rows WHERE value = 1", 1);
+        assertQuery("SELECT count(*) FROM test_delete.tmp_delete_rows", "SELECT 0");
+    }
 }

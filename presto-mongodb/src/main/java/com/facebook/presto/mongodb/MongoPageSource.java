@@ -20,8 +20,9 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.UpdatablePageSource;
+import com.google.common.collect.ImmutableList;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
 import org.bson.Document;
@@ -36,6 +37,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -53,10 +55,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
-        implements ConnectorPageSource
+        implements UpdatablePageSource
 {
     private static final ZoneId UTC_ZONE_ID = ZoneId.of("UTC");
     private static final int ROWS_PER_REQUEST = 1024;
@@ -313,5 +316,16 @@ public class MongoPageSource
     public void close()
     {
         cursor.close();
+    }
+
+    @Override
+    public void deleteRows(Block rowIds)
+    {
+    }
+
+    @Override
+    public CompletableFuture<Collection<Slice>> finish()
+    {
+        return completedFuture(ImmutableList.of());
     }
 }
