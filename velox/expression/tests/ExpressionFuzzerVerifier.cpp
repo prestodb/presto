@@ -250,7 +250,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
                 false, // canThrow
                 columnsToWrapInLazy)
             .result;
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     if (options_.findMinimalSubexpression) {
       computeMinimumSubExpression(
           {&execCtx_, {false, ""}},
@@ -281,7 +281,7 @@ void ExpressionFuzzerVerifier::retryWithTry(
                        : nullptr,
           false, // canThrow
           columnsToWrapInLazy);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       if (options_.findMinimalSubexpression) {
         computeMinimumSubExpression(
             {&execCtx_, {false, ""}},
@@ -339,7 +339,7 @@ void ExpressionFuzzerVerifier::go() {
           resultVectors ? BaseVector::copy(*resultVectors) : nullptr,
           true, // canThrow
           columnsToWrapInLazy);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       if (options_.findMinimalSubexpression) {
         computeMinimumSubExpression(
             {&execCtx_, {false, ""}},

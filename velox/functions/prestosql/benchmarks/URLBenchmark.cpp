@@ -127,7 +127,7 @@ struct FollyUrlExtractPortFunction {
       result = parsedUrl.port();
     } catch (const folly::ConversionError&) {
       return false;
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
       return false;
     }
     return true;
@@ -154,7 +154,7 @@ struct FollyUrlExtractParameterFunction {
           strncpy(result.data(), pair.second.c_str(), pair.second.length());
         }
       }
-    } catch (const std::invalid_argument& e) {
+    } catch (const std::invalid_argument&) {
       return false;
     }
     return false;

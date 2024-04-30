@@ -1020,7 +1020,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
           VELOX_CHECK(
               assertEqualResults({expected}, {actual}),
               "Logically equivalent plans produced different results");
-        } catch (const VeloxException& e) {
+        } catch (const VeloxException&) {
           LOG(ERROR) << "Expected\n"
                      << expected->toString(0, expected->size()) << "\nActual\n"
                      << actual->toString(0, actual->size());

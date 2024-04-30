@@ -431,7 +431,7 @@ class MinimalSubExpressionFinder {
           results ? BaseVector::copy(*results) : nullptr,
           true, // canThrow
           columnsToWrapInLazy);
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
       success = false;
     }
     FLAGS_minloglevel = 0;

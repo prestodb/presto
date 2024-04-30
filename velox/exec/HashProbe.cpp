@@ -1668,7 +1668,7 @@ void HashProbe::spillOutput(const std::vector<HashProbe*>& operators) {
       // this runs.
       try {
         spillTask->move();
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
       }
     }
   });
@@ -1770,7 +1770,7 @@ SpillPartitionSet HashProbe::spillTable() {
       // this runs.
       try {
         spillTask->move();
-      } catch (const std::exception& e) {
+      } catch (const std::exception&) {
       }
     }
   });
