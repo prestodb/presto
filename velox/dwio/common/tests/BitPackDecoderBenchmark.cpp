@@ -38,7 +38,7 @@ using RowSet = folly::Range<const facebook::velox::vector_size_t*>;
 
 static const uint64_t kNumValues = 1024768 * 8;
 
-namespace duckdb {
+namespace facebook::velox::parquet {
 
 class ByteBuffer { // on to the 10 thousandth impl
  public:
@@ -65,7 +65,7 @@ class ByteBuffer { // on to the 10 thousandth impl
   template <class T>
   T get() {
     available(sizeof(T));
-    T val = Load<T>((data_ptr_t)ptr);
+    T val = duckdb::Load<T>((duckdb::data_ptr_t)ptr);
     return val;
   }
 
@@ -104,7 +104,7 @@ class ParquetDecodeUtils {
       uint32_t count,
       uint8_t width) {
     if (width >= ParquetDecodeUtils::BITPACK_MASKS_SIZE) {
-      throw InvalidInputException(
+      throw duckdb::InvalidInputException(
           "The width (%d) of the bitpacked data exceeds the supported max width (%d), "
           "the file might be corrupted.",
           width,
@@ -145,9 +145,9 @@ class ParquetDecodeUtils {
     return result;
   }
 };
-} // namespace duckdb
+} // namespace facebook::velox::parquet
 
-const uint64_t duckdb::ParquetDecodeUtils::BITPACK_MASKS[] = {
+const uint64_t facebook::velox::parquet::ParquetDecodeUtils::BITPACK_MASKS[] = {
     0,
     1,
     3,
@@ -214,10 +214,11 @@ const uint64_t duckdb::ParquetDecodeUtils::BITPACK_MASKS[] = {
     9223372036854775807,
     18446744073709551615ULL};
 
-const uint64_t duckdb::ParquetDecodeUtils::BITPACK_MASKS_SIZE =
-    sizeof(ParquetDecodeUtils::BITPACK_MASKS) / sizeof(uint64_t);
+const uint64_t
+    facebook::velox::parquet::ParquetDecodeUtils::BITPACK_MASKS_SIZE =
+        sizeof(ParquetDecodeUtils::BITPACK_MASKS) / sizeof(uint64_t);
 
-const uint8_t duckdb::ParquetDecodeUtils::BITPACK_DLEN = 8;
+const uint8_t facebook::velox::parquet::ParquetDecodeUtils::BITPACK_DLEN = 8;
 
 // Array of bit packed representations of randomInts_u32. The array at index i
 // is packed i bits wide and the values come from the low bits of
@@ -316,11 +317,11 @@ void arrowBitUnpack(uint8_t bitWidth, T* result) {
 
 template <typename T>
 void duckdbBitUnpack(uint8_t bitWidth, T* result) {
-  duckdb::ByteBuffer duckInputBuffer(
+  facebook::velox::parquet::ByteBuffer duckInputBuffer(
       reinterpret_cast<char*>(bitPackedData[bitWidth].data()),
       BYTES(kNumValues, bitWidth));
   uint8_t bitpack_pos = 0;
-  duckdb::ParquetDecodeUtils::BitUnpack<T>(
+  facebook::velox::parquet::ParquetDecodeUtils::BitUnpack<T>(
       duckInputBuffer, bitpack_pos, result, kNumValues, bitWidth);
 }
 
