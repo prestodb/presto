@@ -78,6 +78,9 @@ class EvalCtx {
 
   void restore(ContextSaver& saver);
 
+  // @param status Must indicate an error. Cannot be "ok".
+  void setStatus(vector_size_t index, Status status);
+
   // If exceptionPtr is known to be a VeloxException use setVeloxExceptionError
   // instead.
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr);

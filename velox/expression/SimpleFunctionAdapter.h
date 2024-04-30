@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <exception>
 #include <memory>
 #include <optional>
 #include <type_traits>
 
 #include "velox/common/base/Portability.h"
+#include "velox/common/base/Status.h"
 #include "velox/expression/ComplexWriterTypes.h"
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/Expr.h"
@@ -193,6 +195,10 @@ class SimpleFunctionAdapter : public VectorFunction {
     template <typename Callable>
     void applyToSelectedNoThrow(Callable func) {
       context.template applyToSelectedNoThrow<Callable>(*rows, func);
+    }
+
+    void setError(vector_size_t row, Status status) {
+      context.setStatus(row, status);
     }
 
     const SelectivityVector* rows;
@@ -618,7 +624,11 @@ class SimpleFunctionAdapter : public VectorFunction {
               // Result is NULL because the input contains NULL.
               notNull = false;
             } else {
-              notNull = doApplyNullFree<0>(row, out, readers...);
+              auto status = doApplyNullFree<0>(row, out, notNull, readers...);
+              if UNLIKELY (!status.ok()) {
+                applyContext.setError(row, status);
+                return;
+              }
             }
 
             writeResult(row, notNull, out);
@@ -626,7 +636,12 @@ class SimpleFunctionAdapter : public VectorFunction {
         } else {
           applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
             typename return_type_traits::NativeType out{};
-            bool notNull = doApplyNullFree<0>(row, out, readers...);
+            bool notNull;
+            auto status = doApplyNullFree<0>(row, out, notNull, readers...);
+            if UNLIKELY (!status.ok()) {
+              applyContext.setError(row, status);
+              return;
+            }
 
             writeResult(row, notNull, out);
           });
@@ -636,7 +651,13 @@ class SimpleFunctionAdapter : public VectorFunction {
           if (applyContext.allAscii) {
             applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
               typename return_type_traits::NativeType out{};
-              bool notNull = doApplyAsciiNotNull<0>(row, out, readers...);
+              bool notNull;
+              auto status =
+                  doApplyAsciiNotNull<0>(row, out, notNull, readers...);
+              if UNLIKELY (!status.ok()) {
+                applyContext.setError(row, status);
+                return;
+              }
               writeResult(row, notNull, out);
             });
             return;
@@ -648,13 +669,23 @@ class SimpleFunctionAdapter : public VectorFunction {
           // optimization (eliminating the temp) is easier to do by the
           // compiler (assuming the function call is inlined).
           typename return_type_traits::NativeType out{};
-          bool notNull = doApplyNotNull<0>(row, out, readers...);
+          bool notNull;
+          auto status = doApplyNotNull<0>(row, out, notNull, readers...);
+          if UNLIKELY (!status.ok()) {
+            applyContext.setError(row, status);
+            return;
+          }
           writeResult(row, notNull, out);
         });
       } else {
         applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
           typename return_type_traits::NativeType out{};
-          bool notNull = doApply<0>(row, out, readers...);
+          bool notNull;
+          auto status = doApply<0>(row, out, notNull, readers...);
+          if UNLIKELY (!status.ok()) {
+            applyContext.setError(row, status);
+            return;
+          }
           writeResult(row, notNull, out);
         });
       }
@@ -664,36 +695,47 @@ class SimpleFunctionAdapter : public VectorFunction {
         // once per batch instead of once per row shows a significant
         // performance improvement when there are no nulls.
         if (applyContext.mayHaveNullsRecursive) {
-          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-            auto containsNull = (readers.containsNull(row) || ...);
-            if (containsNull) {
-              // Result is NULL because the input contains NULL.
-              return false;
-            }
+          applyUdf(
+              applyContext,
+              [&](auto& out, auto& notNull, auto row) INLINE_LAMBDA {
+                auto containsNull = (readers.containsNull(row) || ...);
+                if (containsNull) {
+                  // Result is NULL because the input contains NULL.
+                  notNull = false;
+                  return Status::OK();
+                }
 
-            return doApplyNullFree<0>(row, out, readers...);
-          });
+                return doApplyNullFree<0>(row, out, notNull, readers...);
+              });
         } else {
-          applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-            return doApplyNullFree<0>(row, out, readers...);
-          });
+          applyUdf(
+              applyContext,
+              [&](auto& out, auto& notNull, auto row) INLINE_LAMBDA {
+                return doApplyNullFree<0>(row, out, notNull, readers...);
+              });
         }
       } else if (allNotNull) {
         if constexpr (FUNC::has_ascii) {
           if (applyContext.allAscii) {
-            applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-              return doApplyAsciiNotNull<0>(row, out, readers...);
-            });
+            applyUdf(
+                applyContext,
+                [&](auto& out, auto& notNull, auto row) INLINE_LAMBDA {
+                  return doApplyAsciiNotNull<0>(row, out, notNull, readers...);
+                });
             return;
           }
         }
-        applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-          return doApplyNotNull<0>(row, out, readers...);
-        });
+        applyUdf(
+            applyContext,
+            [&](auto& out, auto& notNull, auto row) INLINE_LAMBDA {
+              return doApplyNotNull<0>(row, out, notNull, readers...);
+            });
       } else {
-        applyUdf(applyContext, [&](auto& out, auto row) INLINE_LAMBDA {
-          return doApply<0>(row, out, readers...);
-        });
+        applyUdf(
+            applyContext,
+            [&](auto& out, auto& notNull, auto row) INLINE_LAMBDA {
+              return doApply<0>(row, out, notNull, readers...);
+            });
       }
     }
   }
@@ -709,16 +751,26 @@ class SimpleFunctionAdapter : public VectorFunction {
         applyContext.resultWriter.setOffset(row);
         // Force local copy of proxy.
         auto localWriter = currentWriter;
-        auto notNull = func(localWriter, row);
-        currentWriter = localWriter;
-        applyContext.resultWriter.commit(notNull);
+        bool notNull;
+        auto status = func(localWriter, notNull, row);
+        if UNLIKELY (!status.ok()) {
+          applyContext.setError(row, status);
+        } else {
+          currentWriter = localWriter;
+          applyContext.resultWriter.commit(notNull);
+        }
       });
       applyContext.resultWriter.finish();
     } else {
       applyContext.applyToSelectedNoThrow([&](auto row) INLINE_LAMBDA {
         applyContext.resultWriter.setOffset(row);
-        applyContext.resultWriter.commit(
-            func(applyContext.resultWriter.current(), row));
+        bool notNull;
+        auto status = func(applyContext.resultWriter.current(), notNull, row);
+        if UNLIKELY (!status.ok()) {
+          applyContext.setError(row, status);
+        } else {
+          applyContext.resultWriter.commit(notNull);
+        }
       });
     }
   }
@@ -734,10 +786,11 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename... Values,
       std::enable_if_t<
           POSITION<FUNC::num_args && FUNC::is_default_null_behavior, int32_t> =
-              0> FOLLY_ALWAYS_INLINE bool
+              0> FOLLY_ALWAYS_INLINE Status
           doApply(
               size_t idx,
               T& target,
+              bool& notNull,
               R0& currentReader,
               const Values&... extra) const {
     if (LIKELY(currentReader.isSet(idx))) {
@@ -745,9 +798,10 @@ class SimpleFunctionAdapter : public VectorFunction {
       decltype(currentReader[idx]) v0 = currentReader[idx];
 
       // recurse through the readers to build the arg list at compile time.
-      return doApply<POSITION + 1>(idx, target, extra..., v0);
+      return doApply<POSITION + 1>(idx, target, notNull, extra..., v0);
     } else {
-      return false;
+      notNull = false;
+      return Status::OK();
     }
   }
 
@@ -758,10 +812,11 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename... Values,
       std::enable_if_t<
           POSITION<FUNC::num_args && !FUNC::is_default_null_behavior, int32_t> =
-              0> FOLLY_ALWAYS_INLINE bool
+              0> FOLLY_ALWAYS_INLINE Status
           doApply(
               size_t idx,
               T& target,
+              bool& notNull,
               R0& currentReader,
               const Values&... extra) const {
     // Recurse through all the arguments to build the arg list at compile
@@ -770,16 +825,17 @@ class SimpleFunctionAdapter : public VectorFunction {
       return doApply<POSITION + 1>(
           idx,
           target,
+          notNull,
           extra...,
           (currentReader.isSet(idx) ? &currentReader[idx] : nullptr));
     } else {
       using temp_type = std::remove_reference_t<decltype(currentReader[idx])>;
       if (currentReader.isSet(idx)) {
         temp_type temp = currentReader[idx];
-        return doApply<POSITION + 1>(idx, target, extra..., &temp);
+        return doApply<POSITION + 1>(idx, target, notNull, extra..., &temp);
       } else {
         return doApply<POSITION + 1>(
-            idx, target, extra..., (const temp_type*)nullptr);
+            idx, target, notNull, extra..., (const temp_type*)nullptr);
       }
     }
   }
@@ -791,9 +847,12 @@ class SimpleFunctionAdapter : public VectorFunction {
       std::enable_if_t<
           POSITION == FUNC::num_args && FUNC::is_default_null_behavior,
           int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool
-  doApply(size_t /*idx*/, T& target, const Values&... values) const {
-    return (*fn_).call(target, values...);
+  FOLLY_ALWAYS_INLINE Status doApply(
+      size_t /*idx*/,
+      T& target,
+      bool& notNull,
+      const Values&... values) const {
+    return (*fn_).call(target, notNull, values...);
   }
 
   // For NOT default null behavior, terminate with UDFHolder::callNullable.
@@ -803,9 +862,12 @@ class SimpleFunctionAdapter : public VectorFunction {
       std::enable_if_t<
           POSITION == FUNC::num_args && !FUNC::is_default_null_behavior,
           int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool
-  doApply(size_t /*idx*/, T& target, const Values*... values) const {
-    return (*fn_).callNullable(target, values...);
+  FOLLY_ALWAYS_INLINE Status doApply(
+      size_t /*idx*/,
+      T& target,
+      bool& notNull,
+      const Values*... values) const {
+    return (*fn_).callNullable(target, notNull, values...);
   }
 
   // == NOT-NULL VARIANT ==
@@ -822,13 +884,14 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename R0,
       typename... TStuff,
       std::enable_if_t<POSITION != FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool doApplyNotNull(
+  FOLLY_ALWAYS_INLINE Status doApplyNotNull(
       size_t idx,
       T& target,
+      bool& notNull,
       R0& currentReader,
       const TStuff&... extra) const {
     decltype(currentReader[idx]) v0 = currentReader[idx];
-    return doApplyNotNull<POSITION + 1>(idx, target, extra..., v0);
+    return doApplyNotNull<POSITION + 1>(idx, target, notNull, extra..., v0);
   }
 
   // For default null behavior, Terminate by with UDFHolder::call.
@@ -836,9 +899,12 @@ class SimpleFunctionAdapter : public VectorFunction {
       size_t POSITION,
       typename... Values,
       std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool
-  doApplyNotNull(size_t /*idx*/, T& target, const Values&... values) const {
-    return (*fn_).call(target, values...);
+  FOLLY_ALWAYS_INLINE Status doApplyNotNull(
+      size_t /*idx*/,
+      T& target,
+      bool& notNull,
+      const Values&... values) const {
+    return (*fn_).call(target, notNull, values...);
   }
 
   template <
@@ -846,24 +912,27 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename R0,
       typename... TStuff,
       std::enable_if_t<POSITION != FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool doApplyAsciiNotNull(
+  FOLLY_ALWAYS_INLINE Status doApplyAsciiNotNull(
       size_t idx,
       T& target,
+      bool& notNull,
       R0& currentReader,
       const TStuff&... extra) const {
     decltype(currentReader[idx]) v0 = currentReader[idx];
-    return doApplyAsciiNotNull<POSITION + 1>(idx, target, extra..., v0);
+    return doApplyAsciiNotNull<POSITION + 1>(
+        idx, target, notNull, extra..., v0);
   }
 
   template <
       size_t POSITION,
       typename... Values,
       std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool doApplyAsciiNotNull(
+  FOLLY_ALWAYS_INLINE Status doApplyAsciiNotNull(
       size_t /*idx*/,
       T& target,
+      bool& notNull,
       const Values&... values) const {
-    return (*fn_).callAscii(target, values...);
+    return (*fn_).callAscii(target, notNull, values...);
   }
 
   template <
@@ -871,22 +940,26 @@ class SimpleFunctionAdapter : public VectorFunction {
       typename R0,
       typename... TStuff,
       std::enable_if_t<POSITION != FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool doApplyNullFree(
+  FOLLY_ALWAYS_INLINE Status doApplyNullFree(
       size_t idx,
       T& target,
+      bool& notNull,
       R0& currentReader,
       const TStuff&... extra) const {
     auto v0 = currentReader.readNullFree(idx);
-    return doApplyNullFree<POSITION + 1>(idx, target, extra..., v0);
+    return doApplyNullFree<POSITION + 1>(idx, target, notNull, extra..., v0);
   }
 
   template <
       size_t POSITION,
       typename... Values,
       std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
-  FOLLY_ALWAYS_INLINE bool
-  doApplyNullFree(size_t /*idx*/, T& target, const Values&... values) const {
-    return (*fn_).callNullFree(target, values...);
+  FOLLY_ALWAYS_INLINE Status doApplyNullFree(
+      size_t /*idx*/,
+      T& target,
+      bool& notNull,
+      const Values&... values) const {
+    return (*fn_).callNullFree(target, notNull, values...);
   }
 };
 

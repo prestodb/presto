@@ -19,8 +19,10 @@
 #include <string>
 
 #include <glog/logging.h>
+#include <gtest/gtest.h>
 #include "folly/lang/Hint.h"
-#include "gtest/gtest.h"
+
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/SimpleFunctionAdapter.h"
 #include "velox/functions/Udf.h"
@@ -1135,7 +1137,7 @@ struct StringInputIntOutputFunction {
   }
 };
 
-TEST_F(SimpleFunctionTest, TestcallAscii) {
+TEST_F(SimpleFunctionTest, callAscii) {
   registerFunction<StringInputIntOutputFunction, int32_t, Varchar>(
       {"get_input_size"});
   auto asciiInput = makeFlatVector<std::string>({"abc123", "10% #\0"});
@@ -1476,6 +1478,59 @@ TEST_F(SimpleFunctionTest, decimalsWithConstraints) {
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(DECIMAL(11, 3)->toString(), resolved->type()->toString());
   }
+}
+
+template <typename TExec>
+struct NoThrowFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  Status call(out_type<int64_t>& out, const arg_type<int64_t>& in) {
+    if (in % 3 != 0) {
+      return Status::UserError("Input must be divisible by 3");
+    }
+
+    // Throwing exceptions is not recommended, but allowed.
+    VELOX_USER_CHECK(in % 2 == 0, "Input must be even");
+
+    if (in == 6) {
+      return Status::UnknownError("Input must not be 6");
+    }
+
+    out = in / 6;
+    return Status::OK();
+  }
+};
+
+TEST_F(SimpleFunctionTest, noThrow) {
+  registerFunction<NoThrowFunction, int64_t, int64_t>({"no_throw"});
+
+  auto result = evaluateOnce<int64_t, int64_t>("no_throw(c0)", 12);
+  EXPECT_EQ(2, result);
+
+  // Errors reported via Status.
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<int64_t, int64_t>("no_throw(c0)", 10)),
+      "Input must be divisible by 3");
+
+  result = evaluateOnce<int64_t, int64_t>("try(no_throw(c0))", 10);
+  EXPECT_EQ(std::nullopt, result);
+
+  // Errors reported by throwing exceptions.
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<int64_t, int64_t>("no_throw(c0)", 15)),
+      "Input must be even");
+
+  result = evaluateOnce<int64_t, int64_t>("try(no_throw(c0))", 15);
+  EXPECT_EQ(std::nullopt, result);
+
+  // Non-user errors cannot be suppressed by TRY.
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<int64_t, int64_t>("no_throw(c0)", 6)),
+      "Input must not be 6");
+
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<int64_t, int64_t>("try(no_throw(c0))", 6)),
+      "Input must not be 6");
 }
 
 } // namespace

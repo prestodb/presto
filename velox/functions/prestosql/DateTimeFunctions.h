@@ -1293,7 +1293,7 @@ struct DateParseFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE void call(
+  FOLLY_ALWAYS_INLINE Status call(
       out_type<Timestamp>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
@@ -1302,15 +1302,17 @@ struct DateParseFunction {
           std::string_view(format.data(), format.size()));
     }
 
-    auto dateTimeResult =
-        format_->parse(std::string_view(input.data(), input.size()), true)
-            .value();
+    auto dateTimeResult = format_->parse((std::string_view)(input));
+    if (!dateTimeResult.has_value()) {
+      return Status::UserError("Invalid date format: '{}'", input);
+    }
 
     // Since MySql format has no timezone specifier, simply check if session
     // timezone was provided. If not, fallback to 0 (GMT).
     int16_t timezoneId = sessionTzID_.value_or(0);
-    dateTimeResult.timestamp.toGMT(timezoneId);
-    result = dateTimeResult.timestamp;
+    dateTimeResult->timestamp.toGMT(timezoneId);
+    result = dateTimeResult->timestamp;
+    return Status::OK();
   }
 };
 

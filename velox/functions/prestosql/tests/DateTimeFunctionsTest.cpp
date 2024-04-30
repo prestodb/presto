@@ -3467,13 +3467,9 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
   EXPECT_EQ(
       Timestamp(-66600, 0), dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
 
-  VELOX_ASSERT_THROW(
-      dateParse("", "%y+"), "Invalid date format: '' is malformed at ''");
-  VELOX_ASSERT_THROW(
-      dateParse("1", "%y+"), "Invalid date format: '1' is malformed at '1'");
-  VELOX_ASSERT_THROW(
-      dateParse("116", "%y+"),
-      "Invalid date format: '116' is malformed at '6'");
+  VELOX_ASSERT_THROW(dateParse("", "%y+"), "Invalid date format: ''");
+  VELOX_ASSERT_THROW(dateParse("1", "%y+"), "Invalid date format: '1'");
+  VELOX_ASSERT_THROW(dateParse("116", "%y+"), "Invalid date format: '116'");
 }
 
 TEST_F(DateTimeFunctionsTest, dateFunctionVarchar) {

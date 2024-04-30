@@ -172,6 +172,26 @@ auto throwError(const std::exception_ptr& exceptionPtr) {
 }
 } // namespace
 
+void EvalCtx::setStatus(vector_size_t index, Status status) {
+  VELOX_CHECK(!status.ok(), "Status must be an error");
+
+  if (status.isUserError()) {
+    setVeloxExceptionError(
+        index,
+        std::make_exception_ptr(VeloxUserError(
+            __FILE__,
+            __LINE__,
+            __FUNCTION__,
+            "",
+            status.message(),
+            error_source::kErrorSourceUser,
+            error_code::kInvalidArgument,
+            false /*retriable*/)));
+  } else {
+    VELOX_FAIL(status.message());
+  }
+}
+
 void EvalCtx::setError(
     vector_size_t index,
     const std::exception_ptr& exceptionPtr) {

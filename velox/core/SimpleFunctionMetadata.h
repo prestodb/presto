@@ -20,6 +20,7 @@
 #include <optional>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Status.h"
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
@@ -687,17 +688,33 @@ class UDFHolder {
       bool,
       exec_return_type,
       const exec_arg_type<TArgs>&...>::value;
+
   static constexpr bool udf_has_call_return_void = util::has_method<
       Fun,
       call_method_resolver,
       void,
       exec_return_type,
       const exec_arg_type<TArgs>&...>::value;
-  static constexpr bool udf_has_call =
-      udf_has_call_return_bool | udf_has_call_return_void;
+
+  static constexpr bool udf_has_call_return_status = util::has_method<
+      Fun,
+      call_method_resolver,
+      Status,
+      exec_return_type,
+      const exec_arg_type<TArgs>&...>::value;
+
+  static constexpr bool udf_has_call = udf_has_call_return_bool |
+      udf_has_call_return_void | udf_has_call_return_status;
+
   static_assert(
       !(udf_has_call_return_bool && udf_has_call_return_void),
-      "Provided call() methods need to return either void OR bool.");
+      "Provided call() methods need to return either void OR bool OR status.");
+  static_assert(
+      !(udf_has_call_return_bool && udf_has_call_return_status),
+      "Provided call() methods need to return either void OR bool OR status.");
+  static_assert(
+      !(udf_has_call_return_void && udf_has_call_return_status),
+      "Provided call() methods need to return either void OR bool OR status.");
 
   // callNullable():
   static constexpr bool udf_has_callNullable_return_bool = util::has_method<
@@ -863,13 +880,14 @@ class UDFHolder {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE Status call(
       exec_return_type& out,
+      bool& notNull,
       const typename exec_resolver<TArgs>::in_type&... args) {
     if constexpr (udf_has_call) {
-      return callImpl(out, args...);
+      return callImpl(out, notNull, args...);
     } else if constexpr (udf_has_callNullable) {
-      return callNullableImpl(out, (&args)...);
+      return callNullableImpl(out, notNull, (&args)...);
     } else {
       VELOX_UNREACHABLE(
           "call should never be called if the UDF does not "
@@ -877,18 +895,20 @@ class UDFHolder {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool callNullable(
+  FOLLY_ALWAYS_INLINE Status callNullable(
       exec_return_type& out,
+      bool& notNull,
       const typename exec_resolver<TArgs>::in_type*... args) {
     if constexpr (udf_has_callNullable) {
-      return callNullableImpl(out, args...);
+      return callNullableImpl(out, notNull, args...);
     } else if constexpr (udf_has_call) {
       // Default null behavior.
       const bool isAllSet = (args && ...);
       if (LIKELY(isAllSet)) {
-        return callImpl(out, (*args)...);
+        return callImpl(out, notNull, (*args)...);
       } else {
-        return false;
+        notNull = false;
+        return Status::OK();
       }
     } else {
       VELOX_UNREACHABLE(
@@ -897,21 +917,23 @@ class UDFHolder {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool callAscii(
+  FOLLY_ALWAYS_INLINE Status callAscii(
       exec_return_type& out,
+      bool& notNull,
       const typename exec_resolver<TArgs>::in_type&... args) {
     if constexpr (udf_has_callAscii) {
-      return callAsciiImpl(out, args...);
+      return callAsciiImpl(out, notNull, args...);
     } else {
-      return call(out, args...);
+      return call(out, notNull, args...);
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool callNullFree(
+  FOLLY_ALWAYS_INLINE Status callNullFree(
       exec_return_type& out,
+      bool& notNull,
       const exec_no_nulls_arg_type<TArgs>&... args) {
     if constexpr (udf_has_callNullFree) {
-      return callNullFreeImpl(out, args...);
+      return callNullFreeImpl(out, notNull, args...);
     } else {
       VELOX_UNREACHABLE(
           "callNullFree should never be called if the UDF does not implement callNullFree.");
@@ -920,52 +942,66 @@ class UDFHolder {
 
   // Helper functions to handle void vs bool return type.
 
-  FOLLY_ALWAYS_INLINE bool callImpl(
+  FOLLY_ALWAYS_INLINE Status callImpl(
       typename Exec::template resolver<TReturn>::out_type& out,
+      bool& notNull,
       const typename Exec::template resolver<TArgs>::in_type&... args) {
     static_assert(udf_has_call);
-    if constexpr (udf_has_call_return_bool) {
+
+    if constexpr (udf_has_call_return_status) {
+      notNull = true;
       return instance_.call(out, args...);
+    } else if constexpr (udf_has_call_return_bool) {
+      notNull = instance_.call(out, args...);
+      return Status::OK();
     } else {
       instance_.call(out, args...);
-      return true;
+      notNull = true;
+      return Status::OK();
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool callNullableImpl(
+  FOLLY_ALWAYS_INLINE Status callNullableImpl(
       exec_return_type& out,
+      bool& notNull,
       const typename Exec::template resolver<TArgs>::in_type*... args) {
     static_assert(udf_has_callNullable);
     if constexpr (udf_has_callNullable_return_bool) {
-      return instance_.callNullable(out, args...);
+      notNull = instance_.callNullable(out, args...);
+      return Status::OK();
     } else {
       instance_.callNullable(out, args...);
-      return true;
+      notNull = true;
+      return Status::OK();
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool callAsciiImpl(
+  FOLLY_ALWAYS_INLINE Status callAsciiImpl(
       typename Exec::template resolver<TReturn>::out_type& out,
+      bool& notNull,
       const typename Exec::template resolver<TArgs>::in_type&... args) {
     static_assert(udf_has_callAscii);
     if constexpr (udf_has_callAscii_return_bool) {
-      return instance_.callAscii(out, args...);
+      notNull = instance_.callAscii(out, args...);
     } else {
       instance_.callAscii(out, args...);
-      return true;
+      notNull = true;
     }
+    return Status::OK();
   }
 
-  FOLLY_ALWAYS_INLINE bool callNullFreeImpl(
+  FOLLY_ALWAYS_INLINE Status callNullFreeImpl(
       typename Exec::template resolver<TReturn>::out_type& out,
+      bool& notNull,
       const exec_no_nulls_arg_type<TArgs>&... args) {
     static_assert(udf_has_callNullFree);
     if constexpr (udf_has_callNullFree_return_bool) {
-      return instance_.callNullFree(out, args...);
+      notNull = instance_.callNullFree(out, args...);
     } else {
       instance_.callNullFree(out, args...);
-      return true;
+      notNull = true;
     }
+    return Status::OK();
   }
 };
 
