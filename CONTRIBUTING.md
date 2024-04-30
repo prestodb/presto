@@ -77,9 +77,17 @@ In the sample configuration, the Hive connector is mounted in the `hive` catalog
 
 To build the Presto docs, see the [docs README](presto-docs/README.md).
 
-### Building the Web UI
+### Building the Presto Console
 
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible JavaScript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
+The Presto Console is composed of several React components and is written in JSX and ES6. This source code is
+compiled and packaged into browser-compatible JavaScript and stored in the `presto-main/src/main/resources/webapp/dist`
+folder.
+
+You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to
+execute these commands. When you use Maven to build the project, Node and yarn are installed in the `presto-main/target`
+folder. Add the Node and yarn executables to the PATH environment variable.
+
+To update Presto Console after making changes, run:
 
     yarn --cwd presto-main/src/main/resources/webapp/src install
 
