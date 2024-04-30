@@ -40,6 +40,8 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
   static constexpr int16_t kMaxSmallint = std::numeric_limits<int16_t>::max();
   static constexpr int8_t kMinTinyint = std::numeric_limits<int8_t>::min();
   static constexpr int8_t kMaxTinyint = std::numeric_limits<int8_t>::max();
+  static constexpr int64_t kMinBigint = std::numeric_limits<int64_t>::min();
+  static constexpr int64_t kMaxBigint = std::numeric_limits<int64_t>::max();
 
  protected:
   void setQueryTimeZone(const std::string& timeZone) {
@@ -981,6 +983,117 @@ TEST_F(DateTimeFunctionsTest, yearOfWeek) {
   EXPECT_EQ(1971, yearOfWeek(368));
   EXPECT_EQ(2005, yearOfWeek(parseDate("2006-01-01")));
   EXPECT_EQ(2006, yearOfWeek(parseDate("2006-01-02")));
+}
+
+TEST_F(DateTimeFunctionsTest, microsToTimestamp) {
+  const auto microsToTimestamp = [&](int64_t micros) {
+    return evaluateOnce<Timestamp, int64_t>("timestamp_micros(c0)", micros);
+  };
+  EXPECT_EQ(
+      microsToTimestamp(1000000),
+      util::fromTimestampString("1970-01-01 00:00:01"));
+  EXPECT_EQ(
+      microsToTimestamp(1230219000123123),
+      util::fromTimestampString("2008-12-25 15:30:00.123123"));
+
+  EXPECT_EQ(
+      microsToTimestamp(kMaxTinyint),
+      util::fromTimestampString("1970-01-01 00:00:00.000127"));
+  EXPECT_EQ(
+      microsToTimestamp(kMinTinyint),
+      util::fromTimestampString("1969-12-31 23:59:59.999872"));
+  EXPECT_EQ(
+      microsToTimestamp(kMaxSmallint),
+      util::fromTimestampString("1970-01-01 00:00:00.032767"));
+  EXPECT_EQ(
+      microsToTimestamp(kMinSmallint),
+      util::fromTimestampString("1969-12-31 23:59:59.967232"));
+  EXPECT_EQ(
+      microsToTimestamp(kMax),
+      util::fromTimestampString("1970-01-01 00:35:47.483647"));
+  EXPECT_EQ(
+      microsToTimestamp(kMin),
+      util::fromTimestampString("1969-12-31 23:24:12.516352"));
+  EXPECT_EQ(
+      microsToTimestamp(kMaxBigint),
+      util::fromTimestampString("294247-01-10 04:00:54.775807"));
+  EXPECT_EQ(
+      microsToTimestamp(kMinBigint),
+      util::fromTimestampString("-290308-12-21 19:59:05.224192"));
+}
+
+TEST_F(DateTimeFunctionsTest, millisToTimestamp) {
+  const auto millisToTimestamp = [&](int64_t millis) {
+    return evaluateOnce<Timestamp, int64_t>("timestamp_millis(c0)", millis);
+  };
+  EXPECT_EQ(
+      millisToTimestamp(1000),
+      util::fromTimestampString("1970-01-01 00:00:01"));
+  EXPECT_EQ(
+      millisToTimestamp(1230219000123),
+      util::fromTimestampString("2008-12-25 15:30:00.123"));
+
+  EXPECT_EQ(
+      millisToTimestamp(kMaxTinyint),
+      util::fromTimestampString("1970-01-01 00:00:00.127"));
+  EXPECT_EQ(
+      millisToTimestamp(kMinTinyint),
+      util::fromTimestampString("1969-12-31 23:59:59.872"));
+  EXPECT_EQ(
+      millisToTimestamp(kMaxSmallint),
+      util::fromTimestampString("1970-01-01 00:00:32.767"));
+  EXPECT_EQ(
+      millisToTimestamp(kMinSmallint),
+      util::fromTimestampString("1969-12-31 23:59:27.232"));
+  EXPECT_EQ(
+      millisToTimestamp(kMax),
+      util::fromTimestampString("1970-01-25 20:31:23.647"));
+  EXPECT_EQ(
+      millisToTimestamp(kMin),
+      util::fromTimestampString("1969-12-07 03:28:36.352"));
+  EXPECT_EQ(
+      millisToTimestamp(kMaxBigint),
+      util::fromTimestampString("292278994-08-17T07:12:55.807"));
+  EXPECT_EQ(
+      millisToTimestamp(kMinBigint),
+      util::fromTimestampString("-292275055-05-16T16:47:04.192"));
+}
+
+TEST_F(DateTimeFunctionsTest, timestampToMicros) {
+  const auto timestampToMicros = [&](const StringView time) {
+    return evaluateOnce<int64_t, Timestamp>(
+        "unix_micros(c0)", util::fromTimestampString(time));
+  };
+  EXPECT_EQ(timestampToMicros("1970-01-01 00:00:01"), 1000000);
+  EXPECT_EQ(timestampToMicros("2008-12-25 15:30:00.123123"), 1230219000123123);
+
+  EXPECT_EQ(timestampToMicros("1970-01-01 00:00:00.000127"), kMaxTinyint);
+  EXPECT_EQ(timestampToMicros("1969-12-31 23:59:59.999872"), kMinTinyint);
+  EXPECT_EQ(timestampToMicros("1970-01-01 00:00:00.032767"), kMaxSmallint);
+  EXPECT_EQ(timestampToMicros("1969-12-31 23:59:59.967232"), kMinSmallint);
+  EXPECT_EQ(timestampToMicros("1970-01-01 00:35:47.483647"), kMax);
+  EXPECT_EQ(timestampToMicros("1969-12-31 23:24:12.516352"), kMin);
+  EXPECT_EQ(timestampToMicros("294247-01-10 04:00:54.775807"), kMaxBigint);
+  EXPECT_EQ(
+      timestampToMicros("-290308-12-21 19:59:06.224192"), kMinBigint + 1000000);
+}
+
+TEST_F(DateTimeFunctionsTest, timestampToMillis) {
+  const auto timestampToMillis = [&](const StringView time) {
+    return evaluateOnce<int64_t, Timestamp>(
+        "unix_millis(c0)", util::fromTimestampString(time));
+  };
+  EXPECT_EQ(timestampToMillis("1970-01-01 00:00:01"), 1000);
+  EXPECT_EQ(timestampToMillis("2008-12-25 15:30:00.123"), 1230219000123);
+
+  EXPECT_EQ(timestampToMillis("1970-01-01 00:00:00.127"), kMaxTinyint);
+  EXPECT_EQ(timestampToMillis("1969-12-31 23:59:59.872"), kMinTinyint);
+  EXPECT_EQ(timestampToMillis("1970-01-01 00:00:32.767"), kMaxSmallint);
+  EXPECT_EQ(timestampToMillis("1969-12-31 23:59:27.232"), kMinSmallint);
+  EXPECT_EQ(timestampToMillis("1970-01-25 20:31:23.647"), kMax);
+  EXPECT_EQ(timestampToMillis("1969-12-07 03:28:36.352"), kMin);
+  EXPECT_EQ(timestampToMillis("292278994-08-17T07:12:55.807"), kMaxBigint);
+  EXPECT_EQ(timestampToMillis("-292275055-05-16T16:47:04.192"), kMinBigint);
 }
 
 } // namespace

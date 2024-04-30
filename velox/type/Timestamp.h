@@ -224,6 +224,21 @@ struct Timestamp {
     return Timestamp(second, nano);
   }
 
+  static Timestamp fromMicrosNoError(int64_t micros)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
+    if (micros >= 0 || micros % 1'000'000 == 0) {
+      return Timestamp(micros / 1'000'000, (micros % 1'000'000) * 1'000);
+    }
+    auto second = micros / 1'000'000 - 1;
+    auto nano = ((micros - second * 1'000'000) % 1'000'000) * 1'000;
+    return Timestamp(second, nano);
+  }
+
   static Timestamp fromNanos(int64_t nanos) {
     if (nanos >= 0 || nanos % 1'000'000'000 == 0) {
       return Timestamp(nanos / 1'000'000'000, nanos % 1'000'000'000);

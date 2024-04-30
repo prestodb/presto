@@ -391,6 +391,15 @@ void registerFunctions(const std::string& prefix) {
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_make_timestamp, prefix + "make_timestamp");
 
+  registerFunction<TimestampToMicrosFunction, int64_t, Timestamp>(
+      {prefix + "unix_micros"});
+  registerUnaryIntegralWithTReturn<MicrosToTimestampFunction, Timestamp>(
+      {prefix + "timestamp_micros"});
+  registerFunction<TimestampToMillisFunction, int64_t, Timestamp>(
+      {prefix + "unix_millis"});
+  registerUnaryIntegralWithTReturn<MillisToTimestampFunction, Timestamp>(
+      {prefix + "timestamp_millis"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});

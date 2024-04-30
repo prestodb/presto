@@ -221,6 +221,20 @@ These functions support TIMESTAMP and DATE input types.
 
         SELECT second('2009-07-30 12:58:59'); -- 59
 
+.. spark:function:: timestamp_micros(x) -> timestamp
+
+    Returns timestamp from the number of microseconds since UTC epoch.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.::
+
+        SELECT timestamp_micros(1230219000123123); -- '2008-12-25 15:30:00.123123'
+
+.. spark:function:: timestamp_millis(x) -> timestamp
+
+    Returns timestamp from the number of milliseconds since UTC epoch.
+    Supported types are: TINYINT, SMALLINT, INTEGER and BIGINT.::
+
+        SELECT timestamp_millis(1230219000123); -- '2008-12-25 15:30:00.123'
+
 .. spark:function:: to_unix_timestamp(string) -> integer
 
     Alias for ``unix_timestamp(string) -> integer``.
@@ -243,6 +257,19 @@ These functions support TIMESTAMP and DATE input types.
         SELECT unix_date('1970-01-01'); -- '0'
         SELECT unix_date('1970-01-02'); -- '1'
         SELECT unix_date('1969-12-31'); -- '-1'
+
+.. spark:function:: unix_micros(timestamp) -> bigint
+
+    Returns the number of microseconds since 1970-01-01 00:00:00 UTC.::
+
+        SELECT unix_micros('1970-01-01 00:00:01'); -- 1000000
+
+.. spark:function:: unix_millis(timestamp) -> bigint
+
+    Returns the number of milliseconds since 1970-01-01 00:00:00 UTC. Truncates
+    higher levels of precision.::
+
+        SELECT unix_millis('1970-01-01 00:00:01'); -- 1000
 
 .. spark:function:: unix_timestamp() -> integer
 
