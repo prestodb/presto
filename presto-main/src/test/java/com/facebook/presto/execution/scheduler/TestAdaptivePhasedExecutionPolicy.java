@@ -29,6 +29,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.StageExecutionDescriptor;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
@@ -92,18 +93,22 @@ public class TestAdaptivePhasedExecutionPolicy
     @Test
     public void testCreateExecutionSchedule()
     {
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
-                new QueryManagerConfig(),
-                new TaskManagerConfig(),
-                new MemoryManagerConfig(),
-                new FeaturesConfig().setMaxStageCountForEagerScheduling(5),
-                new NodeMemoryConfig(),
-                new WarningCollectorConfig(),
-                new NodeSchedulerConfig(),
-                new NodeSpillConfig(),
-                new TracingConfig(),
-                new CompilerConfig(),
-                new SecurityConfig()))).build();
+        Session session = testSessionBuilder(
+                new SessionPropertyManager(
+                        new SystemSessionProperties(
+                            new QueryManagerConfig(),
+                            new TaskManagerConfig(),
+                            new MemoryManagerConfig(),
+                            new FeaturesConfig().setMaxStageCountForEagerScheduling(5),
+                            new NodeMemoryConfig(),
+                            new WarningCollectorConfig(),
+                            new NodeSchedulerConfig(),
+                            new NodeSpillConfig(),
+                            new TracingConfig(),
+                            new CompilerConfig(),
+                            new SecurityConfig(),
+                            new ServerConfig()
+                        ))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);
         assertTrue(policy.createExecutionSchedule(session, schedulers) instanceof AllAtOnceExecutionSchedule);

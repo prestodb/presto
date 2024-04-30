@@ -23,6 +23,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
@@ -351,7 +352,8 @@ public final class SystemSessionProperties
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new SecurityConfig());
+                new SecurityConfig(),
+                new ServerConfig());
     }
 
     @Inject
@@ -366,7 +368,8 @@ public final class SystemSessionProperties
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            SecurityConfig securityConfig)
+            SecurityConfig securityConfig,
+            ServerConfig serverConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -1557,7 +1560,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         NATIVE_EXECUTION_ENABLED,
                         "Enable execution on native engine",
-                        featuresConfig.isNativeExecutionEnabled(),
+                        serverConfig.isNativeExecutionEnabled(),
                         false),
                 stringProperty(
                         NATIVE_EXECUTION_EXECUTABLE_PATH,

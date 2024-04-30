@@ -57,7 +57,8 @@ public class SystemSessionPropertyProviderManager
         // TODO: Temporarily provides default plugin for native session properties, to be removed once the sidecar is deployed.
         if (serverConfig.isNativeExecutionEnabled()) {
             this.providerFactory = requireNonNull(nativeProviderFactory, "nativeProviderFactory is null");
-        } else {
+        }
+        else {
             this.providerFactory = requireNonNull(javaWorkerProviderFactory, "javaWorkerProviderFactory is null");
         }
         this.provider = providerFactory.create(getConfig(), new SessionPropertyContext(typeManager, nodeManager));

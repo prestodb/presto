@@ -25,7 +25,7 @@ public abstract class AbstractTestExpressionCompiler
     @Override
     public FunctionAssertions setFunctionAssertions()
     {
-        return new FunctionAssertions(getQueryRunner().getDefaultSession(), new FeaturesConfig().setNativeExecutionEnabled(true));
+        return new FunctionAssertions(getQueryRunner().getDefaultSession(), new FeaturesConfig());
     }
 
     protected abstract QueryRunner getQueryRunner();
