@@ -83,6 +83,7 @@ class SerDeOptions {
   inline static const std::string kFieldDelim{"field.delim"};
   inline static const std::string kCollectionDelim{"collection.delim"};
   inline static const std::string kMapKeyDelim{"mapkey.delim"};
+  inline static const std::string kEscapeChar{"escape.delim"};
 
   explicit SerDeOptions(
       uint8_t fieldDelim = '\1',

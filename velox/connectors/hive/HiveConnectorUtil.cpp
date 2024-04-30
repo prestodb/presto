@@ -436,12 +436,16 @@ std::unique_ptr<dwio::common::SerDeOptions> parseSerdeParameters(
   auto mapKeyIt =
       serdeParameters.find(dwio::common::SerDeOptions::kMapKeyDelim);
 
+  auto escapeCharIt =
+      serdeParameters.find(dwio::common::SerDeOptions::kEscapeChar);
+
   auto nullStringIt = tableParameters.find(
       dwio::common::TableParameter::kSerializationNullFormat);
 
   if (fieldIt == serdeParameters.end() &&
       collectionIt == serdeParameters.end() &&
       mapKeyIt == serdeParameters.end() &&
+      escapeCharIt == serdeParameters.end() &&
       nullStringIt == tableParameters.end()) {
     return nullptr;
   }
@@ -458,8 +462,19 @@ std::unique_ptr<dwio::common::SerDeOptions> parseSerdeParameters(
   if (mapKeyIt != serdeParameters.end()) {
     mapKeyDelim = parseDelimiter(mapKeyIt->second);
   }
-  auto serDeOptions = std::make_unique<dwio::common::SerDeOptions>(
-      fieldDelim, collectionDelim, mapKeyDelim);
+
+  uint8_t escapeChar;
+  bool hasEscapeChar = false;
+  if (escapeCharIt != serdeParameters.end() && !escapeCharIt->second.empty()) {
+    hasEscapeChar = true;
+    escapeChar = escapeCharIt->second[0];
+  }
+
+  auto serDeOptions = hasEscapeChar
+      ? std::make_unique<dwio::common::SerDeOptions>(
+            fieldDelim, collectionDelim, mapKeyDelim, escapeChar, true)
+      : std::make_unique<dwio::common::SerDeOptions>(
+            fieldDelim, collectionDelim, mapKeyDelim);
   if (nullStringIt != tableParameters.end()) {
     serDeOptions->nullString = nullStringIt->second;
   }
