@@ -632,10 +632,42 @@ TEST_P(MemoryAllocatorTest, allocationClass2) {
   allocation->clear();
 }
 
+TEST_P(MemoryAllocatorTest, stats) {
+  const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
+  MachinePageCount capacity = kCapacityPages;
+  for (auto i = 0; i < sizes.size(); ++i) {
+    std::unique_ptr<Allocation> allocation = std::make_unique<Allocation>();
+    auto size = sizes[i];
+    ASSERT_TRUE(allocate(size, *allocation));
+    ASSERT_GT(instance_->numAllocated(), 0);
+    instance_->freeNonContiguous(*allocation);
+    auto stats = instance_->stats();
+    ASSERT_EQ(0, stats.sizes[i].clocks());
+    ASSERT_EQ(stats.sizes[i].totalBytes, 0);
+    ASSERT_EQ(stats.sizes[i].numAllocations, 0);
+  }
+
+  gflags::FlagSaver flagSaver;
+  FLAGS_velox_time_allocations = true;
+  for (auto i = 0; i < sizes.size(); ++i) {
+    std::unique_ptr<Allocation> allocation = std::make_unique<Allocation>();
+    auto size = sizes[i];
+    ASSERT_TRUE(allocate(size, *allocation));
+    ASSERT_GT(instance_->numAllocated(), 0);
+    instance_->freeNonContiguous(*allocation);
+    auto stats = instance_->stats();
+    ASSERT_LT(0, stats.sizes[i].clocks());
+    ASSERT_GE(stats.sizes[i].totalBytes, size * AllocationTraits::kPageSize);
+    ASSERT_GE(stats.sizes[i].numAllocations, 1);
+  }
+}
+
 TEST_P(MemoryAllocatorTest, singleAllocation) {
   if (!useMmap_ && enableReservation_) {
     return;
   }
+  gflags::FlagSaver flagSaver;
+  FLAGS_velox_time_allocations = true;
   const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
   MachinePageCount capacity = kCapacityPages;
   for (auto i = 0; i < sizes.size(); ++i) {

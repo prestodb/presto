@@ -364,15 +364,18 @@ std::string Stats::toString() const {
   std::stringstream out;
   int64_t totalClocks = 0;
   int64_t totalBytes = 0;
+  int64_t totalAllocations = 0;
   for (auto i = 0; i < sizes.size(); ++i) {
     totalClocks += sizes[i].clocks();
     totalBytes += sizes[i].totalBytes;
+    totalAllocations += sizes[i].numAllocations;
   }
   out << fmt::format(
-      "Alloc: {}MB {} Gigaclocks, {}MB advised\n",
+      "Alloc: {}MB {} Gigaclocks {} Allocations, {}MB advised\n",
       totalBytes >> 20,
       totalClocks >> 30,
-      numAdvise >> 8);
+      numAdvise >> 8,
+      totalAllocations);
 
   // Sort the size classes by decreasing clocks.
   std::vector<int32_t> indices(sizes.size());
@@ -386,10 +389,11 @@ std::string Stats::toString() const {
       break;
     }
     out << fmt::format(
-        "Size {}K: {}MB {} Megaclocks\n",
+        "Size {}K: {}MB {} Megaclocks {} Allocations\n",
         sizes[i].size * 4,
         sizes[i].totalBytes >> 20,
-        sizes[i].clocks() >> 20);
+        sizes[i].clocks() >> 20,
+        sizes[i].numAllocations);
   }
   return out.str();
 }

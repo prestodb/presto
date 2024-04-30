@@ -30,7 +30,7 @@ DEFINE_int32(
 
 DEFINE_bool(
     velox_time_allocations,
-    true,
+    false,
     "Record time and volume for large allocation/free");
 
 // Used in common/base/VeloxException.cpp
