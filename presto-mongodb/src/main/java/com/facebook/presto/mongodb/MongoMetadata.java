@@ -69,7 +69,6 @@ public class MongoMetadata
 
     private static final String DELETE_ROW_ID = "_presto_artificial_column_handle_for_delete_row_id_";
 
-
     public MongoMetadata(MongoSession mongoSession)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
@@ -183,7 +182,6 @@ public class MongoMetadata
         if (!buildQuery(constraint.getSummary()).isEmpty()) {
             this.constraint = constraint;
         }
-
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new MongoTableLayoutHandle(tableHandle, constraint.getSummary()),
