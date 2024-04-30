@@ -77,5 +77,4 @@ To add a new page:
 3. Add new components and store them in the ``src/components`` directory. Check ``src/components/QueryDetail.jsx`` as an example.
 4. Use the web dev server to test and verify the new page and components.
 5. Use the ``yarn run flow`` command to run the static type checker.
-6. Use the ``yarn install`` command to generate the JavaScript files to the ``dist`` directory and make sure to include new or changed files
-   in the pull request.
+6. Use the ``yarn install`` command to generate the JavaScript files to the ``dist`` directory.
