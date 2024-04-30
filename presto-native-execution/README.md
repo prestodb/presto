@@ -28,22 +28,40 @@ available inside `presto/presto-native-execution/scripts`.
 Create a directory say `dependencies` and invoke one of these scripts from
 this folder. All the dependencies are installed in the system default location eg: `/usr/local`.
 
-
-
 The following libraries are installed by the above setup scripts.
-The Velox library installs other dependencies not listed below.
+The Velox library installs other
+[dependencies](https://github.com/facebookincubator/velox/tree/main/CMake/resolve_dependency_modules/README.md)
+not listed below.
 
 | Name       | Version |
 | ---------- | ------- |
 | [Velox](https://github.com/facebookincubator/velox)  | Latest  |
 | [CMake](https://cmake.org/) | Minimum `3.10` |
-| [libsodium](https://download.libsodium.org/libsodium/releases/LATEST.tar.gz) | Latest|
-| [ANTLR Runtime](https://www.antlr.org/download/antlr4-cpp-runtime-4.9.3-source.zip) |`4.9.3`|
-| [protobuf](https://github.com/protocolbuffers/protobuf) |`v21.4`|
-| [fizz](https://github.com/facebookincubator/fizz) |`2022.11.14.00`|
-| [wangle](https://github.com/facebook/wangle) |`2022.11.14.00`|
-| [proxygen](https://github.com/facebook/proxygen) |`2022.11.14.00`|
-| [fbthrift](https://github.com/facebook/fbthrift) |`2022.11.14.00`|
+| [gperf](https://www.gnu.org/software/gperf) |`v3.1`|
+| [proxygen](https://github.com/facebook/proxygen) |`v2024.04.01.00`|
+
+### Supported operating systems and compilers
+
+Prestissimo can be built by a variety of compilers (and versions) but not all.
+Compilers (and versions) not mentioned are known to not work or have not been tried.
+
+#### Recommended
+| OS | compiler |
+| -- | -------- |
+| CentOS 8/RHEL 8 | `gcc9` |
+| Ubuntu 22.04 | `gcc11` |
+| MacOS | `clang15` |
+
+#### Older alternatives
+| OS | compiler |
+| -- | -------- |
+| Ubuntu 20.04 | `gcc9` |
+| MacOS | `clang14` |
+
+#### Experimental
+| OS | compiler |
+| -- | -------- |
+| CentOS 9/RHEL 9 | `gcc12` |
 
 ### Build Prestissimo
 To enable Parquet and S3 support, set `PRESTO_ENABLE_PARQUET = "ON"`,
