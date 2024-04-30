@@ -3,7 +3,7 @@
 #####################################################################
 
 #####################################################################
-# Fallback to committers group for areas that do not have code owners
+# Fallback to committers group for areas that do not have active code owners
 /** @prestodb/committers
 
 # TSC may approve changes to this list
@@ -63,3 +63,90 @@ CODEOWNERS @prestodb/team-tsc
 # Presto documentation
 /presto-docs @steveburnett @prestodb/committers
 /**/*.md @steveburnett @prestodb/committers
+
+#####################################################################
+# Fallback to committers group for areas that do not have active code owners
+/presto-accumulo @prestodb/committers
+/presto-analyzer @prestodb/committers
+/presto-atop @prestodb/committers
+/presto-base-jdbc @prestodb/committers
+/presto-benchmark @prestodb/committers
+/presto-benchmark-driver @prestodb/committers
+/presto-benchmark-runner @prestodb/committers
+/presto-benchto-benchmarks @prestodb/committers
+/presto-bigquery @prestodb/committers
+/presto-blackhole @prestodb/committers
+/presto-bytecode @prestodb/committers
+/presto-cache @prestodb/committers
+/presto-cassandra @prestodb/committers
+/presto-cli @prestodb/committers
+/presto-clickhouse @prestodb/committers
+/presto-client @prestodb/committers
+/presto-cluster-ttl-providers @prestodb/committers
+/presto-common @prestodb/committers
+/presto-delta @prestodb/committers
+/presto-druid @prestodb/committers
+/presto-elasticsearch @prestodb/committers
+/presto-example-http @prestodb/committers
+/presto-expressions @prestodb/committers
+/presto-function-namespace-managers @prestodb/committers
+/presto-geospatial-toolkit @prestodb/committers
+/presto-google-sheets @prestodb/committers
+/presto-grpc-api @prestodb/committers
+/presto-grpc-testing-udf-server @prestodb/committers
+/presto-hana @prestodb/committers
+/presto-hive @prestodb/committers
+/presto-hive-common @prestodb/committers
+/presto-hive-function-namespace @prestodb/committers
+/presto-hive-hadoop2 @prestodb/committers
+/presto-hive-metastore @prestodb/committers
+/presto-i18n-functions @prestodb/committers
+/presto-jdbc @prestodb/committers
+/presto-jmx @prestodb/committers
+/presto-kafka @prestodb/committers
+/presto-kudu @prestodb/committers
+/presto-lark-sheets @prestodb/committers
+/presto-local-file @prestodb/committers
+/presto-main @prestodb/committers
+/presto-matching @prestodb/committers
+/presto-memory @prestodb/committers
+/presto-memory-context @prestodb/committers
+/presto-ml @prestodb/committers
+/presto-mongodb @prestodb/committers
+/presto-mysql @prestodb/committers
+/presto-node-ttl-fetchers @prestodb/committers
+/presto-open-telemetry @prestodb/committers
+/presto-oracle @prestodb/committers
+/presto-parser @prestodb/committers
+/presto-password-authenticators @prestodb/committers
+/presto-pinot @prestodb/committers
+/presto-pinot-toolkit @prestodb/committers
+/presto-plugin-toolkit @prestodb/committers
+/presto-postgresql @prestodb/committers
+/presto-product-tests @prestodb/committers
+/presto-prometheus @prestodb/committers
+/presto-proxy @prestodb/committers
+/presto-rcfile @prestodb/committers
+/presto-record-decoder @prestodb/committers
+/presto-redis @prestodb/committers
+/presto-redshift @prestodb/committers
+/presto-resource-group-managers @prestodb/committers
+/presto-router @prestodb/committers
+/presto-server @prestodb/committers
+/presto-session-property-managers @prestodb/committers
+/presto-singlestore @prestodb/committers
+/presto-spi @prestodb/committers
+/presto-sqlserver @prestodb/committers
+/presto-teradata-functions @prestodb/committers
+/presto-test-coverage @prestodb/committers
+/presto-testing-docker @prestodb/committers
+/presto-testing-server-launcher @prestodb/committers
+/presto-testng-services @prestodb/committers
+/presto-thrift-api @prestodb/committers
+/presto-thrift-connector @prestodb/committers
+/presto-thrift-spec @prestodb/committers
+/presto-thrift-testing-server @prestodb/committers
+/presto-thrift-testing-udf-server @prestodb/committers
+/presto-tpcds @prestodb/committers
+/presto-tpch @prestodb/committers
+/presto-verifier @prestodb/committers
