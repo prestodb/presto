@@ -272,7 +272,9 @@ std::string GpuSlab::toString() const {
 }
 
 GpuArena::Buffers::Buffers() {
-  memset(&buffers[0], 0, sizeof(buffers));
+  for (auto i = 0; i < sizeof(buffers) / sizeof(buffers[0]); ++i) {
+    new (&buffers[i]) Buffer();
+  }
 }
 
 GpuArena::GpuArena(uint64_t singleArenaCapacity, GpuAllocator* allocator)
@@ -297,6 +299,7 @@ WaveBufferPtr GpuArena::getBuffer(void* ptr, size_t size) {
     result = firstFreeBuffer_;
   }
   firstFreeBuffer_ = reinterpret_cast<Buffer*>(result->ptr_);
+  new (result) Buffer();
   result->arena_ = this;
   result->ptr_ = ptr;
   result->size_ = size;
@@ -325,10 +328,9 @@ WaveBufferPtr GpuArena::allocateBytes(uint64_t bytes) {
   // If first allocation fails we create a new GpuSlab for another attempt. If
   // it ever fails again then it means requested bytes is larger than a single
   // GpuSlab's capacity. No further attempts will happen.
+  auto arenaBytes = std::max<uint64_t>(singleArenaCapacity_, bytes);
   auto newArena = std::make_shared<GpuSlab>(
-      allocator_->allocate(singleArenaCapacity_),
-      singleArenaCapacity_,
-      allocator_);
+      allocator_->allocate(arenaBytes), arenaBytes, allocator_);
   arenas_.emplace(reinterpret_cast<uint64_t>(newArena->address()), newArena);
   currentArena_ = newArena;
   result = currentArena_->allocate(bytes);

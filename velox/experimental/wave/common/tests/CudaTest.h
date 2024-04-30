@@ -35,15 +35,51 @@ class TestStream : public Stream {
  public:
   // Queues a kernel to add 1 to numbers[0...size - 1]. The kernel repeats
   // 'repeat' times.
-  void addOne(int32_t* numbers, int size, int32_t repeat = 1);
+  void
+  addOne(int32_t* numbers, int size, int32_t repeat = 1, int32_t width = 10240);
 
-  void addOneWide(int32_t* numbers, int32_t size, int32_t repeat = 1);
+  void addOneWide(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
 
+  /// Like addOne but uses shared memory for intermediates, with global
+  /// ead/write at start/end.
+  void addOneShared(
+      int32_t* numbers,
+      int32_t size,
+      int32_t repeat = 1,
+      int32_t width = 10240);
+
+  /// Increments each of 'numbers by a deterministic pseudorandom
+  /// increment from 'lookup'.  If 'emptyWarps' is true, odd warps do
+  /// no work but still sync with the other ones with __syncthreads().
+  /// If 'emptyThreads' is true, odd lanes do no work and even lanes
+  /// do their work instead.
   void addOneRandom(
       int32_t* numbers,
       const int32_t* lookup,
       int size,
-      int32_t repeat = 1);
+      int32_t repeat = 1,
+      int32_t width = 10240,
+      bool emptyWarps = false,
+      bool emptyLanes = false);
+
+  // Makes random lookup keys and increments, starting at 'startCount'
+  // columns[0] is keys. 'powerOfTwo' is the next power of two from
+  // 'keyRange'. If 'powerOfTwo' is 0 the key columns are set to
+  // zero. Otherwise the key column values are incremented by a a
+  // delta + index of column where delta for element 0 is startCount &
+  // (powerOfTwo - 1).
+  void makeInput(
+      int32_t numRows,
+      int32_t keyRange,
+      int32_t powerOfTwo,
+      int32_t startCount,
+      uint64_t* hash,
+      uint8_t numColumns,
+      int64_t** columns);
 };
 
 } // namespace facebook::velox::wave

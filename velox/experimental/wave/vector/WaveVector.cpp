@@ -24,7 +24,8 @@ namespace facebook::velox::wave {
 WaveVector::WaveVector(
     const TypePtr& type,
     GpuArena& arena,
-    std::vector<std::unique_ptr<WaveVector>> children)
+    std::vector<std::unique_ptr<WaveVector>> children,
+    bool notNull)
     : type_(type),
       kind_(type_->kind()),
       arena_(&arena),
@@ -47,31 +48,33 @@ WaveVector::WaveVector(
   }
 }
 
-void WaveVector::resize(vector_size_t size, bool nullable) {
-  if (size > size_) {
-    int64_t bytes;
-    if (type_->kind() == TypeKind::VARCHAR) {
-      bytes = sizeof(StringView) * size;
+void WaveVector::resize(
+    vector_size_t size,
+    bool nullable,
+    WaveBufferPtr* backing,
+    int64_t* backingOffset) {
+  auto capacity = values_ ? values_->capacity() : 0;
+  size_ = size;
+  int32_t bytesNeeded = backingSize(type_, size, nullable);
+  if (bytesNeeded > capacity) {
+    if (backing) {
+      values_ = WaveBufferView<WaveBufferPtr>::create(
+          (*backing)->as<uint8_t>() + *backingOffset, bytesNeeded, *backing);
+      *backingOffset += bytesNeeded;
     } else {
-      bytes = type_->cppSizeInBytes() * size;
+      values_ = arena_->allocateBytes(bytesNeeded);
     }
-    if (!values_ || bytes > values_->capacity()) {
-      values_ = arena_->allocateBytes(bytes);
-    }
-    if (nullable) {
-      if (!nulls_ || nulls_->capacity() < size) {
-        nulls_ = arena_->allocateBytes(size);
-      }
-    } else {
-      nulls_.reset();
-    }
-    size_ = size;
+  }
+  if (nullable) {
+    nulls_ = values_->as<uint8_t>() + bytesNeeded - size;
+  } else {
+    nulls_ = nullptr;
   }
 }
 
 void WaveVector::toOperand(Operand* operand) const {
   operand->size = size_;
-  operand->nulls = nulls_ ? nulls_->as<uint8_t>() : nullptr;
+  operand->nulls = nulls_;
   if (encoding_ == VectorEncoding::Simple::CONSTANT) {
     operand->indexMask = 0;
     operand->base = values_->as<uint64_t>();
@@ -97,25 +100,33 @@ void toBits(uint64_t* words, int32_t numBytes) {
   }
 }
 
+namespace {
+class NoReleaser {
+ public:
+  void addRef() const {};
+  void release() const {};
+};
+} // namespace
+
 template <TypeKind kind>
 static VectorPtr toVeloxTyped(
     vector_size_t size,
     velox::memory::MemoryPool* pool,
     const TypePtr& type,
     const WaveBufferPtr& values,
-    const WaveBufferPtr& nulls) {
+    const uint8_t* nulls) {
   using T = typename TypeTraits<kind>::NativeType;
 
   BufferPtr nullsView;
   if (nulls) {
-    nullsView = WaveBufferView::create(nulls);
+    nullsView = BufferView<NoReleaser>::create(nulls, size, NoReleaser());
     toBits(
         const_cast<uint64_t*>(nullsView->as<uint64_t>()),
         nullsView->capacity());
   }
   BufferPtr valuesView;
   if (values) {
-    valuesView = WaveBufferView::create(values);
+    valuesView = VeloxWaveBufferView::create(values);
   }
 
   return std::make_shared<FlatVector<T>>(
@@ -127,9 +138,91 @@ static VectorPtr toVeloxTyped(
       std::vector<BufferPtr>());
 }
 
-VectorPtr WaveVector::toVelox(memory::MemoryPool* pool) {
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+int32_t statusNumRows(const BlockStatus* status, int32_t numBlocks) {
+  int32_t numRows = 0;
+  for (auto i = 0; i < numBlocks; ++i) {
+    numRows += status[i].numRows;
+  }
+  return numRows;
+}
+
+// static
+int32_t WaveVector::alignment(const TypePtr& type) {
+  switch (type->kind()) {
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      return sizeof(void*);
+    default:
+      return type->cppSizeInBytes();
+  }
+}
+
+//    static
+int64_t
+WaveVector::backingSize(const TypePtr& type, int32_t size, bool nullable) {
+  int64_t bytes;
+  if (type->kind() == TypeKind::VARCHAR) {
+    bytes = sizeof(StringView) * size;
+  } else {
+    bytes = type->cppSizeInBytes() * size;
+  }
+  return bits::roundUp(bytes, sizeof(void*)) + (nullable ? size : 0);
+}
+
+VectorPtr WaveVector::toVelox(
+    memory::MemoryPool* pool,
+    int32_t numBlocks,
+    const BlockStatus* status,
+    const Operand* operand) {
+  auto base = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
       toVeloxTyped, type_->kind(), size_, pool, type_, values_, nulls_);
+  if (!status || !operand) {
+    return base;
+  }
+
+  // Translate the BlockStatus and indices in Operand to a host side dictionary
+  // wrap.
+  int maxRow = std::min<int32_t>(size_, numBlocks * kBlockSize);
+  numBlocks = bits::roundUp(maxRow, kBlockSize) / kBlockSize;
+  int numActive = statusNumRows(status, numBlocks);
+  auto operandIndices = operand->indices;
+  if (!operandIndices) {
+    // Vector sizes are >= active in status because they are allocated before
+    // the row count in status becomes known.
+    VELOX_CHECK_LE(
+        numActive,
+        size_,
+        "If there is no indirection in Operand, vector size must be <= BlockStatus");
+    return base;
+  }
+  auto indices = AlignedBuffer::allocate<vector_size_t>(numActive, pool);
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  int32_t fill = 0;
+  for (auto block = 0; block < numBlocks; ++block) {
+    auto blockIndices = operandIndices[block];
+    if (!blockIndices) {
+      if (block == numBlocks - 1) {
+        VELOX_CHECK_EQ(
+            size_ - block * kBlockSize,
+            status[block].numRows,
+            "If last block has no indices, its size must be the remainder of the vector");
+      } else {
+        VELOX_CHECK_EQ(
+            kBlockSize,
+            status->numRows,
+            "A block with no indices must have all rows active");
+      }
+      for (auto i = 0; i < status[block].numRows; ++i) {
+        rawIndices[fill++] = block * kBlockSize + i;
+      }
+    } else {
+      for (auto i = 0; i < status[block].numRows; ++i) {
+        rawIndices[fill++] = blockIndices[i];
+      }
+    }
+  }
+  return BaseVector::wrapInDictionary(
+      BufferPtr(nullptr), indices, numActive, base);
 }
 
 } // namespace facebook::velox::wave

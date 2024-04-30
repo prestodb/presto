@@ -93,6 +93,17 @@ __device__ __host__ inline uint32_t twang32From64(uint64_t key) {
   return static_cast<uint32_t>(key);
 }
 
+__device__ inline uint64_t hashMix(const uint64_t upper, const uint64_t lower) {
+  // Murmur-inspired hashing.
+  const uint64_t kMul = 0x9ddfea08eb382d69ULL;
+  uint64_t a = (lower ^ upper) * kMul;
+  a ^= (a >> 47);
+  uint64_t b = (upper ^ a) * kMul;
+  b ^= (b >> 47);
+  b *= kMul;
+  return b;
+}
+
 template <typename T>
 struct IntHasher32 {
   __device__ __host__ uint32_t operator()(T val) const {

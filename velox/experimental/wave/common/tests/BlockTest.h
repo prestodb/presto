@@ -17,10 +17,55 @@
 #pragma once
 
 #include "velox/experimental/wave/common/Cuda.h"
+#include "velox/experimental/wave/common/HashTable.h"
+#include "velox/experimental/wave/common/tests/HashTestUtil.h"
 
-/// Sample header for testing Block.cuh
+/// Sample header for testing Wave Utilities.
 
 namespace facebook::velox::wave {
+
+constexpr uint32_t kPrime32 = 1815531889;
+
+/// A mock aggregate that concatenates numbers, like array_agg of bigint.
+struct ArrayAgg64 {
+  struct Run {
+    Run* next;
+    int64_t data[16];
+  };
+
+  Run* first{nullptr};
+  Run* last{nullptr};
+  // Fill of 'last->data', all other runs are full.
+  int8_t numInLast{0};
+};
+
+/// A mock hash table content row to test HashTable.
+struct TestingRow {
+  // Single ke part.
+  int64_t key;
+
+  // Count of updates. Sample aggregate
+  int64_t count{0};
+
+  // A mock concatenating aggregate. Use for testing control flow in
+  // running out of space in updating a group.
+  ArrayAgg64 concatenation;
+
+  // Next pointer in the case simulating a non-unique join table.
+  TestingRow* next{nullptr};
+
+  // flags for updating the row. E.g. probed flag, marker for exclusive write.
+  int32_t flags{0};
+};
+
+/// Result of allocator test kernel.
+struct AllocatorTestResult {
+  RowAllocator* allocator;
+  int32_t numRows;
+  int32_t numStrings;
+  int64_t* rows[200000];
+  int64_t* strings[200000];
+};
 
 class BlockTestStream : public Stream {
  public:
@@ -33,15 +78,60 @@ class BlockTestStream : public Stream {
       int32_t** indices,
       int32_t* sizes,
       int64_t* times);
+  void testBoolToIndicesNoShared(
+      int32_t numBlocks,
+      uint8_t** flags,
+      int32_t** indices,
+      int32_t* sizes,
+      int64_t* times,
+      void*);
+
+  // Returns the smem size for block size 256 of boolToIndices().
+  static int32_t boolToIndicesSize();
 
   // calculates the sum over blocks of 256 int64s and returns the result for
   // numbers[i * 256] ... numbers[(i + 1) * 256 - 1] inclusive  in results[i].
   void testSum64(int32_t numBlocks, int64_t* numbers, int64_t* results);
 
-  /// Sorts 'rows'[i] using ids[i] as keys and stores the sorted order in
-  /// 'result[i]'.
-  // void dedup(int32_t numBlocks, uint16_t** ids, uint16_t** rows, uint16_t**
-  // resultRows);
+  void testSort16(int32_t numBlocks, uint16_t** keys, uint16_t** values);
+
+  void partitionShorts(
+      int32_t numBlocks,
+      uint16_t** keys,
+      int32_t* numKeys,
+      int32_t numPartitions,
+      int32_t** ranks,
+      int32_t** partitionStarts,
+      int32_t** partitionedRows);
+
+  // Operation for hash table tests.
+  enum class HashCase { kGroup, kBuild, kProbe };
+
+  /// Does probe/groupby/build on 'table'. 'probe' contains the parameters and
+  /// temp storage. 'table' and 'probe' are expected to be resident on device.
+  /// 'numBlocks' gives how many TBs are run, the rows per TB are in 'probe'.
+  void hashTest(GpuHashTableBase* table, HashRun& probe, HashCase mode);
+
+  static int32_t freeSetSize();
+
+  void initAllocator(HashPartitionAllocator* allocator);
+
+  /// tests RowAllocator.
+  void rowAllocatorTest(
+      int32_t numBlocks,
+      int32_t numAlloc,
+      int32_t numFree,
+      int32_t numStr,
+      AllocatorTestResult* results);
+
+  void updateSum1Atomic(TestingRow* rows, HashRun& run);
+  void updateSum1Exch(TestingRow* rows, HashRun& run);
+  void updateSum1NoSync(TestingRow* rows, HashRun& run);
+  void updateSum1AtomicCoalesce(TestingRow* rows, HashRun& run);
+  void updateSum1Part(TestingRow* rows, HashRun& run);
+  void updateSum1Mtx(TestingRow* rows, HashRun& run);
+  void updateSum1MtxCoalesce(TestingRow* rows, HashRun& run);
+  void updateSum1Order(TestingRow* rows, HashRun& run);
 };
 
 } // namespace facebook::velox::wave

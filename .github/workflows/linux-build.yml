@@ -91,7 +91,7 @@ jobs:
       - name: Make Release Build
         env:
           MAKEFLAGS: 'NUM_THREADS=8 MAX_HIGH_MEM_JOBS=4 MAX_LINK_JOBS=4'
-          CUDA_ARCHITECTURES: 60
+          CUDA_ARCHITECTURES: 70
           CUDA_COMPILER: /usr/local/cuda-${CUDA_VERSION}/bin/nvcc
           # Without that, nvcc picks /usr/bin/c++ which is GCC 8
           CUDA_FLAGS: "-ccbin /opt/rh/gcc-toolset-9/root/usr/bin"

@@ -32,6 +32,8 @@ class GpuArena;
 /// Buffer free list.
 class Buffer {
  public:
+  virtual ~Buffer() = default;
+
   template <typename T>
   T* as() {
     return reinterpret_cast<T*>(ptr_);
@@ -71,9 +73,9 @@ class Buffer {
     return referenceCount_;
   }
 
-  void release();
+  virtual void release();
 
- private:
+ protected:
   // Number of WaveBufferPtrs referencing 'this'.
   std::atomic<int32_t> referenceCount_{0};
 
@@ -107,5 +109,35 @@ static inline void intrusive_ptr_add_ref(Buffer* buffer) {
 static inline void intrusive_ptr_release(Buffer* buffer) {
   buffer->release();
 }
+
+template <typename Releaser>
+class WaveBufferView : public Buffer {
+ public:
+  static WaveBufferPtr create(uint8_t* data, size_t size, Releaser releaser) {
+    WaveBufferView<Releaser>* view = new WaveBufferView(data, size, releaser);
+    WaveBufferPtr result(view);
+    return result;
+  }
+
+  ~WaveBufferView() override = default;
+
+  void release() override {
+    if (referenceCount_.fetch_sub(1) == 1) {
+      // Destructs releaser, which should release the hold on the underlying
+      // buffer.
+      delete this;
+    }
+  }
+
+ private:
+  WaveBufferView(uint8_t* data, size_t size, Releaser releaser)
+      : Buffer(), releaser_(releaser) {
+    ptr_ = data;
+    size_ = size;
+    capacity_ = size;
+  }
+
+  Releaser const releaser_;
+};
 
 } // namespace facebook::velox::wave

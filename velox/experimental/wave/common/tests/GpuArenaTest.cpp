@@ -155,3 +155,23 @@ TEST_F(GpuArenaTest, buffers) {
   buffers.clear();
   EXPECT_EQ(1, arena->slabs().size());
 }
+
+TEST_F(GpuArenaTest, views) {
+  auto arena = std::make_unique<GpuArena>(1 << 20, allocator_.get());
+  WaveBufferPtr buffer = arena->allocate<char>(1024);
+  EXPECT_EQ(1, buffer->refCount());
+  WaveBufferPtr view = WaveBufferView<WaveBufferPtr>::create(
+      buffer->as<uint8_t>() + 10, 10, buffer);
+  EXPECT_EQ(2, buffer->refCount());
+  EXPECT_EQ(1, view->refCount());
+  auto view2 = view;
+  EXPECT_EQ(2, buffer->refCount());
+  EXPECT_EQ(2, view->refCount());
+  auto raw = buffer.get();
+  buffer = nullptr;
+  EXPECT_EQ(1, raw->refCount());
+  view = nullptr;
+  view2 = nullptr;
+  // This is reference to freed but the header is still in the arena.
+  EXPECT_EQ(0, raw->refCount());
+}

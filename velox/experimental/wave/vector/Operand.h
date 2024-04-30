@@ -81,9 +81,17 @@ constexpr OperandId kNoOperand = ~0;
 using OperandIndex = uint16_t;
 constexpr OperandIndex kEmpty = ~0;
 
-// operand indices above this are offsets into TB shared memory arrays. The
-// value to use is the item at blockIx.x.
+// operand indices above this are offsets into TB shared memory arrays.
 constexpr OperandIndex kMinSharedMemIndex = 0x8000;
+
+// Number of nullable locals in shared memory. Each has kBlockSize null bytes at
+// the start of the TB shared memory. 0 means no nulls. 1 means first kBlockSize
+// bytes are nulls, 2 means second kBlockSize  bytes are null flags etc.
+constexpr uint16_t kSharedNullMask = 3;
+
+/// Start of the parameter array in the TB shared memory. 13 bits. Shift 1 left
+/// to get offset.
+constexpr uint16_t kSharedOperandMask = 0x7ffc;
 
 /// Describes an operand for a Wave kernel instruction. The same
 /// insttruction is interpreted by multiple thread blocks in the
@@ -108,15 +116,35 @@ struct Operand {
   // Array of flat base values. Cast to pod type or StringView.
   void* base;
 
+  // Array of null indicators. No nulls if nullptr.  A 1 means not-null, for
+  // consistency with Velox.
+  uint8_t* nulls;
+
   // If non-nullptr, provides index into 'base. Subscripted with the
   // blockIdx - idx of first bllock wit this instruction
   // stream. Different thread blocks may or may not have indices for
   // a given operand.
   int32_t** indices;
-
-  // Array of null indicators. No nulls if nullptr.  A 1 means not-null, for
-  // consistency with Velox.
-  uint8_t* nulls;
 };
+
+/// Per-lane error code.
+enum class ErrorCode : uint8_t {
+  // All operations completed.
+  kOk = 0,
+
+  // Catchall for runtime errors.
+  kError,
+
+  kInsufficientMemory,
+};
+
+/// Contains a count of active lanes and a per lane error code.
+struct BlockStatus {
+  int32_t numRows{0};
+  ErrorCode errors[kBlockSize];
+};
+
+/// Returns the number of active rows in 'status' for 'numBlocks'.
+int32_t statusNumRows(const BlockStatus* status, int32_t numBlocks);
 
 } // namespace facebook::velox::wave

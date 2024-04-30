@@ -16,9 +16,12 @@
 
 #include <cuda_runtime.h>
 #include <fmt/format.h>
+#include <iostream>
 #include "velox/experimental/wave/common/Cuda.h"
 #include "velox/experimental/wave/common/CudaUtil.cuh"
 #include "velox/experimental/wave/common/Exception.h"
+
+#include <sstream>
 
 namespace facebook::velox::wave {
 
@@ -28,6 +31,16 @@ void cudaCheck(cudaError_t err, const char* file, int line) {
   }
   waveError(
       fmt::format("Cuda error: {}:{} {}", file, line, cudaGetErrorString(err)));
+}
+
+void cudaCheckFatal(cudaError_t err, const char* file, int line) {
+  if (err == cudaSuccess) {
+    return;
+  }
+  auto error =
+      fmt::format("Cuda error: {}:{} {}", file, line, cudaGetErrorString(err));
+  std::cerr << err << std::endl;
+  exit(1);
 }
 
 namespace {
@@ -207,6 +220,68 @@ float Event::elapsedTime(const Event& start) const {
   }
   CUDA_CHECK(cudaEventElapsedTime(&ms, start.event_->event, event_->event));
   return ms;
+}
+namespace {
+struct KernelEntry {
+  const char* name;
+  const void* func;
+};
+
+int32_t numKernelEntries = 0;
+KernelEntry kernelEntries[200];
+} // namespace
+
+bool registerKernel(const char* name, const void* func) {
+  kernelEntries[numKernelEntries].name = name;
+  kernelEntries[numKernelEntries].func = func;
+  ++numKernelEntries;
+  if (numKernelEntries >= sizeof(kernelEntries) / sizeof(kernelEntries[0])) {
+    LOG(ERROR) << "Reserve more space in kernelEntries";
+    exit(1);
+  }
+  return true;
+}
+
+KernelInfo kernelInfo(const const void* func) {
+  cudaFuncAttributes attrs;
+  CUDA_CHECK_FATAL(cudaFuncGetAttributes(&attrs, func));
+  KernelInfo info;
+  info.numRegs = attrs.numRegs;
+  info.maxThreadsPerBlock = attrs.maxThreadsPerBlock;
+  info.sharedMemory = attrs.sharedSizeBytes;
+  int max;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&max, func, 256, 0);
+  info.maxOccupancy0 = max;
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&max, func, 256, 16);
+  info.maxOccupancy16 = max;
+
+  return info;
+}
+
+std::string KernelInfo::toString() const {
+  std::stringstream out;
+  out << "NumRegs=" << numRegs << " maxThreadsPerBlock= " << maxThreadsPerBlock
+      << " sharedMemory=" << sharedMemory
+      << " occupancy 256,  0=" << maxOccupancy0
+      << " occupancy 256,16=" << maxOccupancy16;
+  return out.str();
+}
+
+KernelInfo getRegisteredKernelInfo(const char* name) {
+  for (auto i = 0; i < numKernelEntries; ++i) {
+    if (strcmp(name, kernelEntries[i].name) == 0) {
+      return kernelInfo(kernelEntries[i].func);
+    }
+  }
+  return KernelInfo();
+}
+
+void printKernels() {
+  for (auto i = 0; i < numKernelEntries; ++i) {
+    std::cout << kernelEntries[i].name << " - "
+              << getRegisteredKernelInfo(kernelEntries[i].name).toString()
+              << std::endl;
+  }
 }
 
 } // namespace facebook::velox::wave
