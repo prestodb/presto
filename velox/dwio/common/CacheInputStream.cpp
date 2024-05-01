@@ -127,7 +127,13 @@ void CacheInputStream::seekToPosition(PositionProvider& seekPosition) {
 }
 
 std::string CacheInputStream::getName() const {
-  return fmt::format("CacheInputStream {} of {}", position_, region_.length);
+  std::string result =
+      fmt::format("CacheInputStream {} of {}", position_, region_.length);
+  auto ssdFile = ssdFileName();
+  if (!ssdFile.empty()) {
+    result += fmt::format(" ssdFile={}", ssdFile);
+  }
+  return result;
 }
 
 size_t CacheInputStream::positionSize() {
@@ -283,6 +289,14 @@ bool CacheInputStream::loadFromSsd(
   ioStats_->queryThreadIoLatency().increment(usec);
   entry.setExclusiveToShared();
   return true;
+}
+
+std::string CacheInputStream::ssdFileName() const {
+  auto ssdCache = cache_->ssdCache();
+  if (!ssdCache) {
+    return "";
+  }
+  return ssdCache->file(fileNum_).fileName();
 }
 
 void CacheInputStream::loadPosition() {

@@ -201,8 +201,15 @@ class CacheTest : public testing::Test {
               (1 << 20) - 11,
               (streamStarts_[streamIndex + 1] - streamStarts_[streamIndex]) /
                   2)};
-      data->streams.push_back(
-          data->input->enqueue(region, streamIds_[streamIndex].get()));
+      auto stream = data->input->enqueue(region, streamIds_[streamIndex].get());
+      if (cache_->ssdCache()) {
+        auto name = static_cast<const CacheInputStream&>(*stream).getName();
+        EXPECT_TRUE(
+            name.find("ssdFile=" + cache_->ssdCache()->filePrefix()) !=
+            name.npos)
+            << name;
+      }
+      data->streams.push_back(std::move(stream));
       data->regions.push_back(region);
     }
     return data;
@@ -424,6 +431,7 @@ TEST_F(CacheTest, window) {
   auto stream = input->read(begin, end - begin, LogType::TEST);
   auto cacheInput = dynamic_cast<CacheInputStream*>(stream.get());
   EXPECT_TRUE(cacheInput != nullptr);
+  ASSERT_EQ(cacheInput->getName(), "CacheInputStream 0 of 13631488");
   auto maxSize =
       allocator_->sizeClasses().back() * memory::AllocationTraits::kPageSize;
   const void* buffer;
@@ -501,8 +509,6 @@ TEST_F(CacheTest, ssd) {
   readFiles(
       "prefix1_", 0, kSsdBytes / bytesPerFile, 30, 100, 1, kStripesPerFile, 4);
 
-  LOG(INFO) << cache_->toString();
-
   waitForWrite();
   cache_->clear();
   // Read double this to get some eviction from SSD.
@@ -523,7 +529,6 @@ TEST_F(CacheTest, ssd) {
   // issued. Also, the head of each file does not get prefetched
   // because each file has its own tracker.
   EXPECT_LE(kSsdBytes / 8, ioStats_->prefetch().sum());
-  LOG(INFO) << cache_->toString();
 
   readFiles(
       "prefix1_",
@@ -534,7 +539,6 @@ TEST_F(CacheTest, ssd) {
       1,
       kStripesPerFile,
       4);
-  LOG(INFO) << cache_->toString();
 }
 
 TEST_F(CacheTest, singleFileThreads) {

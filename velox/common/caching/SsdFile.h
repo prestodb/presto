@@ -272,6 +272,11 @@ class SsdFile {
   /// Returns true if copy on write is disabled for this file. Used in testing.
   bool testingIsCowDisabled() const;
 
+  /// Return the SSD file path.
+  const std::string& fileName() const {
+    return fileName_;
+  }
+
  private:
   // 4 first bytes of a checkpoint file. Allows distinguishing between format
   // versions.

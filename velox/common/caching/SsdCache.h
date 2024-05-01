@@ -105,6 +105,10 @@ class SsdCache {
 
   std::string toString() const;
 
+  const std::string& filePrefix() const {
+    return filePrefix_;
+  }
+
  private:
   const std::string filePrefix_;
   const int32_t numShards_;

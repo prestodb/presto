@@ -109,6 +109,10 @@ class CacheInputStream : public SeekableInputStream {
       velox::common::Region region,
       cache::AsyncDataCacheEntry& entry);
 
+  // Return SSD cache file path if exists; return empty string if no SSD cache
+  // file.
+  std::string ssdFileName() const;
+
   CachedBufferedInput* const bufferedInput_;
   cache::AsyncDataCache* const cache_;
   IoStatistics* ioStats_;
