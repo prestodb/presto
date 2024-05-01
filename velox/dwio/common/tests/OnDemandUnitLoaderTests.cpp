@@ -95,6 +95,72 @@ TEST(OnDemandUnitLoaderTests, LoadsCorrectlyWithNoCallback) {
   EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, false, true}));
 }
 
+TEST(OnDemandUnitLoaderTests, CanSeek) {
+  size_t blockedOnIoCount = 0;
+  OnDemandUnitLoaderFactory factory([&](auto) { ++blockedOnIoCount; });
+  ReaderMock readerMock{{10, 20, 30}, {0, 0, 0}, factory};
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, false, false}));
+  EXPECT_EQ(blockedOnIoCount, 0);
+
+  EXPECT_NO_THROW(readerMock.seek(10););
+
+  EXPECT_TRUE(readerMock.read(3)); // Unit: 1, rows: 0-2, load(1)
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, true, false}));
+  EXPECT_EQ(blockedOnIoCount, 1);
+
+  EXPECT_NO_THROW(readerMock.seek(0););
+
+  EXPECT_TRUE(readerMock.read(3)); // Unit: 0, rows: 0-2, load(0), unload(1)
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({true, false, false}));
+  EXPECT_EQ(blockedOnIoCount, 2);
+
+  EXPECT_NO_THROW(readerMock.seek(30););
+
+  EXPECT_TRUE(readerMock.read(3)); // Unit: 2, rows: 0-2, load(2), unload(0)
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, false, true}));
+  EXPECT_EQ(blockedOnIoCount, 3);
+
+  EXPECT_NO_THROW(readerMock.seek(5););
+
+  EXPECT_TRUE(readerMock.read(5)); // Unit: 0, rows: 5-9, load(0), unload(1)
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({true, false, false}));
+  EXPECT_EQ(blockedOnIoCount, 4);
+}
+
+TEST(OnDemandUnitLoaderTests, SeekOutOfRangeReaderError) {
+  size_t blockedOnIoCount = 0;
+  OnDemandUnitLoaderFactory factory([&](auto) { ++blockedOnIoCount; });
+  ReaderMock readerMock{{10, 20, 30}, {0, 0, 0}, factory};
+  EXPECT_EQ(readerMock.unitsLoaded(), std::vector<bool>({false, false, false}));
+  EXPECT_EQ(blockedOnIoCount, 0);
+  readerMock.seek(59);
+
+  readerMock.seek(60);
+
+  EXPECT_THAT(
+      [&]() { readerMock.seek(61); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr("Can't seek to possition 61 in file. Must be up to 60."))));
+}
+
+TEST(OnDemandUnitLoaderTests, SeekOutOfRange) {
+  OnDemandUnitLoaderFactory factory(nullptr);
+  std::vector<std::atomic_bool> unitsLoaded(getUnitsLoadedWithFalse(1));
+  std::vector<std::unique_ptr<LoadUnit>> units;
+  units.push_back(std::make_unique<LoadUnitMock>(10, 0, unitsLoaded, 0));
+
+  auto unitLoader = factory.create(std::move(units));
+
+  unitLoader->onSeek(0, 10);
+
+  EXPECT_THAT(
+      [&]() { unitLoader->onSeek(0, 11); },
+      Throws<facebook::velox::VeloxRuntimeError>(Property(
+          &facebook::velox::VeloxRuntimeError::message,
+          HasSubstr("Row out of range"))));
+}
+
 TEST(OnDemandUnitLoaderTests, UnitOutOfRange) {
   OnDemandUnitLoaderFactory factory(nullptr);
   std::vector<std::atomic_bool> unitsLoaded(getUnitsLoadedWithFalse(1));

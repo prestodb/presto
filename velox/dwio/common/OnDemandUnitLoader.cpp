@@ -58,10 +58,18 @@ class OnDemandUnitLoader : public UnitLoader {
     return *loadUnits_[unit];
   }
 
-  void onRead(
-      uint32_t /* unit */,
-      uint64_t /* rowOffsetInUnit */,
-      uint64_t /* rowCount */) override {}
+  void onRead(uint32_t unit, uint64_t rowOffsetInUnit, uint64_t /* rowCount */)
+      override {
+    VELOX_CHECK_LT(unit, loadUnits_.size(), "Unit out of range");
+    VELOX_CHECK_LT(
+        rowOffsetInUnit, loadUnits_[unit]->getNumRows(), "Row out of range");
+  }
+
+  void onSeek(uint32_t unit, uint64_t rowOffsetInUnit) override {
+    VELOX_CHECK_LT(unit, loadUnits_.size(), "Unit out of range");
+    VELOX_CHECK_LE(
+        rowOffsetInUnit, loadUnits_[unit]->getNumRows(), "Row out of range");
+  }
 
  private:
   std::vector<std::unique_ptr<LoadUnit>> loadUnits_;

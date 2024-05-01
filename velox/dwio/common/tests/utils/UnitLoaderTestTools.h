@@ -78,6 +78,8 @@ class ReaderMock {
 
   bool read(uint64_t maxRows);
 
+  void seek(uint64_t rowNumber);
+
   std::vector<bool> unitsLoaded() const {
     return {unitsLoaded_.begin(), unitsLoaded_.end()};
   }

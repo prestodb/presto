@@ -49,8 +49,13 @@ class UnitLoader {
   virtual LoadUnit& getLoadedUnit(uint32_t unit) = 0;
 
   // Reader reports progress calling this method
+  // The call must be done **after** getLoadedUnit for unit
   virtual void
   onRead(uint32_t unit, uint64_t rowOffsetInUnit, uint64_t rowCount) = 0;
+
+  // Reader reports seek calling this method.
+  // The call must be done **before** getLoadedUnit for the new unit
+  virtual void onSeek(uint32_t unit, uint64_t rowOffsetInUnit) = 0;
 };
 
 class UnitLoaderFactory {
