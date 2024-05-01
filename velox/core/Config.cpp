@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/core/Config.h"
+#include "velox/core/QueryConfig.h"
+#include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::core {
 
@@ -44,6 +46,13 @@ folly::Optional<std::string> MemConfigMutable::get(
 bool MemConfigMutable::isValueExists(const std::string& key) const {
   auto lockedValues = values_.rlock();
   return lockedValues->find(key) != lockedValues->end();
+}
+
+void MemConfig::validateConfig() {
+  // Validate if timezone name can be recognized.
+  if (isValueExists(QueryConfig::kSessionTimezone)) {
+    util::getTimeZoneID(values_[QueryConfig::kSessionTimezone]);
+  }
 }
 
 } // namespace facebook::velox::core

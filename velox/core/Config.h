@@ -70,12 +70,16 @@ namespace core {
 class MemConfig : public Config {
  public:
   explicit MemConfig(const std::unordered_map<std::string, std::string>& values)
-      : values_(values) {}
+      : values_(values) {
+    validateConfig();
+  }
 
   explicit MemConfig() : values_{} {}
 
   explicit MemConfig(std::unordered_map<std::string, std::string>&& values)
-      : values_(std::move(values)) {}
+      : values_(std::move(values)) {
+    validateConfig();
+  }
 
   folly::Optional<std::string> get(const std::string& key) const override;
 
@@ -90,6 +94,9 @@ class MemConfig : public Config {
   }
 
  private:
+  // Validate if configurations are valid.
+  void validateConfig();
+
   std::unordered_map<std::string, std::string> values_;
 };
 

@@ -46,8 +46,23 @@ TEST_F(QueryConfigTest, setConfig) {
   ASSERT_TRUE(config.isLegacyCast());
 }
 
+TEST_F(QueryConfigTest, invalidConfig) {
+  std::unordered_map<std::string, std::string> configData(
+      {{QueryConfig::kSessionTimezone, "Invalid"}});
+  VELOX_ASSERT_USER_THROW(
+      std::make_shared<QueryCtx>(nullptr, std::move(configData)),
+      "Unknown time zone: 'Invalid'");
+
+  auto queryCtx = std::make_shared<QueryCtx>(nullptr);
+  VELOX_ASSERT_USER_THROW(
+      queryCtx->testingOverrideConfigUnsafe({
+          {core::QueryConfig::kSessionTimezone, ""},
+      }),
+      "Unknown time zone: ''");
+}
+
 TEST_F(QueryConfigTest, memConfig) {
-  const std::string tz = "timezone1";
+  const std::string tz = "UTC";
   const std::unordered_map<std::string, std::string> configData(
       {{QueryConfig::kSessionTimezone, tz}});
 
@@ -72,7 +87,7 @@ TEST_F(QueryConfigTest, memConfig) {
         tz,
         cfg.Config::get<std::string>(QueryConfig::kSessionTimezone).value());
     ASSERT_FALSE(cfg.Config::get<std::string>("missing-entry").has_value());
-    const std::string tz2 = "timezone2";
+    const std::string tz2 = "PST";
     ASSERT_NO_THROW(cfg.setValue(QueryConfig::kSessionTimezone, tz2));
     ASSERT_EQ(
         tz2,
