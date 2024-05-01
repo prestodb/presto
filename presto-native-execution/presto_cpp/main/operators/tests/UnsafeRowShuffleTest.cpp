@@ -1112,7 +1112,9 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperatorWhenSinglePartition) {
   testPartitionAndSerialize(plan, data);
 }
 
-TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
+// TODO(spershin): Enable when PlanNode::toString() is modified and Velox
+// version is updated.
+TEST_F(UnsafeRowShuffleTest, DISABLED_shuffleWriterToString) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
@@ -1134,7 +1136,9 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
       "-- ShuffleWrite[4, test-shuffle] -> partition:INTEGER, data:VARBINARY\n");
 }
 
-TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
+// TODO(spershin): Enable when PlanNode::toString() is modified and Velox
+// version is updated.
+TEST_F(UnsafeRowShuffleTest, DISABLED_partitionAndSerializeToString) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
