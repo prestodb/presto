@@ -347,6 +347,7 @@ bool SsdFile::growOrEvictLocked() {
 
   logEviction(candidates);
   clearRegionEntriesLocked(candidates);
+  stats_.regionsEvicted += candidates.size();
   writableRegions_ = std::move(candidates);
   suspended_ = false;
   return true;
@@ -532,6 +533,7 @@ void SsdFile::updateStats(SsdCacheStats& stats) const {
   }
   stats.entriesAgedOut += stats_.entriesAgedOut;
   stats.regionsAgedOut += stats_.regionsAgedOut;
+  stats.regionsEvicted += stats_.regionsEvicted;
   for (auto pins : regionPins_) {
     stats.numPins += pins;
   }

@@ -138,6 +138,7 @@ struct SsdCacheStats {
     bytesCached = tsanAtomicValue(other.bytesCached);
     entriesAgedOut = tsanAtomicValue(other.entriesAgedOut);
     regionsAgedOut = tsanAtomicValue(other.regionsAgedOut);
+    regionsEvicted = tsanAtomicValue(other.regionsEvicted);
     numPins = tsanAtomicValue(other.numPins);
 
     openFileErrors = tsanAtomicValue(other.openFileErrors);
@@ -162,6 +163,7 @@ struct SsdCacheStats {
   tsan_atomic<uint64_t> bytesCached{0};
   tsan_atomic<uint64_t> entriesAgedOut{0};
   tsan_atomic<uint64_t> regionsAgedOut{0};
+  tsan_atomic<uint64_t> regionsEvicted{0};
   tsan_atomic<int32_t> numPins{0};
 
   tsan_atomic<uint32_t> openFileErrors{0};
