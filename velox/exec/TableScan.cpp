@@ -356,12 +356,14 @@ bool TableScan::isFinished() {
 }
 
 void TableScan::addDynamicFilter(
+    const core::PlanNodeId& producer,
     column_index_t outputChannel,
     const std::shared_ptr<common::Filter>& filter) {
   if (dataSource_) {
     dataSource_->addDynamicFilter(outputChannel, filter);
   }
   dynamicFilters_.emplace(outputChannel, filter);
+  stats_.wlock()->dynamicFilterStats.producerNodeIds.emplace(producer);
 }
 
 } // namespace facebook::velox::exec

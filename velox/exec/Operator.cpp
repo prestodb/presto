@@ -504,6 +504,8 @@ void OperatorStats::add(const OperatorStats& other) {
   spilledFiles += other.spilledFiles;
 
   numNullKeys += other.numNullKeys;
+
+  dynamicFilterStats.add(other.dynamicFilterStats);
 }
 
 void OperatorStats::clear() {
@@ -537,6 +539,8 @@ void OperatorStats::clear() {
   spilledRows = 0;
   spilledPartitions = 0;
   spilledFiles = 0;
+
+  dynamicFilterStats.clear();
 }
 
 std::unique_ptr<memory::MemoryReclaimer> Operator::MemoryReclaimer::create(

@@ -464,3 +464,30 @@ TEST_F(OperatorUtilsTest, memStatsFromPool) {
   ASSERT_EQ(stats.peakSystemMemoryReservation, 0);
   ASSERT_EQ(stats.numMemoryAllocations, 1);
 }
+
+TEST_F(OperatorUtilsTest, dynamicFilterStats) {
+  DynamicFilterStats dynamicFilterStats;
+  ASSERT_TRUE(dynamicFilterStats.empty());
+  const std::string nodeId1{"node1"};
+  const std::string nodeId2{"node2"};
+  dynamicFilterStats.producerNodeIds.emplace(nodeId1);
+  ASSERT_FALSE(dynamicFilterStats.empty());
+  DynamicFilterStats dynamicFilterStatsToMerge;
+  dynamicFilterStatsToMerge.producerNodeIds.emplace(nodeId1);
+  ASSERT_FALSE(dynamicFilterStatsToMerge.empty());
+  dynamicFilterStats.add(dynamicFilterStatsToMerge);
+  ASSERT_EQ(dynamicFilterStats.producerNodeIds.size(), 1);
+  ASSERT_EQ(
+      dynamicFilterStats.producerNodeIds,
+      std::unordered_set<core::PlanNodeId>({nodeId1}));
+
+  dynamicFilterStatsToMerge.producerNodeIds.emplace(nodeId2);
+  dynamicFilterStats.add(dynamicFilterStatsToMerge);
+  ASSERT_EQ(dynamicFilterStats.producerNodeIds.size(), 2);
+  ASSERT_EQ(
+      dynamicFilterStats.producerNodeIds,
+      std::unordered_set<core::PlanNodeId>({nodeId1, nodeId2}));
+
+  dynamicFilterStats.clear();
+  ASSERT_TRUE(dynamicFilterStats.empty());
+}

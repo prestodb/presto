@@ -267,6 +267,8 @@ TEST_F(TableScanTest, allColumns) {
   ASSERT_TRUE(it != planStats.end());
   ASSERT_TRUE(it->second.peakMemoryBytes > 0);
   ASSERT_LT(0, it->second.customStats.at("ioWaitNanos").sum);
+  // Verifies there is no dynamic filter stats.
+  ASSERT_TRUE(it->second.dynamicFilterStats.empty());
 }
 
 TEST_F(TableScanTest, connectorStats) {

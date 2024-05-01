@@ -62,6 +62,9 @@ struct PlanNodeStats {
   /// Sum of raw input bytes for all corresponding operators.
   uint64_t rawInputBytes{0};
 
+  /// Contains the dynamic filters stats if applied.
+  DynamicFilterStats dynamicFilterStats;
+
   /// Sum of output rows for all corresponding operators. When
   /// plan node corresponds to multiple operator types, operators of only one of
   /// these types report non-zero output rows.

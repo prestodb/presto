@@ -293,11 +293,12 @@ void Driver::initializeOperators() {
 }
 
 void Driver::pushdownFilters(int operatorIndex) {
-  auto op = operators_[operatorIndex].get();
+  auto* op = operators_[operatorIndex].get();
   const auto& filters = op->getDynamicFilters();
   if (filters.empty()) {
     return;
   }
+  const auto& planNodeId = op->planNodeId();
 
   op->addRuntimeStat("dynamicFiltersProduced", RuntimeCounter(filters.size()));
 
@@ -313,7 +314,7 @@ void Driver::pushdownFilters(int operatorIndex) {
             prevOp->canAddDynamicFilter(),
             "Cannot push down dynamic filters produced by {}",
             op->toString());
-        prevOp->addDynamicFilter(channel, entry.second);
+        prevOp->addDynamicFilter(planNodeId, channel, entry.second);
         prevOp->addRuntimeStat("dynamicFiltersAccepted", RuntimeCounter(1));
         break;
       }
@@ -327,7 +328,7 @@ void Driver::pushdownFilters(int operatorIndex) {
             prevOp->canAddDynamicFilter(),
             "Cannot push down dynamic filters produced by {}",
             op->toString());
-        prevOp->addDynamicFilter(channel, entry.second);
+        prevOp->addDynamicFilter(planNodeId, channel, entry.second);
         prevOp->addRuntimeStat("dynamicFiltersAccepted", RuntimeCounter(1));
         break;
       }

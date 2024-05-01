@@ -39,6 +39,8 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   rawInputRows += stats.rawInputPositions;
   rawInputBytes += stats.rawInputBytes;
 
+  dynamicFilterStats.add(stats.dynamicFilterStats);
+
   outputRows += stats.outputPositions;
   outputBytes += stats.outputBytes;
   outputVectors += stats.outputVectors;
@@ -110,6 +112,11 @@ std::string PlanNodeStats::toString(bool includeInputStats) const {
   if (spilledRows > 0) {
     out << ", Spilled: " << spilledRows << " rows ("
         << succinctBytes(spilledBytes) << ", " << spilledFiles << " files)";
+  }
+
+  if (!dynamicFilterStats.empty()) {
+    out << ", DynamicFilter producer plan nodes: "
+        << folly::join(',', dynamicFilterStats.producerNodeIds);
   }
 
   return out.str();

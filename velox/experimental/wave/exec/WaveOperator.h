@@ -144,8 +144,9 @@ class WaveOperator {
   }
 
   virtual void addDynamicFilter(
-      column_index_t outputChannel,
-      const std::shared_ptr<common::Filter>& filter) {
+      const core::PlanNodeId& /*producer*/,
+      column_index_t /*outputChannel*/,
+      const std::shared_ptr<common::Filter>& /*filter*/) {
     VELOX_UNSUPPORTED();
   }
 
