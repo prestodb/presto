@@ -64,6 +64,7 @@ public class HiveClientConfig
 
     private String timeZone = TimeZone.getDefault().getID();
 
+    private DataSize minSplitSize = new DataSize(0, MEGABYTE);
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
     private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
@@ -352,6 +353,19 @@ public class HiveClientConfig
     public HiveClientConfig setTimeZone(String id)
     {
         this.timeZone = (id != null) ? id : TimeZone.getDefault().getID();
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMinSplitSize()
+    {
+        return minSplitSize;
+    }
+
+    @Config("hive.min-split-size")
+    public HiveClientConfig setMinSplitSize(DataSize minSplitSize)
+    {
+        this.minSplitSize = minSplitSize;
         return this;
     }
 

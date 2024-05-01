@@ -139,6 +139,10 @@ public class HivePageSourceProvider
             List<ColumnHandle> columns,
             SplitContext splitContext)
     {
+        if (split instanceof CollatedHiveSplit) {
+            return new CollatedHivePageSource(this, transaction, session, (CollatedHiveSplit) split, layout, columns, splitContext);
+        }
+
         HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout;
 
         List<HiveColumnHandle> selectedColumns = columns.stream()
