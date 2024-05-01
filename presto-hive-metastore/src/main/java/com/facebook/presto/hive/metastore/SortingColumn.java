@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,9 +35,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 @Immutable
 public class SortingColumn
 {
+    @ThriftEnum
     public enum Order
     {
         ASCENDING(ASC_NULLS_FIRST, 1),
@@ -72,6 +78,7 @@ public class SortingColumn
     private final String columnName;
     private final Order order;
 
+    @ThriftConstructor
     @JsonCreator
     public SortingColumn(
             @JsonProperty("columnName") String columnName,
@@ -81,12 +88,14 @@ public class SortingColumn
         this.order = requireNonNull(order, "order is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getColumnName()
     {
         return columnName;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public Order getOrder()
     {

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -72,6 +75,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.timestampTy
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFromTypeString;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 
+@ThriftStruct
 public final class HiveType
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
@@ -91,33 +95,39 @@ public final class HiveType
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
 
-    private HiveType(TypeInfo typeInfo)
+    @ThriftConstructor
+    public HiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
         this.hiveTypeName = new HiveTypeName(typeInfo.getTypeName());
         this.typeInfo = typeInfo;
     }
 
+    @ThriftField(1)
     public HiveTypeName getHiveTypeName()
     {
         return hiveTypeName;
     }
 
+    @ThriftField(2)
     public Category getCategory()
     {
         return typeInfo.getCategory();
     }
 
+    @ThriftField(3)
     public TypeInfo getTypeInfo()
     {
         return typeInfo;
     }
 
+    @ThriftField(4)
     public TypeSignature getTypeSignature()
     {
         return getTypeSignature(typeInfo);
     }
 
+    @ThriftField(5)
     public Type getType(TypeManager typeManager)
     {
         return typeManager.getType(getTypeSignature());

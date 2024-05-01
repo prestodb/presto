@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +30,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 @Immutable
 public class StorageFormat
 {
@@ -36,13 +40,15 @@ public class StorageFormat
     private final String inputFormat;
     private final String outputFormat;
 
-    private StorageFormat(String serDe, String inputFormat, String outputFormat)
+    @ThriftConstructor
+    public StorageFormat(String serDe, String inputFormat, String outputFormat)
     {
         this.serDe = serDe;
         this.inputFormat = inputFormat;
         this.outputFormat = outputFormat;
     }
 
+    @ThriftField(1)
     public String getSerDe()
     {
         if (serDe == null) {
@@ -51,6 +57,7 @@ public class StorageFormat
         return serDe;
     }
 
+    @ThriftField(2)
     public String getInputFormat()
     {
         if (inputFormat == null) {
@@ -59,6 +66,7 @@ public class StorageFormat
         return inputFormat;
     }
 
+    @ThriftField(3)
     public String getOutputFormat()
     {
         if (outputFormat == null) {
@@ -89,6 +97,7 @@ public class StorageFormat
     {
         return new StorageFormat(hiveStorageFormat.getSerDe(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
     }
+
 
     public static StorageFormat create(String serde, String inputFormat, String outputFormat)
     {

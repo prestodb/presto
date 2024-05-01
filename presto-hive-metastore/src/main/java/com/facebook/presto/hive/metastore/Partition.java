@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -32,6 +35,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 @Immutable
 public class Partition
 {
@@ -48,6 +52,7 @@ public class Partition
     private final long lastDataCommitTime;
     private final Optional<byte[]> rowIdPartitionComponent;
 
+    @ThriftConstructor
     @JsonCreator
     public Partition(
             @JsonProperty("databaseName") String databaseName,
@@ -77,72 +82,84 @@ public class Partition
         this.rowIdPartitionComponent = requireNonNull(rowIdPartitionComponent);
     }
 
+    @ThriftField(1)
     @JsonProperty
     public String getDatabaseName()
     {
         return databaseName;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public String getTableName()
     {
         return tableName;
     }
 
-    @JsonIgnore
+    @ThriftField(3)
+    @JsonProperty
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(databaseName, tableName);
     }
 
+    @ThriftField(4)
     @JsonProperty
     public List<String> getValues()
     {
         return values;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Storage getStorage()
     {
         return storage;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public List<Column> getColumns()
     {
         return columns;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public Map<String, String> getParameters()
     {
         return parameters;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public Optional<Long> getPartitionVersion()
     {
         return partitionVersion;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public boolean isEligibleToIgnore()
     {
         return eligibleToIgnore;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public boolean isSealedPartition()
     {
         return sealedPartition;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public int getCreateTime()
     {
         return createTime;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public long getLastDataCommitTime()
     {
@@ -153,6 +170,7 @@ public class Partition
      * A unique identifier for a specific version of a
      * specific partition in a specific table.
      */
+    @ThriftField(13)
     @JsonProperty
     public Optional<byte[]> getRowIdPartitionComponent()
     {

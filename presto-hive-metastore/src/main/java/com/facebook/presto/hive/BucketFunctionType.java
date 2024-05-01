@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftEnum;
+
+@ThriftEnum
 public enum BucketFunctionType
 {
     HIVE_COMPATIBLE,

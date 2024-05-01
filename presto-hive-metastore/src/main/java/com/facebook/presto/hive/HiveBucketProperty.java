@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
@@ -33,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class HiveBucketProperty
 {
     private final List<String> bucketedBy;
@@ -41,6 +46,7 @@ public class HiveBucketProperty
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
 
+    @ThriftConstructor
     @JsonCreator
     public HiveBucketProperty(
             @JsonProperty("bucketedBy") List<String> bucketedBy,
@@ -88,30 +94,35 @@ public class HiveBucketProperty
                 Optional.empty()));
     }
 
+    @ThriftField(1)
     @JsonProperty
     public List<String> getBucketedBy()
     {
         return bucketedBy;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public int getBucketCount()
     {
         return bucketCount;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public List<SortingColumn> getSortedBy()
     {
         return sortedBy;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public BucketFunctionType getBucketFunctionType()
     {
         return bucketFunctionType;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Optional<List<Type>> getTypes()
     {

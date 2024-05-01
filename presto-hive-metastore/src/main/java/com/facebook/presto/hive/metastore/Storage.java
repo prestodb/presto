@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +30,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 @Immutable
 public class Storage
 {
@@ -37,6 +41,7 @@ public class Storage
     private final Map<String, String> serdeParameters;
     private final Map<String, String> parameters;
 
+    @ThriftConstructor
     @JsonCreator
     public Storage(
             @JsonProperty("storageFormat") StorageFormat storageFormat,
@@ -54,36 +59,42 @@ public class Storage
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
+    @ThriftField(1)
     @JsonProperty
     public StorageFormat getStorageFormat()
     {
         return storageFormat;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public String getLocation()
     {
         return location;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public Optional<HiveBucketProperty> getBucketProperty()
     {
         return bucketProperty;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public boolean isSkewed()
     {
         return skewed;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Map<String, String> getSerdeParameters()
     {
         return serdeParameters;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public Map<String, String> getParameters()
     {
