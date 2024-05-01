@@ -117,6 +117,11 @@ ExchangeClient::next(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
   std::vector<std::unique_ptr<SerializedPage>> pages;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+    if (closed_) {
+      *atEnd = true;
+      return pages;
+    }
+
     *atEnd = false;
     pages = queue_->dequeueLocked(maxBytes, atEnd, future);
     if (*atEnd) {
