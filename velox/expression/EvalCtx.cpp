@@ -170,23 +170,30 @@ namespace {
 auto throwError(const std::exception_ptr& exceptionPtr) {
   std::rethrow_exception(toVeloxException(exceptionPtr));
 }
+
+std::exception_ptr toVeloxUserError(const std::string& message) {
+  return std::make_exception_ptr(VeloxUserError(
+      __FILE__,
+      __LINE__,
+      __FUNCTION__,
+      "",
+      message,
+      error_source::kErrorSourceUser,
+      error_code::kInvalidArgument,
+      false /*retriable*/));
+}
+
 } // namespace
 
 void EvalCtx::setStatus(vector_size_t index, Status status) {
   VELOX_CHECK(!status.ok(), "Status must be an error");
 
+  static std::exception_ptr kUserError = toVeloxUserError("<not captured>");
+
   if (status.isUserError()) {
     setVeloxExceptionError(
         index,
-        std::make_exception_ptr(VeloxUserError(
-            __FILE__,
-            __LINE__,
-            __FUNCTION__,
-            "",
-            status.message(),
-            error_source::kErrorSourceUser,
-            error_code::kInvalidArgument,
-            false /*retriable*/)));
+        captureErrorDetails_ ? toVeloxUserError(status.message()) : kUserError);
   } else {
     VELOX_FAIL(status.message());
   }

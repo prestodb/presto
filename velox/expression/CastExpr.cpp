@@ -918,6 +918,8 @@ void CastExpr::evalSpecialForm(
   inTopLevel = true;
   if (nullOnFailure()) {
     ScopedVarSetter holder{context.mutableThrowOnError(), false};
+    ScopedVarSetter captureErrorDetails(
+        context.mutableCaptureErrorDetails(), false);
     apply(rows, input, context, fromType, toType, result);
   } else {
     apply(rows, input, context, fromType, toType, result);

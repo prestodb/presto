@@ -23,6 +23,9 @@ void TryExpr::evalSpecialForm(
     EvalCtx& context,
     VectorPtr& result) {
   ScopedVarSetter throwOnError(context.mutableThrowOnError(), false);
+  ScopedVarSetter captureErrorDetails(
+      context.mutableCaptureErrorDetails(), false);
+
   // It's possible with nested TRY expressions that some rows already threw
   // exceptions in earlier expressions that haven't been handled yet. To avoid
   // incorrectly handling them here, store those errors and temporarily reset
@@ -42,6 +45,9 @@ void TryExpr::evalSpecialFormSimplified(
     EvalCtx& context,
     VectorPtr& result) {
   ScopedVarSetter throwOnError(context.mutableThrowOnError(), false);
+  ScopedVarSetter captureErrorDetails(
+      context.mutableCaptureErrorDetails(), false);
+
   // It's possible with nested TRY expressions that some rows already threw
   // exceptions in earlier expressions that haven't been handled yet. To avoid
   // incorrectly handling them here, store those errors and temporarily reset

@@ -192,12 +192,27 @@ class EvalCtx {
     errors_.reset();
   }
 
+  /// Boolean indicating whether exceptions that occur during expression
+  /// evaluation should be thrown directly or saved for later processing.
   bool throwOnError() const {
     return throwOnError_;
   }
 
   bool* mutableThrowOnError() {
     return &throwOnError_;
+  }
+
+  /// Boolean indicating whether to capture details when storing exceptions for
+  /// later processing (throwOnError_ == true).
+  ///
+  /// Conjunct expressions (AND, OR) require capturing error details, while TRY
+  /// and TRY_CAST expressions do not.
+  bool captureErrorDetails() const {
+    return captureErrorDetails_;
+  }
+
+  bool* mutableCaptureErrorDetails() {
+    return &captureErrorDetails_;
   }
 
   bool nullsPruned() const {
@@ -354,6 +369,8 @@ class EvalCtx {
   // behavior.
   bool nullsPruned_{false};
   bool throwOnError_{true};
+
+  bool captureErrorDetails_{true};
 
   // True if the current set of rows will not grow, e.g. not under and IF or OR.
   bool isFinalSelection_{true};
