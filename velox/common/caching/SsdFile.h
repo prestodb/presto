@@ -350,6 +350,9 @@ class SsdFile {
   // Maximum size of the backing file in kRegionSize units.
   const int32_t maxRegions_;
 
+  // True if copy on write should be disabled.
+  const bool disableFileCow_;
+
   // Serializes access to all private data members.
   mutable std::shared_mutex mutex_;
 
