@@ -617,6 +617,7 @@ public class TestArrayOperators
         assertFunction("array_join(ARRAY[1, NULL, 2], ',')", VARCHAR, "1,2");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], ';', 'N/A')", VARCHAR, "1;2;3");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, null], ';', 'N/A')", VARCHAR, "1;2;N/A");
+        assertFunction("ARRAY_JOIN(ARRAY [1, 2, null], ';')", VARCHAR, "1;2");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], 'x')", VARCHAR, "1x2x3");
         assertFunction("ARRAY_JOIN(ARRAY [BIGINT '1', 2, 3], 'x')", VARCHAR, "1x2x3");
         assertFunction("ARRAY_JOIN(ARRAY [null], '=')", VARCHAR, "");
