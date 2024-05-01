@@ -166,8 +166,7 @@ std::string WindowFuzzer::generateOrderByClause(
       frame << ", ";
     }
     frame << sortingKeysAndOrders[i].key_ << " "
-          << sortingKeysAndOrders[i].order_ << " "
-          << sortingKeysAndOrders[i].nullsOrder_;
+          << sortingKeysAndOrders[i].sortOrder_.toString();
   }
   return frame.str();
 }
@@ -193,11 +192,10 @@ WindowFuzzer::generateSortingKeysAndOrders(
     std::vector<TypePtr>& types) {
   auto keys = generateSortingKeys(prefix, names, types);
   std::vector<SortingKeyAndOrder> results;
-  // TODO: allow randomly generating orders.
   for (auto i = 0; i < keys.size(); ++i) {
-    std::string order = "asc";
-    std::string nullsOrder = "nulls last";
-    results.push_back(SortingKeyAndOrder(keys[i], order, nullsOrder));
+    auto asc = vectorFuzzer_.coinToss(0.5);
+    auto nullsFirst = vectorFuzzer_.coinToss(0.5);
+    results.emplace_back(keys[i], core::SortOrder(asc, nullsFirst));
   }
   return results;
 }
@@ -250,8 +248,7 @@ void WindowFuzzer::go() {
     // If the function is order-dependent or uses "rows" frame, sort all input
     // rows by row_number additionally.
     if (requireSortedInput || isRowsFrame) {
-      sortingKeysAndOrders.push_back(
-          SortingKeyAndOrder("row_number", "asc", "nulls last"));
+      sortingKeysAndOrders.emplace_back("row_number", core::kAscNullsLast);
       ++stats_.numSortedInputs;
     }
 
@@ -306,15 +303,11 @@ void WindowFuzzer::testAlternativePlans(
 
   std::vector<std::string> allKeys;
   for (const auto& key : partitionKeys) {
-    allKeys.push_back(key + " NULLS FIRST");
+    allKeys.emplace_back(key + " NULLS FIRST");
   }
   for (const auto& keyAndOrder : sortingKeysAndOrders) {
-    allKeys.push_back(folly::to<std::string>(
-        keyAndOrder.key_,
-        " ",
-        keyAndOrder.order_,
-        " ",
-        keyAndOrder.nullsOrder_));
+    allKeys.emplace_back(fmt::format(
+        "{} {}", keyAndOrder.key_, keyAndOrder.sortOrder_.toString()));
   }
 
   // Streaming window from values.
