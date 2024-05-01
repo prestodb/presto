@@ -489,6 +489,7 @@ class HiveSplitSource
             ImmutableList.Builder<ConnectorSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
             long currentSplitBytes = 0;
+            int j = 0;
             List<HiveSplit> accumulatedHiveSplits = new ArrayList<>();
             for (InternalHiveSplit internalSplit : internalSplits) {
                 long minSplitBytes = minSplitSize.toBytes();
@@ -555,6 +556,8 @@ class HiveSplitSource
                     accumulatedHiveSplits.add(hiveSplit);
 
                     if (splitBytes + currentSplitBytes >= minSplitBytes) {
+                        log.info(format("NIKHIL added collatedhivesplit with hivesplit count=%d and totalsplitsize=%d", splitBytes + currentSplitBytes, accumulatedHiveSplits.size()));
+                        j++;
                         resultBuilder.add(new CollatedHiveSplit(accumulatedHiveSplits));
                         accumulatedHiveSplits = new ArrayList<>();
                         currentSplitBytes = 0;
@@ -580,8 +583,10 @@ class HiveSplitSource
             }
 
             if (!accumulatedHiveSplits.isEmpty()) {
+                j++;
                 resultBuilder.add(new CollatedHiveSplit(accumulatedHiveSplits));
             }
+            log.info(format("NIKHIL originalSplitCount=%d, collatedSplitCount=%d", internalSplits.size(), j));
 
             // For rewindable split source, we keep all the splits in memory.
             if (!useRewindableSplitSource) {

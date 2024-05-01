@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
 import com.facebook.presto.common.Subfield.PathElement;
@@ -94,6 +95,7 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private static final Logger log = Logger.get(HivePageSourceProvider.class);
     private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HiveRecordCursorProvider> cursorProviders;
@@ -140,6 +142,7 @@ public class HivePageSourceProvider
             SplitContext splitContext)
     {
         if (split instanceof CollatedHiveSplit) {
+            log.info("NIKHIL found collated split. return collated hive page source");
             return new CollatedHivePageSource(this, transaction, session, (CollatedHiveSplit) split, layout, columns, splitContext);
         }
 
