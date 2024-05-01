@@ -197,6 +197,9 @@ struct HashTableBenchmarkResult {
 
 class HashTableListJoinResultBenchmark : public VectorTestBase {
  public:
+  HashTableListJoinResultBenchmark()
+      : randomEngine_((std::random_device{}())) {}
+
   HashTableBenchmarkResult run(HashTableBenchmarkParams params) {
     params_ = params;
     HashTableBenchmarkResult result;
@@ -260,7 +263,8 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
     if (addExtraValue) {
       data[0] = params_.extraValue;
     }
-    std::random_shuffle(data.begin(), data.end());
+
+    std::shuffle(data.begin(), data.end(), randomEngine_);
     std::vector<VectorPtr> children;
     children.push_back(makeFlatVector<int64_t>(data));
     for (int32_t i = 0; i < params_.numDependentFields; ++i) {
@@ -462,6 +466,7 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
     eraseTime_ += eraseClock.timeToDropValue();
   }
 
+  std::default_random_engine randomEngine_;
   std::unique_ptr<HashTable<true>> topTable_;
   HashTableBenchmarkParams params_;
 
