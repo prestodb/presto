@@ -478,6 +478,7 @@ void HashProbe::prepareInputIndicesBuffers(
   VELOX_DCHECK(spillEnabled());
   const auto maxIndicesBufferBytes = numInput * sizeof(vector_size_t);
   if (nonSpillInputIndicesBuffer_ == nullptr ||
+      !nonSpillInputIndicesBuffer_->isMutable() ||
       nonSpillInputIndicesBuffer_->size() < maxIndicesBufferBytes) {
     nonSpillInputIndicesBuffer_ = allocateIndices(numInput, pool());
     rawNonSpillInputIndicesBuffer_ =
