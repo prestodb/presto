@@ -328,6 +328,9 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<UnixDateFunction, int32_t, Date>({prefix + "unix_date"});
 
+  registerFunction<UnixSecondsFunction, int64_t, Timestamp>(
+      {prefix + "unix_seconds"});
+
   registerFunction<UnixTimestampFunction, int64_t>({prefix + "unix_timestamp"});
 
   registerFunction<UnixTimestampParseFunction, int64_t, Varchar>(

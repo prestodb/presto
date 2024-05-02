@@ -985,6 +985,18 @@ TEST_F(DateTimeFunctionsTest, yearOfWeek) {
   EXPECT_EQ(2006, yearOfWeek(parseDate("2006-01-02")));
 }
 
+TEST_F(DateTimeFunctionsTest, unixSeconds) {
+  const auto unixSeconds = [&](const StringView time) {
+    return evaluateOnce<int64_t, Timestamp>(
+        "unix_seconds(c0)", util::fromTimestampString(time));
+  };
+  EXPECT_EQ(unixSeconds("1970-01-01 00:00:01"), 1);
+  EXPECT_EQ(unixSeconds("1970-01-01 00:00:00.000127"), 0);
+  EXPECT_EQ(unixSeconds("1969-12-31 23:59:59.999872"), -1);
+  EXPECT_EQ(unixSeconds("1970-01-01 00:35:47.483647"), 2147);
+  EXPECT_EQ(unixSeconds("1971-01-01 00:00:01.483647"), 31536001);
+}
+
 TEST_F(DateTimeFunctionsTest, microsToTimestamp) {
   const auto microsToTimestamp = [&](int64_t micros) {
     return evaluateOnce<Timestamp, int64_t>("timestamp_micros(c0)", micros);
