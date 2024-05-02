@@ -138,7 +138,7 @@ TEST_F(StatsReporterTest, trivialReporter) {
   EXPECT_EQ(100, reporter_->counterMap["key4"]);
 };
 
-class PeriodicStatsReportDaemonTest : public StatsReporterTest {};
+class PeriodicStatsReporterTest : public StatsReporterTest {};
 
 class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
  public:
@@ -193,21 +193,23 @@ class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
   memory::MemoryArbitrator::Stats stats_;
 };
 
-TEST_F(PeriodicStatsReportDaemonTest, basic) {
+TEST_F(PeriodicStatsReporterTest, basic) {
   TestStatsReportMemoryArbitrator arbitrator({});
   PeriodicStatsReporter::Options options;
   options.arbitratorStatsIntervalMs = 4'000;
-  PeriodicStatsReporter reporter(&arbitrator, options);
+  PeriodicStatsReporter periodicReporter(&arbitrator, options);
 
-  reporter.start();
+  periodicReporter.start();
   std::this_thread::sleep_for(std::chrono::milliseconds(2'000));
+  // Stop right after sufficient wait to ensure the following reads from main
+  // thread does not trigger TSAN failures.
+  periodicReporter.stop();
 
   const auto& counterMap = reporter_->counterMap;
   ASSERT_EQ(counterMap.size(), 2);
   ASSERT_EQ(counterMap.count(kMetricArbitratorFreeCapacityBytes.str()), 1);
   ASSERT_EQ(
       counterMap.count(kMetricArbitratorFreeReservedCapacityBytes.str()), 1);
-  reporter.stop();
 }
 
 // Registering to folly Singleton with intended reporter type
