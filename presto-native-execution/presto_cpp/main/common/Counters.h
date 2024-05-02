@@ -395,6 +395,8 @@ constexpr folly::StringPiece kCounterSsdCacheCheckpointsRead{
     "presto_cpp.ssd_cache_checkpoints_read"};
 constexpr folly::StringPiece kCounterSsdCacheCheckpointsWritten{
     "presto_cpp.ssd_cache_checkpoints_written"};
+constexpr folly::StringPiece kCounterSsdCacheRegionsEvicted{
+    "presto_cpp.ssd_cache_regions_evicted"};
 
 /// ================== HiveConnector Counters ==================
 /// Format template strings use 'constexpr std::string_view' to be 'fmt::format'
