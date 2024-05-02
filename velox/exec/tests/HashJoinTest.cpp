@@ -4041,6 +4041,71 @@ TEST_F(HashJoinTest, lazyVectors) {
   }
 }
 
+TEST_F(HashJoinTest, lazyVectorNotLoadedInFilter) {
+  // Ensure that if lazy vectors are temporarily wrapped during a filter's
+  // execution and remain unloaded, the temporary wrap is promptly
+  // discarded. This precaution prevents the generation of the probe's output
+  // from wrapping an unloaded vector while the temporary wrap is
+  // still alive.
+  // This is done by generating a sufficiently small batch to allow the lazy
+  // vector to remain unloaded, as it doesn't need to be split between batches.
+  // Then we use a filter that skips the execution of the expression containing
+  // the lazy vector, thereby avoiding its loading.
+  const vector_size_t vectorSize = 1'000;
+  auto probeVectors = makeBatches(1, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {makeFlatVector<int32_t>(vectorSize, folly::identity),
+         makeFlatVector<int64_t>(vectorSize, [](auto row) { return row % 23; }),
+         makeFlatVector<int32_t>(
+             vectorSize, [](auto row) { return row % 31; })});
+  });
+
+  std::vector<RowVectorPtr> buildVectors =
+      makeBatches(1, [&](int32_t /*unused*/) {
+        return makeRowVector({makeFlatVector<int32_t>(
+            vectorSize, [](auto row) { return row * 3; })});
+      });
+
+  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+  writeToFile(probeFile->getPath(), probeVectors);
+
+  std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
+  writeToFile(buildFile->getPath(), buildVectors);
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  // Lazy vector is part of the filter but never gets loaded.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId probeScanId;
+  core::PlanNodeId buildScanId;
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .tableScan(asRowType(probeVectors[0]->type()))
+                .capturePlanNodeId(probeScanId)
+                .hashJoin(
+                    {"c0"},
+                    {"c0"},
+                    PlanBuilder(planNodeIdGenerator)
+                        .tableScan(asRowType(buildVectors[0]->type()))
+                        .capturePlanNodeId(buildScanId)
+                        .planNode(),
+                    "c1 >= 0 OR c2 > 0",
+                    {"c1", "c2"})
+                .planNode();
+  SplitInput splitInput = {
+      {probeScanId,
+       {exec::Split(makeHiveConnectorSplit(probeFile->getPath()))}},
+      {buildScanId,
+       {exec::Split(makeHiveConnectorSplit(buildFile->getPath()))}},
+  };
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(std::move(op))
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT t.c1, t.c2 FROM t, u WHERE t.c0 = u.c0")
+      .run();
+}
+
 TEST_F(HashJoinTest, dynamicFilters) {
   const int32_t numSplits = 10;
   const int32_t numRowsProbe = 333;

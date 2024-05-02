@@ -64,7 +64,9 @@ class DictionaryVector : public SimpleVector<T> {
       std::optional<ByteCount> representedBytes = std::nullopt,
       std::optional<ByteCount> storageByteCount = std::nullopt);
 
-  virtual ~DictionaryVector() override = default;
+  virtual ~DictionaryVector() override {
+    dictionaryValues_->clearContainingLazyAndWrapped();
+  }
 
   bool mayHaveNulls() const override {
     VELOX_DCHECK(initialized_);
@@ -196,6 +198,7 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   void setDictionaryValues(VectorPtr dictionaryValues) {
+    dictionaryValues_->clearContainingLazyAndWrapped();
     dictionaryValues_ = dictionaryValues;
     initialized_ = false;
     setInternalState();

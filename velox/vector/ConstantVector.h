@@ -129,7 +129,11 @@ class ConstantVector final : public SimpleVector<T> {
     setInternalState();
   }
 
-  virtual ~ConstantVector() override = default;
+  virtual ~ConstantVector() override {
+    if (valueVector_) {
+      valueVector_->clearContainingLazyAndWrapped();
+    }
+  }
 
   bool isNullAt(vector_size_t /*idx*/) const override {
     VELOX_DCHECK(initialized_);

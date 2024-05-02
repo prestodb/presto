@@ -128,14 +128,17 @@ class HashProbe : public Operator {
         decodedFilterResult_.valueAt<bool>(row);
   }
 
-  // Populate filter input columns.
-  void fillFilterInput(vector_size_t size);
+  // Create a temporary input vector to be passed to the filter. This ensures it
+  // gets destroyed in case its wrapping an unloaded vector which eventually
+  // needs to be wrapped in fillOutput().
+  RowVectorPtr createFilterInput(vector_size_t size);
 
   // Prepare filter row selectivity for null-aware join. 'numRows'
   // specifies the number of rows in 'filterInputRows_' to process. If
   // 'filterPropagateNulls' is true, the probe input row which has null in any
   // probe filter column can't pass the filter.
   void prepareFilterRowsForNullAwareJoin(
+      RowVectorPtr& filterInput,
       vector_size_t numRows,
       bool filterPropagateNulls);
 
@@ -372,7 +375,7 @@ class HashProbe : public Operator {
   // side. Used by right semi project join.
   bool probeSideHasNullKeys_{false};
 
-  // Rows in 'filterInput_' to apply 'filter_' to.
+  // Rows in the filter columns to apply 'filter_' to.
   SelectivityVector filterInputRows_;
 
   // Join filter.
@@ -389,11 +392,6 @@ class HashProbe : public Operator {
 
   // Maps from column index in hash table to channel in 'filterInputType_'.
   std::vector<IdentityProjection> filterTableProjections_;
-
-  // Temporary projection from probe and build for evaluating
-  // 'filter_'. This can always be reused since this does not escape
-  // this operator.
-  RowVectorPtr filterInput_;
 
   // The following six fields are used in null-aware anti join filter
   // processing.

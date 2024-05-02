@@ -2248,6 +2248,13 @@ TEST_F(VectorTest, nestedLazy) {
       "An unloaded lazy vector cannot be wrapped by two different top level"
       " vectors.");
 
+  // Verify that if the original dictionary layer is destroyed without loading
+  // the underlying vector then the lazy vector can be wrapped in a new encoding
+  // layer.
+  dict.reset();
+  dict = BaseVector::wrapInDictionary(
+      nullptr, makeIndices(size, indexAt), size, lazy);
+
   // Verify that the unloaded dictionary can be nested as long as it has one top
   // level vector.
   EXPECT_NO_THROW(BaseVector::wrapInDictionary(
