@@ -458,6 +458,13 @@ void PrestoServer::run() {
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
 
+  // Initialize prestoExprEval_ after the functions are registered and pool_
+  // is initialized.
+  if (systemConfig->prestoNativeSidecar()) {
+    prestoExprEval_ = std::make_unique<eval::PrestoExprEval>(pool_);
+    prestoExprEval_->registerUris(*httpServer_);
+  }
+
   std::string taskUri;
   if (httpsPort.has_value()) {
     taskUri = fmt::format(kTaskUriFormat, kHttps, address_, httpsPort.value());
